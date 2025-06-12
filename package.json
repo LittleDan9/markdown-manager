@@ -1,0 +1,17 @@
+{
+  "name": "mermaid-live",
+  "version": "1.0.0",
+  "description": "1. In VS Code, open the integrated terminal (\\`Ctrl+\\`\\`). By default this is PowerShell.\r 2. Run:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bootstrap-icons": "^1.13.1",
+    "markdown-it": "^14.1.0",
+    "mermaid": "^11.6.0"
+  }
+}
