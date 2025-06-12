@@ -1,8 +1,8 @@
 {
-  "name": "mermaid-live",
+  "name": "markdown-manager",
   "version": "1.0.0",
-  "description": "1. In VS Code, open the integrated terminal (\\`Ctrl+\\`\\`). By default this is PowerShell.\r 2. Run:",
-  "main": "index.js",
+  "description": "Simple Markdown Preview tool with Mermaid Support",
+  "private": "true",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,7 +11,23 @@
   "license": "ISC",
   "dependencies": {
     "bootstrap-icons": "^1.13.1",
+    "highlight.js": "^11.11.1",
+    "lodash": "^4.17.21",
     "markdown-it": "^14.1.0",
-    "mermaid": "^11.6.0"
+    "mermaid": "^11.6.0",
+    "prism-themes": "^1.9.0",
+    "prismjs": "^1.30.0"
+  },
+  "devDependencies": {
+    "css-loader": "^7.1.2",
+    "html-webpack-plugin": "^5.6.3",
+    "monaco-editor": "^0.52.2",
+    "monaco-editor-webpack-plugin": "^7.1.0",
+    "sass": "^1.89.2",
+    "sass-loader": "^16.0.5",
+    "style-loader": "^4.0.0",
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-dev-server": "^5.2.2"
   }
 }

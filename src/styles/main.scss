@@ -32,8 +32,6 @@ body {
       display: flex;
       flex-direction: column;
       min-height: 0;       // allow #editor to shrink/grow inside
-      border-right: 1px solid #dee2e6;
-      background-color: #f8f9fa;
       border-top-left-radius: 0.5rem;
       border-bottom-left-radius: 0.5rem;
       padding: 1rem;
@@ -54,69 +52,21 @@ body {
       display: flex;       // center #preview inside it
       justify-content: center;
       align-items: center;
-      background-color: #ffffff;
+      // background-color: #ffffff;
       min-height: 0;       // allow #preview to shrink/grow
       overflow: hidden;
-
-      // <-- Add rounded corners here -->
-      border-top-right-radius: 0.5rem;
-      border-bottom-right-radius: 0.5rem;
+      padding: 1rem;
       /* Optionally, if you want a dropped‐shadow around the preview: */
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-
-      // Position zoom controls at top-right corner, above the SVG
-      position: relative;
 
       #preview {
         width: 100%;
         height: 100%;
         display: flex;       // center its children (the Mermaid SVG)
-        justify-content: center;
-        align-items: center;
-        min-height: 0;       // allow the injected <div .mermaid> to shrink/grow
-
-    // Zoom‐in and zoom‐out buttons
-      .zoom-controls {
-        position: absolute;
-        top: 0.5rem;
-        right: 0.5rem;
-        display: flex;
-        gap: 0.5rem; // space between +/- buttons
-        z-index: 10; // sit above the SVG
-      }
-
-      .zoom-controls button {
-        background: rgba(255, 255, 255, 0.85);
-        border: 1px solid #ccc;
-        border-radius: 0.25rem;
-        width: 2rem;
-        height: 2rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        cursor: pointer;
-        transition: background 0.2s;
-        font-size: 1rem;
-
-        &:hover {
-          background: rgba(255, 255, 255, 1);
-        }
-      }
-
-      .zoom-controls button:active {
-        background: #e8e8e8;
-      }
-
-
-        .mermaid {
-          svg {
-            width: 100%;
-            height: 100%;
-            max-width: 100%;
-            max-height: 100%;
-            object-fit: contain;
-          }
-        }
+        flex-direction: column;
+        border-radius: 0.5rem;
+        border: #ced4da 1px solid;
+        padding: 1rem;
       }
     }
   }
@@ -126,4 +76,78 @@ body {
 .monaco-editor,
 .monaco-editor .overflow-guard {
   border-radius: 0.5rem;
+}
+
+
+.code-block {
+  position: relative;
+  margin: 2rem 0;
+  border: 1px solid #e1e1e1;
+  border-radius: 4px;
+  overflow: hidden;
+
+  [data-bs-theme="dark"] & {
+    border-color: #444;
+  }
+}
+
+.code-block-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  background-color: #f5f5f5;
+  border-bottom: 1px solid #e1e1e1;
+  font-size: 0.875rem;
+  font-weight: 500;
+  margin: 0;
+
+  [data-bs-theme="dark"] & {
+    background-color: #2a2a2a;
+    border-bottom-color: #444;
+    color: #fff;
+  }
+}
+
+.code-block-lang {
+  text-transform: uppercase;
+  color: #333;
+  padding: 0;
+  [data-bs-theme="dark"] & {
+    color: #ccc;
+  }
+}
+
+.code-block-copy-btn {
+  background: none;
+  border: none;
+  padding: 0.25rem 0.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+
+  img {
+    filter: invert(0);
+    [data-bs-theme="dark"] & {
+      filter: invert(1);
+    }
+  }
+
+  &[data-prismjs-copy].prism-copy-to-clipboard--copied::after {
+    content: 'Copied!';
+    margin-left: 0.5rem;
+    font-size: 0.875rem;
+    color: #007bff;
+    [data-bs-theme="dark"] & {
+      color: #66b0ff;
+    }
+  }
+}
+
+// Style Prism.js code blocks
+pre[class*="language-"] {
+  margin: 0;
+  padding: 1rem;
+  border-radius: 0 0 4px 4px;
+  background: transparent; // Let Prism.js theme handle background
 }
