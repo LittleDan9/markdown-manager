@@ -1,3 +1,4 @@
+import { EDITOR_KEY } from './constants';
 import { initEditor } from './editor';
 import { applyEditorTheme, initTheme, toggleTheme } from './theme';
 import { render } from './renderer';
@@ -32,5 +33,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     editor.onDidChangeModelContent(() => {
         const debouncedRender = debounce(() => render(editor), 300);
         debouncedRender();
+        localStorage.setItem(EDITOR_KEY, editor.getValue());
     });
 });

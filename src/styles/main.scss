@@ -54,7 +54,6 @@ body {
       align-items: center;
       // background-color: #ffffff;
       min-height: 0;       // allow #preview to shrink/grow
-      overflow: hidden;
       padding: 1rem;
       /* Optionally, if you want a dropped‐shadow around the preview: */
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -66,7 +65,16 @@ body {
         flex-direction: column;
         border-radius: 0.5rem;
         border: #ced4da 1px solid;
-        padding: 1rem;
+        padding: 0.25rem;
+        box-sizing: border-box;
+      }
+
+      .preview-scroll {
+        flex: 1 1 auto; // allow the preview to grow/shrink
+        overflow: auto;
+        border-radius: inherit;
+        min-height: 0;
+        padding: 1rem;;
       }
     }
   }

@@ -57,7 +57,8 @@ export async function initMermaid(theme) {
 }
 
 export async function render(editor) {
-    const previewEl = document.getElementById("preview");
+    // const previewEl = document.getElementById("preview");
+    const previewEl = document.querySelector("#preview .preview-scroll");
     const src = editor.getValue();
     previewEl.innerHTML = md.render(src);
     try {

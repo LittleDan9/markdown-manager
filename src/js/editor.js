@@ -1,4 +1,5 @@
 import * as monaco from 'monaco-editor';
+import { EDITOR_KEY } from './constants';
 
 const defaultGraph = [
     "# This is a sample Mermaid flowchart",
@@ -12,9 +13,12 @@ const defaultGraph = [
     "```"
 ].join("\n")
 
+
+const saved = localStorage.getItem(EDITOR_KEY) || defaultGraph;
+
 export async function initEditor(theme) {
     const editor = monaco.editor.create(document.getElementById('editor'), {
-        value: defaultGraph,
+        value: saved,
         language: 'markdown',
         theme: 'vs-' + theme,
         automaticLayout: true,
