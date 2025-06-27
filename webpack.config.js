@@ -1,16 +1,19 @@
 const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
+const CompressionPlugin = require('compression-webpack-plugin');
 const { RuntimeGlobals } = require('webpack');
 const { userInfo } = require('os');
+const { split } = require('lodash');
 
 module.exports = {
   mode: 'development',
   entry: './src/js/index.js',
   output: {
-    filename: 'bundle.js',
+    filename: '[name].bundle.js',
     path: path.resolve(__dirname, 'dist'),
     publicPath: '/',
+    clean:true,
   },
   module: {
     rules: [
@@ -45,11 +48,12 @@ module.exports = {
     ],
   },
   plugins: [
+    new CompressionPlugin(),
     new HtmlWebpackPlugin({
       template: './src/index.html',
     }),
     new MonacoWebpackPlugin({
-      languages: ['markdown', 'javascript', 'typescript', 'json'],
+      languages: ['markdown'], //, 'javascript', 'typescript', 'json'],
       publicPath: '/',
     }),
   ],
@@ -61,5 +65,10 @@ module.exports = {
     historyApiFallback: true,
     open: true,
     port: 8080
-  }
+  },
+  optimization: {
+    splitChunks: {
+      chunks: 'all',
+    }
+  },
 };
