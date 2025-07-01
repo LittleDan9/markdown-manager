@@ -1,0 +1,20 @@
+[Unit]
+Description=Markdown Manager API
+After=network.target
+
+[Service]
+Type=exec
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/markdown-manager-api
+Environment="PATH=/opt/markdown-manager-api/.venv/bin"
+ExecStart=/opt/markdown-manager-api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+ExecReload=/bin/kill -HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=5
+PrivateTmp=true
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

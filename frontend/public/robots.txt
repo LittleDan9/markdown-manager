@@ -1,0 +1,51 @@
+User-agent: *
+Allow: /
+
+# Discourage aggressive crawling
+Crawl-delay: 10
+
+# Block known bad bots
+User-agent: AhrefsBot
+Disallow: /
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: SemrushBot
+Disallow: /
+
+User-agent: BlexBot
+Disallow: /
+
+User-agent: MegaIndex
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: BaiduSpider
+Disallow: /
+
+User-agent: Sogou
+Disallow: /
+
+User-agent: ExaBot
+Disallow: /
+
+User-agent: facebot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+# Block API endpoints from being crawled
+Disallow: /api/
+
+# Add your sitemap if you have one
+# Sitemap: https://littledan.com/sitemap.xml
