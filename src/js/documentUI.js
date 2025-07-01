@@ -1,4 +1,4 @@
-import { documentManager } from './documentManager';
+import { documentManager, DEFAULT_CATEGORY } from './documentManager';
 
 /**
  * UI Manager for Document Management
@@ -157,7 +157,8 @@ export class DocumentUIManager {
 
             // If we have a name but no ID, create new document with that name
             if (!documentManager.currentDocument.id && currentName && currentName.trim() && currentName !== 'Untitled Document') {
-                const savedDoc = documentManager.saveDocument(content, currentName.trim());
+                const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
+                const savedDoc = documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
                 this.showNotification('Document saved successfully!', 'success');
                 this.updateDocumentTitle();
                 return;
@@ -165,7 +166,8 @@ export class DocumentUIManager {
 
             // If we have both name and ID, update existing document
             if (documentManager.currentDocument.id) {
-                documentManager.saveDocument(content, currentName, documentManager.currentDocument.id);
+                const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
+                documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
                 this.showNotification('Document saved successfully!', 'success');
                 this.updateDocumentTitle();
                 return;
@@ -193,12 +195,38 @@ export class DocumentUIManager {
         // Only show the current name if it's not the default
         const displayName = (currentName === 'Untitled Document' || !currentName.trim()) ? '' : currentName;
 
+        // Get current category and all available categories
+        const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
+        const categories = documentManager.getAllCategories();
+
+        const categoryOptions = categories.map(category =>
+            `<option value="${this.escapeHtml(category)}" ${category === currentCategory ? 'selected' : ''}>${this.escapeHtml(category)}</option>`
+        ).join('');
+
         this.showModal('Save Document', `
             <div class="mb-3">
                 <label for="saveDocName" class="form-label">Document Name</label>
                 <input type="text" class="form-control" id="saveDocName"
                        value="${this.escapeHtml(displayName)}" placeholder="Enter document name">
                 <div class="form-text">Enter a name for your document (cannot be "Untitled Document")</div>
+            </div>
+            <div class="mb-3">
+                <label for="saveDocCategory" class="form-label">Category</label>
+                <div class="input-group">
+                    <select class="form-select" id="saveDocCategory">
+                        ${categoryOptions}
+                    </select>
+                    <button class="btn btn-outline-secondary" type="button" id="newCategoryBtn">New</button>
+                </div>
+                <div class="form-text">Select a category or create a new one</div>
+            </div>
+            <div class="mb-3" id="newCategoryDiv" style="display: none;">
+                <label for="newCategoryName" class="form-label">New Category Name</label>
+                <div class="input-group">
+                    <input type="text" class="form-control" id="newCategoryName" placeholder="Enter category name">
+                    <button class="btn btn-outline-success" type="button" id="addCategoryBtn">Add</button>
+                    <button class="btn btn-outline-secondary" type="button" id="cancelCategoryBtn">Cancel</button>
+                </div>
             </div>
         `, [
             {
@@ -216,6 +244,13 @@ export class DocumentUIManager {
         // Focus on input and select all text
         setTimeout(() => {
             const input = document.getElementById('saveDocName');
+            const categorySelect = document.getElementById('saveDocCategory');
+            const newCategoryBtn = document.getElementById('newCategoryBtn');
+            const newCategoryDiv = document.getElementById('newCategoryDiv');
+            const newCategoryName = document.getElementById('newCategoryName');
+            const addCategoryBtn = document.getElementById('addCategoryBtn');
+            const cancelCategoryBtn = document.getElementById('cancelCategoryBtn');
+
             if (input) {
                 input.focus();
                 if (displayName) {
@@ -250,6 +285,63 @@ export class DocumentUIManager {
                 // Trigger initial validation
                 input.dispatchEvent(new Event('input'));
             }
+
+            // Category management event listeners
+            if (newCategoryBtn) {
+                newCategoryBtn.addEventListener('click', () => {
+                    newCategoryDiv.style.display = 'block';
+                    newCategoryBtn.disabled = true;
+                    newCategoryName.focus();
+                });
+            }
+
+            if (cancelCategoryBtn) {
+                cancelCategoryBtn.addEventListener('click', () => {
+                    newCategoryDiv.style.display = 'none';
+                    newCategoryBtn.disabled = false;
+                    newCategoryName.value = '';
+                });
+            }
+
+            if (addCategoryBtn) {
+                addCategoryBtn.addEventListener('click', () => {
+                    const categoryName = newCategoryName.value.trim();
+                    if (categoryName) {
+                        if (documentManager.addCategory(categoryName)) {
+                            // Add the new category to the select dropdown
+                            const option = document.createElement('option');
+                            option.value = categoryName;
+                            option.textContent = categoryName;
+                            option.selected = true;
+                            categorySelect.appendChild(option);
+
+                            // Hide the new category form
+                            newCategoryDiv.style.display = 'none';
+                            newCategoryBtn.disabled = false;
+                            newCategoryName.value = '';
+
+                            this.showNotification(`Category "${categoryName}" added successfully!`, 'success');
+                        } else {
+                            this.showNotification('Category already exists or invalid name', 'error');
+                        }
+                    } else {
+                        this.showNotification('Please enter a category name', 'error');
+                        newCategoryName.focus();
+                    }
+                });
+            }
+
+            if (newCategoryName) {
+                newCategoryName.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        addCategoryBtn.click();
+                    }
+                    if (e.key === 'Escape') {
+                        cancelCategoryBtn.click();
+                    }
+                });
+            }
         }, 100);
     }
 
@@ -258,7 +350,9 @@ export class DocumentUIManager {
      */
     performSaveAs() {
         const nameInput = document.getElementById('saveDocName');
+        const categorySelect = document.getElementById('saveDocCategory');
         const name = nameInput?.value.trim();
+        const category = categorySelect?.value || DEFAULT_CATEGORY;
 
         if (!name) {
             this.showNotification('Please enter a document name', 'error');
@@ -275,7 +369,7 @@ export class DocumentUIManager {
 
         try {
             const content = this.editor.getValue();
-            documentManager.saveDocument(content, name);
+            documentManager.saveDocument(content, name, null, category);
             this.showNotification('Document saved successfully!', 'success');
             this.updateDocumentTitle();
             this.closeModal();
@@ -288,30 +382,27 @@ export class DocumentUIManager {
      * Show load document modal
      */
     showLoadModal() {
-        const documents = documentManager.getAllDocuments();
+        const allDocuments = documentManager.getAllDocuments();
 
-        if (documents.length === 0) {
+        if (allDocuments.length === 0) {
             this.showNotification('No saved documents found', 'info');
             return;
         }
 
-        const documentsList = documents.map(doc => `
-            <div class="document-item d-flex justify-content-between align-items-center p-2 border-bottom">
-                <div class="flex-grow-1">
-                    <h6 class="mb-1">${this.escapeHtml(doc.name)}</h6>
-                    <small class="text-muted">Modified: ${new Date(doc.lastModified).toLocaleString()}</small>
-                </div>
-                <div class="btn-group btn-group-sm">
-                    <button class="btn btn-outline-primary" data-doc-action="load" data-doc-id="${doc.id}">Load</button>
-                    <button class="btn btn-outline-secondary" data-doc-action="rename" data-doc-id="${doc.id}">Rename</button>
-                    <button class="btn btn-outline-danger" data-doc-action="delete" data-doc-id="${doc.id}">Delete</button>
-                </div>
-            </div>
-        `).join('');
+        const categories = documentManager.getAllCategories();
+        const categoryOptions = ['All', ...categories].map(category =>
+            `<option value="${this.escapeHtml(category)}">${this.escapeHtml(category)}</option>`
+        ).join('');
 
         this.showModal('Load Document', `
-            <div class="document-list" style="max-height: 400px; overflow-y: auto;">
-                ${documentsList}
+            <div class="mb-3">
+                <label for="categoryFilter" class="form-label">Filter by Category</label>
+                <select class="form-select" id="categoryFilter">
+                    ${categoryOptions}
+                </select>
+            </div>
+            <div class="document-list" style="max-height: 400px; overflow-y: auto;" id="documentsList">
+                <!-- Documents will be populated here -->
             </div>
         `, [
             {
@@ -321,8 +412,19 @@ export class DocumentUIManager {
             }
         ]);
 
+        // Initialize the document list
+        this.updateDocumentsList('All');
+
+        // Add event listeners
+        const categoryFilter = document.getElementById('categoryFilter');
+        if (categoryFilter) {
+            categoryFilter.addEventListener('change', (e) => {
+                this.updateDocumentsList(e.target.value);
+            });
+        }
+
         // Add event listeners for document actions
-        const documentListElement = document.querySelector('.document-list');
+        const documentListElement = document.getElementById('documentsList');
         if (documentListElement) {
             documentListElement.addEventListener('click', (e) => {
                 const button = e.target.closest('[data-doc-action]');
@@ -344,6 +446,48 @@ export class DocumentUIManager {
                 }
             });
         }
+    }
+
+    /**
+     * Update the documents list based on category filter
+     */
+    updateDocumentsList(categoryFilter) {
+        const documents = documentManager.getAllDocuments(categoryFilter === 'All' ? null : categoryFilter);
+        const documentsList = document.getElementById('documentsList');
+
+        if (!documentsList) return;
+
+        if (documents.length === 0) {
+            documentsList.innerHTML = `
+                <div class="text-center p-4 text-muted">
+                    <i class="bi bi-folder-x"></i>
+                    <p class="mb-0">No documents found in this category</p>
+                </div>
+            `;
+            return;
+        }
+
+        const documentsHtml = documents.map(doc => {
+            const category = doc.category || DEFAULT_CATEGORY;
+            return `
+                <div class="document-item d-flex justify-content-between align-items-center p-2 border-bottom">
+                    <div class="flex-grow-1">
+                        <h6 class="mb-1">${this.escapeHtml(doc.name)}</h6>
+                        <small class="text-muted">
+                            Category: <span class="badge bg-secondary">${this.escapeHtml(category)}</span>
+                            • Modified: ${new Date(doc.lastModified).toLocaleString()}
+                        </small>
+                    </div>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-primary" data-doc-action="load" data-doc-id="${doc.id}">Load</button>
+                        <button class="btn btn-outline-secondary" data-doc-action="rename" data-doc-id="${doc.id}">Rename</button>
+                        <button class="btn btn-outline-danger" data-doc-action="delete" data-doc-id="${doc.id}">Delete</button>
+                    </div>
+                </div>
+            `;
+        }).join('');
+
+        documentsList.innerHTML = documentsHtml;
     }
 
     /**
@@ -372,7 +516,10 @@ export class DocumentUIManager {
             try {
                 documentManager.deleteDocument(id);
                 this.showNotification('Document deleted successfully!', 'success');
-                this.showLoadModal(); // Refresh the modal
+                // Refresh the modal while maintaining current filter
+                const categoryFilter = document.getElementById('categoryFilter');
+                const currentFilter = categoryFilter ? categoryFilter.value : 'All';
+                this.updateDocumentsList(currentFilter);
                 this.updateDocumentTitle();
             } catch (error) {
                 this.showNotification('Error deleting document: ' + error.message, 'error');
@@ -392,7 +539,10 @@ export class DocumentUIManager {
             try {
                 documentManager.renameDocument(id, newName.trim());
                 this.showNotification('Document renamed successfully!', 'success');
-                this.showLoadModal(); // Refresh the modal
+                // Refresh the modal while maintaining current filter
+                const categoryFilter = document.getElementById('categoryFilter');
+                const currentFilter = categoryFilter ? categoryFilter.value : 'All';
+                this.updateDocumentsList(currentFilter);
                 this.updateDocumentTitle();
             } catch (error) {
                 this.showNotification('Error renaming document: ' + error.message, 'error');
@@ -466,6 +616,11 @@ export class DocumentUIManager {
         const titleElement = document.getElementById('documentTitle');
         if (!titleElement) return;
 
+        // Store the current document name for editing
+        const currentName = documentManager.currentDocument.name;
+
+        // Replace content with plain text for editing
+        titleElement.textContent = currentName;
         titleElement.contentEditable = true;
         titleElement.focus();
 
@@ -559,7 +714,15 @@ export class DocumentUIManager {
     updateDocumentTitle() {
         const titleElement = document.getElementById('documentTitle');
         if (titleElement) {
-            titleElement.textContent = documentManager.currentDocument.name;
+            const currentDoc = documentManager.currentDocument;
+            const category = currentDoc.category || DEFAULT_CATEGORY;
+
+            // Show category only if it's not the default category
+            if (category === DEFAULT_CATEGORY) {
+                titleElement.textContent = currentDoc.name;
+            } else {
+                titleElement.innerHTML = `${this.escapeHtml(currentDoc.name)} <span class="badge bg-secondary ms-1">${this.escapeHtml(category)}</span>`;
+            }
         }
     }
 
@@ -712,7 +875,8 @@ export class DocumentUIManager {
                 // Auto-save if document has an ID (already saved)
                 if (documentManager.currentDocument.id) {
                     try {
-                        documentManager.saveDocument(content, currentName, documentManager.currentDocument.id);
+                        const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
+                        documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
                         this.showSubtleNotification('Auto-saved');
                     } catch (error) {
                         console.error('Auto-save failed:', error);
@@ -724,7 +888,8 @@ export class DocumentUIManager {
                          currentName !== 'Untitled Document' &&
                          content.trim()) {
                     try {
-                        const savedDoc = documentManager.saveDocument(content, currentName.trim());
+                        const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
+                        const savedDoc = documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
                         this.updateDocumentTitle();
                         this.showSubtleNotification(`Auto-saved as "${currentName}"`);
                     } catch (error) {

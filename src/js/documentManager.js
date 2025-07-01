@@ -6,6 +6,13 @@ import html2canvas from 'html2canvas';
 const DOCUMENTS_KEY = 'savedDocuments';
 const CURRENT_DOC_KEY = 'currentDocument';
 const AUTO_SAVE_KEY = 'autoSaveEnabled';
+const CATEGORIES_KEY = 'documentCategories';
+
+// Default category
+const DEFAULT_CATEGORY = 'General';
+
+// Export the constant for use in other modules
+export { DEFAULT_CATEGORY };
 
 /**
  * Document Manager Class
@@ -16,6 +23,7 @@ export class DocumentManager {
         this.documents = this.loadDocuments();
         this.currentDocument = this.loadCurrentDocument();
         this.autoSaveEnabled = this.getAutoSavePreference();
+        this.categories = this.loadCategories();
     }
 
     /**
@@ -48,10 +56,15 @@ export class DocumentManager {
     loadCurrentDocument() {
         try {
             const current = localStorage.getItem(CURRENT_DOC_KEY);
-            return current ? JSON.parse(current) : { id: null, name: 'Untitled Document' };
+            const parsed = current ? JSON.parse(current) : { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY };
+            // Ensure category exists
+            if (!parsed.category) {
+                parsed.category = DEFAULT_CATEGORY;
+            }
+            return parsed;
         } catch (error) {
             console.error('Error loading current document:', error);
-            return { id: null, name: 'Untitled Document' };
+            return { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY };
         }
     }
 
@@ -83,6 +96,92 @@ export class DocumentManager {
     }
 
     /**
+     * Load categories from localStorage
+     */
+    loadCategories() {
+        try {
+            const categories = localStorage.getItem(CATEGORIES_KEY);
+            const parsed = categories ? JSON.parse(categories) : [DEFAULT_CATEGORY];
+            // Ensure default category always exists
+            if (!parsed.includes(DEFAULT_CATEGORY)) {
+                parsed.unshift(DEFAULT_CATEGORY);
+            }
+            return parsed;
+        } catch (error) {
+            console.error('Error loading categories:', error);
+            return [DEFAULT_CATEGORY];
+        }
+    }
+
+    /**
+     * Save categories to localStorage
+     */
+    saveCategories() {
+        try {
+            localStorage.setItem(CATEGORIES_KEY, JSON.stringify(this.categories));
+        } catch (error) {
+            console.error('Error saving categories:', error);
+        }
+    }
+
+    /**
+     * Add a new category
+     */
+    addCategory(categoryName) {
+        const trimmedName = categoryName.trim();
+        if (trimmedName && !this.categories.includes(trimmedName)) {
+            this.categories.push(trimmedName);
+            this.categories.sort((a, b) => {
+                // Keep 'General' first
+                if (a === DEFAULT_CATEGORY) return -1;
+                if (b === DEFAULT_CATEGORY) return 1;
+                return a.localeCompare(b);
+            });
+            this.saveCategories();
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Get all categories
+     */
+    getAllCategories() {
+        return [...this.categories];
+    }
+
+    /**
+     * Get documents grouped by category
+     */
+    getDocumentsByCategory() {
+        const allDocs = Object.values(this.documents);
+        const grouped = {};
+
+        // Initialize all categories
+        this.categories.forEach(category => {
+            grouped[category] = [];
+        });
+
+        // Group documents by category
+        allDocs.forEach(doc => {
+            const category = doc.category || DEFAULT_CATEGORY;
+            if (!grouped[category]) {
+                grouped[category] = [];
+            }
+            grouped[category].push(doc);
+        });
+
+        // Sort documents within each category by last modified
+        Object.keys(grouped).forEach(category => {
+            grouped[category].sort((a, b) =>
+                new Date(b.lastModified) - new Date(a.lastModified)
+            );
+        });
+
+        return grouped;
+    }
+
+    /**
      * Generate a unique ID for documents
      */
     generateId() {
@@ -92,7 +191,7 @@ export class DocumentManager {
     /**
      * Save a document
      */
-    saveDocument(content, name = null, id = null) {
+    saveDocument(content, name = null, id = null, category = null) {
         try {
             // Use existing ID or generate new one
             const docId = id || this.currentDocument.id || this.generateId();
@@ -100,16 +199,25 @@ export class DocumentManager {
             // Use provided name or current document name
             const docName = name || this.currentDocument.name || 'Untitled Document';
 
+            // Use provided category or default category
+            const docCategory = category || this.documents[docId]?.category || DEFAULT_CATEGORY;
+
+            // Ensure category exists in our categories list
+            if (!this.categories.includes(docCategory)) {
+                this.addCategory(docCategory);
+            }
+
             const document = {
                 id: docId,
                 name: docName,
                 content: content,
+                category: docCategory,
                 lastModified: new Date().toISOString(),
                 created: this.documents[docId]?.created || new Date().toISOString()
             };
 
             this.documents[docId] = document;
-            this.currentDocument = { id: docId, name: docName };
+            this.currentDocument = { id: docId, name: docName, category: docCategory };
 
             this.saveDocuments();
             this.saveCurrentDocument();
@@ -127,7 +235,11 @@ export class DocumentManager {
     loadDocument(id) {
         const document = this.documents[id];
         if (document) {
-            this.currentDocument = { id: document.id, name: document.name };
+            this.currentDocument = {
+                id: document.id,
+                name: document.name,
+                category: document.category || DEFAULT_CATEGORY
+            };
             this.saveCurrentDocument();
             return document;
         }
@@ -144,7 +256,7 @@ export class DocumentManager {
 
             // If we deleted the current document, reset to untitled
             if (this.currentDocument.id === id) {
-                this.currentDocument = { id: null, name: 'Untitled Document' };
+                this.currentDocument = { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY };
                 this.saveCurrentDocument();
             }
 
@@ -154,10 +266,18 @@ export class DocumentManager {
     }
 
     /**
-     * Get all saved documents
+     * Get all saved documents, optionally filtered by category
      */
-    getAllDocuments() {
-        return Object.values(this.documents).sort((a, b) =>
+    getAllDocuments(categoryFilter = null) {
+        let documents = Object.values(this.documents);
+
+        if (categoryFilter && categoryFilter !== 'All') {
+            documents = documents.filter(doc =>
+                (doc.category || DEFAULT_CATEGORY) === categoryFilter
+            );
+        }
+
+        return documents.sort((a, b) =>
             new Date(b.lastModified) - new Date(a.lastModified)
         );
     }
@@ -184,8 +304,8 @@ export class DocumentManager {
     /**
      * Create a new document
      */
-    createNewDocument(name = 'Untitled Document') {
-        this.currentDocument = { id: null, name: name };
+    createNewDocument(name = 'Untitled Document', category = DEFAULT_CATEGORY) {
+        this.currentDocument = { id: null, name: name, category: category };
         this.saveCurrentDocument();
         return this.currentDocument;
     }
