@@ -4,9 +4,9 @@ A modern markdown editor with Mermaid diagram support, featuring a Vue.js fronte
 
 ## 🏗️ Project Structure
 
-```
+```bash
 markdown-manager/
-├── frontend/           # Vue.js frontend application
+├── frontend/          # Vue.js frontend application
 ├── backend/           # FastAPI backend application
 ├── nginx/             # Nginx configuration
 ├── deploy/            # Deployment scripts and configs
@@ -59,18 +59,21 @@ npm run deploy:skip-build
 ## 📁 Component Details
 
 ### Frontend (`/frontend`)
+
 - Vue.js application with markdown editor
 - Mermaid diagram support
 - Bootstrap Icons
 - Monaco Editor for code editing
 
 ### Backend (`/backend`)
+
 - FastAPI application
 - Poetry for dependency management
 - Health check endpoint at `/api/v1/health-check`
 - Uvicorn ASGI server
 
 ### Nginx (`/nginx`)
+
 - Reverse proxy configuration
 - Static file serving for frontend
 - API routing to backend
@@ -83,6 +86,7 @@ npm run deploy:skip-build
   - Connection limiting per IP
 
 ### Deployment (`/deploy`)
+
 - Automated deployment scripts
 - Systemd service configuration
 - Environment-specific configurations
@@ -92,6 +96,7 @@ npm run deploy:skip-build
 This project includes comprehensive bot blocking and security measures:
 
 ### Features
+
 - **Bot Detection**: Blocks 200+ known bot patterns including scrapers, crawlers, and security scanners
 - **Rate Limiting**: Different limits for API, static assets, and general requests
 - **Security Headers**: CSP, HSTS, X-Frame-Options, and more
@@ -112,6 +117,7 @@ sudo tail -f /var/log/nginx/access.log | grep ' 444 '
 ```
 
 ### Configuration
+
 - Bot patterns: `nginx/conf.d/bot-blocking.conf`
 - Rate limits: `nginx/conf.d/rate-limiting.conf`
 - Security headers: `nginx/conf.d/security.conf`
@@ -121,6 +127,7 @@ For detailed information, see [BOT_BLOCKING_GUIDE.md](BOT_BLOCKING_GUIDE.md).
 ## 🔧 Configuration
 
 ### Backend Environment Variables
+
 - `API_V1_STR`: API version prefix (default: "/api/v1")
 - `PROJECT_NAME`: Project name for documentation
 - `DEBUG`: Debug mode (default: False)
@@ -130,6 +137,7 @@ For detailed information, see [BOT_BLOCKING_GUIDE.md](BOT_BLOCKING_GUIDE.md).
 ## 📚 API Documentation
 
 When running the backend, visit:
+
 - API Docs: `http://localhost:8000/docs`
 - Health Check: `http://localhost:8000/api/v1/health-check`
 
@@ -143,6 +151,7 @@ When running the backend, visit:
 ## 📦 Available Scripts
 
 ### Root Level
+
 - `npm run install` - Install all dependencies
 - `npm run build` - Build frontend
 - `npm run deploy` - Full production deployment
@@ -150,12 +159,13 @@ When running the backend, visit:
 - `npm run dev:backend` - Start backend dev server
 
 ### Frontend Specific
+
 - `npm run frontend:install` - Install frontend dependencies
 - `npm run frontend:build` - Build frontend for production
 - `npm run frontend:dev` - Start frontend dev server
 
 ### Backend Specific
+
 - `npm run backend:install` - Install backend dependencies
 - `npm run backend:dev` - Start backend dev server
 - `npm run backend:prod` - Start backend in production mode
-
