@@ -61,11 +61,31 @@ export async function render(editor) {
     const previewEl = document.querySelector("#preview .preview-scroll");
     const src = editor.getValue();
     previewEl.innerHTML = md.render(src);
+    
     try {
-        mermaid.run({ querySelector: '.mermaid' }).catch((error) => {
+        // Clear any existing mermaid state
+        const mermaidElements = previewEl.querySelectorAll('.mermaid');
+        mermaidElements.forEach(el => {
+            el.removeAttribute('data-processed');
+        });
+        
+        await mermaid.run({ querySelector: '.mermaid' }).catch((error) => {
             // console.warn("Mermaid rendering failed:", error.message);
             previewEl.innerHTML += `<p style="color: red;">Mermaid Error: ${error.message}</p>`;
         });
+        
+        // Ensure Mermaid diagrams are responsive
+        mermaidElements.forEach(el => {
+            const svg = el.querySelector('svg');
+            if (svg) {
+                // Make SVG responsive
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('height', 'auto');
+                svg.style.maxWidth = '100%';
+                svg.style.height = 'auto';
+            }
+        });
+        
         Prism.highlightAllUnder(previewEl);
     } catch (error) {
         console.warn("Mermaid initialization failed:", error.message);

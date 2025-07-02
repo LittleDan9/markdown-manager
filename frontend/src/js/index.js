@@ -263,6 +263,40 @@ window.addEventListener('DOMContentLoaded', async () => {
         fullscreenBtn.addEventListener('click', openFullscreenDiagram);
     }
 
+    // Handle window resize to re-render preview
+    const debouncedResize = debounce(() => {
+        console.log('🔄 Window resized, updating layout...');
+        
+        // Force Monaco editor to recalculate its layout
+        editor.layout();
+        console.log('📐 Editor layout updated');
+        
+        // Clear any existing Mermaid diagrams first to avoid conflicts
+        const mermaidElements = document.querySelectorAll('.mermaid');
+        mermaidElements.forEach(el => {
+            // Remove any existing SVG content to force re-render
+            const svg = el.querySelector('svg');
+            if (svg) {
+                svg.remove();
+            }
+            // Reset the mermaid element state
+            el.removeAttribute('data-processed');
+        });
+        
+        // Re-render the entire preview
+        render(editor);
+        console.log('🎨 Preview re-rendered');
+        
+        // Also update fullscreen window if open
+        if (fullscreenWindow && !fullscreenWindow.closed) {
+            setTimeout(updateFullscreenContent, 200);
+        }
+        
+        console.log('✅ Resize handling complete');
+    }, 250); // Slightly longer debounce for resize events
+
+    window.addEventListener('resize', debouncedResize);
+
     editor.onDidChangeModelContent(() => {
         const debouncedRender = debounce(() => {
             render(editor);

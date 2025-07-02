@@ -876,3 +876,31 @@ code:not(pre code):not([class*="language-"]) {
     }
   }
 }
+
+// ─── RESPONSIVE FLEX BEHAVIOR OVERRIDE ───
+// Fix for when window size decreases - allow panels to shrink proportionally
+@media screen and (min-width: 769px) {
+  #main {
+    #editorContainer {
+      flex: 0 1 40% !important;  // Allow shrinking while maintaining proportion
+      min-width: 250px;          // Minimum width before mobile layout kicks in
+    }
+
+    #previewContainer {
+      flex: 0 1 60% !important;  // Allow shrinking while maintaining proportion  
+      min-width: 250px;          // Minimum width before mobile layout kicks in
+    }
+  }
+}
+
+// Ensure Monaco editor can shrink properly
+#editor {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+// Ensure preview content can shrink
+#preview, .preview-scroll {
+  min-width: 0 !important;
+  width: 100% !important;
+}
