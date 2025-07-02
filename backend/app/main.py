@@ -7,13 +7,15 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.v1.api import api_router
 from app.core.config import settings
 from app.database import create_tables
+from app.services.css_service import css_service
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan events."""
-    # Startup: create database tables
+    # Startup: create database tables and initialize services
     await create_tables()
+    await css_service.initialize()
     yield
     # Shutdown: cleanup if needed
 
