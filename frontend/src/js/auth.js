@@ -25,9 +25,20 @@ class AuthManager {
         const registerBtn = document.getElementById('registerBtn');
         const userMenuDropdown = document.getElementById('userMenuDropdown');
 
+        console.log('AuthManager: Setting up event listeners');
+        console.log('LoginBtn found:', !!loginBtn);
+        console.log('RegisterBtn found:', !!registerBtn);
+        console.log('UserMenuDropdown found:', !!userMenuDropdown);
+        console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
+
         if (!loginBtn || !registerBtn) {
             console.error('Required DOM elements not found');
             return;
+        }
+
+        // Initialize Bootstrap dropdown if not already initialized
+        if (userMenuDropdown) {
+            this.initializeDropdown(userMenuDropdown);
         }
 
         // Modal triggers
@@ -431,6 +442,59 @@ class AuthManager {
 
     hideSpinner(spinnerId) {
         document.getElementById(spinnerId).style.display = 'none';
+    }
+
+    initializeDropdown(dropdownElement) {
+        console.log('AuthManager: Attempting to initialize dropdown');
+        
+        // Method 1: Try Bootstrap 5 API
+        if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+            try {
+                const existingDropdown = bootstrap.Dropdown.getInstance(dropdownElement);
+                if (!existingDropdown) {
+                    new bootstrap.Dropdown(dropdownElement);
+                    console.log('AuthManager: Bootstrap dropdown initialized via API');
+                    return;
+                }
+            } catch (error) {
+                console.warn('AuthManager: Bootstrap API failed:', error);
+            }
+        }
+        
+        // Method 2: Manual click handler as fallback
+        console.log('AuthManager: Using manual dropdown fallback');
+        dropdownElement.addEventListener('click', (e) => {
+            e.preventDefault();
+            const dropdownMenu = dropdownElement.nextElementSibling;
+            if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
+                const isShown = dropdownMenu.classList.contains('show');
+                
+                // Close all other dropdowns first
+                document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
+                    menu.classList.remove('show');
+                });
+                
+                // Toggle this dropdown
+                if (!isShown) {
+                    dropdownMenu.classList.add('show');
+                    dropdownElement.setAttribute('aria-expanded', 'true');
+                } else {
+                    dropdownMenu.classList.remove('show');
+                    dropdownElement.setAttribute('aria-expanded', 'false');
+                }
+            }
+        });
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!dropdownElement.contains(e.target)) {
+                const dropdownMenu = dropdownElement.nextElementSibling;
+                if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
+                    dropdownMenu.classList.remove('show');
+                    dropdownElement.setAttribute('aria-expanded', 'false');
+                }
+            }
+        });
     }
 
     // Public methods for other modules

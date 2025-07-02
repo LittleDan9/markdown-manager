@@ -26,6 +26,18 @@ export async function toggleTheme(theme) {
     document.documentElement.setAttribute('data-bs-theme', theme);
     initMermaid(theme);
     await loadPrismStylesheet(theme);
+    updateThemeIcon(theme);
+}
+
+function updateThemeIcon(theme) {
+    const themeIcon = document.getElementById('themeIcon');
+    if (themeIcon) {
+        if (theme === 'dark') {
+            themeIcon.className = 'bi bi-moon-fill';
+        } else {
+            themeIcon.className = 'bi bi-sun-fill';
+        }
+    }
 }
 
 export async function initTheme() {
@@ -39,6 +51,7 @@ export async function initTheme() {
     await loadPrismStylesheet(theme);
     const elThemeToggle = document.getElementById('themeToggle');
     elThemeToggle.checked = (theme === 'dark');
+    updateThemeIcon(theme);
     return theme
 }
 
