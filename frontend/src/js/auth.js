@@ -3,6 +3,8 @@
  * Handles user login, registration, profile management, and session persistence
  */
 
+import NotificationManager from './notifications.js';
+
 class AuthManager {
     constructor() {
         this.apiBase = '/api/v1';
@@ -196,7 +198,7 @@ class AuthManager {
                 bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
                 
                 // Show success message
-                this.showNotification('Welcome back!', 'success');
+                NotificationManager.showSuccess('Welcome back!');
             } else {
                 const error = await response.json();
                 this.showError('loginError', error.detail || 'Login failed');
@@ -232,7 +234,7 @@ class AuthManager {
                 bootstrap.Modal.getInstance(document.getElementById('registerModal')).hide();
                 
                 // Show success and auto-login
-                this.showNotification('Account created successfully! Please log in.', 'success');
+                NotificationManager.showSuccess('Account created successfully! Please log in.');
                 
                 // Auto-fill login form
                 setTimeout(() => {
@@ -331,7 +333,7 @@ class AuthManager {
             const response = await this.apiCall('/users/account', 'DELETE');
 
             if (response.ok) {
-                this.showNotification('Account deleted successfully', 'info');
+                NotificationManager.showInfo('Account deleted successfully');
                 this.logout();
                 bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
             } else {
@@ -391,7 +393,7 @@ class AuthManager {
 
     logout() {
         this.clearAuth();
-        this.showNotification('Logged out successfully', 'info');
+        NotificationManager.showInfo('Logged out successfully');
     }
 
     clearAuth() {
@@ -429,26 +431,6 @@ class AuthManager {
 
     hideSpinner(spinnerId) {
         document.getElementById(spinnerId).style.display = 'none';
-    }
-
-    showNotification(message, type = 'info') {
-        // Create a toast notification
-        const toast = document.createElement('div');
-        toast.className = `alert alert-${type} alert-dismissible fade show position-fixed`;
-        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
-        toast.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-        `;
-
-        document.body.appendChild(toast);
-
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            if (toast.parentNode) {
-                toast.remove();
-            }
-        }, 5000);
     }
 
     // Public methods for other modules

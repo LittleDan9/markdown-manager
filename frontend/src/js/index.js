@@ -5,6 +5,7 @@ import { render } from './renderer';
 import { documentManager } from './documentManager';
 import { initDocumentUI } from './documentUI';
 import AuthManager from './auth';
+import NotificationManager from './notifications';
 
 import '../styles/main.scss';
 
@@ -296,6 +297,58 @@ window.addEventListener('DOMContentLoaded', async () => {
     }, 250); // Slightly longer debounce for resize events
 
     window.addEventListener('resize', debouncedResize);
+
+    // Copy functionality for code blocks
+    function setupCopyButtons() {
+        document.addEventListener('click', async (e) => {
+            if (e.target.closest('.code-block-copy-btn')) {
+                e.preventDefault();
+                const button = e.target.closest('.code-block-copy-btn');
+                const codeBlock = button.closest('.code-block');
+                const preElement = codeBlock.querySelector('pre');
+                const codeElement = preElement.querySelector('code') || preElement;
+                
+                try {
+                    // Get the text content, preserving line breaks
+                    const textToCopy = codeElement.textContent || codeElement.innerText;
+                    
+                    // Try modern clipboard API first, with fallback for HTTP development
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(textToCopy);
+                    } else {
+                        // Fallback for HTTP development or older browsers
+                        const textArea = document.createElement('textarea');
+                        textArea.value = textToCopy;
+                        textArea.style.position = 'fixed';
+                        textArea.style.left = '-999999px';
+                        textArea.style.top = '-999999px';
+                        document.body.appendChild(textArea);
+                        textArea.focus();
+                        textArea.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(textArea);
+                    }
+                    
+                    // Show success toast
+                    NotificationManager.showSuccess('Copied to clipboard!');
+                    
+                    // Optional: Add visual feedback to the button
+                    const originalIcon = button.querySelector('i');
+                    originalIcon.className = 'bi bi-check';
+                    setTimeout(() => {
+                        originalIcon.className = 'bi bi-clipboard';
+                    }, 1000);
+                    
+                } catch (err) {
+                    console.error('Failed to copy:', err);
+                    NotificationManager.showWarning('Failed to copy to clipboard');
+                }
+            }
+        });
+    }
+
+    // Initialize copy functionality
+    setupCopyButtons();
 
     editor.onDidChangeModelContent(() => {
         const debouncedRender = debounce(() => {

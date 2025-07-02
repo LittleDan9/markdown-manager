@@ -175,12 +175,23 @@ body {
   cursor: pointer;
   display: flex;
   align-items: center;
+  color: #333;
+  transition: color 0.2s ease;
 
-  img {
-    filter: invert(0);
-    [data-bs-theme="dark"] & {
-      filter: invert(1);
+  &:hover {
+    color: #007bff;
+  }
+
+  [data-bs-theme="dark"] & {
+    color: #ccc;
+    
+    &:hover {
+      color: #66b0ff;
     }
+  }
+
+  i {
+    font-size: 1rem;
   }
 
   &[data-prismjs-copy].prism-copy-to-clipboard--copied::after {
@@ -196,7 +207,7 @@ body {
 
 // Style Prism.js code blocks
 pre[class*="language-"] {
-  margin: 0;
+  margin: 0 !important;
   padding: 1rem;
   border-radius: 0 0 4px 4px;
   background: transparent; // Let Prism.js theme handle background
@@ -216,24 +227,24 @@ pre[class*="language-"] {
 
 // Style plain code blocks (without language highlighting)
 pre:not([class*="language-"]) {
-  margin: 1rem 0;
+  margin: 0 !important; // Ensure no margin - container provides it
   padding: 1rem;
-  background-color: #f8f9fa;
-  border: 1px solid #e9ecef;
-  border-radius: 0.375rem;
-  overflow-x: auto;
+  border: none; // No border - container provides it
+  border-radius: 0 0 4px 4px; // Bottom rounded corners to match Prism.js
+  background: hsl(230, 1%, 98%); // Match Prism.js One Light theme exactly
+  color: hsl(230, 8%, 24%); // Match Prism.js One Light text color
+  overflow: hidden;
   max-width: 100%;
   white-space: pre-wrap;
   word-wrap: break-word;
   overflow-wrap: break-word;
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-family: "Fira Code", "Fira Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
   font-size: 0.875rem;
   line-height: 1.45;
 
   [data-bs-theme="dark"] & {
-    background-color: #2d3748;
-    border-color: #4a5568;
-    color: #e2e8f0;
+    background: hsl(220, 13%, 18%); // Match Prism.js One Dark theme exactly
+    color: hsl(220, 14%, 71%); // Match Prism.js One Dark text color
   }
 }
 
@@ -887,7 +898,7 @@ code:not(pre code):not([class*="language-"]) {
     }
 
     #previewContainer {
-      flex: 0 1 60% !important;  // Allow shrinking while maintaining proportion  
+      flex: 0 1 60% !important;  // Allow shrinking while maintaining proportion
       min-width: 250px;          // Minimum width before mobile layout kicks in
     }
   }

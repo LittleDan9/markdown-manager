@@ -63,11 +63,7 @@ dev: ## Start both frontend and backend dev servers
 
 dev-frontend: ## Start only frontend dev server
 	@echo "$(BLUE)🌐 Starting frontend dev server on port $(FRONTEND_PORT)...$(NC)"
-	@if [ ! -d "frontend/dist" ] || [ ! -f "frontend/dist/index.html" ]; then \
-		echo "$(YELLOW)📦 Building frontend first...$(NC)"; \
-		cd frontend && npm run build:dev; \
-	fi
-	cd frontend && npx http-server dist -p $(FRONTEND_PORT) -c-1
+	cd frontend && npm run serve -- --port $(FRONTEND_PORT)
 
 dev-backend: ## Start only backend dev server
 	@echo "$(BLUE)⚡ Starting backend dev server on port $(BACKEND_DEV_PORT)...$(NC)"

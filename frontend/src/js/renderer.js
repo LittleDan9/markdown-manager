@@ -36,7 +36,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
             <div class="code-block-header">
                 <span class="code-block-lang">${lang.toUpperCase()}</span>
                 <button class="code-block-copy-btn" data-prismjs-copy>
-                <img src="${require('../assets/copy-icon.svg')}" alt="Copy" width="16" height="16">
+                <i class="bi bi-clipboard" aria-label="Copy"></i>
                 </button>
             </div>
             ${highlightedCode}
@@ -78,9 +78,9 @@ export async function render(editor) {
         mermaidElements.forEach(el => {
             const svg = el.querySelector('svg');
             if (svg) {
-                // Make SVG responsive
+                // Make SVG responsive - remove explicit height attribute for auto-sizing
                 svg.setAttribute('width', '100%');
-                svg.setAttribute('height', 'auto');
+                svg.removeAttribute('height');
                 svg.style.maxWidth = '100%';
                 svg.style.height = 'auto';
             }
