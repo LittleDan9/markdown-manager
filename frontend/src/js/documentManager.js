@@ -327,7 +327,7 @@ export class DocumentManager {
     }
 
     /**
-     * Export preview as PDF with proper text rendering
+     * Export preview as PDF using server-side generation
      */
     async exportAsPDF(filename = null) {
         const previewElement = document.querySelector('#preview .preview-scroll');
@@ -340,270 +340,153 @@ export class DocumentManager {
             throw new Error('No content to export. Please add some content to the editor first.');
         }
 
-        // Get current theme
-        const html = document.documentElement;
-        const currentTheme = html.getAttribute('data-bs-theme') || 'light';
-
-        // Show loading indicator
-        const loadingNotification = this.showPDFLoadingNotification();
+        // Show sleek loading modal
+        const loadingModal = this.showPDFLoadingModal();
 
         try {
-            // Create PDF with optimized settings
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4',
-                compress: true
-            });
+            const documentName = this.currentDocument.name || 'Untitled Document';
+            const fileName = filename || documentName;
 
-            // Set background color based on theme
-            const backgroundColor = currentTheme === 'dark' ? '#1e1e1e' : '#ffffff';
-            pdf.setFillColor(backgroundColor);
-            pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), 'F');
+            // Get current theme (detect dark mode)
+            const isDarkMode = document.documentElement.classList.contains('dark-theme') ||
+                              window.matchMedia('(prefers-color-scheme: dark)').matches;
 
-            // Get page dimensions
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const margin = 15;
+            // Get the preview content
+            const htmlContent = previewElement.innerHTML;
 
-            // Use pdf.html() with better settings for emoji and formatting preservation
-            await pdf.html(previewElement, {
-                callback: (doc) => {
-                    // Set PDF metadata
-                    const name = this.currentDocument.name || 'Untitled Document';
-                    doc.setProperties({
-                        title: name,
-                        creator: 'Markdown Manager',
-                        author: 'User'
-                    });
+            // Prepare the request payload
+            const requestData = {
+                html_content: htmlContent,
+                document_name: fileName,
+                is_dark_mode: isDarkMode
+            };
 
-                    // Save the PDF
-                    const fileName = filename || name;
-                    const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-                    doc.save(finalFileName);
-
-                    // Hide loading indicator
-                    this.hidePDFLoadingNotification(loadingNotification);
+            // Send request to backend PDF export endpoint
+            const response = await fetch('http://localhost:8001/api/v1/pdf/export', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
                 },
-                margin: [margin, margin, margin, margin],
-                autoPaging: 'text',
-                width: pageWidth - (2 * margin),
-                windowWidth: 900, // Slightly wider for better content
-                html2canvas: {
-                    scale: 1.2, // Higher scale for better quality
-                    useCORS: false,
-                    allowTaint: false,
-                    backgroundColor: backgroundColor,
-                    logging: false,
-                    removeContainer: true,
-                    imageTimeout: 10000,
-                    width: 900,
-                    height: 1400,
-                    letterRendering: true,
-                    foreignObjectRendering: true,
-                    // Better emoji and font handling
-                    onclone: (clonedDoc, element) => {
-                        // Load system fonts that support emojis
-                        const style = clonedDoc.createElement('style');
-                        style.textContent = `
-                            @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
-                            * {
-                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif !important;
-                                -webkit-font-smoothing: antialiased !important;
-                                -moz-osx-font-smoothing: grayscale !important;
-                                text-rendering: optimizeLegibility !important;
-                            }
-                            pre, code {
-                                font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Source Code Pro", "Menlo", "Consolas", "Courier New", monospace !important;
-                                white-space: pre-wrap !important;
-                                word-break: break-word !important;
-                                background-color: ${currentTheme === 'dark' ? '#2d2d2d' : '#f8f9fa'} !important;
-                                padding: 8px !important;
-                                border-radius: 4px !important;
-                            }
-                            blockquote {
-                                border-left: 4px solid #007bff !important;
-                                padding-left: 16px !important;
-                                margin-left: 0 !important;
-                                color: ${currentTheme === 'dark' ? '#cccccc' : '#6c757d'} !important;
-                            }
-                        `;
-                        clonedDoc.head.appendChild(style);
-                        
-                        // Wait for fonts to load
-                        return new Promise(resolve => {
-                            setTimeout(resolve, 2000);
-                        });
-                    }
-                }
+                body: JSON.stringify(requestData)
             });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.detail || `Server error: ${response.status} ${response.statusText}`);
+            }
+
+            // Get the PDF blob
+            const pdfBlob = await response.blob();
+
+            // Create download link and trigger download
+            const downloadUrl = window.URL.createObjectURL(pdfBlob);
+            const link = document.createElement('a');
+            link.href = downloadUrl;
+            link.download = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Clean up the blob URL
+            window.URL.revokeObjectURL(downloadUrl);
+
+            // Hide loading modal
+            this.hidePDFLoadingModal(loadingModal);
 
         } catch (error) {
-            // Hide loading indicator
-            this.hidePDFLoadingNotification(loadingNotification);
-            
-            console.warn('Enhanced PDF export failed, using simple fallback:', error);
-            
-            // Use simple text-based fallback
-            this.exportAsPDFSimple(filename);
-        }
-    }
-
-    /**
-     * Convert emojis to HTML entities for better PDF rendering
-     */
-    convertEmojisToHtmlEntities(element) {
-        // Walk through all text nodes and convert emojis
-        const walker = document.createTreeWalker(
-            element,
-            NodeFilter.SHOW_TEXT,
-            null,
-            false
-        );
-
-        const textNodes = [];
-        let node;
-        while (node = walker.nextNode()) {
-            textNodes.push(node);
-        }
-
-        textNodes.forEach(textNode => {
-            const text = textNode.textContent;
-            if (this.containsEmoji(text)) {
-                // Convert emojis to HTML entities
-                const convertedText = this.emojiToHtmlEntity(text);
-                textNode.textContent = convertedText;
-            }
-        });
-    }
-
-    /**
-     * Check if text contains emojis
-     */
-    containsEmoji(text) {
-        // More comprehensive emoji regex that covers all common emoji ranges
-        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/u;
-        return emojiRegex.test(text);
-    }
-
-    /**
-     * Convert emojis to Unicode escape sequences
-     */
-    emojiToHtmlEntity(text) {
-        // More comprehensive emoji replacement
-        return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu, 
-            (match) => {
-                // Convert to Unicode code point and then to HTML entity
-                const codePoint = match.codePointAt(0);
-                return `&#${codePoint};`;
-            }
-        );
-    }
-
-    /**
-     * Simple text-based PDF export
-     */
-    exportAsPDFSimple(filename = null) {
-        try {
-            const previewElement = document.querySelector('#preview .preview-scroll');
-            if (!previewElement) {
-                throw new Error('Preview element not found');
-            }
-
-            // Create PDF
-            const pdf = new jsPDF({
-                orientation: 'portrait',
-                unit: 'mm',
-                format: 'a4'
-            });
-
-            const margin = 15;
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const contentWidth = pageWidth - (2 * margin);
-            let yPosition = margin;
-            const lineHeight = 6;
-            
-            // Set font
-            pdf.setFont('helvetica', 'normal');
-            pdf.setFontSize(11);
-
-            // Get text content and split into lines
-            const textContent = previewElement.textContent || '';
-            const lines = pdf.splitTextToSize(textContent, contentWidth);
-
-            // Add lines to PDF with page breaks
-            lines.forEach(line => {
-                if (yPosition > pdf.internal.pageSize.getHeight() - margin) {
-                    pdf.addPage();
-                    yPosition = margin;
-                }
-                pdf.text(line, margin, yPosition);
-                yPosition += lineHeight;
-            });
-
-            // Set metadata
-            const name = this.currentDocument.name || 'Untitled Document';
-            pdf.setProperties({
-                title: name,
-                creator: 'Markdown Manager',
-                author: 'User'
-            });
-
-            // Save
-            const fileName = filename || name;
-            const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
-            pdf.save(finalFileName);
-
-        } catch (error) {
-            console.error('Simple PDF export failed:', error);
+            this.hidePDFLoadingModal(loadingModal);
+            console.error('PDF export failed:', error);
             throw error;
         }
     }
 
     /**
-     * Original text-based PDF export as final fallback
+     * Show sleek PDF loading modal
      */
-    exportAsPDFOriginal(filename = null) {
-        const previewElement = document.querySelector('#preview .preview-scroll');
-        if (!previewElement) {
-            throw new Error('Preview element not found');
+    showPDFLoadingModal() {
+        const modal = document.createElement('div');
+        modal.className = 'pdf-loading-modal';
+        modal.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            animation: fadeIn 0.2s ease-out;
+        `;
+
+        const content = document.createElement('div');
+        content.style.cssText = `
+            background: var(--bs-body-bg, #ffffff);
+            border: 1px solid var(--bs-border-color, #dee2e6);
+            border-radius: 12px;
+            padding: 32px 40px;
+            text-align: center;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+            color: var(--bs-body-color, #212529);
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            max-width: 400px;
+            animation: slideIn 0.3s ease-out;
+        `;
+
+        content.innerHTML = `
+            <div style="margin-bottom: 16px; font-size: 48px;">📄</div>
+            <h3 style="margin: 0 0 8px 0; font-size: 18px; font-weight: 600;">Preparing PDF Export</h3>
+            <p style="margin: 0; color: var(--bs-secondary-color, #6c757d); font-size: 14px;">
+                Your document is being prepared for export...
+            </p>
+            <div style="margin-top: 20px;">
+                <div class="spinner-border spinner-border-sm" role="status" style="color: var(--bs-primary, #0d6efd);">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+            </div>
+        `;
+
+        modal.appendChild(content);
+        document.body.appendChild(modal);
+
+        // Add CSS animations if not already present
+        if (!document.getElementById('pdf-modal-styles')) {
+            const style = document.createElement('style');
+            style.id = 'pdf-modal-styles';
+            style.textContent = `
+                @keyframes fadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                @keyframes fadeOut {
+                    from { opacity: 1; }
+                    to { opacity: 0; }
+                }
+                @keyframes slideIn {
+                    from { transform: scale(0.9) translateY(-10px); opacity: 0; }
+                    to { transform: scale(1) translateY(0); opacity: 1; }
+                }
+            `;
+            document.head.appendChild(style);
         }
 
-        // Simple fallback: use textContent for PDF export
-        const pdf = new jsPDF({
-            orientation: 'portrait',
-            unit: 'mm',
-            format: 'a4'
-        });
+        return modal;
+    }
 
-        const margin = 15;
-        const textContent = previewElement.textContent || '';
-        const lines = pdf.splitTextToSize(textContent, pdf.internal.pageSize.getWidth() - (2 * margin));
-        
-        let yPosition = margin;
-        const lineHeight = 6;
-        const pageHeight = pdf.internal.pageSize.getHeight() - margin;
-
-        // Add notice about formatting limitation
-        pdf.setFont('helvetica', 'italic');
-        pdf.setFontSize(10);
-        pdf.text('Note: This is a simplified text export. Formatting and emojis may not display correctly.', margin, yPosition);
-        yPosition += 10;
-
-        pdf.setFont('helvetica', 'normal');
-        pdf.setFontSize(11);
-
-        lines.forEach(line => {
-            if (yPosition > pageHeight) {
-                pdf.addPage();
-                yPosition = margin;
-            }
-            pdf.text(line, margin, yPosition);
-            yPosition += lineHeight;
-        });
-
-        const name = filename || this.currentDocument.name || 'document';
-        const fileName = name.endsWith('.pdf') ? name : `${name}.pdf`;
-        pdf.save(fileName);
+    /**
+     * Hide PDF loading modal
+     */
+    hidePDFLoadingModal(modal) {
+        if (modal && modal.parentNode) {
+            modal.style.animation = 'fadeOut 0.2s ease-out forwards';
+            setTimeout(() => {
+                if (modal.parentNode) {
+                    modal.parentNode.removeChild(modal);
+                }
+            }, 200);
+        }
     }
 
     /**
@@ -656,41 +539,6 @@ export class DocumentManager {
         );
     }
 
-    /**
-     * Show PDF loading notification
-     */
-    showPDFLoadingNotification() {
-        const notification = document.createElement('div');
-        notification.className = 'pdf-loading-notification';
-        notification.style.cssText = `
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: rgba(0, 0, 0, 0.8);
-            color: white;
-            padding: 20px 30px;
-            border-radius: 8px;
-            z-index: 9999;
-            text-align: center;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        `;
-        notification.innerHTML = `
-            <div style="margin-bottom: 10px;">📄 Generating PDF...</div>
-            <div style="font-size: 14px; opacity: 0.8;">This may take a moment for large documents</div>
-        `;
-        document.body.appendChild(notification);
-        return notification;
-    }
-
-    /**
-     * Hide PDF loading notification
-     */
-    hidePDFLoadingNotification(notification) {
-        if (notification && notification.parentNode) {
-            notification.parentNode.removeChild(notification);
-        }
-    }
 }
 
 // Create singleton instance

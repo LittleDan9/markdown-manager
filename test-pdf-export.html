@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Export Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <h1>PDF Export Test</h1>
+    <div id="test-content">
+        <h2>💡 Root Cause</h2>
+        <p>This is a test with emojis: 😀 🎉 ✅ 💡</p>
+        <pre><code>function test() {
+    console.log("Hello World");
+}</code></pre>
+        <p>More text with <strong>bold</strong> and <em>italic</em></p>
+    </div>
+
+    <button onclick="testEmojiDetection()">Test Emoji Detection</button>
+    <button onclick="testPDFExport()">Test PDF Export</button>
+
+    <script>
+        // Test emoji detection
+        function testEmojiDetection() {
+            const text = "💡 Root Cause ✅ Test 😀";
+            console.log("Original text:", text);
+
+            // Test current regex
+            const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu;
+            const matches = text.match(emojiRegex);
+            console.log("Emoji matches:", matches);
+
+            // Test each character
+            for (let char of text) {
+                const codePoint = char.codePointAt(0);
+                if (codePoint > 127) {
+                    console.log(`Character: ${char}, Code Point: U+${codePoint.toString(16).toUpperCase()}`);
+                }
+            }
+
+            // Test conversion
+            const convertedText = text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]/gu,
+                (match) => {
+                    const codePoint = match.codePointAt(0);
+                    return `&#${codePoint};`;
+                }
+            );
+            console.log("Converted text:", convertedText);
+        }
+
+        // Test PDF export
+        function testPDFExport() {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF();
+
+            const element = document.getElementById('test-content');
+
+            pdf.html(element, {
+                callback: function (doc) {
+                    doc.save('test-export.pdf');
+                },
+                margin: [15, 15, 15, 15],
+                html2canvas: {
+                    scale: 1.0,
+                    useCORS: false,
+                    allowTaint: false,
+                    logging: true
+                }
+            });
+        }
+    </script>
+</body>
+</html>
