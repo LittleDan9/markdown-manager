@@ -11,12 +11,19 @@
     rel="stylesheet"
     integrity="sha384-4Q6Gf2aSP4eDXB8Miphtr37CMZZQ5oXLH2yaXMJ2w8e2ZtHTl7GptT4jmndRuHDT"
     crossorigin="anonymous">
+  
+  <!-- Bootstrap Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" 
+    rel="stylesheet">
 
   <!-- Load Monaco Editor AMD loader -->
   <script src="https://cdn.jsdelivr.net/npm/monaco-editor@0.38.0/min/vs/loader.js"></script>
+  
+  <!-- Bootstrap Bundle with Popper -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js"
     integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO"
-    crossorigin="anonymous"></script>
+    crossorigin="anonymous">
+  </script>
 </head>
 
 <body>
@@ -61,6 +68,41 @@
               Dark Mode
             </label>
           </div>
+
+          <!-- User Profile Dropdown -->
+          <div class="dropdown" id="userDropdown">
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-2" 
+                    type="button" id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false"
+                    style="border: none; background: transparent;">
+              <i class="bi bi-person-circle"></i>
+              <span id="userDisplayName">Guest</span>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuDropdown">
+              <!-- Guest menu (when not logged in) -->
+              <div id="guestMenu">
+                <li><a class="dropdown-item" href="#" id="loginBtn">
+                  <i class="bi bi-box-arrow-in-right me-2"></i>Login
+                </a></li>
+                <li><a class="dropdown-item" href="#" id="registerBtn">
+                  <i class="bi bi-person-plus me-2"></i>Sign Up
+                </a></li>
+              </div>
+              
+              <!-- User menu (when logged in) -->
+              <div id="userMenu" style="display: none;">
+                <li><a class="dropdown-item" href="#" id="profileBtn">
+                  <i class="bi bi-person me-2"></i>Profile
+                </a></li>
+                <li><a class="dropdown-item" href="#" id="settingsBtn">
+                  <i class="bi bi-gear me-2"></i>Settings
+                </a></li>
+                <li><hr class="dropdown-divider"></li>
+                <li><a class="dropdown-item" href="#" id="logoutBtn">
+                  <i class="bi bi-box-arrow-right me-2"></i>Logout
+                </a></li>
+              </div>
+            </ul>
+          </div>
         </div>
       </div>
     </nav>
@@ -77,6 +119,206 @@
         <div id="preview">
             <div class="preview-scroll">
             </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Login Modal -->
+  <div class="modal fade" id="loginModal" tabindex="-1" aria-labelledby="loginModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="loginModalLabel">
+            <i class="bi bi-box-arrow-in-right me-2"></i>Login
+          </h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="loginForm">
+          <div class="modal-body">
+            <div class="mb-3">
+              <label for="loginEmail" class="form-label">Email</label>
+              <input type="email" class="form-control" id="loginEmail" required>
+            </div>
+            <div class="mb-3">
+              <label for="loginPassword" class="form-label">Password</label>
+              <input type="password" class="form-control" id="loginPassword" required>
+            </div>
+            <div id="loginError" class="alert alert-danger" style="display: none;"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <span class="spinner-border spinner-border-sm me-2" id="loginSpinner" style="display: none;"></span>
+              Login
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register Modal -->
+  <div class="modal fade" id="registerModal" tabindex="-1" aria-labelledby="registerModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="registerModalLabel">
+            <i class="bi bi-person-plus me-2"></i>Create Account
+          </h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="registerForm">
+          <div class="modal-body">
+            <div class="row mb-3">
+              <div class="col-md-6">
+                <label for="registerFirstName" class="form-label">First Name</label>
+                <input type="text" class="form-control" id="registerFirstName">
+              </div>
+              <div class="col-md-6">
+                <label for="registerLastName" class="form-label">Last Name</label>
+                <input type="text" class="form-control" id="registerLastName">
+              </div>
+            </div>
+            <div class="mb-3">
+              <label for="registerDisplayName" class="form-label">Display Name (Optional)</label>
+              <input type="text" class="form-control" id="registerDisplayName" 
+                placeholder="How you'd like to be shown in the app">
+            </div>
+            <div class="mb-3">
+              <label for="registerEmail" class="form-label">Email</label>
+              <input type="email" class="form-control" id="registerEmail" required>
+            </div>
+            <div class="mb-3">
+              <label for="registerPassword" class="form-label">Password</label>
+              <input type="password" class="form-control" id="registerPassword" required minlength="6">
+              <div class="form-text">Password must be at least 6 characters long.</div>
+            </div>
+            <div class="mb-3">
+              <label for="registerBio" class="form-label">Bio (Optional)</label>
+              <textarea class="form-control" id="registerBio" rows="2" 
+                placeholder="Tell us a bit about yourself..."></textarea>
+            </div>
+            <div id="registerError" class="alert alert-danger" style="display: none;"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <span class="spinner-border spinner-border-sm me-2" id="registerSpinner" style="display: none;"></span>
+              Create Account
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Profile Modal -->
+  <div class="modal fade" id="profileModal" tabindex="-1" aria-labelledby="profileModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="profileModalLabel">
+            <i class="bi bi-person me-2"></i>Profile
+          </h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+          <!-- Profile Tabs -->
+          <ul class="nav nav-tabs" id="profileTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+              <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" 
+                data-bs-target="#profile-info" type="button" role="tab">
+                <i class="bi bi-person me-1"></i>Profile Info
+              </button>
+            </li>
+            <li class="nav-item" role="presentation">
+              <button class="nav-link" id="security-tab" data-bs-toggle="tab" 
+                data-bs-target="#security-settings" type="button" role="tab">
+                <i class="bi bi-shield-lock me-1"></i>Security
+              </button>
+            </li>
+          </ul>
+          
+          <div class="tab-content" id="profileTabContent">
+            <!-- Profile Info Tab -->
+            <div class="tab-pane fade show active" id="profile-info" role="tabpanel">
+              <form id="profileForm" class="mt-3">
+                <div class="row mb-3">
+                  <div class="col-md-6">
+                    <label for="profileFirstName" class="form-label">First Name</label>
+                    <input type="text" class="form-control" id="profileFirstName">
+                  </div>
+                  <div class="col-md-6">
+                    <label for="profileLastName" class="form-label">Last Name</label>
+                    <input type="text" class="form-control" id="profileLastName">
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label for="profileDisplayName" class="form-label">Display Name</label>
+                  <input type="text" class="form-control" id="profileDisplayName">
+                </div>
+                <div class="mb-3">
+                  <label for="profileEmail" class="form-label">Email</label>
+                  <input type="email" class="form-control" id="profileEmail" readonly>
+                  <div class="form-text">Email cannot be changed.</div>
+                </div>
+                <div class="mb-3">
+                  <label for="profileBio" class="form-label">Bio</label>
+                  <textarea class="form-control" id="profileBio" rows="3"></textarea>
+                </div>
+                <div id="profileError" class="alert alert-danger" style="display: none;"></div>
+                <div id="profileSuccess" class="alert alert-success" style="display: none;"></div>
+                <div class="d-flex justify-content-end gap-2">
+                  <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-2" id="profileSpinner" style="display: none;"></span>
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+            
+            <!-- Security Tab -->
+            <div class="tab-pane fade" id="security-settings" role="tabpanel">
+              <form id="passwordForm" class="mt-3">
+                <div class="mb-3">
+                  <label for="currentPassword" class="form-label">Current Password</label>
+                  <input type="password" class="form-control" id="currentPassword" required>
+                </div>
+                <div class="mb-3">
+                  <label for="newPassword" class="form-label">New Password</label>
+                  <input type="password" class="form-control" id="newPassword" required minlength="6">
+                </div>
+                <div class="mb-3">
+                  <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                  <input type="password" class="form-control" id="confirmPassword" required>
+                </div>
+                <div id="passwordError" class="alert alert-danger" style="display: none;"></div>
+                <div id="passwordSuccess" class="alert alert-success" style="display: none;"></div>
+                <div class="d-flex justify-content-end gap-2">
+                  <button type="submit" class="btn btn-primary">
+                    <span class="spinner-border spinner-border-sm me-2" id="passwordSpinner" style="display: none;"></span>
+                    Update Password
+                  </button>
+                </div>
+              </form>
+              
+              <hr class="my-4">
+              
+              <!-- Account Deletion -->
+              <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                  <h6 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Danger Zone</h6>
+                </div>
+                <div class="card-body">
+                  <p class="card-text">Once you delete your account, there is no going back. Please be certain.</p>
+                  <button type="button" class="btn btn-outline-danger" id="deleteAccountBtn">
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

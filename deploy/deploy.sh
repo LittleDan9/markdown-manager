@@ -12,22 +12,46 @@ NC='\033[0m' # No Color
 ENVIRONMENT=${1:-production}
 SKIP_BUILD=${2:-false}
 SKIP_BACKEND=${3:-false}
+INCREMENTAL_BUILD=${4:-false}
 
 echo -e "${YELLOW}🚀 Starting deployment process for ${ENVIRONMENT}...${NC}"
+
+# Environment-specific configuration
+if [ "$ENVIRONMENT" = "dev" ] || [ "$ENVIRONMENT" = "development" ]; then
+    DEV_MODE=true
+    echo -e "${BLUE}🔧 Development mode enabled${NC}"
+else
+    DEV_MODE=false
+    echo -e "${GREEN}🏭 Production mode${NC}"
+fi
 
 # Determine if we're on the target server
 if [[ "$(hostname)" == "Danbian" ]]; then
     REMOTE=false
-    FRONTEND_DEST="/var/www/littledan.com/"
+    if [ "$DEV_MODE" = true ]; then
+        FRONTEND_DEST="/var/www/localhost-dev/"
+        NGINX_SITE="localhost-dev"
+        echo -e "${BLUE}📍 Local development deployment${NC}"
+    else
+        FRONTEND_DEST="/var/www/littledan.com/"
+        NGINX_SITE="littledan.com"
+        echo -e "${GREEN}📍 Local production deployment${NC}"
+    fi
     BACKEND_DEST="/opt/markdown-manager-api/"
     NGINX_DEST="/etc/nginx/sites-available/"
-    echo -e "${GREEN}📍 Local deployment${NC}"
 else
     REMOTE=true
     REMOTE_HOST="dlittle@10.0.1.51"
-    FRONTEND_DEST="$REMOTE_HOST:/var/www/littledan.com/"
+    if [ "$DEV_MODE" = true ]; then
+        FRONTEND_DEST="$REMOTE_HOST:/var/www/localhost-dev/"
+        NGINX_SITE="localhost-dev"
+        echo -e "${BLUE}📍 Remote development deployment${NC}"
+    else
+        FRONTEND_DEST="$REMOTE_HOST:/var/www/littledan.com/"
+        NGINX_SITE="littledan.com"
+        echo -e "${GREEN}📍 Remote production deployment${NC}"
+    fi
     BACKEND_DEST="$REMOTE_HOST:/opt/markdown-manager-api/"
-    echo -e "${GREEN}📍 Remote deployment${NC}"
 fi
 
 # Function to check if nginx config has changed
@@ -37,7 +61,7 @@ check_nginx_config_changed() {
         return 0
     else
         # Check main site config
-        if ! cmp -s "nginx/sites-available/littledan.com" "/etc/nginx/sites-available/littledan.com"; then
+        if ! cmp -s "nginx/sites-available/$NGINX_SITE" "/etc/nginx/sites-available/$NGINX_SITE"; then
             return 0  # Files are different
         fi
 
@@ -61,7 +85,18 @@ if [ "$SKIP_BUILD" != "true" ]; then
     echo -e "${YELLOW}📦 Building frontend assets...${NC}"
     cd frontend
     npm install
-    npm run build:clean
+    
+    if [ "$INCREMENTAL_BUILD" = "true" ] && [ "$DEV_MODE" = "true" ]; then
+        echo -e "${BLUE}⚡ Running incremental build for development...${NC}"
+        npm run build:dev
+    elif [ "$DEV_MODE" = "true" ]; then
+        echo -e "${BLUE}🔧 Running development build...${NC}"
+        npm run build:dev
+    else
+        echo -e "${GREEN}🏭 Running production build...${NC}"
+        npm run build:clean
+    fi
+    
     cd ..
     echo -e "${GREEN}✅ Frontend build completed${NC}"
 else
@@ -105,23 +140,24 @@ else
 fi
 
 # Deploy nginx config if changed
-echo -e "${YELLOW}� Checking nginx configuration...${NC}"
+echo -e "${YELLOW}⚙️  Checking nginx configuration...${NC}"
 if check_nginx_config_changed; then
     echo -e "${YELLOW}📝 Nginx config has changed, updating...${NC}"
 
     if [ "$REMOTE" = true ]; then
         # Remote nginx update
-        scp nginx/sites-available/littledan.com "$REMOTE_HOST:/tmp/littledan.com.new"
+        scp "nginx/sites-available/$NGINX_SITE" "$REMOTE_HOST:/tmp/$NGINX_SITE.new"
         # Copy conf.d files
         for conffile in nginx/conf.d/*.conf; do
             basename_conf=$(basename "$conffile")
             scp "$conffile" "$REMOTE_HOST:/tmp/$basename_conf.new"
             ssh ${REMOTE_HOST%:*} "sudo mv /tmp/$basename_conf.new /etc/nginx/conf.d/$basename_conf"
         done
-        ssh ${REMOTE_HOST%:*} "sudo mv /tmp/littledan.com.new /etc/nginx/sites-available/littledan.com && sudo /usr/sbin/nginx -t && sudo systemctl reload nginx"
+        ssh ${REMOTE_HOST%:*} "sudo mv /tmp/$NGINX_SITE.new /etc/nginx/sites-available/$NGINX_SITE && sudo ln -sf /etc/nginx/sites-available/$NGINX_SITE /etc/nginx/sites-enabled/ && sudo /usr/sbin/nginx -t && sudo systemctl reload nginx"
     else
         # Local nginx update (nginx-admins group has write permissions)
-        sudo cp nginx/sites-available/littledan.com /etc/nginx/sites-available/littledan.com
+        sudo cp "nginx/sites-available/$NGINX_SITE" "/etc/nginx/sites-available/$NGINX_SITE"
+        sudo ln -sf "/etc/nginx/sites-available/$NGINX_SITE" "/etc/nginx/sites-enabled/"
         # Copy conf.d files
         for conffile in nginx/conf.d/*.conf; do
             basename_conf=$(basename "$conffile")
@@ -159,7 +195,13 @@ else
 fi
 
 echo -e "${GREEN}🎉 Deployment complete!${NC}"
-echo -e "${GREEN}📱 Frontend: https://littledan.com${NC}"
-if [ "$SKIP_BACKEND" != "true" ]; then
-    echo -e "${GREEN}🔗 API Health: https://littledan.com/api/v1/health-check${NC}"
+if [ "$DEV_MODE" = true ]; then
+    echo -e "${BLUE}📱 Frontend: http://localhost (10.0.1.0/24 network)${NC}"
+    echo -e "${BLUE}🔗 API: http://localhost/api/v1/health-check${NC}"
+    echo -e "${BLUE}ℹ️  Dev Info: http://localhost/dev-info${NC}"
+else
+    echo -e "${GREEN}📱 Frontend: https://littledan.com${NC}"
+    if [ "$SKIP_BACKEND" != "true" ]; then
+        echo -e "${GREEN}🔗 API Health: https://littledan.com/api/v1/health-check${NC}"
+    fi
 fi

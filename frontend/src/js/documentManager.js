@@ -330,46 +330,184 @@ export class DocumentManager {
      * Export preview as PDF with proper text rendering
      */
     async exportAsPDF(filename = null) {
+        const previewElement = document.querySelector('#preview .preview-scroll');
+        if (!previewElement) {
+            throw new Error('Preview element not found');
+        }
+
+        // Check if there's actual content
+        if (!previewElement.innerHTML.trim()) {
+            throw new Error('No content to export. Please add some content to the editor first.');
+        }
+
+        // Get current theme
+        const html = document.documentElement;
+        const currentTheme = html.getAttribute('data-bs-theme') || 'light';
+
+        // Show loading indicator
+        const loadingNotification = this.showPDFLoadingNotification();
+
+        try {
+            // Create PDF with optimized settings
+            const pdf = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4',
+                compress: true
+            });
+
+            // Set background color based on theme
+            const backgroundColor = currentTheme === 'dark' ? '#1e1e1e' : '#ffffff';
+            pdf.setFillColor(backgroundColor);
+            pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), 'F');
+
+            // Get page dimensions
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const margin = 15;
+
+            // Use pdf.html() with better settings for emoji and formatting preservation
+            await pdf.html(previewElement, {
+                callback: (doc) => {
+                    // Set PDF metadata
+                    const name = this.currentDocument.name || 'Untitled Document';
+                    doc.setProperties({
+                        title: name,
+                        creator: 'Markdown Manager',
+                        author: 'User'
+                    });
+
+                    // Save the PDF
+                    const fileName = filename || name;
+                    const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+                    doc.save(finalFileName);
+
+                    // Hide loading indicator
+                    this.hidePDFLoadingNotification(loadingNotification);
+                },
+                margin: [margin, margin, margin, margin],
+                autoPaging: 'text',
+                width: pageWidth - (2 * margin),
+                windowWidth: 900, // Slightly wider for better content
+                html2canvas: {
+                    scale: 1.2, // Higher scale for better quality
+                    useCORS: false,
+                    allowTaint: false,
+                    backgroundColor: backgroundColor,
+                    logging: false,
+                    removeContainer: true,
+                    imageTimeout: 10000,
+                    width: 900,
+                    height: 1400,
+                    letterRendering: true,
+                    foreignObjectRendering: true,
+                    // Better emoji and font handling
+                    onclone: (clonedDoc, element) => {
+                        // Load system fonts that support emojis
+                        const style = clonedDoc.createElement('style');
+                        style.textContent = `
+                            @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+                            * {
+                                font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Color Emoji", "Apple Color Emoji", "Segoe UI Emoji", sans-serif !important;
+                                -webkit-font-smoothing: antialiased !important;
+                                -moz-osx-font-smoothing: grayscale !important;
+                                text-rendering: optimizeLegibility !important;
+                            }
+                            pre, code {
+                                font-family: "SF Mono", "Monaco", "Inconsolata", "Roboto Mono", "Source Code Pro", "Menlo", "Consolas", "Courier New", monospace !important;
+                                white-space: pre-wrap !important;
+                                word-break: break-word !important;
+                                background-color: ${currentTheme === 'dark' ? '#2d2d2d' : '#f8f9fa'} !important;
+                                padding: 8px !important;
+                                border-radius: 4px !important;
+                            }
+                            blockquote {
+                                border-left: 4px solid #007bff !important;
+                                padding-left: 16px !important;
+                                margin-left: 0 !important;
+                                color: ${currentTheme === 'dark' ? '#cccccc' : '#6c757d'} !important;
+                            }
+                        `;
+                        clonedDoc.head.appendChild(style);
+                        
+                        // Wait for fonts to load
+                        return new Promise(resolve => {
+                            setTimeout(resolve, 2000);
+                        });
+                    }
+                }
+            });
+
+        } catch (error) {
+            // Hide loading indicator
+            this.hidePDFLoadingNotification(loadingNotification);
+            
+            console.warn('Enhanced PDF export failed, using simple fallback:', error);
+            
+            // Use simple text-based fallback
+            this.exportAsPDFSimple(filename);
+        }
+    }
+
+    /**
+     * Convert emojis to HTML entities for better PDF rendering
+     */
+    convertEmojisToHtmlEntities(element) {
+        // Walk through all text nodes and convert emojis
+        const walker = document.createTreeWalker(
+            element,
+            NodeFilter.SHOW_TEXT,
+            null,
+            false
+        );
+
+        const textNodes = [];
+        let node;
+        while (node = walker.nextNode()) {
+            textNodes.push(node);
+        }
+
+        textNodes.forEach(textNode => {
+            const text = textNode.textContent;
+            if (this.containsEmoji(text)) {
+                // Convert emojis to HTML entities
+                const convertedText = this.emojiToHtmlEntity(text);
+                textNode.textContent = convertedText;
+            }
+        });
+    }
+
+    /**
+     * Check if text contains emojis
+     */
+    containsEmoji(text) {
+        // More comprehensive emoji regex that covers all common emoji ranges
+        const emojiRegex = /[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/u;
+        return emojiRegex.test(text);
+    }
+
+    /**
+     * Convert emojis to Unicode escape sequences
+     */
+    emojiToHtmlEntity(text) {
+        // More comprehensive emoji replacement
+        return text.replace(/[\u{1F600}-\u{1F64F}]|[\u{1F300}-\u{1F5FF}]|[\u{1F680}-\u{1F6FF}]|[\u{1F1E0}-\u{1F1FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1F900}-\u{1F9FF}]|[\u{1F018}-\u{1F270}]|[\u{238C}-\u{2454}]|[\u{20D0}-\u{20FF}]/gu, 
+            (match) => {
+                // Convert to Unicode code point and then to HTML entity
+                const codePoint = match.codePointAt(0);
+                return `&#${codePoint};`;
+            }
+        );
+    }
+
+    /**
+     * Simple text-based PDF export
+     */
+    exportAsPDFSimple(filename = null) {
         try {
             const previewElement = document.querySelector('#preview .preview-scroll');
             if (!previewElement) {
                 throw new Error('Preview element not found');
             }
-
-            // Check if there's actual content
-            if (!previewElement.innerHTML.trim()) {
-                throw new Error('No content to export. Please add some content to the editor first.');
-            }
-
-            // Get current theme
-            const html = document.documentElement;
-            const currentTheme = html.getAttribute('data-bs-theme') || 'light';
-
-            // Define theme colors
-            const themeColors = {
-                dark: {
-                    background: [30, 30, 30], // #1e1e1e
-                    text: [255, 255, 255],    // #ffffff
-                    heading: [255, 255, 255], // #ffffff
-                    code: [248, 248, 242],    // #f8f8f2
-                    codeBg: [45, 45, 45],     // #2d2d2d
-                    link: [102, 179, 255],    // #66b3ff
-                    border: [68, 68, 68],     // #444444
-                    quote: [204, 204, 204]   // #cccccc
-                },
-                light: {
-                    background: [255, 255, 255], // #ffffff
-                    text: [0, 0, 0],            // #000000
-                    heading: [0, 0, 0],         // #000000
-                    code: [0, 0, 0],            // #000000
-                    codeBg: [245, 245, 245],    // #f5f5f5
-                    link: [0, 123, 255],        // #007bff
-                    border: [222, 226, 230],    // #dee2e6
-                    quote: [108, 117, 125]      // #6c757d
-                }
-            };
-
-            const colors = themeColors[currentTheme];
 
             // Create PDF
             const pdf = new jsPDF({
@@ -378,259 +516,94 @@ export class DocumentManager {
                 format: 'a4'
             });
 
-            // Set background color
-            pdf.setFillColor(colors.background[0], colors.background[1], colors.background[2]);
-            pdf.rect(0, 0, pdf.internal.pageSize.getWidth(), pdf.internal.pageSize.getHeight(), 'F');
-
-            // PDF dimensions
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
             const margin = 15;
+            const pageWidth = pdf.internal.pageSize.getWidth();
             const contentWidth = pageWidth - (2 * margin);
             let yPosition = margin;
+            const lineHeight = 6;
+            
+            // Set font
+            pdf.setFont('helvetica', 'normal');
+            pdf.setFontSize(11);
 
-            // Helper function to add new page if needed
-            const checkPageBreak = (neededHeight) => {
-                if (yPosition + neededHeight > pageHeight - margin) {
+            // Get text content and split into lines
+            const textContent = previewElement.textContent || '';
+            const lines = pdf.splitTextToSize(textContent, contentWidth);
+
+            // Add lines to PDF with page breaks
+            lines.forEach(line => {
+                if (yPosition > pdf.internal.pageSize.getHeight() - margin) {
                     pdf.addPage();
-                    pdf.setFillColor(colors.background[0], colors.background[1], colors.background[2]);
-                    pdf.rect(0, 0, pageWidth, pageHeight, 'F');
                     yPosition = margin;
                 }
-            };
-
-            // Helper function to wrap text
-            const wrapText = (text, maxWidth, fontSize) => {
-                pdf.setFontSize(fontSize);
-                return pdf.splitTextToSize(text, maxWidth);
-            };
-
-            // Process each element in the preview
-            const processElement = (element, level = 0) => {
-                const tagName = element.tagName?.toLowerCase();
-                const textContent = element.textContent?.trim();
-
-                if (!textContent && !['img', 'hr', 'br'].includes(tagName)) {
-                    return;
-                }
-
-                const indent = level * 5;
-                const availableWidth = contentWidth - indent;
-
-                switch (tagName) {
-                    case 'h1':
-                    case 'h2':
-                    case 'h3':
-                    case 'h4':
-                    case 'h5':
-                    case 'h6':
-                        const headingSize = {
-                            h1: 20, h2: 18, h3: 16, h4: 14, h5: 12, h6: 11
-                        }[tagName];
-
-                        checkPageBreak(headingSize * 0.5);
-                        pdf.setFont('helvetica', 'bold');
-                        pdf.setFontSize(headingSize);
-                        pdf.setTextColor(colors.heading[0], colors.heading[1], colors.heading[2]);
-
-                        const headingLines = wrapText(textContent, availableWidth, headingSize);
-                        headingLines.forEach(line => {
-                            pdf.text(line, margin + indent, yPosition);
-                            yPosition += headingSize * 0.4;
-                        });
-                        yPosition += 5;
-                        break;
-
-                    case 'p':
-                        checkPageBreak(12);
-                        pdf.setFont('helvetica', 'normal');
-                        pdf.setFontSize(11);
-                        pdf.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-
-                        const paragraphLines = wrapText(textContent, availableWidth, 11);
-                        paragraphLines.forEach(line => {
-                            pdf.text(line, margin + indent, yPosition);
-                            yPosition += 5;
-                        });
-                        yPosition += 3;
-                        break;
-
-                    case 'pre':
-                        const codeContent = element.textContent;
-                        checkPageBreak(20);
-
-                        // Code block background
-                        pdf.setFillColor(colors.codeBg[0], colors.codeBg[1], colors.codeBg[2]);
-                        const codeLines = codeContent.split('\n');
-                        const codeHeight = codeLines.length * 4 + 6;
-                        pdf.rect(margin + indent, yPosition - 3, availableWidth, codeHeight, 'F');
-
-                        // Code text
-                        pdf.setFont('courier', 'normal');
-                        pdf.setFontSize(9);
-                        pdf.setTextColor(colors.code[0], colors.code[1], colors.code[2]);
-
-                        codeLines.forEach(line => {
-                            pdf.text(line, margin + indent + 3, yPosition);
-                            yPosition += 4;
-                        });
-                        yPosition += 8;
-                        break;
-
-                    case 'blockquote':
-                        checkPageBreak(15);
-
-                        // Quote border
-                        pdf.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-                        pdf.setLineWidth(1);
-                        pdf.line(margin + indent, yPosition - 2, margin + indent, yPosition + 12);
-
-                        pdf.setFont('helvetica', 'italic');
-                        pdf.setFontSize(11);
-                        pdf.setTextColor(colors.quote[0], colors.quote[1], colors.quote[2]);
-
-                        const quoteLines = wrapText(textContent, availableWidth - 5, 11);
-                        quoteLines.forEach(line => {
-                            pdf.text(line, margin + indent + 5, yPosition);
-                            yPosition += 5;
-                        });
-                        yPosition += 5;
-                        break;
-
-                    case 'ul':
-                    case 'ol':
-                        // Process list items
-                        const listItems = element.querySelectorAll('li');
-                        listItems.forEach((li, index) => {
-                            checkPageBreak(8);
-                            pdf.setFont('helvetica', 'normal');
-                            pdf.setFontSize(11);
-                            pdf.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-
-                            const bullet = tagName === 'ul' ? '•' : `${index + 1}.`;
-                            const liText = li.textContent.trim();
-
-                            pdf.text(bullet, margin + indent, yPosition);
-                            const liLines = wrapText(liText, availableWidth - 10, 11);
-                            liLines.forEach((line, lineIndex) => {
-                                pdf.text(line, margin + indent + 10, yPosition + (lineIndex * 5));
-                            });
-                            yPosition += liLines.length * 5 + 2;
-                        });
-                        yPosition += 3;
-                        break;
-
-                    case 'hr':
-                        checkPageBreak(8);
-                        pdf.setDrawColor(colors.border[0], colors.border[1], colors.border[2]);
-                        pdf.setLineWidth(0.5);
-                        pdf.line(margin + indent, yPosition, margin + indent + availableWidth, yPosition);
-                        yPosition += 8;
-                        break;
-
-                    case 'table':
-                        // Simple table rendering
-                        checkPageBreak(30);
-                        const rows = element.querySelectorAll('tr');
-                        const cellWidth = availableWidth / (rows[0]?.cells.length || 1);
-
-                        rows.forEach((row, rowIndex) => {
-                            const cells = row.querySelectorAll('td, th');
-                            const isHeader = row.querySelector('th');
-
-                            cells.forEach((cell, cellIndex) => {
-                                const cellX = margin + indent + (cellIndex * cellWidth);
-
-                                if (isHeader) {
-                                    pdf.setFillColor(colors.codeBg[0], colors.codeBg[1], colors.codeBg[2]);
-                                    pdf.rect(cellX, yPosition - 3, cellWidth, 8, 'F');
-                                    pdf.setFont('helvetica', 'bold');
-                                } else {
-                                    pdf.setFont('helvetica', 'normal');
-                                }
-
-                                pdf.setFontSize(10);
-                                pdf.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-
-                                const cellText = cell.textContent.trim();
-                                const cellLines = wrapText(cellText, cellWidth - 4, 10);
-                                cellLines.forEach((line, lineIndex) => {
-                                    pdf.text(line, cellX + 2, yPosition + (lineIndex * 4));
-                                });
-                            });
-                            yPosition += 8;
-                        });
-                        yPosition += 5;
-                        break;
-
-                    default:
-                        // Handle other text elements
-                        if (textContent && !element.querySelector('*')) {
-                            checkPageBreak(8);
-                            pdf.setFont('helvetica', 'normal');
-                            pdf.setFontSize(11);
-                            pdf.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-
-                            const lines = wrapText(textContent, availableWidth, 11);
-                            lines.forEach(line => {
-                                pdf.text(line, margin + indent, yPosition);
-                                yPosition += 5;
-                            });
-                            yPosition += 2;
-                        }
-                        break;
-                }
-            };
-
-            // Process all direct children of the preview element
-            const children = Array.from(previewElement.children);
-            children.forEach(child => {
-                // Skip Mermaid diagrams for now (they need special handling)
-                if (!child.classList.contains('mermaid')) {
-                    processElement(child);
-                }
+                pdf.text(line, margin, yPosition);
+                yPosition += lineHeight;
             });
 
-            // Handle Mermaid diagrams by capturing them as images
-            const mermaidElements = previewElement.querySelectorAll('.mermaid');
-            for (const mermaidEl of mermaidElements) {
-                try {
-                    checkPageBreak(50);
+            // Set metadata
+            const name = this.currentDocument.name || 'Untitled Document';
+            pdf.setProperties({
+                title: name,
+                creator: 'Markdown Manager',
+                author: 'User'
+            });
 
-                    // Capture mermaid diagram as image
-                    const canvas = await html2canvas(mermaidEl, {
-                        scale: 2,
-                        backgroundColor: currentTheme === 'dark' ? '#1e1e1e' : '#ffffff',
-                        allowTaint: true
-                    });
-
-                    const imgData = canvas.toDataURL('image/png');
-                    const imgWidth = Math.min(contentWidth, 150);
-                    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-                    checkPageBreak(imgHeight);
-                    pdf.addImage(imgData, 'PNG', margin, yPosition, imgWidth, imgHeight);
-                    yPosition += imgHeight + 10;
-                } catch (error) {
-                    console.warn('Failed to capture Mermaid diagram:', error);
-                    // Fallback to text representation
-                    pdf.setFont('courier', 'normal');
-                    pdf.setFontSize(9);
-                    pdf.setTextColor(colors.text[0], colors.text[1], colors.text[2]);
-                    pdf.text('[Mermaid Diagram]', margin, yPosition);
-                    yPosition += 10;
-                }
-            }
-
-            // Save the PDF
-            const name = filename || this.currentDocument.name || 'document';
-            const fileName = name.endsWith('.pdf') ? name : `${name}.pdf`;
-            pdf.save(fileName);
+            // Save
+            const fileName = filename || name;
+            const finalFileName = fileName.endsWith('.pdf') ? fileName : `${fileName}.pdf`;
+            pdf.save(finalFileName);
 
         } catch (error) {
-            console.error('Error exporting PDF:', error);
-            throw new Error(`PDF export failed: ${error.message}`);
+            console.error('Simple PDF export failed:', error);
+            throw error;
         }
+    }
+
+    /**
+     * Original text-based PDF export as final fallback
+     */
+    exportAsPDFOriginal(filename = null) {
+        const previewElement = document.querySelector('#preview .preview-scroll');
+        if (!previewElement) {
+            throw new Error('Preview element not found');
+        }
+
+        // Simple fallback: use textContent for PDF export
+        const pdf = new jsPDF({
+            orientation: 'portrait',
+            unit: 'mm',
+            format: 'a4'
+        });
+
+        const margin = 15;
+        const textContent = previewElement.textContent || '';
+        const lines = pdf.splitTextToSize(textContent, pdf.internal.pageSize.getWidth() - (2 * margin));
+        
+        let yPosition = margin;
+        const lineHeight = 6;
+        const pageHeight = pdf.internal.pageSize.getHeight() - margin;
+
+        // Add notice about formatting limitation
+        pdf.setFont('helvetica', 'italic');
+        pdf.setFontSize(10);
+        pdf.text('Note: This is a simplified text export. Formatting and emojis may not display correctly.', margin, yPosition);
+        yPosition += 10;
+
+        pdf.setFont('helvetica', 'normal');
+        pdf.setFontSize(11);
+
+        lines.forEach(line => {
+            if (yPosition > pageHeight) {
+                pdf.addPage();
+                yPosition = margin;
+            }
+            pdf.text(line, margin, yPosition);
+            yPosition += lineHeight;
+        });
+
+        const name = filename || this.currentDocument.name || 'document';
+        const fileName = name.endsWith('.pdf') ? name : `${name}.pdf`;
+        pdf.save(fileName);
     }
 
     /**
@@ -681,6 +654,42 @@ export class DocumentManager {
             doc.name.toLowerCase().includes(searchTerm) ||
             doc.content.toLowerCase().includes(searchTerm)
         );
+    }
+
+    /**
+     * Show PDF loading notification
+     */
+    showPDFLoadingNotification() {
+        const notification = document.createElement('div');
+        notification.className = 'pdf-loading-notification';
+        notification.style.cssText = `
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 20px 30px;
+            border-radius: 8px;
+            z-index: 9999;
+            text-align: center;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        `;
+        notification.innerHTML = `
+            <div style="margin-bottom: 10px;">📄 Generating PDF...</div>
+            <div style="font-size: 14px; opacity: 0.8;">This may take a moment for large documents</div>
+        `;
+        document.body.appendChild(notification);
+        return notification;
+    }
+
+    /**
+     * Hide PDF loading notification
+     */
+    hidePDFLoadingNotification(notification) {
+        if (notification && notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+        }
     }
 }
 

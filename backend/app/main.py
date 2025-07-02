@@ -1,13 +1,27 @@
 """FastAPI main application."""
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.api import api_router
 from app.core.config import settings
+from app.database import create_tables
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Application lifespan events."""
+    # Startup: create database tables
+    await create_tables()
+    yield
+    # Shutdown: cleanup if needed
+
 
 app = FastAPI(
     title=settings.project_name,
-    openapi_url=f"{settings.api_v1_str}/openapi.json"
+    openapi_url=f"{settings.api_v1_str}/openapi.json",
+    lifespan=lifespan,
 )
 
 # Set up CORS middleware

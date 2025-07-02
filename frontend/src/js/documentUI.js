@@ -568,9 +568,7 @@ export class DocumentUIManager {
      */
     async exportPDF() {
         try {
-            this.showNotification('Generating PDF...', 'info');
             await documentManager.exportAsPDF();
-            this.showNotification('PDF exported successfully!', 'success');
         } catch (error) {
             this.showNotification('Error exporting PDF: ' + error.message, 'error');
         }

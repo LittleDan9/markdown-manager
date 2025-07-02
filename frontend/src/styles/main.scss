@@ -750,3 +750,35 @@ pre[class*="language-"] {
   // This takes into account the padding and position of the preview container
   margin-right: calc(1rem); // Match the previewContainer padding
 }
+
+// User profile dropdown button styling (no border)
+#userMenuDropdown {
+  border: none !important;
+  background: transparent !important;
+  color: inherit;
+
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+    border: none !important;
+  }
+
+  &:focus {
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    outline: none;
+    border: none !important;
+    background: transparent !important;
+  }
+
+  &:active,
+  &.show {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  }
+
+  [data-bs-theme="dark"] & {
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.1) !important;
+    }
+  }
+}

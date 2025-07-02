@@ -4,6 +4,7 @@ import { applyEditorTheme, initTheme, toggleTheme } from './theme';
 import { render } from './renderer';
 import { documentManager } from './documentManager';
 import { initDocumentUI } from './documentUI';
+import AuthManager from './auth';
 
 import '../styles/main.scss';
 
@@ -16,6 +17,8 @@ function debounce(fn, wait) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+    console.log('🚀 DOM Content Loaded');
+    
     let theme = await initTheme();
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
@@ -24,6 +27,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     const editor = await initEditor(theme);
     await applyEditorTheme(theme, editor);
+
+    // Initialize authentication system
+    const authManager = new AuthManager();
+    // Make it globally available for debugging
+    window.authManager = authManager;
 
     // Initialize document management
     const documentUI = initDocumentUI(editor);

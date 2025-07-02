@@ -8,6 +8,7 @@
     "build": "webpack --mode=production",
     "build:clean": "rm -rf dist && npm run build",
     "build:dev": "webpack --mode=development",
+    "build:dev:incremental": "webpack --mode=development --watch",
     "build:analyze": "webpack --mode=production --analyze",
     "dev": "webpack --mode=development",
     "serve": "webpack serve --mode=development --open",

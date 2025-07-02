@@ -12,6 +12,16 @@ fastapi = "^0.115.0"
 uvicorn = {extras = ["standard"], version = "^0.32.0"}
 pydantic = "^2.10.0"
 pydantic-settings = "^2.6.0"
+# Database dependencies
+sqlalchemy = "^2.0.0"
+alembic = "^1.13.0"
+aiosqlite = "^0.20.0"
+# Authentication
+passlib = {extras = ["bcrypt"], version = "^1.7.4"}
+python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+python-multipart = "^0.0.9"
+# Additional utilities
+email-validator = "^2.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"
@@ -20,6 +30,10 @@ black = "^24.10.0"
 isort = "^5.13.0"
 flake8 = "^7.1.0"
 mypy = "^1.13.0"
+httpx = "^0.28.1"
+# Testing utilities
+pytest-mock = "^3.12.0"
+faker = "^19.6.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -38,3 +52,12 @@ python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short"]
+pythonpath = ["."]
+asyncio_mode = "auto"
