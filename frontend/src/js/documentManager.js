@@ -1,6 +1,8 @@
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
+import config from './config.js';
+import AuthManager from './auth.js';
 
 // Constants for local storage keys
 const DOCUMENTS_KEY = 'savedDocuments';
@@ -16,14 +18,40 @@ export { DEFAULT_CATEGORY };
 
 /**
  * Document Manager Class
- * Handles saving, loading, and managing documents in localStorage
+ * Handles saving, loading, and managing documents with hybrid storage:
+ * - API for authenticated users
+ * - localStorage for anonymous users
  */
 export class DocumentManager {
     constructor() {
+        this.authManager = new AuthManager();
         this.documents = this.loadDocuments();
         this.currentDocument = this.loadCurrentDocument();
         this.autoSaveEnabled = this.getAutoSavePreference();
         this.categories = this.loadCategories();
+
+        // Initialize beforeunload handler
+        this.initBeforeUnloadHandler();
+    }
+
+    /**
+     * Check if user is authenticated
+     */
+    isAuthenticated() {
+        return this.authManager.isAuthenticated();
+    }
+
+    /**
+     * Get authentication headers for API requests
+     */
+    getAuthHeaders() {
+        if (!this.isAuthenticated()) {
+            return {};
+        }
+        return {
+            'Authorization': `Bearer ${this.authManager.getToken()}`,
+            'Content-Type': 'application/json'
+        };
     }
 
     /**
@@ -144,10 +172,24 @@ export class DocumentManager {
     }
 
     /**
-     * Get all categories
+     * Get all categories (hybrid: API for authenticated users, localStorage for anonymous)
      */
-    getAllCategories() {
-        return [...this.categories];
+    async getAllCategories() {
+        try {
+            if (this.isAuthenticated()) {
+                // Fetch from server for authenticated users
+                const serverCategories = await this.getCategoriesFromServer();
+                // Ensure we always return an array
+                return Array.isArray(serverCategories) ? serverCategories : [DEFAULT_CATEGORY];
+            } else {
+                // Use localStorage for anonymous users
+                return [...this.categories];
+            }
+        } catch (error) {
+            console.error('Error getting categories:', error);
+            // Fallback to localStorage
+            return [...this.categories];
+        }
     }
 
     /**
@@ -189,40 +231,58 @@ export class DocumentManager {
     }
 
     /**
-     * Save a document
+     * Save a document (hybrid: API for authenticated users, localStorage for anonymous)
      */
-    saveDocument(content, name = null, id = null, category = null) {
+    async saveDocument(content, name = null, id = null, category = null) {
         try {
-            // Use existing ID or generate new one
-            const docId = id || this.currentDocument.id || this.generateId();
-
             // Use provided name or current document name
             const docName = name || this.currentDocument.name || 'Untitled Document';
-
+            
             // Use provided category or default category
-            const docCategory = category || this.documents[docId]?.category || DEFAULT_CATEGORY;
+            const docCategory = category || this.currentDocument.category || DEFAULT_CATEGORY;
 
-            // Ensure category exists in our categories list
-            if (!this.categories.includes(docCategory)) {
-                this.addCategory(docCategory);
+            if (this.isAuthenticated()) {
+                // Save to server for authenticated users
+                const serverDocId = typeof id === 'string' && id.startsWith('doc_') ? null : id;
+                const savedDocument = await this.saveDocumentToServer(
+                    content, docName, docCategory, serverDocId
+                );
+                
+                // Update current document reference
+                this.currentDocument = {
+                    id: savedDocument.id,
+                    name: savedDocument.name,
+                    category: savedDocument.category
+                };
+                this.saveCurrentDocument();
+                
+                return savedDocument;
+            } else {
+                // Use localStorage for anonymous users
+                const docId = id || this.currentDocument.id || this.generateId();
+
+                // Ensure category exists in our categories list
+                if (!this.categories.includes(docCategory)) {
+                    this.addCategory(docCategory);
+                }
+
+                const document = {
+                    id: docId,
+                    name: docName,
+                    content: content,
+                    category: docCategory,
+                    lastModified: new Date().toISOString(),
+                    created: this.documents[docId]?.created || new Date().toISOString()
+                };
+
+                this.documents[docId] = document;
+                this.currentDocument = { id: docId, name: docName, category: docCategory };
+
+                this.saveDocuments();
+                this.saveCurrentDocument();
+
+                return document;
             }
-
-            const document = {
-                id: docId,
-                name: docName,
-                content: content,
-                category: docCategory,
-                lastModified: new Date().toISOString(),
-                created: this.documents[docId]?.created || new Date().toISOString()
-            };
-
-            this.documents[docId] = document;
-            this.currentDocument = { id: docId, name: docName, category: docCategory };
-
-            this.saveDocuments();
-            this.saveCurrentDocument();
-
-            return document;
         } catch (error) {
             console.error('Error saving document:', error);
             throw error;
@@ -230,68 +290,131 @@ export class DocumentManager {
     }
 
     /**
-     * Load a document by ID
+     * Load a document by ID (hybrid: API for authenticated users, localStorage for anonymous)
      */
-    loadDocument(id) {
-        const document = this.documents[id];
-        if (document) {
-            this.currentDocument = {
-                id: document.id,
-                name: document.name,
-                category: document.category || DEFAULT_CATEGORY
-            };
-            this.saveCurrentDocument();
-            return document;
-        }
-        throw new Error('Document not found');
-    }
-
-    /**
-     * Delete a document
-     */
-    deleteDocument(id) {
-        if (this.documents[id]) {
-            delete this.documents[id];
-            this.saveDocuments();
-
-            // If we deleted the current document, reset to untitled
-            if (this.currentDocument.id === id) {
-                this.currentDocument = { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY };
+    async loadDocument(id) {
+        try {
+            if (this.isAuthenticated()) {
+                // Load from server for authenticated users
+                const document = await this.loadDocumentFromServer(id);
+                this.currentDocument = {
+                    id: document.id,
+                    name: document.name,
+                    category: document.category || DEFAULT_CATEGORY
+                };
                 this.saveCurrentDocument();
+                return document;
+            } else {
+                // Load from localStorage for anonymous users
+                const document = this.documents[id];
+                if (document) {
+                    this.currentDocument = {
+                        id: document.id,
+                        name: document.name,
+                        category: document.category || DEFAULT_CATEGORY
+                    };
+                    this.saveCurrentDocument();
+                    return document;
+                }
+                throw new Error('Document not found');
             }
-
-            return true;
+        } catch (error) {
+            console.error('Error loading document:', error);
+            throw error;
         }
-        return false;
     }
 
     /**
-     * Get all saved documents, optionally filtered by category
+     * Delete a document (hybrid: API for authenticated users, localStorage for anonymous)
      */
-    getAllDocuments(categoryFilter = null) {
-        let documents = Object.values(this.documents);
+    async deleteDocument(id) {
+        try {
+            if (this.isAuthenticated()) {
+                // Delete from server for authenticated users
+                const success = await this.deleteDocumentFromServer(id);
+                if (success && this.currentDocument.id == id) {
+                    this.currentDocument = { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY };
+                    this.saveCurrentDocument();
+                }
+                return success;
+            } else {
+                // Delete from localStorage for anonymous users
+                if (this.documents[id]) {
+                    delete this.documents[id];
+                    this.saveDocuments();
 
-        if (categoryFilter && categoryFilter !== 'All') {
-            documents = documents.filter(doc =>
-                (doc.category || DEFAULT_CATEGORY) === categoryFilter
+                    // If we deleted the current document, reset to untitled
+                    if (this.currentDocument.id === id) {
+                        this.currentDocument = { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY };
+                        this.saveCurrentDocument();
+                    }
+
+                    return true;
+                }
+                return false;
+            }
+        } catch (error) {
+            console.error('Error deleting document:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get all saved documents, optionally filtered by category (hybrid storage)
+     */
+    async getAllDocuments(categoryFilter = null) {
+        try {
+            if (this.isAuthenticated()) {
+                // Fetch from server for authenticated users
+                const data = await this.fetchDocumentsFromServer(categoryFilter);
+                return data.documents || [];
+            } else {
+                // Use localStorage for anonymous users
+                let documents = Object.values(this.documents);
+
+                if (categoryFilter && categoryFilter !== 'All') {
+                    documents = documents.filter(doc =>
+                        (doc.category || DEFAULT_CATEGORY) === categoryFilter
+                    );
+                }
+
+                return documents.sort((a, b) =>
+                    new Date(b.lastModified) - new Date(a.lastModified)
+                );
+            }
+        } catch (error) {
+            console.error('Error getting documents:', error);
+            // Fallback to localStorage on error
+            let documents = Object.values(this.documents);
+            if (categoryFilter && categoryFilter !== 'All') {
+                documents = documents.filter(doc =>
+                    (doc.category || DEFAULT_CATEGORY) === categoryFilter
+                );
+            }
+            return documents.sort((a, b) =>
+                new Date(b.lastModified) - new Date(a.lastModified)
             );
         }
-
-        return documents.sort((a, b) =>
-            new Date(b.lastModified) - new Date(a.lastModified)
-        );
     }
 
     /**
      * Rename a document
      */
-    renameDocument(id, newName) {
+    renameDocument(id, newName, newCategory = null) {
         if (this.documents[id]) {
             this.documents[id].name = newName;
             this.documents[id].lastModified = new Date().toISOString();
+            
+            // Update category if provided
+            if (newCategory !== null) {
+                this.documents[id].category = newCategory;
+            }
 
             if (this.currentDocument.id === id) {
                 this.currentDocument.name = newName;
+                if (newCategory !== null) {
+                    this.currentDocument.category = newCategory;
+                }
                 this.saveCurrentDocument();
             }
 
@@ -362,7 +485,7 @@ export class DocumentManager {
             };
 
             // Send request to backend PDF export endpoint
-            const response = await fetch('http://localhost:8001/api/v1/pdf/export', {
+            const response = await fetch(`${config.apiBaseUrl}/pdf/export`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -539,6 +662,287 @@ export class DocumentManager {
         );
     }
 
+    /**
+     * API Methods for Server-Side Document Operations
+     */
+
+    /**
+     * Fetch documents from server
+     */
+    async fetchDocumentsFromServer(category = null) {
+        try {
+            const url = new URL(`${config.apiBaseUrl}/documents/`);
+            if (category && category !== 'All') {
+                url.searchParams.append('category', category);
+            }
+            
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch documents: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Error fetching documents from server:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Save document to server
+     */
+    async saveDocumentToServer(content, name, category = DEFAULT_CATEGORY, documentId = null) {
+        try {
+            const documentData = {
+                name: name || 'Untitled Document',
+                content: content,
+                category: category || DEFAULT_CATEGORY
+            };
+
+            let response;
+            if (documentId) {
+                // Update existing document
+                response = await fetch(`${config.apiBaseUrl}/documents/${documentId}`, {
+                    method: 'PUT',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(documentData)
+                });
+            } else {
+                // Create new document
+                response = await fetch(`${config.apiBaseUrl}/documents/`, {
+                    method: 'POST',
+                    headers: this.getAuthHeaders(),
+                    body: JSON.stringify(documentData)
+                });
+            }
+
+            if (!response.ok) {
+                throw new Error(`Failed to save document: ${response.status}`);
+            }
+
+            const savedDocument = await response.json();
+            return savedDocument;
+        } catch (error) {
+            console.error('Error saving document to server:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Load document from server
+     */
+    async loadDocumentFromServer(documentId) {
+        try {
+            const response = await fetch(`${config.apiBaseUrl}/documents/${documentId}`, {
+                method: 'GET',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to load document: ${response.status}`);
+            }
+
+            const document = await response.json();
+            return document;
+        } catch (error) {
+            console.error('Error loading document from server:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Delete document from server
+     */
+    async deleteDocumentFromServer(documentId) {
+        try {
+            const response = await fetch(`${config.apiBaseUrl}/documents/${documentId}`, {
+                method: 'DELETE',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to delete document: ${response.status}`);
+            }
+
+            return true;
+        } catch (error) {
+            console.error('Error deleting document from server:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Get categories from server
+     */
+    async getCategoriesFromServer() {
+        try {
+            const response = await fetch(`${config.apiBaseUrl}/documents/categories/`, {
+                method: 'GET',
+                headers: this.getAuthHeaders()
+            });
+
+            if (!response.ok) {
+                throw new Error(`Failed to fetch categories: ${response.status}`);
+            }
+
+            const categories = await response.json();
+            
+            // Ensure we always return an array
+            if (Array.isArray(categories)) {
+                return categories.length > 0 ? categories : [DEFAULT_CATEGORY];
+            } else {
+                console.warn('Server returned non-array categories:', categories);
+                return [DEFAULT_CATEGORY];
+            }
+        } catch (error) {
+            console.error('Error fetching categories from server:', error);
+            return [DEFAULT_CATEGORY];
+        }
+    }
+
+    /**
+     * Migrate localStorage documents to server
+     */
+    async migrateLocalDocumentsToServer() {
+        if (!this.isAuthenticated()) {
+            return;
+        }
+
+        try {
+            const localDocs = Object.values(this.documents);
+            const migrationPromises = localDocs.map(async (doc) => {
+                try {
+                    await this.saveDocumentToServer(doc.content, doc.name, doc.category);
+                    console.log(`Migrated document: ${doc.name}`);
+                } catch (error) {
+                    console.error(`Failed to migrate document ${doc.name}:`, error);
+                }
+            });
+
+            await Promise.all(migrationPromises);
+            
+            // Clear local storage after successful migration
+            this.documents = {};
+            this.saveDocuments();
+            console.log('Local documents migrated to server successfully');
+        } catch (error) {
+            console.error('Error during document migration:', error);
+        }
+    }
+
+    /**
+     * Handle user login - migrate localStorage documents to server
+     */
+    async onUserLogin() {
+        if (!this.isAuthenticated()) {
+            return;
+        }
+
+        try {
+            // Check if there are any local documents to migrate
+            const localDocs = Object.values(this.documents);
+            if (localDocs.length > 0) {
+                console.log(`Found ${localDocs.length} local documents to migrate`);
+                await this.migrateLocalDocumentsToServer();
+            }
+        } catch (error) {
+            console.error('Error during login migration:', error);
+        }
+    }
+
+    /**
+     * Force save current document state to server (if authenticated)
+     */
+    async forceSaveCurrentDocument() {
+        if (!this.isAuthenticated()) {
+            return null;
+        }
+
+        try {
+            // Get current editor content if available
+            let currentContent = '';
+            if (window.editorInstance && typeof window.editorInstance.getValue === 'function') {
+                currentContent = window.editorInstance.getValue();
+            }
+
+            // Only save if we have content and a document context
+            if (currentContent.trim() || this.currentDocument.id) {
+                const currentName = this.currentDocument.name || 'Untitled Document';
+                const currentCategory = this.currentDocument.category || DEFAULT_CATEGORY;
+                
+                console.log('Force saving current document before logout...');
+                
+                const savedDocument = await this.saveDocument(
+                    currentContent, 
+                    currentName, 
+                    this.currentDocument.id, 
+                    currentCategory
+                );
+                
+                console.log('Document force-saved successfully:', savedDocument.name);
+                return savedDocument;
+            }
+        } catch (error) {
+            console.error('Error during forced document save:', error);
+            throw error;
+        }
+        
+        return null;
+    }
+
+    /**
+     * Handle user logout - save current state then clear server data
+     */
+    async onUserLogout() {
+        try {
+            // Force save current document state before logout
+            await this.forceSaveCurrentDocument();
+        } catch (error) {
+            console.error('Failed to save document during logout:', error);
+            // Continue with logout even if save fails
+        }
+        
+        // Reset to localStorage mode
+        this.documents = this.loadDocuments();
+        this.categories = this.loadCategories();
+        console.log('User logged out, switched to localStorage mode');
+    }
+
+    /**
+     * Handle browser/tab close - attempt to save current document
+     */
+    async onBeforeUnload() {
+        if (this.isAuthenticated()) {
+            try {
+                // Attempt a quick save (non-blocking)
+                await this.forceSaveCurrentDocument();
+            } catch (error) {
+                console.error('Failed to save document before page unload:', error);
+            }
+        }
+    }
+
+    /**
+     * Initialize beforeunload handler
+     */
+    initBeforeUnloadHandler() {
+        window.addEventListener('beforeunload', (event) => {
+            if (this.isAuthenticated()) {
+                // For authenticated users, try to save
+                this.onBeforeUnload();
+                
+                // Show browser warning for unsaved changes
+                event.preventDefault();
+                event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                return 'You have unsaved changes. Are you sure you want to leave?';
+            }
+        });
+    }
 }
 
 // Create singleton instance

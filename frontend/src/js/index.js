@@ -7,7 +7,15 @@ import { initDocumentUI } from './documentUI';
 import AuthManager from './auth';
 import NotificationManager from './notifications';
 
+// Import Bootstrap CSS and JS (CSS will be extracted by webpack)
+import 'bootstrap/dist/css/bootstrap.min.css';
+import 'bootstrap-icons/font/bootstrap-icons.css';
+import * as bootstrap from 'bootstrap';
+
 import '../styles/main.scss';
+
+// Make Bootstrap available globally for other modules
+window.bootstrap = bootstrap;
 
 function debounce(fn, wait) {
   let t;
@@ -29,10 +37,16 @@ window.addEventListener('DOMContentLoaded', async () => {
     const editor = await initEditor(theme);
     await applyEditorTheme(theme, editor);
 
+    // Make editor globally available for document sync operations
+    window.editorInstance = editor;
+
     // Initialize authentication system
     const authManager = new AuthManager();
     // Make it globally available for debugging
     window.authManager = authManager;
+
+    // Make document manager globally available for auth integration
+    window.documentManager = documentManager;
 
     // Initialize document management
     const documentUI = initDocumentUI(editor);
@@ -263,6 +277,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     if (fullscreenBtn) {
         fullscreenBtn.addEventListener('click', openFullscreenDiagram);
     }
+
+    // Initialize Bootstrap tooltips
+    const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    console.log('Bootstrap tooltips initialized');
 
     // Handle window resize to re-render preview
     const debouncedResize = debounce(() => {

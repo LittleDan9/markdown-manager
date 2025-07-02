@@ -4,10 +4,11 @@
  */
 
 import NotificationManager from './notifications.js';
+import config from './config.js';
 
 class AuthManager {
     constructor() {
-        this.apiBase = '/api/v1';
+        this.apiBase = config.apiBaseUrl;
         this.currentUser = null;
         this.token = localStorage.getItem('authToken');
         
@@ -53,7 +54,7 @@ class AuthManager {
         });
 
         // Use event delegation for profile and logout buttons since they might be hidden initially
-        document.addEventListener('click', (e) => {
+        document.addEventListener('click', async (e) => {
             if (e.target.id === 'profileBtn' || e.target.closest('#profileBtn')) {
                 e.preventDefault();
                 this.showProfileModal();
@@ -61,7 +62,7 @@ class AuthManager {
             
             if (e.target.id === 'logoutBtn' || e.target.closest('#logoutBtn')) {
                 e.preventDefault();
-                this.logout();
+                await this.logout();
             }
         });
 
@@ -137,34 +138,25 @@ class AuthManager {
     }
 
     showLoginModal() {
-        this.debugLog('showLoginModal called');
-        this.debugLog(`Bootstrap available: ${typeof window.bootstrap !== 'undefined'}`);
-        this.debugLog(`Bootstrap Modal available: ${typeof window.bootstrap?.Modal !== 'undefined'}`);
-        
         try {
             const modalElement = document.getElementById('loginModal');
-            this.debugLog(`Modal element found: ${!!modalElement}`);
             
             if (!modalElement) {
-                this.debugLog('❌ Modal element not found!');
+                console.error('Login modal element not found!');
                 return;
             }
             
-            if (typeof window.bootstrap?.Modal === 'undefined') {
-                this.debugLog('❌ Bootstrap Modal not available!');
+            if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
+                console.error('Bootstrap Modal not available!');
                 return;
             }
             
             const modal = new bootstrap.Modal(modalElement);
-            this.debugLog(`Modal instance created: ${!!modal}`);
-            
             modal.show();
-            this.debugLog('✅ Modal show() called');
             
             document.getElementById('loginForm').reset();
             this.hideError('loginError');
         } catch (error) {
-            this.debugLog(`❌ Error in showLoginModal: ${error.message}`);
             console.error('Error in showLoginModal:', error);
         }
     }
@@ -207,6 +199,15 @@ class AuthManager {
                 
                 // Close modal
                 bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                
+                // Trigger document migration
+                try {
+                    if (window.documentManager) {
+                        await window.documentManager.onUserLogin();
+                    }
+                } catch (migrationError) {
+                    console.error('Document migration failed:', migrationError);
+                }
                 
                 // Show success message
                 NotificationManager.showSuccess('Welcome back!');
@@ -345,7 +346,7 @@ class AuthManager {
 
             if (response.ok) {
                 NotificationManager.showInfo('Account deleted successfully');
-                this.logout();
+                await this.logout();
                 bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
             } else {
                 const error = await response.json();
@@ -402,9 +403,22 @@ class AuthManager {
         }
     }
 
-    logout() {
+    async logout() {
+        // Show saving notification
+        NotificationManager.showInfo('Saving documents before logout...');
+        
+        // Trigger document logout hook with forced save
+        try {
+            if (window.documentManager) {
+                await window.documentManager.onUserLogout();
+            }
+        } catch (error) {
+            console.error('Document logout handler failed:', error);
+            NotificationManager.showWarning('Some documents may not have been saved');
+        }
+        
         this.clearAuth();
-        NotificationManager.showInfo('Logged out successfully');
+        NotificationManager.showSuccess('Logged out successfully');
     }
 
     clearAuth() {
@@ -432,8 +446,7 @@ class AuthManager {
     }
 
     hideSuccess(elementId) {
-        const element = document.getElementById(elementId);
-        element.style.display = 'none';
+        document.getElementById(elementId).style.display = 'none';
     }
 
     showSpinner(spinnerId) {

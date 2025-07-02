@@ -2,6 +2,7 @@ const path = require('path');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const { RuntimeGlobals } = require('webpack');
 const { userInfo } = require('os');
 const { split } = require('lodash');
@@ -19,15 +20,8 @@ module.exports = {
     rules: [
       {
         test: /\.css$/,
-        include: [
-          path.resolve(__dirname, 'node_modules/mermaid/'),
-          path.resolve(__dirname, 'node_modules/monaco-editor'),
-          path.resolve(__dirname, 'node_modules/highlight.js/styles'),
-          path.resolve(__dirname, 'node_modules/prismjs/themes'),
-          path.resolve(__dirname, 'node_modules/prism-themes/themes'),
-        ],
         use: [
-          'style-loader',
+          MiniCssExtractPlugin.loader,
           'css-loader'
         ],
       },
@@ -35,7 +29,7 @@ module.exports = {
         test: /\.scss$/,
         include: path.resolve(__dirname, 'src/styles'),
         use: [
-          'style-loader',
+          MiniCssExtractPlugin.loader,
           'css-loader',
           'sass-loader'
         ]
@@ -45,10 +39,18 @@ module.exports = {
         include: path.resolve(__dirname, 'src/assets'),
         type: 'asset/inline', // Inline SVG as data URL
       },
+      {
+        test: /\.(woff|woff2|eot|ttf|otf)$/,
+        type: 'asset/resource',
+      },
     ],
   },
   plugins: [
     new CompressionPlugin(),
+    new MiniCssExtractPlugin({
+      filename: '[name].[contenthash].css',
+      chunkFilename: '[id].[contenthash].css',
+    }),
     new HtmlWebpackPlugin({
       template: './src/index.html',
     }),

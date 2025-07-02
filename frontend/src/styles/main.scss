@@ -641,32 +641,32 @@ code:not(pre code):not([class*="language-"]) {
   }
 }
 
-// Custom Modal Implementation
-.custom-modal {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  z-index: 1050;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+// Custom Modal Implementation - Higher specificity to override Bootstrap
+body .custom-modal {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  z-index: 1060 !important; // Higher than Bootstrap's modal z-index
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  transition: opacity 0.3s ease, visibility 0.3s ease !important;
 
   &.show {
-    opacity: 1;
-    visibility: visible;
+    opacity: 1 !important;
+    visibility: visible !important;
 
     .custom-modal-dialog {
-      transform: scale(1);
+      transform: scale(1) !important;
     }
   }
 
   &.closing {
-    opacity: 0;
+    opacity: 0 !important;
 
     .custom-modal-dialog {
       transform: scale(0.9);
@@ -674,40 +674,40 @@ code:not(pre code):not([class*="language-"]) {
   }
 }
 
-.custom-modal-backdrop {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.5);
-  cursor: pointer;
+body .custom-modal-backdrop {
+  position: absolute !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  cursor: pointer !important;
 }
 
-.custom-modal-dialog {
-  position: relative;
-  width: 90%;
-  max-width: 500px;
-  max-height: 90vh;
-  transform: scale(0.9);
-  transition: transform 0.3s ease;
-  z-index: 1051;
+body .custom-modal-dialog {
+  position: relative !important;
+  width: 90% !important;
+  max-width: 500px !important;
+  max-height: 90vh !important;
+  transform: scale(0.9) !important;
+  transition: transform 0.3s ease !important;
+  z-index: 1061 !important; // Higher than backdrop
 }
 
-.custom-modal-content {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  background-color: #fff;
-  border: 1px solid rgba(0, 0, 0, 0.175);
-  border-radius: 0.5rem;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
-  overflow: hidden;
+body .custom-modal-content {
+  position: relative !important;
+  display: flex !important;
+  flex-direction: column !important;
+  background-color: #fff !important;
+  border: 1px solid rgba(0, 0, 0, 0.175) !important;
+  border-radius: 0.5rem !important;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  overflow: hidden !important;
 
   [data-bs-theme="dark"] & {
-    background-color: #2a2a2a;
-    border-color: #495057;
-    color: #fff;
+    background-color: #2a2a2a !important;
+    border-color: #495057 !important;
+    color: #fff !important;
   }
 }
 

@@ -24,10 +24,7 @@ export class DocumentUIManager {
 
     /**
      * Initialize event listeners for document management
-     */
-    initializeEventListeners() {
-        console.log('Initializing document UI event listeners...');
-
+     */    initializeEventListeners() {
         // File menu buttons - use event delegation to ensure they work
         const fileMenuButtons = {
             'newDocBtn': () => this.newDocument(),
@@ -44,12 +41,8 @@ export class DocumentUIManager {
             if (element) {
                 element.addEventListener('click', (e) => {
                     e.preventDefault();
-                    console.log(`Clicked ${id}`);
                     handler();
                 });
-                console.log(`Added listener for ${id}`);
-            } else {
-                console.warn(`Element with id '${id}' not found`);
             }
         });
 
@@ -66,21 +59,40 @@ export class DocumentUIManager {
                     this.cancelTitleEdit();
                 }
             });
-            console.log('Added listeners for document title');
         } else {
             console.warn('Document title element not found');
         }
 
-        // Ensure Bootstrap dropdown is working
+        // Initialize Bootstrap dropdown
         const dropdownElement = document.getElementById('fileMenuDropdown');
         if (dropdownElement) {
             console.log('File menu dropdown element found');
 
-            // Manual dropdown toggle if Bootstrap isn't working
+            // Initialize Bootstrap dropdown component
+            if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+                try {
+                    // Check if dropdown is already initialized
+                    const existingDropdown = bootstrap.Dropdown.getInstance(dropdownElement);
+                    if (!existingDropdown) {
+                        new bootstrap.Dropdown(dropdownElement);
+                    }
+                } catch (error) {
+                    // Keep the manual fallback as backup
+                    initManualDropdown(dropdownElement);
+                }
+            } else {
+                initManualDropdown(dropdownElement);
+            }
+        } else {
+            // Fallback for when file menu dropdown is not found
+        }
+
+        // Manual dropdown fallback function
+        function initManualDropdown(dropdownElement) {
             dropdownElement.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                console.log('Dropdown clicked');
+
                 const dropdownMenu = dropdownElement.nextElementSibling;
                 if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
                     // Close other dropdowns first
@@ -103,12 +115,9 @@ export class DocumentUIManager {
                     dropdownMenu.classList.remove('show');
                 }
             });
-
-        } else {
-            console.warn('File menu dropdown element not found');
         }
 
-        console.log('Document UI event listeners initialized');
+
     }
 
     /**
@@ -129,7 +138,7 @@ export class DocumentUIManager {
     /**
      * Save current document
      */
-    saveDocument() {
+    async saveDocument() {
         try {
             const content = this.editor.getValue();
 
@@ -142,23 +151,34 @@ export class DocumentUIManager {
             if (domTitle !== managerName && domTitle && domTitle !== 'Untitled Document') {
                 documentManager.currentDocument.name = domTitle;
                 documentManager.saveCurrentDocument();
-                console.log('Synced title from DOM:', domTitle);
             }
 
             const currentName = documentManager.currentDocument.name;
-            console.log('Save document - Current name:', currentName, 'Has ID:', !!documentManager.currentDocument.id);
+            const currentCategory = documentManager.currentDocument.category;
 
-            // If no ID and name is still default or empty, show save as modal
-            if (!documentManager.currentDocument.id &&
-                (!currentName || currentName.trim() === '' || currentName === 'Untitled Document')) {
-                this.showSaveAsModal();
+            // Always show Save As modal if:
+            // 1. No ID (new document) AND (no name, empty name, or default name)
+            // 2. No ID (new document) AND no category specified
+            const shouldShowSaveAs = !documentManager.currentDocument.id && (
+                !currentName || 
+                currentName.trim() === '' || 
+                currentName === 'Untitled Document' ||
+                !currentCategory ||
+                currentCategory === DEFAULT_CATEGORY
+            );
+
+            if (shouldShowSaveAs) {
+                await this.showSaveAsModal();
                 return;
             }
 
+            // Show loading indicator
+            this.showNotification('Saving document...', 'info');
+
             // If we have a name but no ID, create new document with that name
             if (!documentManager.currentDocument.id && currentName && currentName.trim() && currentName !== 'Untitled Document') {
-                const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
-                const savedDoc = documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
+                const categoryToUse = currentCategory || DEFAULT_CATEGORY;
+                const savedDoc = await documentManager.saveDocument(content, currentName.trim(), null, categoryToUse);
                 this.showNotification('Document saved successfully!', 'success');
                 this.updateDocumentTitle();
                 return;
@@ -166,8 +186,8 @@ export class DocumentUIManager {
 
             // If we have both name and ID, update existing document
             if (documentManager.currentDocument.id) {
-                const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
-                documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
+                const categoryToUse = currentCategory || DEFAULT_CATEGORY;
+                await documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, categoryToUse);
                 this.showNotification('Document saved successfully!', 'success');
                 this.updateDocumentTitle();
                 return;
@@ -181,29 +201,41 @@ export class DocumentUIManager {
     /**
      * Show save as modal
      */
-    showSaveAsModal() {
-        // Get the current title from both the document manager and the DOM element
-        const managerName = documentManager.currentDocument.name || 'Untitled Document';
-        const titleElement = document.getElementById('documentTitle');
-        const domTitle = titleElement ? titleElement.textContent.trim() : managerName;
+    async showSaveAsModal(isRename = false, documentToRename = null) {
+        try {
+            // Get the current title from both the document manager and the DOM element
+            let currentName, currentCategory;
+            
+            if (isRename && documentToRename) {
+                // For rename operations, use the document being renamed
+                currentName = documentToRename.name || 'Untitled Document';
+                currentCategory = documentToRename.category || DEFAULT_CATEGORY;
+            } else {
+                // For save operations, use the current document
+                const managerName = documentManager.currentDocument.name || 'Untitled Document';
+                const titleElement = document.getElementById('documentTitle');
+                const domTitle = titleElement ? titleElement.textContent.trim() : managerName;
+                
+                // Use the DOM title if it's different from the manager (user may have edited it)
+                currentName = domTitle !== managerName ? domTitle : managerName;
+                currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
+            }
 
-        // Use the DOM title if it's different from the manager (user may have edited it)
-        const currentName = domTitle !== managerName ? domTitle : managerName;
+            // Only show the current name if it's not the default
+            const displayName = (currentName === 'Untitled Document' || !currentName.trim()) ? '' : currentName;
 
-        console.log('Save As Modal - Manager name:', managerName, 'DOM title:', domTitle, 'Using:', currentName);
+            // Get all available categories
+            const categories = await documentManager.getAllCategories();
 
-        // Only show the current name if it's not the default
-        const displayName = (currentName === 'Untitled Document' || !currentName.trim()) ? '' : currentName;
+            const categoryOptions = categories.map(category =>
+                `<option value="${this.escapeHtml(category)}" ${category === currentCategory ? 'selected' : ''}>${this.escapeHtml(category)}</option>`
+            ).join('');
 
-        // Get current category and all available categories
-        const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
-        const categories = documentManager.getAllCategories();
+            const modalTitle = isRename ? 'Rename Document' : 'Save Document';
+            const buttonText = isRename ? 'Rename' : 'Save';
+            const actionMethod = isRename ? 'performRename' : 'performSaveAs';
 
-        const categoryOptions = categories.map(category =>
-            `<option value="${this.escapeHtml(category)}" ${category === currentCategory ? 'selected' : ''}>${this.escapeHtml(category)}</option>`
-        ).join('');
-
-        this.showModal('Save Document', `
+            this.showModal(modalTitle, `
             <div class="mb-3">
                 <label for="saveDocName" class="form-label">Document Name</label>
                 <input type="text" class="form-control" id="saveDocName"
@@ -235,9 +267,9 @@ export class DocumentUIManager {
                 action: () => this.closeModal()
             },
             {
-                text: 'Save',
+                text: buttonText,
                 class: 'btn-primary',
-                action: () => this.performSaveAs()
+                action: () => isRename ? this.performRename(documentToRename) : this.performSaveAs()
             }
         ]);
 
@@ -257,26 +289,30 @@ export class DocumentUIManager {
                     input.select();
                 }
 
-                // Handle Enter key to save
+                // Handle Enter key to save/rename
                 input.addEventListener('keydown', (e) => {
                     if (e.key === 'Enter') {
                         e.preventDefault();
-                        this.performSaveAs();
+                        if (isRename) {
+                            this.performRename(documentToRename);
+                        } else {
+                            this.performSaveAs();
+                        }
                     }
                 });
 
                 // Real-time validation
                 input.addEventListener('input', (e) => {
                     const value = e.target.value.trim();
-                    const saveButton = document.querySelector('.custom-modal-footer .btn-primary');
+                    const actionButton = document.querySelector('.custom-modal-footer .btn-primary');
                     const helpText = document.querySelector('.form-text');
 
                     if (!value || value === 'Untitled Document') {
-                        saveButton.disabled = true;
+                        actionButton.disabled = true;
                         helpText.textContent = 'Please enter a valid document name (cannot be empty or "Untitled Document")';
                         helpText.className = 'form-text text-danger';
                     } else {
-                        saveButton.disabled = false;
+                        actionButton.disabled = false;
                         helpText.textContent = 'Enter a name for your document (cannot be "Untitled Document")';
                         helpText.className = 'form-text text-muted';
                     }
@@ -343,12 +379,16 @@ export class DocumentUIManager {
                 });
             }
         }, 100);
+    } catch (error) {
+        console.error('Error showing Save As modal:', error);
+        this.showNotification('Error opening Save dialog: ' + error.message, 'error');
     }
+}
 
     /**
      * Perform save as action
      */
-    performSaveAs() {
+    async performSaveAs() {
         const nameInput = document.getElementById('saveDocName');
         const categorySelect = document.getElementById('saveDocCategory');
         const name = nameInput?.value.trim();
@@ -369,7 +409,7 @@ export class DocumentUIManager {
 
         try {
             const content = this.editor.getValue();
-            documentManager.saveDocument(content, name, null, category);
+            await documentManager.saveDocument(content, name, null, category);
             this.showNotification('Document saved successfully!', 'success');
             this.updateDocumentTitle();
             this.closeModal();
@@ -381,121 +421,139 @@ export class DocumentUIManager {
     /**
      * Show load document modal
      */
-    showLoadModal() {
-        const allDocuments = documentManager.getAllDocuments();
+    async showLoadModal() {
+        try {
+            const allDocuments = await documentManager.getAllDocuments();
 
-        if (allDocuments.length === 0) {
-            this.showNotification('No saved documents found', 'info');
-            return;
-        }
-
-        const categories = documentManager.getAllCategories();
-        const categoryOptions = ['All', ...categories].map(category =>
-            `<option value="${this.escapeHtml(category)}">${this.escapeHtml(category)}</option>`
-        ).join('');
-
-        this.showModal('Load Document', `
-            <div class="mb-3">
-                <label for="categoryFilter" class="form-label">Filter by Category</label>
-                <select class="form-select" id="categoryFilter">
-                    ${categoryOptions}
-                </select>
-            </div>
-            <div class="document-list" style="max-height: 400px; overflow-y: auto;" id="documentsList">
-                <!-- Documents will be populated here -->
-            </div>
-        `, [
-            {
-                text: 'Cancel',
-                class: 'btn-secondary',
-                action: () => this.closeModal()
+            if (allDocuments.length === 0) {
+                this.showNotification('No saved documents found', 'info');
+                return;
             }
-        ]);
 
-        // Initialize the document list
-        this.updateDocumentsList('All');
+            const categories = await documentManager.getAllCategories();
+            const categoryOptions = ['All', ...categories].map(category =>
+                `<option value="${this.escapeHtml(category)}">${this.escapeHtml(category)}</option>`
+            ).join('');
 
-        // Add event listeners
-        const categoryFilter = document.getElementById('categoryFilter');
-        if (categoryFilter) {
-            categoryFilter.addEventListener('change', (e) => {
-                this.updateDocumentsList(e.target.value);
-            });
-        }
-
-        // Add event listeners for document actions
-        const documentListElement = document.getElementById('documentsList');
-        if (documentListElement) {
-            documentListElement.addEventListener('click', (e) => {
-                const button = e.target.closest('[data-doc-action]');
-                if (button) {
-                    const action = button.dataset.docAction;
-                    const docId = button.dataset.docId;
-
-                    switch (action) {
-                        case 'load':
-                            this.loadDocument(docId);
-                            break;
-                        case 'rename':
-                            this.renameDocument(docId);
-                            break;
-                        case 'delete':
-                            this.deleteDocument(docId);
-                            break;
-                    }
+            this.showModal('Load Document', `
+                <div class="mb-3">
+                    <label for="categoryFilter" class="form-label">Filter by Category</label>
+                    <select class="form-select" id="categoryFilter">
+                        ${categoryOptions}
+                    </select>
+                </div>
+                <div class="document-list" style="max-height: 400px; overflow-y: auto;" id="documentsList">
+                    <!-- Documents will be populated here -->
+                </div>
+            `, [
+                {
+                    text: 'Cancel',
+                    class: 'btn-secondary',
+                    action: () => this.closeModal()
                 }
-            });
+            ]);
+
+            // Initialize the document list
+            await this.updateDocumentsList('All');
+
+            // Add event listeners
+            const categoryFilter = document.getElementById('categoryFilter');
+            if (categoryFilter) {
+                categoryFilter.addEventListener('change', (e) => {
+                    this.updateDocumentsList(e.target.value);
+                });
+            }
+
+            // Add event listeners for document actions
+            const documentListElement = document.getElementById('documentsList');
+            if (documentListElement) {
+                documentListElement.addEventListener('click', async (e) => {
+                    const button = e.target.closest('[data-doc-action]');
+                    if (button) {
+                        const action = button.dataset.docAction;
+                        const docId = button.dataset.docId;
+
+                        switch (action) {
+                            case 'load':
+                                await this.loadDocument(docId);
+                                break;
+                            case 'rename':
+                                await this.renameDocument(docId);
+                                break;
+                            case 'delete':
+                                await this.deleteDocument(docId);
+                                break;
+                        }
+                    }
+                });
+            }
+        } catch (error) {
+            this.showNotification('Error loading documents: ' + error.message, 'error');
         }
     }
 
     /**
      * Update the documents list based on category filter
      */
-    updateDocumentsList(categoryFilter) {
-        const documents = documentManager.getAllDocuments(categoryFilter === 'All' ? null : categoryFilter);
-        const documentsList = document.getElementById('documentsList');
+    async updateDocumentsList(categoryFilter) {
+        try {
+            const documents = await documentManager.getAllDocuments(categoryFilter === 'All' ? null : categoryFilter);
+            const documentsList = document.getElementById('documentsList');
 
-        if (!documentsList) return;
+            if (!documentsList) return;
 
-        if (documents.length === 0) {
-            documentsList.innerHTML = `
-                <div class="text-center p-4 text-muted">
-                    <i class="bi bi-folder-x"></i>
-                    <p class="mb-0">No documents found in this category</p>
-                </div>
-            `;
-            return;
+            if (documents.length === 0) {
+                documentsList.innerHTML = `
+                    <div class="text-center p-4 text-muted">
+                        <i class="bi bi-folder-x"></i>
+                        <p class="mb-0">No documents found in this category</p>
+                    </div>
+                `;
+                return;
+            }
+
+            const documentsHtml = documents.map(doc => {
+                const category = doc.category || DEFAULT_CATEGORY;
+                const lastModified = doc.updated_at || doc.lastModified;
+                return `
+                    <div class="document-item d-flex justify-content-between align-items-center p-2 border-bottom">
+                        <div class="flex-grow-1">
+                            <h6 class="mb-1">${this.escapeHtml(doc.name)}</h6>
+                            <small class="text-muted">
+                                Category: <span class="badge bg-secondary">${this.escapeHtml(category)}</span>
+                                • Modified: ${new Date(lastModified).toLocaleString()}
+                            </small>
+                        </div>
+                        <div class="btn-group btn-group-sm">
+                            <button class="btn btn-outline-primary" data-doc-action="load" data-doc-id="${doc.id}">Load</button>
+                            <button class="btn btn-outline-secondary" data-doc-action="rename" data-doc-id="${doc.id}">Rename</button>
+                            <button class="btn btn-outline-danger" data-doc-action="delete" data-doc-id="${doc.id}">Delete</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            documentsList.innerHTML = documentsHtml;
+        } catch (error) {
+            console.error('Error updating documents list:', error);
+            const documentsList = document.getElementById('documentsList');
+            if (documentsList) {
+                documentsList.innerHTML = `
+                    <div class="text-center p-4 text-danger">
+                        <i class="bi bi-exclamation-triangle"></i>
+                        <p class="mb-0">Error loading documents</p>
+                    </div>
+                `;
+            }
         }
-
-        const documentsHtml = documents.map(doc => {
-            const category = doc.category || DEFAULT_CATEGORY;
-            return `
-                <div class="document-item d-flex justify-content-between align-items-center p-2 border-bottom">
-                    <div class="flex-grow-1">
-                        <h6 class="mb-1">${this.escapeHtml(doc.name)}</h6>
-                        <small class="text-muted">
-                            Category: <span class="badge bg-secondary">${this.escapeHtml(category)}</span>
-                            • Modified: ${new Date(doc.lastModified).toLocaleString()}
-                        </small>
-                    </div>
-                    <div class="btn-group btn-group-sm">
-                        <button class="btn btn-outline-primary" data-doc-action="load" data-doc-id="${doc.id}">Load</button>
-                        <button class="btn btn-outline-secondary" data-doc-action="rename" data-doc-id="${doc.id}">Rename</button>
-                        <button class="btn btn-outline-danger" data-doc-action="delete" data-doc-id="${doc.id}">Delete</button>
-                    </div>
-                </div>
-            `;
-        }).join('');
-
-        documentsList.innerHTML = documentsHtml;
     }
 
     /**
      * Load a specific document
      */
-    loadDocument(id) {
+    async loadDocument(id) {
         try {
-            const doc = documentManager.loadDocument(id);
+            const doc = await documentManager.loadDocument(id);
             this.editor.setValue(doc.content);
             this.updateDocumentTitle();
             this.closeModal();
@@ -508,18 +566,30 @@ export class DocumentUIManager {
     /**
      * Delete a document
      */
-    deleteDocument(id) {
-        const doc = documentManager.documents[id];
-        if (!doc) return;
+    async deleteDocument(id) {
+        // For authenticated users, get document info from server
+        let docName = 'Document';
+        try {
+            if (documentManager.isAuthenticated()) {
+                const docs = await documentManager.getAllDocuments();
+                const doc = docs.find(d => d.id == id);
+                docName = doc ? doc.name : 'Document';
+            } else {
+                const doc = documentManager.documents[id];
+                docName = doc ? doc.name : 'Document';
+            }
+        } catch (error) {
+            console.error('Error getting document name:', error);
+        }
 
-        if (confirm(`Are you sure you want to delete "${doc.name}"?`)) {
+        if (confirm(`Are you sure you want to delete "${docName}"?`)) {
             try {
-                documentManager.deleteDocument(id);
+                await documentManager.deleteDocument(id);
                 this.showNotification('Document deleted successfully!', 'success');
                 // Refresh the modal while maintaining current filter
                 const categoryFilter = document.getElementById('categoryFilter');
                 const currentFilter = categoryFilter ? categoryFilter.value : 'All';
-                this.updateDocumentsList(currentFilter);
+                await this.updateDocumentsList(currentFilter);
                 this.updateDocumentTitle();
             } catch (error) {
                 this.showNotification('Error deleting document: ' + error.message, 'error');
@@ -530,23 +600,91 @@ export class DocumentUIManager {
     /**
      * Rename a document
      */
-    renameDocument(id) {
-        const doc = documentManager.documents[id];
-        if (!doc) return;
-
-        const newName = prompt('Enter new name:', doc.name);
-        if (newName && newName.trim() && newName.trim() !== doc.name) {
-            try {
-                documentManager.renameDocument(id, newName.trim());
-                this.showNotification('Document renamed successfully!', 'success');
-                // Refresh the modal while maintaining current filter
-                const categoryFilter = document.getElementById('categoryFilter');
-                const currentFilter = categoryFilter ? categoryFilter.value : 'All';
-                this.updateDocumentsList(currentFilter);
-                this.updateDocumentTitle();
-            } catch (error) {
-                this.showNotification('Error renaming document: ' + error.message, 'error');
+    async renameDocument(id) {
+        try {
+            // Get the current document data
+            let doc = null;
+            
+            if (documentManager.isAuthenticated()) {
+                // For authenticated users, get document from server
+                const documents = await documentManager.getAllDocuments();
+                doc = documents.find(d => d.id == id);
+            } else {
+                // For anonymous users, get from local storage
+                doc = documentManager.documents[id];
             }
+
+            if (!doc) {
+                this.showNotification('Document not found', 'error');
+                return;
+            }
+
+            // Close the current modal first and wait a moment
+            this.closeModal();
+            
+            // Wait for modal to close completely before showing rename modal
+            setTimeout(async () => {
+                await this.showSaveAsModal(true, doc);
+            }, 150);
+        } catch (error) {
+            console.error('Error renaming document:', error);
+            this.showNotification('Failed to rename document', 'error');
+        }
+    }
+
+    /**
+     * Perform the actual rename operation
+     */
+    async performRename(originalDoc) {
+        try {
+            const nameInput = document.getElementById('saveDocName');
+            const categorySelect = document.getElementById('saveDocCategory');
+            
+            if (!nameInput || !categorySelect) {
+                this.showNotification('Form elements not found', 'error');
+                return;
+            }
+
+            const newName = nameInput.value.trim();
+            const newCategory = categorySelect.value;
+
+            if (!newName || newName === 'Untitled Document') {
+                this.showNotification('Please enter a valid document name', 'error');
+                return;
+            }
+
+            // Check if anything actually changed
+            if (newName === originalDoc.name && newCategory === originalDoc.category) {
+                this.closeModal();
+                return;
+            }
+
+            // Perform the rename operation
+            if (documentManager.isAuthenticated()) {
+                // For authenticated users, update via server API
+                await documentManager.saveDocumentToServer(originalDoc.content, newName, newCategory, originalDoc.id);
+            } else {
+                // For anonymous users, use local rename method with category support
+                documentManager.renameDocument(originalDoc.id, newName, newCategory);
+            }
+
+            // If this is the currently loaded document, update the title in the main window
+            if (documentManager.currentDocument && documentManager.currentDocument.id === originalDoc.id) {
+                documentManager.currentDocument.name = newName;
+                documentManager.currentDocument.category = newCategory;
+                this.updateDocumentTitle();
+            }
+
+            this.showNotification('Document renamed successfully!', 'success');
+            this.closeModal();
+            
+            // Refresh the modal while maintaining current filter
+            const categoryFilter = document.getElementById('categoryFilter');
+            const currentFilter = categoryFilter ? categoryFilter.value : 'All';
+            await this.updateDocumentsList(currentFilter);
+        } catch (error) {
+            console.error('Error performing rename:', error);
+            this.showNotification('Failed to rename document', 'error');
         }
     }
 
@@ -642,10 +780,7 @@ export class DocumentUIManager {
         const titleElement = document.getElementById('documentTitle');
         if (!titleElement) return;
 
-        const newTitle = titleElement.textContent.trim();
-        const oldName = documentManager.currentDocument.name;
-
-        console.log('Saving title - Old:', oldName, 'New:', newTitle);
+        const newTitle = titleElement.textContent.trim();        const oldName = documentManager.currentDocument.name;
 
         // Validate the new title
         if (!newTitle) {
@@ -742,8 +877,17 @@ export class DocumentUIManager {
      * Show a modal dialog
      */
     showModal(title, body, buttons = []) {
-        // Remove existing modal
+        // Remove existing modal immediately and thoroughly
         this.closeModal();
+        
+        // Also remove any existing modals by ID (in case of race conditions)
+        const existingModal = document.getElementById('documentModal');
+        if (existingModal) {
+            existingModal.remove();
+        }
+        
+        // Clear any pending timeouts
+        this.currentModalElement = null;
 
         const modalHTML = `
             <div class="custom-modal" id="documentModal">
@@ -790,7 +934,11 @@ export class DocumentUIManager {
 
         // Show the modal with animation
         setTimeout(() => {
-            this.currentModalElement.classList.add('show');
+            if (this.currentModalElement) {
+                this.currentModalElement.classList.add('show');
+                // Force redraw
+                this.currentModalElement.offsetHeight;
+            }
         }, 10);
 
         // Handle backdrop click to close
@@ -815,12 +963,19 @@ export class DocumentUIManager {
             // Add closing animation
             this.currentModalElement.classList.add('closing');
 
+            // Use a shorter timeout and ensure cleanup
             setTimeout(() => {
-                if (this.currentModalElement) {
+                if (this.currentModalElement && this.currentModalElement.parentNode) {
                     this.currentModalElement.remove();
-                    this.currentModalElement = null;
                 }
-            }, 300); // Match CSS transition duration
+                this.currentModalElement = null;
+            }, 100); // Reduced from 300ms to ensure faster cleanup
+        }
+        
+        // Also ensure any modal with our ID is removed
+        const modalById = document.getElementById('documentModal');
+        if (modalById && modalById !== this.currentModalElement) {
+            modalById.remove();
         }
     }
 
@@ -866,7 +1021,7 @@ export class DocumentUIManager {
 
         this.editor.onDidChangeModelContent(() => {
             clearTimeout(autoSaveTimeout);
-            autoSaveTimeout = setTimeout(() => {
+            autoSaveTimeout = setTimeout(async () => {
                 const content = this.editor.getValue();
                 const currentName = documentManager.currentDocument.name;
 
@@ -874,7 +1029,7 @@ export class DocumentUIManager {
                 if (documentManager.currentDocument.id) {
                     try {
                         const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
-                        documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
+                        await documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
                         this.showSubtleNotification('Auto-saved');
                     } catch (error) {
                         console.error('Auto-save failed:', error);
@@ -887,7 +1042,7 @@ export class DocumentUIManager {
                          content.trim()) {
                     try {
                         const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
-                        const savedDoc = documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
+                        const savedDoc = await documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
                         this.updateDocumentTitle();
                         this.showSubtleNotification(`Auto-saved as "${currentName}"`);
                     } catch (error) {
