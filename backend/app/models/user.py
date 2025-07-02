@@ -1,5 +1,6 @@
 """User model."""
 from sqlalchemy import Boolean, Column, String, Text
+from sqlalchemy.orm import relationship
 
 from .base import BaseModel
 
@@ -23,8 +24,8 @@ class User(BaseModel):
     is_active = Column(Boolean, default=True)
     is_verified = Column(Boolean, default=False)
     
-    # Relationship to documents (when we add them later)
-    # documents = relationship("Document", back_populates="owner")
+    # Relationship to documents
+    documents = relationship("Document", back_populates="owner")
     
     @property
     def full_name(self) -> str:

@@ -114,10 +114,16 @@ status: ## Show development server status
 stop: ## Stop all development servers
 	@echo "$(YELLOW)🛑 Stopping development servers...$(NC)"
 	@if lsof -ti:$(FRONTEND_PORT) > /dev/null 2>&1; then \
-		kill $(shell lsof -ti:$(FRONTEND_PORT)) && echo "$(GREEN)  ✅ Frontend server stopped$(NC)"; \
+		echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)"; \
+		kill -TERM $(shell lsof -ti:$(FRONTEND_PORT)) 2>/dev/null && echo "$(GREEN)  ✅ Frontend server stopped$(NC)" || echo "$(YELLOW)  ⚠️  Frontend server may have already stopped$(NC)"; \
+	else \
+		echo "$(YELLOW)  ℹ️  Frontend server not running$(NC)"; \
 	fi
 	@if lsof -ti:$(BACKEND_DEV_PORT) > /dev/null 2>&1; then \
-		kill $(shell lsof -ti:$(BACKEND_DEV_PORT)) && echo "$(GREEN)  ✅ Backend server stopped$(NC)"; \
+		echo "$(BLUE)Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)"; \
+		kill -TERM $(shell lsof -ti:$(BACKEND_DEV_PORT)) 2>/dev/null && echo "$(GREEN)  ✅ Backend server stopped$(NC)" || echo "$(YELLOW)  ⚠️  Backend server may have already stopped$(NC)"; \
+	else \
+		echo "$(YELLOW)  ℹ️  Backend server not running$(NC)"; \
 	fi
 
 # Advanced targets
