@@ -82,20 +82,136 @@ def generate_pdf_styles(is_dark_mode: bool = False) -> str:
             border-radius: 4px;
         }
 
+        /* Inline code styling */
         code {
             padding: 2px 4px;
             font-size: 0.9em;
         }
 
+        /* Code block container */
+        .code-block {
+            margin: 16px 0;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        /* Code block header styling */
+        .code-block-header {
+            padding: 8px 12px;
+            font-size: 10pt;
+            font-weight: 600;
+            border-bottom-width: 1px;
+            border-bottom-style: solid;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Hide copy button in PDF */
+        .code-block-copy-btn {
+            display: none !important;
+        }
+
+        /* Language label */
+        .code-block-lang {
+            font-family: inherit;
+            font-size: 10pt;
+            font-weight: 600;
+        }
+
+        /* Pre blocks (code blocks) */
         pre {
             padding: 16px;
+            margin: 0;
             overflow: visible;
             white-space: pre-wrap;
             word-wrap: break-word;
             page-break-inside: avoid;
             break-inside: avoid;
-            margin: 16px 0;
-            border-radius: 6px;
+            border-radius: 0 0 6px 6px;
+        }
+
+        /* Code blocks inside .code-block containers */
+        .code-block pre {
+            border-radius: 0;
+            margin: 0;
+        }
+
+        /* Remove inline code styling when inside pre blocks */
+        pre code {
+            padding: 0 !important;
+            border: none !important;
+            background: transparent !important;
+            font-size: inherit !important;
+            border-radius: 0 !important;
+        }
+
+        /* Prism.js syntax highlighting preservation */
+        .token.comment,
+        .token.prolog,
+        .token.doctype,
+        .token.cdata {
+            color: #708090;
+        }
+
+        .token.punctuation {
+            color: #999;
+        }
+
+        .token.property,
+        .token.tag,
+        .token.constant,
+        .token.symbol,
+        .token.deleted {
+            color: #905;
+        }
+
+        .token.boolean,
+        .token.number {
+            color: #905;
+        }
+
+        .token.selector,
+        .token.attr-name,
+        .token.string,
+        .token.char,
+        .token.builtin,
+        .token.inserted {
+            color: #690;
+        }
+
+        .token.operator,
+        .token.entity,
+        .token.url,
+        .language-css .token.string,
+        .style .token.string,
+        .token.variable {
+            color: #9a6e3a;
+        }
+
+        .token.atrule,
+        .token.attr-value,
+        .token.function,
+        .token.class-name {
+            color: #DD4A68;
+        }
+
+        .token.keyword {
+            color: #07a;
+        }
+
+        .token.regex,
+        .token.important {
+            color: #e90;
+        }
+
+        .token.important,
+        .token.bold {
+            font-weight: bold;
+        }
+
+        .token.italic {
+            font-style: italic;
         }
 
         /* Tables */
@@ -197,16 +313,99 @@ def generate_pdf_styles(is_dark_mode: bool = False) -> str:
                 color: #f0f6fc !important;
             }
 
+            /* Code block container for dark mode */
+            .code-block {
+                border: 1px solid #30363d !important;
+            }
+
+            /* Code block header for dark mode */
+            .code-block-header {
+                background: #0d1117 !important;
+                color: #8b949e !important;
+                border-bottom-color: #30363d !important;
+            }
+
+            .code-block-lang {
+                color: #f0f6fc !important;
+            }
+
             pre {
+                background: #161b22 !important;
+                color: #e6edf3 !important;
+                border: none !important;
+            }
+
+            /* Inline code styling for dark mode */
+            code {
                 background: #161b22 !important;
                 color: #e6edf3 !important;
                 border: 1px solid #30363d !important;
             }
 
-            code {
-                background: #161b22 !important;
-                color: #e6edf3 !important;
-                border: 1px solid #30363d !important;
+            /* Remove styling from code inside pre blocks */
+            pre code {
+                background: transparent !important;
+                border: none !important;
+                color: inherit !important;
+            }
+
+            /* Dark mode syntax highlighting */
+            .token.comment,
+            .token.prolog,
+            .token.doctype,
+            .token.cdata {
+                color: #6e7681 !important;
+            }
+
+            .token.punctuation {
+                color: #8b949e !important;
+            }
+
+            .token.property,
+            .token.tag,
+            .token.constant,
+            .token.symbol,
+            .token.deleted {
+                color: #ff7b72 !important;
+            }
+
+            .token.boolean,
+            .token.number {
+                color: #79c0ff !important;
+            }
+
+            .token.selector,
+            .token.attr-name,
+            .token.string,
+            .token.char,
+            .token.builtin,
+            .token.inserted {
+                color: #a5d6ff !important;
+            }
+
+            .token.operator,
+            .token.entity,
+            .token.url,
+            .language-css .token.string,
+            .style .token.string,
+            .token.variable {
+                color: #ffa657 !important;
+            }
+
+            .token.atrule,
+            .token.attr-value,
+            .token.function,
+            .token.class-name {
+                color: #d2a8ff !important;
+            }
+
+            .token.keyword {
+                color: #ff7b72 !important;
+            }
+
+            .token.regex,
+            .token.important {
+                color: #ffa657 !important;
             }
 
             th, td {
@@ -256,16 +455,79 @@ def generate_pdf_styles(is_dark_mode: bool = False) -> str:
                 color: #1f2328 !important;
             }
 
+            /* Code block container for light mode */
+            .code-block {
+                border: 1px solid #d0d7de !important;
+            }
+
+            /* Code block header for light mode */
+            .code-block-header {
+                background: #f6f8fa !important;
+                color: #656d76 !important;
+                border-bottom-color: #d0d7de !important;
+            }
+
+            .code-block-lang {
+                color: #24292f !important;
+            }
+
             pre {
+                background: #f6f8fa !important;
+                color: #24292f !important;
+                border: none !important;
+            }
+
+            /* Inline code styling for light mode */
+            code {
                 background: #f6f8fa !important;
                 color: #24292f !important;
                 border: 1px solid #d0d7de !important;
             }
 
-            code {
-                background: #f6f8fa !important;
-                color: #24292f !important;
-                border: 1px solid #d0d7de !important;
+            /* Remove styling from code inside pre blocks */
+            pre code {
+                background: transparent !important;
+                border: none !important;
+                color: inherit !important;
+            }
+
+            /* Light mode syntax highlighting - keep default colors */
+            .token.comment,
+            .token.prolog,
+            .token.doctype,
+            .token.cdata {
+                color: #708090 !important;
+            }
+
+            .token.property,
+            .token.tag,
+            .token.constant,
+            .token.symbol,
+            .token.deleted {
+                color: #905 !important;
+            }
+
+            .token.boolean,
+            .token.number {
+                color: #905 !important;
+            }
+
+            .token.selector,
+            .token.attr-name,
+            .token.string,
+            .token.char,
+            .token.builtin,
+            .token.inserted {
+                color: #690 !important;
+            }
+
+            .token.keyword {
+                color: #07a !important;
+            }
+
+            .token.function,
+            .token.class-name {
+                color: #DD4A68 !important;
             }
 
             th, td {
