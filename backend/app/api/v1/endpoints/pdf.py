@@ -105,6 +105,8 @@ def generate_pdf_styles(is_dark_mode: bool = False) -> str:
             display: flex;
             justify-content: space-between;
             align-items: center;
+            min-height: 32px;
+            box-sizing: border-box;
         }
 
         /* Hide copy button in PDF */
@@ -117,6 +119,15 @@ def generate_pdf_styles(is_dark_mode: bool = False) -> str:
             font-family: inherit;
             font-size: 10pt;
             font-weight: 600;
+            line-height: 16px;
+            min-height: 16px;
+            display: inline-block;
+        }
+
+        /* Ensure empty language labels maintain height */
+        .code-block-lang:empty::before {
+            content: "\00a0";
+            visibility: hidden;
         }
 
         /* Pre blocks (code blocks) */
