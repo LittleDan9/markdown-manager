@@ -45,15 +45,21 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
 }
 
 export async function initMermaid(theme) {
-    mermaid.initialize({
-        startOnLoad: false,
-        theme: theme,
-        flowchart: {
-            htmlLabels: true,
-            curve: 'linear'
-        },
-        suppressErrorRendering: true,
-    });
+    try {
+        await mermaid.initialize({
+            startOnLoad: false,
+            theme: theme,
+            flowchart: {
+                htmlLabels: true,
+                curve: 'linear'
+            },
+            suppressErrorRendering: true,
+            logLevel: 'error' // Reduced from 'warn' to 'error' to reduce console noise
+        });
+        console.log(`Mermaid initialized with theme: ${theme}`);
+    } catch (error) {
+        console.error('Failed to initialize Mermaid:', error);
+    }
 }
 
 export async function render(editor) {
@@ -67,27 +73,42 @@ export async function render(editor) {
         const mermaidElements = previewEl.querySelectorAll('.mermaid');
         mermaidElements.forEach(el => {
             el.removeAttribute('data-processed');
+            el.style.visibility = 'visible'; // Ensure element is visible
         });
         
-        await mermaid.run({ querySelector: '.mermaid' }).catch((error) => {
-            // console.warn("Mermaid rendering failed:", error.message);
-            previewEl.innerHTML += `<p style="color: red;">Mermaid Error: ${error.message}</p>`;
-        });
-        
-        // Ensure Mermaid diagrams are responsive
-        mermaidElements.forEach(el => {
-            const svg = el.querySelector('svg');
-            if (svg) {
-                // Make SVG responsive - remove explicit height attribute for auto-sizing
-                svg.setAttribute('width', '100%');
-                svg.removeAttribute('height');
-                svg.style.maxWidth = '100%';
-                svg.style.height = 'auto';
+        if (mermaidElements.length > 0) {
+            try {
+                // Use the correct Mermaid v11 API
+                await mermaid.run({ querySelector: '.mermaid' });
+                console.log(`Rendered ${mermaidElements.length} mermaid diagram(s)`);
+                
+                // Ensure Mermaid diagrams are responsive
+                mermaidElements.forEach(el => {
+                    const svg = el.querySelector('svg');
+                    if (svg) {
+                        // Make SVG responsive - remove explicit height attribute for auto-sizing
+                        svg.setAttribute('width', '100%');
+                        svg.removeAttribute('height');
+                        svg.style.maxWidth = '100%';
+                        svg.style.height = 'auto';
+                    }
+                });
+            } catch (mermaidError) {
+                console.warn("Mermaid rendering failed:", mermaidError);
+                // Add error message to failed diagrams
+                mermaidElements.forEach(el => {
+                    if (!el.querySelector('svg')) {
+                        el.innerHTML = `<div class="alert alert-danger">
+                            <strong>Mermaid Error:</strong> ${mermaidError.message || 'Failed to render diagram'}
+                        </div>`;
+                    }
+                });
             }
-        });
+        }
         
+        // Highlight code blocks
         Prism.highlightAllUnder(previewEl);
     } catch (error) {
-        console.warn("Mermaid initialization failed:", error.message);
+        console.error("Rendering failed:", error);
     }
 };
