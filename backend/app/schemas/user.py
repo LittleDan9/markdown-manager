@@ -33,6 +33,17 @@ class UserUpdatePassword(BaseModel):
     new_password: str
 
 
+class PasswordResetRequest(BaseModel):
+    """Password reset request schema."""
+    email: EmailStr
+
+
+class PasswordResetConfirm(BaseModel):
+    """Password reset confirmation schema."""
+    token: str
+    new_password: str
+
+
 class UserLogin(BaseModel):
     """User login schema."""
     email: EmailStr

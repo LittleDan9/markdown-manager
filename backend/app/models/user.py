@@ -1,5 +1,5 @@
 """User model."""
-from sqlalchemy import Boolean, Column, String, Text
+from sqlalchemy import Boolean, Column, DateTime, String, Text
 from sqlalchemy.orm import relationship
 
 from .base import BaseModel
@@ -13,6 +13,10 @@ class User(BaseModel):
     # Authentication fields
     email = Column(String(255), unique=True, index=True, nullable=False)
     hashed_password = Column(String(255), nullable=False)
+    
+    # Password reset fields
+    reset_token = Column(String(255), nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
     
     # Profile fields
     first_name = Column(String(100))

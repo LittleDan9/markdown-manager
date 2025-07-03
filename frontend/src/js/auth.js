@@ -22,6 +22,26 @@ class AuthManager {
         this.setupEventListeners();
         this.checkAuthStatus();
         this.setupGlobalModalErrorHandling();
+        this.checkForPasswordResetToken();
+    }
+
+    /**
+     * Check URL for password reset token and show confirm modal if present
+     */
+    checkForPasswordResetToken() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const resetToken = urlParams.get('reset_token');
+        
+        if (resetToken) {
+            // Remove token from URL for security
+            const newUrl = window.location.origin + window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+            
+            // Show password reset confirm modal
+            setTimeout(() => {
+                this.showPasswordResetConfirmModal(resetToken);
+            }, 500);
+        }
     }
 
     setupEventListeners() {
@@ -103,10 +123,50 @@ class AuthManager {
             this.handleAccountDeletion();
         });
 
-        // Password confirmation validation
-        document.getElementById('confirmPassword').addEventListener('input', () => {
-            this.validatePasswordConfirmation();
-        });
+        // Password reset functionality
+        const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+        if (forgotPasswordLink) {
+            forgotPasswordLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                console.log('Forgot password link clicked');
+                this.closeModal('loginModal');
+                this.showPasswordResetModal();
+            });
+        } else {
+            console.warn('forgotPasswordLink element not found');
+        }
+
+        const passwordResetForm = document.getElementById('passwordResetForm');
+        if (passwordResetForm) {
+            passwordResetForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handlePasswordResetRequest();
+            });
+        }
+
+        const passwordResetConfirmForm = document.getElementById('passwordResetConfirmForm');
+        if (passwordResetConfirmForm) {
+            passwordResetConfirmForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                this.handlePasswordResetConfirm();
+            });
+        }
+
+        // Password confirmation validation for profile form
+        const profileConfirmPassword = document.getElementById('profileConfirmPassword');
+        if (profileConfirmPassword) {
+            profileConfirmPassword.addEventListener('input', () => {
+                this.validateProfilePasswordConfirmation();
+            });
+        }
+
+        // Password confirmation validation for reset form
+        const confirmNewPassword = document.getElementById('confirmNewPassword');
+        if (confirmNewPassword) {
+            confirmNewPassword.addEventListener('input', () => {
+                this.validatePasswordResetConfirmation();
+            });
+        }
     }
 
     async checkAuthStatus() {
@@ -154,48 +214,66 @@ class AuthManager {
      * @returns {bootstrap.Modal} Modal instance
      */
     getModalInstance(modalId) {
-        const modalElement = document.getElementById(modalId);
-        
-        if (!modalElement) {
-            console.error(`Modal element ${modalId} not found!`);
-            return null;
-        }
-        
-        if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
-            console.error('Bootstrap Modal not available!');
-            return null;
-        }
+        try {
+            // Validate modal element first
+            if (!this.validateModalElement(modalId)) {
+                return null;
+            }
+            
+            const modalElement = document.getElementById(modalId);
+            
+            if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
+                console.error('Bootstrap Modal not available!');
+                return null;
+            }
 
-        // Check if we already have an instance for this modal
-        let modalInstance = this.modalInstances.get(modalId);
-        
-        if (!modalInstance) {
-            // Create new instance
-            modalInstance = new bootstrap.Modal(modalElement, {
-                backdrop: true,
-                keyboard: true,
-                focus: true
-            });
+            // Clean up any orphaned backdrops before creating new instance
+            this.cleanupOrphanedBackdrops();
+
+            // Check if we already have an instance for this modal
+            let modalInstance = this.modalInstances.get(modalId);
             
-            // Store the instance
-            this.modalInstances.set(modalId, modalInstance);
-            
-            // Add cleanup listener
-            modalElement.addEventListener('hidden.bs.modal', () => {
-                // Ensure backdrop is removed
-                const backdrops = document.querySelectorAll('.modal-backdrop');
-                backdrops.forEach(backdrop => backdrop.remove());
-                
-                // Remove modal-open class from body if no other modals are open
-                const openModals = document.querySelectorAll('.modal.show');
-                if (openModals.length === 0) {
-                    document.body.classList.remove('modal-open');
-                    document.body.style.paddingRight = '';
+            if (!modalInstance) {
+                try {
+                    // Ensure modal element is properly reset before creating instance
+                    modalElement.classList.remove('show');
+                    modalElement.style.display = 'none';
+                    modalElement.setAttribute('aria-hidden', 'true');
+                    modalElement.removeAttribute('aria-modal');
+                    modalElement.removeAttribute('role');
+                    
+                    // Create new instance with enhanced error handling
+                    modalInstance = new bootstrap.Modal(modalElement, {
+                        backdrop: true,
+                        keyboard: true,
+                        focus: true
+                    });
+                    
+                    // Store the instance
+                    this.modalInstances.set(modalId, modalInstance);
+                    
+                    // Add comprehensive cleanup listeners
+                    modalElement.addEventListener('hidden.bs.modal', () => {
+                        this.cleanupModalState(modalId);
+                    });
+
+                    // Add error handling for show/hide events
+                    modalElement.addEventListener('show.bs.modal', (event) => {
+                        // Ensure clean state before showing
+                        this.cleanupOrphanedBackdrops();
+                    });
+
+                } catch (instanceError) {
+                    console.error(`Error creating modal instance for ${modalId}:`, instanceError);
+                    return null;
                 }
-            });
+            }
+            
+            return modalInstance;
+        } catch (error) {
+            console.error(`Error in getModalInstance for ${modalId}:`, error);
+            return null;
         }
-        
-        return modalInstance;
     }
 
     /**
@@ -206,19 +284,84 @@ class AuthManager {
         try {
             const modal = this.modalInstances.get(modalId);
             if (modal) {
-                modal.hide();
+                try {
+                    modal.hide();
+                } catch (hideError) {
+                    console.warn(`Error hiding modal ${modalId}:`, hideError);
+                    // Try alternative cleanup
+                    this.forceCloseModal(modalId);
+                }
             } else {
                 // Fallback - try to get existing instance
                 const modalElement = document.getElementById(modalId);
                 if (modalElement) {
-                    const existingModal = bootstrap.Modal.getInstance(modalElement);
-                    if (existingModal) {
-                        existingModal.hide();
+                    try {
+                        const existingModal = bootstrap.Modal.getInstance(modalElement);
+                        if (existingModal) {
+                            existingModal.hide();
+                        } else {
+                            // Force close if no instance found
+                            this.forceCloseModal(modalId);
+                        }
+                    } catch (fallbackError) {
+                        console.warn(`Fallback modal close failed for ${modalId}:`, fallbackError);
+                        this.forceCloseModal(modalId);
                     }
                 }
             }
         } catch (error) {
             console.error(`Error closing modal ${modalId}:`, error);
+            this.forceCloseModal(modalId);
+        }
+    }
+
+    /**
+     * Force close a modal by directly manipulating the DOM
+     * @param {string} modalId - The modal element ID
+     */
+    forceCloseModal(modalId) {
+        try {
+            const modalElement = document.getElementById(modalId);
+            if (modalElement) {
+                // First try to dispose of existing Bootstrap instance properly
+                const existingInstance = bootstrap.Modal.getInstance(modalElement);
+                if (existingInstance) {
+                    try {
+                        existingInstance.dispose();
+                    } catch (disposeError) {
+                        console.warn('Error disposing modal instance:', disposeError);
+                    }
+                }
+                
+                // Reset modal element state completely
+                modalElement.classList.remove('show', 'fade');
+                modalElement.style.display = 'none';
+                modalElement.style.paddingRight = '';
+                modalElement.setAttribute('aria-hidden', 'true');
+                modalElement.removeAttribute('aria-modal');
+                modalElement.removeAttribute('role');
+                modalElement.removeAttribute('tabindex');
+                
+                // Force a reflow to ensure styles are applied
+                modalElement.offsetHeight;
+                
+                // Re-add fade class for future animations
+                modalElement.classList.add('fade');
+            }
+
+            // Clean up all modal-related DOM state
+            this.cleanupOrphanedBackdrops();
+
+            // Reset body state
+            document.body.classList.remove('modal-open');
+            document.body.style.paddingRight = '';
+            document.body.style.overflow = '';
+
+            // Clear cached instance
+            this.modalInstances.delete(modalId);
+
+        } catch (error) {
+            console.error(`Error in force close modal ${modalId}:`, error);
         }
     }
 
@@ -262,6 +405,63 @@ class AuthManager {
             this.hideSuccess('passwordSuccess');
         } catch (error) {
             console.error('Error in showProfileModal:', error);
+        }
+    }
+
+    showPasswordResetModal() {
+        try {
+            console.log('showPasswordResetModal called');
+            const modal = this.getModalInstance('passwordResetModal');
+            if (!modal) {
+                console.error('Could not get passwordResetModal instance');
+                return;
+            }
+            
+            modal.show();
+            const resetForm = document.getElementById('passwordResetForm');
+            if (resetForm) {
+                resetForm.reset();
+            }
+            this.hideError('passwordResetError');
+            this.hideSuccess('passwordResetSuccess');
+            console.log('Password reset modal should now be visible');
+        } catch (error) {
+            console.error('Error in showPasswordResetModal:', error);
+        }
+    }
+
+    showPasswordResetConfirmModal(token) {
+        try {
+            // Clear any previous modal state first and wait a bit for cleanup
+            this.forceCloseModal('passwordResetConfirmModal');
+            
+            // Use setTimeout to ensure DOM cleanup is complete before showing new modal
+            setTimeout(() => {
+                try {
+                    const modal = this.getModalInstance('passwordResetConfirmModal');
+                    if (!modal) return;
+                    
+                    // Store token for later use
+                    this.resetToken = token;
+                    
+                    // Clear the form and any errors
+                    document.getElementById('passwordResetConfirmForm').reset();
+                    this.hideError('passwordResetConfirmError');
+                    
+                    // Reset submission state
+                    this.isSubmittingPasswordReset = false;
+                    const submitBtn = document.querySelector('#passwordResetConfirmForm button[type="submit"]');
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                    }
+                    
+                    modal.show();
+                } catch (delayedError) {
+                    console.error('Error in delayed modal show:', delayedError);
+                }
+            }, 100);
+        } catch (error) {
+            console.error('Error in showPasswordResetConfirmModal:', error);
         }
     }
 
@@ -387,8 +587,8 @@ class AuthManager {
 
     async handlePasswordUpdate() {
         const currentPassword = document.getElementById('currentPassword').value;
-        const newPassword = document.getElementById('newPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
+        const newPassword = document.getElementById('profileNewPassword').value;
+        const confirmPassword = document.getElementById('profileConfirmPassword').value;
 
         if (newPassword !== confirmPassword) {
             this.showError('passwordError', 'New passwords do not match');
@@ -447,12 +647,116 @@ class AuthManager {
         }
     }
 
-    validatePasswordConfirmation() {
-        const newPassword = document.getElementById('newPassword').value;
-        const confirmPassword = document.getElementById('confirmPassword').value;
-        const confirmField = document.getElementById('confirmPassword');
+    async handlePasswordResetRequest() {
+        const email = document.getElementById('resetEmail').value;
+
+        this.showSpinner('passwordResetSpinner');
+        this.hideError('passwordResetError');
+        this.hideSuccess('passwordResetSuccess');
+
+        try {
+            const response = await this.apiCall('/auth/password-reset-request', 'POST', {
+                email
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                this.showSuccess('passwordResetSuccess', data.message);
+                
+                // For demo purposes, if debug_token is present, show confirm modal
+                if (data.debug_token) {
+                    setTimeout(() => {
+                        this.closeModal('passwordResetModal');
+                        this.showPasswordResetConfirmModal(data.debug_token);
+                    }, 2000);
+                }
+            } else {
+                const error = await response.json();
+                this.showError('passwordResetError', error.detail || 'Failed to send reset email');
+            }
+        } catch (error) {
+            console.error('Password reset request error:', error);
+            this.showError('passwordResetError', 'Network error. Please try again.');
+        } finally {
+            this.hideSpinner('passwordResetSpinner');
+        }
+    }
+
+    async handlePasswordResetConfirm() {
+        const newPassword = document.getElementById('newPassword').value.trim();
+        const confirmPassword = document.getElementById('confirmNewPassword').value.trim();
+        const submitBtn = document.querySelector('#passwordResetConfirmForm button[type="submit"]');
+
+        // Prevent double submission
+        if (this.isSubmittingPasswordReset || submitBtn.disabled) {
+            return;
+        }
+
+        // Validate passwords match
+        if (newPassword !== confirmPassword) {
+            this.showError('passwordResetConfirmError', 'Passwords do not match');
+            return;
+        }
+
+        if (newPassword.length < 6) {
+            this.showError('passwordResetConfirmError', 'Password must be at least 6 characters long');
+            return;
+        }
+
+        this.isSubmittingPasswordReset = true;
+        submitBtn.disabled = true;
+        this.showSpinner('passwordResetConfirmSpinner');
+        this.hideError('passwordResetConfirmError');
+
+        try {
+            const response = await this.apiCall('/auth/password-reset-confirm', 'POST', {
+                token: this.resetToken,
+                new_password: newPassword
+            });
+
+            if (response.ok) {
+                this.closeModal('passwordResetConfirmModal');
+                NotificationManager.showSuccess('Password has been reset successfully! You can now login with your new password.');
+                
+                // Clear stored token
+                this.resetToken = null;
+                
+                // Show login modal
+                setTimeout(() => {
+                    this.showLoginModal();
+                }, 1000);
+            } else {
+                const error = await response.json();
+                this.showError('passwordResetConfirmError', error.detail || 'Failed to reset password');
+            }
+        } catch (error) {
+            console.error('Password reset confirm error:', error);
+            this.showError('passwordResetConfirmError', 'Network error. Please try again.');
+        } finally {
+            this.isSubmittingPasswordReset = false;
+            submitBtn.disabled = false;
+            this.hideSpinner('passwordResetConfirmSpinner');
+        }
+    }
+
+    validateProfilePasswordConfirmation() {
+        const newPassword = document.getElementById('profileNewPassword').value;
+        const confirmPassword = document.getElementById('profileConfirmPassword').value;
+        const confirmField = document.getElementById('profileConfirmPassword');
 
         if (confirmPassword && newPassword !== confirmPassword) {
+            confirmField.setCustomValidity('Passwords do not match');
+        } else {
+            confirmField.setCustomValidity('');
+        }
+    }
+
+    validatePasswordResetConfirmation() {
+        const newPassword = document.getElementById('newPassword').value.trim();
+        const confirmNewPassword = document.getElementById('confirmNewPassword').value.trim();
+        const confirmField = document.getElementById('confirmNewPassword');
+
+        if (confirmNewPassword && newPassword !== confirmNewPassword) {
             confirmField.setCustomValidity('Passwords do not match');
         } else {
             confirmField.setCustomValidity('');
@@ -625,8 +929,6 @@ class AuthManager {
     setupGlobalModalErrorHandling() {
         // Listen for modal events to ensure proper cleanup
         document.addEventListener('hidden.bs.modal', (event) => {
-            console.log('Modal hidden event:', event.target.id);
-            
             // Additional cleanup to ensure no orphaned backdrops
             setTimeout(() => {
                 const backdrops = document.querySelectorAll('.modal-backdrop');
@@ -645,18 +947,129 @@ class AuthManager {
             }, 100);
         });
 
-        // Handle potential JavaScript errors from Bootstrap
+        // Enhanced error handling for Bootstrap dataset and style errors
         window.addEventListener('error', (event) => {
-            if (event.message && event.message.includes('dataset')) {
-                console.warn('Potential Bootstrap modal dataset error caught:', event.message);
-                // Force cleanup
-                const backdrops = document.querySelectorAll('.modal-backdrop');
-                backdrops.forEach(backdrop => backdrop.remove());
+            if (event.message && (
+                event.message.includes('dataset') || 
+                event.message.includes('style') ||
+                event.message.includes('Cannot read properties of null')
+            )) {
+                console.warn('Bootstrap modal error caught and handled:', event.message);
+                event.preventDefault(); // Prevent the error from propagating
+                
+                // Force cleanup of any modal artifacts
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => {
+                        try {
+                            backdrop.remove();
+                        } catch (e) {
+                            console.warn('Error removing backdrop:', e);
+                        }
+                    });
+                    
+                    // Reset body state
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                    document.body.style.overflow = '';
+                    
+                    // Clear any modal instances that might be stuck
+                    this.modalInstances.clear();
+                }, 50);
+                
+                return false; // Prevent default error handling
+            }
+        });
+
+        // Also handle unhandled promise rejections that might be modal-related
+        window.addEventListener('unhandledrejection', (event) => {
+            if (event.reason && event.reason.message && event.reason.message.includes('dataset')) {
+                console.warn('Modal-related promise rejection caught:', event.reason.message);
+                event.preventDefault();
+                
+                // Same cleanup as above
+                setTimeout(() => {
+                    const backdrops = document.querySelectorAll('.modal-backdrop');
+                    backdrops.forEach(backdrop => backdrop.remove());
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                    document.body.style.overflow = '';
+                    this.modalInstances.clear();
+                }, 50);
+            }
+        });
+    }
+
+    /**
+     * Clean up orphaned modal backdrops
+     */
+    cleanupOrphanedBackdrops() {
+        try {
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(backdrop => {
+                try {
+                    backdrop.remove();
+                } catch (e) {
+                    console.warn('Error removing backdrop:', e);
+                }
+            });
+        } catch (error) {
+            console.warn('Error in cleanupOrphanedBackdrops:', error);
+        }
+    }
+
+    /**
+     * Clean up modal state after hiding
+     * @param {string} modalId - The modal element ID
+     */
+    cleanupModalState(modalId) {
+        try {
+            // Ensure backdrop is removed
+            this.cleanupOrphanedBackdrops();
+            
+            // Remove modal-open class from body if no other modals are open
+            const openModals = document.querySelectorAll('.modal.show');
+            if (openModals.length === 0) {
                 document.body.classList.remove('modal-open');
                 document.body.style.paddingRight = '';
                 document.body.style.overflow = '';
             }
-        });
+        } catch (cleanupError) {
+            console.warn('Error during modal cleanup:', cleanupError);
+        }
+    }
+
+    /**
+     * Validate that a modal element exists and is properly structured
+     * @param {string} modalId - The modal element ID
+     * @returns {boolean} True if modal is valid
+     */
+    validateModalElement(modalId) {
+        try {
+            const modalElement = document.getElementById(modalId);
+            if (!modalElement) {
+                console.error(`Modal element ${modalId} not found!`);
+                return false;
+            }
+            
+            // Check if modal has required Bootstrap structure
+            if (!modalElement.classList.contains('modal')) {
+                console.error(`Element ${modalId} is not a Bootstrap modal!`);
+                return false;
+            }
+            
+            // Ensure modal has proper dialog structure
+            const modalDialog = modalElement.querySelector('.modal-dialog');
+            if (!modalDialog) {
+                console.error(`Modal ${modalId} missing .modal-dialog element!`);
+                return false;
+            }
+            
+            return true;
+        } catch (error) {
+            console.error(`Error validating modal ${modalId}:`, error);
+            return false;
+        }
     }
 
     // Public methods for other modules
@@ -670,6 +1083,16 @@ class AuthManager {
 
     getToken() {
         return this.token;
+    }
+
+    /**
+     * Get a URL parameter by name
+     * @param {string} name - The parameter name
+     * @returns {string|null} Parameter value or null if not found
+     */
+    getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
     }
 }
 
