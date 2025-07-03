@@ -197,3 +197,42 @@ allow 10.0.1.0/24;
 3. **Use incremental builds** - Faster feedback during development
 4. **Test both environments** - Ensure compatibility between development and production
 5. **Use production deployment for staging/testing** - Before going live
+
+## Database Management
+
+### Database Location and Git
+
+- **Database file**: `backend/markdown_manager.db` (SQLite)
+- **Important**: Database files are **excluded from git** for security and performance
+- Each environment (dev/staging/prod) maintains its own database
+
+### Database Operations
+
+```bash
+# Run migrations (apply schema changes)
+make migrate
+
+# Create new migration
+make migrate-create MIGRATION_NAME="description_of_change"
+
+# Backup database
+make db-backup
+
+# Restore from backup
+make db-restore BACKUP_FILE="path/to/backup.db"
+
+# Check migration status
+make status
+```
+
+### First Time Setup
+
+1. Ensure backend dependencies are installed: `cd backend && poetry install`
+2. Run initial migrations: `make migrate`
+3. Database will be created automatically if it doesn't exist
+
+### Production Database
+
+- Production database is backed up before each deployment
+- Database is excluded from rsync during deployment
+- Migrations are run automatically during deployment
