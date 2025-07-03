@@ -12,12 +12,16 @@ class AuthManager {
         this.currentUser = null;
         this.token = localStorage.getItem('authToken');
         
+        // Modal instances cache to prevent multiple instances
+        this.modalInstances = new Map();
+        
         this.init();
     }
 
     init() {
         this.setupEventListeners();
         this.checkAuthStatus();
+        this.setupGlobalModalErrorHandling();
     }
 
     setupEventListeners() {
@@ -31,6 +35,13 @@ class AuthManager {
         console.log('RegisterBtn found:', !!registerBtn);
         console.log('UserMenuDropdown found:', !!userMenuDropdown);
         console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
+        
+        // Log dropdown structure
+        if (userMenuDropdown) {
+            console.log('Dropdown element:', userMenuDropdown);
+            console.log('Next sibling (should be menu):', userMenuDropdown.nextElementSibling);
+            console.log('Parent element:', userMenuDropdown.parentElement);
+        }
 
         if (!loginBtn || !registerBtn) {
             console.error('Required DOM elements not found');
@@ -137,21 +148,85 @@ class AuthManager {
         return fetch(`${this.apiBase}${endpoint}`, config);
     }
 
+    /**
+     * Get or create a Bootstrap modal instance safely
+     * @param {string} modalId - The modal element ID
+     * @returns {bootstrap.Modal} Modal instance
+     */
+    getModalInstance(modalId) {
+        const modalElement = document.getElementById(modalId);
+        
+        if (!modalElement) {
+            console.error(`Modal element ${modalId} not found!`);
+            return null;
+        }
+        
+        if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
+            console.error('Bootstrap Modal not available!');
+            return null;
+        }
+
+        // Check if we already have an instance for this modal
+        let modalInstance = this.modalInstances.get(modalId);
+        
+        if (!modalInstance) {
+            // Create new instance
+            modalInstance = new bootstrap.Modal(modalElement, {
+                backdrop: true,
+                keyboard: true,
+                focus: true
+            });
+            
+            // Store the instance
+            this.modalInstances.set(modalId, modalInstance);
+            
+            // Add cleanup listener
+            modalElement.addEventListener('hidden.bs.modal', () => {
+                // Ensure backdrop is removed
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => backdrop.remove());
+                
+                // Remove modal-open class from body if no other modals are open
+                const openModals = document.querySelectorAll('.modal.show');
+                if (openModals.length === 0) {
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                }
+            });
+        }
+        
+        return modalInstance;
+    }
+
+    /**
+     * Close a modal safely
+     * @param {string} modalId - The modal element ID
+     */
+    closeModal(modalId) {
+        try {
+            const modal = this.modalInstances.get(modalId);
+            if (modal) {
+                modal.hide();
+            } else {
+                // Fallback - try to get existing instance
+                const modalElement = document.getElementById(modalId);
+                if (modalElement) {
+                    const existingModal = bootstrap.Modal.getInstance(modalElement);
+                    if (existingModal) {
+                        existingModal.hide();
+                    }
+                }
+            }
+        } catch (error) {
+            console.error(`Error closing modal ${modalId}:`, error);
+        }
+    }
+
     showLoginModal() {
         try {
-            const modalElement = document.getElementById('loginModal');
+            const modal = this.getModalInstance('loginModal');
+            if (!modal) return;
             
-            if (!modalElement) {
-                console.error('Login modal element not found!');
-                return;
-            }
-            
-            if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
-                console.error('Bootstrap Modal not available!');
-                return;
-            }
-            
-            const modal = new bootstrap.Modal(modalElement);
             modal.show();
             
             document.getElementById('loginForm').reset();
@@ -162,20 +237,32 @@ class AuthManager {
     }
 
     showRegisterModal() {
-        const modal = new bootstrap.Modal(document.getElementById('registerModal'));
-        modal.show();
-        document.getElementById('registerForm').reset();
-        this.hideError('registerError');
+        try {
+            const modal = this.getModalInstance('registerModal');
+            if (!modal) return;
+            
+            modal.show();
+            document.getElementById('registerForm').reset();
+            this.hideError('registerError');
+        } catch (error) {
+            console.error('Error in showRegisterModal:', error);
+        }
     }
 
     showProfileModal() {
-        const modal = new bootstrap.Modal(document.getElementById('profileModal'));
-        modal.show();
-        this.populateProfileForm();
-        this.hideError('profileError');
-        this.hideError('passwordError');
-        this.hideSuccess('profileSuccess');
-        this.hideSuccess('passwordSuccess');
+        try {
+            const modal = this.getModalInstance('profileModal');
+            if (!modal) return;
+            
+            modal.show();
+            this.populateProfileForm();
+            this.hideError('profileError');
+            this.hideError('passwordError');
+            this.hideSuccess('profileSuccess');
+            this.hideSuccess('passwordSuccess');
+        } catch (error) {
+            console.error('Error in showProfileModal:', error);
+        }
     }
 
     async handleLogin() {
@@ -197,8 +284,8 @@ class AuthManager {
                 localStorage.setItem('authToken', this.token);
                 this.setCurrentUser(data.user);
                 
-                // Close modal
-                bootstrap.Modal.getInstance(document.getElementById('loginModal')).hide();
+                // Close modal safely
+                this.closeModal('loginModal');
                 
                 // Trigger document migration
                 try {
@@ -243,7 +330,8 @@ class AuthManager {
                 const user = await response.json();
                 
                 // Close modal
-                bootstrap.Modal.getInstance(document.getElementById('registerModal')).hide();
+                // Close modal safely
+                this.closeModal('registerModal');
                 
                 // Show success and auto-login
                 NotificationManager.showSuccess('Account created successfully! Please log in.');
@@ -347,7 +435,8 @@ class AuthManager {
             if (response.ok) {
                 NotificationManager.showInfo('Account deleted successfully');
                 await this.logout();
-                bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
+                // Close modal safely
+                this.closeModal('profileModal');
             } else {
                 const error = await response.json();
                 this.showError('passwordError', error.detail || 'Account deletion failed');
@@ -460,40 +549,60 @@ class AuthManager {
     initializeDropdown(dropdownElement) {
         console.log('AuthManager: Attempting to initialize dropdown');
         
-        // Method 1: Try Bootstrap 5 API
-        if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
-            try {
-                const existingDropdown = bootstrap.Dropdown.getInstance(dropdownElement);
-                if (!existingDropdown) {
-                    new bootstrap.Dropdown(dropdownElement);
-                    console.log('AuthManager: Bootstrap dropdown initialized via API');
-                    return;
+        // Wait a moment for Bootstrap to be fully loaded
+        setTimeout(() => {
+            // Method 1: Try Bootstrap 5 API
+            if (typeof bootstrap !== 'undefined' && bootstrap.Dropdown) {
+                try {
+                    const existingDropdown = bootstrap.Dropdown.getInstance(dropdownElement);
+                    if (!existingDropdown) {
+                        new bootstrap.Dropdown(dropdownElement);
+                        console.log('AuthManager: Bootstrap dropdown initialized via API');
+                        return;
+                    } else {
+                        console.log('AuthManager: Bootstrap dropdown already exists');
+                        return;
+                    }
+                } catch (error) {
+                    console.warn('AuthManager: Bootstrap API failed:', error);
                 }
-            } catch (error) {
-                console.warn('AuthManager: Bootstrap API failed:', error);
             }
-        }
-        
-        // Method 2: Manual click handler as fallback
-        console.log('AuthManager: Using manual dropdown fallback');
+            
+            // Method 2: Manual click handler as fallback
+            console.log('AuthManager: Using manual dropdown fallback');
+            this.setupManualDropdown(dropdownElement);
+        }, 100);
+    }
+
+    setupManualDropdown(dropdownElement) {
         dropdownElement.addEventListener('click', (e) => {
             e.preventDefault();
+            e.stopPropagation();
+            
             const dropdownMenu = dropdownElement.nextElementSibling;
             if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
                 const isShown = dropdownMenu.classList.contains('show');
                 
                 // Close all other dropdowns first
                 document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
-                    menu.classList.remove('show');
+                    if (menu !== dropdownMenu) {
+                        menu.classList.remove('show');
+                        const otherToggle = menu.previousElementSibling;
+                        if (otherToggle) {
+                            otherToggle.setAttribute('aria-expanded', 'false');
+                        }
+                    }
                 });
                 
                 // Toggle this dropdown
                 if (!isShown) {
                     dropdownMenu.classList.add('show');
                     dropdownElement.setAttribute('aria-expanded', 'true');
+                    console.log('AuthManager: Dropdown opened manually');
                 } else {
                     dropdownMenu.classList.remove('show');
                     dropdownElement.setAttribute('aria-expanded', 'false');
+                    console.log('AuthManager: Dropdown closed manually');
                 }
             }
         });
@@ -506,6 +615,46 @@ class AuthManager {
                     dropdownMenu.classList.remove('show');
                     dropdownElement.setAttribute('aria-expanded', 'false');
                 }
+            }
+        });
+    }
+
+    /**
+     * Set up global error handling for modal-related issues
+     */
+    setupGlobalModalErrorHandling() {
+        // Listen for modal events to ensure proper cleanup
+        document.addEventListener('hidden.bs.modal', (event) => {
+            console.log('Modal hidden event:', event.target.id);
+            
+            // Additional cleanup to ensure no orphaned backdrops
+            setTimeout(() => {
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                if (backdrops.length > 0) {
+                    console.warn('Found orphaned modal backdrops, cleaning up:', backdrops.length);
+                    backdrops.forEach(backdrop => backdrop.remove());
+                }
+                
+                // Ensure body classes are correct
+                const openModals = document.querySelectorAll('.modal.show');
+                if (openModals.length === 0) {
+                    document.body.classList.remove('modal-open');
+                    document.body.style.paddingRight = '';
+                    document.body.style.overflow = '';
+                }
+            }, 100);
+        });
+
+        // Handle potential JavaScript errors from Bootstrap
+        window.addEventListener('error', (event) => {
+            if (event.message && event.message.includes('dataset')) {
+                console.warn('Potential Bootstrap modal dataset error caught:', event.message);
+                // Force cleanup
+                const backdrops = document.querySelectorAll('.modal-backdrop');
+                backdrops.forEach(backdrop => backdrop.remove());
+                document.body.classList.remove('modal-open');
+                document.body.style.paddingRight = '';
+                document.body.style.overflow = '';
             }
         });
     }
