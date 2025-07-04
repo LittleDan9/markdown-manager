@@ -1,0 +1,21 @@
+// ─── MARKDOWN MANAGER STYLES ───
+// Main stylesheet importing all partial files in logical order
+
+// 1. Base styles and resets
+@import 'base';
+
+// 2. Theme system
+@import 'theme';
+
+// 3. Main layout and structure
+@import 'layout';
+
+// 4. Component-specific styles
+@import 'toolbar';
+@import 'editor';
+@import 'preview';
+@import 'code';
+@import 'modals';
+
+// 5. Responsive design (should come last to override other styles)
+@import 'responsive';
