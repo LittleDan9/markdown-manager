@@ -442,6 +442,13 @@ class MFAManager {
                 });
                 
                 modal.show();
+                
+                // Start auto-detection after modal is shown
+                // Wait a bit for the modal to fully render
+                setTimeout(() => {
+                    console.log('[MFA Auto-Detection] Modal shown, starting auto-detection...');
+                    this.startTOTPAutoDetection();
+                }, 500);
             } catch (error) {
                 console.error('Error creating MFA modal:', error);
                 NotificationManager.showError('Failed to initialize MFA setup modal. Please try again.');
@@ -482,6 +489,9 @@ class MFAManager {
 
         // Step 1: Next to verify button
         document.getElementById('mfaNextToVerify')?.addEventListener('click', () => {
+            // Stop auto-detection if user manually advances
+            this.stopTOTPAutoDetection();
+            
             // Mark QR step as complete and enable verify step
             this.markAccordionStepComplete(1);
             this.setAccordionStepState(2, true);
@@ -588,7 +598,12 @@ class MFAManager {
 
         // Focus on relevant input
         setTimeout(() => {
-            if (step === 2) {
+            if (step === 1) {
+                // Start auto-detection when QR code step is shown
+                this.startTOTPAutoDetection();
+            } else if (step === 2) {
+                // Stop auto-detection when moving to verification step
+                this.stopTOTPAutoDetection();
                 const verifyInput = document.getElementById('mfaVerifyCode');
                 if (verifyInput) {
                     verifyInput.focus();
@@ -822,46 +837,6 @@ class MFAManager {
     /**
      * Download backup codes as text file (from setup modal)
      */
-    downloadBackupCodes() {
-        console.log('downloadBackupCodes called');
-        console.log('setupData:', this.setupData);
-        
-        // Try to get backup codes from setupData first
-        let backupCodes = this.setupData?.backup_codes;
-        
-        // If not available, extract from DOM
-        if (!backupCodes) {
-            console.log('No backup codes in setupData, trying DOM');
-            const backupCodesContainer = document.getElementById('mfaBackupCodes');
-            if (backupCodesContainer) {
-                const codeElements = backupCodesContainer.querySelectorAll('.badge');
-                backupCodes = Array.from(codeElements).map(el => el.textContent.trim());
-                console.log('Extracted backup codes from DOM:', backupCodes);
-            }
-        }
-        
-        if (!backupCodes || backupCodes.length === 0) {
-            console.error('No backup codes found');
-            NotificationManager.showError('No backup codes available to download');
-            return;
-        }
-
-        const content = `Markdown Manager - Backup Codes\n\nGenerated: ${new Date().toLocaleString()}\n\n${backupCodes.join('\n')}\n\nKeep these codes safe and secret. Each can only be used once.`;
-        
-        const blob = new Blob([content], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'markdown-manager-backup-codes.txt';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        NotificationManager.showSuccess('Backup codes downloaded successfully');
-    }
-
     /**
      * Complete MFA setup and close modal
      */
@@ -1089,6 +1064,9 @@ class MFAManager {
 
                 // Update profile UI
                 this.updateMFAStatus();
+                
+                // Navigate back to Security tab since MFA Details tab will be hidden
+                this.navigateToSecurityTab();
 
                 NotificationManager.showSuccess('Two-factor authentication has been disabled');
             } else {
@@ -1122,6 +1100,29 @@ class MFAManager {
         if (errorDiv) {
             errorDiv.classList.add('d-none');
             errorDiv.textContent = '';
+        }
+    }
+
+    /**
+     * Navigate to Security tab after disabling MFA
+     */
+    navigateToSecurityTab() {
+        // Find and activate the Security tab
+        const securityTabButton = document.getElementById('security-tab');
+        const securityTabPane = document.getElementById('security-settings');
+        const mfaTabButton = document.getElementById('mfa-tab');
+        const mfaTabPane = document.getElementById('mfa-details');
+        
+        if (securityTabButton && securityTabPane) {
+            // Remove active class from current tab (MFA Details)
+            if (mfaTabButton && mfaTabPane) {
+                mfaTabButton.classList.remove('active');
+                mfaTabPane.classList.remove('show', 'active');
+            }
+            
+            // Activate Security tab
+            securityTabButton.classList.add('active');
+            securityTabPane.classList.add('show', 'active');
         }
     }
 
@@ -1551,6 +1552,257 @@ Keep these codes in a safe place!`;
         if (element) {
             element.classList.add('d-none');
             element.classList.remove('d-block');
+        }
+    }
+
+    /**
+     * Start auto-detection of TOTP setup completion
+     */
+    startTOTPAutoDetection() {
+        // Stop any existing detection
+        this.stopTOTPAutoDetection();
+        
+        console.log('[MFA Auto-Detection] Starting TOTP auto-detection...');
+        
+        // Initialize timing variables
+        this.totpSetupStartTime = Date.now();
+        this.showedFirstHint = false;
+        this.showedSecondHint = false;
+        this.lastTOTPDetectionAttempt = null;
+        
+        // Add visual indicator
+        this.updateQRCodeStatus('Waiting for authenticator app setup...', 'info');
+        
+        // Start polling every 5 seconds for more responsive detection
+        this.totpDetectionInterval = setInterval(() => {
+            console.log('[MFA Auto-Detection] Interval tick, calling checkTOTPSetup');
+            this.checkTOTPSetup();
+        }, 5000);
+        
+        // Stop auto-detection after 3 minutes to avoid indefinite polling
+        this.totpDetectionTimeout = setTimeout(() => {
+            console.log('[MFA Auto-Detection] Timeout reached, stopping auto-detection');
+            this.stopTOTPAutoDetection();
+            this.updateQRCodeStatus('Auto-detection timed out. Please use the "Next" button when ready.', 'warning');
+        }, 180000); // 3 minutes
+    }
+
+    /**
+     * Stop TOTP auto-detection
+     */
+    stopTOTPAutoDetection() {
+        console.log('[MFA Auto-Detection] Stopping TOTP auto-detection...');
+        
+        if (this.totpDetectionInterval) {
+            clearInterval(this.totpDetectionInterval);
+            this.totpDetectionInterval = null;
+        }
+        
+        if (this.totpDetectionTimeout) {
+            clearTimeout(this.totpDetectionTimeout);
+            this.totpDetectionTimeout = null;
+        }
+        
+        // Clean up timing variables
+        this.totpSetupStartTime = null;
+        this.showedFirstHint = false;
+        this.showedSecondHint = false;
+        this.lastTOTPDetectionAttempt = null;
+        
+        // Remove status indicator
+        this.removeQRCodeStatus();
+    }
+
+    /**
+     * Check if TOTP setup is working by testing with a validation approach
+     */
+    async checkTOTPSetup() {
+        try {
+            // Try to validate the current TOTP code to see if the user has successfully
+            // set up their authenticator app
+            const timeElapsed = Date.now() - this.totpSetupStartTime;
+            
+            console.log(`[MFA Auto-Detection] Checking TOTP setup... Time elapsed: ${timeElapsed}ms`);
+            
+            // Show progressive hints based on time elapsed
+            if (timeElapsed > 10000 && !this.showedFirstHint) {
+                console.log('[MFA Auto-Detection] Showing first hint');
+                this.updateQRCodeStatus('Scan the QR code with your authenticator app...', 'info');
+                this.showedFirstHint = true;
+            }
+            
+            // After 20 seconds, start trying to detect if setup is complete
+            if (timeElapsed > 20000) {
+                console.log('[MFA Auto-Detection] Attempting backend detection...');
+                // Try to detect if the user has successfully set up their authenticator
+                // by checking if they can generate valid TOTP codes
+                const detectionResult = await this.detectTOTPSetupCompletion();
+                
+                console.log('[MFA Auto-Detection] Detection result:', detectionResult);
+                
+                if (detectionResult.isSetup) {
+                    // User has successfully set up their authenticator!
+                    console.log('[MFA Auto-Detection] Setup detected! Auto-advancing...');
+                    this.updateQRCodeStatus('✓ Authenticator app setup detected! Proceeding to verification...', 'success');
+                    
+                    // Auto-advance to the next step after a brief pause
+                    setTimeout(() => {
+                        this.stopTOTPAutoDetection();
+                        this.markAccordionStepComplete(1);
+                        this.setAccordionStepState(2, true);
+                        this.goToAccordionStep(2);
+                    }, 2000);
+                    
+                    return; // Stop checking
+                } else if (detectionResult.showHint) {
+                    // Show encouraging message after more time has passed
+                    if (timeElapsed > 90000 && !this.showedSecondHint) {
+                        console.log('[MFA Auto-Detection] Showing second hint');
+                        this.updateQRCodeStatus('Taking longer than expected? Click "Next" when you\'re ready to verify.', 'warning');
+                        this.showedSecondHint = true;
+                    }
+                }
+            }
+            
+        } catch (error) {
+            console.error('[MFA Auto-Detection] Check failed:', error);
+        }
+    }
+
+    /**
+     * Attempt to detect if TOTP setup is complete by checking if a valid code can be generated
+     */
+    async detectTOTPSetupCompletion() {
+        try {
+            // Use the new backend endpoint to check if TOTP setup is complete
+            // This endpoint validates the current time-based TOTP code
+            
+            // Only test every 10 seconds to avoid excessive API calls while being responsive
+            const now = Date.now();
+            if (this.lastTOTPDetectionAttempt && (now - this.lastTOTPDetectionAttempt) < 10000) {
+                console.log('[MFA Auto-Detection] Skipping backend check, too soon since last attempt');
+                return { isSetup: false, showHint: true };
+            }
+            
+            this.lastTOTPDetectionAttempt = now;
+            
+            console.log('[MFA Auto-Detection] Making API call to /mfa/check-setup');
+            
+            // Call the backend to check if setup is complete
+            const response = await this.apiCall('/mfa/check-setup', 'GET');
+            
+            console.log('[MFA Auto-Detection] API response status:', response.status);
+            
+            if (response.ok) {
+                const result = await response.json();
+                console.log('[MFA Auto-Detection] API response data:', result);
+                
+                if (result.setup_complete) {
+                    // The user has successfully set up their authenticator app!
+                    console.log('[MFA Auto-Detection] TOTP setup detected as complete by backend');
+                    return { isSetup: true, showHint: false };
+                } else {
+                    // Setup is not complete yet
+                    console.log('[MFA Auto-Detection] TOTP setup not complete yet');
+                    return { isSetup: false, showHint: true };
+                }
+            } else {
+                // API call failed, fall back to heuristic approach
+                console.log('[MFA Auto-Detection] Backend setup check failed, using heuristic approach');
+                const errorText = await response.text().catch(() => 'Unknown error');
+                console.log('[MFA Auto-Detection] Error response:', errorText);
+                return this.detectTOTPSetupHeuristic();
+            }
+            
+        } catch (error) {
+            console.error('[MFA Auto-Detection] TOTP detection error:', error);
+            // Fall back to heuristic approach if API call fails
+            return this.detectTOTPSetupHeuristic();
+        }
+    }
+
+    /**
+     * Fallback heuristic approach for TOTP setup detection
+     */
+    detectTOTPSetupHeuristic() {
+        const timeElapsed = Date.now() - this.totpSetupStartTime;
+        
+        console.log(`[MFA Auto-Detection] Using heuristic approach. Time elapsed: ${timeElapsed}ms`);
+        
+        // After 45 seconds, we assume the user has had enough time to set up
+        // but won't auto-advance (keeping the manual flow as fallback)
+        if (timeElapsed > 45000) {
+            console.log('[MFA Auto-Detection] Heuristic: enough time has passed but not auto-advancing');
+            return { isSetup: false, showHint: true };
+        }
+        
+        return { isSetup: false, showHint: true };
+    }
+
+    /**
+     * Test if a TOTP code is valid using the backend verify endpoint
+     * This is a helper method that could be used for more sophisticated auto-detection
+     */
+    async testTOTPCode(code) {
+        try {
+            const response = await this.apiCall('/mfa/verify', 'POST', {
+                totp_code: code
+            });
+            
+            return response.ok;
+        } catch (error) {
+            console.log('TOTP code test failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Update QR code section with status message
+     */
+    updateQRCodeStatus(message, type = 'info') {
+        let statusDiv = document.getElementById('qrCodeStatus');
+        
+        if (!statusDiv) {
+            // Create status indicator if it doesn't exist
+            statusDiv = document.createElement('div');
+            statusDiv.id = 'qrCodeStatus';
+            statusDiv.className = 'text-center mt-3';
+            
+            // Insert after the QR code container
+            const qrContainer = document.querySelector('.qr-code-container');
+            if (qrContainer) {
+                qrContainer.parentNode.insertBefore(statusDiv, qrContainer.nextSibling);
+            }
+        }
+        
+        // Update content and styling based on type
+        const iconMap = {
+            info: 'bi-info-circle',
+            success: 'bi-check-circle-fill',
+            warning: 'bi-exclamation-triangle'
+        };
+        
+        const colorMap = {
+            info: 'text-info',
+            success: 'text-success',
+            warning: 'text-warning'
+        };
+        
+        statusDiv.innerHTML = `
+            <div class="d-flex align-items-center justify-content-center gap-2 ${colorMap[type]}">
+                <i class="bi ${iconMap[type]}"></i>
+                <small>${message}</small>
+            </div>
+        `;
+    }
+
+    /**
+     * Remove QR code status indicator
+     */
+    removeQRCodeStatus() {
+        const statusDiv = document.getElementById('qrCodeStatus');
+        if (statusDiv) {
+            statusDiv.remove();
         }
     }
 }

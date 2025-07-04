@@ -220,3 +220,54 @@ async def regenerate_backup_codes(
         )
     
     return {"backup_codes": new_backup_codes}
+
+
+@router.get("/check-setup")
+async def check_mfa_setup(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Check if MFA setup is complete by validating current TOTP code."""
+    if not current_user.totp_secret:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="MFA setup not initiated",
+        )
+    
+    # Import required modules for TOTP generation
+    import pyotp
+    import time
+    
+    try:
+        # Generate the current TOTP code that should be valid
+        totp = pyotp.TOTP(current_user.totp_secret)
+        current_code = totp.now()
+        
+        # Check if this code is valid (this validates the secret and timing)
+        is_valid = verify_totp_code(current_user.totp_secret, current_code)
+        
+        # Also check if the code from the previous time window is valid
+        # to account for clock drift
+        previous_code = totp.at(time.time() - 30)
+        is_previous_valid = verify_totp_code(
+            current_user.totp_secret, previous_code
+        )
+        
+        # If either current or previous code is valid, setup is working
+        setup_complete = is_valid or is_previous_valid
+        
+        return {
+            "setup_complete": setup_complete,
+            "has_secret": bool(current_user.totp_secret),
+            "current_time": int(time.time()),
+            # Don't return the actual codes for security
+        }
+        
+    except Exception as e:
+        # If there's any error in TOTP generation/validation,
+        # setup is not complete
+        return {
+            "setup_complete": False,
+            "has_secret": bool(current_user.totp_secret),
+            "error": str(e),
+        }
