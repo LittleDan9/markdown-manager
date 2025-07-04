@@ -11,17 +11,20 @@ from app.core.auth import (
     create_access_token,
     get_current_active_user,
 )
+from app.core.mfa import verify_totp_code, verify_backup_code
 from app.core.config import settings
 from app.crud import user as crud_user
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import (
-    Token, 
-    UserCreate, 
-    UserLogin, 
+    Token,
+    UserCreate,
+    UserLogin,
     UserResponse,
     PasswordResetRequest,
-    PasswordResetConfirm
+    PasswordResetConfirm,
+    LoginMFARequest,
+    LoginResponse,
 )
 
 router = APIRouter()
@@ -45,11 +48,11 @@ async def register(
     return user
 
 
-@router.post("/login", response_model=Token)
+@router.post("/login", response_model=LoginResponse)
 async def login(
     user_credentials: UserLogin, db: AsyncSession = Depends(get_db)
 ) -> Any:
-    """Authenticate user and return access token."""
+    """Authenticate user and return access token (or require MFA)."""
     user = await authenticate_user(
         db, user_credentials.email, user_credentials.password
     )
@@ -65,6 +68,13 @@ async def login(
             detail="Inactive user",
         )
     
+    # Check if MFA is enabled
+    if user.mfa_enabled:
+        return LoginResponse(
+            mfa_required=True
+        )
+    
+    # Normal login flow (no MFA)
     access_token_expires = timedelta(
         minutes=settings.access_token_expire_minutes
     )
@@ -72,11 +82,12 @@ async def login(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
     
-    return {
-        "access_token": access_token,
-        "token_type": "bearer",
-        "user": user,
-    }
+    return LoginResponse(
+        mfa_required=False,
+        access_token=access_token,
+        token_type="bearer",
+        user=user,
+    )
 
 
 @router.get("/me", response_model=UserResponse)
@@ -103,7 +114,9 @@ async def request_password_reset(
     expires = datetime.utcnow() + timedelta(hours=1)  # Token expires in 1 hour
     
     # Save token to database
-    await crud_user.create_password_reset_token(db, request_data.email, token, expires)
+    await crud_user.create_password_reset_token(
+        db, request_data.email, token, expires
+    )
     
     # TODO: In a real application, send email with reset link
     # For now, we'll just return the token (remove this in production)
@@ -129,3 +142,53 @@ async def confirm_password_reset(
         )
     
     return {"message": "Password has been reset successfully"}
+
+
+@router.post("/login-mfa", response_model=Token)
+async def login_mfa(
+    mfa_credentials: LoginMFARequest, db: AsyncSession = Depends(get_db)
+) -> Any:
+    """Complete MFA login with TOTP code."""
+    # Re-authenticate the user (verify password again for security)
+    user = await authenticate_user(
+        db, mfa_credentials.email, mfa_credentials.password
+    )
+    if not user or not user.is_active or not user.mfa_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid MFA login attempt",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Verify TOTP code or backup code
+    totp_valid = verify_totp_code(user.totp_secret, mfa_credentials.code)
+    backup_valid = False
+    
+    if not totp_valid and user.backup_codes:
+        backup_valid, updated_codes = verify_backup_code(
+            user.backup_codes, mfa_credentials.code
+        )
+        # Update backup codes if one was used
+        if backup_valid:
+            await crud_user.update_backup_codes(db, user.id, updated_codes)
+    
+    if not totp_valid and not backup_valid:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid TOTP code or backup code",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    # Generate access token
+    access_token_expires = timedelta(
+        minutes=settings.access_token_expire_minutes
+    )
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user,
+    }

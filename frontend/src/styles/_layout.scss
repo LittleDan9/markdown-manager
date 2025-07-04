@@ -1,0 +1,131 @@
+// ─── MAIN LAYOUT AND CONTAINER STYLES ───
+
+// ─── CONTAINER: Fill the entire viewport ───
+#container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh; // exactly the browser's viewport height
+
+  // ─── TOOLBAR (≈56px tall by default) ───
+  #toolbar {
+    flex: 0 0 auto;
+  }
+
+  // ─── MAIN AREA: fill everything below the toolbar ───
+  #main {
+    display: flex;
+    flex: 1 1 auto; // share 100vh minus toolbar, shrink/grow if needed
+    min-height: 0;  // allow its children to shrink
+    overflow: hidden;
+
+    // ─── LEFT EDITOR PANE (40% width) ───
+    #editorContainer {
+      flex: 0 0 40%;       // exactly 40% of #main's width
+      height: 100%;        // fill #main's height
+      display: flex;
+      flex-direction: column;
+      min-height: 0;       // allow #editor to shrink/grow inside
+      border-top-left-radius: 0.5rem;
+      border-bottom-left-radius: 0.5rem;
+      padding: 1rem;
+      box-sizing: border-box;
+
+      #editor {
+        flex: 1 1 auto;   // fill entire height of #editorContainer
+        border: 1px solid #ced4da;
+        border-radius: 0.5rem;
+        overflow: hidden; // Monaco editor will handle its own scrolling
+      }
+    }
+
+    // ─── RIGHT PREVIEW PANE (60% width) ───
+    #previewContainer {
+      flex: 0 0 60%;       // exactly 60% of #main's width
+      height: 100%;        // fill #main's height
+      display: flex;       // center #preview inside it
+      justify-content: center;
+      align-items: center;
+      // background-color: #ffffff;
+      min-height: 0;       // allow #preview to shrink/grow
+      padding: 1rem;
+      /* Optionally, if you want a dropped‐shadow around the preview: */
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+
+      #preview {
+        width: 100%;
+        height: 100%;
+        display: flex;       // center its children (the Mermaid SVG)
+        flex-direction: column;
+        border-radius: 0.5rem;
+        border: #ced4da 1px solid;
+        padding: 0.25rem;
+        box-sizing: border-box;
+      }
+
+      .preview-scroll {
+        flex: 1 1 auto; // allow the preview to grow/shrink
+        overflow: auto;
+        border-radius: inherit;
+        min-height: 0;
+        padding: 1rem;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        hyphens: auto;
+
+        // Ensure content doesn't overflow horizontally
+        max-width: 100%;
+
+        // Handle long lines in all content
+        * {
+          max-width: 100%;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+        }
+
+        // Special handling for code blocks and pre elements
+        pre, code {
+          white-space: pre-wrap;
+          word-wrap: break-word;
+          overflow-wrap: break-word;
+          overflow-x: auto;
+          max-width: 100%;
+        }
+
+        // Inline code should wrap
+        code:not(pre code) {
+          white-space: normal;
+          word-break: break-all;
+        }
+
+        // Tables should be scrollable horizontally
+        table {
+          display: block;
+          max-width: 100%;
+          overflow-x: auto;
+          white-space: nowrap;
+        }
+
+        // Long URLs and links should break
+        a {
+          word-break: break-all;
+          overflow-wrap: break-word;
+        }
+      }
+    }
+  }
+}
+
+// Document list styles
+.document-list {
+  .document-item {
+    &:hover {
+      background-color: rgba(0, 0, 0, 0.05);
+    }
+
+    [data-bs-theme="dark"] & {
+      &:hover {
+        background-color: rgba(255, 255, 255, 0.05);
+      }
+    }
+  }
+}

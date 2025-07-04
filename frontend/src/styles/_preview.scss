@@ -1,0 +1,196 @@
+// ─── PREVIEW PANE STYLES ───
+
+// Align preview controls with the preview div
+#previewControls {
+  // Calculate the right margin to align with preview div
+  // This takes into account the padding and position of the preview container
+  margin-right: calc(1rem); // Match the previewContainer padding
+}
+
+// PDF Export styling for different themes
+.pdf-export-mode {
+  // Dark mode with good contrast
+  &[data-theme="dark"] {
+    color: #ffffff !important;
+    background-color: #1a1a1a !important;
+
+    * {
+      color: #ffffff !important;
+    }
+
+    .preview-scroll {
+      background-color: #1a1a1a !important;
+      color: #ffffff !important;
+    }
+
+    // Dark theme code blocks with good contrast
+    pre[class*="language-"] {
+      background-color: #2d2d2d !important;
+      color: #f8f8f2 !important;
+      border: 1px solid #444 !important;
+    }
+
+    code:not([class*="language-"]) {
+      background-color: #2d2d2d !important;
+      color: #f92672 !important;
+      padding: 0.125rem 0.25rem !important;
+      border-radius: 0.25rem !important;
+    }
+
+    // Mermaid diagrams with dark theme
+    .mermaid {
+      background-color: #2d2d2d !important;
+      border: 1px solid #444 !important;
+      border-radius: 0.25rem !important;
+      padding: 1rem !important;
+
+      * {
+        fill: #ffffff !important;
+        stroke: #ffffff !important;
+        color: #ffffff !important;
+      }
+
+      // Specific mermaid elements
+      .node rect, .node polygon, .node circle, .node ellipse {
+        fill: #444 !important;
+        stroke: #ffffff !important;
+      }
+
+      .edgePath path {
+        stroke: #ffffff !important;
+      }
+
+      .edgeLabel {
+        background-color: #2d2d2d !important;
+        color: #ffffff !important;
+      }
+    }
+
+    // Tables with dark theme
+    table {
+      color: #ffffff !important;
+      background-color: #2d2d2d !important;
+      border: 1px solid #444 !important;
+
+      th, td {
+        border-color: #444 !important;
+        background-color: #2d2d2d !important;
+        color: #ffffff !important;
+      }
+
+      thead th {
+        background-color: #404040 !important;
+        color: #ffffff !important;
+      }
+    }
+
+    // Headings
+    h1, h2, h3, h4, h5, h6 {
+      color: #ffffff !important;
+      border-bottom-color: #444 !important;
+    }
+
+    // Links
+    a {
+      color: #66b3ff !important;
+
+      &:hover {
+        color: #99ccff !important;
+      }
+    }
+
+    // Blockquotes
+    blockquote {
+      color: #cccccc !important;
+      border-left: 4px solid #666 !important;
+      background-color: #2d2d2d !important;
+      padding: 1rem !important;
+      margin: 1rem 0 !important;
+    }
+
+    // Horizontal rules
+    hr {
+      border-color: #444 !important;
+    }
+
+    // Lists
+    ul, ol {
+      color: #ffffff !important;
+    }
+
+    // Strong and emphasis
+    strong, b {
+      color: #ffffff !important;
+      font-weight: bold !important;
+    }
+
+    em, i {
+      color: #cccccc !important;
+      font-style: italic !important;
+    }
+  }
+
+  // Light mode export
+  &[data-theme="light"] {
+    color: #212529 !important;
+    background-color: #ffffff !important;
+
+    * {
+      color: inherit !important;
+    }
+
+    .preview-scroll {
+      background-color: #ffffff !important;
+      color: #212529 !important;
+    }
+
+    // Light theme code blocks
+    pre[class*="language-"] {
+      background-color: #f8f9fa !important;
+      color: #212529 !important;
+    }
+
+    code {
+      background-color: #f8f9fa !important;
+      color: #e83e8c !important;
+    }
+
+    // Light theme mermaid diagrams
+    .mermaid {
+      background-color: #ffffff !important;
+
+      * {
+        fill: #000000 !important;
+        stroke: #000000 !important;
+        color: #000000 !important;
+      }
+    }
+
+    // Tables
+    table {
+      color: #212529 !important;
+      background-color: #ffffff !important;
+
+      th, td {
+        border-color: #dee2e6 !important;
+        background-color: transparent !important;
+      }
+    }
+
+    // Headings
+    h1, h2, h3, h4, h5, h6 {
+      color: #212529 !important;
+    }
+
+    // Links
+    a {
+      color: #0d6efd !important;
+    }
+
+    // Blockquotes
+    blockquote {
+      color: #6c757d !important;
+      border-left-color: #dee2e6 !important;
+    }
+  }
+}

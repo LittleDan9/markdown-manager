@@ -1,0 +1,19 @@
+// ─── MONACO EDITOR STYLES ───
+
+// Monaco Editor Rounding
+.monaco-editor,
+.monaco-editor .overflow-guard {
+  border-radius: 0.5rem;
+}
+
+// Ensure Monaco editor can shrink properly
+#editor {
+  min-width: 0 !important;
+  width: 100% !important;
+}
+
+// Ensure preview content can shrink
+#preview, .preview-scroll {
+  min-width: 0 !important;
+  width: 100% !important;
+}

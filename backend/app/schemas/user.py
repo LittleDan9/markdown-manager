@@ -55,6 +55,7 @@ class UserResponse(UserBase):
     id: int
     is_active: bool
     is_verified: bool
+    mfa_enabled: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
     full_name: str
@@ -74,3 +75,41 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     """Token data schema."""
     email: Optional[str] = None
+
+
+class MFASetupRequest(BaseModel):
+    """MFA setup initiation request."""
+    pass  # No fields needed for setup initiation
+
+
+class MFASetupResponse(BaseModel):
+    """MFA setup response with QR code data."""
+    qr_code_data_url: str  # Base64 encoded QR code image
+    secret: str  # The TOTP secret for manual entry
+    backup_codes: list[str]  # One-time backup codes
+
+
+class MFAVerifyRequest(BaseModel):
+    """MFA verification request."""
+    totp_code: str  # 6-digit TOTP code
+
+
+class MFAToggleRequest(BaseModel):
+    """MFA enable/disable request."""
+    totp_code: str  # Required to enable/disable
+    current_password: str  # Required for security
+
+
+class LoginMFARequest(BaseModel):
+    """Second step MFA login request."""
+    email: EmailStr  # To identify the user
+    password: str  # Original password for re-verification
+    code: str  # 6-digit TOTP code or backup code
+
+
+class LoginResponse(BaseModel):
+    """Login response that may require MFA."""
+    mfa_required: bool
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    user: Optional[UserResponse] = None

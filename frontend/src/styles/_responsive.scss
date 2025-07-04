@@ -1,0 +1,65 @@
+// ─── RESPONSIVE DESIGN AND MEDIA QUERIES ───
+
+// Mobile and tablet responsive styles
+@media (max-width: 768px) {
+  #toolbar {
+    flex-wrap: wrap;
+
+    .navbar-brand {
+      font-size: 1rem;
+    }
+
+    .dropdown, .btn-sm {
+      font-size: 0.875rem;
+    }
+
+    // Stack controls vertically on mobile
+    .d-flex.justify-content-between {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 0.5rem;
+      width: 100%;
+
+      #previewControls {
+        margin-right: 0;
+        width: 100%;
+        justify-content: flex-end;
+      }
+    }
+  }
+
+  #main {
+    flex-direction: column;
+
+    #editorContainer {
+      flex: 0 0 50%;
+    }
+
+    #previewContainer {
+      flex: 0 0 50%;
+    }
+  }
+
+  .document-item {
+    .btn-group {
+      flex-direction: column;
+      gap: 0.25rem;
+    }
+  }
+}
+
+// ─── RESPONSIVE FLEX BEHAVIOR OVERRIDE ───
+// Fix for when window size decreases - allow panels to shrink proportionally
+@media screen and (min-width: 769px) {
+  #main {
+    #editorContainer {
+      flex: 0 1 40% !important;  // Allow shrinking while maintaining proportion
+      min-width: 250px;          // Minimum width before mobile layout kicks in
+    }
+
+    #previewContainer {
+      flex: 0 1 60% !important;  // Allow shrinking while maintaining proportion
+      min-width: 250px;          // Minimum width before mobile layout kicks in
+    }
+  }
+}

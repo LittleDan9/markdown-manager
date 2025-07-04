@@ -1,0 +1,34 @@
+// ─── GLOBAL RESET AND BASE STYLES ───
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+// Global cursor utilities
+.cursor-pointer {
+  cursor: pointer;
+}
+
+// Notification animations
+.notification {
+  animation: slideIn 0.3s ease-out;
+
+  @keyframes slideIn {
+    from {
+      transform: translateX(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+}
+
+.subtle-notification {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-weight: 500;
+  letter-spacing: 0.025em;
+}

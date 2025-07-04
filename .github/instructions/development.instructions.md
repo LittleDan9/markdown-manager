@@ -1,8 +1,10 @@
 ---
 applyTo: '**'
 ---
-Use the `Makefile` to run the development commands (make dev-frontend, make dev-backend, etc.)
+Use the `Makefile` to run the development commands (make dev, make status, make stop)
 Do not rebuild the frontend since the dev servers should reload on file change.
-There is no need to run the website in the Simple Browser unless you need to interact with it.
+DO not rebuild the backend as Uvicorn is watching for changes.
+Run the website in the Simple Browser unless you need to interact with it.
 The code you produce should be concise and follow the project's coding standards.
 If I accept your code, I will commit it to git and push it to the repository.
+Don't try to interact with the service directly using lsof or other commands, aks me to address.

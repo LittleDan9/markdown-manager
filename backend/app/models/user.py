@@ -18,6 +18,11 @@ class User(BaseModel):
     reset_token = Column(String(255), nullable=True)
     reset_token_expires = Column(DateTime, nullable=True)
     
+    # MFA fields
+    mfa_enabled = Column(Boolean, default=False)
+    totp_secret = Column(String(255), nullable=True)  # Base32 encoded secret
+    backup_codes = Column(Text, nullable=True)  # JSON array of backup codes
+    
     # Profile fields
     first_name = Column(String(100))
     last_name = Column(String(100))

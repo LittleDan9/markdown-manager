@@ -44,7 +44,7 @@
         <div class="d-flex align-items-center gap-2" id="previewControls">
           <button id="fullScreenBtn" class="btn btn-sm" 
                   data-bs-toggle="tooltip" data-bs-placement="bottom" 
-                  title="Open diagram in fullscreen"
+                  title="Open preview in fullscreen"
                   style="border: none !important; background: transparent; outline: none; box-shadow: none;">
             <i class="bi bi-fullscreen"></i>
           </button>
@@ -134,11 +134,6 @@
             <div id="loginError" class="alert alert-danger" style="display: none;"></div>
           </div>
           <div class="modal-footer">
-            <div class="me-auto">
-              <a href="#" id="forgotPasswordLink" class="text-decoration-none small">
-                <i class="bi bi-question-circle me-1"></i>Forgot your password?
-              </a>
-            </div>
             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
             <button type="submit" class="btn btn-primary">
               <span class="spinner-border spinner-border-sm me-2" id="loginSpinner" style="display: none;"></span>
@@ -278,12 +273,12 @@
                   <input type="password" class="form-control" id="currentPassword" required>
                 </div>
                 <div class="mb-3">
-                  <label for="profileNewPassword" class="form-label">New Password</label>
-                  <input type="password" class="form-control" id="profileNewPassword" required minlength="6">
+                  <label for="newPassword" class="form-label">New Password</label>
+                  <input type="password" class="form-control" id="newPassword" required minlength="6">
                 </div>
                 <div class="mb-3">
-                  <label for="profileConfirmPassword" class="form-label">Confirm New Password</label>
-                  <input type="password" class="form-control" id="profileConfirmPassword" required>
+                  <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                  <input type="password" class="form-control" id="confirmPassword" required>
                 </div>
                 <div id="passwordError" class="alert alert-danger" style="display: none;"></div>
                 <div id="passwordSuccess" class="alert alert-success" style="display: none;"></div>
@@ -294,6 +289,58 @@
                   </button>
                 </div>
               </form>
+              
+              <hr class="my-4">
+              
+              <!-- Multi-Factor Authentication Section -->
+              <div class="mb-4">
+                <h6 class="fw-bold mb-3">
+                  <i class="bi bi-shield-lock me-2"></i>Two-Factor Authentication
+                </h6>
+                
+                <!-- MFA Disabled State -->
+                <div id="profileMFADisabled" class="card border-warning">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <h6 class="card-title mb-1">
+                          <i class="bi bi-shield-exclamation text-warning me-2"></i>Two-Factor Authentication Disabled
+                        </h6>
+                        <p class="card-text text-muted mb-0">
+                          Secure your account with an extra layer of protection using your phone or authenticator app.
+                        </p>
+                      </div>
+                      <button type="button" class="btn btn-outline-success ms-3" disabled>
+                        <i class="bi bi-shield-plus me-2"></i>Enable 2FA
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- MFA Enabled State -->
+                <div id="profileMFAEnabled" class="card border-success" style="display: none;">
+                  <div class="card-body">
+                    <div class="d-flex align-items-center">
+                      <div class="flex-grow-1">
+                        <h6 class="card-title mb-1">
+                          <i class="bi bi-shield-check text-success me-2"></i>Two-Factor Authentication Enabled
+                        </h6>
+                        <p class="card-text text-muted mb-0">
+                          Your account is protected with two-factor authentication.
+                        </p>
+                      </div>
+                      <div class="btn-group ms-3" role="group">
+                        <button type="button" class="btn btn-outline-primary" disabled>
+                          <i class="bi bi-key me-2"></i>Backup Codes
+                        </button>
+                        <button type="button" class="btn btn-outline-danger" disabled>
+                          <i class="bi bi-shield-x me-2"></i>Disable
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
               
               <hr class="my-4">
               
@@ -316,73 +363,5 @@
     </div>
   </div>
 
-  <!-- Password Reset Request Modal -->
-  <div class="modal fade" id="passwordResetModal" tabindex="-1" aria-labelledby="passwordResetModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h1 class="modal-title fs-5" id="passwordResetModalLabel">
-            <i class="bi bi-key me-2"></i>Reset Password
-          </h1>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <form id="passwordResetForm">
-          <div class="modal-body">
-            <p class="text-muted mb-3">
-              Enter your email address and we'll send you a link to reset your password.
-            </p>
-            <div class="mb-3">
-              <label for="resetEmail" class="form-label">Email</label>
-              <input type="email" class="form-control" id="resetEmail" required>
-            </div>
-            <div id="passwordResetError" class="alert alert-danger" style="display: none;"></div>
-            <div id="passwordResetSuccess" class="alert alert-success" style="display: none;"></div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">
-              <span class="spinner-border spinner-border-sm me-2" id="passwordResetSpinner" style="display: none;"></span>
-              Send Reset Link
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
-
-  <!-- Password Reset Confirm Modal -->
-  <div class="modal fade" id="passwordResetConfirmModal" tabindex="-1" aria-labelledby="passwordResetConfirmModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-      <div class="modal-content">
-        <div class="modal-header">
-          <h1 class="modal-title fs-5" id="passwordResetConfirmModalLabel">
-            <i class="bi bi-shield-lock me-2"></i>Set New Password
-          </h1>
-          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-        </div>
-        <form id="passwordResetConfirmForm">
-          <div class="modal-body">
-            <div class="mb-3">
-              <label for="newPassword" class="form-label">New Password</label>
-              <input type="password" class="form-control" id="newPassword" required minlength="6">
-              <div class="form-text">Password must be at least 6 characters long.</div>
-            </div>
-            <div class="mb-3">
-              <label for="confirmNewPassword" class="form-label">Confirm New Password</label>
-              <input type="password" class="form-control" id="confirmNewPassword" required minlength="6">
-            </div>
-            <div id="passwordResetConfirmError" class="alert alert-danger" style="display: none;"></div>
-          </div>
-          <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button type="submit" class="btn btn-primary">
-              <span class="spinner-border spinner-border-sm me-2" id="passwordResetConfirmSpinner" style="display: none;"></span>
-              Reset Password
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  </div>
 </body>
 </html>

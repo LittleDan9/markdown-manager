@@ -136,3 +136,63 @@ async def reset_password_with_token(
     user.reset_token_expires = None
     await db.commit()
     return True
+
+
+async def setup_mfa(
+    db: AsyncSession, user_id: int, secret: str, backup_codes: str
+) -> bool:
+    """Set up MFA for a user with secret and backup codes."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    
+    if not db_user:
+        return False
+    
+    db_user.totp_secret = secret
+    db_user.backup_codes = backup_codes
+    db_user.mfa_enabled = False  # Not enabled until verified
+    await db.commit()
+    return True
+
+
+async def enable_mfa(db: AsyncSession, user_id: int) -> bool:
+    """Enable MFA for a user (after verification)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    
+    if not db_user or not db_user.totp_secret:
+        return False
+    
+    db_user.mfa_enabled = True
+    await db.commit()
+    return True
+
+
+async def disable_mfa(db: AsyncSession, user_id: int) -> bool:
+    """Disable MFA for a user and clear secrets."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    
+    if not db_user:
+        return False
+    
+    db_user.mfa_enabled = False
+    db_user.totp_secret = None
+    db_user.backup_codes = None
+    await db.commit()
+    return True
+
+
+async def update_backup_codes(
+    db: AsyncSession, user_id: int, backup_codes: str
+) -> bool:
+    """Update backup codes for a user (after using one)."""
+    result = await db.execute(select(User).where(User.id == user_id))
+    db_user = result.scalar_one_or_none()
+    
+    if not db_user:
+        return False
+    
+    db_user.backup_codes = backup_codes
+    await db.commit()
+    return True

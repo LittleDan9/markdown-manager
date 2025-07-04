@@ -19,10 +19,14 @@ class AuthManager {
     }
 
     init() {
-        this.setupEventListeners();
-        this.checkAuthStatus();
-        this.setupGlobalModalErrorHandling();
-        this.checkForPasswordResetToken();
+        try {
+            this.setupEventListeners();
+            this.checkAuthStatus();
+            this.setupGlobalModalErrorHandling();
+            this.checkForPasswordResetToken();
+        } catch (error) {
+            console.error('AuthManager initialization error:', error);
+        }
     }
 
     /**
@@ -89,6 +93,11 @@ class AuthManager {
             if (e.target.id === 'profileBtn' || e.target.closest('#profileBtn')) {
                 e.preventDefault();
                 this.showProfileModal();
+            }
+            
+            if (e.target.id === 'settingsBtn' || e.target.closest('#settingsBtn')) {
+                e.preventDefault();
+                this.showProfileModal('security-settings');
             }
             
             if (e.target.id === 'logoutBtn' || e.target.closest('#logoutBtn')) {
@@ -392,7 +401,7 @@ class AuthManager {
         }
     }
 
-    showProfileModal() {
+    showProfileModal(activeTab = null) {
         try {
             const modal = this.getModalInstance('profileModal');
             if (!modal) return;
@@ -403,6 +412,17 @@ class AuthManager {
             this.hideError('passwordError');
             this.hideSuccess('profileSuccess');
             this.hideSuccess('passwordSuccess');
+            
+            // Switch to specific tab if provided
+            if (activeTab) {
+                setTimeout(() => {
+                    const targetTab = document.getElementById(`${activeTab.replace('-settings', '')}-tab`);
+                    if (targetTab) {
+                        const tab = new bootstrap.Tab(targetTab);
+                        tab.show();
+                    }
+                }, 100);
+            }
         } catch (error) {
             console.error('Error in showProfileModal:', error);
         }
@@ -480,6 +500,8 @@ class AuthManager {
 
             if (response.ok) {
                 const data = await response.json();
+                
+                // Regular login success
                 this.token = data.access_token;
                 localStorage.setItem('authToken', this.token);
                 this.setCurrentUser(data.user);
@@ -789,7 +811,7 @@ class AuthManager {
     populateProfileForm() {
         if (this.currentUser) {
             document.getElementById('profileFirstName').value = this.currentUser.first_name || '';
-            document.getElementById('profileLastName').value = this.currentUser.last_name || '';
+            document.getElementById('profileLastName').value = this.currentUser.last_name || '';            
             document.getElementById('profileDisplayName').value = this.currentUser.display_name || '';
             document.getElementById('profileEmail').value = this.currentUser.email || '';
             document.getElementById('profileBio').value = this.currentUser.bio || '';
@@ -843,11 +865,17 @@ class AuthManager {
     }
 
     showSpinner(spinnerId) {
-        document.getElementById(spinnerId).style.display = 'inline-block';
+        const element = document.getElementById(spinnerId);
+        if (element) {
+            element.style.display = 'inline-block';
+        }
     }
 
     hideSpinner(spinnerId) {
-        document.getElementById(spinnerId).style.display = 'none';
+        const element = document.getElementById(spinnerId);
+        if (element) {
+            element.style.display = 'none';
+        }
     }
 
     initializeDropdown(dropdownElement) {
