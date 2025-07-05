@@ -27,7 +27,7 @@ else
     DEPLOY_METHOD := remote
 endif
 
-.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote migrate migrate-create test db-backup db-restore
+.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore
 
 # Default target
 help: ## Show this help message
@@ -40,7 +40,10 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(migrate|migrate-create|db-backup|db-restore):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Deployment:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(deploy|deploy-local|deploy-remote|deploy-frontend-only):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(deploy|deploy-local|deploy-remote|deploy-frontend-only|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "$(BLUE)Nginx:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(reload-nginx|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Utilities:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(test|status|stop|logs):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -97,6 +100,8 @@ deploy-local: ## Deploy to local production server
 	fi
 	@echo "$(BLUE)Deploying backend...$(NC)"
 	@$(MAKE) deploy-backend-local
+	@echo "$(BLUE)Reloading nginx configuration...$(NC)"
+	@sudo systemctl reload nginx && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(YELLOW)⚠️ Could not reload nginx (may need manual restart)$(NC)"
 	@echo "$(GREEN)🎉 Local deployment complete!$(NC)"
 
 deploy-remote: ## Deploy to remote production server
@@ -105,6 +110,8 @@ deploy-remote: ## Deploy to remote production server
 	rsync -r --no-perms --no-times --no-group --progress frontend/dist/ $(DEPLOY_TARGET)
 	@echo "$(BLUE)Deploying backend...$(NC)"
 	@$(MAKE) deploy-backend-remote
+	@echo "$(BLUE)Reloading nginx configuration...$(NC)"
+	@ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl reload nginx" && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(YELLOW)⚠️ Could not reload nginx (may need manual restart)$(NC)"
 	@echo "$(GREEN)🎉 Remote deployment complete!$(NC)"
 
 deploy-backend-local: ## Deploy backend locally with database migrations
@@ -123,9 +130,15 @@ deploy-backend-local: ## Deploy backend locally with database migrations
 		--exclude='.pytest_cache' \
 		--exclude='.venv' \
 		$(BACKEND_DIR)/ $(BACKEND_DEPLOY_TARGET)
+	# Install/sync dependencies with Poetry
+	@echo "$(BLUE)Installing/syncing dependencies...$(NC)"
+	cd $(BACKEND_DEPLOY_TARGET) && poetry install --only=main
 	# Run database migrations
 	@echo "$(BLUE)Running database migrations...$(NC)"
 	cd $(BACKEND_DEPLOY_TARGET) && poetry run alembic upgrade head
+	# Restart backend service
+	@echo "$(BLUE)Restarting backend service...$(NC)"
+	@sudo systemctl restart markdown-manager-api && echo "$(GREEN)✅ Backend service restarted$(NC)" || echo "$(YELLOW)⚠️ Could not restart backend service (may need manual restart)$(NC)"
 	@echo "$(GREEN)✅ Backend deployment with migrations complete$(NC)"
 
 deploy-backend-remote: ## Deploy backend remotely with database migrations
@@ -146,10 +159,19 @@ deploy-backend-remote: ## Deploy backend remotely with database migrations
 		--exclude='.pytest_cache' \
 		--exclude='.venv' \
 		$(BACKEND_DIR)/ $(BACKEND_DEPLOY_TARGET)
+	# Install/sync dependencies with Poetry
+	@echo "$(BLUE)Installing/syncing dependencies...$(NC)"
+	ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) \
+		"cd $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2) && \
+		/home/dlittle/.local/bin/poetry install --only=main"
 	# Run database migrations
 	@echo "$(BLUE)Running database migrations...$(NC)"
 	ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) \
-		"cd $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2) && poetry run alembic upgrade head"
+		"cd $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2) && \
+		/home/dlittle/.local/bin/poetry run alembic upgrade head"
+	# Restart backend service
+	@echo "$(BLUE)Restarting backend service...$(NC)"
+	@ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl restart markdown-manager-api" && echo "$(GREEN)✅ Backend service restarted$(NC)" || echo "$(YELLOW)⚠️ Could not restart backend service (may need manual restart)$(NC)"
 	@echo "$(GREEN)✅ Backend deployment with migrations complete$(NC)"
 
 backend-prod: ## Start backend in production mode
@@ -250,8 +272,33 @@ deploy-frontend-only: ## Deploy only frontend (skip backend)
 	rsync -r --no-perms --no-times --no-group --progress frontend/dist/ $(DEPLOY_TARGET)
 	@echo "$(GREEN)✅ Frontend-only deployment complete$(NC)"
 
+# Nginx management targets
+reload-nginx-local: ## Reload nginx configuration locally
+	@echo "$(BLUE)Reloading nginx configuration locally...$(NC)"
+	@sudo systemctl reload nginx && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(RED)❌ Failed to reload nginx$(NC)"
+
+reload-nginx-remote: ## Reload nginx configuration on remote server
+	@echo "$(BLUE)Reloading nginx configuration on remote server...$(NC)"
+	@ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl reload nginx" && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(RED)❌ Failed to reload nginx$(NC)"
+
+reload-nginx: reload-nginx-$(DEPLOY_METHOD) ## Reload nginx configuration (auto-detects local/remote)
+
 # Cleanup nginx references
 cleanup-nginx: ## Remove obsolete nginx configuration
 	@echo "$(YELLOW)🧹 Cleaning up obsolete nginx configuration...$(NC)"
 	rm -f nginx/sites-available/localhost-dev
 	@echo "$(GREEN)✅ Nginx cleanup complete$(NC)"
+
+deploy-nginx-config-local: ## Deploy nginx configuration locally
+	@echo "$(BLUE)Deploying nginx configuration locally...$(NC)"
+	@sudo cp nginx/sites-available/* /etc/nginx/sites-available/ && echo "$(GREEN)✅ Nginx config deployed locally$(NC)" || echo "$(RED)❌ Failed to deploy nginx config$(NC)"
+	@$(MAKE) reload-nginx-local
+
+deploy-nginx-config-remote: ## Deploy nginx configuration to remote server
+	@echo "$(BLUE)Deploying nginx configuration to remote server...$(NC)"
+	@scp nginx/sites-available/* $(shell echo $(DEPLOY_TARGET) | cut -d: -f1):/tmp/ && \
+	ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo cp /tmp/littledan.com /etc/nginx/sites-available/ && sudo cp /tmp/localhost-dev /etc/nginx/sites-available/ 2>/dev/null || true" && \
+	echo "$(GREEN)✅ Nginx config deployed remotely$(NC)" || echo "$(RED)❌ Failed to deploy nginx config$(NC)"
+	@$(MAKE) reload-nginx-remote
+
+deploy-nginx-config: deploy-nginx-config-$(DEPLOY_METHOD) ## Deploy nginx configuration (auto-detects local/remote)

@@ -10,8 +10,8 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-    # Permissive CSP for webpack style-loader and app functionality
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; font-src 'self' data: https: https://cdn.jsdelivr.net; connect-src 'self' https:; frame-ancestors 'self';" always;
+    # Tightened CSP policy - no CDN dependencies
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https:; frame-ancestors 'self';" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
     # Block suspicious query strings

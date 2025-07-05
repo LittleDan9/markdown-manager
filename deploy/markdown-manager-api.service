@@ -4,11 +4,11 @@ After=network.target
 
 [Service]
 Type=exec
-User=www-data
-Group=www-data
+User=dlittle
+Group=dlittle
 WorkingDirectory=/opt/markdown-manager-api
-Environment="PATH=/opt/markdown-manager-api/.venv/bin"
-ExecStart=/opt/markdown-manager-api/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Environment="PATH=/home/dlittle/.local/bin:/opt/markdown-manager-api/.venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/home/dlittle/.local/bin/poetry run uvicorn app.main:app --host 127.0.0.1 --port 8000
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=5
