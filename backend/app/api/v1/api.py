@@ -1,7 +1,7 @@
 """API v1 router."""
 from fastapi import APIRouter
 
-from app.api.v1 import auth, mfa, users
+from app.api.v1 import auth, mfa, users, syntax_highlighting
 from app.api.v1.endpoints import debug, documents, health, pdf
 
 api_router = APIRouter()
@@ -14,3 +14,8 @@ api_router.include_router(
 )
 api_router.include_router(pdf.router, prefix="/pdf", tags=["pdf"])
 api_router.include_router(debug.router, prefix="/debug", tags=["debug"])
+api_router.include_router(
+    syntax_highlighting.router,
+    prefix="/highlight",
+    tags=["syntax-highlighting"]
+)

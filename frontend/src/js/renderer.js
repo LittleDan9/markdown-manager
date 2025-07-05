@@ -2,6 +2,25 @@ import MarkdownIt from 'markdown-it';
 import mermaid from 'mermaid';
 import syntaxHighlightingService from './syntaxHighlighting.js';
 
+// Suppress Mermaid console errors by overriding console methods temporarily
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+// Override console methods to filter out Mermaid errors
+console.error = (...args) => {
+    const message = args.join(' ').toLowerCase();
+    if (!message.includes('mermaid') && !message.includes('parse error')) {
+        originalConsoleError.apply(console, args);
+    }
+};
+
+console.warn = (...args) => {
+    const message = args.join(' ').toLowerCase();
+    if (!message.includes('mermaid')) {
+        originalConsoleWarn.apply(console, args);
+    }
+};
+
 // Debounce timer for syntax highlighting
 let syntaxHighlightingTimer = null;
 const SYNTAX_HIGHLIGHT_DELAY = 500; // ms
@@ -64,7 +83,11 @@ export async function initMermaid(theme) {
                 curve: 'linear'
             },
             suppressErrorRendering: true,
-            logLevel: 'error' // Reduced from 'warn' to 'error' to reduce console noise
+            logLevel: 'fatal', // Only show fatal errors, suppress all other logging
+            // Additional error suppression
+            htmlLabels: true,
+            secure: ['secure', 'securityLevel', 'startOnLoad', 'maxTextSize'],
+            securityLevel: 'loose'
         });
         console.log(`Mermaid initialized with theme: ${theme}`);
     } catch (error) {
@@ -279,21 +302,23 @@ async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Ma
         return; // No new diagrams to render
     }
 
-    console.log(`Rendering ${diagramsToRender.length} new/changed mermaid diagrams`);
-
     // Clear processing state only for diagrams that need rendering
     diagramsToRender.forEach(el => {
         el.removeAttribute('data-processed');
         el.style.visibility = 'visible';
+        // Remove any existing error indicators
+        const existingError = el.parentElement?.querySelector('.mermaid-error-indicator');
+        if (existingError) {
+            existingError.remove();
+        }
     });
 
     try {
         // Use the correct Mermaid v11 API - render only new diagrams
         await mermaid.run({
-            querySelector: '.mermaid:not([data-processed])'
+            querySelector: '.mermaid:not([data-processed])',
+            suppressErrors: true // Suppress internal Mermaid error logging
         });
-
-        console.log(`Successfully rendered ${diagramsToRender.length} mermaid diagram(s)`);
 
         // Ensure Mermaid diagrams are responsive
         diagramsToRender.forEach(el => {
@@ -307,14 +332,59 @@ async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Ma
             }
         });
     } catch (mermaidError) {
-        console.warn("Mermaid rendering failed:", mermaidError);
-        // Add error message to failed diagrams
+        // Suppress console logging and handle errors gracefully
         diagramsToRender.forEach(el => {
             if (!el.querySelector('svg')) {
-                el.innerHTML = `<div class="alert alert-danger">
-                    <strong>Mermaid Error:</strong> ${mermaidError.message || 'Failed to render diagram'}
-                </div>`;
+                showMermaidError(el, mermaidError.message || 'Failed to render diagram');
             }
         });
     }
+}
+
+/**
+ * Show a subtle error indicator for Mermaid diagrams
+ */
+function showMermaidError(mermaidElement, errorMessage) {
+    // Create a subtle error indicator that floats above the diagram
+    const errorIndicator = document.createElement('div');
+    errorIndicator.className = 'mermaid-error-indicator';
+    errorIndicator.innerHTML = `
+        <div class="alert alert-warning alert-dismissible fade show" role="alert" style="
+            position: relative;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            padding: 0.5rem 0.75rem;
+            border-left: 4px solid #f0ad4e;
+        ">
+            <i class="bi bi-exclamation-triangle me-2"></i>
+            <strong>Diagram Error:</strong> ${errorMessage}
+            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.75rem;"></button>
+        </div>
+    `;
+
+    // Insert the error indicator before the mermaid element
+    mermaidElement.parentElement?.insertBefore(errorIndicator, mermaidElement);
+
+    // Get the original source from the data attribute to preserve it properly
+    const originalSource = decodeURIComponent(mermaidElement.dataset.mermaidSource || mermaidElement.textContent);
+
+    // Show the original diagram source in a properly styled code block
+    mermaidElement.innerHTML = `
+        <div class="code-block">
+            <div class="code-block-header">
+                <span class="code-block-lang">MERMAID</span>
+                <button class="code-block-copy-btn" data-prismjs-copy>
+                    <i class="bi bi-clipboard" aria-label="Copy"></i>
+                </button>
+            </div>
+            <pre class="language-mermaid" style="margin: 0;"><code>${MarkdownIt().utils.escapeHtml(originalSource)}</code></pre>
+        </div>
+    `;
+
+    // Auto-dismiss the error after 10 seconds to keep the UI clean
+    setTimeout(() => {
+        if (errorIndicator.parentElement) {
+            errorIndicator.remove();
+        }
+    }, 10000);
 }

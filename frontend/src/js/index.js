@@ -53,11 +53,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Load current document or restore from legacy storage
     const currentDoc = documentManager.currentDocument;
+    let contentRestored = false;
     if (currentDoc.id) {
         try {
             const doc = documentManager.documents[currentDoc.id];
             if (doc) {
                 editor.setValue(doc.content);
+                contentRestored = true;
             }
         } catch (error) {
             console.error('Error loading current document:', error);
@@ -67,6 +69,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         const legacyContent = localStorage.getItem(EDITOR_KEY);
         if (legacyContent) {
             editor.setValue(legacyContent);
+            contentRestored = true;
             // Remove legacy storage
             localStorage.removeItem(EDITOR_KEY);
         }
@@ -74,6 +77,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Update document title
     documentUI.updateDocumentTitle();
+
+    // Render the preview if content was restored
+    if (contentRestored) {
+        render(editor);
+    }
 
     // Setup auto-save
     documentUI.setupAutoSave();
