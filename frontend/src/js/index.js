@@ -27,7 +27,7 @@ function debounce(fn, wait) {
 
 window.addEventListener('DOMContentLoaded', async () => {
     console.log('🚀 DOM Content Loaded');
-    
+
     let theme = await initTheme();
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
@@ -91,9 +91,9 @@ window.addEventListener('DOMContentLoaded', async () => {
     const toggleFullscreenPreview = () => {
         const mainContainer = document.getElementById('main');
         const fullScreenBtn = document.getElementById('fullScreenBtn');
-        
+
         console.log('Toggling fullscreen mode. Current mode:', isFullscreenMode);
-        
+
         if (!isFullscreenMode) {
             // Enter fullscreen mode: add CSS class to trigger fullscreen layout
             mainContainer.classList.add('fullscreen-mode');
@@ -126,11 +126,11 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Handle window resize to re-render preview
     const debouncedResize = debounce(() => {
         console.log('🔄 Window resized, updating layout...');
-        
+
         // Force Monaco editor to recalculate its layout
         editor.layout();
         console.log('📐 Editor layout updated');
-        
+
         // Clear any existing Mermaid diagrams first to avoid conflicts
         const mermaidElements = document.querySelectorAll('.mermaid');
         mermaidElements.forEach(el => {
@@ -142,11 +142,11 @@ window.addEventListener('DOMContentLoaded', async () => {
             // Reset the mermaid element state
             el.removeAttribute('data-processed');
         });
-        
+
         // Re-render the entire preview
         render(editor);
         console.log('🎨 Preview re-rendered');
-        
+
         console.log('✅ Resize handling complete');
     }, 250); // Slightly longer debounce for resize events
 
@@ -161,11 +161,11 @@ window.addEventListener('DOMContentLoaded', async () => {
                 const codeBlock = button.closest('.code-block');
                 const preElement = codeBlock.querySelector('pre');
                 const codeElement = preElement.querySelector('code') || preElement;
-                
+
                 try {
                     // Get the text content, preserving line breaks
                     const textToCopy = codeElement.textContent || codeElement.innerText;
-                    
+
                     // Try modern clipboard API first, with fallback for HTTP development
                     if (navigator.clipboard && navigator.clipboard.writeText) {
                         await navigator.clipboard.writeText(textToCopy);
@@ -182,17 +182,17 @@ window.addEventListener('DOMContentLoaded', async () => {
                         document.execCommand('copy');
                         document.body.removeChild(textArea);
                     }
-                    
+
                     // Show success toast
                     NotificationManager.showSuccess('Copied to clipboard!');
-                    
+
                     // Optional: Add visual feedback to the button
                     const originalIcon = button.querySelector('i');
                     originalIcon.className = 'bi bi-check';
                     setTimeout(() => {
                         originalIcon.className = 'bi bi-clipboard';
                     }, 1000);
-                    
+
                 } catch (err) {
                     console.error('Failed to copy:', err);
                     NotificationManager.showWarning('Failed to copy to clipboard');

@@ -32,3 +32,48 @@ body {
   font-weight: 500;
   letter-spacing: 0.025em;
 }
+
+// Toast container styles
+.toast-container {
+  // Position in bottom right corner
+  bottom: 20px !important;
+  right: 20px !important;
+
+  // Ensure toasts stack properly (newest on top)
+  .toast {
+    margin-bottom: 0.5rem;
+    min-width: 350px;
+
+    // Smooth animations for showing/hiding
+    &.show {
+      animation: slideInRight 0.3s ease-out;
+    }
+
+    &.hide {
+      animation: slideOutRight 0.3s ease-in;
+    }
+  }
+}
+
+// Toast animation keyframes
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideOutRight {
+  from {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+}
