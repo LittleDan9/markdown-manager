@@ -2,53 +2,59 @@
 """
 Quick script to check MFA status for a user
 """
+import asyncio
 import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.database import SessionLocal
+from app.database import AsyncSessionLocal
 from app.models.user import User
+from sqlalchemy import select
 
 
-def check_user_mfa(email):
+async def check_user_mfa(email):
     """Check MFA status for a user"""
-    db = SessionLocal()
-    
-    try:
-        user = db.query(User).filter(User.email == email).first()
-        
-        if not user:
-            print(f"❌ User not found: {email}")
-            return
-        
-        print(f"✅ User found: {user.email}")
-        print(f"📧 User ID: {user.id}")
-        print(f"🔐 MFA Enabled: {user.mfa_enabled}")
-        print(f"🔑 MFA Secret exists: {bool(user.mfa_secret)}")
-        if user.mfa_secret:
-            print(f"🔑 MFA Secret length: {len(user.mfa_secret)}")
-            print(f"🔑 MFA Secret preview: {user.mfa_secret[:10]}...")
-        print(f"🔒 Has backup codes: {bool(user.backup_codes)}")
-        if user.backup_codes:
-            print(f"🔒 Backup codes count: {len(user.backup_codes)}")
-            backup_preview = (user.backup_codes[:2] 
-                            if len(user.backup_codes) >= 2 
-                            else user.backup_codes)
-            print(f"🔒 Backup codes preview: {backup_preview}")
-        print(f"📅 Created at: {user.created_at}")
-        print(f"📅 Updated at: {user.updated_at}")
-        
-    except Exception as e:
-        print(f"❌ Error checking user: {e}")
-    finally:
-        db.close()
+    async with AsyncSessionLocal() as db:
+        try:
+            # Query for the user using async session
+            result = await db.execute(
+                select(User).where(User.email == email)
+            )
+            user = result.scalar_one_or_none()
+
+            if not user:
+                print(f"❌ User not found: {email}")
+                return
+
+            print(f"✅ User found: {user.email}")
+            print(f"📧 User ID: {user.id}")
+            print(f"� Full Name: {user.full_name}")
+            print(f"�🔐 MFA Enabled: {user.mfa_enabled}")
+            print(f"🔑 TOTP Secret exists: {bool(user.totp_secret)}")
+            if user.totp_secret:
+                print(f"🔑 TOTP Secret length: {len(user.totp_secret)}")
+                print(f"🔑 TOTP Secret preview: {user.totp_secret[:10]}...")
+            print(f"🔒 Has backup codes: {bool(user.backup_codes)}")
+            if user.backup_codes:
+                print(f"🔒 Backup codes preview: {user.backup_codes[:100]}...")
+            print(f"🔑 Password reset token: {user.reset_token}")
+            print(f"🔑 Password reset expires: {user.reset_token_expires}")
+            print(f"✅ Is active: {user.is_active}")
+            print(f"✅ Is verified: {user.is_verified}")
+            print(f"📅 Created at: {user.created_at}")
+            print(f"📅 Updated at: {user.updated_at}")
+
+        except Exception as e:
+            print(f"❌ Error checking user: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python check_mfa.py <email>")
         sys.exit(1)
-    
+
     email = sys.argv[1]
-    check_user_mfa(email)
+    asyncio.run(check_user_mfa(email))

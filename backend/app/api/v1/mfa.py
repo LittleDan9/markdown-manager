@@ -35,21 +35,21 @@ async def setup_mfa(
     # Generate new TOTP secret and backup codes
     secret = generate_totp_secret()
     backup_codes = generate_backup_codes()
-    
+
     # Store in database (not enabled yet)
     success = await crud_user.setup_mfa(
         db, current_user.id, secret, encode_backup_codes(backup_codes)
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to setup MFA",
         )
-    
+
     # Generate QR code
     qr_code_data_url = create_qr_code_data_url(current_user.email, secret)
-    
+
     return MFASetupResponse(
         qr_code_data_url=qr_code_data_url,
         secret=secret,
@@ -69,14 +69,14 @@ async def verify_mfa_setup(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="MFA setup not initiated",
         )
-    
+
     # Verify the TOTP code
     if not verify_totp_code(current_user.totp_secret, verify_data.totp_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid TOTP code",
         )
-    
+
     return {"message": "TOTP code verified successfully"}
 
 
@@ -95,21 +95,21 @@ async def enable_mfa(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid current password",
         )
-    
+
     # Check if MFA is set up
     if not current_user.totp_secret:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="MFA setup not completed",
         )
-    
+
     # Verify TOTP code
     if not verify_totp_code(current_user.totp_secret, toggle_data.totp_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid TOTP code",
         )
-    
+
     # Enable MFA
     success = await crud_user.enable_mfa(db, current_user.id)
     if not success:
@@ -117,7 +117,7 @@ async def enable_mfa(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to enable MFA",
         )
-    
+
     return {"message": "MFA enabled successfully"}
 
 
@@ -136,31 +136,31 @@ async def disable_mfa(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid current password",
         )
-    
+
     # Check if MFA is enabled
     if not current_user.mfa_enabled:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="MFA is not enabled",
         )
-    
+
     # Verify TOTP code or backup code
     totp_valid = verify_totp_code(
         current_user.totp_secret, toggle_data.totp_code
     )
     backup_valid = False
-    
+
     if not totp_valid and current_user.backup_codes:
         backup_valid, _ = verify_backup_code(
             current_user.backup_codes, toggle_data.totp_code
         )
-    
+
     if not totp_valid and not backup_valid:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid TOTP code or backup code",
         )
-    
+
     # Disable MFA
     success = await crud_user.disable_mfa(db, current_user.id)
     if not success:
@@ -168,7 +168,7 @@ async def disable_mfa(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to disable MFA",
         )
-    
+
     return {"message": "MFA disabled successfully"}
 
 
@@ -182,7 +182,7 @@ async def get_backup_codes(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="MFA is not enabled",
         )
-    
+
     backup_codes = decode_backup_codes(current_user.backup_codes or "")
     return {"backup_codes": backup_codes}
 
@@ -199,75 +199,24 @@ async def regenerate_backup_codes(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="MFA is not enabled",
         )
-    
+
     # Verify TOTP code
     if not verify_totp_code(current_user.totp_secret, verify_data.totp_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid TOTP code",
         )
-    
+
     # Generate new backup codes
     new_backup_codes = generate_backup_codes()
     success = await crud_user.update_backup_codes(
         db, current_user.id, encode_backup_codes(new_backup_codes)
     )
-    
+
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to regenerate backup codes",
         )
-    
+
     return {"backup_codes": new_backup_codes}
-
-
-@router.get("/check-setup")
-async def check_mfa_setup(
-    current_user: User = Depends(get_current_active_user),
-    db: AsyncSession = Depends(get_db),
-) -> Any:
-    """Check if MFA setup is complete by validating current TOTP code."""
-    if not current_user.totp_secret:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="MFA setup not initiated",
-        )
-    
-    # Import required modules for TOTP generation
-    import pyotp
-    import time
-    
-    try:
-        # Generate the current TOTP code that should be valid
-        totp = pyotp.TOTP(current_user.totp_secret)
-        current_code = totp.now()
-        
-        # Check if this code is valid (this validates the secret and timing)
-        is_valid = verify_totp_code(current_user.totp_secret, current_code)
-        
-        # Also check if the code from the previous time window is valid
-        # to account for clock drift
-        previous_code = totp.at(time.time() - 30)
-        is_previous_valid = verify_totp_code(
-            current_user.totp_secret, previous_code
-        )
-        
-        # If either current or previous code is valid, setup is working
-        setup_complete = is_valid or is_previous_valid
-        
-        return {
-            "setup_complete": setup_complete,
-            "has_secret": bool(current_user.totp_secret),
-            "current_time": int(time.time()),
-            # Don't return the actual codes for security
-        }
-        
-    except Exception as e:
-        # If there's any error in TOTP generation/validation,
-        # setup is not complete
-        return {
-            "setup_complete": False,
-            "has_secret": bool(current_user.totp_secret),
-            "error": str(e),
-        }

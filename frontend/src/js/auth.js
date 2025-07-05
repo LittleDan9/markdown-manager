@@ -12,14 +12,14 @@ class AuthManager {
         this.apiBase = config.apiBaseUrl;
         this.currentUser = null;
         this.token = localStorage.getItem('authToken');
-        
+
         // Modal instances cache to prevent multiple instances
         this.modalInstances = new Map();
-        
+
         // Initialize MFA manager
         this.mfaManager = new MFAManager();
         this.mfaManager.setAuthManager(this);
-        
+
         this.init();
     }
 
@@ -40,12 +40,12 @@ class AuthManager {
     checkForPasswordResetToken() {
         const urlParams = new URLSearchParams(window.location.search);
         const resetToken = urlParams.get('reset_token');
-        
+
         if (resetToken) {
             // Remove token from URL for security
             const newUrl = window.location.origin + window.location.pathname;
             window.history.replaceState({}, document.title, newUrl);
-            
+
             // Show password reset confirm modal
             setTimeout(() => {
                 this.showPasswordResetConfirmModal(resetToken);
@@ -64,7 +64,7 @@ class AuthManager {
         console.log('RegisterBtn found:', !!registerBtn);
         console.log('UserMenuDropdown found:', !!userMenuDropdown);
         console.log('Bootstrap available:', typeof bootstrap !== 'undefined');
-        
+
         // Log dropdown structure
         if (userMenuDropdown) {
             console.log('Dropdown element:', userMenuDropdown);
@@ -99,12 +99,12 @@ class AuthManager {
                 e.preventDefault();
                 this.showProfileModal();
             }
-            
+
             if (e.target.id === 'settingsBtn' || e.target.closest('#settingsBtn')) {
                 e.preventDefault();
                 this.showProfileModal('security-settings');
             }
-            
+
             if (e.target.id === 'logoutBtn' || e.target.closest('#logoutBtn')) {
                 e.preventDefault();
                 await this.logout();
@@ -175,7 +175,7 @@ class AuthManager {
         }
 
         // Password confirmation validation for reset form
-        const confirmNewPassword = document.getElementById('confirmNewPassword');
+        const confirmNewPassword = document.getElementById('confirmPasswordReset');
         if (confirmNewPassword) {
             confirmNewPassword.addEventListener('input', () => {
                 this.validatePasswordResetConfirmation();
@@ -233,9 +233,9 @@ class AuthManager {
             if (!this.validateModalElement(modalId)) {
                 return null;
             }
-            
+
             const modalElement = document.getElementById(modalId);
-            
+
             if (typeof bootstrap === 'undefined' || typeof bootstrap.Modal === 'undefined') {
                 console.error('Bootstrap Modal not available!');
                 return null;
@@ -246,7 +246,7 @@ class AuthManager {
 
             // Check if we already have an instance for this modal
             let modalInstance = this.modalInstances.get(modalId);
-            
+
             if (!modalInstance) {
                 try {
                     // Ensure modal element is properly reset before creating instance
@@ -255,17 +255,17 @@ class AuthManager {
                     modalElement.setAttribute('aria-hidden', 'true');
                     modalElement.removeAttribute('aria-modal');
                     modalElement.removeAttribute('role');
-                    
+
                     // Create new instance with enhanced error handling
                     modalInstance = new bootstrap.Modal(modalElement, {
                         backdrop: true,
                         keyboard: true,
                         focus: true
                     });
-                    
+
                     // Store the instance
                     this.modalInstances.set(modalId, modalInstance);
-                    
+
                     // Add comprehensive cleanup listeners
                     modalElement.addEventListener('hidden.bs.modal', () => {
                         this.cleanupModalState(modalId);
@@ -282,7 +282,7 @@ class AuthManager {
                     return null;
                 }
             }
-            
+
             return modalInstance;
         } catch (error) {
             console.error(`Error in getModalInstance for ${modalId}:`, error);
@@ -346,7 +346,7 @@ class AuthManager {
                         console.warn('Error disposing modal instance:', disposeError);
                     }
                 }
-                
+
                 // Reset modal element state completely
                 modalElement.classList.remove('show', 'fade');
                 modalElement.style.display = 'none';
@@ -355,10 +355,10 @@ class AuthManager {
                 modalElement.removeAttribute('aria-modal');
                 modalElement.removeAttribute('role');
                 modalElement.removeAttribute('tabindex');
-                
+
                 // Force a reflow to ensure styles are applied
                 modalElement.offsetHeight;
-                
+
                 // Re-add fade class for future animations
                 modalElement.classList.add('fade');
             }
@@ -383,9 +383,9 @@ class AuthManager {
         try {
             const modal = this.getModalInstance('loginModal');
             if (!modal) return;
-            
+
             modal.show();
-            
+
             document.getElementById('loginForm').reset();
             this.hideError('loginError');
         } catch (error) {
@@ -397,7 +397,7 @@ class AuthManager {
         try {
             const modal = this.getModalInstance('registerModal');
             if (!modal) return;
-            
+
             modal.show();
             document.getElementById('registerForm').reset();
             this.hideError('registerError');
@@ -410,14 +410,14 @@ class AuthManager {
         try {
             const modal = this.getModalInstance('profileModal');
             if (!modal) return;
-            
+
             modal.show();
             this.populateProfileForm();
             this.hideError('profileError');
             this.hideError('passwordError');
             this.hideSuccess('profileSuccess');
             this.hideSuccess('passwordSuccess');
-            
+
             // Switch to specific tab if provided
             if (activeTab) {
                 setTimeout(() => {
@@ -441,7 +441,7 @@ class AuthManager {
                 console.error('Could not get passwordResetModal instance');
                 return;
             }
-            
+
             modal.show();
             const resetForm = document.getElementById('passwordResetForm');
             if (resetForm) {
@@ -459,27 +459,27 @@ class AuthManager {
         try {
             // Clear any previous modal state first and wait a bit for cleanup
             this.forceCloseModal('passwordResetConfirmModal');
-            
+
             // Use setTimeout to ensure DOM cleanup is complete before showing new modal
             setTimeout(() => {
                 try {
                     const modal = this.getModalInstance('passwordResetConfirmModal');
                     if (!modal) return;
-                    
+
                     // Store token for later use
                     this.resetToken = token;
-                    
+
                     // Clear the form and any errors
                     document.getElementById('passwordResetConfirmForm').reset();
                     this.hideError('passwordResetConfirmError');
-                    
+
                     // Reset submission state
                     this.isSubmittingPasswordReset = false;
                     const submitBtn = document.querySelector('#passwordResetConfirmForm button[type="submit"]');
                     if (submitBtn) {
                         submitBtn.disabled = false;
                     }
-                    
+
                     modal.show();
                 } catch (delayedError) {
                     console.error('Error in delayed modal show:', delayedError);
@@ -511,11 +511,11 @@ class AuthManager {
                                     <h6 class="mt-3">Enter Authentication Code</h6>
                                     <p class="text-muted">Enter the 6-digit code from your authenticator app or use a backup code.</p>
                                 </div>
-                                
+
                                 <form id="mfaVerificationForm">
                                     <div class="mb-3">
-                                        <input type="text" class="form-control form-control-lg text-center" 
-                                               id="mfaLoginCode" placeholder="000000" maxlength="8" 
+                                        <input type="text" class="form-control form-control-lg text-center"
+                                               id="mfaLoginCode" placeholder="000000" maxlength="8"
                                                pattern="[0-9]{6,8}" required>
                                         <div class="form-text">Enter a 6-digit code from your authenticator app or an 8-digit backup code.</div>
                                     </div>
@@ -525,7 +525,7 @@ class AuthManager {
                                         Verify and Sign In
                                     </button>
                                 </form>
-                                
+
                                 <div class="text-center mt-3">
                                     <button type="button" class="btn btn-link btn-sm" id="mfaBackToLogin">
                                         <i class="bi bi-arrow-left me-1"></i>Back to Login
@@ -573,13 +573,13 @@ class AuthManager {
                 if (!modalElement) {
                     throw new Error('MFA verification modal element not found');
                 }
-                
+
                 const modal = new bootstrap.Modal(modalElement, {
                     backdrop: true,
                     keyboard: true,
                     focus: true
                 });
-                
+
                 modal.show();
 
                 // Focus on input after modal is fully shown
@@ -589,7 +589,7 @@ class AuthManager {
                         codeInput.focus();
                     }
                 }, { once: true });
-                
+
                 // Clean up modal when hidden
                 modalElement.addEventListener('hidden.bs.modal', () => {
                     const currentModal = bootstrap.Modal.getInstance(modalElement);
@@ -640,18 +640,18 @@ class AuthManager {
 
             if (response.ok) {
                 const data = await response.json();
-                
+
                 // Login successful
                 this.token = data.access_token;
                 localStorage.setItem('authToken', this.token);
                 this.setCurrentUser(data.user);
-                
+
                 // Clear MFA session
                 this.mfaSession = null;
-                
+
                 // Close modal
                 this.closeModal('mfaVerificationModal');
-                
+
                 // Trigger document migration
                 try {
                     if (window.documentManager) {
@@ -660,7 +660,7 @@ class AuthManager {
                 } catch (migrationError) {
                     console.error('Document migration failed:', migrationError);
                 }
-                
+
                 // Show success message
                 NotificationManager.showSuccess('Welcome back!');
             } else {
@@ -691,7 +691,7 @@ class AuthManager {
 
             if (response.ok) {
                 const data = await response.json();
-                
+
                 // Check if MFA is required
                 if (data.mfa_required) {
                     // Store temporary session for MFA verification
@@ -700,10 +700,10 @@ class AuthManager {
                         password: password, // Store password for MFA verification
                         temp_token: data.temp_token || null
                     };
-                    
+
                     // Close login modal and wait for it to be fully hidden before showing MFA modal
                     this.closeModal('loginModal');
-                    
+
                     // Wait for login modal to be fully closed before showing MFA modal
                     const loginModalElement = document.getElementById('loginModal');
                     if (loginModalElement) {
@@ -721,15 +721,15 @@ class AuthManager {
                     }
                     return;
                 }
-                
+
                 // Regular login success
                 this.token = data.access_token;
                 localStorage.setItem('authToken', this.token);
                 this.setCurrentUser(data.user);
-                
+
                 // Close modal safely
                 this.closeModal('loginModal');
-                
+
                 // Trigger document migration
                 try {
                     if (window.documentManager) {
@@ -738,7 +738,7 @@ class AuthManager {
                 } catch (migrationError) {
                     console.error('Document migration failed:', migrationError);
                 }
-                
+
                 // Show success message
                 NotificationManager.showSuccess('Welcome back!');
             } else {
@@ -771,20 +771,20 @@ class AuthManager {
 
             if (response.ok) {
                 const user = await response.json();
-                
+
                 // Close modal
                 // Close modal safely
                 this.closeModal('registerModal');
-                
+
                 // Show success and auto-login
                 NotificationManager.showSuccess('Account created successfully! Please log in.');
-                
+
                 // Auto-fill login form
                 setTimeout(() => {
                     document.getElementById('loginEmail').value = formData.email;
                     this.showLoginModal();
                 }, 1000);
-                
+
             } else {
                 const error = await response.json();
                 this.showError('registerError', error.detail || 'Registration failed');
@@ -829,9 +829,18 @@ class AuthManager {
     }
 
     async handlePasswordUpdate() {
-        const currentPassword = document.getElementById('currentPassword').value;
-        const newPassword = document.getElementById('profileNewPassword').value;
-        const confirmPassword = document.getElementById('profileConfirmPassword').value;
+        const currentPasswordEl = document.getElementById('currentPassword');
+        const newPasswordEl = document.getElementById('profileNewPassword');
+        const confirmPasswordEl = document.getElementById('profileConfirmPassword');
+
+        if (!currentPasswordEl || !newPasswordEl || !confirmPasswordEl) {
+            console.error('Password update form elements not found');
+            return;
+        }
+
+        const currentPassword = currentPasswordEl.value;
+        const newPassword = newPasswordEl.value;
+        const confirmPassword = confirmPasswordEl.value;
 
         if (newPassword !== confirmPassword) {
             this.showError('passwordError', 'New passwords do not match');
@@ -904,14 +913,16 @@ class AuthManager {
 
             if (response.ok) {
                 const data = await response.json();
-                this.showSuccess('passwordResetSuccess', data.message);
-                
+
                 // For demo purposes, if debug_token is present, show confirm modal
                 if (data.debug_token) {
+                    this.showSuccess('passwordResetSuccess', 'Development Mode: Password reset form will appear shortly (no email sent)');
                     setTimeout(() => {
                         this.closeModal('passwordResetModal');
                         this.showPasswordResetConfirmModal(data.debug_token);
                     }, 2000);
+                } else {
+                    this.showSuccess('passwordResetSuccess', data.message);
                 }
             } else {
                 const error = await response.json();
@@ -926,9 +937,18 @@ class AuthManager {
     }
 
     async handlePasswordResetConfirm() {
-        const newPassword = document.getElementById('newPassword').value.trim();
-        const confirmPassword = document.getElementById('confirmNewPassword').value.trim();
+        const newPasswordEl = document.getElementById('newPasswordReset');
+        const confirmPasswordEl = document.getElementById('confirmPasswordReset');
         const submitBtn = document.querySelector('#passwordResetConfirmForm button[type="submit"]');
+
+        // Validate that we have the required form elements
+        if (!newPasswordEl || !confirmPasswordEl) {
+            console.error('Password reset form elements not found');
+            return;
+        }
+
+        const newPassword = newPasswordEl.value.trim();
+        const confirmPassword = confirmPasswordEl.value.trim();
 
         // Prevent double submission
         if (this.isSubmittingPasswordReset || submitBtn.disabled) {
@@ -960,10 +980,10 @@ class AuthManager {
             if (response.ok) {
                 this.closeModal('passwordResetConfirmModal');
                 NotificationManager.showSuccess('Password has been reset successfully! You can now login with your new password.');
-                
+
                 // Clear stored token
                 this.resetToken = null;
-                
+
                 // Show login modal
                 setTimeout(() => {
                     this.showLoginModal();
@@ -983,9 +1003,17 @@ class AuthManager {
     }
 
     validateProfilePasswordConfirmation() {
-        const newPassword = document.getElementById('profileNewPassword').value;
-        const confirmPassword = document.getElementById('profileConfirmPassword').value;
+        const newPasswordEl = document.getElementById('profileNewPassword');
+        const confirmPasswordEl = document.getElementById('profileConfirmPassword');
         const confirmField = document.getElementById('profileConfirmPassword');
+
+        if (!newPasswordEl || !confirmPasswordEl || !confirmField) {
+            console.error('Profile password form elements not found');
+            return;
+        }
+
+        const newPassword = newPasswordEl.value;
+        const confirmPassword = confirmPasswordEl.value;
 
         if (confirmPassword && newPassword !== confirmPassword) {
             confirmField.setCustomValidity('Passwords do not match');
@@ -995,9 +1023,17 @@ class AuthManager {
     }
 
     validatePasswordResetConfirmation() {
-        const newPassword = document.getElementById('newPassword').value.trim();
-        const confirmNewPassword = document.getElementById('confirmNewPassword').value.trim();
-        const confirmField = document.getElementById('confirmNewPassword');
+        const newPasswordEl = document.getElementById('newPasswordReset');
+        const confirmNewPasswordEl = document.getElementById('confirmPasswordReset');
+        const confirmField = document.getElementById('confirmPasswordReset');
+
+        if (!newPasswordEl || !confirmNewPasswordEl || !confirmField) {
+            console.error('Password reset form elements not found');
+            return;
+        }
+
+        const newPassword = newPasswordEl.value.trim();
+        const confirmNewPassword = confirmNewPasswordEl.value.trim();
 
         if (confirmNewPassword && newPassword !== confirmNewPassword) {
             confirmField.setCustomValidity('Passwords do not match');
@@ -1032,11 +1068,11 @@ class AuthManager {
     populateProfileForm() {
         if (this.currentUser) {
             document.getElementById('profileFirstName').value = this.currentUser.first_name || '';
-            document.getElementById('profileLastName').value = this.currentUser.last_name || '';            
+            document.getElementById('profileLastName').value = this.currentUser.last_name || '';
             document.getElementById('profileDisplayName').value = this.currentUser.display_name || '';
             document.getElementById('profileEmail').value = this.currentUser.email || '';
             document.getElementById('profileBio').value = this.currentUser.bio || '';
-            
+
             // Update MFA status
             this.mfaManager.updateMFAStatus();
         }
@@ -1045,7 +1081,7 @@ class AuthManager {
     async logout() {
         // Show saving notification
         NotificationManager.showInfo('Saving documents before logout...');
-        
+
         // Trigger document logout hook with forced save
         try {
             if (window.documentManager) {
@@ -1055,7 +1091,7 @@ class AuthManager {
             console.error('Document logout handler failed:', error);
             NotificationManager.showWarning('Some documents may not have been saved');
         }
-        
+
         this.clearAuth();
         NotificationManager.showSuccess('Logged out successfully');
     }
@@ -1104,7 +1140,7 @@ class AuthManager {
 
     initializeDropdown(dropdownElement) {
         console.log('AuthManager: Attempting to initialize dropdown');
-        
+
         // Wait a moment for Bootstrap to be fully loaded
         setTimeout(() => {
             // Method 1: Try Bootstrap 5 API
@@ -1123,7 +1159,7 @@ class AuthManager {
                     console.warn('AuthManager: Bootstrap API failed:', error);
                 }
             }
-            
+
             // Method 2: Manual click handler as fallback
             console.log('AuthManager: Using manual dropdown fallback');
             this.setupManualDropdown(dropdownElement);
@@ -1134,11 +1170,11 @@ class AuthManager {
         dropdownElement.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
-            
+
             const dropdownMenu = dropdownElement.nextElementSibling;
             if (dropdownMenu && dropdownMenu.classList.contains('dropdown-menu')) {
                 const isShown = dropdownMenu.classList.contains('show');
-                
+
                 // Close all other dropdowns first
                 document.querySelectorAll('.dropdown-menu.show').forEach(menu => {
                     if (menu !== dropdownMenu) {
@@ -1149,7 +1185,7 @@ class AuthManager {
                         }
                     }
                 });
-                
+
                 // Toggle this dropdown
                 if (!isShown) {
                     dropdownMenu.classList.add('show');
@@ -1162,7 +1198,7 @@ class AuthManager {
                 }
             }
         });
-        
+
         // Close dropdown when clicking outside
         document.addEventListener('click', (e) => {
             if (!dropdownElement.contains(e.target)) {
@@ -1188,7 +1224,7 @@ class AuthManager {
                     console.warn('Found orphaned modal backdrops, cleaning up:', backdrops.length);
                     backdrops.forEach(backdrop => backdrop.remove());
                 }
-                
+
                 // Ensure body classes are correct
                 const openModals = document.querySelectorAll('.modal.show');
                 if (openModals.length === 0) {
@@ -1202,13 +1238,13 @@ class AuthManager {
         // Enhanced error handling for Bootstrap dataset and style errors
         window.addEventListener('error', (event) => {
             if (event.message && (
-                event.message.includes('dataset') || 
+                event.message.includes('dataset') ||
                 event.message.includes('style') ||
                 event.message.includes('Cannot read properties of null')
             )) {
                 console.warn('Bootstrap modal error caught and handled:', event.message);
                 event.preventDefault(); // Prevent the error from propagating
-                
+
                 // Force cleanup of any modal artifacts
                 setTimeout(() => {
                     const backdrops = document.querySelectorAll('.modal-backdrop');
@@ -1219,16 +1255,16 @@ class AuthManager {
                             console.warn('Error removing backdrop:', e);
                         }
                     });
-                    
+
                     // Reset body state
                     document.body.classList.remove('modal-open');
                     document.body.style.paddingRight = '';
                     document.body.style.overflow = '';
-                    
+
                     // Clear any modal instances that might be stuck
                     this.modalInstances.clear();
                 }, 50);
-                
+
                 return false; // Prevent default error handling
             }
         });
@@ -1238,7 +1274,7 @@ class AuthManager {
             if (event.reason && event.reason.message && event.reason.message.includes('dataset')) {
                 console.warn('Modal-related promise rejection caught:', event.reason.message);
                 event.preventDefault();
-                
+
                 // Same cleanup as above
                 setTimeout(() => {
                     const backdrops = document.querySelectorAll('.modal-backdrop');
@@ -1278,7 +1314,7 @@ class AuthManager {
         try {
             // Ensure backdrop is removed
             this.cleanupOrphanedBackdrops();
-            
+
             // Remove modal-open class from body if no other modals are open
             const openModals = document.querySelectorAll('.modal.show');
             if (openModals.length === 0) {
@@ -1303,20 +1339,20 @@ class AuthManager {
                 console.error(`Modal element ${modalId} not found!`);
                 return false;
             }
-            
+
             // Check if modal has required Bootstrap structure
             if (!modalElement.classList.contains('modal')) {
                 console.error(`Element ${modalId} is not a Bootstrap modal!`);
                 return false;
             }
-            
+
             // Ensure modal has proper dialog structure
             const modalDialog = modalElement.querySelector('.modal-dialog');
             if (!modalDialog) {
                 console.error(`Modal ${modalId} missing .modal-dialog element!`);
                 return false;
             }
-            
+
             return true;
         } catch (error) {
             console.error(`Error validating modal ${modalId}:`, error);

@@ -42,8 +42,8 @@
 
         <!-- Right side: Preview Controls -->
         <div class="d-flex align-items-center gap-2" id="previewControls">
-          <button id="fullScreenBtn" class="btn btn-sm" 
-                  data-bs-toggle="tooltip" data-bs-placement="bottom" 
+          <button id="fullScreenBtn" class="btn btn-sm"
+                  data-bs-toggle="tooltip" data-bs-placement="bottom"
                   title="Open preview in fullscreen"
                   style="border: none !important; background: transparent; outline: none; box-shadow: none;">
             <i class="bi bi-fullscreen"></i>
@@ -51,7 +51,7 @@
 
           <!-- User Profile Dropdown -->
           <div class="dropdown" id="userDropdown">
-            <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-2" 
+            <button class="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-2"
                     type="button" id="userMenuDropdown" data-bs-toggle="dropdown" aria-expanded="false"
                     style="border: none; background: transparent;">
               <i class="bi bi-person-circle"></i>
@@ -67,7 +67,7 @@
                   <i class="bi bi-person-plus me-2"></i>Sign Up
                 </a></li>
               </div>
-              
+
               <!-- User menu (when logged in) -->
               <div id="userMenu" style="display: none;">
                 <li><a class="dropdown-item" href="#" id="profileBtn">
@@ -131,6 +131,11 @@
               <label for="loginPassword" class="form-label">Password</label>
               <input type="password" class="form-control" id="loginPassword" required>
             </div>
+            <div class="mb-3 text-end">
+              <a href="#" id="forgotPasswordLink" class="text-decoration-none">
+                <i class="bi bi-key me-1"></i>Forgot Password?
+              </a>
+            </div>
             <div id="loginError" class="alert alert-danger" style="display: none;"></div>
           </div>
           <div class="modal-footer">
@@ -169,7 +174,7 @@
             </div>
             <div class="mb-3">
               <label for="registerDisplayName" class="form-label">Display Name (Optional)</label>
-              <input type="text" class="form-control" id="registerDisplayName" 
+              <input type="text" class="form-control" id="registerDisplayName"
                 placeholder="How you'd like to be shown in the app">
             </div>
             <div class="mb-3">
@@ -183,7 +188,7 @@
             </div>
             <div class="mb-3">
               <label for="registerBio" class="form-label">Bio (Optional)</label>
-              <textarea class="form-control" id="registerBio" rows="2" 
+              <textarea class="form-control" id="registerBio" rows="2"
                 placeholder="Tell us a bit about yourself..."></textarea>
             </div>
             <div id="registerError" class="alert alert-danger" style="display: none;"></div>
@@ -214,25 +219,25 @@
           <!-- Profile Tabs -->
           <ul class="nav nav-tabs" id="profileTabs" role="tablist">
             <li class="nav-item" role="presentation">
-              <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" 
+              <button class="nav-link active" id="profile-tab" data-bs-toggle="tab"
                 data-bs-target="#profile-info" type="button" role="tab">
                 <i class="bi bi-person me-1"></i>Profile Info
               </button>
             </li>
             <li class="nav-item" role="presentation">
-              <button class="nav-link" id="security-tab" data-bs-toggle="tab" 
+              <button class="nav-link" id="security-tab" data-bs-toggle="tab"
                 data-bs-target="#security-settings" type="button" role="tab">
                 <i class="bi bi-shield-lock me-1"></i>Security
               </button>
             </li>
             <li class="nav-item" role="presentation" id="mfa-tab-container" style="display: none;">
-              <button class="nav-link" id="mfa-tab" data-bs-toggle="tab" 
+              <button class="nav-link" id="mfa-tab" data-bs-toggle="tab"
                 data-bs-target="#mfa-details" type="button" role="tab">
                 <i class="bi bi-key me-1"></i>MFA Details
               </button>
             </li>
           </ul>
-          
+
           <div class="tab-content" id="profileTabContent">
             <!-- Profile Info Tab -->
             <div class="tab-pane fade show active" id="profile-info" role="tabpanel">
@@ -270,7 +275,7 @@
                 </div>
               </form>
             </div>
-            
+
             <!-- Security Tab -->
             <div class="tab-pane fade" id="security-settings" role="tabpanel">
               <form id="passwordForm" class="mt-3">
@@ -295,15 +300,15 @@
                   </button>
                 </div>
               </form>
-              
+
               <hr class="my-4">
-              
+
               <!-- Multi-Factor Authentication Section -->
               <div class="mb-4">
                 <h6 class="fw-bold mb-3">
                   <i class="bi bi-shield-lock me-2"></i>Two-Factor Authentication
                 </h6>
-                
+
                 <!-- MFA Disabled State -->
                 <div id="profileMFADisabled" class="card border-warning">
                   <div class="card-body">
@@ -322,7 +327,7 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <!-- MFA Enabled State -->
                 <div id="profileMFAEnabled" class="card border-success" style="display: none;">
                   <div class="card-body">
@@ -332,7 +337,7 @@
                           <i class="bi bi-shield-check text-success me-2"></i>Two-Factor Authentication Enabled
                         </h6>
                         <p class="card-text text-muted mb-0">
-                          Your account is protected with two-factor authentication. 
+                          Your account is protected with two-factor authentication.
                           <span class="text-primary">View the MFA Details tab for backup codes and additional options.</span>
                         </p>
                       </div>
@@ -340,9 +345,9 @@
                   </div>
                 </div>
               </div>
-              
+
               <hr class="my-4">
-              
+
               <!-- Account Deletion -->
               <div class="card border-danger">
                 <div class="card-header bg-danger text-white">
@@ -356,26 +361,26 @@
                 </div>
               </div>
             </div>
-            
+
             <!-- MFA Details Tab -->
             <div class="tab-pane fade" id="mfa-details" role="tabpanel">
               <div class="mt-3">
                 <h5 class="mb-3">
                   <i class="bi bi-shield-check text-success me-2"></i>Two-Factor Authentication Details
                 </h5>
-                
+
                 <div class="alert alert-success">
                   <i class="bi bi-check-circle me-2"></i>
                   Your account is protected with two-factor authentication using TOTP (Time-based One-time Password).
                 </div>
-                
+
                 <div class="card">
                   <div class="card-header">
                     <h6 class="mb-0"><i class="bi bi-key me-2"></i>Backup Codes</h6>
                   </div>
                   <div class="card-body">
                     <p class="card-text">
-                      Backup codes can be used to access your account if you lose your authenticator device. 
+                      Backup codes can be used to access your account if you lose your authenticator device.
                       Each backup code can only be used once.
                     </p>
                     <div class="d-flex gap-2 mb-3">
@@ -386,7 +391,7 @@
                         <i class="bi bi-arrow-clockwise me-2"></i>Regenerate Codes
                       </button>
                     </div>
-                    
+
                     <!-- Regenerate Codes Form (Initially Hidden) -->
                     <div class="collapse" id="regenerateCodesForm">
                       <div class="card border-warning mb-3">
@@ -397,23 +402,23 @@
                         </div>
                         <div class="card-body">
                           <div class="alert alert-warning">
-                            <strong>Warning:</strong> This will invalidate all existing backup codes. 
+                            <strong>Warning:</strong> This will invalidate all existing backup codes.
                             Make sure you have access to your authenticator app.
                           </div>
-                          
+
                           <form id="regenerateCodesFormSubmit">
                             <div class="mb-3">
                               <label for="regenerateTotpCode" class="form-label">
                                 <i class="bi bi-shield-check me-1"></i>
                                 Enter your current TOTP code
                               </label>
-                              <input type="text" class="form-control" id="regenerateTotpCode" 
+                              <input type="text" class="form-control" id="regenerateTotpCode"
                                      placeholder="000000" maxlength="6" pattern="[0-9]{6}" required>
                               <div class="form-text">Enter the 6-digit code from your authenticator app.</div>
                             </div>
-                            
+
                             <div class="alert alert-danger d-none" id="regenerateError"></div>
-                            
+
                             <div class="d-flex gap-2">
                               <button type="submit" class="btn btn-warning" id="confirmRegenerateBtn">
                                 <span class="spinner-border spinner-border-sm me-2 d-none" id="regenerateSpinner"></span>
@@ -427,22 +432,22 @@
                         </div>
                       </div>
                     </div>
-                    
+
                     <!-- Collapsible Backup Codes Section -->
                     <div class="collapse" id="backupCodesSection">
                       <div class="alert alert-warning">
-                        <strong><i class="bi bi-exclamation-triangle me-2"></i>Important:</strong> 
-                        These backup codes can be used to access your account if you lose your authenticator device. 
+                        <strong><i class="bi bi-exclamation-triangle me-2"></i>Important:</strong>
+                        These backup codes can be used to access your account if you lose your authenticator device.
                         Store them securely and do not share them with anyone.
                       </div>
                       <div class="alert alert-info" id="backupCodesCount">
                         Loading backup codes...
                       </div>
-                      
+
                       <div class="backup-codes-grid mb-3" id="backupCodesContainer">
                         <!-- Backup codes will be populated here -->
                       </div>
-                      
+
                       <div class="d-flex gap-2 flex-wrap">
                         <button type="button" id="downloadBackupCodes" class="btn btn-secondary">
                           <i class="bi bi-download me-2"></i>Download Codes
@@ -454,20 +459,20 @@
                     </div>
                   </div>
                 </div>
-                
+
                 <div class="card mt-3">
                   <div class="card-header">
                     <h6 class="mb-0"><i class="bi bi-shield-x me-2"></i>Disable MFA</h6>
                   </div>
                   <div class="card-body">
                     <p class="card-text">
-                      Disabling two-factor authentication will make your account less secure. 
+                      Disabling two-factor authentication will make your account less secure.
                       Only disable MFA if you're having trouble accessing your account.
                     </p>
                     <button type="button" class="btn btn-outline-danger" id="mfaDetailsDisableBtn">
                       <i class="bi bi-shield-x me-2"></i>Disable Two-Factor Authentication
                     </button>
-                    
+
                     <!-- Disable MFA Form (Initially Hidden) -->
                     <div class="collapse" id="disableMFAForm">
                       <div class="card border-danger mt-3">
@@ -481,7 +486,7 @@
                             <i class="bi bi-exclamation-triangle me-2"></i>
                             <strong>Warning:</strong> Disabling two-factor authentication will make your account less secure.
                           </div>
-                          
+
                           <form id="disableMFAFormSubmit">
                             <div class="mb-3">
                               <label for="disableMFAPassword" class="form-label">Current Password</label>
@@ -489,12 +494,12 @@
                             </div>
                             <div class="mb-3">
                               <label for="disableMFACode" class="form-label">Authentication Code</label>
-                              <input type="text" class="form-control" id="disableMFACode" 
+                              <input type="text" class="form-control" id="disableMFACode"
                                      placeholder="Enter TOTP code or backup code" maxlength="8" required>
                               <div class="form-text">Enter a 6-digit code from your authenticator app or an 8-digit backup code.</div>
                             </div>
                             <div class="alert alert-danger d-none" id="disableMFAError"></div>
-                            
+
                             <div class="d-flex justify-content-end gap-2">
                               <button type="submit" class="btn btn-danger" id="confirmDisableMFABtn">
                                 <span class="spinner-border spinner-border-sm me-2 d-none" id="disableMFASpinner"></span>
@@ -514,6 +519,77 @@
             </div>
           </div>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Reset Modal -->
+  <div class="modal fade" id="passwordResetModal" tabindex="-1" aria-labelledby="passwordResetModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="passwordResetModalLabel">
+            <i class="bi bi-key me-2"></i>Reset Password
+          </h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="passwordResetForm">
+          <div class="modal-body">
+            <p class="text-muted mb-3">
+              Enter your email address and we'll send you a link to reset your password.
+            </p>
+            <div class="mb-3">
+              <label for="resetEmail" class="form-label">Email</label>
+              <input type="email" class="form-control" id="resetEmail" required>
+            </div>
+            <div id="passwordResetError" class="alert alert-danger" style="display: none;"></div>
+            <div id="passwordResetSuccess" class="alert alert-success" style="display: none;"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <span class="spinner-border spinner-border-sm me-2" id="passwordResetSpinner" style="display: none;"></span>
+              Send Reset Link
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Password Reset Confirmation Modal -->
+  <div class="modal fade" id="passwordResetConfirmModal" tabindex="-1" aria-labelledby="passwordResetConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h1 class="modal-title fs-5" id="passwordResetConfirmModalLabel">
+            <i class="bi bi-key me-2"></i>Set New Password
+          </h1>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <form id="passwordResetConfirmForm">
+          <div class="modal-body">
+            <p class="text-muted mb-3">
+              Enter your new password below.
+            </p>
+            <div class="mb-3">
+              <label for="newPasswordReset" class="form-label">New Password</label>
+              <input type="password" class="form-control" id="newPasswordReset" required minlength="6">
+            </div>
+            <div class="mb-3">
+              <label for="confirmPasswordReset" class="form-label">Confirm New Password</label>
+              <input type="password" class="form-control" id="confirmPasswordReset" required>
+            </div>
+            <div id="passwordResetConfirmError" class="alert alert-danger" style="display: none;"></div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-primary">
+              <span class="spinner-border spinner-border-sm me-2" id="passwordResetConfirmSpinner" style="display: none;"></span>
+              Update Password
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

@@ -31,15 +31,15 @@ class MFAManager {
             // Use a more robust event delegation pattern that catches clicks on child elements
             const target = e.target;
             const buttonTarget = target.closest('button') || target;
-            
+
             if (buttonTarget.id === 'mfaEnableBtn' || target.closest('#mfaEnableBtn')) {
                 e.preventDefault();
                 this.startMFASetup();
             }
-            
+
             if (buttonTarget.id === 'mfaDetailsDisableBtn' || target.closest('#mfaDetailsDisableBtn')) {
                 e.preventDefault();
-                
+
                 // Toggle between show/hide disable form
                 const disableForm = document.getElementById('disableMFAForm');
                 if (disableForm && disableForm.classList.contains('show')) {
@@ -48,17 +48,17 @@ class MFAManager {
                     this.showDisableMFAForm();
                 }
             }
-            
+
             if (buttonTarget.id === 'cancelDisableMFABtn' || target.closest('#cancelDisableMFABtn')) {
                 e.preventDefault();
                 this.hideDisableMFAForm();
             }
-            
+
             if (buttonTarget.id === 'confirmDisableMFABtn' || target.closest('#confirmDisableMFABtn')) {
                 e.preventDefault();
                 this.disableMFA();
             }
-            
+
             if (buttonTarget.id === 'mfaDetailsBackupCodesBtn' || target.closest('#mfaDetailsBackupCodesBtn')) {
                 e.preventDefault();
                 this.toggleBackupCodesSection();
@@ -66,7 +66,7 @@ class MFAManager {
 
             if (buttonTarget.id === 'mfaDetailsRegenerateCodesBtn' || target.closest('#mfaDetailsRegenerateCodesBtn')) {
                 e.preventDefault();
-                
+
                 // Toggle between show/hide regenerate form
                 const regenerateForm = document.getElementById('regenerateCodesForm');
                 if (regenerateForm && regenerateForm.classList.contains('show')) {
@@ -75,43 +75,43 @@ class MFAManager {
                     this.showRegenerateForm();
                 }
             }
-            
+
             if (buttonTarget.id === 'cancelRegenerateBtn' || target.closest('#cancelRegenerateBtn')) {
                 e.preventDefault();
                 this.hideRegenerateForm();
             }
-            
+
             if (buttonTarget.id === 'downloadBackupCodes' || target.closest('#downloadBackupCodes')) {
                 e.preventDefault();
                 this.downloadBackupCodes();
             }
-            
+
             if (buttonTarget.id === 'printBackupCodes' || target.closest('#printBackupCodes')) {
                 e.preventDefault();
                 this.printBackupCodes();
             }
         });
-        
+
         // Handle form submissions
         document.addEventListener('submit', (e) => {
             if (e.target.id === 'regenerateCodesFormSubmit') {
                 e.preventDefault();
                 this.regenerateBackupCodes();
             }
-            
+
             if (e.target.id === 'disableMFAFormSubmit') {
                 e.preventDefault();
                 this.disableMFA();
             }
         });
-        
+
         // Listen for collapse events to update button text
         document.addEventListener('shown.bs.collapse', (e) => {
             if (e.target.id === 'backupCodesSection') {
                 this.updateBackupCodesButton(true);
             }
         });
-        
+
         document.addEventListener('hidden.bs.collapse', (e) => {
             if (e.target.id === 'backupCodesSection') {
                 this.updateBackupCodesButton(false);
@@ -126,7 +126,7 @@ class MFAManager {
         const mfaDisabledCard = document.getElementById('profileMFADisabled');
         const mfaEnabledCard = document.getElementById('profileMFAEnabled');
         const mfaTabContainer = document.getElementById('mfa-tab-container');
-        
+
         if (this.authManager?.currentUser?.mfa_enabled) {
             // Show enabled state
             if (mfaDisabledCard) mfaDisabledCard.style.display = 'none';
@@ -145,22 +145,21 @@ class MFAManager {
      */
     async startMFASetup() {
         const enableBtn = document.getElementById('mfaEnableBtn');
-        this.setButtonLoading(enableBtn, true);
 
         try {
             const response = await this.apiCall('/mfa/setup', 'POST');
-            
+
             if (response.ok) {
                 this.setupData = await response.json();
-                
+
                 // Hide the profile modal properly before showing MFA setup
                 const profileModalElement = document.getElementById('profileModal');
                 const profileModal = bootstrap.Modal.getInstance(profileModalElement);
-                
+
                 if (profileModal && profileModalElement) {
                     // Hide profile modal and wait for it to be fully hidden
                     profileModal.hide();
-                    
+
                     // Wait for modal to be completely hidden before showing MFA modal
                     profileModalElement.addEventListener('hidden.bs.modal', () => {
                         // Clean up any remaining modal states
@@ -169,7 +168,7 @@ class MFAManager {
                         document.body.classList.remove('modal-open');
                         document.body.style.overflow = '';
                         document.body.style.paddingRight = '';
-                        
+
                         // Show MFA setup modal
                         setTimeout(() => {
                             this.showSetupModal();
@@ -186,8 +185,6 @@ class MFAManager {
         } catch (error) {
             console.error('MFA setup error:', error);
             NotificationManager.showError('Network error. Please try again.');
-        } finally {
-            this.setButtonLoading(enableBtn, false);
         }
     }
 
@@ -196,7 +193,7 @@ class MFAManager {
      */
     showSetupModal() {
         console.log('showSetupModal called');
-        
+
         // Remove any existing MFA modal and its backdrop
         const existingMFAModal = document.getElementById('mfaSetupModal');
         if (existingMFAModal) {
@@ -207,16 +204,16 @@ class MFAManager {
             }
             existingMFAModal.remove();
         }
-        
+
         // Also clean up any leftover modal backdrops
         const existingBackdrops = document.querySelectorAll('.modal-backdrop');
         existingBackdrops.forEach(backdrop => backdrop.remove());
-        
+
         // Reset body classes that might be left over
         document.body.classList.remove('modal-open');
         document.body.style.overflow = '';
         document.body.style.paddingRight = '';
-        
+
         // Create modal HTML with collapsible panels
         const modalHtml = `
             <div class="modal fade" id="mfaSetupModal" tabindex="-1" aria-labelledby="mfaSetupModalLabel" aria-hidden="true">
@@ -239,7 +236,7 @@ class MFAManager {
 
                             <!-- Accordion for MFA setup steps -->
                             <div class="accordion" id="mfaSetupAccordion">
-                                
+
                                 <!-- Step 1: QR Code -->
                                 <div class="accordion-item">
                                     <h2 class="accordion-header" id="qrHeading">
@@ -251,11 +248,11 @@ class MFAManager {
                                     <div id="qrCollapse" class="accordion-collapse collapse show" aria-labelledby="qrHeading" data-bs-parent="#mfaSetupAccordion">
                                         <div class="accordion-body">
                                             <p class="text-muted mb-4">Use your authenticator app to scan this QR code:</p>
-                                            
+
                                             <div class="row">
                                                 <div class="col-md-6 text-center">
                                                     <div class="qr-code-container mb-3">
-                                                        <img id="mfaQRCode" src="${this.setupData.qr_code_data_url}" 
+                                                        <img id="mfaQRCode" src="${this.setupData.qr_code_data_url}"
                                                              alt="QR Code" class="img-fluid border rounded" style="max-width: 200px;">
                                                     </div>
                                                 </div>
@@ -263,14 +260,14 @@ class MFAManager {
                                                     <div class="manual-entry">
                                                         <p class="small text-muted">Can't scan? Enter this code manually:</p>
                                                         <div class="input-group mb-3">
-                                                            <input type="text" class="form-control font-monospace" 
+                                                            <input type="text" class="form-control font-monospace"
                                                                    id="mfaSecret" value="${this.setupData.secret}" readonly>
                                                             <button class="btn btn-outline-secondary" type="button" id="copySecretBtn">
                                                                 <i class="bi bi-clipboard"></i>
                                                             </button>
                                                         </div>
                                                     </div>
-                                                    
+
                                                     <div class="alert alert-info">
                                                         <small>
                                                             <i class="bi bi-info-circle me-1"></i>
@@ -279,7 +276,7 @@ class MFAManager {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="text-end mt-4">
                                                 <button type="button" class="btn btn-primary" id="mfaNextToVerify">
                                                     Next: Verify Setup <i class="bi bi-arrow-right ms-1"></i>
@@ -300,19 +297,19 @@ class MFAManager {
                                     <div id="verifyCollapse" class="accordion-collapse collapse" aria-labelledby="verifyHeading" data-bs-parent="#mfaSetupAccordion">
                                         <div class="accordion-body">
                                             <p class="text-muted mb-4">Enter the 6-digit code from your authenticator app:</p>
-                                            
+
                                             <form id="mfaVerifyForm">
                                                 <div class="row justify-content-center">
                                                     <div class="col-md-6">
                                                         <div class="mb-3">
-                                                            <input type="text" class="form-control form-control-lg text-center" 
-                                                                   id="mfaVerifyCode" placeholder="000000" maxlength="6" 
+                                                            <input type="text" class="form-control form-control-lg text-center"
+                                                                   id="mfaVerifyCode" placeholder="000000" maxlength="6"
                                                                    pattern="[0-9]{6}" required>
                                                         </div>
                                                         <div class="alert alert-danger d-none" id="mfaVerifyError"></div>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div class="d-flex justify-content-between mt-4">
                                                     <button type="button" class="btn btn-secondary" id="mfaBackToQR">
                                                         <i class="bi bi-arrow-left me-1"></i>Back
@@ -342,7 +339,7 @@ class MFAManager {
                                                 <h6 class="fw-bold mt-3">Verification Successful!</h6>
                                                 <p class="text-muted">Your authenticator app is properly configured. Enter your password to enable two-factor authentication.</p>
                                             </div>
-                                            
+
                                             <form id="mfaEnableForm">
                                                 <div class="row justify-content-center">
                                                     <div class="col-md-6">
@@ -353,7 +350,7 @@ class MFAManager {
                                                         <div class="alert alert-danger d-none" id="mfaEnableError"></div>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div class="d-flex justify-content-between mt-4">
                                                     <button type="button" class="btn btn-secondary" id="mfaBackToVerify">
                                                         <i class="bi bi-arrow-left me-1"></i>Back
@@ -383,7 +380,7 @@ class MFAManager {
                                                 <h6 class="fw-bold mt-3">Two-Factor Authentication Enabled!</h6>
                                                 <p class="text-muted">Your account is now protected with an extra layer of security.</p>
                                             </div>
-                                            
+
                                             <div class="alert alert-warning">
                                                 <h6 class="alert-heading">
                                                     <i class="bi bi-key me-2"></i>Save Your Backup Codes
@@ -398,7 +395,7 @@ class MFAManager {
                                                     </button>
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="text-center mt-4">
                                                 <button type="button" class="btn btn-success" id="mfaCompleteBtn">
                                                     <i class="bi bi-check-lg me-1"></i>Complete Setup
@@ -416,7 +413,7 @@ class MFAManager {
 
         // Add modal to DOM
         document.body.insertAdjacentHTML('beforeend', modalHtml);
-        
+
         // Use setTimeout to ensure DOM is fully updated
         setTimeout(() => {
             // Ensure modal element exists before proceeding
@@ -440,15 +437,8 @@ class MFAManager {
                     keyboard: true,
                     focus: true
                 });
-                
+
                 modal.show();
-                
-                // Start auto-detection after modal is shown
-                // Wait a bit for the modal to fully render
-                setTimeout(() => {
-                    console.log('[MFA Auto-Detection] Modal shown, starting auto-detection...');
-                    this.startTOTPAutoDetection();
-                }, 500);
             } catch (error) {
                 console.error('Error creating MFA modal:', error);
                 NotificationManager.showError('Failed to initialize MFA setup modal. Please try again.');
@@ -489,9 +479,6 @@ class MFAManager {
 
         // Step 1: Next to verify button
         document.getElementById('mfaNextToVerify')?.addEventListener('click', () => {
-            // Stop auto-detection if user manually advances
-            this.stopTOTPAutoDetection();
-            
             // Mark QR step as complete and enable verify step
             this.markAccordionStepComplete(1);
             this.setAccordionStepState(2, true);
@@ -544,7 +531,7 @@ class MFAManager {
      */
     goToAccordionStep(step) {
         console.log('Navigating to accordion step:', step);
-        
+
         // Step mapping
         const stepMap = {
             1: { id: 'qrCollapse', heading: 'qrHeading', progress: 25 },
@@ -564,7 +551,7 @@ class MFAManager {
         if (progressBar) {
             progressBar.style.width = `${currentStep.progress}%`;
             progressBar.setAttribute('aria-valuenow', currentStep.progress);
-            
+
             // Add progress text
             const progressText = document.getElementById('mfaProgressText');
             if (progressText) {
@@ -582,7 +569,7 @@ class MFAManager {
         Object.values(stepMap).forEach(({ id, heading }) => {
             const collapse = document.getElementById(id);
             const button = document.querySelector(`#${heading} button`);
-            
+
             if (id === currentStep.id) {
                 // Expand target step
                 if (collapse && !collapse.classList.contains('show')) {
@@ -598,12 +585,7 @@ class MFAManager {
 
         // Focus on relevant input
         setTimeout(() => {
-            if (step === 1) {
-                // Start auto-detection when QR code step is shown
-                this.startTOTPAutoDetection();
-            } else if (step === 2) {
-                // Stop auto-detection when moving to verification step
-                this.stopTOTPAutoDetection();
+            if (step === 2) {
                 const verifyInput = document.getElementById('mfaVerifyCode');
                 if (verifyInput) {
                     verifyInput.focus();
@@ -623,18 +605,18 @@ class MFAManager {
     setAccordionStepState(step, enabled = true) {
         const stepMap = {
             1: 'qrHeading',
-            2: 'verifyHeading', 
+            2: 'verifyHeading',
             3: 'passwordHeading',
             4: 'backupHeading'
         };
-        
+
         const headingId = stepMap[step];
         if (!headingId) return;
-        
+
         const button = document.querySelector(`#${headingId} button`);
         if (button) {
             button.disabled = !enabled;
-            
+
             // Update visual state
             const parent = button.closest('.accordion-item');
             if (parent) {
@@ -653,14 +635,14 @@ class MFAManager {
     markAccordionStepComplete(step) {
         const stepMap = {
             1: 'qrHeading',
-            2: 'verifyHeading', 
+            2: 'verifyHeading',
             3: 'passwordHeading',
             4: 'backupHeading'
         };
-        
+
         const headingId = stepMap[step];
         if (!headingId) return;
-        
+
         const button = document.querySelector(`#${headingId} button`);
         if (button) {
             const icon = button.querySelector('i');
@@ -668,7 +650,7 @@ class MFAManager {
                 // Change icon to checkmark
                 icon.className = 'bi bi-check-circle-fill text-success me-2';
             }
-            
+
             // Add completed class
             button.closest('.accordion-item')?.classList.add('step-completed');
         }
@@ -679,7 +661,7 @@ class MFAManager {
      */
     goToSetupStep(step) {
         console.log('Navigating to step:', step);
-        
+
         // Use Bootstrap classes instead of style.display
         document.querySelectorAll('.mfa-setup-step').forEach(el => {
             el.classList.add('d-none');
@@ -693,7 +675,7 @@ class MFAManager {
             targetStep.classList.remove('d-none');
             targetStep.classList.add('d-block');
             console.log('Showing step:', stepId);
-            
+
             // Focus on verification input if step 2
             if (step === 2) {
                 setTimeout(() => {
@@ -734,16 +716,16 @@ class MFAManager {
             });
 
             console.log('Verify response status:', response.status);
-            
+
             if (response.ok) {
                 // Verification successful, store the code and move to password step
                 console.log('TOTP verification successful');
                 this.verifiedTotpCode = code; // Store the verified code
-                
+
                 // Mark verify step as complete and enable password step
                 this.markAccordionStepComplete(2);
                 this.setAccordionStepState(3, true);
-                
+
                 this.goToAccordionStep(3); // Show password confirmation step
             } else {
                 const error = await response.json();
@@ -773,7 +755,7 @@ class MFAManager {
         const enableBtn = document.getElementById('mfaEnableFinalBtn');
         const spinner = document.getElementById('mfaEnableSpinner');
         const errorEl = document.getElementById('mfaEnableError');
-        
+
         if (!password) {
             this.showError(errorEl, 'Password is required');
             return;
@@ -796,24 +778,24 @@ class MFAManager {
             if (response.ok) {
                 console.log('MFA enabled successfully');
                 const result = await response.json();
-                
+
                 // Update setup data with backup codes from response
                 if (result.backup_codes) {
                     this.setupData.backup_codes = result.backup_codes;
-                    
+
                     // Populate backup codes in the modal
                     const backupCodesContainer = document.getElementById('mfaBackupCodes');
                     if (backupCodesContainer) {
-                        backupCodesContainer.innerHTML = result.backup_codes.map(code => 
+                        backupCodesContainer.innerHTML = result.backup_codes.map(code =>
                             `<span class="badge bg-light text-dark font-monospace" style="cursor: pointer;" onclick="navigator.clipboard.writeText('${code}'); this.style.backgroundColor='#d4edda'; setTimeout(() => this.style.backgroundColor='', 1000);" title="Click to copy">${code}</span>`
                         ).join('');
                     }
                 }
-                
+
                 // Mark password step as complete and enable backup codes step
                 this.markAccordionStepComplete(3);
                 this.setAccordionStepState(4, true);
-                
+
                 // Update user object
                 if (this.authManager?.currentUser) {
                     this.authManager.currentUser.mfa_enabled = true;
@@ -843,10 +825,10 @@ class MFAManager {
     completeSetup() {
         const mfaModalElement = document.getElementById('mfaSetupModal');
         const modal = bootstrap.Modal.getInstance(mfaModalElement);
-        
+
         if (modal && mfaModalElement) {
             modal.hide();
-            
+
             // Wait for modal to close then show profile modal
             mfaModalElement.addEventListener('hidden.bs.modal', () => {
                 // Clean up modal safely
@@ -854,12 +836,12 @@ class MFAManager {
                 if (currentModal) {
                     currentModal.dispose();
                 }
-                
+
                 // Remove modal element
                 if (mfaModalElement && mfaModalElement.parentNode) {
                     mfaModalElement.remove();
                 }
-                
+
                 // Refresh user data from server to get updated MFA status
                 if (this.authManager && typeof this.authManager.checkAuthStatus === 'function') {
                     this.authManager.checkAuthStatus().then(() => {
@@ -873,32 +855,32 @@ class MFAManager {
                     // Update profile UI directly if no refresh method available
                     this.updateMFAStatus();
                 }
-                
+
                 // Reopen profile modal
                 const profileModalElement = document.getElementById('profileModal');
                 if (profileModalElement) {
                     const profileModal = new bootstrap.Modal(profileModalElement);
                     profileModal.show();
-                    
+
                     // Switch to security tab
                     const securityTab = document.getElementById('security-tab');
                     securityTab?.click();
                 }
-                
+
                 NotificationManager.showSuccess('Two-factor authentication has been enabled successfully!');
             }, { once: true });
         } else {
             // Modal not found or instance is null, handle gracefully
             console.warn('MFA modal not found or instance is null');
-            
+
             // Still try to clean up
             if (mfaModalElement && mfaModalElement.parentNode) {
                 mfaModalElement.remove();
             }
-            
+
             // Update profile UI
             this.updateMFAStatus();
-            
+
             // Show success message
             NotificationManager.showSuccess('Two-factor authentication has been enabled successfully!');
         }
@@ -910,10 +892,10 @@ class MFAManager {
     cancelSetup() {
         const mfaModalElement = document.getElementById('mfaSetupModal');
         const modal = bootstrap.Modal.getInstance(mfaModalElement);
-        
+
         if (modal && mfaModalElement) {
             modal.hide();
-            
+
             // Wait for modal to close then show profile modal
             mfaModalElement.addEventListener('hidden.bs.modal', () => {
                 // Clean up modal safely
@@ -921,18 +903,18 @@ class MFAManager {
                 if (currentModal) {
                     currentModal.dispose();
                 }
-                
+
                 // Remove modal element
                 if (mfaModalElement && mfaModalElement.parentNode) {
                     mfaModalElement.remove();
                 }
-                
+
                 // Reopen profile modal
                 const profileModalElement = document.getElementById('profileModal');
                 if (profileModalElement) {
                     const profileModal = new bootstrap.Modal(profileModalElement);
                     profileModal.show();
-                    
+
                     // Switch to security tab
                     const securityTab = document.getElementById('security-tab');
                     securityTab?.click();
@@ -941,18 +923,18 @@ class MFAManager {
         } else {
             // Modal not found or instance is null, handle gracefully
             console.warn('MFA modal not found or instance is null in cancelSetup');
-            
+
             // Still try to clean up
             if (mfaModalElement && mfaModalElement.parentNode) {
                 mfaModalElement.remove();
             }
-            
+
             // Reopen profile modal
             const profileModalElement = document.getElementById('profileModal');
             if (profileModalElement) {
                 const profileModal = new bootstrap.Modal(profileModalElement);
                 profileModal.show();
-                
+
                 // Switch to security tab
                 const securityTab = document.getElementById('security-tab');
                 securityTab?.click();
@@ -966,11 +948,11 @@ class MFAManager {
     showDisableMFAForm() {
         const disableForm = document.getElementById('disableMFAForm');
         const disableBtn = document.getElementById('mfaDetailsDisableBtn');
-        
+
         if (disableForm) {
             const collapse = bootstrap.Collapse.getOrCreateInstance(disableForm);
             collapse.show();
-            
+
             // Focus on the password input after the collapse animation
             setTimeout(() => {
                 const passwordInput = document.getElementById('disableMFAPassword');
@@ -979,7 +961,7 @@ class MFAManager {
                 }
             }, 300);
         }
-        
+
         // Update button text to indicate form is open
         if (disableBtn) {
             disableBtn.innerHTML = '<i class="bi bi-x me-2"></i>Cancel';
@@ -987,7 +969,7 @@ class MFAManager {
             disableBtn.classList.add('btn-outline-secondary');
         }
     }
-    
+
     /**
      * Hide the disable MFA form
      */
@@ -996,19 +978,19 @@ class MFAManager {
         const disableBtn = document.getElementById('mfaDetailsDisableBtn');
         const errorDiv = document.getElementById('disableMFAError');
         const form = document.getElementById('disableMFAFormSubmit');
-        
+
         if (disableForm) {
             const collapse = bootstrap.Collapse.getOrCreateInstance(disableForm);
             collapse.hide();
         }
-        
+
         // Reset button text
         if (disableBtn) {
             disableBtn.innerHTML = '<i class="bi bi-shield-x me-2"></i>Disable Two-Factor Authentication';
             disableBtn.classList.remove('btn-outline-secondary');
             disableBtn.classList.add('btn-outline-danger');
         }
-        
+
         // Ensure submit button is properly reset
         const submitBtn = document.getElementById('confirmDisableMFABtn');
         if (submitBtn) {
@@ -1016,13 +998,13 @@ class MFAManager {
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2 d-none" id="disableMFASpinner"></span>Disable MFA';
         }
-        
+
         // Clear form fields manually (don't use form.reset() as it affects button state)
         const passwordInput = document.getElementById('disableMFAPassword');
         const codeInput = document.getElementById('disableMFACode');
         if (passwordInput) passwordInput.value = '';
         if (codeInput) codeInput.value = '';
-        
+
         if (errorDiv) {
             errorDiv.classList.add('d-none');
             errorDiv.textContent = '';
@@ -1064,7 +1046,7 @@ class MFAManager {
 
                 // Update profile UI
                 this.updateMFAStatus();
-                
+
                 // Navigate back to Security tab since MFA Details tab will be hidden
                 this.navigateToSecurityTab();
 
@@ -1080,7 +1062,7 @@ class MFAManager {
             this.setButtonLoading(submitBtn, false);
         }
     }
-    
+
     /**
      * Show error in disable MFA form
      */
@@ -1091,7 +1073,7 @@ class MFAManager {
             errorDiv.classList.remove('d-none');
         }
     }
-    
+
     /**
      * Hide error in disable MFA form
      */
@@ -1112,14 +1094,14 @@ class MFAManager {
         const securityTabPane = document.getElementById('security-settings');
         const mfaTabButton = document.getElementById('mfa-tab');
         const mfaTabPane = document.getElementById('mfa-details');
-        
+
         if (securityTabButton && securityTabPane) {
             // Remove active class from current tab (MFA Details)
             if (mfaTabButton && mfaTabPane) {
                 mfaTabButton.classList.remove('active');
                 mfaTabPane.classList.remove('show', 'active');
             }
-            
+
             // Activate Security tab
             securityTabButton.classList.add('active');
             securityTabPane.classList.add('show', 'active');
@@ -1132,12 +1114,12 @@ class MFAManager {
     async toggleBackupCodesSection() {
         const backupCodesSection = document.getElementById('backupCodesSection');
         const toggleBtn = document.getElementById('mfaDetailsBackupCodesBtn');
-        
+
         if (!backupCodesSection || !toggleBtn) return;
-        
+
         // Check if section is currently shown
         const isShown = backupCodesSection.classList.contains('show');
-        
+
         if (isShown) {
             // If shown, just collapse it
             const collapse = bootstrap.Collapse.getOrCreateInstance(backupCodesSection);
@@ -1145,14 +1127,14 @@ class MFAManager {
         } else {
             // If hidden, load backup codes first, then expand
             this.setButtonLoading(toggleBtn, true);
-            
+
             try {
                 const response = await this.apiCall('/mfa/backup-codes', 'GET');
-                
+
                 if (response.ok) {
                     const data = await response.json();
                     this.populateBackupCodesSection(data.backup_codes);
-                    
+
                     // Show the collapse section
                     const collapse = bootstrap.Collapse.getOrCreateInstance(backupCodesSection);
                     collapse.show();
@@ -1168,38 +1150,38 @@ class MFAManager {
             }
         }
     }
-    
+
     /**
      * Update the backup codes button text and icon
      */
     updateBackupCodesButton(isVisible) {
         const toggleBtn = document.getElementById('mfaDetailsBackupCodesBtn');
         if (!toggleBtn) return;
-        
+
         if (isVisible) {
             toggleBtn.innerHTML = '<i class="bi bi-eye-slash me-2"></i>Hide Backup Codes';
         } else {
             toggleBtn.innerHTML = '<i class="bi bi-eye me-2"></i>View Backup Codes';
         }
     }
-    
+
     /**
      * Populate the backup codes section with codes
      */
     populateBackupCodesSection(backupCodes) {
         const container = document.getElementById('backupCodesContainer');
         const countElement = document.getElementById('backupCodesCount');
-        
+
         if (container) {
-            container.innerHTML = backupCodes.map(code => 
+            container.innerHTML = backupCodes.map(code =>
                 `<span class="badge bg-light text-dark font-monospace p-2 m-1">${code}</span>`
             ).join('');
         }
-        
+
         if (countElement) {
             countElement.textContent = `Each code can only be used once. You have ${backupCodes.length} codes remaining.`;
         }
-        
+
         // Store codes for download/print functionality
         this.currentBackupCodes = backupCodes;
     }
@@ -1213,11 +1195,11 @@ class MFAManager {
     showRegenerateForm() {
         const regenerateForm = document.getElementById('regenerateCodesForm');
         const regenerateBtn = document.getElementById('mfaDetailsRegenerateCodesBtn');
-        
+
         if (regenerateForm) {
             const collapse = bootstrap.Collapse.getOrCreateInstance(regenerateForm);
             collapse.show();
-            
+
             // Focus on the TOTP input after the collapse animation
             setTimeout(() => {
                 const totpInput = document.getElementById('regenerateTotpCode');
@@ -1226,7 +1208,7 @@ class MFAManager {
                 }
             }, 300);
         }
-        
+
         // Update button text to indicate form is open
         if (regenerateBtn) {
             regenerateBtn.innerHTML = '<i class="bi bi-x me-2"></i>Cancel Regenerate';
@@ -1234,7 +1216,7 @@ class MFAManager {
             regenerateBtn.classList.add('btn-outline-secondary');
         }
     }
-    
+
     /**
      * Hide the regenerate codes form
      */
@@ -1244,38 +1226,38 @@ class MFAManager {
         const errorDiv = document.getElementById('regenerateError');
         const form = document.getElementById('regenerateCodesFormSubmit');
         const submitBtn = document.getElementById('confirmRegenerateBtn');
-        
+
         if (regenerateForm) {
             const collapse = bootstrap.Collapse.getOrCreateInstance(regenerateForm);
             collapse.hide();
         }
-        
+
         // Reset button text
         if (regenerateBtn) {
             regenerateBtn.innerHTML = '<i class="bi bi-arrow-clockwise me-2"></i>Regenerate Codes';
             regenerateBtn.classList.remove('btn-outline-secondary');
             regenerateBtn.classList.add('btn-outline-warning');
         }
-        
+
         // Ensure submit button is properly reset
         if (submitBtn) {
             // Manually restore the button to its original state
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2 d-none" id="regenerateSpinner"></span><i class="bi bi-arrow-clockwise me-2"></i>Generate New Codes';
         }
-        
+
         // Clear form fields manually (don't use form.reset() as it affects button state)
         const totpInput = document.getElementById('regenerateTotpCode');
         if (totpInput) {
             totpInput.value = '';
         }
-        
+
         if (errorDiv) {
             errorDiv.classList.add('d-none');
             errorDiv.textContent = '';
         }
     }
-    
+
     /**
      * Regenerate backup codes with smooth visual transition
      */
@@ -1284,18 +1266,18 @@ class MFAManager {
         const submitBtn = document.getElementById('confirmRegenerateBtn');
         const spinner = document.getElementById('regenerateSpinner');
         const errorDiv = document.getElementById('regenerateError');
-        
+
         if (!totpInput || !totpInput.value.trim()) {
             this.showRegenerateError('Please enter your TOTP code');
             return;
         }
-        
+
         // Validate TOTP format
         if (!/^\d{6}$/.test(totpInput.value.trim())) {
             this.showRegenerateError('TOTP code must be 6 digits');
             return;
         }
-        
+
         // Show loading state
         if (submitBtn) this.setButtonLoading(submitBtn, true, 'Generating...');
         if (errorDiv) errorDiv.classList.add('d-none');
@@ -1304,14 +1286,14 @@ class MFAManager {
             const response = await this.apiCall('/mfa/regenerate-backup-codes', 'POST', {
                 totp_code: totpInput.value.trim()
             });
-            
+
             if (response.ok) {
                 const data = await response.json();
                 NotificationManager.showSuccess('New backup codes generated successfully');
-                
+
                 // Hide the regenerate form (this will also reset the button state)
                 this.hideRegenerateForm();
-                
+
                 // Update the backup codes section if it's visible with smooth transition
                 const backupCodesSection = document.getElementById('backupCodesSection');
                 if (backupCodesSection && backupCodesSection.classList.contains('show')) {
@@ -1335,7 +1317,7 @@ class MFAManager {
             }
         }
     }
-    
+
     /**
      * Show error in regenerate form
      */
@@ -1346,67 +1328,67 @@ class MFAManager {
             errorDiv.classList.remove('d-none');
         }
     }
-    
+
     /**
      * Update backup codes with smooth visual transition
      */
     updateBackupCodesWithTransition(newCodes) {
         const container = document.getElementById('backupCodesContainer');
         const countElement = document.getElementById('backupCodesCount');
-        
+
         if (!container) return;
-        
+
         // Add blur transition effect
         container.style.transition = 'filter 0.3s ease, opacity 0.3s ease';
         container.style.filter = 'blur(5px)';
         container.style.opacity = '0.5';
-        
+
         setTimeout(() => {
             // Update the codes
             this.populateBackupCodesSection(newCodes);
-            
+
             // Remove blur effect
             container.style.filter = 'none';
             container.style.opacity = '1';
-            
+
             // Add a subtle highlight effect
             container.style.boxShadow = '0 0 20px rgba(25, 135, 84, 0.3)';
-            
+
             setTimeout(() => {
                 container.style.boxShadow = 'none';
                 container.style.transition = '';
             }, 1000);
         }, 300);
     }
-    
+
     /**
      * Update backup codes with a smooth transition effect
      */
     updateBackupCodesWithTransition(newBackupCodes) {
         const container = document.getElementById('backupCodesContainer');
         const countElement = document.getElementById('backupCodesCount');
-        
+
         if (!container) return;
-        
+
         // Add blur and fade transition
         container.style.transition = 'all 0.3s ease-in-out';
         container.style.filter = 'blur(3px)';
         container.style.opacity = '0.5';
-        
+
         setTimeout(() => {
             // Update the content
             this.populateBackupCodesSection(newBackupCodes);
-            
+
             // Add a subtle highlight to show codes changed
             container.style.backgroundColor = '#d4edda';
             container.style.padding = '10px';
             container.style.borderRadius = '5px';
             container.style.border = '1px solid #c3e6cb';
-            
+
             // Remove blur and fade back in
             container.style.filter = 'none';
             container.style.opacity = '1';
-            
+
             // Remove highlight after a moment
             setTimeout(() => {
                 container.style.transition = 'background-color 1s ease-out';
@@ -1448,7 +1430,7 @@ Keep these codes in a safe place!`;
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-        
+
         NotificationManager.showSuccess('Backup codes downloaded successfully');
     }
 
@@ -1482,7 +1464,7 @@ Keep these codes in a safe place!`;
                 </div>
                 <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
                 <h3>Backup Codes:</h3>
-                ${this.currentBackupCodes.map((code, index) => 
+                ${this.currentBackupCodes.map((code, index) =>
                     `<div class="code">${index + 1}. ${code}</div>`
                 ).join('')}
                 <div class="footer">
@@ -1491,14 +1473,14 @@ Keep these codes in a safe place!`;
             </body>
             </html>
         `;
-        
+
         printWindow.document.write(printContent);
         printWindow.document.close();
         printWindow.print();
     }
     setButtonLoading(button, loading = true, customText = null) {
         if (!button) return;
-        
+
         if (loading) {
             button.disabled = true;
             button.dataset.originalText = button.innerHTML;
@@ -1555,256 +1537,6 @@ Keep these codes in a safe place!`;
         }
     }
 
-    /**
-     * Start auto-detection of TOTP setup completion
-     */
-    startTOTPAutoDetection() {
-        // Stop any existing detection
-        this.stopTOTPAutoDetection();
-        
-        console.log('[MFA Auto-Detection] Starting TOTP auto-detection...');
-        
-        // Initialize timing variables
-        this.totpSetupStartTime = Date.now();
-        this.showedFirstHint = false;
-        this.showedSecondHint = false;
-        this.lastTOTPDetectionAttempt = null;
-        
-        // Add visual indicator
-        this.updateQRCodeStatus('Waiting for authenticator app setup...', 'info');
-        
-        // Start polling every 5 seconds for more responsive detection
-        this.totpDetectionInterval = setInterval(() => {
-            console.log('[MFA Auto-Detection] Interval tick, calling checkTOTPSetup');
-            this.checkTOTPSetup();
-        }, 5000);
-        
-        // Stop auto-detection after 3 minutes to avoid indefinite polling
-        this.totpDetectionTimeout = setTimeout(() => {
-            console.log('[MFA Auto-Detection] Timeout reached, stopping auto-detection');
-            this.stopTOTPAutoDetection();
-            this.updateQRCodeStatus('Auto-detection timed out. Please use the "Next" button when ready.', 'warning');
-        }, 180000); // 3 minutes
-    }
-
-    /**
-     * Stop TOTP auto-detection
-     */
-    stopTOTPAutoDetection() {
-        console.log('[MFA Auto-Detection] Stopping TOTP auto-detection...');
-        
-        if (this.totpDetectionInterval) {
-            clearInterval(this.totpDetectionInterval);
-            this.totpDetectionInterval = null;
-        }
-        
-        if (this.totpDetectionTimeout) {
-            clearTimeout(this.totpDetectionTimeout);
-            this.totpDetectionTimeout = null;
-        }
-        
-        // Clean up timing variables
-        this.totpSetupStartTime = null;
-        this.showedFirstHint = false;
-        this.showedSecondHint = false;
-        this.lastTOTPDetectionAttempt = null;
-        
-        // Remove status indicator
-        this.removeQRCodeStatus();
-    }
-
-    /**
-     * Check if TOTP setup is working by testing with a validation approach
-     */
-    async checkTOTPSetup() {
-        try {
-            // Try to validate the current TOTP code to see if the user has successfully
-            // set up their authenticator app
-            const timeElapsed = Date.now() - this.totpSetupStartTime;
-            
-            console.log(`[MFA Auto-Detection] Checking TOTP setup... Time elapsed: ${timeElapsed}ms`);
-            
-            // Show progressive hints based on time elapsed
-            if (timeElapsed > 10000 && !this.showedFirstHint) {
-                console.log('[MFA Auto-Detection] Showing first hint');
-                this.updateQRCodeStatus('Scan the QR code with your authenticator app...', 'info');
-                this.showedFirstHint = true;
-            }
-            
-            // After 20 seconds, start trying to detect if setup is complete
-            if (timeElapsed > 20000) {
-                console.log('[MFA Auto-Detection] Attempting backend detection...');
-                // Try to detect if the user has successfully set up their authenticator
-                // by checking if they can generate valid TOTP codes
-                const detectionResult = await this.detectTOTPSetupCompletion();
-                
-                console.log('[MFA Auto-Detection] Detection result:', detectionResult);
-                
-                if (detectionResult.isSetup) {
-                    // User has successfully set up their authenticator!
-                    console.log('[MFA Auto-Detection] Setup detected! Auto-advancing...');
-                    this.updateQRCodeStatus('✓ Authenticator app setup detected! Proceeding to verification...', 'success');
-                    
-                    // Auto-advance to the next step after a brief pause
-                    setTimeout(() => {
-                        this.stopTOTPAutoDetection();
-                        this.markAccordionStepComplete(1);
-                        this.setAccordionStepState(2, true);
-                        this.goToAccordionStep(2);
-                    }, 2000);
-                    
-                    return; // Stop checking
-                } else if (detectionResult.showHint) {
-                    // Show encouraging message after more time has passed
-                    if (timeElapsed > 90000 && !this.showedSecondHint) {
-                        console.log('[MFA Auto-Detection] Showing second hint');
-                        this.updateQRCodeStatus('Taking longer than expected? Click "Next" when you\'re ready to verify.', 'warning');
-                        this.showedSecondHint = true;
-                    }
-                }
-            }
-            
-        } catch (error) {
-            console.error('[MFA Auto-Detection] Check failed:', error);
-        }
-    }
-
-    /**
-     * Attempt to detect if TOTP setup is complete by checking if a valid code can be generated
-     */
-    async detectTOTPSetupCompletion() {
-        try {
-            // Use the new backend endpoint to check if TOTP setup is complete
-            // This endpoint validates the current time-based TOTP code
-            
-            // Only test every 10 seconds to avoid excessive API calls while being responsive
-            const now = Date.now();
-            if (this.lastTOTPDetectionAttempt && (now - this.lastTOTPDetectionAttempt) < 10000) {
-                console.log('[MFA Auto-Detection] Skipping backend check, too soon since last attempt');
-                return { isSetup: false, showHint: true };
-            }
-            
-            this.lastTOTPDetectionAttempt = now;
-            
-            console.log('[MFA Auto-Detection] Making API call to /mfa/check-setup');
-            
-            // Call the backend to check if setup is complete
-            const response = await this.apiCall('/mfa/check-setup', 'GET');
-            
-            console.log('[MFA Auto-Detection] API response status:', response.status);
-            
-            if (response.ok) {
-                const result = await response.json();
-                console.log('[MFA Auto-Detection] API response data:', result);
-                
-                if (result.setup_complete) {
-                    // The user has successfully set up their authenticator app!
-                    console.log('[MFA Auto-Detection] TOTP setup detected as complete by backend');
-                    return { isSetup: true, showHint: false };
-                } else {
-                    // Setup is not complete yet
-                    console.log('[MFA Auto-Detection] TOTP setup not complete yet');
-                    return { isSetup: false, showHint: true };
-                }
-            } else {
-                // API call failed, fall back to heuristic approach
-                console.log('[MFA Auto-Detection] Backend setup check failed, using heuristic approach');
-                const errorText = await response.text().catch(() => 'Unknown error');
-                console.log('[MFA Auto-Detection] Error response:', errorText);
-                return this.detectTOTPSetupHeuristic();
-            }
-            
-        } catch (error) {
-            console.error('[MFA Auto-Detection] TOTP detection error:', error);
-            // Fall back to heuristic approach if API call fails
-            return this.detectTOTPSetupHeuristic();
-        }
-    }
-
-    /**
-     * Fallback heuristic approach for TOTP setup detection
-     */
-    detectTOTPSetupHeuristic() {
-        const timeElapsed = Date.now() - this.totpSetupStartTime;
-        
-        console.log(`[MFA Auto-Detection] Using heuristic approach. Time elapsed: ${timeElapsed}ms`);
-        
-        // After 45 seconds, we assume the user has had enough time to set up
-        // but won't auto-advance (keeping the manual flow as fallback)
-        if (timeElapsed > 45000) {
-            console.log('[MFA Auto-Detection] Heuristic: enough time has passed but not auto-advancing');
-            return { isSetup: false, showHint: true };
-        }
-        
-        return { isSetup: false, showHint: true };
-    }
-
-    /**
-     * Test if a TOTP code is valid using the backend verify endpoint
-     * This is a helper method that could be used for more sophisticated auto-detection
-     */
-    async testTOTPCode(code) {
-        try {
-            const response = await this.apiCall('/mfa/verify', 'POST', {
-                totp_code: code
-            });
-            
-            return response.ok;
-        } catch (error) {
-            console.log('TOTP code test failed:', error);
-            return false;
-        }
-    }
-
-    /**
-     * Update QR code section with status message
-     */
-    updateQRCodeStatus(message, type = 'info') {
-        let statusDiv = document.getElementById('qrCodeStatus');
-        
-        if (!statusDiv) {
-            // Create status indicator if it doesn't exist
-            statusDiv = document.createElement('div');
-            statusDiv.id = 'qrCodeStatus';
-            statusDiv.className = 'text-center mt-3';
-            
-            // Insert after the QR code container
-            const qrContainer = document.querySelector('.qr-code-container');
-            if (qrContainer) {
-                qrContainer.parentNode.insertBefore(statusDiv, qrContainer.nextSibling);
-            }
-        }
-        
-        // Update content and styling based on type
-        const iconMap = {
-            info: 'bi-info-circle',
-            success: 'bi-check-circle-fill',
-            warning: 'bi-exclamation-triangle'
-        };
-        
-        const colorMap = {
-            info: 'text-info',
-            success: 'text-success',
-            warning: 'text-warning'
-        };
-        
-        statusDiv.innerHTML = `
-            <div class="d-flex align-items-center justify-content-center gap-2 ${colorMap[type]}">
-                <i class="bi ${iconMap[type]}"></i>
-                <small>${message}</small>
-            </div>
-        `;
-    }
-
-    /**
-     * Remove QR code status indicator
-     */
-    removeQRCodeStatus() {
-        const statusDiv = document.getElementById('qrCodeStatus');
-        if (statusDiv) {
-            statusDiv.remove();
-        }
-    }
 }
 
 // Export for use in other modules
