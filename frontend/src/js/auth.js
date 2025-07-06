@@ -579,7 +579,6 @@ class AuthManager {
                     keyboard: true,
                     focus: true
                 });
-
                 modal.show();
 
                 // Focus on input after modal is fully shown
@@ -1220,13 +1219,14 @@ class AuthManager {
             // Additional cleanup to ensure no orphaned backdrops
             setTimeout(() => {
                 const backdrops = document.querySelectorAll('.modal-backdrop');
-                if (backdrops.length > 0) {
+                const openModals = document.querySelectorAll('.modal.show');
+                if (backdrops.length > 0 && backdrops.length > openModals.length) {
                     console.warn('Found orphaned modal backdrops, cleaning up:', backdrops.length);
                     backdrops.forEach(backdrop => backdrop.remove());
                 }
 
                 // Ensure body classes are correct
-                const openModals = document.querySelectorAll('.modal.show');
+
                 if (openModals.length === 0) {
                     document.body.classList.remove('modal-open');
                     document.body.style.paddingRight = '';

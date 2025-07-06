@@ -1,3 +1,4 @@
+import { initCategoryDropdown } from './categoryDropdown';
 import { EDITOR_KEY } from './constants';
 import { initEditor } from './editor';
 import { applyEditorTheme, initTheme, toggleTheme } from './theme';
@@ -5,7 +6,7 @@ import { render } from './renderer';
 import { documentManager } from './documentManager';
 import { initDocumentUI } from './documentUI';
 import AuthManager from './auth';
-import NotificationManager from './notifications';
+import NotificationManager from './notifications'; // Only for local use, not global
 
 // Import Bootstrap CSS and JS (CSS will be extracted by webpack)
 import 'bootstrap/dist/css/bootstrap.min.css';
@@ -16,7 +17,7 @@ import '../styles/main.scss';
 import 'prism-themes/themes/prism-one-dark.css';
 import 'prism-themes/themes/prism-one-light.css';
 
-// Make Bootstrap available globally for other modules
+// Make Bootstrap available globally for other modules and inline scripts
 window.bootstrap = bootstrap;
 
 function debounce(fn, wait) {
@@ -52,6 +53,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Initialize document management
     const documentUI = initDocumentUI(editor);
+    // Ensure dropdown is rendered after DOM and before any document loads
+    try {
+        await new Promise(resolve => setTimeout(resolve, 0)); // Yield to ensure DOM is ready
+        const result = await initCategoryDropdown(documentUI);
+        console.debug('[Index] initCategoryDropdown completed:', result);
+    } catch (e) {
+        console.error('[Index] initCategoryDropdown failed:', e);
+    }
 
     // Load current document or restore from legacy storage
     const currentDoc = documentManager.currentDocument;

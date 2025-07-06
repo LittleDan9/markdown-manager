@@ -8,6 +8,23 @@ from app.models.document import Document
 
 
 class DocumentCRUD:
+    async def delete_category_for_user(
+        self, db: AsyncSession, user_id: int, category: str
+    ) -> int:
+        """Reassign all documents in the given category to 'General'. Returns number of affected docs."""
+        from sqlalchemy import update
+
+        if category.strip().lower() == "general":
+            return 0
+        stmt = (
+            update(Document)
+            .where(Document.user_id == user_id, Document.category == category)
+            .values(category="General")
+        )
+        result = await db.execute(stmt)
+        await db.commit()
+        return result.rowcount
+
     """CRUD operations for documents."""
 
     async def get(self, db: AsyncSession, id: int) -> Optional[Document]:

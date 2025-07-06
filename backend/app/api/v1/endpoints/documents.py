@@ -72,7 +72,15 @@ async def get_document(
 ) -> Document:
     """Get a specific document."""
     document = await document_crud.document.get(db=db, id=document_id)
-    if not document or document.user_id != int(current_user.id):
+    if document is None:
+        raise HTTPException(status_code=404, detail="Document not found")
+    # Ensure user_id is loaded as a value, not a SQLAlchemy column
+    # Ensure user_id is a value, not a SQLAlchemy column
+    user_id_value = getattr(document, "user_id", None)
+    # If user_id is a SQLAlchemy Column, get the value from __dict__
+    if hasattr(user_id_value, "__class__") and "sqlalchemy" in str(type(user_id_value)):
+        user_id_value = document.__dict__.get("user_id", None)
+    if user_id_value is None or int(user_id_value) != int(current_user.id):
         raise HTTPException(status_code=404, detail="Document not found")
     return document
 

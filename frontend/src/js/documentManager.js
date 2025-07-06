@@ -1,3 +1,5 @@
+
+
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -23,6 +25,37 @@ export { DEFAULT_CATEGORY };
  * - localStorage for anonymous users
  */
 export class DocumentManager {
+    // Delete a category (local or backend). Reassigns docs to 'General'.
+    deleteCategory(category) {
+        if (!category || category.trim().toLowerCase() === 'general') return Promise.resolve(false);
+        if (this.isAuthenticated()) {
+            // Backend: call API
+            return fetch('/api/v1/documents/categories/' + encodeURIComponent(category), {
+                method: 'DELETE',
+                headers: this.getAuthHeaders(),
+            })
+            .then(res => {
+                if (!res.ok) throw new Error('Failed to delete category');
+                return this.getAllCategories().then(cats => { this.categories = cats; return true; });
+            })
+            .catch(e => {
+                console.error('deleteCategory (backend) failed:', e);
+                return false;
+            });
+        } else {
+            // Local: update categories and reassign docs
+            const idx = this.categories.indexOf(category);
+            if (idx === -1) return Promise.resolve(false);
+            this.categories.splice(idx, 1);
+            // Reassign docs
+            Object.values(this.documents).forEach(doc => {
+                if (doc.category === category) doc.category = 'General';
+            });
+            this.saveCategories();
+            this.saveDocuments();
+            return Promise.resolve(true);
+        }
+    }
     constructor() {
         this.authManager = new AuthManager();
         this.documents = this.loadDocuments();
@@ -157,18 +190,24 @@ export class DocumentManager {
      */
     addCategory(categoryName) {
         const trimmedName = categoryName.trim();
-        if (trimmedName && !this.categories.includes(trimmedName)) {
-            this.categories.push(trimmedName);
-            this.categories.sort((a, b) => {
-                // Keep 'General' first
-                if (a === DEFAULT_CATEGORY) return -1;
-                if (b === DEFAULT_CATEGORY) return 1;
-                return a.localeCompare(b);
-            });
-            this.saveCategories();
-            return true;
+        if (!trimmedName) {
+            console.warn('addCategory: empty or whitespace-only name');
+            return false;
         }
-        return false;
+        if (this.categories.includes(trimmedName)) {
+            console.warn('addCategory: duplicate name:', trimmedName);
+            return false;
+        }
+        this.categories.push(trimmedName);
+        this.categories.sort((a, b) => {
+            // Keep 'General' first
+            if (a === DEFAULT_CATEGORY) return -1;
+            if (b === DEFAULT_CATEGORY) return 1;
+            return a.localeCompare(b);
+        });
+        this.saveCategories();
+        console.info('addCategory: added', trimmedName, 'categories now:', this.categories);
+        return true;
     }
 
     /**
