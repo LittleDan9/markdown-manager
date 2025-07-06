@@ -3,6 +3,7 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { RuntimeGlobals } = require('webpack');
 const { userInfo } = require('os');
 const { split } = require('lodash');
@@ -57,6 +58,14 @@ module.exports = {
     new MonacoWebpackPlugin({
       languages: ['markdown'], //, 'javascript', 'typescript', 'json'],
       publicPath: '/',
+    }),
+    new CopyWebpackPlugin({
+      patterns: [
+        {
+          from: 'public/prism-themes',
+          to: 'prism-themes',
+        },
+      ],
     }),
   ],
   devServer: {

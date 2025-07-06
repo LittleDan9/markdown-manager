@@ -5,7 +5,8 @@
   "private": "true",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "webpack --mode=production",
+    "build": "webpack --mode=production && npm run copy-prism-themes",
+    "copy-prism-themes": "node scripts/copy-prism-themes.js",
     "build:clean": "rm -rf dist && npm run build",
     "build:dev": "webpack --mode=development",
     "build:dev:incremental": "webpack --mode=development --watch",
@@ -34,6 +35,7 @@
   },
   "devDependencies": {
     "compression-webpack-plugin": "^11.1.0",
+    "copy-webpack-plugin": "^13.0.0",
     "css-loader": "^7.1.2",
     "html-webpack-plugin": "^5.6.3",
     "mini-css-extract-plugin": "^2.9.2",
