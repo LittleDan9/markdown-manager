@@ -102,6 +102,7 @@ export async function render(editor, options = {}) {
     
     // Check if this is an initial render (no existing content)
     const isInitialRender = options.isInitialRender || previewEl.innerHTML.trim() === '';
+    const forceRender = options.forceRender || false;
 
     // Store existing highlighted code blocks before replacing content
     const existingHighlights = new Map();
@@ -174,8 +175,8 @@ export async function render(editor, options = {}) {
             }, SYNTAX_HIGHLIGHT_DELAY);
         }
 
-        // Handle Mermaid diagrams - only render if they've changed, or force render on initial load
-        await renderMermaidDiagrams(previewEl, existingMermaidDiagrams, isInitialRender);
+        // Handle Mermaid diagrams - only render if they've changed, or force render on initial load/theme change
+        await renderMermaidDiagrams(previewEl, existingMermaidDiagrams, isInitialRender, forceRender);
 
     } catch (error) {
         console.error("Rendering failed:", error);
@@ -281,34 +282,34 @@ function cleanupRecentlyHighlighted() {
 /**
  * Render Mermaid diagrams - only render if they've changed
  */
-async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Map(), isInitialRender = false) {
+async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Map(), isInitialRender = false, forceRender = false) {
     const mermaidElements = previewEl.querySelectorAll('.mermaid[data-mermaid-source]');
 
     if (mermaidElements.length === 0) {
         return; // No diagrams to render
     }
 
-    // Restore existing diagrams if they haven't changed
+    // Restore existing diagrams if they haven't changed, unless we're forcing a re-render (e.g., theme change)
     const diagramsToRender = [];
     mermaidElements.forEach(element => {
         const diagramSource = decodeURIComponent(element.dataset.mermaidSource || '');
         if (diagramSource) {
-            // If we have an existing rendered diagram with the same source, restore it
-            if (existingMermaidDiagrams.has(diagramSource)) {
+            // If we're forcing a re-render (theme change), or if we don't have an existing diagram, render it
+            if (forceRender || !existingMermaidDiagrams.has(diagramSource)) {
+                diagramsToRender.push(element);
+            } else {
+                // If we have an existing rendered diagram with the same source, restore it
                 element.innerHTML = existingMermaidDiagrams.get(diagramSource);
                 // Mark as processed so Mermaid doesn't try to re-render it
                 element.setAttribute('data-processed', 'true');
-            } else {
-                // This is a new or changed diagram that needs rendering
-                diagramsToRender.push(element);
             }
         }
     });
 
-    // On initial render, force render all diagrams even if no existing diagrams
+    // On initial render or force render, render all diagrams
     // On subsequent renders, only render diagrams that have actually changed
-    if (diagramsToRender.length === 0 && !isInitialRender) {
-        return; // No new diagrams to render and not initial load
+    if (diagramsToRender.length === 0 && !isInitialRender && !forceRender) {
+        return; // No new diagrams to render and not initial load or forced render
     }
 
     // Clear processing state only for diagrams that need rendering

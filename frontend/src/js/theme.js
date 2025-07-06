@@ -55,7 +55,8 @@ export async function applyEditorTheme(theme, editor) {
     console.log(theme);
 
     monaco.editor.setTheme('vs-' + theme);
-    render(editor);
+    // Force re-render to update Mermaid diagrams with new theme
+    render(editor, { forceRender: true });
 }
 
 /**
