@@ -13,6 +13,8 @@ import 'bootstrap-icons/font/bootstrap-icons.css';
 import * as bootstrap from 'bootstrap';
 
 import '../styles/main.scss';
+import 'prism-themes/themes/prism-one-dark.css';
+import 'prism-themes/themes/prism-one-light.css';
 
 // Make Bootstrap available globally for other modules
 window.bootstrap = bootstrap;

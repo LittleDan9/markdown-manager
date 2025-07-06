@@ -1,3 +1,4 @@
+import { setPrismTheme } from './prismTheme';
 import * as monaco from 'monaco-editor';
 import { initMermaid, render } from './renderer';
 
@@ -8,6 +9,7 @@ import { initMermaid, render } from './renderer';
 export async function toggleTheme(theme) {
     localStorage.setItem("theme", theme);
     document.documentElement.setAttribute('data-bs-theme', theme);
+    setPrismTheme(theme);
     initMermaid(theme);
     updateThemeIcon(theme);
 }
@@ -40,6 +42,7 @@ export async function initTheme() {
         theme = sysDark ? 'dark' : 'light';
     }
     document.documentElement.setAttribute('data-bs-theme', theme);
+    setPrismTheme(theme);
     initMermaid(theme);
     updateThemeIcon(theme);
     return theme
