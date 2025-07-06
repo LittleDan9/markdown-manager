@@ -45,7 +45,7 @@ help: ## Show this help message
 	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(migrate|migrate-create|db-backup|db-restore):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Deployment:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(deploy|deploy-local|deploy-remote|deploy-frontend-only|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(deploy|deploy-local|deploy-remote|deploy-backend|deploy-frontend|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Nginx:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(reload-nginx|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -118,6 +118,10 @@ deploy-remote: ## Deploy to remote production server
 	@echo "$(BLUE)Reloading nginx configuration...$(NC)"
 	@ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl reload nginx" && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(YELLOW)⚠️ Could not reload nginx (may need manual restart)$(NC)"
 	@echo "$(GREEN)🎉 Remote deployment complete!$(NC)"
+
+deploy-backend: ## Deploy backend only (auto-detects local/remote)
+	@echo "$(YELLOW)🚀 Deploying backend only ($(DEPLOY_METHOD))...$(NC)"
+	@$(MAKE) deploy-backend-$(DEPLOY_METHOD)
 
 deploy-backend-local: ## Deploy backend locally with database migrations
 	@echo "$(YELLOW)📦 Deploying backend locally...$(NC)"
@@ -271,7 +275,7 @@ db-restore: ## Restore database from backup (usage: make db-restore BACKUP=filen
 		exit 1; \
 	fi
 
-deploy-frontend-only: ## Deploy only frontend (skip backend)
+deploy-frontend: ## Deploy only frontend (skip backend)
 	@echo "$(YELLOW)🌐 Deploying frontend only...$(NC)"
 	cd frontend && npm run build
 	rsync -r --no-perms --no-times --no-group --progress frontend/dist/ $(DEPLOY_TARGET)

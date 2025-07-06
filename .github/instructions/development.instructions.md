@@ -14,3 +14,5 @@ Production deployment runs at https://littledan.com. Use this in simple browser 
 backend code is using poetry for dependency management.
 frontend code is using npm for dependency management.
 When need to run command in the terminal that need run in a folder within root, use pushd and popd to ensure the terminal remains in the root directory.
+Always use linting rules and formatting rules that are already in place.
+Correct linting issues on any file you touch.

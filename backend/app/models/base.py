@@ -1,10 +1,11 @@
+from __future__ import annotations
+
 """Base database model."""
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, Integer
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import DateTime, Integer
+from sqlalchemy.orm import Mapped, declarative_base, mapped_column
 
-# Use type: ignore to satisfy mypy for SQLAlchemy base
 Base = declarative_base()
 
 
@@ -13,6 +14,8 @@ class BaseModel(Base):  # type: ignore[misc, valid-type]
 
     __abstract__ = True
 
-    id = Column(Integer, primary_key=True, index=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.utcnow, onupdate=datetime.utcnow
+    )
