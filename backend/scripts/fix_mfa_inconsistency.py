@@ -3,24 +3,23 @@
 Script to fix inconsistent MFA state for users
 """
 import asyncio
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.database import AsyncSessionLocal
-from app.models.user import User
 from sqlalchemy import select
 
+from app.database import AsyncSessionLocal
+from app.models.user import User
 
-async def fix_mfa_inconsistency(email: str):
+
+async def fix_mfa_inconsistency(email: str) -> None:
     """Fix MFA inconsistency for a user"""
     async with AsyncSessionLocal() as db:
         try:
             # Query for the user
-            result = await db.execute(
-                select(User).where(User.email == email)
-            )
+            result = await db.execute(select(User).where(User.email == email))
             user = result.scalar_one_or_none()
 
             if not user:
@@ -28,16 +27,16 @@ async def fix_mfa_inconsistency(email: str):
                 return
 
             print(f"✅ User found: {user.email}")
-            print(f"Current state:")
+            print("Current state:")
             print(f"  - MFA Enabled: {user.mfa_enabled}")
             print(f"  - TOTP Secret exists: {bool(user.totp_secret)}")
             print(f"  - Has backup codes: {bool(user.backup_codes)}")
 
             # If MFA is disabled but secrets exist, clear them
             if not user.mfa_enabled and (user.totp_secret or user.backup_codes):
-                print(f"\n🔧 Fixing inconsistent state...")
-                print(f"  - Clearing TOTP secret")
-                print(f"  - Clearing backup codes")
+                print("\n🔧 Fixing inconsistent state...")
+                print("  - Clearing TOTP secret")
+                print("  - Clearing backup codes")
 
                 user.totp_secret = None
                 user.backup_codes = None
@@ -50,6 +49,7 @@ async def fix_mfa_inconsistency(email: str):
         except Exception as e:
             print(f"❌ Error fixing user: {e}")
             import traceback
+
             traceback.print_exc()
 
 

@@ -3,24 +3,23 @@
 Quick script to check MFA status for a user
 """
 import asyncio
-import sys
 import os
+import sys
 
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from app.database import AsyncSessionLocal
-from app.models.user import User
 from sqlalchemy import select
 
+from app.database import AsyncSessionLocal
+from app.models.user import User
 
-async def check_user_mfa(email):
+
+async def check_user_mfa(email: str) -> None:
     """Check MFA status for a user"""
     async with AsyncSessionLocal() as db:
         try:
             # Query for the user using async session
-            result = await db.execute(
-                select(User).where(User.email == email)
-            )
+            result = await db.execute(select(User).where(User.email == email))
             user = result.scalar_one_or_none()
 
             if not user:
@@ -48,6 +47,7 @@ async def check_user_mfa(email):
         except Exception as e:
             print(f"❌ Error checking user: {e}")
             import traceback
+
             traceback.print_exc()
 
 

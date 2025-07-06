@@ -4,7 +4,7 @@ import io
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
-from weasyprint import HTML, CSS
+from weasyprint import CSS, HTML
 
 from app.services.css_service import css_service
 
@@ -13,6 +13,7 @@ router = APIRouter()
 
 class PDFExportRequest(BaseModel):
     """PDF export request model."""
+
     html_content: str
     document_name: str
     is_dark_mode: bool = False
@@ -51,20 +52,15 @@ async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
 
         # Prepare filename
         filename = request.document_name
-        if not filename.endswith('.pdf'):
-            filename += '.pdf'
+        if not filename.endswith(".pdf"):
+            filename += ".pdf"
 
         # Return PDF as streaming response
         return StreamingResponse(
             io.BytesIO(pdf_buffer.read()),
             media_type="application/pdf",
-            headers={
-                "Content-Disposition": f"attachment; filename=\"{filename}\""
-            }
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to generate PDF: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")

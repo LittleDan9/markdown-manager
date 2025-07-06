@@ -15,12 +15,12 @@ async def test_register_user():
         "password": "testpassword123",
         "first_name": "Test",
         "last_name": "User",
-        "display_name": "TestUser"
+        "display_name": "TestUser",
     }
-    
+
     response = client.post("/api/v1/auth/register", json=user_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert data["email"] == user_data["email"]
     assert data["first_name"] == user_data["first_name"]
@@ -39,21 +39,18 @@ async def test_login_user():
         "email": "login@example.com",
         "password": "loginpassword123",
         "first_name": "Login",
-        "last_name": "Test"
+        "last_name": "Test",
     }
-    
+
     register_response = client.post("/api/v1/auth/register", json=user_data)
     assert register_response.status_code == 200
-    
+
     # Now login
-    login_data = {
-        "email": "login@example.com",
-        "password": "loginpassword123"
-    }
-    
+    login_data = {"email": "login@example.com", "password": "loginpassword123"}
+
     response = client.post("/api/v1/auth/login", json=login_data)
     assert response.status_code == 200
-    
+
     data = response.json()
     assert "access_token" in data
     assert data["token_type"] == "bearer"
@@ -64,11 +61,8 @@ async def test_login_user():
 @pytest.mark.asyncio
 async def test_login_invalid_credentials():
     """Test login with invalid credentials."""
-    login_data = {
-        "email": "nonexistent@example.com",
-        "password": "wrongpassword"
-    }
-    
+    login_data = {"email": "nonexistent@example.com", "password": "wrongpassword"}
+
     response = client.post("/api/v1/auth/login", json=login_data)
     assert response.status_code == 401
     assert "Incorrect email or password" in response.json()["detail"]
@@ -82,22 +76,22 @@ async def test_get_current_user():
         "email": "profile@example.com",
         "password": "profilepassword123",
         "first_name": "Profile",
-        "last_name": "User"
+        "last_name": "User",
     }
-    
+
     client.post("/api/v1/auth/register", json=user_data)
-    
-    login_response = client.post("/api/v1/auth/login", json={
-        "email": "profile@example.com",
-        "password": "profilepassword123"
-    })
-    
+
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "profile@example.com", "password": "profilepassword123"},
+    )
+
     token = login_response.json()["access_token"]
-    
+
     # Get current user profile
     headers = {"Authorization": f"Bearer {token}"}
     response = client.get("/api/v1/auth/me", headers=headers)
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "profile@example.com"
@@ -110,7 +104,7 @@ async def test_get_current_user_invalid_token():
     """Test getting current user with invalid token."""
     headers = {"Authorization": "Bearer invalid_token"}
     response = client.get("/api/v1/auth/me", headers=headers)
-    
+
     assert response.status_code == 401
 
 
@@ -121,13 +115,13 @@ async def test_register_duplicate_email():
         "email": "duplicate@example.com",
         "password": "password123",
         "first_name": "First",
-        "last_name": "User"
+        "last_name": "User",
     }
-    
+
     # Register first user
     response1 = client.post("/api/v1/auth/register", json=user_data)
     assert response1.status_code == 200
-    
+
     # Try to register with same email
     response2 = client.post("/api/v1/auth/register", json=user_data)
     assert response2.status_code == 400

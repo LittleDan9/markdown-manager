@@ -1,10 +1,5 @@
 """API schemas."""
-from .document import (
-    Document,
-    DocumentCreate,
-    DocumentList,
-    DocumentUpdate,
-)
+from .document import Document, DocumentCreate, DocumentList, DocumentUpdate
 from .user import (
     Token,
     TokenData,

@@ -12,7 +12,7 @@ class DocumentCRUD:
 
     async def get(self, db: AsyncSession, id: int) -> Optional[Document]:
         """Get a document by ID."""
-        result = await db.execute(select(Document).filter(Document.id == id))
+        result = await db.execute(select(Document).where(Document.id == id))
         return result.scalar_one_or_none()
 
     async def get_by_user(
@@ -21,7 +21,7 @@ class DocumentCRUD:
         """Get all documents for a user."""
         result = await db.execute(
             select(Document)
-            .filter(Document.user_id == user_id)
+            .where(Document.user_id == user_id)
             .order_by(Document.updated_at.desc())
             .offset(skip)
             .limit(limit)
@@ -34,12 +34,14 @@ class DocumentCRUD:
         user_id: int,
         category: str,
         skip: int = 0,
-        limit: int = 100
+        limit: int = 100,
     ) -> List[Document]:
         """Get documents for a user filtered by category."""
+        from sqlalchemy import and_
+
         result = await db.execute(
             select(Document)
-            .filter(Document.user_id == user_id, Document.category == category)
+            .where(and_(Document.user_id == user_id, Document.category == category))
             .order_by(Document.updated_at.desc())
             .offset(skip)
             .limit(limit)
@@ -52,14 +54,11 @@ class DocumentCRUD:
         user_id: int,
         name: str,
         content: str,
-        category: str = "General"
+        category: str = "General",
     ) -> Document:
         """Create a new document."""
         document = Document(
-            name=name,
-            content=content,
-            category=category,
-            user_id=user_id
+            name=name, content=content, category=category, user_id=user_id
         )
         db.add(document)
         await db.commit()
@@ -73,12 +72,14 @@ class DocumentCRUD:
         user_id: int,
         name: Optional[str] = None,
         content: Optional[str] = None,
-        category: Optional[str] = None
+        category: Optional[str] = None,
     ) -> Optional[Document]:
         """Update a document if it belongs to the user."""
+        from sqlalchemy import and_
+
         result = await db.execute(
-            select(Document).filter(
-                Document.id == document_id, Document.user_id == user_id
+            select(Document).where(
+                and_(Document.id == document_id, Document.user_id == user_id)
             )
         )
         document = result.scalar_one_or_none()
@@ -86,23 +87,23 @@ class DocumentCRUD:
             return None
 
         if name is not None:
-            document.name = name
+            object.__setattr__(document, "name", name)
         if content is not None:
-            document.content = content
+            object.__setattr__(document, "content", content)
         if category is not None:
-            document.category = category
+            object.__setattr__(document, "category", category)
 
         await db.commit()
         await db.refresh(document)
         return document
 
-    async def delete(
-        self, db: AsyncSession, document_id: int, user_id: int
-    ) -> bool:
+    async def delete(self, db: AsyncSession, document_id: int, user_id: int) -> bool:
         """Delete a document if it belongs to the user."""
+        from sqlalchemy import and_
+
         result = await db.execute(
-            select(Document).filter(
-                Document.id == document_id, Document.user_id == user_id
+            select(Document).where(
+                and_(Document.id == document_id, Document.user_id == user_id)
             )
         )
         document = result.scalar_one_or_none()
@@ -113,14 +114,10 @@ class DocumentCRUD:
         await db.commit()
         return True
 
-    async def get_categories_by_user(
-        self, db: AsyncSession, user_id: int
-    ) -> List[str]:
+    async def get_categories_by_user(self, db: AsyncSession, user_id: int) -> List[str]:
         """Get all categories used by a user's documents."""
         result = await db.execute(
-            select(Document.category)
-            .filter(Document.user_id == user_id)
-            .distinct()
+            select(Document.category).where(Document.user_id == user_id).distinct()
         )
         categories = result.scalars().all()
         return list(categories)

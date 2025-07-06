@@ -11,3 +11,6 @@ Don't try to interact with the service directly using lsof or other commands, ak
 Ensure the use of frameworks that are installed like Boostrap for things like Modal, dialogs, icons, etc.
 If you need to add a new dependency, ask fist.
 Production deployment runs at https://littledan.com. Use this in simple browser for testing production deployments.
+backend code is using poetry for dependency management.
+frontend code is using npm for dependency management.
+When need to run command in the terminal that need run in a folder within root, use pushd and popd to ensure the terminal remains in the root directory.

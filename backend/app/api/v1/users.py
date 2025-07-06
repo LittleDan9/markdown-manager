@@ -28,9 +28,7 @@ async def update_user_profile(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Update user profile."""
-    updated_user = await crud_user.update_user(
-        db, current_user.id, user_update
-    )
+    updated_user = await crud_user.update_user(db, int(current_user.id), user_update)
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -48,7 +46,7 @@ async def update_password(
     """Update user password."""
     success = await crud_user.update_user_password(
         db,
-        current_user.id,
+        int(current_user.id),
         password_update.current_password,
         password_update.new_password,
     )
@@ -66,7 +64,7 @@ async def delete_account(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Delete user account."""
-    success = await crud_user.delete_user(db, current_user.id)
+    success = await crud_user.delete_user(db, int(current_user.id))
     if not success:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

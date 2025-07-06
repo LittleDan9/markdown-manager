@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
@@ -22,16 +22,16 @@ security = HTTPBearer()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return pwd_context.verify(plain_password, hashed_password)
+    return bool(pwd_context.verify(plain_password, hashed_password))
 
 
 def get_password_hash(password: str) -> str:
     """Generate password hash."""
-    return pwd_context.hash(password)
+    return str(pwd_context.hash(password))
 
 
 def create_access_token(
-    data: dict, expires_delta: Optional[timedelta] = None
+    data: dict[str, object], expires_delta: Optional[timedelta] = None
 ) -> str:
     """Create access token."""
     to_encode = data.copy()
@@ -45,7 +45,7 @@ def create_access_token(
     encoded_jwt = jwt.encode(
         to_encode, settings.secret_key, algorithm=settings.algorithm
     )
-    return encoded_jwt
+    return str(encoded_jwt)
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
@@ -61,7 +61,7 @@ async def authenticate_user(
     user = await get_user_by_email(db, email)
     if not user:
         return None
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, str(user.hashed_password)):
         return None
     return user
 
@@ -76,7 +76,7 @@ async def get_current_user(
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
         payload = jwt.decode(
             credentials.credentials,
@@ -88,11 +88,11 @@ async def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    
+
     user = await get_user_by_email(db, email=email)
     if user is None:
         raise credentials_exception
-    
+
     return user
 
 

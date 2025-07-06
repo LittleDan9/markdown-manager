@@ -1,5 +1,6 @@
 """FastAPI main application."""
 from contextlib import asynccontextmanager
+from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -11,7 +12,7 @@ from app.services.css_service import css_service
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """Application lifespan events."""
     # Startup: create database tables and initialize services
     await create_tables()
@@ -46,9 +47,7 @@ async def root() -> dict[str, str]:
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
-        "app.main:app",
-        host=settings.host,
-        port=settings.port,
-        reload=settings.debug
+        "app.main:app", host=settings.host, port=settings.port, reload=settings.debug
     )

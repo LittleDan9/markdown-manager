@@ -1,0 +1,56 @@
+repos:
+  - repo: https://github.com/psf/black
+    rev: 23.9.1  # Specify the version of black to use
+    hooks:
+      - id: black
+        language_version: python3  # Use the appropriate Python version for your project
+
+  - repo: https://github.com/PyCQA/isort
+    rev: 5.13.2  # Specify the version of isort to use
+    hooks:
+      - id: isort
+        name: isort (python import sorting)
+        language_version: python3  # Use the appropriate Python version for your project
+        args: ['--profile', 'black']
+
+  - repo: https://github.com/PyCQA/flake8
+    rev: 7.1.1  # Specify the version of flake8 to use
+    hooks:
+      - id: flake8
+        name: flake8 (python linting)
+        language_version: python3  # Use the appropriate Python version for your project
+
+  - repo: https://github.com/pre-commit/mirrors-mypy
+    rev: 'v1.12.0'  # Use the sha / tag you want to point at
+    hooks:
+      - id: mypy
+        args: [
+          "--exclude", "tests",
+          "--strict",
+          "--ignore-missing-imports",
+        ]
+        additional_dependencies: [
+          "pydantic[mypy,email]",  # Pydantic with mypy and email extras
+          "types-requests",         # Type stubs for requests
+          "types-docker",           # Type stubs for docker
+          "alembic",
+          "httpx",
+          "sqlalchemy",
+          "fastapi",
+          "pyjwt",
+          "pytest-asyncio",
+        ]
+        pass-filenames: true,
+        exclude: "tests/*"
+
+  - repo: https://github.com/rubik/xenon
+    rev: v0.9.1  # Specify the version of radon to use
+    hooks:
+      - id: xenon
+        name: xenon (cyclomatic complexity)
+        entry: xenon -b B -m B -a B
+        language: python
+        types: [python]
+        args: [
+          "--exclude", "tests/*",
+        ]

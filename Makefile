@@ -1,3 +1,8 @@
+# Quality/linting
+quality: ## Run all pre-commit hooks on all files (code quality checks)
+	@echo "$(YELLOW)🔍 Running pre-commit hooks on all files...$(NC)"
+	cd backend && poetry run pre-commit run --all-files
+	@echo "$(GREEN)✅ Quality checks complete$(NC)"
 # Markdown Manager - Makefile
 # Simple build and deployment automation
 
@@ -18,13 +23,13 @@ HOSTNAME := $(shell hostname)
 BACKEND_DIR := backend
 PRODUCTION_DB_PATH := /opt/markdown-manager-api/markdown_manager.db
 ifeq ($(HOSTNAME),Danbian)
-    DEPLOY_TARGET := /var/www/littledan.com/
-    BACKEND_DEPLOY_TARGET := /opt/markdown-manager-api/
-    DEPLOY_METHOD := local
+	DEPLOY_TARGET := /var/www/littledan.com/
+	BACKEND_DEPLOY_TARGET := /opt/markdown-manager-api/
+	DEPLOY_METHOD := local
 else
-    DEPLOY_TARGET := dlittle@10.0.1.51:/var/www/littledan.com/
-    BACKEND_DEPLOY_TARGET := dlittle@10.0.1.51:/opt/markdown-manager-api/
-    DEPLOY_METHOD := remote
+	DEPLOY_TARGET := dlittle@10.0.1.51:/var/www/littledan.com/
+	BACKEND_DEPLOY_TARGET := dlittle@10.0.1.51:/opt/markdown-manager-api/
+	DEPLOY_METHOD := remote
 endif
 
 .PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore
@@ -204,7 +209,7 @@ stop: ## Stop all development servers
 	if [ -n "$$pid" ] ; then \
 	  echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
 	  kill -TERM $$pid && \
-	    echo "$(GREEN)  ✅ Frontend server stopped$(NC)" ; \
+		echo "$(GREEN)  ✅ Frontend server stopped$(NC)" ; \
 	else \
 	  echo "$(YELLOW)  ℹ️  Frontend server not running$(NC)" ; \
 	fi
@@ -213,7 +218,7 @@ stop: ## Stop all development servers
 	if [ -n "$$pid" ] ; then \
 	  echo "$(BLUE)Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)" ; \
 	  kill -TERM $$pid && \
-	    echo "$(GREEN)  ✅ Backend server stopped$(NC)" ; \
+		echo "$(GREEN)  ✅ Backend server stopped$(NC)" ; \
 	else \
 	  echo "$(YELLOW)  ℹ️  Backend server not running$(NC)" ; \
 	fi

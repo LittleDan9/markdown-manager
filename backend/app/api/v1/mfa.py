@@ -17,11 +17,7 @@ from app.core.mfa import (
 from app.crud import user as crud_user
 from app.database import get_db
 from app.models.user import User
-from app.schemas.user import (
-    MFASetupResponse,
-    MFAToggleRequest,
-    MFAVerifyRequest,
-)
+from app.schemas.user import MFASetupResponse, MFAToggleRequest, MFAVerifyRequest
 
 router = APIRouter()
 
@@ -38,7 +34,7 @@ async def setup_mfa(
 
     # Store in database (not enabled yet)
     success = await crud_user.setup_mfa(
-        db, current_user.id, secret, encode_backup_codes(backup_codes)
+        db, int(current_user.id), secret, encode_backup_codes(backup_codes)
     )
 
     if not success:
@@ -48,7 +44,7 @@ async def setup_mfa(
         )
 
     # Generate QR code
-    qr_code_data_url = create_qr_code_data_url(current_user.email, secret)
+    qr_code_data_url = create_qr_code_data_url(str(current_user.email), secret)
 
     return MFASetupResponse(
         qr_code_data_url=qr_code_data_url,
@@ -89,7 +85,7 @@ async def enable_mfa(
     """Enable MFA for the current user."""
     # Verify current password
     if not verify_password(
-        toggle_data.current_password, current_user.hashed_password
+        toggle_data.current_password, str(current_user.hashed_password)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -111,7 +107,7 @@ async def enable_mfa(
         )
 
     # Enable MFA
-    success = await crud_user.enable_mfa(db, current_user.id)
+    success = await crud_user.enable_mfa(db, int(current_user.id))
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -130,7 +126,7 @@ async def disable_mfa(
     """Disable MFA for the current user."""
     # Verify current password
     if not verify_password(
-        toggle_data.current_password, current_user.hashed_password
+        toggle_data.current_password, str(current_user.hashed_password)
     ):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -145,9 +141,7 @@ async def disable_mfa(
         )
 
     # Verify TOTP code or backup code
-    totp_valid = verify_totp_code(
-        current_user.totp_secret, toggle_data.totp_code
-    )
+    totp_valid = verify_totp_code(current_user.totp_secret, toggle_data.totp_code)
     backup_valid = False
 
     if not totp_valid and current_user.backup_codes:
@@ -162,7 +156,7 @@ async def disable_mfa(
         )
 
     # Disable MFA
-    success = await crud_user.disable_mfa(db, current_user.id)
+    success = await crud_user.disable_mfa(db, int(current_user.id))
     if not success:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -210,7 +204,7 @@ async def regenerate_backup_codes(
     # Generate new backup codes
     new_backup_codes = generate_backup_codes()
     success = await crud_user.update_backup_codes(
-        db, current_user.id, encode_backup_codes(new_backup_codes)
+        db, int(current_user.id), encode_backup_codes(new_backup_codes)
     )
 
     if not success:

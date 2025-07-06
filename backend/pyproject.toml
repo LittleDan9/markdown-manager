@@ -41,6 +41,7 @@ httpx = "^0.28.1"
 # Testing utilities
 pytest-mock = "^3.12.0"
 faker = "^19.6.0"
+types-aiofiles = "^24.1.0.20250606"
 
 [build-system]
 requires = ["poetry-core"]
@@ -54,11 +55,20 @@ target-version = ['py311']
 profile = "black"
 line_length = 88
 
+
 [tool.mypy]
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
+plugins = [
+    "pydantic.mypy"
+]
+pretty = true
+color_output = true
+mypy_path = "typings"
+ignore_missing_imports = true
+exclude = "tests"
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
@@ -68,3 +78,10 @@ python_functions = ["test_*"]
 addopts = ["-v", "--tb=short"]
 pythonpath = ["."]
 asyncio_mode = "auto"
+
+[tool.bandit]
+exclude_dirs = []
+skips = ["B608"]
+
+[tool.coverage.run]
+omit = ["tests/*", "docker/*"]
