@@ -36,29 +36,26 @@ This will:
 
 ### Development Deployment
 ```bash
-# Full development deployment
-./deploy/deploy.sh dev
+# Start development servers
+make dev
 
-# Skip build (use existing dist)
-./deploy/deploy.sh dev true
+# Start only frontend
+make dev-frontend
 
-# Skip backend deployment
-./deploy/deploy.sh dev false true
-
-# Incremental build (faster, development only)
-./deploy/deploy.sh dev false false true
+# Start only backend
+make dev-backend
 ```
 
 ### Production Deployment
 ```bash
-# Full production deployment
-./deploy/deploy.sh production
+# Full production deployment (build + deploy)
+make deploy
 
-# Skip build
-./deploy/deploy.sh production true
+# Check deployment status
+make status
 
-# Skip backend
-./deploy/deploy.sh production false true
+# Stop development servers
+make stop
 ```
 
 ## Build Commands

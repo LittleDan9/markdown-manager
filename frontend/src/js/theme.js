@@ -3,13 +3,12 @@ import { initMermaid, render } from './renderer';
 
 // Note: Prism.js syntax highlighting has been moved to the backend
 // for comprehensive language support and reduced bundle size
-// However, we still use Prism.js CSS themes for styling
+// Theming for code blocks is handled via CSS in _code.scss
 
 export async function toggleTheme(theme) {
     localStorage.setItem("theme", theme);
     document.documentElement.setAttribute('data-bs-theme', theme);
     initMermaid(theme);
-    await loadPrismStylesheet(theme);
     updateThemeIcon(theme);
 }
 
@@ -19,15 +18,15 @@ function updateThemeIcon(theme) {
     const themeText = document.getElementById('themeText');
     const themeIconUser = document.getElementById('themeIconUser');
     const themeTextUser = document.getElementById('themeTextUser');
-    
+
     const iconClass = theme === 'dark' ? 'bi bi-moon-fill me-2' : 'bi bi-sun-fill me-2';
     const textContent = theme === 'dark' ? 'Dark Theme' : 'Light Theme';
-    
+
     if (themeIcon && themeText) {
         themeIcon.className = iconClass;
         themeText.textContent = textContent;
     }
-    
+
     if (themeIconUser && themeTextUser) {
         themeIconUser.className = iconClass;
         themeTextUser.textContent = textContent;
@@ -42,7 +41,6 @@ export async function initTheme() {
     }
     document.documentElement.setAttribute('data-bs-theme', theme);
     initMermaid(theme);
-    await loadPrismStylesheet(theme);
     updateThemeIcon(theme);
     return theme
 }
@@ -58,21 +56,3 @@ export async function applyEditorTheme(theme, editor) {
     // Force re-render to update Mermaid diagrams with new theme
     render(editor, { forceRender: true });
 }
-
-/**
- * Load Prism.js CSS theme based on the current theme
- * @param {string} theme - 'light' or 'dark'
- */
-const loadPrismStylesheet = async (theme) => {
-    try {
-        // Use explicit import paths based on theme
-        if (theme === 'dark') {
-            await import(/* webpackChunkName: "prism-dark" */ 'prism-themes/themes/prism-one-dark.css');
-        } else {
-            await import(/* webpackChunkName: "prism-light" */ 'prism-themes/themes/prism-one-light.css');
-        }
-        console.log(`Loaded Prism.js stylesheet for theme: ${theme}`);
-    } catch (error) {
-        console.warn(`Failed to load Prism.js stylesheet for theme ${theme}:`, error.message);
-    }
-};

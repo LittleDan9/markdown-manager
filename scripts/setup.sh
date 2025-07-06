@@ -23,7 +23,7 @@ sudo chown www-data:www-data /opt/markdown-manager-api
 
 # Install systemd service
 echo -e "${YELLOW}⚙️  Installing systemd service...${NC}"
-sudo cp deploy/markdown-manager-api.service /etc/systemd/system/
+sudo cp backend/markdown-manager-api.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Create nginx backup

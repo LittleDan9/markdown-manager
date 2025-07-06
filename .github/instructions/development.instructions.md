@@ -10,3 +10,4 @@ If I accept your code, I will commit it to git and push it to the repository.
 Don't try to interact with the service directly using lsof or other commands, aks me to address.
 Ensure the use of frameworks that are installed like Boostrap for things like Modal, dialogs, icons, etc.
 If you need to add a new dependency, ask fist.
+Production deployment runs at https://littledan.com. Use this in simple browser for testing production deployments.

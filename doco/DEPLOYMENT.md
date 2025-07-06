@@ -36,11 +36,11 @@ npm run deploy:skip-build
 
 ## Deployment Configuration
 
-The deployment is configured via `deploy.config.js` and supports:
+The deployment is configured via the `Makefile` and supports:
 
 ### Environments
 - **Production**: Deploys to main website
-- **Staging**: Deploys to staging environment for testing
+- **Development**: Local development servers
 
 ### Automatic Target Detection
 The deployment script automatically detects whether you're deploying:
@@ -104,12 +104,12 @@ The deployment script provides colored output to help identify issues:
 
 ## Configuration
 
-Edit `deploy.config.js` to customize:
+Edit the `Makefile` to customize:
 - Deployment targets
-- rsync options
-- Post-deployment actions
 - Build configuration
+- Service management
+- Environment variables
 
-## Legacy Support
+## Commands
 
-The original `deploy.sh` script is still available as `npm run deploy:legacy` for backward compatibility.
+Use `make help` to see all available commands for deployment, development, and maintenance.

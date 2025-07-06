@@ -89,14 +89,14 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Theme toggle button event listeners
     const elThemeToggleBtn = document.getElementById('themeToggleBtn');
     const elThemeToggleBtnUser = document.getElementById('themeToggleBtnUser');
-    
+
     const handleThemeToggle = async (e) => {
         e.preventDefault();
         theme = theme === 'light' ? 'dark' : 'light';
         await toggleTheme(theme);
         await applyEditorTheme(theme, editor);
     };
-    
+
     elThemeToggleBtn.addEventListener('click', handleThemeToggle);
     elThemeToggleBtnUser.addEventListener('click', handleThemeToggle);
 

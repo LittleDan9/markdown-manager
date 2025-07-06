@@ -99,7 +99,7 @@ export async function render(editor, options = {}) {
     // const previewEl = document.getElementById("preview");
     const previewEl = document.querySelector("#preview .preview-scroll");
     const src = editor.getValue();
-    
+
     // Check if this is an initial render (no existing content)
     const isInitialRender = options.isInitialRender || previewEl.innerHTML.trim() === '';
     const forceRender = options.forceRender || false;
