@@ -14,13 +14,23 @@ export async function toggleTheme(theme) {
 }
 
 function updateThemeIcon(theme) {
+    // Update theme icons for both guest and user menus
     const themeIcon = document.getElementById('themeIcon');
-    if (themeIcon) {
-        if (theme === 'dark') {
-            themeIcon.className = 'bi bi-moon-fill';
-        } else {
-            themeIcon.className = 'bi bi-sun-fill';
-        }
+    const themeText = document.getElementById('themeText');
+    const themeIconUser = document.getElementById('themeIconUser');
+    const themeTextUser = document.getElementById('themeTextUser');
+    
+    const iconClass = theme === 'dark' ? 'bi bi-moon-fill me-2' : 'bi bi-sun-fill me-2';
+    const textContent = theme === 'dark' ? 'Dark Theme' : 'Light Theme';
+    
+    if (themeIcon && themeText) {
+        themeIcon.className = iconClass;
+        themeText.textContent = textContent;
+    }
+    
+    if (themeIconUser && themeTextUser) {
+        themeIconUser.className = iconClass;
+        themeTextUser.textContent = textContent;
     }
 }
 
@@ -33,8 +43,6 @@ export async function initTheme() {
     document.documentElement.setAttribute('data-bs-theme', theme);
     initMermaid(theme);
     await loadPrismStylesheet(theme);
-    const elThemeToggle = document.getElementById('themeToggle');
-    elThemeToggle.checked = (theme === 'dark');
     updateThemeIcon(theme);
     return theme
 }

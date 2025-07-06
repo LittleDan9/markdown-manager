@@ -6,15 +6,20 @@
   flex-direction: column;
   height: 100vh; // exactly the browser's viewport height
 
+  // ─── APP HEADER (≈60px tall by default) ───
+  #appHeader {
+    flex: 0 0 auto;
+  }
+
   // ─── TOOLBAR (≈56px tall by default) ───
   #toolbar {
     flex: 0 0 auto;
   }
 
-  // ─── MAIN AREA: fill everything below the toolbar ───
+  // ─── MAIN AREA: fill everything below the header and toolbar ───
   #main {
     display: flex;
-    flex: 1 1 auto; // share 100vh minus toolbar, shrink/grow if needed
+    flex: 1 1 auto; // share 100vh minus header and toolbar, shrink/grow if needed
     min-height: 0;  // allow its children to shrink
     overflow: hidden;
 

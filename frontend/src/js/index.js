@@ -86,12 +86,19 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Setup auto-save
     documentUI.setupAutoSave();
 
-    const elThemeToggle = document.getElementById('themeToggle');
-    elThemeToggle.addEventListener('change', async e => {
-        theme = e.target.checked ? 'dark' : 'light';
+    // Theme toggle button event listeners
+    const elThemeToggleBtn = document.getElementById('themeToggleBtn');
+    const elThemeToggleBtnUser = document.getElementById('themeToggleBtnUser');
+    
+    const handleThemeToggle = async (e) => {
+        e.preventDefault();
+        theme = theme === 'light' ? 'dark' : 'light';
         await toggleTheme(theme);
         await applyEditorTheme(theme, editor);
-    });
+    };
+    
+    elThemeToggleBtn.addEventListener('click', handleThemeToggle);
+    elThemeToggleBtnUser.addEventListener('click', handleThemeToggle);
 
     // Fullscreen preview management
     let isFullscreenMode = false;
