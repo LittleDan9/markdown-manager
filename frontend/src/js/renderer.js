@@ -95,10 +95,13 @@ export async function initMermaid(theme) {
     }
 }
 
-export async function render(editor) {
+export async function render(editor, options = {}) {
     // const previewEl = document.getElementById("preview");
     const previewEl = document.querySelector("#preview .preview-scroll");
     const src = editor.getValue();
+    
+    // Check if this is an initial render (no existing content)
+    const isInitialRender = options.isInitialRender || previewEl.innerHTML.trim() === '';
 
     // Store existing highlighted code blocks before replacing content
     const existingHighlights = new Map();
@@ -161,13 +164,18 @@ export async function render(editor) {
             clearTimeout(syntaxHighlightingTimer);
         }
 
-        // Debounce syntax highlighting to avoid jumping while typing
-        syntaxHighlightingTimer = setTimeout(async () => {
+        // For initial renders (document restoration), skip debounce to show highlighting immediately
+        if (isInitialRender) {
             await performSyntaxHighlighting(previewEl);
-        }, SYNTAX_HIGHLIGHT_DELAY);
+        } else {
+            // Debounce syntax highlighting to avoid jumping while typing
+            syntaxHighlightingTimer = setTimeout(async () => {
+                await performSyntaxHighlighting(previewEl);
+            }, SYNTAX_HIGHLIGHT_DELAY);
+        }
 
-        // Handle Mermaid diagrams - only render if they've changed
-        await renderMermaidDiagrams(previewEl, existingMermaidDiagrams);
+        // Handle Mermaid diagrams - only render if they've changed, or force render on initial load
+        await renderMermaidDiagrams(previewEl, existingMermaidDiagrams, isInitialRender);
 
     } catch (error) {
         console.error("Rendering failed:", error);
@@ -273,7 +281,7 @@ function cleanupRecentlyHighlighted() {
 /**
  * Render Mermaid diagrams - only render if they've changed
  */
-async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Map()) {
+async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Map(), isInitialRender = false) {
     const mermaidElements = previewEl.querySelectorAll('.mermaid[data-mermaid-source]');
 
     if (mermaidElements.length === 0) {
@@ -297,9 +305,10 @@ async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Ma
         }
     });
 
-    // Only render diagrams that have actually changed
-    if (diagramsToRender.length === 0) {
-        return; // No new diagrams to render
+    // On initial render, force render all diagrams even if no existing diagrams
+    // On subsequent renders, only render diagrams that have actually changed
+    if (diagramsToRender.length === 0 && !isInitialRender) {
+        return; // No new diagrams to render and not initial load
     }
 
     // Clear processing state only for diagrams that need rendering

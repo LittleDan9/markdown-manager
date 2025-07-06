@@ -80,7 +80,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
     // Render the preview if content was restored
     if (contentRestored) {
-        render(editor);
+        render(editor, { isInitialRender: true });
     }
 
     // Setup auto-save
