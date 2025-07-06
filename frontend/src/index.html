@@ -5,6 +5,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Markdown Manager</title>
+  <style>
+    .app-logo-dark { display: none; }
+    @media (prefers-color-scheme: dark) {
+      .app-logo-light { display: none; }
+      .app-logo-dark { display: inline; }
+    }
+  </style>
 </head>
 
 <body>
@@ -12,8 +19,10 @@
     <!-- ─── APP HEADER ─── -->
     <header id="appHeader" class="bg-body-tertiary border-bottom">
       <div class="container-fluid px-3 py-2">
-        <h1 class="h4 mb-0 text-center">
-          <i class="bi bi-file-text me-2"></i>Markdown Manager
+        <h1 class="h4 mb-0 text-center d-flex align-items-center justify-content-center gap-2">
+          <i class="bi bi-markdown me-2 app-logo-light"></i>
+          <i class="bi bi-markdown-fill me-2 app-logo-dark"></i>
+          Markdown Manager
         </h1>
       </div>
     </header>
@@ -45,10 +54,10 @@
               </a></li>
               <li><hr class="dropdown-divider"></li>
               <li><a class="dropdown-item" href="#" id="exportMdBtn">
-                <i class="bi bi-file-earmark-arrow-down me-2"></i>Export Markdown
+                <i class="bi bi-filetype-md me-2"></i>Export Markdown
               </a></li>
               <li><a class="dropdown-item" href="#" id="exportPdfBtn">
-                <i class="bi bi-file-earmark-pdf me-2"></i>Export PDF
+                <i class="bi bi-filetype-pdf me-2"></i>Export PDF
               </a></li>
             </ul>
           </div>
