@@ -5,7 +5,7 @@
 echo "🔧 Updating systemd service and restarting backend..."
 
 # Copy the updated service file
-sudo cp backend/markdown-manager-api.service /etc/systemd/system/
+sudo cp markdown-manager-api.service /etc/systemd/system/
 
 # Reload systemd daemon
 sudo systemctl daemon-reload
