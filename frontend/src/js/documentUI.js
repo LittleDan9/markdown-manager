@@ -1008,7 +1008,7 @@ export class DocumentUIManager {
                     try {
                         const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
                         await documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
-                        NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
+                        //NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
                     } catch (error) {
                         console.error('Auto-save failed:', error);
                     }
@@ -1022,7 +1022,7 @@ export class DocumentUIManager {
                         const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
                         const savedDoc = await documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
                         this.updateDocumentTitle();
-                        NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
+                        //NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
                     } catch (error) {
                         console.error('Auto-save failed:', error);
                     }
