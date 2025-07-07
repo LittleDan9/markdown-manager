@@ -58,7 +58,7 @@ install: ## Install all dependencies (frontend + backend)
 	@echo "$(BLUE)Frontend dependencies:$(NC)"
 	cd frontend && npm install
 	@echo "$(BLUE)Backend dependencies:$(NC)"
-	cd backend && poetry install
+	cd backend && poetry lock && poetry install
 	@echo "$(GREEN)✅ All dependencies installed$(NC)"
 
 clean: ## Clean build artifacts and caches

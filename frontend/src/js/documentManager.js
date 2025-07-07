@@ -1,5 +1,3 @@
-
-
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -710,7 +708,13 @@ export class DocumentManager {
      */
     async fetchDocumentsFromServer(category = null) {
         try {
-            const url = new URL(`${config.apiBaseUrl}/documents/`);
+            let url;
+            // Support both absolute and relative apiBaseUrl
+            if (config.apiBaseUrl.startsWith('http')) {
+                url = new URL(`${config.apiBaseUrl}/documents/`);
+            } else {
+                url = new URL(`${config.apiBaseUrl}/documents/`, window.location.origin);
+            }
             if (category && category !== 'All') {
                 url.searchParams.append('category', category);
             }
@@ -728,6 +732,7 @@ export class DocumentManager {
             return data;
         } catch (error) {
             console.error('Error fetching documents from server:', error);
+            console.error('fetchDocumentsFromServer: config.apiBaseUrl =', config.apiBaseUrl, ', window.location.origin =', window.location.origin);
             throw error;
         }
     }
