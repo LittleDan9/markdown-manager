@@ -4,6 +4,7 @@
  */
 
 import NotificationManager from './notifications.js';
+import { documentManager } from './documentManager';
 import config from './config.js';
 import MFAManager from './mfa.js';
 
@@ -653,8 +654,8 @@ class AuthManager {
 
                 // Trigger document migration
                 try {
-                    if (window.documentManager) {
-                        await window.documentManager.onUserLogin();
+                    if (documentManager) {
+                        await documentManager.onUserLogin();
                     }
                 } catch (migrationError) {
                     console.error('Document migration failed:', migrationError);
@@ -731,8 +732,8 @@ class AuthManager {
 
                 // Trigger document migration
                 try {
-                    if (window.documentManager) {
-                        await window.documentManager.onUserLogin();
+                    if (documentManager) {
+                        await documentManager.onUserLogin();
                     }
                 } catch (migrationError) {
                     console.error('Document migration failed:', migrationError);
@@ -1083,8 +1084,8 @@ class AuthManager {
 
         // Trigger document logout hook with forced save
         try {
-            if (window.documentManager) {
-                await window.documentManager.onUserLogout();
+            if (documentManager) {
+                await documentManager.onUserLogout();
             }
         } catch (error) {
             console.error('Document logout handler failed:', error);
@@ -1383,6 +1384,6 @@ class AuthManager {
         return urlParams.get(name);
     }
 }
-
+const authManager = new AuthManager();
 // Export for use in other modules
-export default AuthManager;
+export default authManager;

@@ -1473,7 +1473,7 @@ Keep these codes in a safe place!`;
             </body>
             </html>
         `;
-
+        printWindow.document.open();
         printWindow.document.write(printContent);
         printWindow.document.close();
         printWindow.print();

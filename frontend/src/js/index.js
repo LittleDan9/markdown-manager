@@ -43,14 +43,6 @@ window.addEventListener('DOMContentLoaded', async () => {
     // Make editor globally available for document sync operations
     window.editorInstance = editor;
 
-    // Initialize authentication system
-    const authManager = new AuthManager();
-    // Make it globally available for debugging
-    window.authManager = authManager;
-
-    // Make document manager globally available for auth integration
-    window.documentManager = documentManager;
-
     // Initialize document management
     const documentUI = initDocumentUI(editor);
     // Ensure dropdown is rendered after DOM and before any document loads

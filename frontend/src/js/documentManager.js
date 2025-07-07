@@ -4,7 +4,7 @@ import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import config from './config.js';
-import AuthManager from './auth.js';
+import authManager from './auth.js';
 
 // Constants for local storage keys
 const DOCUMENTS_KEY = 'savedDocuments';
@@ -57,7 +57,7 @@ export class DocumentManager {
         }
     }
     constructor() {
-        this.authManager = new AuthManager();
+        this.authManager = authManager;
         this.documents = this.loadDocuments();
         this.currentDocument = this.loadCurrentDocument();
         this.autoSaveEnabled = this.getAutoSavePreference();
