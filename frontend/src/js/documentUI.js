@@ -1,4 +1,5 @@
 import { documentManager, DEFAULT_CATEGORY } from './documentManager';
+import NotificationManager from './notifications.js';
 
 /**
  * UI Manager for Document Management
@@ -160,8 +161,8 @@ export class DocumentUIManager {
             // 1. No ID (new document) AND (no name, empty name, or default name)
             // 2. No ID (new document) AND no category specified
             const shouldShowSaveAs = !documentManager.currentDocument.id && (
-                !currentName || 
-                currentName.trim() === '' || 
+                !currentName ||
+                currentName.trim() === '' ||
                 currentName === 'Untitled Document' ||
                 !currentCategory ||
                 currentCategory === DEFAULT_CATEGORY
@@ -173,13 +174,13 @@ export class DocumentUIManager {
             }
 
             // Show loading indicator
-            this.showNotification('Saving document...', 'info');
+            NotificationManager.showInfo('Saving document...');
 
             // If we have a name but no ID, create new document with that name
             if (!documentManager.currentDocument.id && currentName && currentName.trim() && currentName !== 'Untitled Document') {
                 const categoryToUse = currentCategory || DEFAULT_CATEGORY;
                 const savedDoc = await documentManager.saveDocument(content, currentName.trim(), null, categoryToUse);
-                this.showNotification('Document saved successfully!', 'success');
+                NotificationManager.showSuccess('Document saved successfully!');
                 this.updateDocumentTitle();
                 return;
             }
@@ -188,13 +189,13 @@ export class DocumentUIManager {
             if (documentManager.currentDocument.id) {
                 const categoryToUse = currentCategory || DEFAULT_CATEGORY;
                 await documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, categoryToUse);
-                this.showNotification('Document saved successfully!', 'success');
+                NotificationManager.showSuccess('Document saved successfully!');
                 this.updateDocumentTitle();
                 return;
             }
 
         } catch (error) {
-            this.showNotification('Error saving document: ' + error.message, 'error');
+            NotificationManager.showError('Error saving document: ' + error.message);
         }
     }
 
@@ -205,7 +206,7 @@ export class DocumentUIManager {
         try {
             // Get the current title from both the document manager and the DOM element
             let currentName, currentCategory;
-            
+
             if (isRename && documentToRename) {
                 // For rename operations, use the document being renamed
                 currentName = documentToRename.name || 'Untitled Document';
@@ -215,7 +216,7 @@ export class DocumentUIManager {
                 const managerName = documentManager.currentDocument.name || 'Untitled Document';
                 const titleElement = document.getElementById('documentTitle');
                 const domTitle = titleElement ? titleElement.textContent.trim() : managerName;
-                
+
                 // Use the DOM title if it's different from the manager (user may have edited it)
                 currentName = domTitle !== managerName ? domTitle : managerName;
                 currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
@@ -356,12 +357,12 @@ export class DocumentUIManager {
                             newCategoryBtn.disabled = false;
                             newCategoryName.value = '';
 
-                            this.showNotification(`Category "${categoryName}" added successfully!`, 'success');
+                            NotificationManager.showSuccess(`Category "${categoryName}" added successfully!`);
                         } else {
-                            this.showNotification('Category already exists or invalid name', 'error');
+                            NotificationManager.showError('Category already exists or invalid name');
                         }
                     } else {
-                        this.showNotification('Please enter a category name', 'error');
+                        NotificationManager.showError('Please enter a category name');
                         newCategoryName.focus();
                     }
                 });
@@ -381,7 +382,7 @@ export class DocumentUIManager {
         }, 100);
     } catch (error) {
         console.error('Error showing Save As modal:', error);
-        this.showNotification('Error opening Save dialog: ' + error.message, 'error');
+        NotificationManager.showError('Error opening Save dialog: ' + error.message);
     }
 }
 
@@ -395,13 +396,13 @@ export class DocumentUIManager {
         const category = categorySelect?.value || DEFAULT_CATEGORY;
 
         if (!name) {
-            this.showNotification('Please enter a document name', 'error');
+            NotificationManager.showError('Please enter a document name');
             nameInput?.focus();
             return;
         }
 
         if (name === 'Untitled Document') {
-            this.showNotification('Cannot save with the default document name. Please choose a different name.', 'error');
+            NotificationManager.showError('Cannot save with the default document name. Please choose a different name.');
             nameInput?.focus();
             nameInput?.select();
             return;
@@ -410,11 +411,11 @@ export class DocumentUIManager {
         try {
             const content = this.editor.getValue();
             await documentManager.saveDocument(content, name, null, category);
-            this.showNotification('Document saved successfully!', 'success');
+            NotificationManager.showSuccess('Document saved successfully!');
             this.updateDocumentTitle();
             this.closeModal();
         } catch (error) {
-            this.showNotification('Error saving document: ' + error.message, 'error');
+            NotificationManager.showError('Error saving document: ' + error.message);
         }
     }
 
@@ -426,7 +427,7 @@ export class DocumentUIManager {
             const allDocuments = await documentManager.getAllDocuments();
 
             if (allDocuments.length === 0) {
-                this.showNotification('No saved documents found', 'info');
+                NotificationManager.showInfo('No saved documents found');
                 return;
             }
 
@@ -488,7 +489,7 @@ export class DocumentUIManager {
                 });
             }
         } catch (error) {
-            this.showNotification('Error loading documents: ' + error.message, 'error');
+            NotificationManager.showError('Error loading documents: ' + error.message);
         }
     }
 
@@ -557,9 +558,9 @@ export class DocumentUIManager {
             this.editor.setValue(doc.content);
             this.updateDocumentTitle();
             this.closeModal();
-            this.showNotification('Document loaded successfully!', 'success');
+            NotificationManager.showSuccess('Document loaded successfully!');
         } catch (error) {
-            this.showNotification('Error loading document: ' + error.message, 'error');
+            NotificationManager.showError('Error loading document: ' + error.message);
         }
     }
 
@@ -585,14 +586,14 @@ export class DocumentUIManager {
         if (confirm(`Are you sure you want to delete "${docName}"?`)) {
             try {
                 await documentManager.deleteDocument(id);
-                this.showNotification('Document deleted successfully!', 'success');
+                NotificationManager.showSuccess('Document deleted successfully!');
                 // Refresh the modal while maintaining current filter
                 const categoryFilter = document.getElementById('categoryFilter');
                 const currentFilter = categoryFilter ? categoryFilter.value : 'All';
                 await this.updateDocumentsList(currentFilter);
                 this.updateDocumentTitle();
             } catch (error) {
-                this.showNotification('Error deleting document: ' + error.message, 'error');
+                NotificationManager.showError('Error deleting document: ' + error.message);
             }
         }
     }
@@ -604,7 +605,7 @@ export class DocumentUIManager {
         try {
             // Get the current document data
             let doc = null;
-            
+
             if (documentManager.isAuthenticated()) {
                 // For authenticated users, get document from server
                 const documents = await documentManager.getAllDocuments();
@@ -615,20 +616,20 @@ export class DocumentUIManager {
             }
 
             if (!doc) {
-                this.showNotification('Document not found', 'error');
+                NotificationManager.showError('Document not found');
                 return;
             }
 
             // Close the current modal first and wait a moment
             this.closeModal();
-            
+
             // Wait for modal to close completely before showing rename modal
             setTimeout(async () => {
                 await this.showSaveAsModal(true, doc);
             }, 150);
         } catch (error) {
             console.error('Error renaming document:', error);
-            this.showNotification('Failed to rename document', 'error');
+            NotificationManager.showError('Failed to rename document');
         }
     }
 
@@ -639,9 +640,9 @@ export class DocumentUIManager {
         try {
             const nameInput = document.getElementById('saveDocName');
             const categorySelect = document.getElementById('saveDocCategory');
-            
+
             if (!nameInput || !categorySelect) {
-                this.showNotification('Form elements not found', 'error');
+                NotificationManager.showError('Form elements not found');
                 return;
             }
 
@@ -649,7 +650,7 @@ export class DocumentUIManager {
             const newCategory = categorySelect.value;
 
             if (!newName || newName === 'Untitled Document') {
-                this.showNotification('Please enter a valid document name', 'error');
+                NotificationManager.showError('Please enter a valid document name');
                 return;
             }
 
@@ -675,16 +676,16 @@ export class DocumentUIManager {
                 this.updateDocumentTitle();
             }
 
-            this.showNotification('Document renamed successfully!', 'success');
+            NotificationManager.showSuccess('Document renamed successfully!');
             this.closeModal();
-            
+
             // Refresh the modal while maintaining current filter
             const categoryFilter = document.getElementById('categoryFilter');
             const currentFilter = categoryFilter ? categoryFilter.value : 'All';
             await this.updateDocumentsList(currentFilter);
         } catch (error) {
             console.error('Error performing rename:', error);
-            this.showNotification('Failed to rename document', 'error');
+            NotificationManager.showError('Failed to rename document: ' + error.message);
         }
     }
 
@@ -695,9 +696,9 @@ export class DocumentUIManager {
         try {
             const content = this.editor.getValue();
             documentManager.exportAsMarkdown(content);
-            this.showNotification('Markdown file exported successfully!', 'success');
+            NotificationManager.showSuccess('Markdown file exported successfully!');
         } catch (error) {
-            this.showNotification('Error exporting markdown: ' + error.message, 'error');
+            NotificationManager.showError('Error exporting markdown: ' + error.message);
         }
     }
 
@@ -708,7 +709,7 @@ export class DocumentUIManager {
         try {
             await documentManager.exportAsPDF();
         } catch (error) {
-            this.showNotification('Error exporting PDF: ' + error.message, 'error');
+            NotificationManager.showError('Error exporting PDF: ' + error.message);
         }
     }
 
@@ -736,9 +737,9 @@ export class DocumentUIManager {
                 documentManager.createNewDocument(name);
                 this.editor.setValue(content);
                 this.updateDocumentTitle();
-                this.showNotification('File imported successfully!', 'success');
+                NotificationManager.showSuccess('File imported successfully!');
             } catch (error) {
-                this.showNotification('Error importing file: ' + error.message, 'error');
+                NotificationManager.showError('Error importing file: ' + error.message);
             }
         };
 
@@ -784,13 +785,13 @@ export class DocumentUIManager {
 
         // Validate the new title
         if (!newTitle) {
-            this.showNotification('Document name cannot be empty', 'error');
+            NotificationManager.showError('Document name cannot be empty');
             this.cancelTitleEdit();
             return;
         }
 
         if (newTitle === 'Untitled Document') {
-            this.showNotification('Cannot use "Untitled Document" as document name', 'error');
+            NotificationManager.showError('Cannot use "Untitled Document" as document name');
             this.cancelTitleEdit();
             return;
         }
@@ -805,14 +806,14 @@ export class DocumentUIManager {
             if (documentManager.currentDocument.id) {
                 try {
                     documentManager.renameDocument(documentManager.currentDocument.id, newTitle);
-                    this.showNotification('Document renamed and saved!', 'success');
+                    NotificationManager.showSuccess('Document renamed and saved!');
                 } catch (error) {
-                    this.showNotification('Error renaming document: ' + error.message, 'error');
+                    NotificationManager.showError('Error renaming document: ' + error.message);
                 }
             } else {
                 // If not saved yet, inform user about auto-save potential
                 if (this.editor.getValue().trim()) {
-                    this.showNotification(`Document name changed to "${newTitle}". Auto-save enabled.`, 'info');
+                    NotificationManager.showInfo(`Document name changed to "${newTitle}". Auto-save enabled.`);
                 }
             }
         }
@@ -879,13 +880,13 @@ export class DocumentUIManager {
     showModal(title, body, buttons = []) {
         // Remove existing modal immediately and thoroughly
         this.closeModal();
-        
+
         // Also remove any existing modals by ID (in case of race conditions)
         const existingModal = document.getElementById('documentModal');
         if (existingModal) {
             existingModal.remove();
         }
-        
+
         // Clear any pending timeouts
         this.currentModalElement = null;
 
@@ -971,35 +972,12 @@ export class DocumentUIManager {
                 this.currentModalElement = null;
             }, 100); // Reduced from 300ms to ensure faster cleanup
         }
-        
+
         // Also ensure any modal with our ID is removed
         const modalById = document.getElementById('documentModal');
         if (modalById && modalById !== this.currentModalElement) {
             modalById.remove();
         }
-    }
-
-    /**
-     * Show notification
-     */
-    showNotification(message, type = 'info') {
-        // Remove existing notifications
-        document.querySelectorAll('.notification').forEach(n => n.remove());
-
-        const notificationHTML = `
-            <div class="notification alert alert-${type === 'error' ? 'danger' : type} alert-dismissible fade show"
-                 style="position: fixed; top: 20px; right: 20px; z-index: 9999; max-width: 300px;">
-                ${this.escapeHtml(message)}
-                <button type="button" class="btn-close" onclick="this.parentElement.remove()"></button>
-            </div>
-        `;
-
-        document.body.insertAdjacentHTML('beforeend', notificationHTML);
-
-        // Auto-remove after 5 seconds
-        setTimeout(() => {
-            document.querySelector('.notification')?.remove();
-        }, 5000);
     }
 
     /**
@@ -1030,7 +1008,7 @@ export class DocumentUIManager {
                     try {
                         const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
                         await documentManager.saveDocument(content, currentName, documentManager.currentDocument.id, currentCategory);
-                        this.showSubtleNotification('Auto-saved');
+                        NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
                     } catch (error) {
                         console.error('Auto-save failed:', error);
                     }
@@ -1044,43 +1022,13 @@ export class DocumentUIManager {
                         const currentCategory = documentManager.currentDocument.category || DEFAULT_CATEGORY;
                         const savedDoc = await documentManager.saveDocument(content, currentName.trim(), null, currentCategory);
                         this.updateDocumentTitle();
-                        this.showSubtleNotification(`Auto-saved as "${currentName}"`);
+                        NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
                     } catch (error) {
                         console.error('Auto-save failed:', error);
                     }
                 }
             }, 2000); // Auto-save after 2 seconds of inactivity
         });
-    }
-
-    /**
-     * Show subtle notification (less intrusive)
-     */
-    showSubtleNotification(message) {
-        // Remove existing subtle notifications
-        document.querySelectorAll('.subtle-notification').forEach(n => n.remove());
-
-        const notificationHTML = `
-            <div class="subtle-notification"
-                 style="position: fixed; bottom: 20px; right: 20px; z-index: 9999;
-                        background: rgba(0,0,0,0.7); color: white; padding: 8px 12px;
-                        border-radius: 4px; font-size: 12px; opacity: 0; transition: opacity 0.3s;">
-                ${this.escapeHtml(message)}
-            </div>
-        `;
-
-        document.body.insertAdjacentHTML('beforeend', notificationHTML);
-
-        const notification = document.querySelector('.subtle-notification');
-
-        // Fade in
-        setTimeout(() => notification.style.opacity = '1', 10);
-
-        // Fade out and remove
-        setTimeout(() => {
-            notification.style.opacity = '0';
-            setTimeout(() => notification.remove(), 300);
-        }, 1500);
     }
 }
 
