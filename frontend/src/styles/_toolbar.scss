@@ -129,7 +129,9 @@
 
   .dropdown-menu {
     min-width: 200px;
-    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
     border: 1px solid var(--bs-border-color);
   }
 
@@ -220,7 +222,8 @@
     color: #dc3545;
     font-size: 1.1em;
     transition: color 0.15s;
-    &:hover, &:focus {
+    &:hover,
+    &:focus {
       color: #a71d2a;
       background: none;
       outline: none;

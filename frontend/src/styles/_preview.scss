@@ -51,7 +51,10 @@
       }
 
       // Specific mermaid elements
-      .node rect, .node polygon, .node circle, .node ellipse {
+      .node rect,
+      .node polygon,
+      .node circle,
+      .node ellipse {
         fill: #444 !important;
         stroke: #ffffff !important;
       }
@@ -72,7 +75,8 @@
       background-color: #2d2d2d !important;
       border: 1px solid #444 !important;
 
-      th, td {
+      th,
+      td {
         border-color: #444 !important;
         background-color: #2d2d2d !important;
         color: #ffffff !important;
@@ -85,7 +89,12 @@
     }
 
     // Headings
-    h1, h2, h3, h4, h5, h6 {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
       color: #ffffff !important;
       border-bottom-color: #444 !important;
     }
@@ -114,17 +123,20 @@
     }
 
     // Lists
-    ul, ol {
+    ul,
+    ol {
       color: #ffffff !important;
     }
 
     // Strong and emphasis
-    strong, b {
+    strong,
+    b {
       color: #ffffff !important;
       font-weight: bold !important;
     }
 
-    em, i {
+    em,
+    i {
       color: #cccccc !important;
       font-style: italic !important;
     }
@@ -171,14 +183,20 @@
       color: #212529 !important;
       background-color: #ffffff !important;
 
-      th, td {
+      th,
+      td {
         border-color: #dee2e6 !important;
         background-color: transparent !important;
       }
     }
 
     // Headings
-    h1, h2, h3, h4, h5, h6 {
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
       color: #212529 !important;
     }
 

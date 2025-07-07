@@ -18,51 +18,51 @@
 
   // ─── MAIN AREA: fill everything below the header and toolbar ───
   #main {
-  // ─── FULLSCREEN MODE ───
-  &.fullscreen-mode {
-    #editorContainer {
-      display: none !important;
-    }
-    #previewContainer {
-      flex: 1 1 100% !important;
-      width: 100% !important;
-      max-width: 100vw !important;
-      min-width: 0 !important;
-      height: 100%;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-      padding: 1rem;
-      border-radius: 0.5rem;
-      #preview {
+    // ─── FULLSCREEN MODE ───
+    &.fullscreen-mode {
+      #editorContainer {
+        display: none !important;
+      }
+      #previewContainer {
+        flex: 1 1 100% !important;
         width: 100% !important;
-        border-radius: 0.5rem;
-        border: #ced4da 1px solid;
-        padding: 0.25rem;
-      }
-      .preview-scroll {
+        max-width: 100vw !important;
+        min-width: 0 !important;
+        height: 100%;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         padding: 1rem;
-        border-radius: inherit;
+        border-radius: 0.5rem;
+        #preview {
+          width: 100% !important;
+          border-radius: 0.5rem;
+          border: #ced4da 1px solid;
+          padding: 0.25rem;
+        }
+        .preview-scroll {
+          padding: 1rem;
+          border-radius: inherit;
+        }
       }
     }
-  }
     display: flex;
     flex: 1 1 auto; // share 100vh minus header and toolbar, shrink/grow if needed
-    min-height: 0;  // allow its children to shrink
+    min-height: 0; // allow its children to shrink
     overflow: hidden;
 
     // ─── LEFT EDITOR PANE (40% width) ───
     #editorContainer {
-      flex: 0 0 40%;       // exactly 40% of #main's width
-      height: 100%;        // fill #main's height
+      flex: 0 0 40%; // exactly 40% of #main's width
+      height: 100%; // fill #main's height
       display: flex;
       flex-direction: column;
-      min-height: 0;       // allow #editor to shrink/grow inside
+      min-height: 0; // allow #editor to shrink/grow inside
       border-top-left-radius: 0.5rem;
       border-bottom-left-radius: 0.5rem;
       padding: 1rem;
       box-sizing: border-box;
 
       #editor {
-        flex: 1 1 auto;   // fill entire height of #editorContainer
+        flex: 1 1 auto; // fill entire height of #editorContainer
         border: 1px solid #ced4da;
         border-radius: 0.5rem;
         overflow: hidden; // Monaco editor will handle its own scrolling
@@ -71,13 +71,13 @@
 
     // ─── RIGHT PREVIEW PANE (60% width) ───
     #previewContainer {
-      flex: 0 0 60%;       // exactly 60% of #main's width
-      height: 100%;        // fill #main's height
-      display: flex;       // center #preview inside it
+      flex: 0 0 60%; // exactly 60% of #main's width
+      height: 100%; // fill #main's height
+      display: flex; // center #preview inside it
       justify-content: center;
       align-items: center;
       // background-color: #ffffff;
-      min-height: 0;       // allow #preview to shrink/grow
+      min-height: 0; // allow #preview to shrink/grow
       padding: 1rem;
       /* Optionally, if you want a dropped‐shadow around the preview: */
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
@@ -85,7 +85,7 @@
       #preview {
         width: 100%;
         height: 100%;
-        display: flex;       // center its children (the Mermaid SVG)
+        display: flex; // center its children (the Mermaid SVG)
         flex-direction: column;
         border-radius: 0.5rem;
         border: #ced4da 1px solid;
@@ -114,7 +114,8 @@
         }
 
         // Special handling for code blocks and pre elements
-        pre, code {
+        pre,
+        code {
           white-space: pre-wrap;
           word-wrap: break-word;
           overflow-wrap: break-word;

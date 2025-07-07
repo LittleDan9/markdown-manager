@@ -9,7 +9,8 @@
       font-size: 1rem;
     }
 
-    .dropdown, .btn-sm {
+    .dropdown,
+    .btn-sm {
       font-size: 0.875rem;
     }
 
@@ -53,13 +54,13 @@
 @media screen and (min-width: 769px) {
   #main {
     #editorContainer {
-      flex: 0 1 40% !important;  // Allow shrinking while maintaining proportion
-      min-width: 250px;          // Minimum width before mobile layout kicks in
+      flex: 0 1 40% !important; // Allow shrinking while maintaining proportion
+      min-width: 250px; // Minimum width before mobile layout kicks in
     }
 
     #previewContainer {
-      flex: 0 1 60% !important;  // Allow shrinking while maintaining proportion
-      min-width: 250px;          // Minimum width before mobile layout kicks in
+      flex: 0 1 60% !important; // Allow shrinking while maintaining proportion
+      min-width: 250px; // Minimum width before mobile layout kicks in
     }
   }
 }

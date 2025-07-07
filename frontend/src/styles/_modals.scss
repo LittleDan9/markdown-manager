@@ -50,7 +50,9 @@ body .custom-modal {
   justify-content: center !important;
   opacity: 0 !important;
   visibility: hidden !important;
-  transition: opacity 0.3s ease, visibility 0.3s ease !important;
+  transition:
+    opacity 0.3s ease,
+    visibility 0.3s ease !important;
 
   &.show {
     opacity: 1 !important;
@@ -221,7 +223,8 @@ body .custom-modal-content {
 
 // MFA verification code input styling
 #mfaVerifyCode {
-  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, Courier, monospace;
+  font-family:
+    "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
   font-size: 1.5rem;
   letter-spacing: 0.5em;
   font-weight: bold;
@@ -302,7 +305,7 @@ body .custom-modal-content {
 }
 
 .backup-code {
-  font-family: 'Courier New', monospace;
+  font-family: "Courier New", monospace;
   font-size: 1rem;
   font-weight: 600;
   background-color: #fff;
@@ -489,5 +492,3 @@ body .custom-modal-content {
     }
   }
 }
-
-

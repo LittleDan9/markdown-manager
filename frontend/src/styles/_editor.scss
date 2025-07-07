@@ -13,7 +13,8 @@
 }
 
 // Ensure preview content can shrink
-#preview, .preview-scroll {
+#preview,
+.preview-scroll {
   min-width: 0 !important;
   width: 100% !important;
 }

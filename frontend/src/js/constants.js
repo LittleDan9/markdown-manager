@@ -1,1 +1,1 @@
-export const EDITOR_KEY = 'editorContent';
+export const EDITOR_KEY = "editorContent";
