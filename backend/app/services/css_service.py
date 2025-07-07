@@ -15,7 +15,7 @@ class CSSService:
     def __init__(self) -> None:
         self.static_dir: Path = Path(__file__).parent.parent / "static" / "css"
         self.css_cache: Dict[str, str] = {}
-        self.prism_version: str = "1.29.0"  # Current stable version
+        self.prism_themes_version: str = "1.9.0"  # Current stable version
 
     async def initialize(self) -> None:
         """Initialize the CSS service by loading and downloading CSS files."""
@@ -28,6 +28,8 @@ class CSSService:
             "base": self.static_dir / "pdf-base.css",
             "light": self.static_dir / "pdf-light.css",
             "dark": self.static_dir / "pdf-dark.css",
+            # "prism-dark": self.static_dir / "prism-pdf-dark.css",
+            # "prism-light": self.static_dir / "prism-pdf-light.css",
         }
 
         for name, file_path in css_files.items():
@@ -40,10 +42,10 @@ class CSSService:
 
     async def _download_prism_css(self) -> None:
         """Download Prism.js CSS from CDN."""
-        base_url = f"https://cdnjs.cloudflare.com/ajax/libs/prism/{self.prism_version}"
+        base_url = f"https://cdnjs.cloudflare.com/ajax/libs/prism-themes/{self.prism_themes_version}"
         prism_urls: Dict[str, str] = {
-            "prism_light": f"{base_url}/themes/prism.min.css",
-            "prism_dark": f"{base_url}/themes/prism-tomorrow.min.css",
+            "prism-light": f"{base_url}/prism-one-light.min.css",
+            "prism-dark": f"{base_url}/prism-one-dark.min.css",
         }
 
         async with httpx.AsyncClient() as client:
@@ -81,20 +83,20 @@ class CSSService:
         css_parts: list[str] = [
             self.css_cache.get("base", ""),
             self.css_cache.get("dark" if is_dark_mode else "light", ""),
-            self.css_cache.get("prism_dark" if is_dark_mode else "prism_light", ""),
+            self.css_cache.get("prism-dark" if is_dark_mode else "prism-light", ""),
         ]
         return "\n\n".join(filter(None, css_parts))
 
     async def refresh_prism_css(self, version: str | None = None) -> None:
         """Refresh Prism.js CSS from CDN (useful for updates)."""
         if version:
-            self.prism_version = version
+            self.prism_theme_version = version
             logger.info(f"Updated Prism.js version to {version}")
         await self._download_prism_css()
 
-    def get_prism_version(self) -> str:
+    def get_prism_themes_version(self) -> str:
         """Get current Prism.js version."""
-        return self.prism_version
+        return self.prism_themes_version
 
 
 # Global CSS service instance

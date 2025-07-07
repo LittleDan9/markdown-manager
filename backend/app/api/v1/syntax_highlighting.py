@@ -14,6 +14,7 @@ class HighlightRequest(BaseModel):
 
     code: str
     language: Optional[str] = None
+    tokens: Optional[str] = None
 
 
 class HighlightResponse(BaseModel):
@@ -38,6 +39,8 @@ async def highlight_code(request: HighlightRequest) -> HighlightResponse:
     """Highlight code using Pygments syntax highlighter."""
     try:
         highlighted = syntax_highlighter.highlight_code(request.code, request.language)
+        if request.tokens == "prism":
+            highlighted = syntax_highlighter.map_pygments_to_prism(highlighted)
 
         is_supported = (
             syntax_highlighter.is_language_supported(request.language)

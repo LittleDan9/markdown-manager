@@ -4,6 +4,7 @@ Provides comprehensive syntax highlighting for code blocks with support
 for many programming languages.
 """
 import html
+import re
 from typing import Any, Dict, Optional
 
 from pygments import highlight
@@ -35,6 +36,87 @@ class SyntaxHighlightingService:
                     for alias in aliases:
                         self._available_languages[alias.lower()] = name
         return self._available_languages
+
+    def map_pygments_to_prism(self, highlighted: str) -> str:
+        PYGMENTS_TO_PRISM = {
+            # Keywords
+            "k": "keyword",
+            "kd": "keyword",
+            "kn": "keyword",
+            "kp": "keyword",
+            "kr": "keyword",
+            "kt": "keyword",
+            # Operators and punctuation
+            "o": "operator",
+            "p": "punctuation",
+            # Numbers
+            "m": "number",
+            "mf": "number",
+            "mh": "number",
+            "mi": "number",
+            "mo": "number",
+            # Strings
+            "s": "string",
+            "sb": "string",
+            "sc": "string",
+            "sd": "string",
+            "s2": "string",
+            "se": "string",
+            "sh": "string",
+            "si": "string",
+            "sx": "string",
+            "sr": "regex",
+            "s1": "string",
+            "ss": "string",
+            # Comments
+            "c": "comment",
+            "ch": "comment",
+            "cm": "comment",
+            "cp": "comment",
+            "cpf": "comment",
+            "c1": "comment",
+            "cs": "comment",
+            # Variables and identifiers
+            "n": "name",
+            "na": "attribute",
+            "nb": "builtin",
+            "nc": "class-name",
+            "no": "constant",
+            "nd": "function",
+            "ni": "namespace",
+            "ne": "exception",
+            "nf": "function",
+            "nl": "function",
+            "nn": "namespace",
+            "nx": "variable",
+            "py": "variable",
+            "nt": "tag",
+            "nv": "variable",
+            "vc": "variable",
+            "vg": "variable",
+            "vi": "variable",
+            "vm": "variable",
+            # Built-in functions and constants
+            "kc": "constant",
+            # Whitespace
+            "w": "whitespace",
+            # Generic tokens
+            "g": "generic",
+            # Error tokens
+            "err": "error",
+        }
+
+        # Regex to find class="token <short> ..." or class="token <short>"
+        def repl(match: re.Match[str]) -> str:
+            classes = match.group(1).split()
+            new_classes = []
+            for cls in classes:
+                # Only replace if in mapping
+                new_classes.append(PYGMENTS_TO_PRISM.get(cls, cls))
+            return 'class="token ' + " ".join(new_classes) + '"'
+
+        # Replace all token class attributes
+        return re.sub(r'class="token ([^"]+)"', repl, highlighted)
 
     def highlight_code(self, code: str, language: Optional[str] = None) -> str:
         """

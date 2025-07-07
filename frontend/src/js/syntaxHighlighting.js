@@ -42,7 +42,8 @@ class SyntaxHighlightingService {
                 },
                 body: JSON.stringify({
                     code: code,
-                    language: language
+                    language: language,
+                    tokens: 'prism' // Use 'prism' to get Prism.js compatible tokens
                 })
             });
 

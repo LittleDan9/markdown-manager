@@ -276,7 +276,7 @@ export class DocumentManager {
         try {
             // Use provided name or current document name
             const docName = name || this.currentDocument.name || 'Untitled Document';
-            
+
             // Use provided category or default category
             const docCategory = category || this.currentDocument.category || DEFAULT_CATEGORY;
 
@@ -286,7 +286,7 @@ export class DocumentManager {
                 const savedDocument = await this.saveDocumentToServer(
                     content, docName, docCategory, serverDocId
                 );
-                
+
                 // Update current document reference
                 this.currentDocument = {
                     id: savedDocument.id,
@@ -294,7 +294,7 @@ export class DocumentManager {
                     category: savedDocument.category
                 };
                 this.saveCurrentDocument();
-                
+
                 return savedDocument;
             } else {
                 // Use localStorage for anonymous users
@@ -443,7 +443,7 @@ export class DocumentManager {
         if (this.documents[id]) {
             this.documents[id].name = newName;
             this.documents[id].lastModified = new Date().toISOString();
-            
+
             // Update category if provided
             if (newCategory !== null) {
                 this.documents[id].category = newCategory;
@@ -510,8 +510,8 @@ export class DocumentManager {
             const fileName = filename || documentName;
 
             // Get current theme (detect dark mode)
-            const isDarkMode = document.documentElement.classList.contains('dark-theme') ||
-                              window.matchMedia('(prefers-color-scheme: dark)').matches;
+            const isDarkMode = document.documentElement.classList.contains('dark-theme') //||
+                            //   window.matchMedia('(prefers-color-scheme: dark)').matches;
 
             // Get the preview content
             const htmlContent = previewElement.innerHTML;
@@ -714,7 +714,7 @@ export class DocumentManager {
             if (category && category !== 'All') {
                 url.searchParams.append('category', category);
             }
-            
+
             const response = await fetch(url, {
                 method: 'GET',
                 headers: this.getAuthHeaders()
@@ -830,7 +830,7 @@ export class DocumentManager {
             }
 
             const categories = await response.json();
-            
+
             // Ensure we always return an array
             if (Array.isArray(categories)) {
                 return categories.length > 0 ? categories : [DEFAULT_CATEGORY];
@@ -864,7 +864,7 @@ export class DocumentManager {
             });
 
             await Promise.all(migrationPromises);
-            
+
             // Clear local storage after successful migration
             this.documents = {};
             this.saveDocuments();
@@ -913,16 +913,16 @@ export class DocumentManager {
             if (currentContent.trim() || this.currentDocument.id) {
                 const currentName = this.currentDocument.name || 'Untitled Document';
                 const currentCategory = this.currentDocument.category || DEFAULT_CATEGORY;
-                
+
                 console.log('Force saving current document before logout...');
-                
+
                 const savedDocument = await this.saveDocument(
-                    currentContent, 
-                    currentName, 
-                    this.currentDocument.id, 
+                    currentContent,
+                    currentName,
+                    this.currentDocument.id,
                     currentCategory
                 );
-                
+
                 console.log('Document force-saved successfully:', savedDocument.name);
                 return savedDocument;
             }
@@ -930,7 +930,7 @@ export class DocumentManager {
             console.error('Error during forced document save:', error);
             throw error;
         }
-        
+
         return null;
     }
 
@@ -945,7 +945,7 @@ export class DocumentManager {
             console.error('Failed to save document during logout:', error);
             // Continue with logout even if save fails
         }
-        
+
         // Reset to localStorage mode
         this.documents = this.loadDocuments();
         this.categories = this.loadCategories();
@@ -974,7 +974,7 @@ export class DocumentManager {
             if (this.isAuthenticated()) {
                 // For authenticated users, try to save
                 this.onBeforeUnload();
-                
+
                 // Show browser warning for unsaved changes
                 event.preventDefault();
                 event.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
