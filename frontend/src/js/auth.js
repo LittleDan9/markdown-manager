@@ -1128,6 +1128,11 @@ class AuthManager {
         const element = document.getElementById(spinnerId);
         if (element) {
             element.style.display = 'inline-block';
+        } else {
+            // Prevent hard crash in production if spinner is missing
+            if (process.env.NODE_ENV === 'development') {
+                console.warn(`Spinner element with id '${spinnerId}' not found.`);
+            }
         }
     }
 
@@ -1135,6 +1140,10 @@ class AuthManager {
         const element = document.getElementById(spinnerId);
         if (element) {
             element.style.display = 'none';
+        } else {
+            if (process.env.NODE_ENV === 'development') {
+                console.warn(`Spinner element with id '${spinnerId}' not found.`);
+            }
         }
     }
 
