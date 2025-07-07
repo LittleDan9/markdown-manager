@@ -327,7 +327,7 @@ async function renderMermaidDiagrams(previewEl, existingMermaidDiagrams = new Ma
         // Use the correct Mermaid v11 API - render only new diagrams
         await mermaid.run({
             querySelector: '.mermaid:not([data-processed])',
-            suppressErrors: true // Suppress internal Mermaid error logging
+            suppressErrors: false, // Suppress internal Mermaid error logging
         });
 
         // Ensure Mermaid diagrams are responsive
@@ -368,7 +368,7 @@ function showMermaidError(mermaidElement, errorMessage) {
         ">
             <i class="bi bi-exclamation-triangle me-2"></i>
             <strong>Diagram Error:</strong> ${errorMessage}
-            <button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.75rem;"></button>
+            <!--<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.75rem;"></button>-->
         </div>
     `;
 
@@ -392,9 +392,9 @@ function showMermaidError(mermaidElement, errorMessage) {
     `;
 
     // Auto-dismiss the error after 10 seconds to keep the UI clean
-    setTimeout(() => {
-        if (errorIndicator.parentElement) {
-            errorIndicator.remove();
-        }
-    }, 10000);
+    // setTimeout(() => {
+    //     if (errorIndicator.parentElement) {
+    //         errorIndicator.remove();
+    //     }
+    // }, 10000);
 }

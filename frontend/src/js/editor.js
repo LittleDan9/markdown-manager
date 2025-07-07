@@ -4,7 +4,9 @@ import { EDITOR_KEY } from './constants';
 const defaultGraph = [
     "# This is a sample Mermaid flowchart",
     "``` mermaid",
-    "%% Sample flowchart",
+    "---",
+    "title: Sample flowchart",
+    "---",
     "flowchart LR",
     "  A[Square Rect] --> B((Circle))",
     "  B --> C{Rhombus?}",
