@@ -1,11 +1,10 @@
 import { initCategoryDropdown } from "./categoryDropdown";
 import { EDITOR_KEY } from "./constants";
-import { initEditor } from "./editor";
+import editor from "./editor";
 import { applyEditorTheme, initTheme, toggleTheme } from "./theme";
-import { render } from "./renderer";
+import renderer from "./renderer";
 import { documentManager } from "./documentManager";
 import { initDocumentUI } from "./documentUI";
-import AuthManager from "./auth";
 import NotificationManager from "./notifications"; // Only for local use, not global
 
 // Import Bootstrap CSS and JS (CSS will be extracted by webpack)
@@ -39,14 +38,10 @@ window.addEventListener("DOMContentLoaded", async () => {
       theme = event.matches ? "dark" : "light";
     });
 
-  const editor = await initEditor(theme);
-  await applyEditorTheme(theme, editor);
-
-  // Make editor globally available for document sync operations
-  window.editorInstance = editor;
+  const editorInstance = await editor.setup(theme);
 
   // Initialize document management
-  const documentUI = initDocumentUI(editor);
+  const documentUI = initDocumentUI(editorInstance);
   // Ensure dropdown is rendered after DOM and before any document loads
   try {
     await new Promise((resolve) => setTimeout(resolve, 0)); // Yield to ensure DOM is ready
@@ -63,7 +58,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     try {
       const doc = documentManager.documents[currentDoc.id];
       if (doc) {
-        editor.setValue(doc.content);
+        editorInstance.setValue(doc.content);
         contentRestored = true;
       }
     } catch (error) {
@@ -73,7 +68,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     // Check for legacy editor content
     const legacyContent = localStorage.getItem(EDITOR_KEY);
     if (legacyContent) {
-      editor.setValue(legacyContent);
+      editorInstance.setValue(legacyContent);
       contentRestored = true;
       // Remove legacy storage
       localStorage.removeItem(EDITOR_KEY);
@@ -85,7 +80,7 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Render the preview if content was restored
   if (contentRestored) {
-    render(editor, { isInitialRender: true });
+    await renderer.render(editorInstance, { isInitialRender: true });
   }
 
   // Setup auto-save
@@ -99,7 +94,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     e.preventDefault();
     theme = theme === "light" ? "dark" : "light";
     await toggleTheme(theme);
-    await applyEditorTheme(theme, editor);
+    await editor.applyTheme(theme);
   };
 
   elThemeToggleBtn.addEventListener("click", handleThemeToggle);
@@ -150,7 +145,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     console.log("🔄 Window resized, updating layout...");
 
     // Force Monaco editor to recalculate its layout
-    editor.layout();
+    editorInstance.layout();
     console.log("📐 Editor layout updated");
 
     // Clear any existing Mermaid diagrams first to avoid conflicts
@@ -166,7 +161,7 @@ window.addEventListener("DOMContentLoaded", async () => {
     });
 
     // Re-render the entire preview
-    render(editor);
+    renderer.render(editorInstance);
     console.log("🎨 Preview re-rendered");
 
     console.log("✅ Resize handling complete");
@@ -225,9 +220,9 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Initialize copy functionality
   setupCopyButtons();
 
-  editor.onDidChangeModelContent(() => {
+  editorInstance.onDidChangeModelContent(() => {
     const debouncedRender = debounce(() => {
-      render(editor);
+      renderer.render(editorInstance);
     }, 300);
     debouncedRender();
 
@@ -236,7 +231,7 @@ window.addEventListener("DOMContentLoaded", async () => {
       // This will be handled by auto-save if enabled
     } else {
       // For unsaved documents, we can still store in legacy location as backup
-      localStorage.setItem(EDITOR_KEY, editor.getValue());
+      localStorage.setItem(EDITOR_KEY, editorInstance.getValue());
     }
   });
 });

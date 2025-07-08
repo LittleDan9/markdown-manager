@@ -1123,7 +1123,7 @@ export class DocumentUIManager {
             );
             //NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
           } catch (error) {
-            console.error("Auto-save failed:", error);
+            NotificationManager.showError("Auto-save failed: " + error.message,)
           }
         }
         // Auto-save if document has a valid custom name and has content

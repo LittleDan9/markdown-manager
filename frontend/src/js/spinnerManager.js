@@ -71,4 +71,23 @@ export default class SpinnerManager {
     const msg = el.querySelector(".spinner-message");
     if (msg) msg.remove();
   }
+
+  static setButtonLoading(button, loading = true, customText = null) {
+    if (!button || typeof button !== 'object' || !('disabled' in button)) return;
+    // Defensive: ensure button is still in the DOM
+    if (!document.body.contains(button)) return;
+    if (loading) {
+      if (button.dataset) {
+        button.dataset.originalText = button.innerHTML;
+      }
+      button.disabled = true;
+      const loadingText = customText || "Loading...";
+      button.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>${loadingText}`;
+    } else {
+      button.disabled = false;
+      if (button.dataset && button.dataset.originalText) {
+        button.innerHTML = button.dataset.originalText;
+      }
+    }
+  }
 }

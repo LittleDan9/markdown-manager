@@ -1,6 +1,6 @@
 import MarkdownIt from "markdown-it";
-import mermaid from "mermaid";
 import syntaxHighlightingService from "./syntaxHighlighting.js";
+import mermaidManager from "./mermaidManager";
 
 // Suppress Mermaid console errors by overriding console methods temporarily
 const originalConsoleError = console.error;
@@ -76,128 +76,102 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
         `;
 };
 
-export async function initMermaid(theme) {
-  try {
-    await mermaid.initialize({
-      startOnLoad: false,
-      theme: theme,
-      flowchart: {
-        htmlLabels: true,
-        curve: "linear",
-      },
-      suppressErrorRendering: true,
-      logLevel: "fatal", // Only show fatal errors, suppress all other logging
-      // Additional error suppression
-      htmlLabels: true,
-      secure: ["secure", "securityLevel", "startOnLoad", "maxTextSize"],
-      securityLevel: "loose",
-    });
-    console.log(`Mermaid initialized with theme: ${theme}`);
-  } catch (error) {
-    console.error("Failed to initialize Mermaid:", error);
+class Renderer {
+  constructor() {
+    this.md = md;
+    this.recentlyHighlighted = recentlyHighlighted;
+    this.syntaxHighlightingTimer = null;
+    this.theme = null;
   }
-}
 
-export async function render(editor, options = {}) {
-  // const previewEl = document.getElementById("preview");
-  const previewEl = document.querySelector("#preview .preview-scroll");
-  const src = editor.getValue();
+  async initMermaid(theme) {
+    await mermaidManager.init(theme);
+    this.theme = theme;
+  }
 
-  // Check if this is an initial render (no existing content)
-  const isInitialRender =
-    options.isInitialRender || previewEl.innerHTML.trim() === "";
-  const forceRender = options.forceRender || false;
+  async updateMermaidTheme(theme) {
+    await mermaidManager.updateTheme(theme);
+    this.theme = theme;
+  }
 
-  // Store existing highlighted code blocks before replacing content
-  const existingHighlights = new Map();
-  const existingCodeBlocks = previewEl.querySelectorAll(
-    "[data-syntax-placeholder]",
-  );
-  existingCodeBlocks.forEach((block) => {
-    const code = decodeURIComponent(block.dataset.code);
-    const lang = block.dataset.lang;
-    const codeElement = block.querySelector("code");
-    if (codeElement && code && lang) {
-      const key = `${lang}:${code}`;
-      existingHighlights.set(key, codeElement.innerHTML);
-    }
-  });
-
-  // Store existing Mermaid diagrams before replacing content
-  const existingMermaidDiagrams = new Map();
-  const existingMermaidElements = previewEl.querySelectorAll(
-    ".mermaid[data-mermaid-source]",
-  );
-  existingMermaidElements.forEach((element) => {
-    // Get the original diagram source from the data attribute
-    const diagramSource = decodeURIComponent(
-      element.dataset.mermaidSource || "",
-    );
-    if (diagramSource && element.querySelector("svg")) {
-      // Only store if it has been rendered (has SVG)
-      existingMermaidDiagrams.set(diagramSource, element.innerHTML);
-    }
-  });
-
-  // Render new content
-  previewEl.innerHTML = md.render(src);
-
-  try {
-    // Restore existing highlights immediately to prevent flickering
-    const newCodeBlocks = previewEl.querySelectorAll(
+  async render(editor, options = {}) {
+    const previewEl = document.querySelector("#preview .preview-scroll");
+    const src = editor.getValue();
+    const isInitialRender =
+      options.isInitialRender || previewEl.innerHTML.trim() === "";
+    const forceRender = options.forceRender || false;
+    const existingHighlights = new Map();
+    const existingCodeBlocks = previewEl.querySelectorAll(
       "[data-syntax-placeholder]",
     );
-    newCodeBlocks.forEach((block) => {
+    existingCodeBlocks.forEach((block) => {
       const code = decodeURIComponent(block.dataset.code);
       const lang = block.dataset.lang;
       const codeElement = block.querySelector("code");
       if (codeElement && code && lang) {
         const key = `${lang}:${code}`;
-
-        // First try exact match from current session
-        if (existingHighlights.has(key)) {
-          codeElement.innerHTML = existingHighlights.get(key);
-        }
-        // Then try recently highlighted cache
-        else if (recentlyHighlighted.has(key)) {
-          codeElement.innerHTML = recentlyHighlighted.get(key).html;
-        }
-        // For new blocks being typed, try to find a similar recent highlight
-        else {
-          const similarHighlight = findSimilarHighlight(code, lang);
-          if (similarHighlight) {
-            codeElement.innerHTML = similarHighlight;
-          }
-        }
+        existingHighlights.set(key, codeElement.innerHTML);
       }
     });
-
-    // Clear any existing syntax highlighting timer
-    if (syntaxHighlightingTimer) {
-      clearTimeout(syntaxHighlightingTimer);
-    }
-
-    // For initial renders (document restoration), skip debounce to show highlighting immediately
-    if (isInitialRender) {
-      await performSyntaxHighlighting(previewEl);
-    } else {
-      // Debounce syntax highlighting to avoid jumping while typing
-      syntaxHighlightingTimer = setTimeout(async () => {
-        await performSyntaxHighlighting(previewEl);
-      }, SYNTAX_HIGHLIGHT_DELAY);
-    }
-
-    // Handle Mermaid diagrams - only render if they've changed, or force render on initial load/theme change
-    await renderMermaidDiagrams(
-      previewEl,
-      existingMermaidDiagrams,
-      isInitialRender,
-      forceRender,
+    const existingMermaidDiagrams = new Map();
+    const existingMermaidElements = previewEl.querySelectorAll(
+      ".mermaid[data-mermaid-source]",
     );
-  } catch (error) {
-    console.error("Rendering failed:", error);
+    existingMermaidElements.forEach((element) => {
+      const diagramSource = decodeURIComponent(
+        element.dataset.mermaidSource || "",
+      );
+      if (diagramSource && element.querySelector("svg")) {
+        existingMermaidDiagrams.set(diagramSource, element.innerHTML);
+      }
+    });
+    previewEl.innerHTML = this.md.render(src);
+    try {
+      const newCodeBlocks = previewEl.querySelectorAll(
+        "[data-syntax-placeholder]",
+      );
+      newCodeBlocks.forEach((block) => {
+        const code = decodeURIComponent(block.dataset.code);
+        const lang = block.dataset.lang;
+        const codeElement = block.querySelector("code");
+        if (codeElement && code && lang) {
+          const key = `${lang}:${code}`;
+          if (existingHighlights.has(key)) {
+            codeElement.innerHTML = existingHighlights.get(key);
+          } else if (this.recentlyHighlighted.has(key)) {
+            codeElement.innerHTML = this.recentlyHighlighted.get(key).html;
+          } else {
+            const similarHighlight = findSimilarHighlight(code, lang);
+            if (similarHighlight) {
+              codeElement.innerHTML = similarHighlight;
+            }
+          }
+        }
+      });
+      if (this.syntaxHighlightingTimer) {
+        clearTimeout(this.syntaxHighlightingTimer);
+      }
+      if (isInitialRender) {
+        await performSyntaxHighlighting(previewEl);
+      } else {
+        this.syntaxHighlightingTimer = setTimeout(async () => {
+          await performSyntaxHighlighting(previewEl);
+        }, SYNTAX_HIGHLIGHT_DELAY);
+      }
+      await mermaidManager.renderDiagrams(
+        previewEl,
+        existingMermaidDiagrams,
+        isInitialRender,
+        forceRender,
+      );
+    } catch (error) {
+      console.error("Rendering failed:", error);
+    }
   }
 }
+
+const renderer = new Renderer();
+export default renderer;
 
 /**
  * Find a similar highlight for blocks being actively edited
@@ -305,141 +279,4 @@ function cleanupRecentlyHighlighted() {
       recentlyHighlighted.delete(key);
     }
   }
-}
-
-/**
- * Render Mermaid diagrams - only render if they've changed
- */
-async function renderMermaidDiagrams(
-  previewEl,
-  existingMermaidDiagrams = new Map(),
-  isInitialRender = false,
-  forceRender = false,
-) {
-  const mermaidElements = previewEl.querySelectorAll(
-    ".mermaid[data-mermaid-source]",
-  );
-
-  if (mermaidElements.length === 0) {
-    return; // No diagrams to render
-  }
-
-  // Restore existing diagrams if they haven't changed, unless we're forcing a re-render (e.g., theme change)
-  const diagramsToRender = [];
-  mermaidElements.forEach((element) => {
-    const diagramSource = decodeURIComponent(
-      element.dataset.mermaidSource || "",
-    );
-    if (diagramSource) {
-      // If we're forcing a re-render (theme change), or if we don't have an existing diagram, render it
-      if (forceRender || !existingMermaidDiagrams.has(diagramSource)) {
-        diagramsToRender.push(element);
-      } else {
-        // If we have an existing rendered diagram with the same source, restore it
-        element.innerHTML = existingMermaidDiagrams.get(diagramSource);
-        // Mark as processed so Mermaid doesn't try to re-render it
-        element.setAttribute("data-processed", "true");
-      }
-    }
-  });
-
-  // On initial render or force render, render all diagrams
-  // On subsequent renders, only render diagrams that have actually changed
-  if (diagramsToRender.length === 0 && !isInitialRender && !forceRender) {
-    return; // No new diagrams to render and not initial load or forced render
-  }
-
-  // Clear processing state only for diagrams that need rendering
-  diagramsToRender.forEach((el) => {
-    el.removeAttribute("data-processed");
-    el.style.visibility = "visible";
-    // Remove any existing error indicators
-    const existingError = el.parentElement?.querySelector(
-      ".mermaid-error-indicator",
-    );
-    if (existingError) {
-      existingError.remove();
-    }
-  });
-
-  try {
-    // Use the correct Mermaid v11 API - render only new diagrams
-    await mermaid.run({
-      querySelector: ".mermaid:not([data-processed])",
-      suppressErrors: false, // Suppress internal Mermaid error logging
-    });
-
-    // Ensure Mermaid diagrams are responsive
-    diagramsToRender.forEach((el) => {
-      const svg = el.querySelector("svg");
-      if (svg) {
-        // Make SVG responsive - remove explicit height attribute for auto-sizing
-        svg.setAttribute("width", "100%");
-        svg.removeAttribute("height");
-        svg.style.maxWidth = "100%";
-        svg.style.height = "auto";
-      }
-    });
-  } catch (mermaidError) {
-    // Suppress console logging and handle errors gracefully
-    diagramsToRender.forEach((el) => {
-      if (!el.querySelector("svg")) {
-        showMermaidError(
-          el,
-          mermaidError.message || "Failed to render diagram",
-        );
-      }
-    });
-  }
-}
-
-/**
- * Show a subtle error indicator for Mermaid diagrams
- */
-function showMermaidError(mermaidElement, errorMessage) {
-  // Create a subtle error indicator that floats above the diagram
-  const errorIndicator = document.createElement("div");
-  errorIndicator.className = "mermaid-error-indicator";
-  errorIndicator.innerHTML = `
-        <div class="alert alert-warning alert-dismissible fade show" role="alert" style="
-            position: relative;
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-            padding: 0.5rem 0.75rem;
-            border-left: 4px solid #f0ad4e;
-        ">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            <strong>Diagram Error:</strong> ${errorMessage}
-            <!--<button type="button" class="btn-close btn-close-sm" data-bs-dismiss="alert" aria-label="Close" style="font-size: 0.75rem;"></button>-->
-        </div>
-    `;
-
-  // Insert the error indicator before the mermaid element
-  mermaidElement.parentElement?.insertBefore(errorIndicator, mermaidElement);
-
-  // Get the original source from the data attribute to preserve it properly
-  if (!mermaidElement || !mermaidElement.dataset) return;
-  const originalSource = decodeURIComponent(
-    mermaidElement.dataset.mermaidSource || mermaidElement.textContent,
-  );
-
-  // Show the original diagram source in a properly styled code block
-  mermaidElement.innerHTML = `
-        <div class="code-block">
-            <div class="code-block-header">
-                <span class="code-block-lang">MERMAID</span>
-                <button class="code-block-copy-btn" data-prismjs-copy>
-                    <i class="bi bi-clipboard" aria-label="Copy"></i>
-                </button>
-            </div>
-            <pre class="language-mermaid" style="margin: 0;"><code>${MarkdownIt().utils.escapeHtml(originalSource)}</code></pre>
-        </div>
-    `;
-
-  // Auto-dismiss the error after 10 seconds to keep the UI clean
-  // setTimeout(() => {
-  //     if (errorIndicator.parentElement) {
-  //         errorIndicator.remove();
-  //     }
-  // }, 10000);
 }

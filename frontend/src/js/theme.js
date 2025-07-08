@@ -1,6 +1,6 @@
 import { setPrismTheme } from "./prismTheme";
 import * as monaco from "monaco-editor";
-import { initMermaid, render } from "./renderer";
+import renderer from "./renderer";
 
 // Note: Prism.js syntax highlighting has been moved to the backend
 // for comprehensive language support and reduced bundle size
@@ -10,7 +10,7 @@ export async function toggleTheme(theme) {
   localStorage.setItem("theme", theme);
   document.documentElement.setAttribute("data-bs-theme", theme);
   setPrismTheme(theme);
-  initMermaid(theme);
+  await renderer.updateMermaidTheme(theme);
   updateThemeIcon(theme);
 }
 
@@ -44,19 +44,7 @@ export async function initTheme() {
   }
   document.documentElement.setAttribute("data-bs-theme", theme);
   setPrismTheme(theme);
-  initMermaid(theme);
+  await renderer.initMermaid(theme);
   updateThemeIcon(theme);
   return theme;
-}
-
-export async function applyEditorTheme(theme, editor) {
-  if (!editor) {
-    console.log("Editor was null");
-    return;
-  }
-  console.log(theme);
-
-  monaco.editor.setTheme("vs-" + theme);
-  // Force re-render to update Mermaid diagrams with new theme
-  render(editor, { forceRender: true });
 }

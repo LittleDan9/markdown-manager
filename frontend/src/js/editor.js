@@ -15,24 +15,47 @@ const defaultGraph = [
   "```",
 ].join("\n");
 
-const saved = localStorage.getItem(EDITOR_KEY) || defaultGraph;
+class Editor {
+  constructor() {
+    this.instance = null;
+  }
 
-export async function initEditor(theme) {
-  const editor = monaco.editor.create(document.getElementById("editor"), {
-    value: saved,
-    language: "markdown",
-    theme: "vs-" + theme,
-    automaticLayout: true,
-    minimap: {
-      enabled: false,
-    },
-    fontFamily: "Consolas, Courier New, monospace",
-    fontSize: 14,
-    wordWrap: "on",
-    padding: {
-      top: 20,
-      bottom: 10,
-    },
-  });
-  return editor;
+  async setup(theme) {
+    if (this.instance) {
+      // Always update theme if already initialized
+      await this.applyTheme(theme);
+      return this.instance;
+    }
+    const saved = localStorage.getItem(EDITOR_KEY) || defaultGraph;
+    this.instance = monaco.editor.create(document.getElementById("editor"), {
+      value: saved,
+      language: "markdown",
+      theme: "vs-" + theme,
+      automaticLayout: true,
+      minimap: {
+        enabled: false,
+      },
+      fontFamily: "Consolas, Courier New, monospace",
+      fontSize: 14,
+      wordWrap: "on",
+      padding: {
+        top: 20,
+        bottom: 10,
+      },
+    });
+    return this.instance;
+  }
+
+  async applyTheme(theme) {
+    if (this.instance) {
+      monaco.editor.setTheme("vs-" + theme);
+    }
+  }
+
+  getInstance() {
+    return this.instance;
+  }
 }
+
+const editor = new Editor();
+export default editor;
