@@ -16,7 +16,7 @@ class MermaidManager {
           curve: "linear",
         },
         suppressErrorRendering: true,
-        logLevel: "warn",
+        logLevel: "fatal",
         htmlLabels: true,
         secure: ["secure", "securityLevel", "startOnLoad", "maxTextSize"],
         securityLevel: "loose",
@@ -78,7 +78,7 @@ class MermaidManager {
       if (attachedDiagrams.length > 0) {
         await mermaid.run({
           querySelector: ".mermaid:not([data-processed='false'])",
-          suppressErrors: true,
+          suppressErrors: false,
         });
       }
       attachedDiagrams.forEach((el) => {

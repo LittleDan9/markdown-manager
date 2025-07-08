@@ -149,7 +149,7 @@ async def login_mfa(
         )
 
     # Verify TOTP code or backup code
-    totp_valid = verify_totp_code(user.totp_secret, mfa_credentials.code)
+    totp_valid = verify_totp_code(str(user.totp_secret), mfa_credentials.code)
     backup_valid = False
 
     if not totp_valid and user.backup_codes:

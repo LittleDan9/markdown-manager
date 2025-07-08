@@ -44,9 +44,20 @@ class ModalManager {
   /**
    * Show a modal by ID
    */
-  show(modalId) {
+  show(modalId, activeTab = null) {
     const instance = this.getInstance(modalId);
-    if (instance) instance.show();
+    if (instance){
+      instance.show();
+      if (activeTab) {
+        setTimeout(() => {
+          targetTab = instance.querySelector(`#${activeTab.replace("-settings", "")}-tab`)
+          if (targetTab) {
+            const bsTab = new bootstrap.Tab(targetTab);
+            bsTab.show();
+          }
+        }, 100);
+      }
+    }
   }
 
   /**
@@ -81,6 +92,24 @@ class ModalManager {
     document.body.style.paddingRight = "";
     document.body.style.overflow = "";
     this.instances.delete(modalId);
+  }
+
+  setData(modalId, key, value) {
+    const el = document.getElementById(modalId);
+    if (el) {
+      el.dataset[key] = JSON.stringify(value);
+    }
+  }
+
+  getData(modalId, key) {
+    const el = document.getElementById(modalId);
+    if (el && el.dataset[key]) {
+      try {
+        return JSON.parse(el.dataset[key]);
+      } catch (e) {
+        console.error(`Error parsing data for ${modalId} key ${key}:`, e);
+      }
+    }
   }
 
   /**
