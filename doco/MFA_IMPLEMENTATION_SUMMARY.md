@@ -5,7 +5,7 @@
 ### Backend Implementation
 - **MFA Models & Database**: Added `mfa_enabled`, `totp_secret`, and `backup_codes` fields to users table
 - **MFA Utilities**: Implemented TOTP secret generation, QR code creation, backup code management
-- **API Endpoints**: 
+- **API Endpoints**:
   - `POST /mfa/setup` - Initialize MFA setup with QR code
   - `POST /mfa/verify-setup` - Verify TOTP code during setup
   - `POST /mfa/enable` - Enable MFA after verification
@@ -17,7 +17,7 @@
 - **Dependencies**: Added `pyotp` and `qrcode[pil]` packages
 
 ### Frontend Implementation
-- **MFA Modals**: 
+- **MFA Modals**:
   - Setup modal with 3-step flow (QR code → verification → backup codes)
   - Login modal for entering TOTP codes
   - Management modal for viewing/regenerating backup codes
@@ -53,7 +53,7 @@
 - ✅ API documentation includes all MFA endpoints
 
 ### Frontend Integration
-- ✅ Development servers running (frontend on :3000, backend on :8001)
+- ✅ Development servers running (frontend on :3000, backend on :8000)
 - ✅ HTML includes all MFA modals and controls
 - ✅ JavaScript MFA methods integrated into AuthManager
 - ✅ CSS styling applied for MFA components
@@ -135,7 +135,7 @@ The MFA implementation is complete and ready for production use. All components 
 ## 📱 Supported Authenticator Apps
 
 - Google Authenticator (iOS/Android)
-- Microsoft Authenticator (iOS/Android) 
+- Microsoft Authenticator (iOS/Android)
 - Authy (iOS/Android/Desktop)
 - 1Password (iOS/Android/Desktop)
 - Bitwarden (iOS/Android/Desktop)

@@ -15,7 +15,7 @@ NC := \033[0m # No Color
 
 # Configuration
 FRONTEND_PORT := 3000
-BACKEND_DEV_PORT := 8001
+BACKEND_DEV_PORT := 8000
 BACKEND_PROD_PORT := 8000
 
 # Deployment configuration
@@ -32,15 +32,14 @@ else
 	DEPLOY_METHOD := remote
 endif
 
+# Docker Desktop check for Windows
 ifeq ($(OS),Windows_NT)
-	DETECTED_OS := Windows
-	DOCKER_CHECK = @docker info > NUL 2>&1 || (echo "$(RED)❌ Docker Desktop is not running. Please start Docker Desktop and try again.$(NC)" && exit 1)
+DOCKER_CHECK = @docker info > NUL 2>&1 || (echo "$(RED)❌ Docker Desktop is not running. Please start Docker Desktop and try again.$(NC)" && exit 1)
 else
-	DETECTED_OS := $(shell uname -s)
-	DOCKER_CHECK = @docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker is not running. Please start Docker and try again.$(NC)" && exit 1)
+DOCKER_CHECK = @docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker is not running. Please start Docker and try again.$(NC)" && exit 1)
 endif
 
-.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore stop-frontend
+.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore
 
 # Default target
 help: ## Show this help message
@@ -83,22 +82,25 @@ build: clean ## Build production assets
 	@echo "$(GREEN)✅ Build complete$(NC)"
 
 dev: ## Start both frontend and backend dev servers
-	@echo "$(YELLOW)🚀 Starting development servers...$(NC)"
+	$(DOCKER_CHECK)
+	@echo "$(YELLOW)🚀 Starting development servers with Docker Compose...$(NC)"
+	@docker-compose up --build -d
 	@echo "$(BLUE)Frontend: http://localhost:$(FRONTEND_PORT)$(NC)"
 	@echo "$(BLUE)Backend API: http://localhost:$(BACKEND_DEV_PORT)$(NC)"
 	@echo "$(BLUE)API Docs: http://localhost:$(BACKEND_DEV_PORT)/docs$(NC)"
-	@echo "$(YELLOW)Press Ctrl+C to stop both servers$(NC)"
-	@echo ""
-	@$(MAKE) -j2 dev-frontend dev-backend
 
 dev-frontend: ## Start only frontend dev server
-	@echo "$(BLUE)🌐 Starting frontend dev server on port $(FRONTEND_PORT)...$(NC)"
-	cd frontend && npm run serve -- --port $(FRONTEND_PORT)
+	$(DOCKER_CHECK)
+	@echo "$(BLUE)🌐 Starting frontend dev server with Docker Compose on port $(FRONTEND_PORT)...$(NC)"
+	@docker-compose up --build -d frontend
+	@echo "$(BLUE)Frontend: http://localhost:$(FRONTEND_PORT)$(NC)"
 
 dev-backend: ## Start only backend dev server
 	$(DOCKER_CHECK)
-	@echo "$(BLUE)⚡ Starting backend dev server on port $(BACKEND_DEV_PORT)...$(NC)"
-	docker compose up --build -d backend
+	@echo "$(BLUE)⚡ Starting backend dev server with Docker Compose on port $(BACKEND_DEV_PORT)...$(NC)"
+	@docker-compose up --build -d backend
+	@echo "$(BLUE)Backend API: http://localhost:$(BACKEND_DEV_PORT)$(NC)"
+	@echo "$(BLUE)API Docs: http://localhost:$(BACKEND_DEV_PORT)/docs$(NC)"
 
 deploy: build deploy-$(DEPLOY_METHOD) ## Build and deploy to production (frontend + backend with migrations)
 
@@ -216,36 +218,10 @@ status: ## Show development server status
 		echo "$(RED)  ❌ Not running$(NC)"; \
 	fi
 
-stop-frontend:
-ifeq ($(DETECTED_OS),Windows)
-	@echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
-	@for /f "tokens=5" %%%%P in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do set "PID=%%%%P" && \
-	@echo PID is: %PID%
-	@echo "$(GREEN)  ✅ Frontend server stopped$(NC)"
-else
-	@pid=$$(lsof -tiTCP:$(FRONTEND_PORT) -sTCP:LISTEN) ; \
-	if [ -n "$$pid" ] ; then \
-		echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
-		kill -TERM $$pid && \
-			echo "$(GREEN)  ✅ Frontend server stopped$(NC)" ; \
-	else \
-		echo "$(YELLOW)  ℹ️  Frontend server not running$(NC)" ; \
-	fi
-endif
-
-
 stop: ## Stop all development servers
-	@echo "$(YELLOW)🛑 Stopping development servers...$(NC)"
-	@$(MAKE) stop-frontend
-	docker compose down
-	# @pid=$$(lsof -tiTCP:$(BACKEND_DEV_PORT) -sTCP:LISTEN) ; \
-	# if [ -n "$$pid" ] ; then \
-	#   echo "$(BLUE)Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)" ; \
-	#   kill -TERM $$pid && \
-	# 	echo "$(GREEN)  ✅ Backend server stopped$(NC)" ; \
-	# else \
-	#   echo "$(YELLOW)  ℹ️  Backend server not running$(NC)" ; \
-	# fi
+	$(DOCKER_CHECK)
+	@echo "$(YELLOW)🛑 Stopping development servers (Docker Compose)...$(NC)"
+	@docker-compose stop
 
 
 # Advanced targets

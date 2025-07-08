@@ -10,6 +10,7 @@ import { DocumentManager } from "../DocumentManager.js";
 
 class AuthUI {
   constructor() {
+    this.currentUser = null;
     this.bindEvents();
   }
 
@@ -162,6 +163,11 @@ class AuthUI {
     document.getElementById("loginForm").addEventListener("submit", async (e) => {
       e.preventDefault();
       await this.handleLogin();
+    });
+
+    document.getElementById('loginModalClose').addEventListener('click', async(e) => {
+      e.preventDefault();
+      await ModalManager.hide('loginModal');
     });
 
     document.getElementById("registerForm").addEventListener("submit", async (e) => {

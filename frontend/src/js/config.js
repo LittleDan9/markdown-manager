@@ -23,8 +23,8 @@ function isDevelopment() {
  */
 function getApiBaseUrl() {
   if (isDevelopment()) {
-    // Development: call backend directly on port 8001
-    return "http://localhost:8001/api/v1";
+    // Development: call backend directly on port 8000
+    return "http://localhost:8000/api/v1";
   } else {
     // Production: use relative path, nginx will proxy to backend
     return "/api/v1";

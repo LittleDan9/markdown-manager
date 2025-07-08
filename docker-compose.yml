@@ -1,0 +1,24 @@
+services:
+  frontend:
+    image: node:24
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && CHOKIDAR_USEPOLLING=true npm run serve"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    init: true
+
+  backend:
+    image: python:3.12
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+    ports:
+      - "8000:8000"
+    command: sh -c "pip install poetry && poetry install && poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
+    environment:
+      - POETRY_VIRTUALENVS_IN_PROJECT=true

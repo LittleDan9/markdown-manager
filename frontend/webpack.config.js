@@ -69,13 +69,24 @@ module.exports = {
     }),
   ],
   devServer: {
-    static: {
-      directory: path.resolve(__dirname, 'dist'),
-      publicPath: '/',
-    },
+    static: [
+      {
+        directory: path.resolve(__dirname, 'public'),
+        publicPath: '/',
+      },
+    ],
     historyApiFallback: true,
     open: true,
-    port: 8080
+    port: 3000,
+    watchFiles: ['src/**/*', 'public/**/*'],
+    // watchFiles: {
+    //   paths: ['src/**/*', 'public/**/*'],
+    //   options: {
+    //     usePolling: true, // Use polling to detect changes
+    //     interval: 1000, // Check for changes every second
+    //     ignored: /node_modules/,
+    //   },
+    // }
   },
   optimization: {
     splitChunks: {

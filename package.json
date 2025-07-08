@@ -15,7 +15,15 @@
     "status": "make status",
     "stop": "make stop"
   },
-  "keywords": ["markdown", "editor", "fastapi", "vue"],
+  "keywords": [
+    "markdown",
+    "editor",
+    "fastapi",
+    "vue"
+  ],
   "author": "Dan Little",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "nodemon": "^3.1.10"
+  }
 }
