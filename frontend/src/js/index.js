@@ -1,11 +1,12 @@
 import { initCategoryDropdown } from "./categoryDropdown";
 import { EDITOR_KEY } from "./constants";
 import editor from "./editor";
-import { applyEditorTheme, initTheme, toggleTheme } from "./theme";
+import { initTheme, toggleTheme } from "./theme";
 import renderer from "./renderer";
-import { documentManager } from "./documentManager";
+import { documentManager } from "./DocumentManager";
 import { initDocumentUI } from "./documentUI";
 import NotificationManager from "./notifications"; // Only for local use, not global
+import AuthUI from "./auth/AuthUI.js";
 
 // Import Bootstrap CSS and JS (CSS will be extracted by webpack)
 import "bootstrap/dist/css/bootstrap.min.css";
@@ -234,4 +235,5 @@ window.addEventListener("DOMContentLoaded", async () => {
       localStorage.setItem(EDITOR_KEY, editorInstance.getValue());
     }
   });
+  renderer.render(editorInstance, { isInitialRender: true });
 });

@@ -1,4 +1,4 @@
-import { documentManager, DEFAULT_CATEGORY } from "./documentManager";
+import { documentManager, DEFAULT_CATEGORY } from "./DocumentManager";
 import NotificationManager from "./notifications.js";
 
 /**
@@ -532,21 +532,20 @@ export class DocumentUIManager {
       if (documentListElement) {
         documentListElement.addEventListener("click", async (e) => {
           const button = e.target.closest("[data-doc-action]");
-          if (button && button.dataset) {
-            const action = button.dataset.docAction;
-            const docId = button.dataset.docId;
+          if (!button) return; // Prevent null dataset error
+          const action = button.dataset.docAction;
+          const docId = button.dataset.docId;
 
-            switch (action) {
-              case "load":
-                await this.loadDocument(docId);
-                break;
-              case "rename":
-                await this.renameDocument(docId);
-                break;
-              case "delete":
-                await this.deleteDocument(docId);
-                break;
-            }
+          switch (action) {
+            case "load":
+              await this.loadDocument(docId);
+              break;
+            case "rename":
+              await this.renameDocument(docId);
+              break;
+            case "delete":
+              await this.deleteDocument(docId);
+              break;
           }
         });
       }
@@ -1123,7 +1122,7 @@ export class DocumentUIManager {
             );
             //NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
           } catch (error) {
-            NotificationManager.showError("Auto-save failed: " + error.message,)
+            NotificationManager.showError("Auto-save failed: " + error.message);
           }
         }
         // Auto-save if document has a valid custom name and has content

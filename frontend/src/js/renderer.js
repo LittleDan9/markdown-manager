@@ -1,6 +1,6 @@
 import MarkdownIt from "markdown-it";
 import syntaxHighlightingService from "./syntaxHighlighting.js";
-import mermaidManager from "./mermaidManager";
+import mermaidManager from "./MermaidManager";
 
 // Suppress Mermaid console errors by overriding console methods temporarily
 const originalConsoleError = console.error;

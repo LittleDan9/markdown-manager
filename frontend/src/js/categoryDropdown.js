@@ -1,6 +1,6 @@
 // Category dropdown logic for the navigation bar
 // Handles category selection, UI update, and document save logic
-import { documentManager } from "./documentManager";
+import { documentManager } from "./DocumentManager";
 import NotificationManager from "./notifications";
 
 export function initCategoryDropdown(documentUI) {

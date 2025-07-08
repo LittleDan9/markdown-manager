@@ -14,7 +14,7 @@ from app.database import get_db
 from app.models.user import User
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # Token authentication
 security = HTTPBearer()

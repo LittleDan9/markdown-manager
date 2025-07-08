@@ -73,7 +73,8 @@ export default class SpinnerManager {
   }
 
   static setButtonLoading(button, loading = true, customText = null) {
-    if (!button || typeof button !== 'object' || !('disabled' in button)) return;
+    if (!button || typeof button !== "object" || !("disabled" in button))
+      return;
     // Defensive: ensure button is still in the DOM
     if (!document.body.contains(button)) return;
     if (loading) {
