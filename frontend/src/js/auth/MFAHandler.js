@@ -19,9 +19,96 @@ class MFAHandler {
 
   // --- Login-time MFA verification ---
   showMFAModal(session) {
-    // Render MFA modal (or ensure it's in DOM)
-    // Set up event listeners for code input and submit
-    // Use ModalManager to show/hide
+    const modalHtml = `
+          <div class="modal fade" id="mfaVerificationModal" tabindex="-1" aria-labelledby="mfaVerificationModalLabel" aria-hidden="true">
+              <div class="modal-dialog">
+                  <div class="modal-content">
+                      <div class="modal-header">
+                          <h5 class="modal-title" id="mfaVerificationModalLabel">
+                              <i class="bi bi-shield-check me-2"></i>Two-Factor Authentication
+                          </h5>
+                          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                      </div>
+                      <div class="modal-body">
+                          <div class="text-center mb-4">
+                              <i class="bi bi-smartphone" style="font-size: 2rem; color: #0d6efd;"></i>
+                              <h6 class="mt-3">Enter Authentication Code</h6>
+                              <p class="text-muted">Enter the 6-digit code from your authenticator app or use a backup code.</p>
+                          </div>
+
+                          <form id="mfaVerificationForm">
+                              <div class="mb-3">
+                                  <input type="text" class="form-control form-control-lg text-center"
+                                          id="mfaLoginCode" placeholder="000000" maxlength="8"
+                                          pattern="[0-9]{6,8}" required>
+                                  <div class="form-text">Enter a 6-digit code from your authenticator app or an 8-digit backup code.</div>
+                              </div>
+                              <div class="alert alert-danger" id="mfaLoginError" style="display: none;"></div>
+                              <button type="submit" class="btn btn-primary w-100" id="mfaVerifyLoginBtn">
+                                  <span class="spinner-border spinner-border-sm me-2" id="mfaLoginSpinner" style="display: none;"></span>
+                                  Verify and Sign In
+                              </button>
+                          </form>
+
+                          <div class="text-center mt-3">
+                              <button type="button" class="btn btn-link btn-sm" id="mfaBackToLogin">
+                                  <i class="bi bi-arrow-left me-1"></i>Back to Login
+                              </button>
+                          </div>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      `;
+
+    // Remove existing modal if any
+    const existingModal = document.getElementById("mfaVerificationModal");
+    if (existingModal) {
+      const existingInstance = bootstrap.Modal.getInstance(existingModal);
+      if (existingInstance) {
+        existingInstance.dispose();
+      }
+      existingModal.remove();
+    }
+    // Add modal to DOM
+    document.body.insertAdjacentHTML("beforeend", modalHtml);
+
+    // Set up event listeners
+    document
+      .getElementById("mfaVerificationForm")
+      .addEventListener("submit", (e) => {
+        e.preventDefault();
+        this.verifyMFA(session.email, session.password, e.target.mfaLoginCode.value);
+      });
+
+    document
+      .getElementById("mfaBackToLogin")
+      .addEventListener("click", () => {
+        ModalManager.hide("mfaVerificationModal");
+        ModalManager.show("loginModal");
+        // Reset login form
+        const loginForm = document.getElementById("loginForm");
+        if (loginForm) {
+          loginForm.reset();
+        }
+      });
+
+    // Auto-format code input
+    const codeInput = document.getElementById("mfaLoginCode");
+    codeInput.addEventListener("input", (e) => {
+      e.target.value = e.target.value.replace(/\D/g, "");
+    });
+
+    ModalManager.show("mfaVerificationModal");
+
+    ModalManager.onShow("mfaVerificationModal", () => {
+      // Focus the code input when modal is shown
+      const codeInput = document.getElementById("mfaLoginCode");
+      if (codeInput) {
+        codeInput.focus();
+      }
+    });
+
     // Use session (email, password, temp_token) as needed
     // (Implementation can be filled in as needed)
   }
