@@ -26,7 +26,7 @@ class AuthManager {
 
   setCurrentUser(user) {
     this.currentUser = user;
-    DocumentUIManager.updateUI();
+    AuthUI.updateUI();
   }
 
   getCurrentUser() {

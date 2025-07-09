@@ -185,18 +185,6 @@ class AuthUI {
       await this.handlePasswordUpdate();
     });
 
-
-
-    // Example: login form
-    const loginForm = document.getElementById("loginForm");
-    if (loginForm) {
-      loginForm.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        await this.handleLogin();
-      });
-    }
-
-
     // Password reset functionality
     const forgotPasswordLink = document.getElementById("forgotPasswordLink");
     if (forgotPasswordLink) {
@@ -235,18 +223,18 @@ class AuthUI {
     try {
       const response = await AuthManager.login(email, password);
       if (response.ok) {
+        ModalManager.hide("loginModal");
         const data = await response.json();
         console.log("Login response data:", data);
         if (data.mfa_required) {
-          MFAHandler.verifyMFA(
-            email,
-            password,
-            data.temp_token, // Pass any required session data
-          );
+          let session = {
+            email: email,
+            password: password,
+          }
+          MFAHandler.showMFAModal(session);
         } else {
           AuthManager.setToken(data.access_token);
           AuthManager.setCurrentUser(data.user);
-          ModalManager.hide("loginModal");
           try{
             await DocumentManager.onUserLogin();
           } catch (migrationError){

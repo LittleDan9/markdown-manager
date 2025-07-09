@@ -8,8 +8,10 @@ const { RuntimeGlobals } = require('webpack');
 const { userInfo } = require('os');
 const { split } = require('lodash');
 
+
 module.exports = {
   mode: 'development',
+  devtool: 'source-map',
   entry: './src/js/index.js',
   output: {
     filename: '[name].bundle.js',
@@ -76,7 +78,7 @@ module.exports = {
       },
     ],
     historyApiFallback: true,
-    open: true,
+    open: false,
     port: 3000,
     watchFiles: ['src/**/*', 'public/**/*'],
     // watchFiles: {

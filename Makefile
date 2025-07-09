@@ -15,7 +15,7 @@ NC := \033[0m # No Color
 
 # Configuration
 FRONTEND_PORT := 3000
-BACKEND_DEV_PORT := 8001
+BACKEND_DEV_PORT := 8000
 BACKEND_PROD_PORT := 8000
 
 # Deployment configuration
@@ -228,13 +228,12 @@ ifeq ($(DETECTED_OS),Windows)
 	@echo PID is: %PID%
 	@echo "✅ Frontend server stopped$(NC)"
 else
-	@pid=$$(lsof -tiTCP:$(FRONTEND_PORT) -sTCP:LISTEN) ; \
-	if [ -n "$$pid" ] ; then \
-		@echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
+	@sh -c 'if docker compose ps --services --filter "status=running" | grep -q frontend; then \
+		echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
 		docker compose stop frontend > /dev/null 2>&1; \
 	else \
 		echo "$(YELLOW)  ℹ️  Frontend server not running$(NC)" ; \
-	fi
+	fi'
 endif
 
 stop-backend:
