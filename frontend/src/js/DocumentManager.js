@@ -4,6 +4,7 @@ import html2canvas from "html2canvas";
 import config from "./config.js";
 import AuthManager from "./auth/AuthManager.js";
 import SpinnerManager from "./SpinnerManager.js";
+import editor from "./editor.js";
 
 // Constants for local storage keys
 const DOCUMENTS_KEY = "savedDocuments";
@@ -24,6 +25,19 @@ export { DEFAULT_CATEGORY };
  * - localStorage for anonymous users
  */
 export class DocumentManager {
+
+  hasUnsavedChanges() {
+    const editorInstance = editor.getInstance();
+    if (!this.currentDocument.id) {
+      return editorInstance.getValue().trim() !== "";
+    }
+
+    const savedDoc =
+      this.documents[this.currentDocument.id];
+    if (!savedDoc) return true;
+
+    return editorInstance.getValue() !== savedDoc.content;
+  }
   // Delete a category (local or backend). Reassigns docs to 'General'.
   deleteCategory(category) {
     if (!category || category.trim().toLowerCase() === "general")

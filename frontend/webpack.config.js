@@ -12,7 +12,7 @@ const { split } = require('lodash');
 module.exports = {
   mode: 'development',
   devtool: 'source-map',
-  entry: './src/js/index.js',
+  entry: './src/index.js',
   output: {
     filename: '[name].bundle.js',
     path: path.resolve(__dirname, 'dist'),
@@ -21,6 +21,19 @@ module.exports = {
   },
   module: {
     rules: [
+      {
+        test: /\.(js|jsx)$/,
+        exclude: /node_modules/,
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              '@babel/preset-env',
+              '@babel/preset-react'
+            ]
+          }
+        }
+      },
       {
         test: /\.css$/,
         use: [
@@ -47,6 +60,9 @@ module.exports = {
         type: 'asset/resource',
       },
     ],
+  },
+  resolve: {
+    extensions: ['.js', '.jsx'],
   },
   plugins: [
     new CompressionPlugin(),
