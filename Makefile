@@ -40,7 +40,7 @@ else
 	DOCKER_CHECK = @docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker is not running. Please start Docker and try again.$(NC)" && exit 1)
 endif
 
-.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore stop-frontend
+.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore stop-frontend stop-backend
 
 # Default target
 help: ## Show this help message
@@ -87,13 +87,18 @@ dev: ## Start both frontend and backend dev servers
 	@echo "$(BLUE)Frontend: http://localhost:$(FRONTEND_PORT)$(NC)"
 	@echo "$(BLUE)Backend API: http://localhost:$(BACKEND_DEV_PORT)$(NC)"
 	@echo "$(BLUE)API Docs: http://localhost:$(BACKEND_DEV_PORT)/docs$(NC)"
-	@echo "$(YELLOW)Press Ctrl+C to stop both servers$(NC)"
 	@echo ""
-	@$(MAKE) -j2 dev-frontend dev-backend
+	@$(MAKE) --no-print-directory -j2 dev-frontend dev-backend
 
 dev-frontend: ## Start only frontend dev server
+ifeq ($(DETECTED_OS),Windows)
 	@echo "$(BLUE)🌐 Starting frontend dev server on port $(FRONTEND_PORT)...$(NC)"
 	cd frontend && npm run serve -- --port $(FRONTEND_PORT)
+else
+	$(DOCKER_CHECK)
+	@echo "$(BLUE)🌐 Starting frontend dev server with Docker on port $(FRONTEND_PORT)...$(NC)"
+	docker compose up --build -d frontend
+endif
 
 dev-backend: ## Start only backend dev server
 	$(DOCKER_CHECK)
@@ -218,35 +223,39 @@ status: ## Show development server status
 
 stop-frontend:
 ifeq ($(DETECTED_OS),Windows)
-	@echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
+	@echo "Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
 	@for /f "tokens=5" %%%%P in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do set "PID=%%%%P" && \
 	@echo PID is: %PID%
-	@echo "$(GREEN)  ✅ Frontend server stopped$(NC)"
+	@echo "✅ Frontend server stopped$(NC)"
 else
 	@pid=$$(lsof -tiTCP:$(FRONTEND_PORT) -sTCP:LISTEN) ; \
 	if [ -n "$$pid" ] ; then \
-		echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
-		kill -TERM $$pid && \
-			echo "$(GREEN)  ✅ Frontend server stopped$(NC)" ; \
+		@echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
+		docker compose stop frontend > /dev/null 2>&1; \
 	else \
 		echo "$(YELLOW)  ℹ️  Frontend server not running$(NC)" ; \
 	fi
 endif
 
+stop-backend:
+ifeq ($(DETECTED_OS),Windows)
+	@echo "Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)";
+	@docker compose stop backend
+	@echo "✅ Backend server stopped$(NC)"
+else
+	@pid=$$(lsof -tiTCP:$(BACKEND_DEV_PORT) -sTCP:LISTEN) ; \
+	if [ -n "$$pid" ] ; then \
+		@echo "$(BLUE)Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)"; \
+		docker compose stop backend  > /dev/null 2>&1&& \
+		echo "$(GREEN)  ✅ Backend server stopped$(NC)" ; \
+	else \
+		echo "$(YELLOW)  ℹ️  Backend server not running$(NC)" ; \
+	fi
+endif
 
 stop: ## Stop all development servers
 	@echo "$(YELLOW)🛑 Stopping development servers...$(NC)"
-	@$(MAKE) stop-frontend
-	docker compose down
-	# @pid=$$(lsof -tiTCP:$(BACKEND_DEV_PORT) -sTCP:LISTEN) ; \
-	# if [ -n "$$pid" ] ; then \
-	#   echo "$(BLUE)Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)" ; \
-	#   kill -TERM $$pid && \
-	# 	echo "$(GREEN)  ✅ Backend server stopped$(NC)" ; \
-	# else \
-	#   echo "$(YELLOW)  ℹ️  Backend server not running$(NC)" ; \
-	# fi
-
+	@$(MAKE) --no-print-directory -j2 stop-frontend stop-backend
 
 # Advanced targets
 dev-debug: ## Start dev servers with debug output
