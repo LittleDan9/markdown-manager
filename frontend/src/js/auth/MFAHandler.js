@@ -2,6 +2,7 @@
 // Handles all MFA-specific UI and logic (login-time and profile management)
 
 import AuthManager from "./AuthManager.js";
+import AuthUI from "./AuthUI.js";
 import ModalManager from "../modalManager.js";
 import NotificationManager from "../notifications.js";
 import config from "../config.js";
@@ -19,6 +20,7 @@ class MFAHandler {
 
   // --- Login-time MFA verification ---
   showMFAModal(session) {
+    console.log(session);
     const modalHtml = `
           <div class="modal fade" id="mfaVerificationModal" tabindex="-1" aria-labelledby="mfaVerificationModalLabel" aria-hidden="true">
               <div class="modal-dialog">
@@ -119,7 +121,7 @@ class MFAHandler {
       if (response.ok) {
         const data = await response.json();
         AuthManager.setToken(data.access_token);
-        AuthManager.setCurrentUser(data.user);
+        AuthUI.setCurrentUser(data.user);
         ModalManager.hide("mfaVerificationModal");
         NotificationManager.showSuccess("Welcome back!");
       } else {

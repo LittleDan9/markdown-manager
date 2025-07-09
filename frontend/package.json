@@ -11,8 +11,8 @@
     "build:dev": "webpack --mode=development",
     "build:dev:incremental": "webpack --mode=development --watch",
     "build:analyze": "webpack --mode=production --analyze",
-    "dev": "webpack --mode=development",
-    "serve": "webpack serve --mode=development --open",
+    "debug": "webpack serve --mode=development --devtool=source-map",
+    "serve": "webpack serve --mode=development --watch --devtool=source-map --open",
     "serve:prod": "webpack serve --mode=production",
     "predeploy": "echo \"🚀 Starting deployment process...\"",
     "postdeploy": "echo \"✅ Deployment process completed!\""

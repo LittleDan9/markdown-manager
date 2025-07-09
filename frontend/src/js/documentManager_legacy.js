@@ -2,7 +2,7 @@ import { saveAs } from "file-saver";
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import config from "./config.js";
-import authManager from "./auth.js";
+import authManager from "./auth/AuthManager.js";
 import SpinnerManager from "./spinnerManager.js";
 
 // Constants for local storage keys
