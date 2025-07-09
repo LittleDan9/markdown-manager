@@ -87,20 +87,6 @@ window.addEventListener("DOMContentLoaded", async () => {
   // Setup auto-save
   documentUI.setupAutoSave();
 
-  // Theme toggle button event listeners
-  const elThemeToggleBtn = document.getElementById("themeToggleBtn");
-  const elThemeToggleBtnUser = document.getElementById("themeToggleBtnUser");
-
-  const handleThemeToggle = async (e) => {
-    e.preventDefault();
-    theme = theme === "light" ? "dark" : "light";
-    await toggleTheme(theme);
-    await editor.applyTheme(theme);
-  };
-
-  elThemeToggleBtn.addEventListener("click", handleThemeToggle);
-  elThemeToggleBtnUser.addEventListener("click", handleThemeToggle);
-
   // Fullscreen preview management
   let isFullscreenMode = false;
 
@@ -220,20 +206,4 @@ window.addEventListener("DOMContentLoaded", async () => {
 
   // Initialize copy functionality
   setupCopyButtons();
-
-  editorInstance.onDidChangeModelContent(() => {
-    const debouncedRender = debounce(() => {
-      renderer.render(editorInstance);
-    }, 300);
-    debouncedRender();
-
-    // Save to document manager instead of legacy localStorage
-    if (documentManager.currentDocument.id) {
-      // This will be handled by auto-save if enabled
-    } else {
-      // For unsaved documents, we can still store in legacy location as backup
-      localStorage.setItem(EDITOR_KEY, editorInstance.getValue());
-    }
-  });
-  renderer.render(editorInstance, { isInitialRender: true });
 });
