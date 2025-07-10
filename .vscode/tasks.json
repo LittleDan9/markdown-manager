@@ -9,6 +9,9 @@
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
+      "dependsOn": [
+        "start-docker-backed"
+      ],
       "isBackground": true,
       "problemMatcher": {
         "pattern": [
@@ -27,9 +30,32 @@
       }
     },
     {
+      "label": "start-docker-backed",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "compose", "up", "--build", "--detach", "--remove-orphans", "backend"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+    },
+    {
+      "label": "stop-docker-backed",
+      "type": "shell",
+      "command": "docker",
+      "args": [
+        "compose", "down", "--remove-orphans", "backend"
+      ],
+      "options": {
+        "cwd": "${workspaceFolder}"
+      },
+    },
+    {
         "label": "kill-dev-frontend",
         "type": "shell",
         "command": "pkill -f webpack",
+        "dependsOn": "stop-docker-backend",
         "problemMatcher": []
     }
   ]

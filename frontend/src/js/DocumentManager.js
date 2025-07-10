@@ -25,7 +25,6 @@ export { DEFAULT_CATEGORY };
  * - localStorage for anonymous users
  */
 export class DocumentManager {
-
   hasUnsavedChanges() {
     const editorInstance = editor.getInstance();
     if (!this.currentDocument.id) {
@@ -522,6 +521,7 @@ export class DocumentManager {
   createNewDocument(name = "Untitled Document", category = DEFAULT_CATEGORY) {
     this.currentDocument = { id: null, name: name, category: category };
     this.saveCurrentDocument();
+    editor.getInstance().setValue("");
     return this.currentDocument;
   }
 
