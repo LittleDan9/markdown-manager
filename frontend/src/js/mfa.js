@@ -1093,7 +1093,6 @@ class MFAManager {
       return;
     }
 
-
     this.hideDisableMFAError();
 
     try {
@@ -1339,7 +1338,6 @@ Keep these codes in a safe place!`;
     printWindow.document.close();
     printWindow.print();
   }
-
 
   /**
    * Make API call with authentication

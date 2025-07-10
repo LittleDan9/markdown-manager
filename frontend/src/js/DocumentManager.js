@@ -31,8 +31,7 @@ export class DocumentManager {
       return editorInstance.getValue().trim() !== "";
     }
 
-    const savedDoc =
-      this.documents[this.currentDocument.id];
+    const savedDoc = this.documents[this.currentDocument.id];
     if (!savedDoc) return true;
 
     return editorInstance.getValue() !== savedDoc.content;

@@ -1,6 +1,6 @@
-import React from 'react';
-import { useTheme } from '../context/ThemeContext';
-import { setPrismTheme } from '../js/prismTheme';
+import React from "react";
+import { useTheme } from "../context/ThemeContext";
+import { setPrismTheme } from "../js/prismTheme";
 // import updateThemeIcon if needed
 
 function ThemeEffects() {

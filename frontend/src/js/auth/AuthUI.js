@@ -14,7 +14,7 @@ class AuthUI {
     this.bindEvents();
   }
 
-    initializeDropdown(dropdownElement) {
+  initializeDropdown(dropdownElement) {
     console.log("AuthManager: Attempting to initialize dropdown");
 
     // Wait a moment for Bootstrap to be fully loaded
@@ -158,32 +158,41 @@ class AuthUI {
       }
     });
 
-
     // Form submissions
-    document.getElementById("loginForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await this.handleLogin();
-    });
+    document
+      .getElementById("loginForm")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await this.handleLogin();
+      });
 
-    document.getElementById('loginModalClose').addEventListener('click', async(e) => {
-      e.preventDefault();
-      await ModalManager.hide('loginModal');
-    });
+    document
+      .getElementById("loginModalClose")
+      .addEventListener("click", async (e) => {
+        e.preventDefault();
+        await ModalManager.hide("loginModal");
+      });
 
-    document.getElementById("registerForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await this.handleRegister();
-    });
+    document
+      .getElementById("registerForm")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await this.handleRegister();
+      });
 
-    document.getElementById("profileForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await this.handleProfileUpdate();
-    });
+    document
+      .getElementById("profileForm")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await this.handleProfileUpdate();
+      });
 
-    document.getElementById("passwordForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      await this.handlePasswordUpdate();
-    });
+    document
+      .getElementById("passwordForm")
+      .addEventListener("submit", async (e) => {
+        e.preventDefault();
+        await this.handlePasswordUpdate();
+      });
 
     // Password reset functionality
     const forgotPasswordLink = document.getElementById("forgotPasswordLink");
@@ -230,15 +239,17 @@ class AuthUI {
           let session = {
             email: email,
             password: password,
-          }
+          };
           MFAHandler.showMFAModal(session);
         } else {
           AuthManager.setToken(data.access_token);
           AuthManager.setCurrentUser(data.user);
-          try{
+          try {
             await DocumentManager.onUserLogin();
-          } catch (migrationError){
-            NotificationManager.showError("Migration failed: " + migrationError.message);
+          } catch (migrationError) {
+            NotificationManager.showError(
+              "Migration failed: " + migrationError.message,
+            );
             console.debug("Migration error:", migrationError);
           }
           NotificationManager.showSuccess("Welcome back!");
@@ -254,7 +265,7 @@ class AuthUI {
     }
   }
 
-async handleRegister() {
+  async handleRegister() {
     const formData = {
       email: document.getElementById("registerEmail").value,
       password: document.getElementById("registerPassword").value,
@@ -434,7 +445,7 @@ async handleRegister() {
             ModalManager.setData(
               "passwordResetConfirmModal",
               "token",
-              data.debug_token
+              data.debug_token,
             );
             // What to do with data.debug_token
           }, 2000);
@@ -457,7 +468,9 @@ async handleRegister() {
   }
 
   async handlePasswordResetConfirm() {
-    const newPassword = document.getElementById("newPasswordReset").value.trim();
+    const newPassword = document
+      .getElementById("newPasswordReset")
+      .value.trim();
     const confirmPassword = document
       .getElementById("confirmPasswordReset")
       .value.trim();
@@ -491,10 +504,7 @@ async handleRegister() {
 
     try {
       const response = await AuthManager.confirmPasswordReset(
-        ModalManager.getData(
-          "passwordResetConfirmModal",
-          "token"
-        ),
+        ModalManager.getData("passwordResetConfirmModal", "token"),
         newPassword,
       );
 

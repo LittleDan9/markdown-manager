@@ -4,7 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 
 function Renderer() {
   const { theme } = useTheme();
-  useEffect( () => {
+  useEffect(() => {
     async function themeMermaid() {
       await renderer.initMermaid(theme);
     }
@@ -12,9 +12,9 @@ function Renderer() {
   }, [theme]);
   return (
     <div id="previewContainer">
-        <div id="preview">
+      <div id="preview">
         <div className="preview-scroll"></div>
-        </div>
+      </div>
     </div>
   );
 }

@@ -23,7 +23,8 @@
 }
 
 // File menu button styling - borderless like utility buttons
-#fileMenuDropdown, #categoryDropdown {
+#fileMenuDropdown,
+#categoryDropdown {
   border: none !important;
   background: transparent !important;
   color: var(--bs-body-color);

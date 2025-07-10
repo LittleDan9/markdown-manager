@@ -3,8 +3,7 @@ import editor from "../js/editor";
 import renderer from "../js/renderer";
 import { documentManager } from "../js/DocumentManager";
 import { useTheme } from "../context/ThemeContext";
-import { EDITOR_KEY } from '../js/constants';
-
+import { EDITOR_KEY } from "../js/constants";
 
 function Editor() {
   const { theme } = useTheme();
@@ -47,7 +46,7 @@ function Editor() {
 
   return (
     <div id="editorContainer">
-        <div id="editor"></div>
+      <div id="editor"></div>
     </div>
   );
 }
