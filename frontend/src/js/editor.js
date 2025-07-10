@@ -21,7 +21,8 @@ class Editor {
   }
 
   async setup() {
-    const theme = document.documentElement.getAttribute("data-bs-theme") || "light";
+    const theme =
+      document.documentElement.getAttribute("data-bs-theme") || "light";
     if (this.instance) {
       // Always update theme if already initialized
       await this.applyTheme(theme);

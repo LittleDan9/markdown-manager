@@ -33,7 +33,6 @@ export function ThemeProvider({ children }) {
   );
 }
 
-
 // Custom hook for easy access
 export function useTheme() {
   return useContext(ThemeContext);

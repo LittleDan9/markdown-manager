@@ -1,17 +1,17 @@
-import React from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import React from "react";
+import { Modal, Button } from "react-bootstrap";
 
 function ConfirmModal({
-    show,
-    onCancel,
-    onConfirm,
-    title = 'Confirm Action',
-    message = '',
-    confirmText = 'Confirm',
-    confirmVariant = 'danger',
-    cancelText = 'Cancel',
-    cancelVariant = 'secondary',
-    icon = <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+  show,
+  onCancel,
+  onConfirm,
+  title = "Confirm Action",
+  message = "",
+  confirmText = "Confirm",
+  confirmVariant = "danger",
+  cancelText = "Cancel",
+  cancelVariant = "secondary",
+  icon = <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>,
 }) {
   return (
     <Modal show={show} onHide={onCancel} centered>

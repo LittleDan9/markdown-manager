@@ -80,20 +80,22 @@ class MFAHandler {
       .getElementById("mfaVerificationForm")
       .addEventListener("submit", (e) => {
         e.preventDefault();
-        this.verifyMFA(session.email, session.password, e.target.mfaLoginCode.value);
+        this.verifyMFA(
+          session.email,
+          session.password,
+          e.target.mfaLoginCode.value,
+        );
       });
 
-    document
-      .getElementById("mfaBackToLogin")
-      .addEventListener("click", () => {
-        ModalManager.hide("mfaVerificationModal");
-        ModalManager.show("loginModal");
-        // Reset login form
-        const loginForm = document.getElementById("loginForm");
-        if (loginForm) {
-          loginForm.reset();
-        }
-      });
+    document.getElementById("mfaBackToLogin").addEventListener("click", () => {
+      ModalManager.hide("mfaVerificationModal");
+      ModalManager.show("loginModal");
+      // Reset login form
+      const loginForm = document.getElementById("loginForm");
+      if (loginForm) {
+        loginForm.reset();
+      }
+    });
 
     // Auto-format code input
     const codeInput = document.getElementById("mfaLoginCode");

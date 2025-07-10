@@ -3,7 +3,7 @@
 // Usage: ModalManager.show('modalId'), ModalManager.hide('modalId'), etc.
 
 class ModalManager {
-  get(modalId){
+  get(modalId) {
     return document.getElementById(modalId);
   }
 
@@ -24,10 +24,16 @@ class ModalManager {
     const modal = this.getInstance(el);
     modal.show();
     if (activeTab) {
-      el.addEventListener("shown.bs.modal", () => {
-        const tab = el.querySelector(`#${activeTab.replace('-settings', '')}-tab`);
-        if (tab) new bootstrap.Tab(tab).show();
-      }, { once: true });
+      el.addEventListener(
+        "shown.bs.modal",
+        () => {
+          const tab = el.querySelector(
+            `#${activeTab.replace("-settings", "")}-tab`,
+          );
+          if (tab) new bootstrap.Tab(tab).show();
+        },
+        { once: true },
+      );
     }
   }
 
@@ -36,7 +42,7 @@ class ModalManager {
    */
   hide(modalId) {
     const el = this.get(modalId);
-    if (!el || !el.classList.contains('show')) return;
+    if (!el || !el.classList.contains("show")) return;
 
     const instance = bootstrap.Modal.getInstance(el);
     if (instance) instance.hide();
@@ -49,7 +55,7 @@ class ModalManager {
     const el = this.get(modalId);
     if (!el) return;
     const instance = bootstrap.Modal.getInstance(el);
-    if (instance) instance.hide(), instance.dispose();
+    if (instance) (instance.hide(), instance.dispose());
     el.classList.remove("show", "fade");
     el.style.display = "none";
     el.setAttribute("aria-hidden", "true");
