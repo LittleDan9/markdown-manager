@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Dropdown, ButtonGroup } from "react-bootstrap";
-import ConfirmModal from "../ConfirmModal";
+import ConfirmModal from "../modals/ConfirmModal";
 import { documentManager } from "../../js/DocumentManager";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
 import {
