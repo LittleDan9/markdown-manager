@@ -3,6 +3,8 @@ import editor from "../js/editor";
 import renderer from "../js/renderer";
 import { documentManager } from "../js/DocumentManager";
 import { useTheme } from "../context/ThemeContext";
+import { EDITOR_KEY } from '../js/constants';
+
 
 function Editor() {
   const { theme } = useTheme();
