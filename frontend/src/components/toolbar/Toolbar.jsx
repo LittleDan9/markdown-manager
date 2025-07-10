@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import FileDropdown from "./File";
 import DocumentToolbar from "./Document";
+import UserToolbar from "./User";
 import { useTheme } from "../../context/ThemeContext";
 
 function Toolbar() {
@@ -71,47 +72,10 @@ function Toolbar() {
             <i className="bi bi-fullscreen"></i>
           </button>
           {/* User Profile Dropdown (simplified for now) */}
-          <div className="dropdown" id="userDropdown">
-            <button
-              className="btn btn-outline-secondary btn-sm dropdown-toggle d-flex align-items-center gap-2"
-              type="button"
-              id="userMenuDropdown"
-              data-bs-toggle="dropdown"
-              aria-expanded="false"
-            >
-              <i className="bi bi-person-circle"></i>
-              <span id="userDisplayName">Guest</span>
-            </button>
-            <ul
-              className="dropdown-menu dropdown-menu-end"
-              aria-labelledby="userMenuDropdown"
-            >
-              <li>
-                <a className="dropdown-item" href="#" id="loginBtn">
-                  <i className="bi bi-box-arrow-in-right me-2"></i>Login
-                </a>
-              </li>
-              <li>
-                <a className="dropdown-item" href="#" id="registerBtn">
-                  <i className="bi bi-person-plus me-2"></i>Sign Up
-                </a>
-              </li>
-              <li>
-                <hr className="dropdown-divider" />
-              </li>
-              <li>
-                <a
-                  className="dropdown-item"
-                  href="#"
-                  id="themeToggleBtn"
-                  onClick={handleThemeToggle}
-                >
-                  <i id="themeIcon" className="bi bi-sun-fill me-2"></i>
-                  <span id="themeText">Light Theme</span>
-                </a>
-              </li>
-            </ul>
-          </div>
+          <UserToolbar
+            handleThemeToggle={handleThemeToggle}
+            theme={theme}
+          />
         </div>
       </div>
     </nav>
