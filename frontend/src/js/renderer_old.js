@@ -1,6 +1,25 @@
-import MarkdownIt from "markdown-it"
-import mermaidManager from "./MermaidManager";
+import MarkdownIt from "markdown-it";
 import syntaxHighlightingService from "./syntaxHighlighting.js";
+import mermaidManager from "./MermaidManager";
+
+// Suppress Mermaid console errors by overriding console methods temporarily
+const originalConsoleError = console.error;
+const originalConsoleWarn = console.warn;
+
+// Override console methods to filter out Mermaid errors
+console.error = (...args) => {
+  const message = args.join(" ").toLowerCase();
+  if (!message.includes("mermaid") && !message.includes("parse error")) {
+    originalConsoleError.apply(console, args);
+  }
+};
+
+console.warn = (...args) => {
+  const message = args.join(" ").toLowerCase();
+  if (!message.includes("mermaid")) {
+    originalConsoleWarn.apply(console, args);
+  }
+};
 
 // Debounce timer for syntax highlighting
 let syntaxHighlightingTimer = null;
@@ -37,98 +56,122 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const info = token.info.trim();
   const lang = info || "";
   if (info === "mermaid") {
+    // Store the original source in a data attribute for comparison
     return `<div class="mermaid" data-mermaid-source="${encodeURIComponent(token.content.trim())}">${token.content}</div>`;
   }
 
   // For syntax highlighting, we'll use a placeholder that gets replaced later
   const placeholderId = `syntax-highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
   return `
-    <div class="code-block">
-    <div class="code-block-header">
-        <span class="code-block-lang">${lang.toUpperCase()}</span>
-        <button class="code-block-copy-btn" data-prismjs-copy>
-        <i class="bi bi-clipboard" aria-label="Copy"></i>
-        </button>
-    </div>
-    <pre class="language-${lang}" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>
-    </div>
-  `;
+            <div class="code-block">
+            <div class="code-block-header">
+                <span class="code-block-lang">${lang.toUpperCase()}</span>
+                <button class="code-block-copy-btn" data-prismjs-copy>
+                <i class="bi bi-clipboard" aria-label="Copy"></i>
+                </button>
+            </div>
+            <pre class="language-${lang}" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>
+            </div>
+        `;
 };
 
-export async function renderMarkdownToHtml(prevContent, content, theme){
-  await mermaidManager.updateTheme(theme);
+class Renderer {
+  constructor() {
+    this.md = md;
+    this.recentlyHighlighted = recentlyHighlighted;
+    this.syntaxHighlightingTimer = null;
+    this.theme = null;
+  }
 
-  const parser = new DOMParser();
-  const prevPreviewDoc = parser.parseFromString(prevContent, "text/html");
+  async initMermaid(theme) {
+    await mermaidManager.init(theme);
+    this.theme = theme;
+  }
 
-  // Find Existing Code Blocks / Highlights in Previous Content
-  const existingHighlights = new Map();
-  const existingCodeBlocks = prevPreviewDoc.querySelectorAll("[data-syntax-placeholder]");
-  existingCodeBlocks.forEach((block) => {
-    const code = decodeURIComponent(block.dataset.code);
-    const lang = block.dataset.lang;
-    const codeElement = block.querySelector("code");
-    if (codeElement && code && lang){
-      const key = `${lang}:${code}`;
-      existingHighlights.set(key, codeElement);
-    }
-  });
+  async updateMermaidTheme(theme) {
+    await mermaidManager.updateTheme(theme);
+    this.theme = theme;
+  }
 
-
-  // Find Existing Mermaid Diagrams in Previous Content
-  const existingMermaidDiagrams = new Map();
-  const existingMermaidElements = prevPreviewDoc.querySelectorAll(".mermaid[data-mermaid-source]")
-  existingMermaidElements.forEach((el) => {
-    const source = decodeURIComponent(el.dataset.mermaidSource || "");
-    if (source && el.querySelector("svg")) {
-      existingMermaidDiagrams.set(source, el.innerHTML);
-    }
-  });
-
-  const newPreview = md.render(content)
-
-  const newPreviewDoc = parser.parseFromString(newPreview, "text/html");
-  try {
-    const newCodeBlocks = newPreviewDoc.querySelectorAll("[data-syntax-placeholder]");
-    newCodeBlocks.forEach((block) => {
+  async render(editor, options = {}) {
+    const previewEl = document.querySelector("#preview .preview-scroll");
+    const src = editor.getValue();
+    const isInitialRender =
+      options.isInitialRender || previewEl.innerHTML.trim() === "";
+    const forceRender = options.forceRender || false;
+    const existingHighlights = new Map();
+    const existingCodeBlocks = previewEl.querySelectorAll(
+      "[data-syntax-placeholder]",
+    );
+    existingCodeBlocks.forEach((block) => {
       const code = decodeURIComponent(block.dataset.code);
       const lang = block.dataset.lang;
       const codeElement = block.querySelector("code");
       if (codeElement && code && lang) {
         const key = `${lang}:${code}`;
-        if (existingHighlights.has(key)) {
-          codeElement.innerHTML = existingHighlights.get(key)
-        } else if (this.recentlyHighlighted.has(key)) {
-          codeElement.innerHTML = this.recentlyHighlighted.get(key).html;
-        } else {
-          const similarHighlight = findsSimilarHighlight(code, land);
-          if (similarHighlight) {
-            codeElement.innerHTML = similarHighlight;
-          }
-        }
+        existingHighlights.set(key, codeElement.innerHTML);
       }
     });
-    if (syntaxHighlightingTimer) {
-      clearTimeout(syntaxHighlightingTimer);
-    }
-    if (false /*isInitialRender*/) {
-      await performSyntaxHighlighting(newPreviewDoc);
-    } else {
-      syntaxHighlightingTimer = setTimeout(async () => {
-        await performSyntaxHighlighting(newPreviewDoc);
-      }, SYNTAX_HIGHLIGHT_DELAY);
-    }
-    await mermaidManager.renderDiagrams(
-      newPreviewDoc,
-      existingMermaidDiagrams,
-      true, // Initial render
-      false, // Don't force render
+    const existingMermaidDiagrams = new Map();
+    const existingMermaidElements = previewEl.querySelectorAll(
+      ".mermaid[data-mermaid-source]",
     );
-    return newPreviewDoc.body.innerHTML;
-  } catch (e) {
-    console.error("Error rendering markdown:", e);
+    existingMermaidElements.forEach((element) => {
+      const diagramSource = decodeURIComponent(
+        element.dataset.mermaidSource || "",
+      );
+      if (diagramSource && element.querySelector("svg")) {
+        existingMermaidDiagrams.set(diagramSource, element.innerHTML);
+      }
+    });
+    previewEl.innerHTML = this.md.render(src);
+    try {
+      const newCodeBlocks = previewEl.querySelectorAll(
+        "[data-syntax-placeholder]",
+      );
+      newCodeBlocks.forEach((block) => {
+        const code = decodeURIComponent(block.dataset.code);
+        const lang = block.dataset.lang;
+        const codeElement = block.querySelector("code");
+        if (codeElement && code && lang) {
+          const key = `${lang}:${code}`;
+          if (existingHighlights.has(key)) {
+            codeElement.innerHTML = existingHighlights.get(key);
+          } else if (this.recentlyHighlighted.has(key)) {
+            codeElement.innerHTML = this.recentlyHighlighted.get(key).html;
+          } else {
+            const similarHighlight = findSimilarHighlight(code, lang);
+            if (similarHighlight) {
+              codeElement.innerHTML = similarHighlight;
+            }
+          }
+        }
+      });
+      if (this.syntaxHighlightingTimer) {
+        clearTimeout(this.syntaxHighlightingTimer);
+      }
+      if (isInitialRender) {
+        await performSyntaxHighlighting(previewEl);
+      } else {
+        this.syntaxHighlightingTimer = setTimeout(async () => {
+          await performSyntaxHighlighting(previewEl);
+        }, SYNTAX_HIGHLIGHT_DELAY);
+      }
+      await mermaidManager.renderDiagrams(
+        previewEl,
+        existingMermaidDiagrams,
+        isInitialRender,
+        forceRender,
+      );
+    } catch (error) {
+      console.error("Rendering failed:", error);
+    }
   }
 }
+
+const renderer = new Renderer();
+export default renderer;
 
 /**
  * Find a similar highlight for blocks being actively edited

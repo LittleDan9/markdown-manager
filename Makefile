@@ -223,9 +223,8 @@ status: ## Show development server status
 
 stop-frontend:
 ifeq ($(DETECTED_OS),Windows)
-	@echo "Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
-	@for /f "tokens=5" %%%%P in ('netstat -ano ^| findstr :3000 ^| findstr LISTENING') do set "PID=%%%%P" && \
-	@echo PID is: %PID%
+	@echo "Stopping frontend server on port $(FRONTEND_PORT)...$(NC)"
+	@npx kill-port 3000
 	@echo "✅ Frontend server stopped$(NC)"
 else
 	@sh -c 'if docker compose ps --services --filter "status=running" | grep -q frontend; then \
