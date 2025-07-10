@@ -9,14 +9,12 @@
       "options": {
         "cwd": "${workspaceFolder}/frontend"
       },
-      "dependsOn": [
-        "start-docker-backed"
-      ],
       "isBackground": true,
       "problemMatcher": {
+        "owner": "custom",
         "pattern": [
           {
-            "regexp": ".",
+            "regexp": "Compiled successfully",
             "file": 1,
             "location": 2,
             "message": 3
@@ -27,36 +25,22 @@
           "beginsPattern": ".*Starting.*webpack.*",
           "endsPattern": ".*(Compiled successfully|Project is running at|webpack.*compiled).*"
         }
+      },
+      "runOptions": {
+        "reevaluateOnRerun": true
+      },
+      "presentation": {
+        "echo": true,
+        "reveal": "always",
+        "focus": false,
+        "panel": "dedicated",
+        "showReuseMessage": true,
+        "clear": false
+      },
+      "group": {
+        "kind": "build",
+        "isDefault": true
       }
-    },
-    {
-      "label": "start-docker-backed",
-      "type": "shell",
-      "command": "docker",
-      "args": [
-        "compose", "up", "--build", "--detach", "--remove-orphans", "backend"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-    },
-    {
-      "label": "stop-docker-backed",
-      "type": "shell",
-      "command": "docker",
-      "args": [
-        "compose", "down", "--remove-orphans", "backend"
-      ],
-      "options": {
-        "cwd": "${workspaceFolder}"
-      },
-    },
-    {
-        "label": "kill-dev-frontend",
-        "type": "shell",
-        "command": "pkill -f webpack",
-        "dependsOn": "stop-docker-backend",
-        "problemMatcher": []
     }
   ]
 }

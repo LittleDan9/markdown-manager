@@ -1,52 +1,58 @@
-import React, { useEffect } from "react";
-import editor from "../js/editor";
+import React, { use, useEffect, useRef } from "react";
+import editorSingleton from "../js/editor";
 import renderer from "../js/renderer";
 import { documentManager } from "../js/DocumentManager";
 import { useTheme } from "../context/ThemeContext";
 import { EDITOR_KEY } from "../js/constants";
 
-function Editor() {
+function Editor({ value, onChange }) {
+  const editorRef = useRef(null);
+  const monacoInstanceRef = useRef(null);
   const { theme } = useTheme();
+
+  // Initialize Monaco on mount
   useEffect(() => {
-    let editorInstance;
-    let debouncedRender;
-
-    async function setupEditor() {
-      editorInstance = await editor.setup();
-      // Debounced render function to avoid excessive rendering
-      debouncedRender = (() => {
-        let t;
-        return () => {
-          clearTimeout(t);
-          t = setTimeout(() => renderer.render(editorInstance), 300);
-        };
-      })();
-
-      // Listen for content changes and trigger debounced render
-      editorInstance.onDidChangeModelContent(() => {
-        debouncedRender();
-        if (documentManager.currentDocument.id) {
-          //handle auto save
-        } else {
-          localStorage.setItem(EDITOR_KEY, editorInstance.getValue());
+    if (editorRef.current && !monacoInstanceRef.current) {
+        editorSingleton.setup(editorRef.current, value, theme).then((instance) => {
+          monacoInstanceRef.current = instance;
+          instance.onDidChangeModelContent(() => {
+            const newValue = instance.getValue();
+            if (newValue !== value) onChange(newValue);
+          });
+        });
+      }
+      // Cleanup on umount
+      return () => {
+        if (monacoInstanceRef.current) {
+          monacoInstanceRef.current.dispose();
+          monacoInstanceRef.current = null;
         }
-      });
-      renderer.render(editorInstance, { isInitialRender: true });
-    }
+      };
+      // eslint-disable-next-line
+    }, []);
 
-    setupEditor();
-    // eslint-disable-next-line
-  }, []);
-
-  // React to theme changes
+  // Update Monaco when them changes
   useEffect(() => {
-    editor.applyTheme(theme);
-    // eslint-disable-next-line
+    if (monacoInstanceRef.current) {
+      editorSingleton.applyTheme(theme);
+    }
   }, [theme]);
 
+  // Update Monaco value if parent value changes (external update)
+  useEffect(() => {
+    if (
+      monacoInstanceRef.current && monacoInstanceRef.current.getValue() !== value
+    ) {
+      monacoInstanceRef.current.setValue(value);
+    }
+  }, [value]);
   return (
-    <div id="editorContainer">
-      <div id="editor"></div>
+    <div id="editorContainer" style={{ height: "100%", width: "100%" }}>
+      <div
+        id="editor"
+        ref={editorRef}
+        style={{ height: "100%", width: "100%" }}
+      />
     </div>
   );
 }
