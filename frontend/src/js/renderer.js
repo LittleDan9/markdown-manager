@@ -1,35 +1,10 @@
 import MarkdownIt from "markdown-it"
-import mermaidManager from "./MermaidManager";
-import syntaxHighlightingService from "./syntaxHighlighting.js";
-
-// Debounce timer for syntax highlighting
-let syntaxHighlightingTimer = null;
-const SYNTAX_HIGHLIGHT_DELAY = 200; // ms
-
-// Track recently highlighted blocks to preserve them during typing
-const recentlyHighlighted = new Map();
-const HIGHLIGHT_PRESERVE_TIME = 2000; // ms
+import HighlightService from "./HighlightService";
 
 const md = new MarkdownIt({
   html: true,
   linkify: true,
-  typographer: true,
-  highlight: async (str, lang) => {
-    if (lang) {
-      try {
-        // Use backend syntax highlighting service
-        const highlightedCode = await syntaxHighlightingService.highlightCode(
-          str,
-          lang,
-        );
-        return `<pre class="language-${lang}"><code>${highlightedCode}</code></pre>`;
-      } catch (__) {
-        // Fallback to escaped HTML
-      }
-    }
-    // fallback for unknown languages
-    return `<pre class="hljs"><code>${MarkdownIt().utils.escapeHtml(str)}</code></pre>`;
-  },
+  typographer: true
 });
 
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
@@ -39,6 +14,16 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   if (info === "mermaid") {
     return `<div class="mermaid" data-mermaid-source="${encodeURIComponent(token.content.trim())}">${token.content}</div>`;
   }
+
+  // Check cache
+  const highlightedCode = HighlightService.getFromCache(token.content, lang);
+  let codeBlock;
+  if (highlightedCode){
+    codeBlock = `<pre class="language-${lang}" data-processed="true" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${highlightedCode}</code></pre>`
+  } else {
+    codeBlock = `<pre class="language-${lang}" data-processed="false" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>`
+  }
+
 
   // For syntax highlighting, we'll use a placeholder that gets replaced later
   const placeholderId = `syntax-highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -50,173 +35,13 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
         <i class="bi bi-clipboard" aria-label="Copy"></i>
         </button>
     </div>
-    <pre class="language-${lang}" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>
+    ${codeBlock}
     </div>
   `;
 };
 
-export async function renderMarkdownToHtml(prevContent, content){
-  const parser = new DOMParser();
-  const prevPreviewDoc = parser.parseFromString(prevContent, "text/html");
-
-  // Find Existing Code Blocks / Highlights in Previous Content
-  const existingHighlights = new Map();
-  const existingCodeBlocks = prevPreviewDoc.querySelectorAll("[data-syntax-placeholder]");
-  existingCodeBlocks.forEach((block) => {
-    const code = decodeURIComponent(block.dataset.code);
-    const lang = block.dataset.lang;
-    const codeElement = block.querySelector("code");
-    if (codeElement && code && lang){
-      const key = `${lang}:${code}`;
-      existingHighlights.set(key, codeElement);
-    }
-  });
-
-  const newPreview = md.render(content)
-
-  const newPreviewDoc = parser.parseFromString(newPreview, "text/html");
-  try {
-    const newCodeBlocks = newPreviewDoc.querySelectorAll("[data-syntax-placeholder]");
-    newCodeBlocks.forEach((block) => {
-      const code = decodeURIComponent(block.dataset.code);
-      const lang = block.dataset.lang;
-      const codeElement = block.querySelector("code");
-      if (codeElement && code && lang) {
-        const key = `${lang}:${code}`;
-        if (existingHighlights.has(key)) {
-          codeElement.innerHTML = existingHighlights.get(key)
-        } else if (recentlyHighlighted.has(key)) {
-          codeElement.innerHTML = recentlyHighlighted.get(key).html;
-        } else {
-          const similarHighlight = findSimilarHighlight(code, lang);
-          if (similarHighlight) {
-            codeElement.innerHTML = similarHighlight;
-          }
-        }
-      }
-    });
-    if (syntaxHighlightingTimer) {
-      clearTimeout(syntaxHighlightingTimer);
-    }
-    if (false /*isInitialRender*/) {
-      await performSyntaxHighlighting(newPreviewDoc);
-    } else {
-      syntaxHighlightingTimer = setTimeout(async () => {
-        await performSyntaxHighlighting(newPreviewDoc);
-      }, SYNTAX_HIGHLIGHT_DELAY);
-    }
-
-
-    return newPreviewDoc.body.innerHTML;
-  } catch (e) {
-    console.error("Error rendering markdown:", e);
-  }
+export function render(content) {
+  return md.render(content)
 }
 
-/**
- * Find a similar highlight for blocks being actively edited
- */
-function findSimilarHighlight(code, lang) {
-  // Look for recently highlighted blocks with the same language
-  // that might be similar (for blocks being actively typed)
-  for (const [key, data] of recentlyHighlighted.entries()) {
-    const [cachedLang, cachedCode] = key.split(":", 2);
-    if (cachedLang === lang) {
-      // If the new code starts with the cached code (user is adding to it)
-      // or cached code starts with new code (user is deleting from it)
-      if (code.startsWith(cachedCode) || cachedCode.startsWith(code)) {
-        // Only use if the codes are reasonably similar in length
-        const lengthDiff = Math.abs(code.length - cachedCode.length);
-        const maxLength = Math.max(code.length, cachedCode.length);
-        if (lengthDiff / maxLength < 0.3) {
-          // Less than 30% difference
-          return data.html;
-        }
-      }
-    }
-  }
-  return null;
-}
-
-/**
- * Perform syntax highlighting only for code blocks that need it
- */
-async function performSyntaxHighlighting(previewEl) {
-  const syntaxPlaceholders = previewEl.querySelectorAll(
-    "[data-syntax-placeholder]",
-  );
-  const blocksToHighlight = [];
-
-  // Only highlight blocks that don't already have highlighting or have changed
-  syntaxPlaceholders.forEach((element) => {
-    const code = decodeURIComponent(element.dataset.code);
-    const language = element.dataset.lang;
-    const codeElement = element.querySelector("code");
-
-    if (language && code && codeElement) {
-      const key = `${language}:${code}`;
-
-      // Check if this block needs highlighting
-      const needsHighlighting =
-        // Block has no highlighting (still shows escaped HTML)
-        codeElement.innerHTML === MarkdownIt().utils.escapeHtml(code) ||
-        // Block is not in our cache (new or changed)
-        (!recentlyHighlighted.has(key) &&
-          !codeElement.innerHTML.includes("token "));
-
-      if (needsHighlighting) {
-        blocksToHighlight.push({ element, code, language, key });
-      }
-    }
-  });
-
-  // Only make API calls for blocks that actually need highlighting
-  if (blocksToHighlight.length > 0) {
-    console.log(`Highlighting ${blocksToHighlight.length} code blocks`);
-
-    const highlightPromises = blocksToHighlight.map(
-      async ({ element, code, language, key }) => {
-        try {
-          const highlightedCode = await syntaxHighlightingService.highlightCode(
-            code,
-            language,
-          );
-          const codeElement = element.querySelector("code");
-          if (codeElement) {
-            codeElement.innerHTML = highlightedCode;
-
-            // Track this block as recently highlighted
-            recentlyHighlighted.set(key, {
-              html: highlightedCode,
-              timestamp: Date.now(),
-            });
-          }
-        } catch (error) {
-          console.warn(
-            `Failed to highlight code for language '${language}':`,
-            error,
-          );
-          // Keep the escaped HTML fallback
-        }
-      },
-    );
-
-    // Wait for all highlighting to complete
-    await Promise.allSettled(highlightPromises);
-  }
-
-  // Clean up old entries from recentlyHighlighted
-  cleanupRecentlyHighlighted();
-}
-
-/**
- * Clean up old entries from recently highlighted cache
- */
-function cleanupRecentlyHighlighted() {
-  const now = Date.now();
-  for (const [key, data] of recentlyHighlighted.entries()) {
-    if (now - data.timestamp > HIGHLIGHT_PRESERVE_TIME) {
-      recentlyHighlighted.delete(key);
-    }
-  }
-}
+export { md }

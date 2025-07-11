@@ -1,6 +1,6 @@
 import config from "../config";
 
-export async function highlight(code, language) {
+export async function highlightSyntax(code, language) {
   try {
     const response = await fetch(`${config.apiBaseUrl}/highlight/syntax`, {
       method: "POST",

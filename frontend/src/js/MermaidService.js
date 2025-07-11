@@ -1,9 +1,10 @@
 import mermaid from "mermaid";
 import MarkdownIt from "markdown-it";
 
-class MermaidManager {
+class MermaidService {
   constructor() {
     this.theme = null;
+    this.diagramCache = new Map();
   }
 
   async init(theme) {
@@ -33,6 +34,55 @@ class MermaidManager {
       await this.init(theme);
     }
   }
+
+  async render(previewElement) {
+    const mermaidBlocks = previewElement.querySelectorAll(".mermaid[data-mermaid-source][data-processed='false']");
+    if (mermaidBlocks.length === 0) return;
+
+    for (const block of mermaidBlocks) {
+      const diagramSource = decodeURIComponent(block.dataset.mermaidSource || "");
+      if (!diagramSource) continue;
+
+      // Check cache
+      if (this.diagramCache.has(diagramSource)) {
+        block.innerHTML = this.diagramCache.get(diagramSource);
+        block.setAttribute("data-processed", "true");
+        continue;
+      }
+
+      try {
+        const { svg } = await mermaid.render(
+          `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          diagramSource
+        );
+        block.innerHTML = svg;
+        block.setAttribute("data-processed", "true");
+       this.diagramCache.set(diagramSource, svg);
+      } catch (error) {
+        this.showError(block, error.message || "Failed to render diagram");
+      }
+  }
+}
+
+/*
+**Usage in your Renderer.jsx:**
+```javascript
+useEffect(() => {
+  if (previewRef.current) {
+    MermaidService.render(previewRef.current);
+  }
+}, [html, theme]);
+```
+
+**Summary:**
+- This approach caches rendered diagrams and only re-renders when needed.
+- It updates the DOM in place, just like your syntax highlighting service.
+- Handles errors and marks processed diagrams to avoid duplicate work.
+
+Let me know if you want to add cache invalidation or further optimizations!
+*/
+
+
 
   async renderDiagrams(
     previewEl,
@@ -140,5 +190,5 @@ class MermaidManager {
   }
 }
 
-const mermaidManager = new MermaidManager();
-export default mermaidManager;
+
+export default new MermaidService();
