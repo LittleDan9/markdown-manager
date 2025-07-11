@@ -6,7 +6,7 @@ import {
   addCategory,
   fetchCategories,
   deleteCategory,
-} from "../../js/api/categories";
+} from "../../js/api/categoriesApi";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } =

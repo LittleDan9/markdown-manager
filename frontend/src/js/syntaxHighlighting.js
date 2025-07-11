@@ -3,6 +3,7 @@
  */
 
 import config from "./config.js";
+import { highlight, isLanguageSupported } from "./api/highlightingApi.js";
 
 class SyntaxHighlightingService {
   constructor() {
@@ -35,33 +36,15 @@ class SyntaxHighlightingService {
     }
 
     try {
-      const response = await fetch(`${this.apiBase}/highlight/highlight`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          code: code,
-          language: language,
-          tokens: "prism", // Use 'prism' to get Prism.js compatible tokens
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
+      const result = await highlight(code, language);
 
       // Cache the result
-      this.cache.set(cacheKey, result.highlighted_code);
+      this.cache.set(cacheKey, result);
 
       // Update supported languages cache
-      if (result.is_supported) {
-        this.supportedLanguages.add(language.toLowerCase());
-      }
+      this.supportedLanguages.add(language.toLowerCase());
 
-      return result.highlighted_code;
+      return result;
     } catch (error) {
       console.warn(
         `Failed to highlight code for language '${language}':`,
@@ -90,47 +73,19 @@ class SyntaxHighlightingService {
     }
 
     try {
-      const response = await fetch(
-        `${this.apiBase}/highlight/languages/${encodeURIComponent(language)}/check`,
-      );
+     const isSupported = await isLanguageSupported(language);
 
-      if (!response.ok) {
-        return false;
-      }
-
-      const result = await response.json();
-
-      if (result.is_supported) {
+      if (isSupported) {
         this.supportedLanguages.add(langLower);
       }
 
-      return result.is_supported;
+      return isSupported;
     } catch (error) {
       console.warn(
         `Failed to check language support for '${language}':`,
         error,
       );
       return false;
-    }
-  }
-
-  /**
-   * Get all available languages
-   * @returns {Promise<Object>} - Object mapping language aliases to full names
-   */
-  async getAvailableLanguages() {
-    try {
-      const response = await fetch(`${this.apiBase}/highlight/languages`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-      return result.languages;
-    } catch (error) {
-      console.warn("Failed to get available languages:", error);
-      return {};
     }
   }
 

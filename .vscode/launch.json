@@ -13,7 +13,6 @@
             "sourceMaps": true,
             "trace": true,
             "preLaunchTask": "dev-frontend",
-            "postDebugTask": "kill-dev-frontend"
         },
         {
             "name": "Python Debugger: FastAPI",
