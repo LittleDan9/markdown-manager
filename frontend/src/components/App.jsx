@@ -13,16 +13,16 @@ function App() {
     <ThemeProvider>
       <ThemeEffects />
       <NotificationProvider>
-      <div>
-        <Header />
-        <Toolbar />
-        <div id="container">
-          <div id="main">
-            <Editor value={content} onChange={setContent} />
-            <Renderer content={content} />
+        <div id="appRoot" className="app-root">
+          <div id="container">
+            <Header />
+            <Toolbar />
+            <div id="main">
+              <Editor value={content} onChange={setContent} />
+              <Renderer content={content} />
+            </div>
           </div>
         </div>
-      </div>
       </NotificationProvider>
     </ThemeProvider>
   );
