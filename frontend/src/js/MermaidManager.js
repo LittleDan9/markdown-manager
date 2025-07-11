@@ -36,10 +36,12 @@ class MermaidManager {
 
   async renderDiagrams(
     previewEl,
+    theme,
     existingMermaidDiagrams = new Map(),
     isInitialRender = false,
     forceRender = false,
   ) {
+    await this.updateTheme(theme);
     const mermaidElements = previewEl.querySelectorAll(
       ".mermaid[data-mermaid-source]",
     );
@@ -62,8 +64,7 @@ class MermaidManager {
       return;
     const attachedDiagrams = diagramsToRender.filter(
       (el) =>
-        document.body.contains(el) &&
-        el.offsetParent !== null &&
+        previewEl.contains(el) &&
         !el.hasAttribute("data-processed") &&
         el.textContent.trim().length > 0,
     );
@@ -79,7 +80,7 @@ class MermaidManager {
         await mermaid.run({
           querySelector: ".mermaid:not([data-processed='false'])",
           suppressErrors: false,
-        });
+        }, previewEl);
       }
       attachedDiagrams.forEach((el) => {
         const svg = el.querySelector("svg");

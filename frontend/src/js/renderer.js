@@ -55,9 +55,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   `;
 };
 
-export async function renderMarkdownToHtml(prevContent, content, theme){
-  await mermaidManager.updateTheme(theme);
-
+export async function renderMarkdownToHtml(prevContent, content){
   const parser = new DOMParser();
   const prevPreviewDoc = parser.parseFromString(prevContent, "text/html");
 
@@ -74,17 +72,6 @@ export async function renderMarkdownToHtml(prevContent, content, theme){
     }
   });
 
-
-  // Find Existing Mermaid Diagrams in Previous Content
-  const existingMermaidDiagrams = new Map();
-  const existingMermaidElements = prevPreviewDoc.querySelectorAll(".mermaid[data-mermaid-source]")
-  existingMermaidElements.forEach((el) => {
-    const source = decodeURIComponent(el.dataset.mermaidSource || "");
-    if (source && el.querySelector("svg")) {
-      existingMermaidDiagrams.set(source, el.innerHTML);
-    }
-  });
-
   const newPreview = md.render(content)
 
   const newPreviewDoc = parser.parseFromString(newPreview, "text/html");
@@ -98,10 +85,10 @@ export async function renderMarkdownToHtml(prevContent, content, theme){
         const key = `${lang}:${code}`;
         if (existingHighlights.has(key)) {
           codeElement.innerHTML = existingHighlights.get(key)
-        } else if (this.recentlyHighlighted.has(key)) {
-          codeElement.innerHTML = this.recentlyHighlighted.get(key).html;
+        } else if (recentlyHighlighted.has(key)) {
+          codeElement.innerHTML = recentlyHighlighted.get(key).html;
         } else {
-          const similarHighlight = findsSimilarHighlight(code, land);
+          const similarHighlight = findSimilarHighlight(code, lang);
           if (similarHighlight) {
             codeElement.innerHTML = similarHighlight;
           }
@@ -118,12 +105,8 @@ export async function renderMarkdownToHtml(prevContent, content, theme){
         await performSyntaxHighlighting(newPreviewDoc);
       }, SYNTAX_HIGHLIGHT_DELAY);
     }
-    await mermaidManager.renderDiagrams(
-      newPreviewDoc,
-      existingMermaidDiagrams,
-      true, // Initial render
-      false, // Don't force render
-    );
+
+
     return newPreviewDoc.body.innerHTML;
   } catch (e) {
     console.error("Error rendering markdown:", e);
