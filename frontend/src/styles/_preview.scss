@@ -7,6 +7,30 @@
   margin-right: calc(1rem); // Match the previewContainer padding
 }
 
+#previewContainer {
+  #preview {
+    .preview-scroll {
+      blockquote {
+        color: #6c757d;
+        border-left: 4px solid #dee2e6;
+        background-color: #f8f9fa;
+        padding: 1rem;
+        margin: 1rem 0;
+        border-radius: 8px;;
+        p {
+          margin: 0;
+        }
+      }
+    }
+  }
+}
+
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll blockquote {
+  color: #cccccc;
+  border-left: 4px solid #666;
+  background-color: #2d2d2d;
+}
+
 // PDF Export styling for different themes
 .pdf-export-mode {
   // Dark mode with good contrast
