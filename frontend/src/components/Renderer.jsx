@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
-import { renderMarkdownToHtml } from "../js/renderer";
+import { render } from "../js/renderer";
 import { useTheme } from "../context/ThemeContext";
-import { setPrismTheme } from "../js/prismTheme";
-import mermaidManager from "../js/MermaidManager";
+import MermaidService from "../js/MermaidService";
+import HighlightService from "../js/HighlightService";
 
 function Renderer({ content }) {
   const { theme } = useTheme();
@@ -10,15 +10,13 @@ function Renderer({ content }) {
   const prevHtmlRef = useRef("");
   const previewRef = useRef(null);
 
+  // Render Markdown to HTML
   useEffect(() => {
-    const updateHtml = async () => {
-      const renderedHtml = await renderMarkdownToHtml(prevHtmlRef.current, content);
-      setHtml(renderedHtml);
-      prevHtmlRef.current = content;
-    };
-    updateHtml();
+    setHtml(render(content));
+    prevHtmlRef.current = content;
   }, [content]);
 
+  // Process any new mermaid diagrams
   useEffect(() => {
     if (previewRef.current) {
       // Find Existing Mermaid Diagrams in Previous Content
@@ -31,8 +29,7 @@ function Renderer({ content }) {
         }
       });
       const updateMermaids = async () => {
-        await mermaidManager.updateTheme(theme);
-        await mermaidManager.renderDiagrams(
+        await MermaidService.renderDiagrams(
           previewRef.current,
           theme,
           existingMermaidDiagrams,
@@ -43,6 +40,12 @@ function Renderer({ content }) {
       updateMermaids();
     }
   }, [html, theme]);
+
+  useEffect(() => {
+    if (previewRef.current) {
+      HighlightService.highlight(previewRef.current);
+    }
+  }, [html]);
   return (
     <div id="previewContainer">
       <div id="preview" ref={previewRef}>
