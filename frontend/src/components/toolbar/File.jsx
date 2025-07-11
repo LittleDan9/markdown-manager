@@ -7,7 +7,7 @@ import {
   fetchCategories,
   deleteCategory,
   addCategory,
-} from "../../js/api/categories";
+} from "../../js/api/categoriesApi";
 
 function FileDropdown({ setDocumentTitle }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } =

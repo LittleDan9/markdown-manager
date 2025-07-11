@@ -4,7 +4,7 @@ import syntaxHighlightingService from "./syntaxHighlighting.js";
 
 // Debounce timer for syntax highlighting
 let syntaxHighlightingTimer = null;
-const SYNTAX_HIGHLIGHT_DELAY = 500; // ms
+const SYNTAX_HIGHLIGHT_DELAY = 200; // ms
 
 // Track recently highlighted blocks to preserve them during typing
 const recentlyHighlighted = new Map();

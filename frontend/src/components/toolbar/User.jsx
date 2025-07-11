@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Dropdown } from "react-bootstrap";
 import LoginModal from "../modals/LoginModal";
 import VerifyMFAModal from "../modals/VerifyMFAModal";
-import UserAPI from "../../js/api/user";
+import UserAPI from "../../js/api/userApi";
 import { useNotification } from "../NotificationProvider";
 
 
