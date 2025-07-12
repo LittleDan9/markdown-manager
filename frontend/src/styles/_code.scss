@@ -79,6 +79,16 @@
 }
 
 // Style Prism.js code blocks
+div[class*="language-"] {
+  background: hsl(230, 1%, 98%);
+  color: hsl(230, 8%, 24%);
+  padding: 1rem;
+  [data-bs-theme="dark"] & {
+    background: hsl(220, 13%, 18%);
+    color: hsl(220, 14%, 71%);
+  }
+
+}
 pre[class*="language-"] {
   margin: 0 !important;
   padding: 1rem;

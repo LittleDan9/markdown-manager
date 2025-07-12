@@ -107,9 +107,9 @@ function UserToolbar({ handleThemeToggle, theme }) {
         <Dropdown.Item id="themeToggleBtn" onClick={handleThemeToggle}>
           <i
             id="themeIcon"
-            className={`bi me-2 ${theme === "light" ? "bi-sun-fill" : "bi-moon-fill"}`}
+            className={`bi me-2 ${theme === "dark" ? "bi-sun-fill" : "bi-moon-fill"}`}
           ></i>
-          <span id="themeText">{theme === "light" ? "Light Theme" : "Dark Theme"}</span>
+          <span id="themeText">{theme === "dark" ? "Light Theme" : "Dark Theme"}</span>
         </Dropdown.Item>
       </Dropdown.Menu>
     </Dropdown>
