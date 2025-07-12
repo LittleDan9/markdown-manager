@@ -1,5 +1,5 @@
 import mermaid from "mermaid";
-import MarkdownIt from "markdown-it";
+// import MarkdownIt from "markdown-it";
 
 class MermaidService {
   constructor() {
@@ -31,8 +31,23 @@ class MermaidService {
 
   async updateTheme(theme) {
     if (theme !== this.theme) {
+      this.diagramCache.clear();
+      this.theme = theme;
+      console.log(`Mermaid theme updated to: ${theme}`);
       await this.init(theme);
     }
+  }
+
+  isEmptyMermaidSVG(svgHtml) {
+    const parser = new DOMParser();
+    const svgElement = parser.parseFromString(svgHtml, "image/svg+xml").documentElement;
+    // Look for .nodes or .edgePaths with children
+    const nodes = svgElement.querySelector('.nodes');
+    const edges = svgElement.querySelector('.edgePaths');
+    return (
+      (!nodes || !nodes.children.length) &&
+      (!edges || !edges.children.length)
+    );
   }
 
   async render(previewElement) {
@@ -55,140 +70,38 @@ class MermaidService {
           `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           diagramSource
         );
+
+        if (this.isEmptyMermaidSVG(svg)) {
+          this.showError(block, "Diagram is empty or invalid.");
+          return;
+        }
+
         block.innerHTML = svg;
+        const svgElement = block.querySelector("svg");
+        if (svgElement) {
+          svgElement.setAttribute("width", "100%");
+          svgElement.removeAttribute("height");
+          svgElement.style.maxWidth = "100%";
+          svgElement.style.height = "auto";
+        }
         block.setAttribute("data-processed", "true");
-       this.diagramCache.set(diagramSource, svg);
+        this.diagramCache.set(diagramSource, svgElement.outerHTML);
       } catch (error) {
         this.showError(block, error.message || "Failed to render diagram");
       }
-  }
-}
-
-/*
-**Usage in your Renderer.jsx:**
-```javascript
-useEffect(() => {
-  if (previewRef.current) {
-    MermaidService.render(previewRef.current);
-  }
-}, [html, theme]);
-```
-
-**Summary:**
-- This approach caches rendered diagrams and only re-renders when needed.
-- It updates the DOM in place, just like your syntax highlighting service.
-- Handles errors and marks processed diagrams to avoid duplicate work.
-
-Let me know if you want to add cache invalidation or further optimizations!
-*/
-
-
-
-  async renderDiagrams(
-    previewEl,
-    theme,
-    existingMermaidDiagrams = new Map(),
-    isInitialRender = false,
-    forceRender = false,
-  ) {
-    await this.updateTheme(theme);
-    const mermaidElements = previewEl.querySelectorAll(
-      ".mermaid[data-mermaid-source]",
-    );
-    if (mermaidElements.length === 0) return;
-    const diagramsToRender = [];
-    mermaidElements.forEach((element) => {
-      const diagramSource = decodeURIComponent(
-        element.dataset.mermaidSource || "",
-      );
-      if (
-        diagramSource &&
-        (forceRender || !existingMermaidDiagrams.has(diagramSource))
-      ) {
-        diagramsToRender.push(element);
-      } else if (diagramSource && existingMermaidDiagrams.has(diagramSource)) {
-        element.innerHTML = existingMermaidDiagrams.get(diagramSource);
-      }
-    });
-    if (diagramsToRender.length === 0 && !isInitialRender && !forceRender)
-      return;
-    const attachedDiagrams = diagramsToRender.filter(
-      (el) =>
-        previewEl.contains(el) &&
-        !el.hasAttribute("data-processed") &&
-        el.textContent.trim().length > 0,
-    );
-    attachedDiagrams.forEach((el) => {
-      el.style.visibility = "visible";
-      const existingError = el.parentElement?.querySelector(
-        ".mermaid-error-indicator",
-      );
-      if (existingError) existingError.remove();
-    });
-    try {
-      if (attachedDiagrams.length > 0) {
-        await mermaid.run({
-          querySelector: ".mermaid:not([data-processed='false'])",
-          suppressErrors: false,
-        }, previewEl);
-      }
-      attachedDiagrams.forEach((el) => {
-        const svg = el.querySelector("svg");
-        if (svg) {
-          svg.setAttribute("width", "100%");
-          svg.removeAttribute("height");
-          svg.style.maxWidth = "100%";
-          svg.style.height = "auto";
-        }
-      });
-    } catch (mermaidError) {
-      attachedDiagrams.forEach((el) => {
-        el.removeAttribute("data-processed");
-        if (!el.querySelector("svg")) {
-          this.showError(
-            el,
-            mermaidError.message || "Failed to render diagram",
-          );
-        }
-      });
     }
   }
 
+  /**
+   * Show error message in the Mermaid block
+   * @param {HTMLElement} mermaidElement - The Mermaid block element
+   * @param {string} errorMessage - The error message to display
+   */
   showError(mermaidElement, errorMessage) {
-    const errorIndicator = document.createElement("div");
-    errorIndicator.className = "mermaid-error-indicator";
-    errorIndicator.innerHTML = `
-        <div class="alert alert-warning alert-dismissible fade show" role="alert" style="
-            position: relative;
-            margin-bottom: 0.5rem;
-            font-size: 0.875rem;
-            padding: 0.5rem 0.75rem;
-            border-left: 4px solid #f0ad4e;
-        ">
-            <i class="bi bi-exclamation-triangle me-2"></i>
-            <strong>Diagram Error:</strong> ${errorMessage}
-        </div>
-    `;
-    mermaidElement.parentElement?.insertBefore(errorIndicator, mermaidElement);
-    if (!mermaidElement || !mermaidElement.dataset) return;
-    const originalSource = decodeURIComponent(
-      mermaidElement.dataset.mermaidSource || mermaidElement.textContent,
-    );
-    mermaidElement.innerHTML = `
-        <div class="code-block">
-            <div class="code-block-header">
-                <span class="code-block-lang">MERMAID</span>
-                <button class="code-block-copy-btn" data-prismjs-copy>
-                    <i class="bi bi-clipboard" aria-label="Copy"></i>
-                </button>
-            </div>
-            <pre class="language-mermaid" style="margin: 0;"><code>${MarkdownIt().utils.escapeHtml(originalSource)}</code></pre>
-        </div>
-    `;
-    mermaidElement.classList.remove("mermaid");
-    mermaidElement.removeAttribute("data-mermaid-source");
+    const textContent = mermaidElement.querySelector(".language-mermaid")
+    textContent.innerHTML = `<code class="text-warning">${errorMessage}</code>`;
+    this.diagramCache.set(mermaidElement.dataset.mermaidSource, mermaidElement.outerHTML);
   }
 }
-
 
 export default new MermaidService();

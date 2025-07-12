@@ -16,8 +16,8 @@ function Toolbar() {
     const themeTextUser = document.getElementById("themeTextUser");
 
     const iconClass =
-      theme === "dark" ? "bi bi-moon-fill me-2" : "bi bi-sun-fill me-2";
-    const textContent = theme === "dark" ? "Dark Theme" : "Light Theme";
+      theme === "light" ? "bi bi-moon-fill me-2" : "bi bi-sun-fill me-2";
+    const textContent = theme === "light" ? "Dark Theme" : "Light Theme";
 
     if (themeIcon && themeText) {
       themeIcon.className = iconClass;

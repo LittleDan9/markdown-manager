@@ -18,31 +18,18 @@ function Renderer({ content }) {
 
   // Process any new mermaid diagrams
   useEffect(() => {
-    if (previewRef.current) {
-      // Find Existing Mermaid Diagrams in Previous Content
-      const existingMermaidDiagrams = new Map();
-      const existingMermaidElements = previewRef.current.querySelectorAll(".mermaid[data-mermaid-source]")
-      existingMermaidElements.forEach((el) => {
-        const source = decodeURIComponent(el.dataset.mermaidSource || "");
-        if (source && el.querySelector("svg")) {
-          existingMermaidDiagrams.set(source, el.innerHTML);
-        }
-      });
-      const updateMermaids = async () => {
-        await MermaidService.renderDiagrams(
-          previewRef.current,
-          theme,
-          existingMermaidDiagrams,
-          true, // Initial render
-          false, // Don't force render
-        );
-      };
-      updateMermaids();
+    if (previewRef.current && previewRef.current.querySelectorAll("[data-mermaid-source][data-processed='false']").length > 0) {
+      MermaidService.render(previewRef.current);
     }
-  }, [html, theme]);
+  }, [html]);
 
   useEffect(() => {
-    if (previewRef.current) {
+    MermaidService.updateTheme(theme);
+    MermaidService.render(previewRef.current);
+  }, [theme]);
+
+  useEffect(() => {
+    if (previewRef.current && previewRef.current.querySelectorAll("[data-syntax-placeholder][data-processed='false']").length > 0) {
       HighlightService.highlight(previewRef.current);
     }
   }, [html]);
