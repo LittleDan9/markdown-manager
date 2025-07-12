@@ -49,15 +49,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   if (highlightedCode){
     codeBlock = `<pre class="language-${lang}" data-processed="true" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${highlightedCode}</code></pre>`
   } else {
-    codeBlock = `<pre
-      class="language-${lang}"
-      data-processed="false"
-      data-syntax-placeholder="${placeholderId}"
-      data-code="${encodeURIComponent(token.content)}"
-      data-lang="${lang}"
-    >
-      <code>${MarkdownIt().utils.escapeHtml(token.content)}</code>
-    </pre>`
+    codeBlock = `<pre class="language-${lang}" data-processed="false" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>`
   }
 
 
