@@ -76,16 +76,16 @@ class MermaidService {
           return;
         }
 
-        block.innerHTML = svg;
+        block.innerHTML = `<div class="d-flex justify-content-center">${svg}</div>`;
         const svgElement = block.querySelector("svg");
         if (svgElement) {
           svgElement.setAttribute("width", "100%");
           svgElement.removeAttribute("height");
-          svgElement.style.maxWidth = "100%";
+          svgElement.style.maxWidth = "86%";
           svgElement.style.height = "auto";
         }
         block.setAttribute("data-processed", "true");
-        this.diagramCache.set(diagramSource, svgElement.outerHTML);
+        this.diagramCache.set(diagramSource, svgElement.parentNode.outerHTML);
       } catch (error) {
         this.showError(block, error.message || "Failed to render diagram");
       }
