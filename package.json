@@ -22,5 +22,9 @@
     "vue"
   ],
   "author": "Dan Little",
-  "license": "ISC"
+  "license": "ISC",
+  "devDependencies": {
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3"
+  }
 }

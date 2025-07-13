@@ -73,7 +73,7 @@ async def verify_mfa_setup(
             detail="Invalid TOTP code",
         )
 
-    return {"message": "TOTP code verified successfully"}
+    return {"success": True, "message": "TOTP code verified successfully"}
 
 
 @router.post("/enable")
@@ -114,7 +114,7 @@ async def enable_mfa(
             detail="Failed to enable MFA",
         )
 
-    return {"message": "MFA enabled successfully"}
+    return {"success": True, "message": "MFA enabled successfully"}
 
 
 @router.post("/disable")
