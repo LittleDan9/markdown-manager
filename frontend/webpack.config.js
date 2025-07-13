@@ -56,13 +56,18 @@ module.exports = {
         type: 'asset/inline', // Inline SVG as data URL
       },
       {
+        test: /\.tsx?$/,
+        use: "ts-loader",
+        exclude: /node_modules/,
+      },
+      {
         test: /\.(woff|woff2|eot|ttf|otf)$/,
         type: 'asset/resource',
       },
     ],
   },
   resolve: {
-    extensions: ['.js', '.jsx'],
+    extensions: ['.js', '.jsx', '.tsx', '.ts'],
   },
   plugins: [
     new CompressionPlugin(),

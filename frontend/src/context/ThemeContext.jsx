@@ -4,6 +4,7 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 export const ThemeContext = createContext({
   theme: "light",
   setTheme: () => {},
+  toggleTheme: () => {},
 });
 
 export function ThemeProvider({ children }) {
@@ -19,6 +20,10 @@ export function ThemeProvider({ children }) {
 
   const [theme, setTheme] = useState(getInitialTheme);
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === "dark" ? "light" : "dark");
+  };
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     const handler = (event) => setTheme(event.matches ? "dark" : "light");
@@ -27,7 +32,7 @@ export function ThemeProvider({ children }) {
   }, []);
 
   return (
-    <ThemeContext.Provider value={{ theme, setTheme }}>
+    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
       {children}
     </ThemeContext.Provider>
   );
