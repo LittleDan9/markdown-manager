@@ -65,7 +65,7 @@ function VerifyMFAModal({ show, onHide, onVerify, onBack, loading: propLoading, 
           <Form.Group className="mb-3">
             <Form.Control
               type="text"
-              className="form-control-lg text-center"
+              className="form-control form-control-lg text-center"
               id="mfaLoginCode"
               placeholder="000000"
               maxLength={8}
