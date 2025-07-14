@@ -4,10 +4,10 @@ import ProfileInfoTab from "./ProfileInfoTab";
 import SecurityTab from "./SecurityTab";
 import MFATab from "./MFATab";
 import userApi from "../../js/api/userApi";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 
 function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab }) {
-  const { user, setUser } = useUser();
+  const { user, setUser } = useAuth();
   const [form, setForm] = useState({
     profileFirstName: user.first_name || "",
     profileLastName: user.last_name || "",

@@ -8,7 +8,7 @@ import PasswordResetModal from "../modals/PasswordResetModal";
 import RegisterModal from "../modals/RegisterModal";
 import UserAPI from "../../js/api/userApi";
 import { useNotification } from "../NotificationProvider";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();
@@ -18,7 +18,7 @@ function UserMenuLoggedOut() {
   const [mfaError, setMFAError] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
   const [pendingPassword, setPendingPassword] = useState("");
-  const { setUser } = useUser();
+  const { setUser } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [showRegister, setShowRegister] = useState(false);
   const [registerError, setRegisterError] = useState("");
