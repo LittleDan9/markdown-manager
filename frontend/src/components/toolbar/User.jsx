@@ -3,12 +3,12 @@ import { Dropdown } from "react-bootstrap";
 import { useNotification } from "../NotificationProvider";
 import UserMenuLoggedIn from "./UserMenuLoggedIn";
 import UserMenuLoggedOut from "./UserMenuLoggedOut";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 
 
 function UserToolbar({ handleThemeToggle, theme }) {
   const { showSuccess, showError } = useNotification();
-  const { user, setUser } = useUser();
+  const { user, setUser } = useAuth();
 
   return (
     <>

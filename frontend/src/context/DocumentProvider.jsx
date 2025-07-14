@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
-import AuthManager from "../js/auth/AuthManager";
+import { useAuth } from "./AuthProvider.jsx";
 import config from "../js/config";
 import { saveAs } from "file-saver";
 
@@ -11,6 +11,7 @@ const CATEGORIES_KEY = "documentCategories";
 const DocumentContext = createContext();
 
 export function DocumentProvider({ children }) {
+  const { token, user, isAuthenticated } = useAuth();
   // State
   const [currentDocument, setCurrentDocument] = useState({
     id: null,
@@ -29,16 +30,16 @@ export function DocumentProvider({ children }) {
       setLoading(true);
       setError("");
       try {
-        if (AuthManager.isAuthenticated()) {
+        if (isAuthenticated) {
           // Fetch from backend
           const docsRes = await fetch(`${config.apiBaseUrl}/documents/`, {
-            headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+            headers: { Authorization: `Bearer ${token}` },
           });
           const docs = docsRes.ok ? (await docsRes.json()).documents || [] : [];
           setDocuments(docs);
           // Fetch categories
           const catsRes = await fetch(`${config.apiBaseUrl}/documents/categories/`, {
-            headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+            headers: { Authorization: `Bearer ${token}` },
           });
           const cats = catsRes.ok ? await catsRes.json() : [DEFAULT_CATEGORY];
           setCategories(Array.isArray(cats) && cats.length ? cats : [DEFAULT_CATEGORY]);
@@ -63,7 +64,7 @@ export function DocumentProvider({ children }) {
       }
     }
     loadData();
-  }, [AuthManager.isAuthenticated()]);
+  }, [isAuthenticated, token]);
 
   // Save current document to backend or localStorage
   const saveDocument = useCallback(async (doc) => {
@@ -95,7 +96,7 @@ export function DocumentProvider({ children }) {
         setLoading(false);
         return;
       }
-      if (AuthManager.isAuthenticated()) {
+      if (isAuthenticated) {
         // Save to backend
         const method = doc.id ? "PUT" : "POST";
         const url = doc.id
@@ -105,7 +106,7 @@ export function DocumentProvider({ children }) {
           method,
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${AuthManager.getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             name: doc.name,
@@ -119,7 +120,7 @@ export function DocumentProvider({ children }) {
         localStorage.setItem("lastDocumentId", saved.id);
         // Refresh documents list
         const docsRes = await fetch(`${config.apiBaseUrl}/documents/`, {
-          headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         const docs = docsRes.ok ? (await docsRes.json()).documents || [] : [];
         setDocuments(docs);
@@ -172,9 +173,9 @@ export function DocumentProvider({ children }) {
     setLoading(true);
     setError("");
     try {
-      if (AuthManager.isAuthenticated()) {
+      if (isAuthenticated) {
         const res = await fetch(`${config.apiBaseUrl}/documents/${id}`, {
-          headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to load document");
         const doc = await res.json();
@@ -200,15 +201,15 @@ export function DocumentProvider({ children }) {
     setLoading(true);
     setError("");
     try {
-      if (AuthManager.isAuthenticated()) {
+      if (isAuthenticated) {
         const res = await fetch(`${config.apiBaseUrl}/documents/${id}`, {
           method: "DELETE",
-          headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         if (!res.ok) throw new Error("Failed to delete document");
         // Refresh documents list
         const docsRes = await fetch(`${config.apiBaseUrl}/documents/`, {
-          headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         const docs = docsRes.ok ? (await docsRes.json()).documents || [] : [];
         setDocuments(docs);
@@ -234,12 +235,12 @@ export function DocumentProvider({ children }) {
     setLoading(true);
     setError("");
     try {
-      if (AuthManager.isAuthenticated()) {
+      if (isAuthenticated) {
         const res = await fetch(`${config.apiBaseUrl}/documents/${id}`, {
           method: "PUT",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${AuthManager.getToken()}`,
+            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({ name: newName, category: newCategory }),
         });
@@ -248,7 +249,7 @@ export function DocumentProvider({ children }) {
         setCurrentDocument(doc);
         // Refresh documents list
         const docsRes = await fetch(`${config.apiBaseUrl}/documents/`, {
-          headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+          headers: { Authorization: `Bearer ${token}` },
         });
         const docs = docsRes.ok ? (await docsRes.json()).documents || [] : [];
         setDocuments(docs);
@@ -282,12 +283,12 @@ export function DocumentProvider({ children }) {
       return next;
     });
     // Optionally, call backend to add category if authenticated
-    if (AuthManager.isAuthenticated()) {
+    if (isAuthenticated) {
       await fetch(`${config.apiBaseUrl}/documents/categories/`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${AuthManager.getToken()}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name: trimmedName }),
       });
@@ -303,10 +304,10 @@ export function DocumentProvider({ children }) {
       return next;
     });
     // Optionally, call backend to delete category if authenticated
-    if (AuthManager.isAuthenticated()) {
+    if (isAuthenticated) {
       await fetch(`${config.apiBaseUrl}/documents/categories/${encodeURIComponent(category)}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${AuthManager.getToken()}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
     }
     // Reassign docs to General
@@ -411,12 +412,12 @@ export function DocumentProvider({ children }) {
       return next;
     });
     // Optionally, call backend to rename category if authenticated
-    if (AuthManager.isAuthenticated()) {
+    if (isAuthenticated) {
       await fetch(`${config.apiBaseUrl}/documents/categories/${encodeURIComponent(oldName)}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${AuthManager.getToken()}`,
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ name: trimmedNew }),
       });
@@ -450,6 +451,9 @@ export function DocumentProvider({ children }) {
     searchDocuments,
     hasUnsavedChanges,
     renameCategory,
+    user,
+    token,
+    isAuthenticated,
   };
 
   return (

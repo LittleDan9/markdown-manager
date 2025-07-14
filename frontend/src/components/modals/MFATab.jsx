@@ -4,7 +4,7 @@ import MFAModal from "./MFAModal";
 import BackupCodesSection from "./BackupCodesSection";
 import DisableMFASection from "./DisableMFASection";
 import userApi from "../../js/api/userApi";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 import { useNotification } from "../NotificationProvider";
 
 function MFATab({ setActiveTab }) {
@@ -15,7 +15,7 @@ function MFATab({ setActiveTab }) {
   const [step, setStep] = useState(1);
   const [backupCodes, setBackupCodes] = useState([]);
   const { showSuccess, showError } = useNotification();
-  const { user, setUser } = useUser();
+  const { user, setUser } = useAuth();
 
   // Enable MFA handler
   const handleEnableMFA = async () => {

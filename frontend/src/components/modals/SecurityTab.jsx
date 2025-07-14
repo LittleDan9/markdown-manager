@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import { Form, Card, Button, Alert } from "react-bootstrap";
 import MFAModal from "./MFAModal";
 import userApi from "../../js/api/userApi";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 import { useNotification } from "../NotificationProvider";
 import { set } from "lodash";
 
 function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubmit, setActiveTab }) {
-  const { user , setUser} = useUser();
+  const { user , setUser} = useAuth();
   const [showMFAModal, setShowMFAModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [loading, setLoading] = useState(false);

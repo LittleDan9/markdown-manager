@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
 import userApi from "../../js/api/userApi";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 import { useNotification } from "../NotificationProvider";
 
 function DisableMFASection({ setActiveTab }) {
-  const { user, setUser } = useUser();
+  const { user, setUser } = useAuth();
   const [showDisable, setShowDisable] = useState(false);
   const [disableLoading, setDisableLoading] = useState(false);
   const [disableError, setDisableError] = useState("");

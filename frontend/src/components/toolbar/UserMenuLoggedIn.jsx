@@ -3,13 +3,13 @@ import React, { useState } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
-import { useUser } from "../../context/UserContext";
+import { useAuth } from "../../context/AuthProvider.jsx";
 import UserSettingsModal from "../modals/UserSettingsModal";
 import { useTheme } from "../../context/ThemeContext";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
-  const { user, setUser } = useUser();
+  const { user, setUser } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();

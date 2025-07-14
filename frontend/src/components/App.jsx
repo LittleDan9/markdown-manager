@@ -6,8 +6,7 @@ import Renderer from "./Renderer";
 import { ThemeProvider } from "../context/ThemeContext";
 import ThemeEffects from "./ThemeEffects";
 import { NotificationProvider } from "./NotificationProvider";
-import { UserProvider } from "../context/UserContext";
-import AuthInitializer from "./AuthInitializer";
+import { AuthProvider } from "../context/AuthProvider.jsx";
 
 import { useDocument } from "../context/DocumentProvider";
 
@@ -20,8 +19,6 @@ function App() {
   }, [currentDocument?.content]);
   return (
     <ThemeProvider>
-      <UserProvider>
-        <AuthInitializer />
         <ThemeEffects />
         <NotificationProvider>
           <div id="appRoot" className="app-root">
@@ -46,7 +43,6 @@ function App() {
             </div>
           </div>
         </NotificationProvider>
-      </UserProvider>
     </ThemeProvider>
   );
 }
