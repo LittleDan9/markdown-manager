@@ -110,12 +110,14 @@ async def request_password_reset(
     # Save token to database
     await crud_user.create_password_reset_token(db, request_data.email, token, expires)
 
-    # SMTP configuration (fill in these values in production)
-    SMTP_HOST = "smtp.example.com"
-    SMTP_PORT = 587
-    SMTP_USER = "your_smtp_user"
-    SMTP_PASS = "your_smtp_password"
-    FROM_EMAIL = "noreply@example.com"
+    # SMTP configuration (from environment variables)
+    import os
+
+    SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.example.com")
+    SMTP_PORT = int(os.environ.get("SMTP_PORT", 587))
+    SMTP_USER = os.environ.get("SMTP_USER", "your_smtp_user")
+    SMTP_PASS = os.environ.get("SMTP_PASS", "your_smtp_password")
+    FROM_EMAIL = os.environ.get("FROM_EMAIL", "noreply@littledan.com")
 
     # Compose reset link
     reset_link = f"https://yourdomain.com/reset-password?reset_token={token}"
