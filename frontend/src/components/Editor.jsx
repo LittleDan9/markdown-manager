@@ -1,9 +1,6 @@
-import React, { use, useEffect, useRef } from "react";
-import editorSingleton from "../js/editor";
-import renderer from "../js/renderer";
-import { documentManager } from "../js/DocumentManager";
+import React, { useEffect, useRef } from "react";
+import EditorSingleton from "../js/Editor";
 import { useTheme } from "../context/ThemeContext";
-import { EDITOR_KEY } from "../js/constants";
 
 function Editor({ value, onChange }) {
   const editorRef = useRef(null);
@@ -13,7 +10,7 @@ function Editor({ value, onChange }) {
   // Initialize Monaco on mount
   useEffect(() => {
     if (editorRef.current && !monacoInstanceRef.current) {
-        editorSingleton.setup(editorRef.current, value, theme).then((instance) => {
+        EditorSingleton.setup(editorRef.current, value, theme).then((instance) => {
           monacoInstanceRef.current = instance;
           instance.onDidChangeModelContent(() => {
             const newValue = instance.getValue();
@@ -34,7 +31,7 @@ function Editor({ value, onChange }) {
   // Update Monaco when them changes
   useEffect(() => {
     if (monacoInstanceRef.current) {
-      editorSingleton.applyTheme(theme);
+      EditorSingleton.applyTheme(theme);
     }
   }, [theme]);
 

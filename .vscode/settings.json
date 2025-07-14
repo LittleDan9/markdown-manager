@@ -1,3 +1,18 @@
 {
-    "editor.tabSize": 2
+    "editor.tabSize": 2,
+    "files.watcherExclude": {
+        "**/node_modules/**": true,
+        "**/.git/**": true,
+        "**/build/**": true,
+        "**/.cache/**": true,
+        "**/ramcache/**": true
+    },
+    "typescript.tsserver.maxTsServerMemory": 4096,
+    "search.exclude": {
+    "**/ramcache/**": true
+    },
+    // completely disable Python analysis & linting across the entire workspace
+    "python.analysis.enabled": false,
+    "python.linting.enabled": false,
+    "python.testing.pytestEnabled": false
 }

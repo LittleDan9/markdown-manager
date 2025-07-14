@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { Dropdown, ButtonGroup } from "react-bootstrap";
 import ConfirmModal from "../modals/ConfirmModal";
-import { documentManager } from "../../js/DocumentManager";
+import DocumentService from "../../js/services/DocumentService";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
 import {
   fetchCategories,
@@ -14,10 +14,10 @@ function FileDropdown({ setDocumentTitle }) {
     useConfirmModal();
 
   const handleNew = () => {
-    if (documentManager.hasUnsavedChanges()) {
+    if (DocumentService.hasUnsavedChanges()) {
       openModal(
         async () => {
-          const document = documentManager.createNewDocument();
+          const document = DocumentService.createNewDocument();
           setDocumentTitle(document.name);
         },
         {
@@ -38,7 +38,7 @@ function FileDropdown({ setDocumentTitle }) {
 
     console.log("here");
     async function doCreateDocument() {
-      const document = await documentManager.createNewDocument();
+      const document = await DocumentService.createNewDocument();
       setDocumentTitle(document.name);
     }
     doCreateDocument();

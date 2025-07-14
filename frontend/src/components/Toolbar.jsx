@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import editor from '../js/editor';
 import { Dropdown, ButtonGroup } from 'react-bootstrap';
 import { useTheme } from '../context/ThemeContext';
-import { documentManager } from '../js/DocumentManager';
+import DocumentService from '../js/services/DocumentService';
 
 
 
@@ -11,7 +11,7 @@ function Toolbar() {
 
     // File Menu Events
     const handleNew = () => {
-      if (documentManager.hasUnsavedChanges()) {
+      if (DocumentService.hasUnsavedChanges()) {
         if (
           !confirm(
             "You have unsaved changes. Do you want to continue without saving?",
@@ -21,9 +21,9 @@ function Toolbar() {
         }
       }
 
-      documentManager.createNewDocument();
+      DocumentService.createNewDocument();
       editor.getInstance().setValue("");
-      documentManager.updateDocumentTitle();
+      DocumentService.updateDocumentTitle();
     }
 
     const handleOpen = () => {

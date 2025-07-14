@@ -30,7 +30,9 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword }) {
 
   const handleForgot = (e) => {
     e.preventDefault();
+    console.log("p-"+ email);
     if (onForgotPassword) onForgotPassword(email);
+    onHide();
   };
 
   const handleClose = () => {

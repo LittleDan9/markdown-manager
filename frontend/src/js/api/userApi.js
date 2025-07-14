@@ -1,6 +1,14 @@
 import config from "../config";
 
 class UserAPI {
+  // Verify password reset code (for step 2 in password reset flow)
+  async verifyResetCode(email, code) {
+    const response = await this.#apiCall("/auth/password-reset-verify", "POST", { email, code });
+    if (!response.ok) {
+      return { success: false, message: await response.text() };
+    }
+    return await response.json();
+  }
   constructor() {
     this.apiBase = config.apiBaseUrl;
     this.token = localStorage.getItem("authToken");
@@ -69,9 +77,17 @@ class UserAPI {
   }
 
   async resetPassword(email) {
-    const response = await this.#apiCall("auth/password-reset-request", "POST", { email });
+    const response = await this.#apiCall("/auth/password-reset-request", "POST", { email });
     if (!response.ok) {
       throw new Error("Password reset failed");
+    }
+    return await response.json();
+  }
+
+  async resetPasswordVerify(token, newPassword) {
+    const response = await this.#apiCall("/auth/password-reset-confirm", "POST", { token, new_password: newPassword });
+    if (!response.ok) {
+      throw new Error("Password reset verification failed");
     }
     return await response.json();
   }

@@ -22,6 +22,10 @@ module.exports = {
   module: {
     rules: [
       {
+        test: /\.ico$/,
+        type: 'asset/resource',
+      },
+      {
         test: /\.(js|jsx)$/,
         exclude: /node_modules/,
         use: {
@@ -87,6 +91,10 @@ module.exports = {
         {
           from: 'public/prism-themes',
           to: 'prism-themes',
+        },
+        {
+          from: 'src/assets/favicon.ico',
+          to: 'favicon.ico',
         },
       ],
     }),

@@ -1,0 +1,25 @@
+// frontend/jsconfig.json
+{
+  "compilerOptions": {
+    "allowJs": true,          // so it knows about .js files
+    "checkJs": false,         // ✋ turn off JS type-checking
+    "jsx": "react-jsx",       // for your React files
+    "module": "esnext",
+    "target": "es2020",
+    "moduleResolution": "node",
+    "baseUrl": "./src",       // if you use absolute imports
+    "paths": {
+      "@/*": ["*"]
+    },
+    "skipLibCheck": true,     // don’t type-check node_modules
+    "noEmit": true            // no build output
+  },
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "build",
+    "../backend"
+  ]
+}
