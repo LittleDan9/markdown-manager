@@ -11,21 +11,33 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
   const [newCategory, setNewCategory] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
-  const [titleInput, setTitleInput] = useState(documentTitle || "Untitled Document");
+  const [titleInput, setTitleInput] = useState(currentDocument.name || "Untitled Document");
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
 
-  const handleTitleClick = () => async () => {
-    setDocumentTitle(documentTitle || "Untitled Document");
+  // Keep titleInput in sync with currentDocument.name
+  useEffect(() => {
+    setTitleInput(currentDocument.name || "Untitled Document");
+  }, [currentDocument.name]);
+
+  const handleTitleClick = () => () => {
+    setTitleInput(currentDocument.name || "Untitled Document");
     setEditingTitle(true);
   };
 
   const handleTitleChange = (e) => setTitleInput(e.target.value);
-  const handleTitleBlur = () => {
+  const { renameDocument } = useDocument();
+  const handleTitleBlur = async () => {
     setEditingTitle(false);
-    if (titleInput.trim() && titleInput !== documentTitle) {
-      setDocumentTitle(titleInput.trim());
+    const newTitle = titleInput.trim();
+    if (newTitle && newTitle !== currentDocument.name) {
+      // Update document name in context and backend/localStorage
+      if (currentDocument.id) {
+        await renameDocument(currentDocument.id, newTitle, currentDocument.category);
+      } else {
+        setDocumentTitle(newTitle);
+      }
     }
   };
 
@@ -227,7 +239,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
           onClick={handleTitleClick()}
           style={{ minWidth: 60, display: "inline-block" }}
         >
-          {documentTitle || "Untitled Document"}
+          {currentDocument.name || "Untitled Document"}
         </span>
       )}
       <span className="vr opacity-50 mx-2"></span>
