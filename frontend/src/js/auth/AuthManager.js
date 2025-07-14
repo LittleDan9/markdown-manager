@@ -2,7 +2,6 @@
 // Handles API calls, token management, and user state for authentication flows
 
 import config from "../config.js";
-import { documentUI, DocumentUIManager } from "../documentUI.js";
 
 class AuthManager {
   constructor() {

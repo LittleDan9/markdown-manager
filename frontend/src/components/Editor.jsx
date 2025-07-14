@@ -1,11 +1,15 @@
 import React, { useEffect, useRef } from "react";
 import EditorSingleton from "../js/Editor";
 import { useTheme } from "../context/ThemeContext";
+import useAutoSave from "../hooks/useAutoSave";
 
-function Editor({ value, onChange }) {
+function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnabled = true }) {
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
   const { theme } = useTheme();
+
+  // Integrate autosave hook
+  useAutoSave(currentDocument, saveDocument, autosaveEnabled);
 
   // Initialize Monaco on mount
   useEffect(() => {
