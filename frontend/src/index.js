@@ -11,6 +11,12 @@ import "./styles/main.scss";
 import "prism-themes/themes/prism-one-dark.css";
 import "prism-themes/themes/prism-one-light.css";
 
+import { DocumentProvider } from "./context/DocumentProvider";
+
 const container = document.getElementById("root");
 const root = createRoot(container);
-root.render(<App />);
+root.render(
+  <DocumentProvider>
+    <App />
+  </DocumentProvider>
+);

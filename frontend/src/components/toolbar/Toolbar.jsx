@@ -3,10 +3,16 @@ import FileDropdown from "./File";
 import DocumentToolbar from "./Document";
 import UserToolbar from "./User";
 import { useTheme } from "../../context/ThemeContext";
+import { useDocument } from "../../context/DocumentProvider";
+import { useNotification } from "../NotificationProvider";
 
-function Toolbar() {
+function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue }) {
   const { theme, setTheme } = useTheme();
-  const [documentTitle, setDocumentTitle] = useState("Untitled Document");
+  const { currentDocument, error } = useDocument();
+  const { showWarning } = useNotification();
+  const [documentTitle, setDocumentTitle] = useState(
+    currentDocument?.name || "Untitled Document"
+  );
 
   useEffect(() => {
     // Update theme icons for both guest and user menus
@@ -30,17 +36,28 @@ function Toolbar() {
     }
   });
 
+  useEffect(() => {
+    setDocumentTitle(currentDocument?.name || "Untitled Document");
+  }, [currentDocument?.name]);
+
   const handleThemeToggle = (e) => {
     e.preventDefault();
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
   };
+
   return (
     <nav id="toolbar" className="navbar navbar-expand-lg bg-body-tertiary px-3">
       <div className="d-flex align-items-center justify-content-between w-100">
         {/* Left side: File Menu & Document Title */}
         <div className="d-flex align-items-center gap-3">
-          <FileDropdown setDocumentTitle={setDocumentTitle} />
+          <FileDropdown
+            setDocumentTitle={setDocumentTitle}
+            autosaveEnabled={autosaveEnabled}
+            setAutosaveEnabled={setAutosaveEnabled}
+            setContent={setContent}
+            editorValue={editorValue}
+          />
           <div className="vr opacity-50"></div>
           <div className="d-flex align-items-center">
             <i className="bi bi-file-earmark-text me-2 text-muted"></i>

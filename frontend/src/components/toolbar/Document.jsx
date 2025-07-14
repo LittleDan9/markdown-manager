@@ -2,25 +2,19 @@ import React, { useEffect, useState } from "react";
 import ConfirmModal from "../modals/ConfirmModal";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
 import { Dropdown } from "react-bootstrap";
-import {
-  addCategory,
-  fetchCategories,
-  deleteCategory,
-} from "../../js/api/categoriesApi";
+import { useDocument } from "../../context/DocumentProvider";
+import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
-  const { show, modalConfig, openModal, handleConfirm, handleCancel } =
-    useConfirmModal();
-
-  // Categories
-  const [categories, setCategories] = useState(["General"]);
-  const [currentCategory, setCurrentCategory] = useState("General");
+  const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
+  const { categories, addCategory, deleteCategory, renameCategory, error, setCategories, currentDocument } = useDocument();
+  const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
   const [newCategory, setNewCategory] = useState("");
-  const [loadingCategories, setLoadingCategories] = useState(true);
   const [editingTitle, setEditingTitle] = useState(false);
-  const [titleInput, setTitleInput] = useState(
-    documentTitle || "Untitled Document",
-  );
+  const [titleInput, setTitleInput] = useState(documentTitle || "Untitled Document");
+  const [editingCategory, setEditingCategory] = useState(false);
+  const [categoryInput, setCategoryInput] = useState(currentCategory);
+  const [categoryError, setCategoryError] = useState("");
 
   const handleTitleClick = () => async () => {
     setDocumentTitle(documentTitle || "Untitled Document");
@@ -50,15 +44,6 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
       async () => {
         await deleteCategory(category);
         setCurrentCategory("General");
-        try {
-          const fetchedCategories = await fetchCategories();
-          let cats = fetchedCategories.filter(
-            (cat) => cat.trim().toLowerCase() !== "general",
-          );
-          setCategories(["General", ...cats]);
-        } catch (e) {
-          setCategories(["General"]);
-        }
       },
       {
         title: `Delete Category: ${category}`,
@@ -67,9 +52,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         cancelText: "Cancel",
         confirmVariant: "danger",
         cancelVariant: "secondary",
-        icon: (
-          <i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>
-        ),
+        icon: <i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>,
       },
     );
     return;
@@ -77,37 +60,65 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
 
   const handleAddCategory = async (category) => {
     if (!category) return;
+    await addCategory(category);
+    setCurrentCategory(category);
+    setNewCategory("");
+  };
 
-    try {
-      await addCategory(category);
-      setCategories((prev) => [...prev, category]);
-      setCurrentCategory(category);
-      setNewCategory("");
-    } catch (e) {
-      console.error("Failed to add category:", e);
+  // Category rename handlers
+  const handleCategoryLabelClick = () => {
+    setEditingCategory(true);
+    setCategoryInput(currentCategory);
+    setCategoryError("");
+  };
+
+  const handleCategoryInputChange = (e) => {
+    setCategoryInput(e.target.value);
+    setCategoryError("");
+  };
+
+  const handleCategoryInputBlur = () => {
+    setEditingCategory(false);
+    if (categoryInput.trim() && categoryInput !== currentCategory) {
+      openModal(
+        async () => {
+          const success = await renameCategory(currentCategory, categoryInput.trim());
+          if (success) {
+            setCurrentCategory(categoryInput.trim());
+            setCategoryError("");
+          } else {
+            setCategoryError(error || "Category name already exists or is invalid.");
+            setEditingCategory(true);
+          }
+        },
+        {
+          title: `Rename Category: ${currentCategory}`,
+          message: `Change category name to '${categoryInput.trim()}'?`,
+          confirmText: "Rename",
+          cancelText: "Cancel",
+          confirmVariant: "primary",
+          cancelVariant: "secondary",
+          icon: <i className="bi bi-pencil-square text-primary me-2"></i>,
+        },
+      );
     }
   };
 
-  useEffect(() => {
-    // Fetch categories from API
-    async function loadCategories() {
-      try {
-        const fetchedCategories = await fetchCategories();
-        let cats = fetchedCategories.filter(
-          (cat) => cat.trim().toLowerCase() !== "general",
-        );
-        setCategories(["General", ...cats]);
-      } catch (e) {
-        setCategories(["General"]);
-      } finally {
-        setLoadingCategories(false);
-      }
+  const handleCategoryInputKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleCategoryInputBlur();
+    } else if (e.key === "Escape") {
+      setEditingCategory(false);
+      setCategoryInput(currentCategory);
+      setCategoryError("");
     }
-    loadCategories();
-  }, []);
+  };
+
+  // Categories are now managed by context
   return (
     <>
-      {/* Category dropdown (display only, no change logic yet) */}
+      {/* Category dropdown with inline rename */}
       <Dropdown as="span" className="me-1">
         <Dropdown.Toggle
           size="sm"
@@ -115,42 +126,55 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
           id="categoryDropdown"
           className="dropdown-toggle d-flex align-items-center"
         >
-          {currentCategory}
+          {editingCategory ? (
+            <input
+              type="text"
+              className="form-control form-control-sm d-inline w-auto"
+              style={{ maxWidth: 160 }}
+              value={categoryInput}
+              onChange={handleCategoryInputChange}
+              onBlur={handleCategoryInputBlur}
+              onKeyDown={handleCategoryInputKeyDown}
+              autoFocus
+            />
+          ) : (
+            <span
+              className="cursor-pointer"
+              title="Click to rename category"
+              onClick={handleCategoryLabelClick}
+              style={{ minWidth: 60, display: "inline-block" }}
+            >
+              {currentCategory}
+            </span>
+          )}
         </Dropdown.Toggle>
         <Dropdown.Menu>
-          {loadingCategories ? (
-            <Dropdown.Item disabled>
-              <i className="bi bi-hourglass-split me-2"></i>Loading
-              categories...
+          {categories.map((category) => (
+            <Dropdown.Item
+              key={category}
+              active={category === currentCategory}
+              onClick={() => setCurrentCategory(category)}
+              className={`d-flex justify-content-between align-items-center
+                  ${category === currentCategory ? "text-bg-secondary" : ""}`}
+            >
+              <span className="text-truncate">{category}</span>
+              {category !== "General" && (
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 ms-2 text-danger"
+                  title={`Delete ${category}`}
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDeleteCategory(category);
+                  }}
+                  aria-label={`Delete ${category}`}
+                >
+                  <i className="bi bi-trash fw-bold"></i>
+                </button>
+              )}
             </Dropdown.Item>
-          ) : (
-            categories.map((category) => (
-              <Dropdown.Item
-                key={category}
-                active={category === currentCategory}
-                onClick={() => setCurrentCategory(category)}
-                className={`d-flex justify-content-between align-items-center
-                    ${category === currentCategory ? "text-bg-secondary" : ""}`}
-              >
-                <span className="text-truncate">{category}</span>
-                {category !== "General" && (
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm p-0 ms-2 text-danger"
-                    title={`Delete ${category}`}
-                    tabIndex={-1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDeleteCategory(category);
-                    }}
-                    aria-label={`Delete ${category}`}
-                  >
-                    <i className="bi bi-trash fw-bold"></i>
-                  </button>
-                )}
-              </Dropdown.Item>
-            ))
-          )}
+          ))}
           <Dropdown.Divider />
           <div className="px-1 py-2">
             <form
@@ -177,6 +201,9 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
                 </button>
               </div>
             </form>
+            {categoryError && (
+              <div className="text-danger small mt-1">{categoryError}</div>
+            )}
           </div>
         </Dropdown.Menu>
       </Dropdown>
@@ -203,6 +230,19 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
           {documentTitle || "Untitled Document"}
         </span>
       )}
+      <span className="vr opacity-50 mx-2"></span>
+      {currentDocument.name === "Untitled Document" && (
+        <span
+          className="me-2"
+          title="This document is only saved locally until you provide a title."
+          style={{ cursor: "pointer" }}
+        >
+          <i className="bi bi-exclamation-diamond text-danger"></i>
+        </span>
+      )}
+      <span className="text-muted small">
+        Last saved: {currentDocument.lastModified ? formatDistanceToNow(new Date(currentDocument.lastModified), { addSuffix: true }) : "Never"}
+      </span>
       <ConfirmModal
         show={show}
         onConfirm={handleConfirm}
