@@ -1,5 +1,4 @@
-import { documentManager, DEFAULT_CATEGORY } from "./DocumentManager";
-import NotificationManager from "./notifications.js";
+import DocumentService, { DEFAULT_CATEGORY } from "./services/DocumentService.js";
 
 /**
  * UI Manager for Document Management
@@ -137,7 +136,7 @@ export class DocumentUIManager {
       }
     }
 
-    documentManager.createNewDocument();
+    DocumentService.createNewDocument();
     this.editor.setValue("");
     this.updateDocumentTitle();
   }
@@ -150,7 +149,7 @@ export class DocumentUIManager {
       const content = this.editor.getValue();
 
       // Get current name from both manager and DOM (in case user edited title but didn't save it yet)
-      const managerName = documentManager.currentDocument.name;
+      const managerName = DocumentService.currentDocument.name;
       const titleElement = document.getElementById("documentTitle");
       const domTitle = titleElement
         ? titleElement.textContent.trim()
@@ -162,18 +161,18 @@ export class DocumentUIManager {
         domTitle &&
         domTitle !== "Untitled Document"
       ) {
-        documentManager.currentDocument.name = domTitle;
-        documentManager.saveCurrentDocument();
+        DocumentService.currentDocument.name = domTitle;
+        DocumentService.saveCurrentDocument();
       }
 
-      const currentName = documentManager.currentDocument.name;
-      const currentCategory = documentManager.currentDocument.category;
+      const currentName = DocumentService.currentDocument.name;
+      const currentCategory = DocumentService.currentDocument.category;
 
       // Always show Save As modal if:
       // 1. No ID (new document) AND (no name, empty name, or default name)
       // 2. No ID (new document) AND no category specified
       const shouldShowSaveAs =
-        !documentManager.currentDocument.id &&
+        !DocumentService.currentDocument.id &&
         (!currentName ||
           currentName.trim() === "" ||
           currentName === "Untitled Document" ||
@@ -186,17 +185,17 @@ export class DocumentUIManager {
       }
 
       // Show loading indicator
-      NotificationManager.showInfo("Saving document...");
+      // NotificationManager.showInfo("Saving document...");
 
       // If we have a name but no ID, create new document with that name
       if (
-        !documentManager.currentDocument.id &&
+        !DocumentService.currentDocument.id &&
         currentName &&
         currentName.trim() &&
         currentName !== "Untitled Document"
       ) {
         const categoryToUse = currentCategory || DEFAULT_CATEGORY;
-        const savedDoc = await documentManager.saveDocument(
+        const savedDoc = await DocumentService.saveDocument(
           content,
           currentName.trim(),
           null,
@@ -208,12 +207,12 @@ export class DocumentUIManager {
       }
 
       // If we have both name and ID, update existing document
-      if (documentManager.currentDocument.id) {
+      if (DocumentService.currentDocument.id) {
         const categoryToUse = currentCategory || DEFAULT_CATEGORY;
-        await documentManager.saveDocument(
+        await DocumentService.saveDocument(
           content,
           currentName,
-          documentManager.currentDocument.id,
+          DocumentService.currentDocument.id,
           categoryToUse,
         );
         NotificationManager.showSuccess("Document saved successfully!");
@@ -240,7 +239,7 @@ export class DocumentUIManager {
       } else {
         // For save operations, use the current document
         const managerName =
-          documentManager.currentDocument.name || "Untitled Document";
+          DocumentService.currentDocument.name || "Untitled Document";
         const titleElement = document.getElementById("documentTitle");
         const domTitle = titleElement
           ? titleElement.textContent.trim()
@@ -249,7 +248,7 @@ export class DocumentUIManager {
         // Use the DOM title if it's different from the manager (user may have edited it)
         currentName = domTitle !== managerName ? domTitle : managerName;
         currentCategory =
-          documentManager.currentDocument.category || DEFAULT_CATEGORY;
+          DocumentService.currentDocument.category || DEFAULT_CATEGORY;
       }
 
       // Only show the current name if it's not the default
@@ -259,7 +258,7 @@ export class DocumentUIManager {
           : currentName;
 
       // Get all available categories
-      const categories = await documentManager.getAllCategories();
+      const categories = await DocumentService.getAllCategories();
 
       const categoryOptions = categories
         .map(
@@ -391,7 +390,7 @@ export class DocumentUIManager {
           addCategoryBtn.addEventListener("click", () => {
             const categoryName = newCategoryName.value.trim();
             if (categoryName) {
-              if (documentManager.addCategory(categoryName)) {
+              if (DocumentService.addCategory(categoryName)) {
                 // Add the new category to the select dropdown
                 const option = document.createElement("option");
                 option.value = categoryName;
@@ -465,7 +464,7 @@ export class DocumentUIManager {
 
     try {
       const content = this.editor.getValue();
-      await documentManager.saveDocument(content, name, null, category);
+      await DocumentService.saveDocument(content, name, null, category);
       NotificationManager.showSuccess("Document saved successfully!");
       this.updateDocumentTitle();
       this.closeModal();
@@ -479,14 +478,14 @@ export class DocumentUIManager {
    */
   async showLoadModal() {
     try {
-      const allDocuments = await documentManager.getAllDocuments();
+      const allDocuments = await DocumentService.getAllDocuments();
 
       if (allDocuments.length === 0) {
         NotificationManager.showInfo("No saved documents found");
         return;
       }
 
-      const categories = await documentManager.getAllCategories();
+      const categories = await DocumentService.getAllCategories();
       const categoryOptions = ["All", ...categories]
         .map(
           (category) =>
@@ -561,7 +560,7 @@ export class DocumentUIManager {
    */
   async updateDocumentsList(categoryFilter) {
     try {
-      const documents = await documentManager.getAllDocuments(
+      const documents = await DocumentService.getAllDocuments(
         categoryFilter === "All" ? null : categoryFilter,
       );
       const documentsList = document.getElementById("documentsList");
@@ -621,7 +620,7 @@ export class DocumentUIManager {
    */
   async loadDocument(id) {
     try {
-      const doc = await documentManager.loadDocument(id);
+      const doc = await DocumentService.loadDocument(id);
       this.editor.setValue(doc.content);
       this.updateDocumentTitle();
       this.closeModal();
@@ -638,12 +637,12 @@ export class DocumentUIManager {
     // For authenticated users, get document info from server
     let docName = "Document";
     try {
-      if (documentManager.isAuthenticated()) {
-        const docs = await documentManager.getAllDocuments();
+      if (DocumentService.isAuthenticated()) {
+        const docs = await DocumentService.getAllDocuments();
         const doc = docs.find((d) => d.id == id);
         docName = doc ? doc.name : "Document";
       } else {
-        const doc = documentManager.documents[id];
+        const doc = DocumentService.documents[id];
         docName = doc ? doc.name : "Document";
       }
     } catch (error) {
@@ -652,7 +651,7 @@ export class DocumentUIManager {
 
     if (confirm(`Are you sure you want to delete "${docName}"?`)) {
       try {
-        await documentManager.deleteDocument(id);
+        await DocumentService.deleteDocument(id);
         NotificationManager.showSuccess("Document deleted successfully!");
         // Refresh the modal while maintaining current filter
         const categoryFilter = document.getElementById("categoryFilter");
@@ -675,13 +674,13 @@ export class DocumentUIManager {
       // Get the current document data
       let doc = null;
 
-      if (documentManager.isAuthenticated()) {
+      if (DocumentService.isAuthenticated()) {
         // For authenticated users, get document from server
-        const documents = await documentManager.getAllDocuments();
+        const documents = await DocumentService.getAllDocuments();
         doc = documents.find((d) => d.id == id);
       } else {
         // For anonymous users, get from local storage
-        doc = documentManager.documents[id];
+        doc = DocumentService.documents[id];
       }
 
       if (!doc) {
@@ -733,9 +732,9 @@ export class DocumentUIManager {
       }
 
       // Perform the rename operation
-      if (documentManager.isAuthenticated()) {
+      if (DocumentService.isAuthenticated()) {
         // For authenticated users, update via server API
-        await documentManager.saveDocumentToServer(
+        await DocumentService.saveDocumentToServer(
           originalDoc.content,
           newName,
           newCategory,
@@ -743,16 +742,16 @@ export class DocumentUIManager {
         );
       } else {
         // For anonymous users, use local rename method with category support
-        documentManager.renameDocument(originalDoc.id, newName, newCategory);
+        DocumentService.renameDocument(originalDoc.id, newName, newCategory);
       }
 
       // If this is the currently loaded document, update the title in the main window
       if (
-        documentManager.currentDocument &&
-        documentManager.currentDocument.id === originalDoc.id
+        DocumentService.currentDocument &&
+        DocumentService.currentDocument.id === originalDoc.id
       ) {
-        documentManager.currentDocument.name = newName;
-        documentManager.currentDocument.category = newCategory;
+        DocumentService.currentDocument.name = newName;
+        DocumentService.currentDocument.category = newCategory;
         this.updateDocumentTitle();
       }
 
@@ -777,7 +776,7 @@ export class DocumentUIManager {
   exportMarkdown() {
     try {
       const content = this.editor.getValue();
-      documentManager.exportAsMarkdown(content);
+      DocumentService.exportAsMarkdown(content);
       NotificationManager.showSuccess("Markdown file exported successfully!");
     } catch (error) {
       NotificationManager.showError(
@@ -791,7 +790,7 @@ export class DocumentUIManager {
    */
   async exportPDF() {
     try {
-      await documentManager.exportAsPDF();
+      await DocumentService.exportAsPDF();
     } catch (error) {
       NotificationManager.showError("Error exporting PDF: " + error.message);
     }
@@ -811,7 +810,7 @@ export class DocumentUIManager {
 
       try {
         const { content, name } =
-          await documentManager.importMarkdownFile(file);
+          await DocumentService.importMarkdownFile(file);
 
         if (this.hasUnsavedChanges()) {
           if (!confirm("You have unsaved changes. Do you want to continue?")) {
@@ -819,7 +818,7 @@ export class DocumentUIManager {
           }
         }
 
-        documentManager.createNewDocument(name);
+        DocumentService.createNewDocument(name);
         this.editor.setValue(content);
         this.updateDocumentTitle();
         NotificationManager.showSuccess("File imported successfully!");
@@ -839,7 +838,7 @@ export class DocumentUIManager {
     if (!titleElement) return;
 
     // Store the current document name for editing
-    const currentName = documentManager.currentDocument.name;
+    const currentName = DocumentService.currentDocument.name;
 
     // Replace content with plain text for editing
     titleElement.textContent = currentName;
@@ -867,7 +866,7 @@ export class DocumentUIManager {
     if (!titleElement) return;
 
     const newTitle = titleElement.textContent.trim();
-    const oldName = documentManager.currentDocument.name;
+    const oldName = DocumentService.currentDocument.name;
 
     // Validate the new title
     if (!newTitle) {
@@ -886,15 +885,15 @@ export class DocumentUIManager {
 
     // Always update the document manager with the new title
     if (newTitle !== oldName) {
-      documentManager.currentDocument.name = newTitle;
-      documentManager.saveCurrentDocument();
+      DocumentService.currentDocument.name = newTitle;
+      DocumentService.saveCurrentDocument();
       console.log("Updated document manager name to:", newTitle);
 
       // If this is a saved document, update it
-      if (documentManager.currentDocument.id) {
+      if (DocumentService.currentDocument.id) {
         try {
-          documentManager.renameDocument(
-            documentManager.currentDocument.id,
+          DocumentService.renameDocument(
+            DocumentService.currentDocument.id,
             newTitle,
           );
           NotificationManager.showSuccess("Document renamed and saved!");
@@ -943,7 +942,7 @@ export class DocumentUIManager {
   updateDocumentTitle() {
     const titleElement = document.getElementById("documentTitle");
     if (titleElement) {
-      const currentDoc = documentManager.currentDocument;
+      const currentDoc = DocumentService.currentDocument;
       const category = currentDoc.category || DEFAULT_CATEGORY;
 
       // Show category only if it's not the default category
@@ -959,12 +958,12 @@ export class DocumentUIManager {
    * Check if there are unsaved changes
    */
   hasUnsavedChanges() {
-    if (!documentManager.currentDocument.id) {
+    if (!DocumentService.currentDocument.id) {
       return this.editor.getValue().trim() !== "";
     }
 
     const savedDoc =
-      documentManager.documents[documentManager.currentDocument.id];
+      DocumentService.documents[DocumentService.currentDocument.id];
     if (!savedDoc) return true;
 
     return this.editor.getValue() !== savedDoc.content;
@@ -1099,7 +1098,7 @@ export class DocumentUIManager {
    * Auto-save functionality
    */
   setupAutoSave() {
-    if (!documentManager.autoSaveEnabled) return;
+    if (!DocumentService.autoSaveEnabled) return;
 
     let autoSaveTimeout;
 
@@ -1107,17 +1106,17 @@ export class DocumentUIManager {
       clearTimeout(autoSaveTimeout);
       autoSaveTimeout = setTimeout(async () => {
         const content = this.editor.getValue();
-        const currentName = documentManager.currentDocument.name;
+        const currentName = DocumentService.currentDocument.name;
 
         // Auto-save if document has an ID (already saved)
-        if (documentManager.currentDocument.id) {
+        if (DocumentService.currentDocument.id) {
           try {
             const currentCategory =
-              documentManager.currentDocument.category || DEFAULT_CATEGORY;
-            await documentManager.saveDocument(
+              DocumentService.currentDocument.category || DEFAULT_CATEGORY;
+            await DocumentService.saveDocument(
               content,
               currentName,
-              documentManager.currentDocument.id,
+              DocumentService.currentDocument.id,
               currentCategory,
             );
             //NotificationManager.showInfo(`Document auto-saved as "${currentName}"`);
@@ -1134,8 +1133,8 @@ export class DocumentUIManager {
         ) {
           try {
             const currentCategory =
-              documentManager.currentDocument.category || DEFAULT_CATEGORY;
-            const savedDoc = await documentManager.saveDocument(
+              DocumentService.currentDocument.category || DEFAULT_CATEGORY;
+            const savedDoc = await DocumentService.saveDocument(
               content,
               currentName.trim(),
               null,

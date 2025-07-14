@@ -1,10 +1,7 @@
 import { saveAs } from "file-saver";
-import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
-import config from "./config.js";
-import AuthManager from "./auth/AuthManager.js";
-import SpinnerManager from "./SpinnerManager.js";
-import editor from "./editor.js";
+import config from "../config.js";
+import AuthManager from "../auth/AuthManager.js";
+import editor from "../Editor.js";
 
 // Constants for local storage keys
 const DOCUMENTS_KEY = "savedDocuments";
@@ -24,7 +21,7 @@ export { DEFAULT_CATEGORY };
  * - API for authenticated users
  * - localStorage for anonymous users
  */
-export class DocumentManager {
+export class DocumentService {
   hasUnsavedChanges() {
     const editorInstance = editor.getInstance();
     if (!this.currentDocument.id) {
@@ -1089,4 +1086,4 @@ export class DocumentManager {
 }
 
 // Create singleton instance
-export const documentManager = new DocumentManager();
+export default new DocumentService();

@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
@@ -92,7 +92,9 @@ async def get_current_user_profile(
 
 @router.post("/password-reset-request")
 async def request_password_reset(
-    request_data: PasswordResetRequest, db: AsyncSession = Depends(get_db)
+    request_data: PasswordResetRequest,
+    request: Request,
+    db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Request password reset by email."""
     # Check if user exists
@@ -108,12 +110,50 @@ async def request_password_reset(
     # Save token to database
     await crud_user.create_password_reset_token(db, request_data.email, token, expires)
 
-    # TODO: In a real application, send email with reset link
-    # For now, we'll just return the token (remove this in production)
-    return {
-        "message": "If the email exists, a reset link has been sent",
-        "debug_token": token,  # Remove this in production!
-    }
+    # SMTP configuration (fill in these values in production)
+    SMTP_HOST = "smtp.example.com"
+    SMTP_PORT = 587
+    SMTP_USER = "your_smtp_user"
+    SMTP_PASS = "your_smtp_password"
+    FROM_EMAIL = "noreply@example.com"
+
+    # Compose reset link
+    reset_link = f"https://yourdomain.com/reset-password?reset_token={token}"
+    subject = "Password Reset Request"
+    body = (
+        "Hello,\n\nTo reset your password, click the link below:\n"
+        f"{reset_link}\n\nIf you did not request this, you can ignore this email."
+    )
+
+    # Send email (simple SMTP, fill in config above)
+    import smtplib
+    from email.mime.text import MIMEText
+
+    try:
+        msg = MIMEText(body)
+        msg["Subject"] = subject
+        msg["From"] = FROM_EMAIL
+        msg["To"] = request_data.email
+
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as server:
+            server.starttls()
+            server.login(SMTP_USER, SMTP_PASS)
+            server.sendmail(FROM_EMAIL, [request_data.email], msg.as_string())
+    except Exception as e:
+        # Log error, but don't reveal to user
+        print(f"Error sending password reset email: {e}")
+
+    # Only send debug_token if DEBUG_PASSWORD_RESET_TOKEN env var is set
+    import os
+
+    debug_token = None
+    if os.getenv("DEBUG_PASSWORD_RESET_TOKEN", "false").lower() == "true":
+        debug_token = token
+
+    response = {"message": "If the email exists, a reset link has been sent"}
+    if debug_token:
+        response["debug_token"] = debug_token
+    return response
 
 
 @router.post("/password-reset-confirm")

@@ -1,7 +1,7 @@
 /**
  * Syntax highlighting service that uses the backend API for comprehensive language support
  */
-import { highlightSyntax, isLanguageSupported } from "./api/highlightingApi";
+import { highlightSyntax, isLanguageSupported } from "../api/highlightingApi";
 
 class HighlightService {
   constructor() {

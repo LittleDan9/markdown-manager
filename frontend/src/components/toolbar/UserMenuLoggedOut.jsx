@@ -4,8 +4,7 @@ import ThemeToggle from "./ThemeToggle";
 import { toggleTheme, useTheme } from "../../context/ThemeContext";
 import LoginModal from "../modals/LoginModal";
 import VerifyMFAModal from "../modals/VerifyMFAModal";
-import PasswordResetRequestModal from "../modals/PasswordResetRequestModal";
-import PasswordResetVerifyModal from "../modals/PasswordResetVerifyModal";
+import PasswordResetModal from "../modals/PasswordResetModal";
 import RegisterModal from "../modals/RegisterModal";
 import UserAPI from "../../js/api/userApi";
 import { useNotification } from "../NotificationProvider";
@@ -23,7 +22,18 @@ function UserMenuLoggedOut() {
   const { showSuccess, showError } = useNotification();
   const [showRegister, setShowRegister] = useState(false);
   const [registerError, setRegisterError] = useState("");
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [devMode, setDevMode] = useState(false);
 
+  // Listen for passwordResetTokenFound event from legacy JS
+  React.useEffect(() => {
+    const handler = (e) => {
+      setPasswordResetToken(e.detail.resetToken);
+      setShowPasswordResetVerify(true);
+    };
+    window.addEventListener("passwordResetTokenFound", handler);
+    return () => window.removeEventListener("passwordResetTokenFound", handler);
+  }, []);
   const handleShowRegister = () => {
     setShowRegister(true);
     setRegisterError("");
@@ -70,6 +80,8 @@ function UserMenuLoggedOut() {
         const user = response.user || {};
         setUser(user);
         console.log(user);
+        setShowLogin(false);
+        setShowMFA(false);
         showSuccess(`Welcome back, ${user.display_name}`);
       } else {
         setMFAError(response.message || "Verification failed.");
@@ -117,10 +129,33 @@ function UserMenuLoggedOut() {
   };
 
   const handleForgotPassword = (email) => {
-    // TODO: Implement forgot password logic
     setShowLogin(false);
+    setShowPasswordResetModal(true);
   };
 
+  const onEmailChange = (e) => {
+    setPasswordResetEmail(e.target.value);
+  };
+
+  // Password reset logic for modal
+  const passwordResetApi = {
+    request: async (email) => {
+      const res = await UserAPI.resetPassword(email);
+      console.log(res);
+      if (res.debug_token) setDevMode(true);
+      return res;
+    },
+    verify: async () => {
+      // No API call for step 2; always succeed (just UI step)
+      return { success: true };
+    },
+    setPassword: async ({ code, newPassword }) => {
+      // Step 3: Pass code (token) and new password to backend
+      const res = await UserAPI.resetPasswordVerify(code, newPassword);
+      if (res && (res.message || res.success)) return { success: true };
+      return { success: false, message: res?.message || "Failed to reset password." };
+    },
+  };
   return (
     <>
     <Dropdown.Menu>
@@ -149,16 +184,11 @@ function UserMenuLoggedOut() {
       loading={mfaLoading}
       error={mfaError}
     />
-    <PasswordResetRequestModal
-      show={false} // Placeholder, implement as needed
-      onHide={() => {}} // Placeholder, implement as needed
-
-    />
-    <PasswordResetVerifyModal
-      show={false} // Placeholder, implement as needed
-      onHide={() => {
-        setTimeout(() => setShowLogin(false), 1500);
-      }} // Placeholder, implement as needed
+    <PasswordResetModal
+      show={showPasswordResetModal}
+      onHide={() => setShowPasswordResetModal(false)}
+      onReset={passwordResetApi}
+      devMode={devMode}
     />
     <RegisterModal
       show={showRegister}

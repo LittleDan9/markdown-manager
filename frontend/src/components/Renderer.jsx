@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useRef } from "react";
 import { render } from "../js/renderer";
 import { useTheme } from "../context/ThemeContext";
-import MermaidService from "../js/MermaidService";
-import HighlightService from "../js/HighlightService";
+import MermaidService from "../js/services/MermaidService";
+import HighlightService from "../js/services/HighlightService";
 
 function Renderer({ content }) {
   const { theme } = useTheme();

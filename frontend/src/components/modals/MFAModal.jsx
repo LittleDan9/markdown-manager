@@ -52,6 +52,7 @@ function MFAModal({ show, onHide, setupData, backupCodes = [], onVerify, onEnabl
                     placeholder="000000"
                     maxLength={6}
                     pattern="[0-9]{6}"
+                    autoFocus
                     required
                   />
                 </Form.Group>

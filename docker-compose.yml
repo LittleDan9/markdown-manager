@@ -4,6 +4,10 @@ services:
     working_dir: /app
     volumes:
       - ./frontend:/app
+      - type: tmpfs
+        target: /app/node_modules/.cache
+        tmpfs:
+          size: 5368709120  # 5 GiB
     ports:
       - "3000:3000"
     command: sh -c "npm install && CHOKIDAR_USEPOLLING=true npm run serve"
@@ -13,6 +17,8 @@ services:
 
   backend:
     image: python:3.12
+    tmpfs:
+      - /tmp  # for FastAPI temp files
     working_dir: /app
     volumes:
       - ./backend:/app
@@ -22,3 +28,4 @@ services:
     command: sh -c "pip install poetry && poetry install && poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
     environment:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
+      - DEBUG_PASSWORD_RESET_TOKEN=true
