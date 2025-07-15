@@ -20,6 +20,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
+  const { saveDocument } = useDocument();
 
   // Keep titleInput in sync with currentDocument.name
   useEffect(() => {
@@ -40,7 +41,9 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
       // Update document name in context and backend/localStorage
       if (currentDocument.id) {
         await renameDocument(currentDocument.id, newTitle, currentDocument.category);
+        setDocumentTitle(newTitle);
       } else {
+        await saveDocument({ ...currentDocument, name: newTitle });
         setDocumentTitle(newTitle);
       }
     }

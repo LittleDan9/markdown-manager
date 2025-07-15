@@ -13,6 +13,7 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue 
   const [documentTitle, setDocumentTitle] = useState(
     currentDocument?.name || "Untitled Document"
   );
+  const [importMarkdownFile, setImportMarkdownFile] = useState(null);
 
   useEffect(() => {
     // Update theme icons for both guest and user menus
@@ -57,6 +58,8 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue 
             setAutosaveEnabled={setAutosaveEnabled}
             setContent={setContent}
             editorValue={editorValue}
+            importMarkdownFile={importMarkdownFile}
+            setImportMarkdownFile={setImportMarkdownFile}
           />
           <div className="vr opacity-50"></div>
           <div className="d-flex align-items-center">

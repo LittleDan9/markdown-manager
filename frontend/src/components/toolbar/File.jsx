@@ -4,12 +4,15 @@ import ConfirmModal from "../modals/ConfirmModal";
 import OpenFileModal from "../modals/OpenFileModal";
 import { useDocument } from "../../context/DocumentProvider";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
+import { useNotification } from "../NotificationProvider";
 
 function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, setContent, editorValue }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, importMarkdownFile, deleteDocument } = useDocument();
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [pendingOpenId, setPendingOpenId] = useState(null);
+  const { showSuccess, showError, showWarning } = useNotification();
+
   const fileInputRef = useRef();
 
   const handleNew = () => {
@@ -40,6 +43,8 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
     setPendingOpenId(doc.id);
     loadDocument(doc.id);
     setDocumentTitle(doc.name);
+    if (setContent) setContent(doc.content);
+    showSuccess(`Opened document: ${doc.name}`);
     setShowOpenModal(false);
   };
 
@@ -68,7 +73,7 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
     const file = e.target.files[0];
     if (!file) return;
     if (!file.name.endsWith(".md")) {
-      alert("Only .md files are supported.");
+      showError("Only .md files are supported.");
       return;
     }
     try {
@@ -84,7 +89,8 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
       setDocumentTitle(name);
       if (setContent) setContent(content);
     } catch (err) {
-      alert("Failed to import Markdown file.");
+      console.error(err);
+      showError("Failed to import Markdown file.");
     }
   };
 
