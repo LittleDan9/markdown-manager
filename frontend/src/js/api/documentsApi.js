@@ -43,9 +43,9 @@ class DocumentsApi extends Api {
     return Array.isArray(cats) && cats.length ? cats : ["General"];
   }
 
-  async addCategory(name) {
+  async addCategory(category) {
     // Backend expects { category: string } in body
-    const res = await this.apiCall(`/documents/categories/`, "POST", { name });
+    const res = await this.apiCall(`/documents/categories/`, "POST", { category });
     if (!res.ok) throw new Error("Failed to add category");
     return await res.json(); // returns updated categories
   }
