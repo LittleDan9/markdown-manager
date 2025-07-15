@@ -1,7 +1,7 @@
 /**
  * Syntax highlighting service that uses the backend API for comprehensive language support
  */
-import { highlightSyntax, isLanguageSupported } from "../api/highlightingApi";
+import HighlightingApi from "../api/highlightingApi";
 
 class HighlightService {
   constructor() {
@@ -33,12 +33,11 @@ class HighlightService {
       return; // Nothing to highlight
     }
 
-    const highlightPromises = Array.from(codeBlocksToProcess).map( async(block) => {
+    const highlightPromises = Array.from(codeBlocksToProcess).map(async (block) => {
       const language = block.dataset.lang || "";
-      if (!language) return Promise.resolve(); // No language specified
+      if (!language) return;
       const code = decodeURIComponent(block.dataset.code || "");
-      if (!code) return Promise.resolve(); // No code to highlight
-
+      if (!code) return;
 
       const cached = this.getFromCache(code, language);
       let highlighted;
@@ -46,15 +45,12 @@ class HighlightService {
         highlighted = cached;
       } else {
         try {
-          highlighted = await highlightSyntax(code, language);
-          const cacheKey = `${language}:${this.hashCode(code)}`
+          highlighted = await HighlightingApi.highlightSyntax(code, language);
+          const cacheKey = `${language}:${this.hashCode(code)}`;
           this.cache.set(cacheKey, highlighted);
           this.supportedLanguages.add(language.toLowerCase());
         } catch (error) {
-          console.warn(
-            `Failed to highlight code for language '${language}':`,
-            error,
-          );
+          console.warn(`Failed to highlight code for language '${language}':`, error);
           highlighted = this.escapeHtml(code);
         }
       }
@@ -63,9 +59,13 @@ class HighlightService {
       if (codeElement) {
         codeElement.innerHTML = highlighted;
         block.setAttribute("data-processed", "true");
-    }
+      }
     });
     await Promise.all(highlightPromises);
+  }
+
+  async isLanguageSupported(language) {
+    return HighlightingApi.isLanguageSupported(language);
   }
 
 

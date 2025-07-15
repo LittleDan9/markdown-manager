@@ -26,6 +26,13 @@ class Settings(BaseSettings):  # type: ignore[misc]
     documents_directory: str = "./documents"
     max_file_size: int = 10 * 1024 * 1024  # 10MB
 
+    # SMTP settings
+    smtp_host: str = "smtp.example.com"
+    smtp_port: int = 587
+    smtp_user: str = "your_smtp_user"
+    smtp_pass: str = "your_smtp_password"
+    from_email: str = "noreply@littledan.com"
+
     class Config:
         env_file = ".env"
 

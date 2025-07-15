@@ -13,6 +13,7 @@ import { useAuth } from "../../context/AuthProvider.jsx";
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();
   const [showLogin, setShowLogin] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
   const [showMFA, setShowMFA] = useState(false);
   const [mfaLoading, setMFAloading] = useState(false);
   const [mfaError, setMFAError] = useState("");
@@ -50,12 +51,14 @@ function UserMenuLoggedOut() {
         console.log("Registration successful:", response);
         setShowRegister(false);
         showSuccess("Registration successful! Please log in.");
+        setLoginEmail(formData.email || "");
+        setShowLogin(true);
       })
       .catch((error) => {
         console.error("Registration error:", error);
         setRegisterError(error.message || "Registration failed.");
       });
-  };
+  }
 
     const handleShowMFA = () => {
     setShowMFA(true);
@@ -102,9 +105,12 @@ function UserMenuLoggedOut() {
     if (e) e.preventDefault();
     console.log("Showing login modal");
     setShowLogin(true);
-  };
+  }
 
-  const handleLoginModalClose = () => setShowLogin(false);
+  const handleLoginModalClose = () => {
+    setShowLogin(false);
+    setLoginEmail("");
+  };
 
   const handleLoginSubmit = async ({ email, password }) => {
     try{
@@ -123,6 +129,7 @@ function UserMenuLoggedOut() {
       setUser(user);
       showSuccess(`Welcome back, ${user.display_name}`);
       setShowLogin(false);
+      setLoginEmail("");
     }catch (e) {
       showError(e.message || "Login failed. Please try again.");
     }
@@ -175,6 +182,7 @@ function UserMenuLoggedOut() {
       onHide={handleLoginModalClose}
       onLogin={handleLoginSubmit}
       onForgotPassword={handleForgotPassword}
+      email={loginEmail}
     />
     <VerifyMFAModal
       show={showMFA}
