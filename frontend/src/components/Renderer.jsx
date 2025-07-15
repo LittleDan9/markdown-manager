@@ -24,9 +24,9 @@ function Renderer({ content }) {
   }, [html]);
 
   useEffect(() => {
-    MermaidService.updateTheme(theme);
+    // MermaidService.updateTheme(theme);
     MermaidService.render(previewRef.current);
-  }, [theme]);
+  }, [theme, content]);
 
   useEffect(() => {
     if (previewRef.current && previewRef.current.querySelectorAll("[data-syntax-placeholder][data-processed='false']").length > 0) {

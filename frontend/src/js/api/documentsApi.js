@@ -25,7 +25,10 @@ class DocumentsApi extends Api {
   }
 
   async updateDocument(id, { name, content, category }) {
-    const res = await this.apiCall(`/documents/${id}`, "PUT", { name, content, category });
+    const res = await this.apiCall(
+      `/documents/${id}`,
+      "PUT",
+      { document_data: { name, content, category } });
     if (!res.ok) throw new Error("Failed to update document");
     return await res.json();
   }

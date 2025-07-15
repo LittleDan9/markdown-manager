@@ -30,12 +30,11 @@ endif
 
 ifeq ($(OS),Windows_NT)
 SHELL				 := pwsh.exe
-.SHELLFLAGS := -NoLogo -NoProfile -NonInteractive -Command
+.SHELLFLAGS := -NoLogo -NoProfile -NonInteractive -Command wsl
 
 DETECTED_OS := Windows
-COPY_CMD     := wsl zsh -lic rsync -azhr --delete --no-perms --no-times --no-group --progress
-SSH_CMD      := wsl ssh
-WIN_SHELL    := pwsh -NoLogo -Command
+COPY_CMD     := rsync -azhr --delete --no-perms --no-times --no-group --progress
+SSH_CMD      := ssh
 
 else
 DETECTED_OS := $(shell uname -s)
@@ -50,7 +49,7 @@ endif
 # ────────────────────────────────────────────────────────────────────────────
 
 FRONTEND_DIR   := frontend
-FRONT_DIST_DIR :=/home/dlittle/ramcache/markdown-manager/dist
+FRONT_DIST_DIR := frontend/dist
 BACKEND_DIR    := backend
 
 FRONTEND_PORT      := 3000
@@ -100,20 +99,10 @@ install: ## Install frontend + backend deps
 	@echo "$(GREEN)✅ All dependencies installed$(NC)"
 
 clean: ## Clean build artifacts
-	@echo "$(YELLOW)🧹 Cleaning...$(NC)"
-ifeq ($(DETECTED_OS),Windows)
-	@wsl rm -rf $(FRONT_DIST_DIR) frontend/node_modules/.cache
-	@wsl rm -rf $(BACKEND_DIR)/__pycache__ $(BACKEND_DIR)/.pytest_cache
-else
-	@rm -rf $(FRONT_DIST_DIR) frontend/node_modules/.cache
-	@rm -rf $(BACKEND_DIR)/__pycache__ $(BACKEND_DIR)/.pytest_cache
-	@echo "$(GREEN)✅ Clean complete$(NC)"
-endif
+	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
 
 build: clean ## Build production assets
-	@echo "$(YELLOW)🔨 Building assets...$(NC)"
-	@cd frontend && npm run build
-	@echo "$(GREEN)✅ Build complete$(NC)"
+	@./scripts/build.sh $(FRONTEND_DIR)
 
 # ────────────────────────────────────────────────────────────────────────────
 dev: ## Start frontend & backend dev servers
@@ -198,13 +187,8 @@ db-restore: ## Restore from backup: make db-restore BACKUP=filename
 deploy: build deploy-front deploy-back
 #deploy-nginx ## Build + full deploy
 
-deploy-front:  ## Sync frontend dist
-	@echo "$(YELLOW)🌐 Deploying frontend→ $(REMOTE_USER_HOST)$(DEPLOY_BASE)$(NC)"
-ifeq ($(DETECTED_OS),Windows)
-	./scripts/wsl-deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
-else
-	@$(COPY_CMD) $(FRONT_DIST_DIR)/ $(REMOTE_USER_HOST):$(DEPLOY_BASE)
-endif
+deploy-front: build ## Sync frontend dist
+	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 
 deploy-back: ## Sync backend + migrations + restart
 	./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
