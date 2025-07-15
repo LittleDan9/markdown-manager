@@ -174,11 +174,8 @@ export function DocumentProvider({ children }) {
     setError("");
     try {
       if (isAuthenticated) {
-        const res = await fetch(`${config.apiBaseUrl}/documents/${id}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to load document");
-        const doc = await res.json();
+        const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+        const doc = await DocumentsApi.getDocument(id);
         setCurrentDocument(doc);
       } else {
         const docs = localStorage.getItem(DOCUMENTS_KEY);
@@ -186,7 +183,6 @@ export function DocumentProvider({ children }) {
         const doc = docsObj[id];
         if (!doc) throw new Error("Document not found");
         setCurrentDocument(doc);
-        // Persist loaded document as current in localStorage
         localStorage.setItem(CURRENT_DOC_KEY, JSON.stringify(doc));
       }
     } catch (e) {
@@ -194,7 +190,7 @@ export function DocumentProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Delete document
   const deleteDocument = useCallback(async (id) => {
@@ -202,16 +198,9 @@ export function DocumentProvider({ children }) {
     setError("");
     try {
       if (isAuthenticated) {
-        const res = await fetch(`${config.apiBaseUrl}/documents/${id}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("Failed to delete document");
-        // Refresh documents list
-        const docsRes = await fetch(`${config.apiBaseUrl}/documents/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const docs = docsRes.ok ? (await docsRes.json()).documents || [] : [];
+        const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+        await DocumentsApi.deleteDocument(id);
+        const docs = await DocumentsApi.getAllDocuments();
         setDocuments(docs);
         setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
       } else {
@@ -228,7 +217,7 @@ export function DocumentProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Rename document
   const renameDocument = useCallback(async (id, newName, newCategory = null) => {
@@ -236,23 +225,19 @@ export function DocumentProvider({ children }) {
     setError("");
     try {
       if (isAuthenticated) {
-        const res = await fetch(`${config.apiBaseUrl}/documents/${id}`, {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ name: newName, category: newCategory }),
+        const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+        // Find the document to get its content
+        const doc = documents.find((d) => d.id === id);
+        if (!doc) throw new Error("Document not found");
+        const updated = await DocumentsApi.updateDocument(id, {
+          name: newName,
+          content: doc.content,
+          category: newCategory || doc.category,
         });
-        if (!res.ok) throw new Error("Failed to rename document");
-        const doc = await res.json();
-        setCurrentDocument(doc);
-        // Refresh documents list
-        const docsRes = await fetch(`${config.apiBaseUrl}/documents/`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        const docs = docsRes.ok ? (await docsRes.json()).documents || [] : [];
-        setDocuments(docs);
+        setCurrentDocument(updated);
+        // Refresh documents list from backend
+        const docsRes = await DocumentsApi.getAllDocuments();
+        setDocuments(docsRes);
       } else {
         const docs = localStorage.getItem(DOCUMENTS_KEY);
         const docsObj = docs ? JSON.parse(docs) : {};
@@ -271,48 +256,7 @@ export function DocumentProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, []);
-
-  // Add category
-  const addCategory = useCallback(async (categoryName) => {
-    const trimmedName = categoryName.trim();
-    if (!trimmedName || categories.includes(trimmedName)) return;
-    setCategories((prev) => {
-      const next = [...prev, trimmedName];
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
-      return next;
-    });
-    // Optionally, call backend to add category if authenticated
-    if (isAuthenticated) {
-      await fetch(`${config.apiBaseUrl}/documents/categories/`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: trimmedName }),
-      });
-    }
-  }, [categories]);
-
-  // Delete category
-  const deleteCategory = useCallback(async (category) => {
-    if (!category || category.trim().toLowerCase() === DEFAULT_CATEGORY.toLowerCase()) return;
-    setCategories((prev) => {
-      const next = prev.filter((cat) => cat !== category);
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
-      return next;
-    });
-    // Optionally, call backend to delete category if authenticated
-    if (isAuthenticated) {
-      await fetch(`${config.apiBaseUrl}/documents/categories/${encodeURIComponent(category)}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` },
-      });
-    }
-    // Reassign docs to General
-    setDocuments((prev) => prev.map((doc) => doc.category === category ? { ...doc, category: DEFAULT_CATEGORY } : doc));
-  }, []);
+  }, [isAuthenticated, documents]);
 
   // Export as Markdown
   const exportAsMarkdown = useCallback((content, filename = null) => {
@@ -352,82 +296,6 @@ export function DocumentProvider({ children }) {
     }
   }, [currentDocument]);
 
-  // Import Markdown file
-  const importMarkdownFile = useCallback((file) => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target.result;
-          const name = file.name.replace(/\.md$/, "");
-          resolve({ content, name });
-        } catch (error) {
-          reject(error);
-        }
-      };
-      reader.onerror = () => reject(new Error("Failed to read file"));
-      reader.readAsText(file);
-    });
-  }, []);
-
-  // Document statistics
-  const getDocumentStats = useCallback((content) => {
-    const lines = content.split("\n").length;
-    const words = content.trim() ? content.trim().split(/\s+/).length : 0;
-    const characters = content.length;
-    const charactersNoSpaces = content.replace(/\s/g, "").length;
-    return { lines, words, characters, charactersNoSpaces };
-  }, []);
-
-  // Search documents
-  const searchDocuments = useCallback((query) => {
-    const searchTerm = query.toLowerCase();
-    return documents.filter(
-      (doc) =>
-        doc.name.toLowerCase().includes(searchTerm) ||
-        doc.content.toLowerCase().includes(searchTerm)
-    );
-  }, [documents]);
-
-  // Check for unsaved changes
-  const hasUnsavedChanges = useCallback(() => {
-    if (!currentDocument.id) {
-      return currentDocument.content.trim() !== "";
-    }
-    const savedDoc = documents.find((doc) => doc.id === currentDocument.id);
-    if (!savedDoc) return true;
-    return currentDocument.content !== savedDoc.content || currentDocument.name !== savedDoc.name || currentDocument.category !== savedDoc.category;
-  }, [currentDocument, documents]);
-
-  // Rename category
-  const renameCategory = useCallback(async (oldName, newName) => {
-    const trimmedNew = newName.trim();
-    if (!trimmedNew || categories.includes(trimmedNew)) {
-      setError("Category name already exists or is invalid.");
-      return false;
-    }
-    setCategories((prev) => {
-      const next = prev.map((cat) => (cat === oldName ? trimmedNew : cat));
-      localStorage.setItem(CATEGORIES_KEY, JSON.stringify(next));
-      return next;
-    });
-    // Optionally, call backend to rename category if authenticated
-    if (isAuthenticated) {
-      await fetch(`${config.apiBaseUrl}/documents/categories/${encodeURIComponent(oldName)}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify({ name: trimmedNew }),
-      });
-    }
-    // Update documents to new category name
-    setDocuments((prev) => prev.map((doc) => doc.category === oldName ? { ...doc, category: trimmedNew } : doc));
-    return true;
-  }, [categories]);
-
-  // Context value
   const value = {
     currentDocument,
     setCurrentDocument,

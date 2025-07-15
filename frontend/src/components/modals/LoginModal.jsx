@@ -1,11 +1,17 @@
 import React, { useState } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
 
-function LoginModal({ show, onHide, onLogin, onForgotPassword }) {
-  const [email, setEmail] = useState("");
+function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp }) {
+  const [email, setEmail] = useState(emailProp || "");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  // Update email field if emailProp changes while modal is open
+  React.useEffect(() => {
+    if (show) {
+      setEmail(emailProp || "");
+    }
+  }, [emailProp, show]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

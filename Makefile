@@ -33,13 +33,13 @@ SHELL				 := pwsh.exe
 .SHELLFLAGS := -NoLogo -NoProfile -NonInteractive -Command
 
 DETECTED_OS := Windows
-COPY_CMD     := wsl zsh -lic rsync -azh --delete
+COPY_CMD     := wsl zsh -lic rsync -azhr --delete --no-perms --no-times --no-group --progress
 SSH_CMD      := wsl ssh
 WIN_SHELL    := pwsh -NoLogo -Command
 
 else
 DETECTED_OS := $(shell uname -s)
-COPY_CMD     := rsync -azh --delete
+COPY_CMD     := rsync -azhr --delete --no-perms --no-times --no-group --progress
 SSH_CMD      := ssh
 SHELL				 := /bin/sh
 endif
@@ -50,7 +50,7 @@ endif
 # ────────────────────────────────────────────────────────────────────────────
 
 FRONTEND_DIR   := frontend
-FRONT_DIST_DIR := $(FRONTEND_DIR)/dist
+FRONT_DIST_DIR :=/home/dlittle/ramcache/markdown-manager/dist
 BACKEND_DIR    := backend
 
 FRONTEND_PORT      := 3000
@@ -101,14 +101,19 @@ install: ## Install frontend + backend deps
 
 clean: ## Clean build artifacts
 	@echo "$(YELLOW)🧹 Cleaning...$(NC)"
-	wsl rm -rf $(FRONT_DIST_DIR) frontend/node_modules/.cache
-	wsl rm -rf $(BACKEND_DIR)/__pycache__ $(BACKEND_DIR)/.pytest_cache
+ifeq ($(DETECTED_OS),Windows)
+	@wsl rm -rf $(FRONT_DIST_DIR) frontend/node_modules/.cache
+	@wsl rm -rf $(BACKEND_DIR)/__pycache__ $(BACKEND_DIR)/.pytest_cache
+else
+	@rm -rf $(FRONT_DIST_DIR) frontend/node_modules/.cache
+	@rm -rf $(BACKEND_DIR)/__pycache__ $(BACKEND_DIR)/.pytest_cache
 	@echo "$(GREEN)✅ Clean complete$(NC)"
+endif
 
 build: clean ## Build production assets
-	echo "$(YELLOW)🔨 Building assets...$(NC)"
-	cd .\frontend\ && npm run build
-	echo "$(GREEN)✅ Build complete$(NC)"
+	@echo "$(YELLOW)🔨 Building assets...$(NC)"
+	@cd frontend && npm run build
+	@echo "$(GREEN)✅ Build complete$(NC)"
 
 # ────────────────────────────────────────────────────────────────────────────
 dev: ## Start frontend & backend dev servers
@@ -190,28 +195,19 @@ db-restore: ## Restore from backup: make db-restore BACKUP=filename
 	fi
 
 # ────────────────────────────────────────────────────────────────────────────
-deploy: build deploy-front deploy-back deploy-nginx ## Build + full deploy
+deploy: build deploy-front deploy-back
+#deploy-nginx ## Build + full deploy
 
-deploy-front: build ## Sync frontend dist
-	@echo "$(YELLOW)🌐 Deploying frontend→ $(REMOTE_USER_HOST)$(DEPLOY_BASE)/dist$(NC)"
+deploy-front:  ## Sync frontend dist
+	@echo "$(YELLOW)🌐 Deploying frontend→ $(REMOTE_USER_HOST)$(DEPLOY_BASE)$(NC)"
 ifeq ($(DETECTED_OS),Windows)
-	./scripts/wsl-deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)/dist
+	./scripts/wsl-deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 else
-	$(COPY_CMD) $(FRONT_DIST_DIR)/ $(REMOTE_USER_HOST):$(DEPLOY_BASE)/dist/
+	@$(COPY_CMD) $(FRONT_DIST_DIR)/ $(REMOTE_USER_HOST):$(DEPLOY_BASE)
 endif
 
 deploy-back: ## Sync backend + migrations + restart
-ifeq ($(DETECTED_OS),Windows)
-	./scripts/wsl-deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
-else
-	$(COPY_CMD) --exclude='*.db' --exclude='.venv' $(BACKEND_DIR)/ $(REMOTE_USER_HOST):$(BACKEND_BASE)/
-	cd $(BACKEND_BASE) && \
-	poetry install --only=main && \
-	poetry run alembic upgrade head && \
-	sudo systemctl restart markdown-manager-api.service && \
-	sudo nginx -t && \
-	sudo systemctl reload nginx
-endif
+	./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
 
 deploy-nginx: ## Sync nginx config + reload
 	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"

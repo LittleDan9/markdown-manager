@@ -15,7 +15,25 @@ module.exports = {
   entry: './src/index.js',
   output: {
     filename: '[name].bundle.js',
-    path: path.resolve(__dirname, 'dist'),
+    path: (() => {
+      const os = require('os');
+      const fs = require('fs');
+      const home = os.homedir();
+      const ramcache = path.join(home, 'ramcache');
+      const target = path.join(ramcache, 'markdown-manager', 'dist');
+      try {
+        if (fs.existsSync(ramcache)) {
+          const mmDir = path.join(ramcache, 'markdown-manager');
+          if (!fs.existsSync(mmDir)) {
+            fs.mkdirSync(mmDir, { recursive: true });
+          }
+          return target;
+        }
+      } catch (e) {
+        // fallback
+      }
+      return path.resolve(__dirname, 'dist');
+    })(),
     publicPath: '/',
     clean:true,
   },

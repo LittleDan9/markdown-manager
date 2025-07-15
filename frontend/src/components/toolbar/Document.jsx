@@ -1,3 +1,4 @@
+import DeleteCategoryModal from "../modals/DeleteCategoryModal";
 import React, { useEffect, useState } from "react";
 import ConfirmModal from "../modals/ConfirmModal";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
@@ -6,6 +7,10 @@ import { useDocument } from "../../context/DocumentProvider";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteTargetCategory, setDeleteTargetCategory] = useState(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { categories, addCategory, deleteCategory, renameCategory, error, setCategories, currentDocument } = useDocument();
   const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
@@ -52,22 +57,17 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   };
 
   const handleDeleteCategory = (category) => {
-    openModal(
-      async () => {
-        await deleteCategory(category);
-        setCurrentCategory("General");
-      },
-      {
-        title: `Delete Category: ${category}`,
-        message: `Are you sure you want to delete the category ${category}? All documents in this category will be moved to General`,
-        confirmText: "Delete",
-        cancelText: "Cancel",
-        confirmVariant: "danger",
-        cancelVariant: "secondary",
-        icon: <i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>,
-      },
-    );
-    return;
+    // Find documents in this category
+    const docsInCat = documents.filter(doc => doc.category === category);
+    if (docsInCat.length > 0) {
+      setDeleteTargetCategory(category);
+      setDeleteDocsInCategory(docsInCat);
+      setShowDeleteModal(true);
+    } else {
+      // No docs, delete immediately
+      deleteCategory(category);
+      setCurrentCategory("General");
+    }
   };
 
   const handleAddCategory = async (category) => {
@@ -260,6 +260,32 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         {...modalConfig}
+      />
+      <DeleteCategoryModal
+        show={showDeleteModal}
+        onHide={() => setShowDeleteModal(false)}
+        category={deleteTargetCategory}
+        categories={categories}
+        documentsInCategory={deleteDocsInCategory}
+        loading={deleteLoading}
+        onDelete={async ({ migrateTo, deleteDocs }) => {
+          setDeleteLoading(true);
+          try {
+            const DocumentsApi = (await import("../../js/api/documentsApi.js")).default;
+            if (deleteDocs) {
+              await DocumentsApi.deleteCategory(deleteTargetCategory, { deleteDocs: true });
+            } else {
+              await DocumentsApi.deleteCategory(deleteTargetCategory, { migrateTo });
+            }
+            // Refresh categories and documents
+            setCurrentCategory("General");
+            setShowDeleteModal(false);
+          } catch (err) {
+            setCategoryError("Failed to delete category");
+          } finally {
+            setDeleteLoading(false);
+          }
+        }}
       />
     </>
   );
