@@ -1,7 +1,7 @@
 """Document management API endpoints."""
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -11,6 +11,44 @@ from app.models.user import User
 from app.schemas.document import Document, DocumentCreate, DocumentList, DocumentUpdate
 
 router = APIRouter()
+
+
+@router.post("/categories/", response_model=List[str])
+async def add_category(
+    category: str = Body(..., embed=True, description="Category name to add"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[str]:
+    """Add a category for the current user."""
+    success = await document_crud.document.add_category_for_user(
+        db=db, user_id=int(current_user.id), category=category
+    )
+    if not success:
+        raise HTTPException(status_code=400, detail="Category already exists")
+    categories = await document_crud.document.get_categories_by_user(
+        db=db, user_id=int(current_user.id)
+    )
+    return categories
+
+
+@router.delete("/categories/{category}", response_model=List[str])
+async def delete_category(
+    category: str,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[str]:
+    """Delete a category for the current user. Moves all documents to 'General'."""
+    affected = await document_crud.document.delete_category_for_user(
+        db=db, user_id=int(current_user.id), category=category
+    )
+    if affected == 0:
+        raise HTTPException(
+            status_code=400, detail="Cannot delete General or category not found"
+        )
+    categories = await document_crud.document.get_categories_by_user(
+        db=db, user_id=int(current_user.id)
+    )
+    return categories
 
 
 @router.get("/", response_model=DocumentList)
@@ -23,27 +61,23 @@ async def get_documents(
 ) -> DocumentList:
     """Get all documents for the current user."""
     if category and category != "All":
-        documents = await document_crud.document.get_by_user_and_category(
-            db=db,
-            user_id=int(current_user.id),
-            category=category,
-            skip=skip,
-            limit=limit,
+        orm_documents = await document_crud.document.get_by_user_and_category(
+            db=db, user_id=current_user.id, category=category, skip=skip, limit=limit
         )
     else:
-        documents = await document_crud.document.get_by_user(
-            db=db, user_id=int(current_user.id), skip=skip, limit=limit
+        orm_documents = await document_crud.document.get_by_user(
+            db=db, user_id=current_user.id, skip=skip, limit=limit
         )
 
-    # Convert ORM models to Pydantic schemas
-    document_schemas = [Document.model_validate(doc) for doc in documents]
-
     categories = await document_crud.document.get_categories_by_user(
-        db=db, user_id=int(current_user.id)
+        db=db, user_id=current_user.id
     )
 
+    documents = [
+        Document.model_validate(doc, from_attributes=True) for doc in orm_documents
+    ]
     return DocumentList(
-        documents=document_schemas, total=len(document_schemas), categories=categories
+        documents=documents, total=len(documents), categories=categories
     )
 
 
@@ -56,7 +90,7 @@ async def create_document(
     """Create a new document."""
     document = await document_crud.document.create(
         db=db,
-        user_id=int(current_user.id),
+        user_id=current_user.id,
         name=document_data.name,
         content=document_data.content,
         category=document_data.category,
@@ -72,15 +106,7 @@ async def get_document(
 ) -> Document:
     """Get a specific document."""
     document = await document_crud.document.get(db=db, id=document_id)
-    if document is None:
-        raise HTTPException(status_code=404, detail="Document not found")
-    # Ensure user_id is loaded as a value, not a SQLAlchemy column
-    # Ensure user_id is a value, not a SQLAlchemy column
-    user_id_value = getattr(document, "user_id", None)
-    # If user_id is a SQLAlchemy Column, get the value from __dict__
-    if hasattr(user_id_value, "__class__") and "sqlalchemy" in str(type(user_id_value)):
-        user_id_value = document.__dict__.get("user_id", None)
-    if user_id_value is None or int(user_id_value) != int(current_user.id):
+    if not document or document.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Document not found")
     return document
 
@@ -96,7 +122,7 @@ async def update_document(
     document = await document_crud.document.update(
         db=db,
         document_id=document_id,
-        user_id=int(current_user.id),
+        user_id=current_user.id,
         name=document_data.name,
         content=document_data.content,
         category=document_data.category,
@@ -114,7 +140,7 @@ async def delete_document(
 ) -> dict[str, str]:
     """Delete a document."""
     success = await document_crud.document.delete(
-        db=db, document_id=document_id, user_id=int(current_user.id)
+        db=db, document_id=document_id, user_id=current_user.id
     )
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
@@ -128,6 +154,6 @@ async def get_categories(
 ) -> list[str]:
     """Get all categories used by the current user."""
     categories = await document_crud.document.get_categories_by_user(
-        db=db, user_id=int(current_user.id)
+        db=db, user_id=current_user.id
     )
     return categories
