@@ -12,8 +12,8 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
   const info = token.info.trim();
   const lang = info || "";
+  const diagramSource = token.content?.trim() || "";
   if (info.toLowerCase() === "mermaid") {
-    const diagramSource = decodeURIComponent(token.content.trim());
     const mermaidDiagram = MermaidService.diagramCache.get(diagramSource);
     if (mermaidDiagram) {
       return `<div

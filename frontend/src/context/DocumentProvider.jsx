@@ -4,6 +4,7 @@ import { useAuth } from "./AuthProvider.jsx";
 import config from "../js/config";
 import { saveAs } from "file-saver";
 import DocumentStorage from "../storage/DocumentStorage";
+import DocumentsApi from "../js/api/documentsApi.js";
 
 const DEFAULT_CATEGORY = "General";
 const DOCUMENTS_KEY = "savedDocuments";
@@ -33,26 +34,35 @@ export function DocumentProvider({ children }) {
       setLoading(true);
       setError("");
       try {
+        let docs = [];
+        let cats = [];
         if (isAuthenticated) {
+          docs = await DocumentStorage.syncAndMergeDocuments(isAuthenticated, token);
           const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
-          const docs = await DocumentsApi.getAllDocuments();
-          setDocuments(docs);
-          const cats = await DocumentsApi.getCategories();
-          setCategories(Array.isArray(cats) && cats.length ? cats : [DEFAULT_CATEGORY]);
+          cats = await DocumentsApi.getCategories();
         } else {
           // LocalStorage fallback
-          const docs = localStorage.getItem(DOCUMENTS_KEY);
-          setDocuments(docs ? Object.values(JSON.parse(docs)) : []);
-          const cats = localStorage.getItem(CATEGORIES_KEY);
-          setCategories(cats ? JSON.parse(cats) : [DEFAULT_CATEGORY]);
-          const current = localStorage.getItem(CURRENT_DOC_KEY);
-          setCurrentDocument(current ? JSON.parse(current) : {
-            id: null,
-            name: "Untitled Document",
-            category: DEFAULT_CATEGORY,
-            content: "",
-          });
+          const localDocs = localStorage.getItem(DOCUMENTS_KEY);
+          docs = localDocs ? Object.values(JSON.parse(localDocs)) : [];
+          const localCats = localStorage.getItem(CATEGORIES_KEY);
+          cats = localCats ? JSON.parse(localCats) : [DEFAULT_CATEGORY];
         }
+        setDocuments(docs);
+        setCategories(Array.isArray(cats) && cats.length ? cats : [DEFAULT_CATEGORY]);
+        // Set current document to last active or first available
+        const lastId = localStorage.getItem("lastDocumentId");
+        let current = null;
+        if (lastId && docs.find(d => d.id === lastId)) {
+          current = docs.find(d => d.id === lastId);
+        } else if (docs.length > 0) {
+          current = docs[0];
+        }
+        setCurrentDocument(current || {
+          id: null,
+          name: "Untitled Document",
+          category: DEFAULT_CATEGORY,
+          content: "",
+        });
       } catch (e) {
         setError("Failed to load documents or categories.");
       } finally {
@@ -73,6 +83,7 @@ export function DocumentProvider({ children }) {
       setHasUnsavedChanges(false);
     } catch (e) {
       setError("Failed to save document.");
+      console.error(e);
     } finally {
       setLoading(false);
     }
@@ -149,24 +160,12 @@ export function DocumentProvider({ children }) {
     saveAs(blob, fileName);
   }, [currentDocument]);
 
-  // Export as PDF (calls backend)
+  // Export as PDF using DocumentsApi
   const exportAsPDF = useCallback(async (htmlContent, filename = null) => {
-    // No DocumentsApi method for PDF export; keeping fetch here.
     try {
       const documentName = filename || currentDocument.name || "Untitled Document";
       const isDarkMode = document.documentElement.classList.contains("dark-theme");
-      const requestData = {
-        html_content: htmlContent,
-        document_name: documentName,
-        is_dark_mode: isDarkMode,
-      };
-      const response = await fetch(`${config.apiBaseUrl}/pdf/export`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(requestData),
-      });
-      if (!response.ok) throw new Error("PDF export failed");
-      const pdfBlob = await response.blob();
+      const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDarkMode);
       const downloadUrl = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");
       link.href = downloadUrl;

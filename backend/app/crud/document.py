@@ -1,7 +1,7 @@
 """CRUD operations for documents."""
 from typing import List, Optional
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
@@ -57,14 +57,15 @@ class DocumentCRUD:
         await db.commit()
         return result.rowcount
 
-    async def update_category_name_for_user(self, db: AsyncSession, user_id: int, old_name: str, new_name: str) -> int:
+    async def update_category_name_for_user(
+        self, db: AsyncSession, user_id: int, old_name: str, new_name: str
+    ) -> int:
         """Rename a category for a user by updating all documents. Returns number of updated documents."""
-        from sqlalchemy import update, select
+        from sqlalchemy import select, update
 
         # Check if new_name already exists for user
         exists_stmt = select(Document).where(
-            Document.user_id == user_id,
-            Document.category == new_name
+            Document.user_id == user_id, Document.category == new_name
         )
         result = await db.execute(exists_stmt)
         if result.scalar_one_or_none():
@@ -188,24 +189,24 @@ class DocumentCRUD:
         categories = result.scalars().all()
         return list(categories)
 
-    async def delete_documents_in_category_for_user(self, db, user_id: int, category: str):
+    async def delete_documents_in_category_for_user(
+        self, db: AsyncSession, user_id: int, category: str
+    ) -> None:
         """Delete all documents in a category for a user."""
         await db.execute(
             delete(Document).where(
-                Document.user_id == user_id,
-                Document.category == category
+                Document.user_id == user_id, Document.category == category
             )
         )
         await db.commit()
 
-    async def migrate_documents_to_category_for_user(self, db, user_id: int, old_category: str, new_category: str):
+    async def migrate_documents_to_category_for_user(
+        self, db: AsyncSession, user_id: int, old_category: str, new_category: str
+    ) -> None:
         """Move all documents in old_category to new_category for a user."""
         await db.execute(
             update(Document)
-            .where(
-                Document.user_id == user_id,
-                Document.category == old_category
-            )
+            .where(Document.user_id == user_id, Document.category == old_category)
             .values(category=new_category)
         )
         await db.commit()

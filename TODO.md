@@ -44,3 +44,46 @@ Provider only manages state and calls the storage API.
 Always write to localStorage, sync to backend if authenticated.
 Handle errors and offline gracefully.
 Would you like a starter implementation for the DocumentStorage abstraction and a refactored DocumentProvider?
+
+---
+
+Here are some additional storage features you might consider for DocumentStorage.js:
+
+Document Versioning/History:
+
+Store previous versions of documents for undo/restore functionality.
+Useful for recovering from accidental changes or deletions.
+Document Backup/Restore:
+
+Export all documents/categories as a JSON file for backup.
+Import/restore from a backup file.
+Conflict Detection/Resolution:
+
+Detect if a document has changed on the backend since last sync.
+Prompt user to resolve conflicts (merge, overwrite, etc.).
+Offline Change Queue:
+
+Queue changes made while offline and sync them when reconnected.
+Useful for robust offline-first experiences.
+Document Sharing/Collaboration:
+
+Store and manage shared documents or collaboration invitations.
+Track which documents are shared and with whom.
+Category Management Enhancements:
+
+Allow category color/icon customization and persist those settings.
+Store category metadata (description, order, etc.).
+Document Favorites/Pinning:
+
+Mark documents as favorites or pin them for quick access.
+Store favorite/pinned status in localStorage.
+Document Tagging:
+
+Support tags in addition to categories for flexible organization.
+Store and manage tags per document.
+Audit Log:
+
+Track and store a log of all document/category operations for troubleshooting or analytics.
+Storage Usage Stats:
+
+Track and report storage usage (number of documents, total size, etc.).

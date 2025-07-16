@@ -55,7 +55,7 @@ class MermaidService {
     if (mermaidBlocks.length === 0) return;
 
     for (const block of mermaidBlocks) {
-      const diagramSource = decodeURIComponent(block.dataset.mermaidSource || "");
+      const diagramSource = block.dataset.mermaidSource?.trim() || "";
       if (!diagramSource) continue;
 
       // Check cache

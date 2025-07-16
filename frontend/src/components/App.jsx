@@ -11,12 +11,14 @@ import { AuthProvider } from "../context/AuthProvider.jsx";
 import { useDocument } from "../context/DocumentProvider";
 
 function App() {
-  const [content, setContent] = useState("");
   const [autosaveEnabled, setAutosaveEnabled] = useState(true);
   const { currentDocument, saveDocument } = useDocument();
+  const [content, setContent] = useState(currentDocument?.content || "");
   useEffect(() => {
-    setContent(currentDocument?.content || "");
-  }, [currentDocument?.content]);
+    if (currentDocument?.content !== content) {
+      setContent(currentDocument?.content ?? "");
+    }
+  }, [currentDocument]);
   return (
     <ThemeProvider>
         <ThemeEffects />

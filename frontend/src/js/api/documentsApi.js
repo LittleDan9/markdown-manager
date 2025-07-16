@@ -1,6 +1,22 @@
 import { Api } from "./api";
 
 class DocumentsApi extends Api {
+  async exportAsPDF(htmlContent, documentName, isDarkMode = false) {
+    const requestData = {
+      html_content: htmlContent,
+      document_name: documentName,
+      is_dark_mode: isDarkMode,
+    };
+    const res = await fetch(`${this.baseUrl}/pdf/export`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(requestData),
+    });
+    if (!res.ok) throw new Error("PDF export failed");
+    return await res.blob();
+  }
+
+
   async getAllDocuments(category = null) {
     let endpoint = "/documents/";
     if (category && category !== "All") {
@@ -28,7 +44,7 @@ class DocumentsApi extends Api {
     const res = await this.apiCall(
       `/documents/${id}`,
       "PUT",
-      { document_data: { name, content, category } });
+      { name, content, category } );
     if (!res.ok) throw new Error("Failed to update document");
     return await res.json();
   }

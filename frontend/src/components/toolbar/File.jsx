@@ -11,6 +11,8 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, importMarkdownFile, deleteDocument } = useDocument();
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [pendingOpenId, setPendingOpenId] = useState(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importedFileData, setImportedFileData] = useState(null);
   const { showSuccess, showError, showWarning } = useNotification();
 
   const fileInputRef = useRef();
@@ -78,20 +80,75 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
     }
     try {
       // Save current document before importing new one
-      saveDocument(currentDocument);
+      await saveDocument(currentDocument);
       const { content, name } = await importMarkdownFile(file);
       // Basic markdown validation: check for at least one heading, list, or code block
       if (!/^#|^\*|^\-|^\d+\.|```|\n#|\n\*|\n\-|\n\d+\.|\n```/m.test(content)) {
         alert("File does not appear to be valid Markdown.");
         return;
       }
-      createDocument(name);
-      setDocumentTitle(name);
-      if (setContent) setContent(content);
+      setImportedFileData({ content, name });
+      setShowImportModal(true);
     } catch (err) {
       console.error(err);
       showError("Failed to import Markdown file.");
     }
+  };
+  // Handle confirm in import modal
+  const handleImportConfirm = async (selectedCategory, filename) => {
+    if (!importedFileData) return;
+    try {
+      // Save the imported document
+      const docToSave = {
+        name: filename,
+        category: selectedCategory,
+        content: importedFileData.content,
+      };
+      const savedDoc = await saveDocument(docToSave);
+      await loadDocument(savedDoc.id);
+      setDocumentTitle(filename);
+      if (setContent) setContent(importedFileData.content);
+      showSuccess(`Imported document: ${filename}`);
+    } catch (err) {
+      showError("Failed to save imported document.");
+      console.error(err);
+    } finally {
+      setShowImportModal(false);
+      setImportedFileData(null);
+    }
+  };
+  // Import Modal Component
+  const ImportModal = ({ show, onHide, categories, defaultName, onConfirm }) => {
+    const [selectedCategory, setSelectedCategory] = useState(categories[0] || "General");
+    const [filename, setFilename] = useState(defaultName || "");
+    useEffect(() => {
+      setFilename(defaultName || "");
+    }, [defaultName]);
+    return (
+      <ConfirmModal
+        show={show}
+        title="Import Markdown File"
+        message={
+          <>
+            <div className="mb-2">Select category for imported document:</div>
+            <select className="form-select mb-2" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
+              {categories.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
+            <div className="mb-2">Filename:</div>
+            <input className="form-control" value={filename} onChange={e => setFilename(e.target.value)} />
+          </>
+        }
+        confirmText="Import"
+        cancelText="Cancel"
+        confirmVariant="primary"
+        cancelVariant="secondary"
+        icon={<i className="bi bi-file-earmark-arrow-up text-primary me-2"></i>}
+        onConfirm={() => onConfirm(selectedCategory, filename)}
+        onCancel={onHide}
+      />
+    );
   };
 
   const handleExportMarkdown = () => {
@@ -168,6 +225,13 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
         onOpen={handleOpenFile}
         setContent={typeof setContent === "function" ? setContent : undefined}
         deleteDocument={deleteDocument}
+      />
+      <ImportModal
+        show={showImportModal}
+        onHide={() => { setShowImportModal(false); setImportedFileData(null); }}
+        categories={categories}
+        defaultName={importedFileData ? importedFileData.name : ""}
+        onConfirm={handleImportConfirm}
       />
       <ConfirmModal
         show={show}

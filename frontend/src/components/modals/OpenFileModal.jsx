@@ -32,7 +32,7 @@ function OpenFileModal({ show, onHide, categories, documents, onOpen, setContent
 
   return (
     <>
-      <Modal show={show} onHide={onHide} centered>
+      <Modal show={show} onHide={onHide} centered dialogClassName="open-file-modal-scroll">
         <Modal.Header closeButton>
           <Modal.Title>Open Document</Modal.Title>
         </Modal.Header>
@@ -53,7 +53,7 @@ function OpenFileModal({ show, onHide, categories, documents, onOpen, setContent
               ))}
             </Form.Select>
           </Form.Group>
-          <div className="list-group">
+          <div className="list-group" style={{ maxHeight: "50vh", overflowY: "auto" }}>
             {filteredDocs.length === 0 && (
               <div className="text-muted">No documents in this category.</div>
             )}
