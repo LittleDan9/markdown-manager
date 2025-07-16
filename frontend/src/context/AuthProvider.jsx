@@ -1,4 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
+import DocumentStorage from "../storage/DocumentStorage";
+import UserAPI from "../js/api/userApi.js";
 import PropTypes from "prop-types";
 import config from "../js/config.js";
 
@@ -60,101 +62,83 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  // API call helper
-  const apiCall = useCallback(async (endpoint, method = "GET", body = null) => {
-    const headers = { "Content-Type": "application/json" };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    const config = { method, headers };
-    if (body) config.body = JSON.stringify(body);
-    return fetch(`${config.apiBaseUrl}${endpoint}`, config);
-  }, [token]);
 
   // Auth actions
   const login = useCallback(async (email, password) => {
-    const res = await apiCall("/auth/login", "POST", { email, password });
-    if (!res.ok) throw new Error("Login failed");
-    const data = await res.json();
+    const data = await UserAPI.login(email, password);
     setToken(data.token);
     await fetchCurrentUser(data.token);
     return data;
-  }, [apiCall, setToken]);
+  }, [setToken, fetchCurrentUser]);
 
   const loginMFA = useCallback(async (email, password, code) => {
-    const res = await apiCall("/auth/login-mfa", "POST", { email, password, code });
-    if (!res.ok) throw new Error("MFA login failed");
-    const data = await res.json();
+    const data = await UserAPI.loginMFA(email, password, code);
     setToken(data.token);
     await fetchCurrentUser(data.token);
     return data;
-  }, [apiCall, setToken]);
+  }, [setToken, fetchCurrentUser]);
 
   const register = useCallback(async (formData) => {
-    const res = await apiCall("/auth/register", "POST", formData);
-    if (!res.ok) throw new Error("Registration failed");
-    const data = await res.json();
+    const data = await UserAPI.register(formData);
     setToken(data.token);
     await fetchCurrentUser(data.token);
     return data;
-  }, [apiCall, setToken]);
+  }, [setToken, fetchCurrentUser]);
 
   const logout = useCallback(async () => {
     setToken(null);
     setUser(null);
   }, [setToken, setUser]);
+    // Flush all document-related localStorage keys
+    localStorage.removeItem("savedDocuments");
+    localStorage.removeItem("currentDocument");
+    localStorage.removeItem("documentCategories");
+    localStorage.removeItem("lastDocumentId");
+    DocumentStorage.setCurrentDocument(null);
 
   const fetchCurrentUser = useCallback(async (overrideToken = null) => {
-    const res = await fetch(`${config.apiBaseUrl}/auth/me`, {
-      headers: {
-        "Content-Type": "application/json",
-        ...(overrideToken ? { Authorization: `Bearer ${overrideToken}` } : token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-    });
-    if (!res.ok) {
+    const userData = await UserAPI.getCurrentUser(overrideToken || token);
+    if (!userData || !userData.id) {
       setUser(null);
       return null;
     }
-    const userData = await res.json();
     setUser(userData);
     return userData;
   }, [token, setUser]);
 
   const updateProfile = useCallback(async (profileData) => {
-    const res = await apiCall("/users/profile", "PUT", profileData);
-    if (!res.ok) throw new Error("Profile update failed");
-    const data = await res.json();
+    const data = await UserAPI.updateProfileInfo(profileData);
     setUser(data);
     return data;
-  }, [apiCall, setUser]);
+  }, [setUser]);
 
   const updatePassword = useCallback(async (current_password, new_password) => {
-    const res = await apiCall("/users/password", "PUT", { current_password, new_password });
-    if (!res.ok) throw new Error("Password update failed");
-    return await res.json();
-  }, [apiCall]);
+    return await UserAPI.updatePassword(current_password, new_password);
+  }, []);
 
   const deleteAccount = useCallback(async () => {
-    const res = await apiCall("/users/account", "DELETE");
-    if (!res.ok) throw new Error("Account deletion failed");
+    const data = await UserAPI.deleteAccount();
     await logout();
-    return await res.json();
-  }, [apiCall, logout]);
+    return data;
+  }, [logout]);
 
   const requestPasswordReset = useCallback(async (email) => {
-    const res = await apiCall("/auth/password-reset-request", "POST", { email });
-    if (!res.ok) throw new Error("Password reset request failed");
-    return await res.json();
-  }, [apiCall]);
+    return await UserAPI.resetPassword(email);
+  }, []);
 
   const confirmPasswordReset = useCallback(async (token, new_password) => {
-    const res = await apiCall("/auth/password-reset-confirm", "POST", { token, new_password });
-    if (!res.ok) throw new Error("Password reset confirm failed");
-    return await res.json();
-  }, [apiCall]);
+    return await UserAPI.resetPasswordVerify(token, new_password);
+  }, []);
 
   // On mount, fetch user if token exists
   useEffect(() => {
     if (token) {
-      fetchCurrentUser(token);
+      fetchCurrentUser(token).then((user) => {
+        if (!user) {
+          logout();
+        }
+      });
+
     } else {
       setUser(null);
     }

@@ -22,7 +22,7 @@ function ConfirmModal({
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
-        <p className="mb-0">{message}</p>
+        <div className="mb-0">{message}</div>
       </Modal.Body>
       <Modal.Footer>
         <Button variant={cancelVariant} onClick={onCancel}>

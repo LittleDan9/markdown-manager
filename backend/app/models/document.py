@@ -14,11 +14,17 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 
+from sqlalchemy import UniqueConstraint
+
+
 class Document(Base):  # type: ignore[misc]
     """Document model for storing user markdown documents."""
 
     __tablename__ = "documents"
     __allow_unmapped__ = True
+    __table_args__ = (
+        UniqueConstraint("user_id", "name", "category", name="uq_user_name_category"),
+    )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)

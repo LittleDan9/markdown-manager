@@ -1,7 +1,7 @@
 """Document management API endpoints."""
 from typing import List, Optional
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
+from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -11,25 +11,6 @@ from app.models.user import User
 from app.schemas.document import Document, DocumentCreate, DocumentList, DocumentUpdate
 
 router = APIRouter()
-
-
-@router.patch("/categories/{old_name}", response_model=List[str])
-async def rename_category(
-    old_name: str,
-    new_name: str = Body(..., embed=True, description="New category name"),
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> list[str]:
-    """Rename a category for the current user."""
-    updated = await document_crud.document.update_category_name_for_user(
-        db=db, user_id=int(current_user.id), old_name=old_name, new_name=new_name
-    )
-    if not updated:
-        raise HTTPException(status_code=404, detail="Category not found or name already exists")
-    categories = await document_crud.document.get_categories_by_user(
-        db=db, user_id=int(current_user.id)
-    )
-    return categories
 
 
 @router.post("/categories/", response_model=List[str])
@@ -53,36 +34,10 @@ async def add_category(
 @router.delete("/categories/{category}", response_model=List[str])
 async def delete_category(
     category: str,
-    request: Request,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[str]:
-    """Delete a category for the current user. Optionally migrate or delete documents in the category.
-    Query params:
-      - migrate_to: str (move docs to this category)
-      - delete_docs: bool (delete all docs in this category)
-      - If neither is provided, moves docs to 'General'.
-    """
-    migrate_to = request.query_params.get("migrate_to")
-    delete_docs_req = request.query_params.get("delete_docs")
-    delete_docs = True if delete_docs_req == 'true' and delete_docs_req is not None else False
-
-    if delete_docs:
-        # Delete all documents in the category for this user
-        await document_crud.document.delete_documents_in_category_for_user(
-            db=db, user_id=int(current_user.id), category=category
-        )
-    elif migrate_to:
-        # Migrate all documents to another category
-        await document_crud.document.migrate_documents_to_category_for_user(
-            db=db, user_id=int(current_user.id), old_category=category, new_category=migrate_to
-        )
-    else:
-        # Default: move to 'General'
-        await document_crud.document.migrate_documents_to_category_for_user(
-            db=db, user_id=int(current_user.id), old_category=category, new_category="General"
-        )
-
+    """Delete a category for the current user. Moves all documents to 'General'."""
     affected = await document_crud.document.delete_category_for_user(
         db=db, user_id=int(current_user.id), category=category
     )
@@ -104,11 +59,7 @@ async def get_documents(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> DocumentList:
-    """
-    Get all documents for the current user.
-    - If category is provided and not 'All', filters by category.
-    - Returns: { documents: [...], total: int, categories: [...] }
-    """
+    """Get all documents for the current user."""
     if category and category != "All":
         orm_documents = await document_crud.document.get_by_user_and_category(
             db=db, user_id=current_user.id, category=category, skip=skip, limit=limit
@@ -136,7 +87,26 @@ async def create_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Document:
-    """Create a new document."""
+    """Create a new document, enforcing uniqueness of (name, category) per user."""
+    # Check for duplicate
+    from sqlalchemy import select
+
+    from app.models.document import Document
+
+    existing = await db.execute(
+        select(Document).filter(
+            Document.user_id == current_user.id,
+            Document.name == document_data.name,
+            Document.category == document_data.category,
+        )
+    )
+    if existing.scalar_one_or_none():
+        from fastapi import HTTPException
+
+        raise HTTPException(
+            status_code=400,
+            detail="A document with this name and category already exists.",
+        )
     document = await document_crud.document.create(
         db=db,
         user_id=current_user.id,

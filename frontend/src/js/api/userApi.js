@@ -9,6 +9,18 @@ class UserAPI extends Api {
     }
     return await response.json();
   }
+  // Validate token and fetch current user
+  async getCurrentUser(token = null) {
+    const headers = { "Content-Type": "application/json" };
+    if (token || this.getToken()) {
+      headers["Authorization"] = `Bearer ${token || this.getToken()}`;
+    }
+    const response = await fetch(`${this.apiBase}/auth/me`, { headers });
+    if (!response.ok) {
+      return null;
+    }
+    return await response.json();
+  }
   constructor() {
     super();
     this.user = null;
