@@ -1,5 +1,6 @@
 """Document management API endpoints."""
 from typing import List, Optional
+import sqlalchemy as sa
 
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,6 +12,38 @@ from app.models.user import User
 from app.schemas.document import Document, DocumentCreate, DocumentList, DocumentUpdate
 
 router = APIRouter()
+
+
+@router.get("/current", response_model=Document | None)
+async def get_current_document(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Document | None:
+    """Get the user's current document."""
+    if current_user.current_doc_id:
+        document = await document_crud.document.get(db=db, id=current_user.current_doc_id)
+        if document and document.user_id == current_user.id:
+            return Document.model_validate(document, from_attributes=True)
+    return None
+
+
+@router.post("/current", response_model=dict)
+async def set_current_document(
+    doc_id: int = Body(..., embed=True),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Set the user's current document ID."""
+    # Validate document ownership
+    document = await document_crud.document.get(db=db, id=doc_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Document not found or not owned by user")
+    # Update user
+    await db.execute(
+        sa.update(User).where(User.id == current_user.id).values(current_doc_id=doc_id)
+    )
+    await db.commit()
+    return {"message": "Current document updated", "current_doc_id": doc_id}
 
 
 @router.post("/categories/", response_model=List[str])

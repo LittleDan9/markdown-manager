@@ -16,7 +16,6 @@ class DocumentsApi extends Api {
     return await res.blob();
   }
 
-
   async getAllDocuments(category = null) {
     let endpoint = "/documents/";
     if (category && category !== "All") {
@@ -83,6 +82,20 @@ class DocumentsApi extends Api {
     const res = await this.apiCall(url, "DELETE");
     if (!res.ok) throw new Error("Failed to delete category");
     return await res.json(); // returns updated categories
+  }
+
+  async getCurrentDocumentId() {
+    const res = await this.apiCall(`/documents/current`);
+    if (!res.ok) throw new Error("Failed to fetch current document");
+    const doc = await res.json();
+    return doc && doc.id ? doc.id : null;
+  }
+
+  async setCurrentDocumentId(id) {
+    const res = await this.apiCall(`/documents/current`, "POST", { doc_id: id });
+    if (!res.ok) throw new Error("Failed to set current document");
+    const result = await res.json();
+    return result.current_doc_id;
   }
 }
 
