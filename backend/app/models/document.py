@@ -50,7 +50,14 @@ class Document(Base):  # type: ignore[misc]
     )
 
     # Relationship
-    owner: Mapped["User"] = relationship("User", back_populates="documents")
+    owner: Mapped["User"] = relationship("User", back_populates="documents", foreign_keys=[user_id])
+    # For current_doc_id relationship (reverse link from User)
+    current_users: Mapped[list["User"]] = relationship(
+        "User",
+        back_populates="current_document",
+        primaryjoin="Document.id==User.current_doc_id",
+        viewonly=True,
+    )
 
     def __repr__(self) -> str:
         return (

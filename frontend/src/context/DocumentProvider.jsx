@@ -38,6 +38,7 @@ export function DocumentProvider({ children }) {
         let cats = [];
         if (isAuthenticated) {
           docs = await DocumentStorage.syncAndMergeDocuments(isAuthenticated, token);
+          await DocumentStorage.syncCurrentDocumentOnLogin(isAuthenticated, token);
           const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
           cats = await DocumentsApi.getCategories();
         } else {
@@ -81,9 +82,14 @@ export function DocumentProvider({ children }) {
       setCurrentDocument(saved);
       setDocuments(DocumentStorage.getAllDocuments());
       setHasUnsavedChanges(false);
+      // Sync current_doc_id to backend if authenticated
+      if (isAuthenticated && saved && saved.id) {
+        await DocumentStorage.updateCurrentDocumentId(saved.id, isAuthenticated, token);
+      }
+      return saved;
     } catch (e) {
-      setError("Failed to save document.");
       console.error(e);
+      throw (e)
     } finally {
       setLoading(false);
     }

@@ -16,16 +16,7 @@ function RegisterModal({ show, onHide, onRegister, error }) {
     confirm_password: "",
     bio: ""
   });
-  // Focus management on modal open and step change
-  useEffect(() => {
-    if (!show) return;
-    // Delay to ensure panel is rendered
-    setTimeout(() => {
-      if (step === 1 && firstNameRef.current) firstNameRef.current.focus();
-      if (step === 2 && passwordRef.current) passwordRef.current.focus();
-      if (step === 3 && bioRef.current) bioRef.current.focus();
-    }, 100);
-  }, [show, step]);
+
   const [emailMatchError, setEmailMatchError] = useState("");
   const [passwordMatchError, setPasswordMatchError] = useState("");
   const [step, setStep] = useState(1);
@@ -136,7 +127,7 @@ function RegisterModal({ show, onHide, onRegister, error }) {
             {/* Step 1: Name/Email */}
             <Accordion.Item eventKey="step1">
               <Accordion.Header><i className="bi bi-person me-2"></i>Step 1: Name & Email</Accordion.Header>
-              <Accordion.Body onKeyDown={handleStep1KeyDown} tabIndex={0}>
+              <Accordion.Body onKeyDown={handleStep1KeyDown} tabIndex={0} onEntered={() => {firstNameRef.current.focus()}}>
                 <Row className="mb-3">
                   <Col md={6}>
                     <Form.Group controlId="first_name">
@@ -177,7 +168,7 @@ function RegisterModal({ show, onHide, onRegister, error }) {
             {/* Step 2: Password/Confirm */}
             <Accordion.Item eventKey="step2">
               <Accordion.Header><i className="bi bi-key me-2"></i>Step 2: Set Password</Accordion.Header>
-              <Accordion.Body onKeyDown={handleStep2KeyDown} tabIndex={0}>
+              <Accordion.Body onKeyDown={handleStep2KeyDown} tabIndex={0} onEntered={() => {passwordRef.current.focus()}}>
                 <Form.Group className="mb-3" controlId="password">
                   <Form.Label>Password</Form.Label>
                   <Form.Control type="password" value={form.password} onChange={handleChange} required minLength={6} ref={passwordRef} />
@@ -197,7 +188,7 @@ function RegisterModal({ show, onHide, onRegister, error }) {
             {/* Step 3: Bio */}
             <Accordion.Item eventKey="step3">
               <Accordion.Header><i className="bi bi-person-lines-fill me-2"></i>Step 3: Bio</Accordion.Header>
-              <Accordion.Body onKeyDown={handleStep3KeyDown} tabIndex={0}>
+              <Accordion.Body onKeyDown={handleStep3KeyDown} tabIndex={0} onEntered={() => {bioRef.current.focus()}}>
                 <Form.Group className="mb-3" controlId="bio">
                   <Form.Label>Bio (Optional)</Form.Label>
                   <Form.Control as="textarea" rows={2} value={form.bio} onChange={handleChange} placeholder="Tell us a bit about yourself..." ref={bioRef} />

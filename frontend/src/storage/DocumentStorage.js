@@ -156,24 +156,44 @@ const DocumentStorage = {
     if (duplicate) {
       throw new Error("A document with this name and category already exists.");
     }
-    const id = doc.id || `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const now = new Date().toISOString();
-    const document = {
-      ...doc,
-      id,
-      lastModified: now,
-      created: docsObj[id]?.created || now,
-    };
-    docsObj[id] = document;
+    let id = doc.id;
+    let now = new Date().toISOString();
+    let document = { ...doc, lastModified: now };
+
+    // If not present, generate a local id
+    if (!id) {
+      id = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      document.id = id;
+    }
+
+    // Sync to backend if authenticated
+    if (isAuthenticated) {
+      const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+      let backendDoc;
+      if (!doc.id || String(doc.id).startsWith("doc_")) {
+        // New document, use POST
+        backendDoc = await DocumentsApi.createDocument({
+          name: doc.name,
+          content: doc.content,
+          category: doc.category,
+        });
+        // Update local doc with backend id and lastModified
+        document.id = backendDoc.id;
+        document.lastModified = backendDoc.lastModified || now;
+      } else {
+        // Existing backend doc, use PUT
+        backendDoc = await DocumentsApi.updateDocument(doc.id, {
+          name: doc.name,
+          content: doc.content,
+          category: doc.category,
+        });
+        document.lastModified = backendDoc.lastModified || now;
+      }
+    }
+
+    docsObj[document.id] = document;
     setLocalDocuments(docsObj);
     setCurrentDocument(document);
-    // Sync to backend if authenticated
-    try {
-      await syncToBackend(document, isAuthenticated, token);
-    } catch (e) {
-      // Optionally queue for retry
-      // console.error("Backend sync failed", e);
-    }
     return document;
   },
   deleteDocument: async function(id, isAuthenticated, token) {
@@ -254,6 +274,32 @@ const DocumentStorage = {
   },
   getCurrentDocument,
   setCurrentDocument,
+  async syncCurrentDocumentOnLogin(isAuthenticated, token) {
+    if (!isAuthenticated) return;
+    const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+    try {
+      const currentId = await DocumentsApi.getCurrentDocumentId();
+      if (currentId) {
+        const doc = this.getDocument(currentId);
+        if (doc) {
+          setCurrentDocument(doc);
+          localStorage.setItem("lastDocumentId", currentId);
+        }
+      }
+    } catch (e) {
+      // fallback: do nothing
+    }
+  },
+
+  async updateCurrentDocumentId(id, isAuthenticated, token) {
+    if (!isAuthenticated) return;
+    const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+    try {
+      await DocumentsApi.setCurrentDocumentId(id);
+    } catch (e) {
+      // fallback: do nothing
+    }
+  },
   searchDocuments(query) {
     // Simple search by name/content/category
     const docs = Object.values(getLocalDocuments());

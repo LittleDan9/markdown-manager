@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from "react";
-import { Dropdown, ButtonGroup } from "react-bootstrap";
+import { Dropdown, ButtonGroup, Form, Button } from "react-bootstrap";
 import ConfirmModal from "../modals/ConfirmModal";
+import ImportConfirmModal from "../modals/ImportConfirmModal";
 import OpenFileModal from "../modals/OpenFileModal";
 import { useDocument } from "../../context/DocumentProvider";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
@@ -95,61 +96,82 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
     }
   };
   // Handle confirm in import modal
+  // State for overwrite confirm modal
+  const [showOverwriteModal, setShowOverwriteModal] = useState(false);
+  const [pendingImport, setPendingImport] = useState(null);
+
   const handleImportConfirm = async (selectedCategory, filename) => {
     if (!importedFileData) return;
+    // Sanitize filename and category
+    const safeName = (filename && filename !== "__category_placeholder__") ? filename : "Untitled Document";
+    const safeCategory = (selectedCategory && selectedCategory !== "__category_placeholder__") ? selectedCategory : "General";
+    const docToSave = {
+      name: safeName,
+      category: safeCategory,
+      content: importedFileData.content,
+    };
     try {
-      // Save the imported document
-      const docToSave = {
-        name: filename,
-        category: selectedCategory,
-        content: importedFileData.content,
-      };
       const savedDoc = await saveDocument(docToSave);
-      await loadDocument(savedDoc.id);
-      setDocumentTitle(filename);
-      if (setContent) setContent(importedFileData.content);
-      showSuccess(`Imported document: ${filename}`);
+      if (savedDoc && savedDoc.id) {
+        await loadDocument(savedDoc.id);
+        setDocumentTitle(savedDoc.name);
+        if (setContent) setContent(savedDoc.content);
+        showSuccess(`Imported document: ${savedDoc.name}`);
+        setShowImportModal(false);
+        setImportedFileData(null);
+      } else {
+        showError("Failed to save imported document: No document ID returned.");
+      }
     } catch (err) {
-      showError("Failed to save imported document.");
+      // Check for collision error
+      if (err.message && err.message.includes("already exists")) {
+        setPendingImport(docToSave);
+        setShowImportModal(false);
+        setShowOverwriteModal(true);
+      } else {
+        showError("Failed to save imported document.");
+        console.error(err);
+        setShowImportModal(false);
+      }
+    }
+  };
+
+  // Overwrite handler
+  const handleOverwriteConfirm = async () => {
+    if (!pendingImport) return;
+    try {
+      // Find and delete the existing doc with same name/category
+      const existingDoc = documents.find(
+        d => d.name === pendingImport.name && d.category === pendingImport.category
+      );
+      if (existingDoc) {
+        await deleteDocument(existingDoc.id);
+      }
+      const savedDoc = await saveDocument(pendingImport);
+      if (savedDoc && savedDoc.id) {
+        await loadDocument(savedDoc.id);
+        setDocumentTitle(savedDoc.name);
+        if (setContent) setContent(savedDoc.content);
+        showSuccess(`Imported and overwritten document: ${savedDoc.name}`);
+      } else {
+        showError("Failed to overwrite imported document: No document ID returned.");
+      }
+    } catch (err) {
+      showError("Failed to overwrite imported document.");
       console.error(err);
     } finally {
-      setShowImportModal(false);
+      setShowOverwriteModal(false);
+      setPendingImport(null);
       setImportedFileData(null);
     }
   };
-  // Import Modal Component
-  const ImportModal = ({ show, onHide, categories, defaultName, onConfirm }) => {
-    const [selectedCategory, setSelectedCategory] = useState(categories[0] || "General");
-    const [filename, setFilename] = useState(defaultName || "");
-    useEffect(() => {
-      setFilename(defaultName || "");
-    }, [defaultName]);
-    return (
-      <ConfirmModal
-        show={show}
-        title="Import Markdown File"
-        message={
-          <>
-            <div className="mb-2">Select category for imported document:</div>
-            <select className="form-select mb-2" value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-            <div className="mb-2">Filename:</div>
-            <input className="form-control" value={filename} onChange={e => setFilename(e.target.value)} />
-          </>
-        }
-        confirmText="Import"
-        cancelText="Cancel"
-        confirmVariant="primary"
-        cancelVariant="secondary"
-        icon={<i className="bi bi-file-earmark-arrow-up text-primary me-2"></i>}
-        onConfirm={() => onConfirm(selectedCategory, filename)}
-        onCancel={onHide}
-      />
-    );
+
+  const handleOverwriteCancel = () => {
+    setShowOverwriteModal(false);
+    setPendingImport(null);
+    setShowImportModal(true);
   };
+  // ...existing code...
 
   const handleExportMarkdown = () => {
     exportAsMarkdown(currentDocument.content, currentDocument.name);
@@ -226,12 +248,29 @@ function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, s
         setContent={typeof setContent === "function" ? setContent : undefined}
         deleteDocument={deleteDocument}
       />
-      <ImportModal
+      <ImportConfirmModal
         show={showImportModal}
         onHide={() => { setShowImportModal(false); setImportedFileData(null); }}
         categories={categories}
         defaultName={importedFileData ? importedFileData.name : ""}
         onConfirm={handleImportConfirm}
+      />
+      <ConfirmModal
+        show={showOverwriteModal}
+        title="Document Exists"
+        message={
+          <>
+            <div className="mb-2">A document with this name and category already exists.</div>
+            <div>Do you want to overwrite it?</div>
+          </>
+        }
+        confirmText="Overwrite"
+        cancelText="Cancel"
+        confirmVariant="danger"
+        cancelVariant="secondary"
+        icon={<i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>}
+        onConfirm={handleOverwriteConfirm}
+        onCancel={handleOverwriteCancel}
       />
       <ConfirmModal
         show={show}
