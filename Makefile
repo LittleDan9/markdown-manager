@@ -49,7 +49,7 @@ endif
 # ────────────────────────────────────────────────────────────────────────────
 
 FRONTEND_DIR   := frontend
-FRONT_DIST_DIR := frontend/dist
+FRONT_DIST_DIR := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,frontend/dist)
 BACKEND_DIR    := backend
 
 FRONTEND_PORT      := 3000

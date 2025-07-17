@@ -27,6 +27,13 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
     setTitleInput(currentDocument.name || "Untitled Document");
   }, [currentDocument.name]);
 
+  // Sync category with currentDocument.category whenever document changes
+  useEffect(() => {
+    if (currentDocument && currentDocument.category && currentDocument.category !== currentCategory) {
+      setCurrentCategory(currentDocument.category);
+    }
+  }, [currentDocument?.category]);
+
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");
     setEditingTitle(true);
@@ -249,7 +256,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
       {currentDocument.name === "Untitled Document" && (
         <span
           className="me-2"
-          title="This document is only saved locally until you provide a title."
+          title="This document will remain your current document but will not be saved until you provide a title."
           style={{ cursor: "pointer" }}
         >
           <i className="bi bi-exclamation-diamond text-danger"></i>

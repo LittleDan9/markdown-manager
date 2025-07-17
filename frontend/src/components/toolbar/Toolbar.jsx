@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import FileDropdown from "./File";
+import FileDropdown from "./file/FileDropdown";
 import DocumentToolbar from "./Document";
 import UserToolbar from "./User";
 import { useTheme } from "../../context/ThemeContext";

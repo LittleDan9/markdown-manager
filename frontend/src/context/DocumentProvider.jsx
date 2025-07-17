@@ -65,6 +65,7 @@ export function DocumentProvider({ children }) {
           content: "",
         });
       } catch (e) {
+        console.error("Failed to load documents or categories:", e);
         setError("Failed to load documents or categories.");
       } finally {
         setLoading(false);
@@ -75,6 +76,15 @@ export function DocumentProvider({ children }) {
 
   // Save current document using DocumentStorage abstraction
   const saveDocument = useCallback(async (doc) => {
+    // Prevent saving the default Untitled Document
+    if (
+      doc.id === null &&
+      doc.name === "Untitled Document" &&
+      doc.category === DEFAULT_CATEGORY &&
+      doc.content === ""
+    ) {
+      return null;
+    }
     setLoading(true);
     setError("");
     try {
@@ -120,6 +130,7 @@ export function DocumentProvider({ children }) {
       const doc = DocumentStorage.getDocument(id);
       if (!doc) throw new Error("Document not found");
       setCurrentDocument(doc);
+      DocumentStorage.setCurrentDocument(doc); // Ensure localStorage is updated
     } catch (e) {
       setError("Failed to load document.");
     } finally {
@@ -265,30 +276,40 @@ export function DocumentProvider({ children }) {
     });
   }, []);
 
+  const isDefaultDoc = currentDocument &&
+    currentDocument.id === null &&
+    currentDocument.name === "Untitled Document" &&
+    currentDocument.category === DEFAULT_CATEGORY;
+
   const value = {
-    currentDocument,
-    setCurrentDocument,
-    documents,
-    setDocuments,
-    categories,
-    setCategories,
-    loading,
-    error,
-    saveDocument,
-    createDocument,
-    loadDocument,
-    deleteDocument,
-    renameDocument,
-    addCategory,
-    deleteCategory,
-    exportAsMarkdown,
-    exportAsPDF,
-    importMarkdownFile,
-    hasUnsavedChanges,
-    renameCategory,
-    user,
-    token,
-    isAuthenticated,
+  currentDocument,
+  setCurrentDocument,
+  documents,
+  setDocuments,
+  categories,
+  setCategories,
+  loading,
+  error,
+  saveDocument,
+  createDocument,
+  loadDocument,
+  deleteDocument,
+  renameDocument,
+  addCategory,
+  deleteCategory,
+  exportAsMarkdown,
+  exportAsPDF,
+  importMarkdownFile,
+  hasUnsavedChanges,
+  renameCategory,
+  user,
+  token,
+  isAuthenticated,
+  isDefaultDoc,
+  openDocument: (doc) => {
+    if (!doc) return;
+    setCurrentDocument(doc);
+  },
   };
 
   return (
