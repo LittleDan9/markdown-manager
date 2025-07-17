@@ -63,8 +63,6 @@ export function useFileImportController({ setDocumentTitle, setContent }) {
           showSuccess(`Document saved as: ${savedDoc.name}`);
           setShowImportModal(false);
           setImportedFileData(null);
-          createDocument();
-          setDocumentTitle("Untitled Document");
         } else {
           showError("Failed to save document: No document ID returned.");
         }
@@ -84,8 +82,6 @@ export function useFileImportController({ setDocumentTitle, setContent }) {
     if (actionKey === "confirm") {
       setShowImportModal(false);
       setImportedFileData(null);
-      createDocument();
-      setDocumentTitle("Untitled Document");
       return;
     }
     try {
@@ -97,8 +93,6 @@ export function useFileImportController({ setDocumentTitle, setContent }) {
         showSuccess(`Imported document: ${savedDoc.name}`);
         setShowImportModal(false);
         setImportedFileData(null);
-        createDocument();
-        setDocumentTitle("Untitled Document");
       } else {
         showError("Failed to save imported document: No document ID returned.");
       }

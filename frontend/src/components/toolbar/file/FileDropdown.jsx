@@ -108,6 +108,7 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
     console.log("No unsaved changes, creating new doc");
     createDocument();
     setDocumentTitle("Untitled Document");
+    showSuccess("Previous document did not need saving. New document created.");
   };
 
   // Accept setCurrentCategory as a prop
