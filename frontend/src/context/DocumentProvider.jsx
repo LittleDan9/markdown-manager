@@ -178,10 +178,11 @@ export function DocumentProvider({ children }) {
   }, [currentDocument]);
 
   // Export as PDF using DocumentsApi
-  const exportAsPDF = useCallback(async (htmlContent, filename = null) => {
+  const exportAsPDF = useCallback(async (htmlContent, filename = null, theme = "light") => {
     try {
       const documentName = filename || currentDocument.name || "Untitled Document";
-      const isDarkMode = document.documentElement.classList.contains("dark-theme");
+      // Use ThemeContext to determine dark mode
+      let isDarkMode = theme === "dark";
       const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDarkMode);
       const downloadUrl = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement("a");

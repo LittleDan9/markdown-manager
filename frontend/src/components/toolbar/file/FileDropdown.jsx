@@ -14,8 +14,11 @@ import { useFileOverwriteController } from "./useFileOverwriteController";
 import { useFileOpenController } from "./useFileOpenController";
 import { useFileSaveController } from "./useFileSaveController";
 import { useFileExportController } from "./useFileExportController";
+import { useTheme } from "../../../context/ThemeContext.jsx";
 
-export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, setContent, editorValue }) {
+export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, setContent, editorValue, renderedHTML }) {
+  console.log('[FileDropdown] renderedHTML prop received:', renderedHTML);
+  const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc } = useDocument();
   const { showSuccess, showError } = useNotification();
@@ -100,7 +103,12 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
   // Save controller
   const saveController = useFileSaveController({ saveDocument, currentDocument, editorValue, setDocumentTitle });
   // Export controller
-  const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument });
+  const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, renderedHTML, theme });
+  // Log before export actions
+  const handleExportPDF = () => {
+    console.log('[FileDropdown] Export PDF clicked. renderedHTML:', renderedHTML);
+    exportController.handleExportPDF();
+  };
 
   const handleNew = async () => {
     let hasUnsavedChanges = false;
@@ -205,7 +213,10 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
           <Dropdown.Item onClick={exportController.handleExportMarkdown}>
             <i className="bi bi-filetype-md me-2"></i>Export Markdown
           </Dropdown.Item>
-          <Dropdown.Item onClick={exportController.handleExportPDF}>
+          <Dropdown.Item
+            onClick={handleExportPDF}
+            disabled={!renderedHTML || renderedHTML === ""}
+          >
             <i className="bi bi-filetype-pdf me-2"></i>Export PDF
           </Dropdown.Item>
           <Dropdown.Divider />

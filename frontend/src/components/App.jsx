@@ -17,14 +17,16 @@ function App() {
   });
   const { currentDocument, saveDocument } = useDocument();
   const [content, setContent] = useState(currentDocument?.content || "");
+  const [renderedHTML, setRenderedHTML] = useState("");
 
   useEffect(() => {
     localStorage.setItem("autosaveEnabled", autosaveEnabled);
   }, [autosaveEnabled]);
 
   useEffect(() => {
-    if (currentDocument?.content !== content) {
-      setContent(currentDocument?.content ?? "");
+    // Always sync content with currentDocument after document load/change
+    if (currentDocument && currentDocument.content !== content) {
+      setContent(currentDocument.content ?? "");
     }
   }, [currentDocument]);
   return (
@@ -39,6 +41,7 @@ function App() {
                 setAutosaveEnabled={setAutosaveEnabled}
                 setContent={setContent}
                 editorValue={content}
+                renderedHTML={renderedHTML}
               />
               <div id="main">
                 <Editor
@@ -48,7 +51,11 @@ function App() {
                   currentDocument={currentDocument}
                   saveDocument={saveDocument}
                 />
-                <Renderer content={content} />
+                <Renderer content={content} onRenderHTML={html => {
+                  console.log('[App] setRenderedHTML called with:', html);
+                  setRenderedHTML(html);
+                  console.log('[App] renderedHTML state after set:', html);
+                }} />
               </div>
             </div>
           </div>
