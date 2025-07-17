@@ -13,12 +13,12 @@ class MermaidService {
         startOnLoad: false,
         theme: theme,
         flowchart: {
-          htmlLabels: true,
+          htmlLabels: false,
           curve: "linear",
         },
         suppressErrorRendering: true,
         logLevel: "fatal",
-        htmlLabels: true,
+        htmlLabels: false,
         secure: ["secure", "securityLevel", "startOnLoad", "maxTextSize"],
         securityLevel: "loose",
       });

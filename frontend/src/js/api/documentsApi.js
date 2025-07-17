@@ -1,7 +1,62 @@
 import { Api } from "./api";
 
 class DocumentsApi extends Api {
+  async svgToPngDataUri(svgEl) {
+    // 1) Serialize the SVG node to a string
+    const serializer = new XMLSerializer();
+    const svgString = serializer.serializeToString(svgEl);
+
+    // 2) Create a Blob & ObjectURL
+    const blob = new Blob([svgString], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+
+    // 3) Load it into an Image
+    const img = new Image();
+    img.src = url;
+    await img.decode();       // wait until it's loaded
+
+    // 4) Draw to a Canvas
+    const canvas = document.createElement("canvas");
+    canvas.width  = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d");
+    // optional: set a white background
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
+
+    // 5) Extract PNG data-URI
+    const dataUri = canvas.toDataURL("image/png");
+
+    // 6) Clean up
+    URL.revokeObjectURL(url);
+
+    return dataUri;
+  }
+
   async exportAsPDF(htmlContent, documentName, isDarkMode = false) {
+    // Create a DOM that will allow extraction of all SVGs
+    // const dom = document.createElement("div");
+    // dom.innerHTML = htmlContent;
+
+    // // Find all <svg> elements with id starting with "mermaid-"
+    // const mermaidSvgs = dom.querySelectorAll('svg[id^="mermaid-"]');
+
+    // // Example: loop and update each SVG (replace with your logic)
+    // const jobs = mermaidSvgs.map(async (svg) => {
+    //   const dataUri = await this.svgToPngDataUri(svg)
+    //   // Replace the SVG with an <img> tag containing the PNG data URI
+    //   const img = document.createElement("img");
+    //   img.src = dataUri;
+    //   img.style.width = "100%"; // Optional: set width to 100% of container
+    //   img.style.height = "auto"; // Maintain aspect ratio
+    //   svg.replaceWith(img);
+    // });
+
+    // await Promise.all(jobs);
+
+    // After modifications, get the updated HTML
+    // const renderedHTML = dom.innerHTML;
     const requestData = {
       html_content: htmlContent,
       document_name: documentName,
