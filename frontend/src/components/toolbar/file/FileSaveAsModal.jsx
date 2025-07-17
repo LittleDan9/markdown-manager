@@ -9,19 +9,24 @@ export default function FileSaveAsModal({ show, onHide, onConfirm, defaultName =
   const [categoryError, setCategoryError] = useState("");
 
   // Default document values
-  const isDefaultCategory = selectedCategory === "General";
   const isDefaultFilename = filename === "Untitled Document" || filename.trim() === "";
-  const isValid = !isDefaultCategory && !isDefaultFilename && !categoryError;
+  const isValid = !isDefaultFilename && !categoryError;
 
   // Handle modal actions via action key
   const handleAction = (action) => {
-    if (action === "save") {
-      if (isValid) onConfirm(selectedCategory, filename, "save");
-    } else if (action === "discard") {
-      onConfirm(null, null, "discard");
-      if (onHide) onHide();
-    } else if (action === "cancel") {
-      if (onHide) onHide();
+    try {
+      if (action === "save") {
+        if (isValid) {
+          onConfirm(selectedCategory, filename, "save");
+        }
+      } else if (action === "discard") {
+        onConfirm(null, null, "discard");
+        if (onHide) onHide();
+      } else if (action === "cancel") {
+        if (onHide) onHide();
+      }
+    } finally {
+      setFilename("");
     }
   };
 
