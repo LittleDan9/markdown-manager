@@ -4,6 +4,7 @@ import FileOpenModal from "./FileOpenModal";
 import FileImportModal from "./FileImportModal";
 import FileSaveAsModal from "./FileSaveAsModal";
 import FileOverwriteModal from "./FileOverwriteModal";
+import ConfirmModal from "../../modals/ConfirmModal";
 import { useDocument } from "../../../context/DocumentProvider.jsx";
 import { useConfirmModal } from "../../../hooks/useConfirmModal.jsx";
 import { useNotification } from "../../NotificationProvider";
@@ -21,6 +22,68 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
 
   // Import modal controller
   const importController = useFileImportController({ setDocumentTitle, setContent });
+
+  // Import logic with unsaved changes handling
+  const handleImportWithUnsavedCheck = async () => {
+    let hasUnsavedChanges = false;
+    if (isDefaultDoc) {
+      hasUnsavedChanges =
+        currentDocument && (
+          currentDocument.name !== "Untitled Document" ||
+          editorValue !== "" ||
+          currentDocument.category !== "General"
+        );
+    } else if (currentDocument && currentDocument.id) {
+      const savedDoc = documents.find(doc => doc.id === currentDocument.id);
+      if (savedDoc) {
+        hasUnsavedChanges =
+          currentDocument.name !== savedDoc.name ||
+          editorValue !== savedDoc.content ||
+          currentDocument.category !== savedDoc.category;
+      } else {
+        hasUnsavedChanges = true;
+      }
+    }
+    if (isDefaultDoc && hasUnsavedChanges) {
+      saveAsController.openSaveAs(editorValue, currentDocument.name);
+      return;
+    }
+    if (!isDefaultDoc && !autosaveEnabled && hasUnsavedChanges) {
+      try{
+      openModal(
+        async (actionKey) => {
+          if (actionKey === "save") {
+            await saveDocument({ ...currentDocument, content: editorValue });
+            showSuccess(`Previous document "${currentDocument.name}" saved.`);
+          }
+          if (actionKey === "save" || actionKey === "confirm") {
+            importController.handleImport();
+          }
+        },
+        {
+          title: "Unsaved Changes",
+          message: "You have unsaved changes. What would you like to do before importing?",
+          buttons: [
+            { icon: "bi bi-save", text: "Save", variant: "primary", action: "save", autoFocus: true },
+            { icon: "bi bi-trash", text: "Discard", variant: "danger", action: "confirm" },
+            { icon: "bi bi-arrow-return-right", text: "Cancel", variant: "secondary", action: "cancel" },
+          ],
+          icon: <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>,
+        },
+      );
+    }catch (error) {
+      console.error("Error handling import with unsaved check:", error);
+    }
+      return;
+    }
+    if (!isDefaultDoc && autosaveEnabled && hasUnsavedChanges) {
+      await saveDocument({ ...currentDocument, content: editorValue });
+      showSuccess(`Previous document "${currentDocument.name}" saved.`);
+      importController.handleImport();
+      return;
+    }
+    importController.handleImport();
+  };
   // Save As modal controller
   const saveAsController = useFileSaveAsController({ setDocumentTitle, setContent });
   // Overwrite modal controller
@@ -135,7 +198,7 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
             <i className="bi bi-save me-2"></i>Save
           </Dropdown.Item>
           <Dropdown.Divider />
-          <Dropdown.Item onClick={importController.handleImport}>
+          <Dropdown.Item onClick={handleImportWithUnsavedCheck}>
             <i className="bi bi-file-earmark-arrow-up me-2"></i>Import
           </Dropdown.Item>
           <Dropdown.Divider />
@@ -242,7 +305,18 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
         }}
       />
       {/* ConfirmModal for generic confirm flows */}
-      {/* ...existing code for generic ConfirmModal if needed... */}
+      {/* ConfirmModal for unsaved changes and other confirmations */}
+      {show && modalConfig && (
+        <ConfirmModal
+          show={show}
+          title={modalConfig.title}
+          message={modalConfig.message}
+          icon={modalConfig.icon}
+          buttons={modalConfig.buttons}
+          onAction={handleAction}
+          onHide={() => handleAction("cancel")}
+        />
+      )}
     </>
   );
 }
