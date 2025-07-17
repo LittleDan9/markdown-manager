@@ -21,6 +21,7 @@ class PDFExportRequest(BaseModel):
 
 @router.post("/export")
 async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
+    print(request.html_content)
     """Export HTML content as PDF."""
     try:
         # Get CSS styles from CSS service
