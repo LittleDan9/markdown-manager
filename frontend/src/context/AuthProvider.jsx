@@ -88,13 +88,13 @@ export function AuthProvider({ children }) {
   const logout = useCallback(async () => {
     setToken(null);
     setUser(null);
-  }, [setToken, setUser]);
     // Flush all document-related localStorage keys
     localStorage.removeItem("savedDocuments");
     localStorage.removeItem("currentDocument");
     localStorage.removeItem("documentCategories");
     localStorage.removeItem("lastDocumentId");
     DocumentStorage.setCurrentDocument(null);
+  }, [setToken, setUser]);
 
   const fetchCurrentUser = useCallback(async (overrideToken = null) => {
     const userData = await UserAPI.getCurrentUser(overrideToken || token);
@@ -134,15 +134,16 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     if (token) {
       fetchCurrentUser(token).then((user) => {
+        // Only call logout if token exists and is invalid
         if (!user) {
           logout();
         }
       });
-
     } else {
+      // No token: do not call logout, just set user to null
       setUser(null);
     }
-  }, [token, fetchCurrentUser, setUser]);
+  }, [token, fetchCurrentUser, setUser, logout]);
 
   const isAuthenticated = !!token && user && user.id !== -1;
 

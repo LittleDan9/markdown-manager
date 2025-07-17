@@ -37,7 +37,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
           </button>
         </div>
         <pre class="language-mermaid d-flex align-items-center justify-content-center" style="min-height: 4rem; padding: 1rem;">
-          <code class="text-warning">Diagram is empty of invalid. Please check the source.</code>
+          <code class="text-warning">Diagram is rendering, empty or invalid. Please check the source.</code>
         </pre>
       </div>
     </div>`;

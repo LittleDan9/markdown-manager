@@ -5,19 +5,15 @@ export function useConfirmModal(defaultConfig = {}) {
   const [pendingAction, setPendingAction] = useState(null);
   const [modalConfig, setModalConfig] = useState(defaultConfig);
 
-  const openModal = (action, config = {}) => {
-    setPendingAction(() => action);
+  // actionHandler receives the action key (e.g. "save", "confirm", "cancel")
+  const openModal = (actionHandler, config = {}) => {
+    setPendingAction(() => actionHandler);
     setModalConfig({ ...defaultConfig, ...config });
     setShow(true);
   };
 
-  const handleConfirm = async () => {
-    if (pendingAction) await pendingAction();
-    setShow(false);
-    setPendingAction(null);
-  };
-
-  const handleCancel = () => {
+  const handleAction = async (actionKey) => {
+    if (pendingAction) await pendingAction(actionKey);
     setShow(false);
     setPendingAction(null);
   };
@@ -26,7 +22,6 @@ export function useConfirmModal(defaultConfig = {}) {
     show,
     modalConfig,
     openModal,
-    handleConfirm,
-    handleCancel,
+    handleAction,
   };
 }

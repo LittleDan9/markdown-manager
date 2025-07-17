@@ -11,9 +11,17 @@ import { AuthProvider } from "../context/AuthProvider.jsx";
 import { useDocument } from "../context/DocumentProvider";
 
 function App() {
-  const [autosaveEnabled, setAutosaveEnabled] = useState(true);
+  const [autosaveEnabled, setAutosaveEnabled] = useState(() => {
+    const saved = localStorage.getItem("autosaveEnabled");
+    return saved === null ? true : saved === "true";
+  });
   const { currentDocument, saveDocument } = useDocument();
   const [content, setContent] = useState(currentDocument?.content || "");
+
+  useEffect(() => {
+    localStorage.setItem("autosaveEnabled", autosaveEnabled);
+  }, [autosaveEnabled]);
+
   useEffect(() => {
     if (currentDocument?.content !== content) {
       setContent(currentDocument?.content ?? "");
