@@ -7,11 +7,7 @@ class DocumentsApi extends Api {
       document_name: documentName,
       is_dark_mode: isDarkMode,
     };
-    const res = await fetch(`${this.baseUrl}/pdf/export`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(requestData),
-    });
+    const res = await this.apiCall(`/pdf/export`, "POST", requestData);
     if (!res.ok) throw new Error("PDF export failed");
     return await res.blob();
   }

@@ -50,7 +50,11 @@ class MermaidService {
     );
   }
 
-  async render(previewElement) {
+  async render(previewElement, theme = null) {
+    if (theme && theme !== this.theme) {
+      await this.updateTheme(theme);
+    }
+
     const mermaidBlocks = previewElement.querySelectorAll(".mermaid[data-mermaid-source][data-processed='false']");
     if (mermaidBlocks.length === 0) return;
 
@@ -68,7 +72,7 @@ class MermaidService {
       try {
         const { svg } = await mermaid.render(
           `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-          diagramSource
+          diagramSource,
         );
 
         if (this.isEmptyMermaidSVG(svg)) {

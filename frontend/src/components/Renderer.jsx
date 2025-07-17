@@ -4,7 +4,7 @@ import { useTheme } from "../context/ThemeContext";
 import MermaidService from "../js/services/MermaidService";
 import HighlightService from "../js/services/HighlightService";
 
-function Renderer({ content }) {
+function Renderer({ content, onRenderHTML }) {
   const { theme } = useTheme();
   const [html, setHtml] = useState("");
   const prevHtmlRef = useRef("");
@@ -13,19 +13,32 @@ function Renderer({ content }) {
 
   // Render Markdown to HTML
   useEffect(() => {
-    setHtml(render(content));
+    const htmlString = render(content);
+    console.log('[Renderer] Generated HTML:', htmlString);
+    setHtml(htmlString);
     prevHtmlRef.current = content;
     setMermaidProcessed(false);
+    // Do NOT call onRenderHTML here; wait for Mermaid rendering below
   }, [content]);
 
   // Process any new mermaid diagrams
   useEffect(() => {
     if (previewRef.current && previewRef.current.querySelectorAll("[data-mermaid-source][data-processed='false']").length > 0) {
-      MermaidService.render(previewRef.current).then(() => {
+      MermaidService.render(previewRef.current, theme).then(() => {
         setMermaidProcessed(true);
+        if (typeof onRenderHTML === "function") {
+          // Get updated HTML from DOM after Mermaid renders
+          const updatedHTML = previewRef.current.innerHTML;
+          onRenderHTML(updatedHTML);
+          console.log('[Renderer] onRenderHTML called after Mermaid with updated HTML:', updatedHTML);
+        }
       });
+    } else if (typeof onRenderHTML === "function" && previewRef.current) {
+      // If no Mermaid diagrams, call onRenderHTML with initial HTML
+      onRenderHTML(previewRef.current.innerHTML);
+      console.log('[Renderer] onRenderHTML called with initial HTML (no Mermaid):', previewRef.current.innerHTML);
     }
-  }, [html]);
+  }, [html, theme]);
 
   useEffect(() => {
     if (previewRef.current && mermaidProcessed) {
@@ -36,6 +49,10 @@ function Renderer({ content }) {
   useEffect(() => {
     if (previewRef.current && previewRef.current.querySelectorAll("[data-syntax-placeholder][data-processed='false']").length > 0) {
       HighlightService.highlight(previewRef.current);
+      if (typeof onRenderHTML === "function") {
+        onRenderHTML(html);
+        console.log('[Renderer] onRenderHTML called after Highlight with:', html);
+      }
     }
   }, [html]);
   return (

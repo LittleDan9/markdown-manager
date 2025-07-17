@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDocument } from "../../context/DocumentProvider";
 import { useNotification } from "../NotificationProvider";
 
-function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue }) {
+function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue, renderedHTML }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
@@ -60,6 +60,7 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue 
             editorValue={editorValue}
             importMarkdownFile={importMarkdownFile}
             setImportMarkdownFile={setImportMarkdownFile}
+            renderedHTML={renderedHTML}
           />
           <div className="vr opacity-50"></div>
           <div className="d-flex align-items-center">
