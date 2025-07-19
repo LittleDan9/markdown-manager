@@ -52,9 +52,7 @@ function App() {
                   saveDocument={saveDocument}
                 />
                 <Renderer content={content} onRenderHTML={html => {
-                  console.log('[App] setRenderedHTML called with:', html);
                   setRenderedHTML(html);
-                  console.log('[App] renderedHTML state after set:', html);
                 }} />
               </div>
             </div>
