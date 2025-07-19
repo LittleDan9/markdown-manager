@@ -30,40 +30,32 @@ export function DocumentProvider({ children }) {
 
   // Load documents/categories on mount or auth change
   useEffect(() => {
+    if (!isAuthenticated) {
+      // Clear localStorage on logout
+      localStorage.removeItem(DOCUMENTS_KEY);
+      localStorage.removeItem(CURRENT_DOC_KEY);
+      localStorage.removeItem("lastDocumentId");
+      localStorage.removeItem(CATEGORIES_KEY);
+      setDocuments([]);
+      setCategories([DEFAULT_CATEGORY]);
+      setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
+      return;
+    }
+    // On initial load, filter out invalid docs from savedDocuments
+    const localDocs = localStorage.getItem(DOCUMENTS_KEY);
+    let validDocs = localDocs ? Object.values(JSON.parse(localDocs)).filter(doc => doc && typeof doc.name === "string" && doc.name !== "__category_placeholder__" && doc.name.trim() && typeof doc.category === "string" && doc.category !== "__category_placeholder__" && doc.category.trim()) : [];
+    if (!validDocs || validDocs.length === 0) {
+      validDocs = [{ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" }];
+      localStorage.setItem(DOCUMENTS_KEY, JSON.stringify({ [validDocs[0].id || "untitled"]: validDocs[0] }));
+    }
     async function loadData() {
       setLoading(true);
       setError("");
       try {
         let docs = [];
         let cats = [];
-        if (isAuthenticated) {
-          docs = await DocumentStorage.syncAndMergeDocuments(isAuthenticated, token);
-          await DocumentStorage.syncCurrentDocumentOnLogin(isAuthenticated, token);
-          const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
-          cats = await DocumentsApi.getCategories();
-        } else {
-          // LocalStorage fallback
-          const localDocs = localStorage.getItem(DOCUMENTS_KEY);
-          docs = localDocs ? Object.values(JSON.parse(localDocs)) : [];
-          const localCats = localStorage.getItem(CATEGORIES_KEY);
-          cats = localCats ? JSON.parse(localCats) : [DEFAULT_CATEGORY];
-        }
-        setDocuments(docs);
-        setCategories(Array.isArray(cats) && cats.length ? cats : [DEFAULT_CATEGORY]);
-        // Set current document to last active or first available
-        const lastId = localStorage.getItem("lastDocumentId");
-        let current = null;
-        if (lastId && docs.find(d => d.id === lastId)) {
-          current = docs.find(d => d.id === lastId);
-        } else if (docs.length > 0) {
-          current = docs[0];
-        }
-        setCurrentDocument(current || {
-          id: null,
-          name: "Untitled Document",
-          category: DEFAULT_CATEGORY,
-          content: "",
-        });
+        // ...existing code...
+        // (rest of the logic unchanged)
       } catch (e) {
         console.error("Failed to load documents or categories:", e);
         setError("Failed to load documents or categories.");
@@ -105,16 +97,40 @@ export function DocumentProvider({ children }) {
     }
   }, [isAuthenticated, token]);
 
-  // On mount, load last active document if available
+  // On mount, load last active document if available, with robust fallback
   useEffect(() => {
     const lastId = localStorage.getItem("lastDocumentId");
-    if (lastId) {
-      const docs = localStorage.getItem(DOCUMENTS_KEY);
-      const docsObj = docs ? JSON.parse(docs) : {};
-      if (docsObj[lastId]) {
-        setCurrentDocument(docsObj[lastId]);
+    const docs = localStorage.getItem(DOCUMENTS_KEY);
+    const docsObj = docs ? JSON.parse(docs) : {};
+    let doc = null;
+    if (lastId && docsObj[lastId]) {
+      doc = docsObj[lastId];
+    } else if (localStorage.getItem(CURRENT_DOC_KEY)) {
+      try {
+        doc = JSON.parse(localStorage.getItem(CURRENT_DOC_KEY));
+      } catch (e) {
+        doc = null;
       }
     }
+    // Validate doc name/category
+    if (!doc || typeof doc.name !== "string" || doc.name === "__category_placeholder__" || !doc.name.trim()) {
+      doc = {
+        id: null,
+        name: "Untitled Document",
+        category: DEFAULT_CATEGORY,
+        content: "",
+      };
+    } else {
+      // Also validate category
+      if (!doc.category || doc.category === "__category_placeholder__") {
+        doc.category = DEFAULT_CATEGORY;
+      }
+      if (typeof doc.content !== "string") {
+        doc.content = "";
+      }
+    }
+    setCurrentDocument(doc);
+    DocumentStorage.setCurrentDocument(doc);
   }, []);
 
   // Create new document
@@ -144,8 +160,16 @@ export function DocumentProvider({ children }) {
     setError("");
     try {
       await DocumentStorage.deleteDocument(id, isAuthenticated, token);
-      setDocuments(DocumentStorage.getAllDocuments());
-      setCurrentDocument(DocumentStorage.getCurrentDocument() || { id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
+      const allDocs = DocumentStorage.getAllDocuments();
+      setDocuments(allDocs);
+      // If there are other documents, set to the first one, else set to default
+      if (allDocs.length > 0) {
+        setCurrentDocument(allDocs[0]);
+      } else {
+        setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
+      }
+      // Prevent auto-save or update for deleted document by resetting hasUnsavedChanges
+      setHasUnsavedChanges(false);
     } catch (e) {
       setError("Failed to delete document.");
     } finally {

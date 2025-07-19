@@ -87,3 +87,69 @@ Track and store a log of all document/category operations for troubleshooting or
 Storage Usage Stats:
 
 Track and report storage usage (number of documents, total size, etc.).
+
+---
+
+## Markdown Rendering
+
+* Add margins around the mermaid contianer of like 4px top and bottom.
+* Is there a way to add small bottom margin to the `# Heading` in the markdown.
+
+## Autosave
+
+* Not trigging at a consistent interval
+* Seems that on complete, editor insertion point is moved to line 0, char 0.
+* On autosave, some data is being lost as I think the save might be updating the editor content, which also might be the cause for the item above.
+
+## Preview Pane
+
+* Is there a way to keep the preview pane in focus with what is being typed?
+* Syntax highlight color choices are not great. Python look like a giant warning block.
+* The `inline-code` is an ugly red also.
+* Syntax highlighter is running on each key stroke but the final render is not displaying in the document. Hitting the back space pulls the current from cache, but most recent run is not sticky.
+* Style Markdown Tables better
+
+---
+
+## GitHub Integration Options
+
+Great idea! GitHub integration would add significant value to the markdown manager. Here are the possibilities I can envision:
+
+Core GitHub Integration Features
+Authentication & User Management
+GitHub OAuth login - Streamlined signup/login process
+Profile sync - Pull GitHub profile info (avatar, name, bio)
+Repository permissions - Respect private/public repo access
+Repository Operations
+Repository browser - List user's repos, browse folder structures
+Import from repo - Load markdown files directly from GitHub repos
+Export to repo - Save documents as files to existing or new repos
+Branch management - Work with different branches, create feature branches
+Advanced Workflow Features
+Git integration - Commit messages, commit history, file versioning
+Pull request creation - Direct PR creation from edited documents
+Collaboration - Share documents via repo invites, track contributors
+Sync status - Show when local changes differ from repo versions
+Content Management
+README editing - Special handling for README.md files with live preview
+Documentation workflows - Edit docs/ folders, maintain documentation sites
+Issue integration - Link documents to GitHub issues, create issues from notes
+Wiki management - Edit GitHub wiki pages directly
+Publishing & Sharing
+GitHub Pages integration - Deploy markdown as static sites
+Gist integration - Save/load from GitHub Gists for quick sharing
+Release notes - Create and manage release documentation
+Project documentation - Maintain project docs with automatic syncing
+Developer-Focused Features
+Code snippet management - Extract/embed code from repos into documents
+API documentation - Generate docs from code comments/schemas
+Changelog automation - Generate changelogs from commit history
+Badge integration - Embed repo status badges, CI/CD status
+Advanced Possibilities
+Multi-repo projects - Work across multiple related repositories
+Template system - Create document templates from successful repo patterns
+Automated backups - Auto-commit document changes with configurable intervals
+Conflict resolution - Handle merge conflicts when multiple editors work on same docs
+This would transform the tool from a simple markdown editor into a comprehensive documentation and content management platform for developers. The GitHub ecosystem integration would make it particularly valuable for open source projects and development teams.
+
+Would you like me to explore implementing any specific feature first, like GitHub OAuth authentication or repository browsing?

@@ -14,7 +14,6 @@ function Renderer({ content, onRenderHTML }) {
   // Render Markdown to HTML
   useEffect(() => {
     const htmlString = render(content);
-    console.log('[Renderer] Generated HTML:', htmlString);
     setHtml(htmlString);
     prevHtmlRef.current = content;
     setMermaidProcessed(false);
@@ -30,13 +29,11 @@ function Renderer({ content, onRenderHTML }) {
           // Get updated HTML from DOM after Mermaid renders
           const updatedHTML = previewRef.current.innerHTML;
           onRenderHTML(updatedHTML);
-          console.log('[Renderer] onRenderHTML called after Mermaid with updated HTML:', updatedHTML);
         }
       });
     } else if (typeof onRenderHTML === "function" && previewRef.current) {
       // If no Mermaid diagrams, call onRenderHTML with initial HTML
       onRenderHTML(previewRef.current.innerHTML);
-      console.log('[Renderer] onRenderHTML called with initial HTML (no Mermaid):', previewRef.current.innerHTML);
     }
   }, [html, theme]);
 
@@ -48,11 +45,13 @@ function Renderer({ content, onRenderHTML }) {
 
   useEffect(() => {
     if (previewRef.current && previewRef.current.querySelectorAll("[data-syntax-placeholder][data-processed='false']").length > 0) {
-      HighlightService.highlight(previewRef.current);
-      if (typeof onRenderHTML === "function") {
-        onRenderHTML(html);
-        console.log('[Renderer] onRenderHTML called after Highlight with:', html);
-      }
+      (async () => {
+        await HighlightService.highlight(previewRef.current);
+        if (typeof onRenderHTML === "function") {
+          // Use the updated DOM after highlighting
+          onRenderHTML(previewRef.current.innerHTML);
+        }
+      })();
     }
   }, [html]);
   return (

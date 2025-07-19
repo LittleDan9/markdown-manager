@@ -17,7 +17,6 @@ import { useFileExportController } from "./useFileExportController";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 
 export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, setContent, editorValue, renderedHTML }) {
-  console.log('[FileDropdown] renderedHTML prop received:', renderedHTML);
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc } = useDocument();
@@ -106,16 +105,11 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
   const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, renderedHTML, theme });
   // Log before export actions
   const handleExportPDF = () => {
-    console.log('[FileDropdown] Export PDF clicked. renderedHTML:', renderedHTML);
     exportController.handleExportPDF();
   };
 
   const handleNew = async () => {
     let hasUnsavedChanges = false;
-    console.log("[FileDropdown] handleNew called");
-    console.log("isDefaultDoc:", isDefaultDoc);
-    console.log("currentDocument:", currentDocument);
-    console.log("editorValue:", editorValue);
     if (isDefaultDoc) {
       hasUnsavedChanges =
         currentDocument && (

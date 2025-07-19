@@ -43,6 +43,20 @@ export function useFileImportController({ setDocumentTitle, setContent }) {
     if (!importedFileData) return;
     const safeName = (filename && filename !== "__category_placeholder__") ? filename : "Untitled Document";
     const safeCategory = (selectedCategory && selectedCategory !== "__category_placeholder__") ? selectedCategory : "General";
+    // Ensure category is saved to backend if authenticated and not present
+    let categories = [];
+    try {
+      categories = await DocumentStorage.getCategories();
+    } catch (e) {
+      categories = ["General"];
+    }
+    if (!categories.includes(safeCategory)) {
+      try {
+        await DocumentStorage.addCategory(safeCategory, currentDocument && currentDocument.id !== null, null);
+      } catch (e) {
+        // Ignore category add errors
+      }
+    }
     const docToSave = {
       name: safeName,
       category: safeCategory,

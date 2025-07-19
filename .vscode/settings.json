@@ -15,5 +15,6 @@
     "python.analysis.enabled": false,
     "python.linting.enabled": false,
     "python.testing.pytestEnabled": false,
-    "github.copilot.chat.codeGeneration.useInstructionFiles": true
+    "github.copilot.chat.codeGeneration.useInstructionFiles": true,
+    "files.eol":"\n",
 }
