@@ -27,6 +27,7 @@ function App() {
   const [content, setContent] = useState(currentDocument?.content || "");
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
+  const [fullscreenPreview, setFullscreenPreview] = useState(false);
 
   // Load user profile settings on mount
   useEffect(() => {
@@ -68,21 +69,25 @@ function App() {
   }, [currentDocument]);
   return (
     <ThemeProvider>
-        <ThemeEffects />
-        <NotificationProvider>
-          <div id="appRoot" className="app-root">
-            <div id="container">
-              <Header />
-              <Toolbar
-                autosaveEnabled={autosaveEnabled}
-                setAutosaveEnabled={setAutosaveEnabled}
-                syncPreviewScrollEnabled={syncPreviewScrollEnabled}
-                setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled}
-                setContent={setContent}
-                editorValue={content}
-                renderedHTML={renderedHTML}
-              />
-              <div id="main">
+      <ThemeEffects />
+      <NotificationProvider>
+        <div id="appRoot" className="app-root">
+          <div id="container">
+            <Header />
+            <Toolbar
+              autosaveEnabled={autosaveEnabled}
+              setAutosaveEnabled={setAutosaveEnabled}
+              syncPreviewScrollEnabled={syncPreviewScrollEnabled}
+              setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled}
+              setContent={setContent}
+              editorValue={content}
+              renderedHTML={renderedHTML}
+              fullscreenPreview={fullscreenPreview}
+              setFullscreenPreview={setFullscreenPreview}
+            />
+            <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
+              {/* editor is always in the DOM, but width: 0 when closed */}
+              <div className="editor-wrapper">
                 <Editor
                   value={content}
                   onChange={setContent}
@@ -90,16 +95,21 @@ function App() {
                   currentDocument={currentDocument}
                   saveDocument={saveDocument}
                   onCursorLineChange={setCursorLine}
+                  fullscreenPreview={fullscreenPreview}
                 />
+              </div>
+              <div className="renderer-wrapper">
                 <Renderer
                   content={content}
                   onRenderHTML={html => setRenderedHTML(html)}
                   scrollToLine={syncPreviewScrollEnabled ? cursorLine : null}
+                  fullscreenPreview={fullscreenPreview}
                 />
               </div>
             </div>
           </div>
-        </NotificationProvider>
+        </div>
+      </NotificationProvider>
     </ThemeProvider>
   );
 }
