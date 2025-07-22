@@ -25,9 +25,21 @@ function setLocalCategories(catsArr) {
   localStorage.setItem(CATEGORIES_KEY, JSON.stringify(catsArr));
 }
 
-function setCurrentDocument(doc) {
+async function setCurrentDocument(doc, isAuthenticated = false, token = null) {
   localStorage.setItem(CURRENT_DOC_KEY, JSON.stringify(doc));
   if (doc && doc.id) localStorage.setItem(LAST_DOC_ID_KEY, doc.id);
+  // Only sync current_doc_id to backend if not transitioning to a new untitled document
+  const isDefaultDoc =
+    (!doc.id || String(doc.id).startsWith("doc_")) &&
+    doc.name === "Untitled Document" &&
+    doc.category === DEFAULT_CATEGORY &&
+    doc.content === "";
+  if (isAuthenticated && doc && doc.id && !isDefaultDoc) {
+    try {
+      const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+      await DocumentsApi.setCurrentDocumentId(doc.id);
+    } catch (e) {}
+  }
 }
 
 function getCurrentDocument() {
@@ -71,8 +83,15 @@ const DocumentStorage = {
       return Object.values(getLocalDocuments());
     }
     const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
-    // Get backend docs
-    const backendDocs = await DocumentsApi.getAllDocuments();
+    // Get backend docs and user profile
+    const [backendDocs, userProfile] = await Promise.all([
+      DocumentsApi.getAllDocuments(),
+      (async () => {
+        try {
+          return await (await import("../js/api/userApi.js")).default.getCurrentUser(token);
+        } catch (e) { return null; }
+      })()
+    ]);
     const localDocsObj = getLocalDocuments();
     const mergedDocsObj = { ...localDocsObj };
     // Index backend docs by id
@@ -80,8 +99,41 @@ const DocumentStorage = {
     backendDocs.forEach(doc => {
       backendDocsById[doc.id] = doc;
     });
-    // 1. Sync local docs to backend if not present
+
+    // --- Sync settings: autosave, preview scroll, current doc ---
+    // Get local settings
+    const localAutosave = localStorage.getItem("autosaveEnabled");
+    const localPreviewScroll = localStorage.getItem("syncPreviewScrollEnabled");
+    const localCurrentDoc = getCurrentDocument();
+    // If local settings are not default/null, push to backend
+    let settingsToUpdate = {};
+    if (localAutosave !== null && userProfile && String(userProfile.autosave_enabled) !== localAutosave) {
+      settingsToUpdate.autosave_enabled = localAutosave === "true";
+    }
+    if (localPreviewScroll !== null && userProfile && String(userProfile.sync_preview_scroll_enabled) !== localPreviewScroll) {
+      settingsToUpdate.sync_preview_scroll_enabled = localPreviewScroll === "true";
+    }
+    // If local current doc is not default, update backend current_doc_id
+    if (localCurrentDoc && localCurrentDoc.id && localCurrentDoc.name !== "Untitled Document") {
+      try {
+        await DocumentsApi.setCurrentDocumentId(localCurrentDoc.id);
+      } catch (e) {}
+    }
+    // Update backend profile settings if needed
+    if (Object.keys(settingsToUpdate).length > 0) {
+      try {
+        await (await import("../js/api/userApi.js")).default.updateProfileInfo(settingsToUpdate);
+      } catch (e) {}
+    }
+
+    // 1. Sync local docs to backend if not present, skip default doc
     for (const [id, localDoc] of Object.entries(localDocsObj)) {
+      const isDefaultDoc =
+        (!localDoc.id || String(localDoc.id).startsWith("doc_")) &&
+        localDoc.name === "Untitled Document" &&
+        localDoc.category === DEFAULT_CATEGORY &&
+        localDoc.content === "";
+      if (isDefaultDoc) continue; // Never sync default doc
       if (!localDoc.id || !backendDocsById[localDoc.id]) {
         // Save to backend, get new id
         const created = await DocumentsApi.createDocument({
@@ -92,7 +144,6 @@ const DocumentStorage = {
         localDoc.id = created.id;
         localDoc.updated_at = created.updated_at || localDoc.updated_at || new Date().toISOString();
         localDoc.created_at = created.created_at || localDoc.created_at || new Date().toISOString();
-        // Remove lastModified if present
         if (localDoc.lastModified) delete localDoc.lastModified;
         mergedDocsObj[localDoc.id] = localDoc;
         delete mergedDocsObj[id];
@@ -105,7 +156,6 @@ const DocumentStorage = {
         const localTime = new Date(localDoc.updated_at || localDoc.created_at || 0).getTime();
         const backendTime = new Date(backendDoc.updated_at || backendDoc.created_at || 0).getTime();
         if (localTime > backendTime) {
-          // Local is newer, update backend
           await DocumentsApi.updateDocument(backendDoc.id, {
             name: localDoc.name,
             content: localDoc.content,
@@ -113,16 +163,35 @@ const DocumentStorage = {
           });
           mergedDocsObj[backendDoc.id] = localDoc;
         } else {
-          // Backend is newer, update local
           mergedDocsObj[backendDoc.id] = backendDoc;
         }
       } else {
-        // Only in backend, add to local
         mergedDocsObj[backendDoc.id] = backendDoc;
       }
     }
     // 3. Update localStorage to match merged
     setLocalDocuments(mergedDocsObj);
+    // Always update categories from localStorage after sync
+    setLocalCategories(
+      Array.from(new Set(Object.values(mergedDocsObj).map(doc => doc.category).filter(Boolean)))
+    );
+    // Also update localStorage settings from backend if local is default/null
+    if (userProfile) {
+      if (localAutosave === null) {
+        localStorage.setItem("autosaveEnabled", String(userProfile.autosave_enabled));
+      }
+      if (localPreviewScroll === null) {
+        localStorage.setItem("syncPreviewScrollEnabled", String(userProfile.sync_preview_scroll_enabled));
+      }
+      if ((!localCurrentDoc || localCurrentDoc.name === "Untitled Document") && userProfile.current_doc_id) {
+        // Try to set current doc from backend
+        const backendCurrentDoc = mergedDocsObj[userProfile.current_doc_id];
+        if (backendCurrentDoc) {
+          setCurrentDocument(backendCurrentDoc);
+          localStorage.setItem("lastDocumentId", userProfile.current_doc_id);
+        }
+      }
+    }
     return Object.values(mergedDocsObj);
   },
 
@@ -202,7 +271,8 @@ const DocumentStorage = {
 
     docsObj[document.id] = document;
     setLocalDocuments(docsObj);
-    setCurrentDocument(document);
+    // On save, set current document and sync current_doc_id if not default
+    await setCurrentDocument(document, isAuthenticated, token);
     return document;
   },
   deleteDocument: async function(id, isAuthenticated, token) {
