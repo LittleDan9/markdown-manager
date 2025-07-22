@@ -1,4 +1,13 @@
-// ─── INLINE CODE ───
+.preview-line-highlight {
+  background: none;
+  transition: background 0.3s, color 0.3s;
+  color: #f7e06e !important;
+  font-weight: bold;
+}
+[data-bs-theme="dark"] .preview-line-highlight {
+  background: #232323 !important;
+  color: #f7e06e !important;
+}
 // ─── INLINE CODE ───
 #previewContainer #preview .preview-scroll p > code:not([class*="language-"]) {
   color: #e83e8c; // Bootstrap magenta for light theme
