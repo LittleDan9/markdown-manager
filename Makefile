@@ -197,9 +197,12 @@ deploy-back: ## Sync backend + migrations + restart
 
 deploy-nginx: ## Sync nginx config + reload
 	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"
-	$(COPY_CMD) nginx/sites-available/* $(REMOTE_USER_HOST):/tmp/
-	$(SSH_CMD) $(REMOTE_USER_HOST) "\
-	sudo cp /tmp/* /etc/nginx/sites-available/ && \
+	@$(SSH_CMD) $(REMOTE_USER_HOST) "mkdir -p /tmp/nginx-sites-available /tmp/nginx-conf-d"
+	@$(COPY_CMD) nginx/sites-available/* $(REMOTE_USER_HOST):/tmp/nginx-sites-available/
+	@$(COPY_CMD) nginx/conf.d/* $(REMOTE_USER_HOST):/tmp/nginx-conf-d/
+	@$(SSH_CMD) $(REMOTE_USER_HOST) "\
+	sudo cp /tmp/nginx-sites-available/* /etc/nginx/sites-available/ && \
+	sudo cp /tmp/nginx-conf-d/* /etc/nginx/conf.d/ && \
 	sudo nginx -t && \
 	sudo systemctl reload nginx \
 	"

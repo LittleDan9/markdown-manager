@@ -70,13 +70,16 @@ function Renderer({ content, onRenderHTML, scrollToLine, fullscreenPreview }) {
   }, [content, highlightedBlocks]);
 
   // ...existing code...
-  // Scroll to line if requested
+  // Scroll to line if requested and highlight it for 5 seconds
   useEffect(() => {
     if (scrollToLine && previewRef.current) {
-      // Find the element with data-line attribute
       const el = previewRef.current.querySelector(`[data-line='${scrollToLine}']`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
+        el.classList.add("preview-line-highlight");
+        setTimeout(() => {
+          el.classList.remove("preview-line-highlight");
+        }, 5000);
       }
     }
   }, [scrollToLine, html]);
