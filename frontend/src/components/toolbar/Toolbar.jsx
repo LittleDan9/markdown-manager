@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDocument } from "../../context/DocumentProvider";
 import { useNotification } from "../NotificationProvider";
 
-function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue, renderedHTML }) {
+function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue, renderedHTML, fullscreenPreview, setFullscreenPreview }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
@@ -90,9 +90,13 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled
             className="btn btn-sm btn-outline-secondary"
             data-bs-toggle="tooltip"
             data-bs-placement="bottom"
-            title="Open preview in fullscreen"
+            title={fullscreenPreview ? "Exit fullscreen preview" : "Open preview in fullscreen"}
+            onClick={e => {
+              e.preventDefault();
+              setFullscreenPreview(prev => !prev);
+            }}
           >
-            <i className="bi bi-fullscreen"></i>
+            <i className={fullscreenPreview ? "bi bi-fullscreen-exit" : "bi bi-fullscreen"}></i>
           </button>
           {/* User Profile Dropdown (simplified for now) */}
           <UserToolbar

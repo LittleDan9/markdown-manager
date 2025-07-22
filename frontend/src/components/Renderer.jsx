@@ -5,7 +5,7 @@ import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../js/services/HighlightService";
 import MermaidService from "../js/services/MermaidService";
 
-function Renderer({ content, onRenderHTML, scrollToLine }) {
+function Renderer({ content, onRenderHTML, scrollToLine, fullscreenPreview }) {
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const [html, setHtml] = useState("");
@@ -105,7 +105,7 @@ function Renderer({ content, onRenderHTML, scrollToLine }) {
 
   // ...existing code...
   return (
-    <div id="previewContainer">
+    <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>
       <div id="preview" ref={previewRef}>
         <div className="preview-scroll" dangerouslySetInnerHTML={{ __html: html }}></div>
       </div>
