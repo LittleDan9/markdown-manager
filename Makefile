@@ -33,7 +33,7 @@ SHELL				 := pwsh.exe
 .SHELLFLAGS := -NoLogo -NoProfile -NonInteractive -Command wsl
 
 DETECTED_OS := Windows
-COPY_CMD     := rsync -azhr --delete --no-perms --no-times --no-group --progress
+COPY_CMD     := rsync -azhr --delete --no-perms --no-times --no-group --progress wsl
 SSH_CMD      := ssh
 
 else
@@ -93,10 +93,7 @@ quality: ## Run pre-commit hooks
 	@echo "$(GREEN)✅ Quality checks complete$(NC)"
 
 install: ## Install frontend + backend deps
-	@echo "$(YELLOW)📦 Installing dependencies...$(NC)"
-	cd $(FRONTEND_DIR) && npm install
-	cd $(BACKEND_DIR)    && poetry lock && poetry install && poetry run playwright install chromium
-	@echo "$(GREEN)✅ All dependencies installed$(NC)"
+	@./scripts/install.sh $(FRONTEND_DIR) $(BACKEND_DIR)
 
 clean: ## Clean build artifacts
 	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
@@ -186,14 +183,14 @@ db-restore: ## Restore from backup: make db-restore BACKUP=filename
 	fi
 
 # ────────────────────────────────────────────────────────────────────────────
-deploy: build deploy-front deploy-back
+deploy: deploy-front deploy-back
 #deploy-nginx ## Build + full deploy
 
-deploy-front: build ## Sync frontend dist
+deploy-front: install build ## Sync frontend dist
 	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 
 deploy-back: ## Sync backend + migrations + restart
-	./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
 
 deploy-nginx: ## Sync nginx config + reload
 	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"

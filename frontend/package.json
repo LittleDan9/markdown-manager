@@ -55,6 +55,18 @@
     "style-loader": "^4.0.0",
     "webpack": "^5.99.9",
     "webpack-cli": "^6.0.1",
-    "webpack-dev-server": "^5.2.2"
+    "webpack-dev-server": "^5.2.2",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@testing-library/user-event": "^14.6.1",
+    "axios": "^1.10.0",
+    "broadcast-channel": "^7.1.0",
+    "jest": "^30.0.4",
+    "jest-environment-jsdom": "^30.0.4",
+    "msw": "^2.10.4",
+    "ts-loader": "^9.5.2",
+    "typescript": "^5.8.3",
+    "web-streams-polyfill": "^4.1.0",
+    "whatwg-fetch": "^3.6.20"
   }
 }

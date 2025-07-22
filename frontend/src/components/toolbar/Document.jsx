@@ -12,7 +12,9 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
-  const { categories, addCategory, deleteCategory, renameCategory, error, setCategories, currentDocument } = useDocument();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, error, setCategories, currentDocument } = useDocument();
+  // Always ensure 'General' is present
+  const categories = rawCategories.includes("General") ? rawCategories : ["General", ...rawCategories.filter(c => c !== "General")];
   const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
   const [newCategory, setNewCategory] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
@@ -25,14 +27,33 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   // Keep titleInput in sync with currentDocument.name
   useEffect(() => {
     setTitleInput(currentDocument.name || "Untitled Document");
-  }, [currentDocument.name]);
+  }, [currentDocument.name, currentDocument.updated_at]);
+
+  // Ensure Last Saved indicator parses UTC and displays in local time
+  const getLastSavedText = () => {
+    let ts = currentDocument.updated_at || currentDocument.created_at;
+    if (!ts) return "Never";
+    // If timestamp lacks timezone, treat as UTC by appending 'Z'
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(ts) && !ts.endsWith('Z')) {
+      ts += 'Z';
+    }
+    const utcDate = new Date(ts);
+    const now = new Date();
+    if (utcDate > now) return "Just now";
+    return formatDistanceToNow(utcDate, { addSuffix: true });
+  };
 
   // Sync category with currentDocument.category whenever document changes
   useEffect(() => {
-    if (currentDocument && currentDocument.category && currentDocument.category !== currentCategory) {
-      setCurrentCategory(currentDocument.category);
+    if (currentDocument && currentDocument.category) {
+      // If currentDocument.category is missing from categories, fallback to 'General'
+      if (!categories.includes(currentDocument.category)) {
+        setCurrentCategory("General");
+      } else if (currentDocument.category !== currentCategory) {
+        setCurrentCategory(currentDocument.category);
+      }
     }
-  }, [currentDocument?.category]);
+  }, [currentDocument?.category, currentDocument?.updated_at, categories]);
 
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");
@@ -263,13 +284,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         </span>
       )}
       <span className="text-muted small">
-        Last saved: {
-          currentDocument.updated_at
-            ? formatDistanceToNow(new Date(currentDocument.updated_at), { addSuffix: true })
-            : currentDocument.created_at
-              ? formatDistanceToNow(new Date(currentDocument.created_at), { addSuffix: true })
-              : "Never"
-        }
+        Last saved: {getLastSavedText()}
       </span>
       <ConfirmModal
         show={show}

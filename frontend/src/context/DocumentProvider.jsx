@@ -126,10 +126,7 @@ export function DocumentProvider({ children }) {
       setCurrentDocument(saved);
       setDocuments(DocumentStorage.getAllDocuments());
       setHasUnsavedChanges(false);
-      // Sync current_doc_id to backend if authenticated
-      if (isAuthenticated && saved && saved.id) {
-        await DocumentStorage.updateCurrentDocumentId(saved.id, isAuthenticated, token);
-      }
+      // No need to call updateCurrentDocumentId here; setCurrentDocument already handles it.
       return saved;
     } catch (e) {
       console.error(e);

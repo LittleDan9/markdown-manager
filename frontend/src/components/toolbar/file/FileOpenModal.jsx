@@ -4,7 +4,9 @@ import ConfirmModal from "../../modals/ConfirmModal";
 import { useNotification } from "../../NotificationProvider";
 
 export default function FileOpenModal({ show, onHide, categories, documents, onOpen, setContent, deleteDocument }) {
-  const [selectedCategory, setSelectedCategory] = useState(categories[0] || "");
+  // Always ensure 'General' is present
+  const safeCategories = categories.includes("General") ? categories : ["General", ...categories.filter(c => c !== "General")];
+  const [selectedCategory, setSelectedCategory] = useState(safeCategories[0] || "General");
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
@@ -51,7 +53,7 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
                 setSelectedDocId(null);
               }}
             >
-              {categories.map((cat) => (
+              {safeCategories.map((cat) => (
                 <option key={cat} value={cat}>
                   {cat}
                 </option>
