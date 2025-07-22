@@ -6,7 +6,7 @@ import Renderer from "./Renderer";
 import { ThemeProvider } from "../context/ThemeContext";
 import ThemeEffects from "./ThemeEffects";
 import { NotificationProvider } from "./NotificationProvider";
-import { AuthProvider } from "../context/AuthProvider.jsx";
+import { AuthProvider } from "../context/AuthProvider";
 
 import { useDocument } from "../context/DocumentProvider";
 

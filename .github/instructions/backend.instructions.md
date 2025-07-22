@@ -36,4 +36,10 @@ When using GitHub Copilot Chat in this repository to write or review DRY FastAPI
 10. **Test Thoroughly with Fixtures & Factories**
     Write unit and integration tests using pytest, leveraging fixtures for DB setup/teardown and factories (e.g., Factory Boy) for test data. Mock external calls and ensure tests run in isolation.
 
+11. **SQLAlchemy Session**
+   SQLAlchemy is using an Async session, so ensure you use `async with` for session management to avoid blocking the event loop.
+
+12. **Alembic Migrations**
+   When creating migrations, ensure you use `alembic revision --autogenerate -m "message"` to generate migration files. Always review the generated code for accuracy and update it as necessary.
+
 > Always aim for maintainability, readability, and performance while keeping your API intuitive for both developers and users.

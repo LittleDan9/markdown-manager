@@ -1,25 +1,75 @@
-import React, { useEffect, useState, useRef, useInsertionEffect } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { render } from "../js/renderer";
 import { useTheme } from "../context/ThemeContext";
-import MermaidService from "../js/services/MermaidService";
+import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../js/services/HighlightService";
+import MermaidService from "../js/services/MermaidService";
 
 function Renderer({ content, onRenderHTML }) {
   const { theme } = useTheme();
+  const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const [html, setHtml] = useState("");
   const prevHtmlRef = useRef("");
   const previewRef = useRef(null);
   const [mermaidProcessed, setMermaidProcessed] = useState(false);
 
-  // Render Markdown to HTML
+  // Render Markdown to HTML, replacing code blocks with highlighted HTML from context if available
+  // Stable hash function for placeholderId
+  function hashCode(str) {
+    let hash = 5381;
+    for (let i = 0; i < str.length; i++) {
+      hash = ((hash << 5) + hash) + str.charCodeAt(i);
+    }
+    return hash >>> 0;
+  }
+
   useEffect(() => {
-    const htmlString = render(content);
+    let htmlString = render(content);
+    // Replace code blocks with highlighted HTML if available
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlString;
+    const codeBlocks = Array.from(tempDiv.querySelectorAll("[data-syntax-placeholder]"));
+    const blocksToHighlight = [];
+    codeBlocks.forEach(block => {
+      const code = decodeURIComponent(block.dataset.code);
+      const language = block.dataset.lang;
+      // Generate stable placeholderId
+      const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+      block.setAttribute("data-syntax-placeholder", placeholderId);
+      if (highlightedBlocks[placeholderId]) {
+        const codeEl = block.querySelector("code");
+        if (codeEl) {
+          codeEl.innerHTML = highlightedBlocks[placeholderId];
+          block.setAttribute("data-processed", "true");
+        }
+      } else {
+        block.setAttribute("data-processed", "false");
+        blocksToHighlight.push({ code, language, placeholderId });
+      }
+    });
+    htmlString = tempDiv.innerHTML;
     setHtml(htmlString);
     prevHtmlRef.current = content;
     setMermaidProcessed(false);
+    // Trigger highlight for unprocessed blocks
+    if (blocksToHighlight.length > 0) {
+      HighlightService.highlightBlocks(blocksToHighlight).then(results => {
+        // Only update if there are new highlights
+        const newHighlights = {};
+        Object.entries(results).forEach(([id, html]) => {
+          if (!highlightedBlocks[id]) {
+            newHighlights[id] = html;
+          }
+        });
+        if (Object.keys(newHighlights).length > 0) {
+          setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
+        }
+      });
+    }
     // Do NOT call onRenderHTML here; wait for Mermaid rendering below
-  }, [content]);
+  }, [content, highlightedBlocks]);
 
+  // ...existing code...
   // Process any new mermaid diagrams
   useEffect(() => {
     if (previewRef.current && previewRef.current.querySelectorAll("[data-mermaid-source][data-processed='false']").length > 0) {
@@ -43,17 +93,7 @@ function Renderer({ content, onRenderHTML }) {
     }
   }, [mermaidProcessed]);
 
-  useEffect(() => {
-    if (previewRef.current && previewRef.current.querySelectorAll("[data-syntax-placeholder][data-processed='false']").length > 0) {
-      (async () => {
-        await HighlightService.highlight(previewRef.current);
-        if (typeof onRenderHTML === "function") {
-          // Use the updated DOM after highlighting
-          onRenderHTML(previewRef.current.innerHTML);
-        }
-      })();
-    }
-  }, [html]);
+  // ...existing code...
   return (
     <div id="previewContainer">
       <div id="preview" ref={previewRef}>

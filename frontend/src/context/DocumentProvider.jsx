@@ -27,6 +27,8 @@ export function DocumentProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  // Shared highlighted code blocks for fenced code
+  const [highlightedBlocks, setHighlightedBlocks] = useState({});
 
   // Load documents/categories on mount or auth change
   useEffect(() => {
@@ -307,34 +309,36 @@ export function DocumentProvider({ children }) {
     currentDocument.category === DEFAULT_CATEGORY;
 
   const value = {
-  currentDocument,
-  setCurrentDocument,
-  documents,
-  setDocuments,
-  categories,
-  setCategories,
-  loading,
-  error,
-  saveDocument,
-  createDocument,
-  loadDocument,
-  deleteDocument,
-  renameDocument,
-  addCategory,
-  deleteCategory,
-  exportAsMarkdown,
-  exportAsPDF,
-  importMarkdownFile,
-  hasUnsavedChanges,
-  renameCategory,
-  user,
-  token,
-  isAuthenticated,
-  isDefaultDoc,
-  openDocument: (doc) => {
-    if (!doc) return;
-    setCurrentDocument(doc);
-  },
+    currentDocument,
+    setCurrentDocument,
+    documents,
+    setDocuments,
+    categories,
+    setCategories,
+    loading,
+    error,
+    saveDocument,
+    createDocument,
+    loadDocument,
+    deleteDocument,
+    renameDocument,
+    addCategory,
+    deleteCategory,
+    exportAsMarkdown,
+    exportAsPDF,
+    importMarkdownFile,
+    hasUnsavedChanges,
+    renameCategory,
+    user,
+    token,
+    isAuthenticated,
+    isDefaultDoc,
+    openDocument: (doc) => {
+      if (!doc) return;
+      setCurrentDocument(doc);
+    },
+    highlightedBlocks,
+    setHighlightedBlocks,
   };
 
   return (

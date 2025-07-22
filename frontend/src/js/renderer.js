@@ -8,6 +8,7 @@ const md = new MarkdownIt({
   typographer: true
 });
 
+
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
   const info = token.info.trim();
@@ -43,8 +44,14 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     </div>`;
   }
 
+  // For syntax highlighting, use a stable placeholderId
+  const placeholderId = `syntax-highlight-${HighlightService.hashCode(lang + token.content)}`;
   // Check cache
-  const highlightedCode = HighlightService.getFromCache(token.content, lang);
+  let highlightedCode = HighlightService.getFromCache(token.content, lang);
+  if (!highlightedCode) {
+    // Try to find a similar recent highlight for fallback
+    highlightedCode = HighlightService.findSimilarHighlight(lang, token.content);
+  }
   let codeBlock;
   if (highlightedCode){
     codeBlock = `<pre class="language-${lang}" data-processed="true" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${highlightedCode}</code></pre>`
@@ -52,9 +59,6 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     codeBlock = `<pre class="language-${lang}" data-processed="false" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>`
   }
 
-
-  // For syntax highlighting, we'll use a placeholder that gets replaced later
-  const placeholderId = `syntax-highlight-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   return `
     <div class="code-block">
     <div class="code-block-header">

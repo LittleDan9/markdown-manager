@@ -2,10 +2,9 @@ from __future__ import annotations
 
 """User model."""
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, String, Text, Integer, ForeignKey
-from typing import Optional
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -52,9 +51,7 @@ class User(BaseModel):
 
     # Relationship to documents
     documents: Mapped[list["Document"]] = relationship(
-        "Document",
-        back_populates="owner",
-        foreign_keys="[Document.user_id]"
+        "Document", back_populates="owner", foreign_keys="[Document.user_id]"
     )
     # Current document tracking
     current_doc_id: Mapped[Optional[int]] = mapped_column(
@@ -65,6 +62,8 @@ class User(BaseModel):
         back_populates="current_users",
         foreign_keys=[current_doc_id],
     )
+
+    recovered_documents = relationship("DocumentRecovery", back_populates="user")
 
     @property
     def full_name(self) -> str:

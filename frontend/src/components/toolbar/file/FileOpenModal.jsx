@@ -15,6 +15,11 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
     (doc) => doc.category === selectedCategory
   );
 
+  // Helper to get last saved date
+  function getLastSaved(doc) {
+    return doc.updated_at || doc.created_at || null;
+  }
+
   const handleDelete = async () => {
     if (!docToDelete) return;
     try {
@@ -66,7 +71,7 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
                 <div className="flex-grow-1">
                   <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{doc.name}</div>
                   <div className="text-muted" style={{ fontSize: "0.9rem" }}>
-                    Last saved: {doc.lastModified ? new Date(doc.lastModified).toLocaleString() : "Unknown"}
+                    Last saved: {getLastSaved(doc) ? new Date(getLastSaved(doc)).toLocaleString() : "Unknown"}
                   </div>
                 </div>
                 <div className="d-flex align-items-center gap-2 ms-3">

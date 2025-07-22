@@ -5,9 +5,9 @@ import { useTheme } from "../context/ThemeContext";
 
 const PRISM_THEME_ID = "prism-theme-style";
 const THEMES = {
-  dark: "prism-themes/themes/prism-one-dark.css",
-  light: "prism-themes/themes/prism-one-light.css",
-};
+  dark: "prism-themes/themes/prism-vsc-dark-plus.css",
+  light: "prism-themes/themes/prism-vsc-light-plus.css",
+};``
 
 function setPrismTheme(theme) {
   let link = document.getElementById(PRISM_THEME_ID);

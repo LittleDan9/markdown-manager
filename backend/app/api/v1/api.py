@@ -15,3 +15,6 @@ api_router.include_router(debug.router, prefix="/debug", tags=["debug"])
 api_router.include_router(
     syntax_highlighting.router, prefix="/highlight", tags=["syntax-highlighting"]
 )
+from app.api.v1 import recovery
+
+api_router.include_router(recovery.router, prefix="/recovery", tags=["recovery"])

@@ -146,7 +146,9 @@ async def request_password_reset(
     # Only send debug_token if DEBUG_PASSWORD_RESET_TOKEN env var is set
     import os
 
+    print("HI")
     debug_token = None
+    print(os.getenv("DEBUG_PASSWORD_RESET_TOKEN", "NotFound"))
     if os.getenv("DEBUG_PASSWORD_RESET_TOKEN", "false").lower() == "true":
         debug_token = token
 

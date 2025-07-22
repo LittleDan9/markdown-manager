@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
-import { useAuth } from "../../context/AuthProvider.jsx";
+import { useAuth } from "../../context/AuthProvider";
 import UserSettingsModal from "../modals/UserSettingsModal";
 import { useTheme } from "../../context/ThemeContext";
 

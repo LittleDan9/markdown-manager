@@ -90,7 +90,10 @@ const DocumentStorage = {
           category: localDoc.category,
         });
         localDoc.id = created.id;
-        localDoc.lastModified = created.lastModified || localDoc.lastModified;
+        localDoc.updated_at = created.updated_at || localDoc.updated_at || new Date().toISOString();
+        localDoc.created_at = created.created_at || localDoc.created_at || new Date().toISOString();
+        // Remove lastModified if present
+        if (localDoc.lastModified) delete localDoc.lastModified;
         mergedDocsObj[localDoc.id] = localDoc;
         delete mergedDocsObj[id];
       }
@@ -99,8 +102,8 @@ const DocumentStorage = {
     for (const backendDoc of backendDocs) {
       const localDoc = mergedDocsObj[backendDoc.id];
       if (localDoc) {
-        const localTime = new Date(localDoc.lastModified || 0).getTime();
-        const backendTime = new Date(backendDoc.lastModified || 0).getTime();
+        const localTime = new Date(localDoc.updated_at || localDoc.created_at || 0).getTime();
+        const backendTime = new Date(backendDoc.updated_at || backendDoc.created_at || 0).getTime();
         if (localTime > backendTime) {
           // Local is newer, update backend
           await DocumentsApi.updateDocument(backendDoc.id, {
@@ -131,9 +134,10 @@ const DocumentStorage = {
         acc[doc.category] = (acc[doc.category] || 0) + 1;
         return acc;
       }, {}),
-      lastModified: docs.reduce((latest, doc) => {
-        if (doc.lastModified && (!latest || new Date(doc.lastModified) > new Date(latest))) {
-          return doc.lastModified;
+      lastSaved: docs.reduce((latest, doc) => {
+        const ts = doc.updated_at || doc.created_at;
+        if (ts && (!latest || new Date(ts) > new Date(latest))) {
+          return ts;
         }
         return latest;
       }, null),
@@ -158,7 +162,10 @@ const DocumentStorage = {
     }
     let id = doc.id;
     let now = new Date().toISOString();
-    let document = { ...doc, lastModified: now };
+    let document = { ...doc };
+    // Set updated_at and created_at
+    document.updated_at = now;
+    if (!document.created_at) document.created_at = now;
 
     // If not present, generate a local id
     if (!id) {
@@ -177,9 +184,10 @@ const DocumentStorage = {
           content: doc.content,
           category: doc.category,
         });
-        // Update local doc with backend id and lastModified
+        // Update local doc with backend id and updated_at/created_at
         document.id = backendDoc.id;
-        document.lastModified = backendDoc.lastModified || now;
+        document.updated_at = backendDoc.updated_at || now;
+        document.created_at = backendDoc.created_at || document.created_at;
       } else {
         // Existing backend doc, use PUT
         backendDoc = await DocumentsApi.updateDocument(doc.id, {
@@ -187,7 +195,8 @@ const DocumentStorage = {
           content: doc.content,
           category: doc.category,
         });
-        document.lastModified = backendDoc.lastModified || now;
+        document.updated_at = backendDoc.updated_at || now;
+        document.created_at = backendDoc.created_at || document.created_at;
       }
     }
 
@@ -319,9 +328,10 @@ const DocumentStorage = {
         acc[doc.category] = (acc[doc.category] || 0) + 1;
         return acc;
       }, {}),
-      lastModified: docs.reduce((latest, doc) => {
-        if (doc.lastModified && (!latest || new Date(doc.lastModified) > new Date(latest))) {
-          return doc.lastModified;
+      lastSaved: docs.reduce((latest, doc) => {
+        const ts = doc.updated_at || doc.created_at;
+        if (ts && (!latest || new Date(ts) > new Date(latest))) {
+          return ts;
         }
         return latest;
       }, null),

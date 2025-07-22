@@ -5,7 +5,7 @@ import FileImportModal from "./FileImportModal";
 import FileSaveAsModal from "./FileSaveAsModal";
 import FileOverwriteModal from "./FileOverwriteModal";
 import ConfirmModal from "../../modals/ConfirmModal";
-import { useDocument } from "../../../context/DocumentProvider.jsx";
+import { useDocument } from "../../../context/DocumentProvider";
 import { useConfirmModal } from "../../../hooks/useConfirmModal.jsx";
 import { useNotification } from "../../NotificationProvider";
 import { useFileImportController } from "./useFileImportController";
