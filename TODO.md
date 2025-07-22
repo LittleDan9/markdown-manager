@@ -41,11 +41,6 @@ Track and report storage usage (number of documents, total size, etc.).
 
 ---
 
-## Markdown Rendering
-
-* Add margins around the mermaid contianer of like 4px top and bottom.
-* Is there a way to add small bottom margin to the `# Heading` in the markdown.
-
 ## Autosave
 
 * Not trigging at a consistent interval
@@ -54,11 +49,7 @@ Track and report storage usage (number of documents, total size, etc.).
 
 ## Preview Pane
 
-* Is there a way to keep the preview pane in focus with what is being typed?
-* Syntax highlight color choices are not great. Python look like a giant warning block.
-* The `inline-code` is an ugly red also.
-* Syntax highlighter is running on each key stroke but the final render is not displaying in the document. Hitting the back space pulls the current from cache, but most recent run is not sticky.
-* Style Markdown Tables better
+* Style Markdown Tables better - Still need to fix 100% background color.
 
 ---
 
