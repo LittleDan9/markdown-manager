@@ -16,7 +16,7 @@ import { useFileSaveController } from "./useFileSaveController";
 import { useFileExportController } from "./useFileExportController";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 
-export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, setContent, editorValue, renderedHTML }) {
+export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue, renderedHTML }) {
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc } = useDocument();
@@ -225,6 +225,19 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
               <i className="bi bi-toggle-off text-secondary me-2"></i>
             )}
             Autosave {autosaveEnabled ? "On" : "Off"}
+          </Dropdown.Item>
+
+          <Dropdown.Item
+            onClick={() => setSyncPreviewScrollEnabled((prev) => !prev)}
+            aria-checked={syncPreviewScrollEnabled}
+            role="menuitemcheckbox"
+          >
+            {syncPreviewScrollEnabled ? (
+              <i className="bi bi-toggle-on text-success me-2"></i>
+            ) : (
+              <i className="bi bi-toggle-off text-secondary me-2"></i>
+            )}
+            Sync Preview Scroll {syncPreviewScrollEnabled ? "On" : "Off"}
           </Dropdown.Item>
         </Dropdown.Menu>
       </Dropdown>

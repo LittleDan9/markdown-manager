@@ -44,6 +44,9 @@ class User(BaseModel):
     last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     bio: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Editor/UX settings
+    sync_preview_scroll_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    autosave_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

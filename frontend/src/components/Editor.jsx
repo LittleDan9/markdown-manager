@@ -5,7 +5,7 @@ import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../js/services/HighlightService";
 import useAutoSave from "../hooks/useAutoSave";
 
-function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnabled = true }) {
+function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnabled = true, onCursorLineChange }) {
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
   const { theme } = useTheme();
@@ -43,6 +43,12 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
               });
             }
           }, 150); // Debounce 150ms
+        });
+        // Listen for cursor position changes and emit line number
+        instance.onDidChangeCursorPosition((e) => {
+          if (onCursorLineChange) {
+            onCursorLineChange(e.position.lineNumber);
+          }
         });
       });
     }

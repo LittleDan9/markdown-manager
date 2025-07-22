@@ -28,6 +28,8 @@ class UserUpdate(BaseModel):
     last_name: Optional[str] = None
     display_name: Optional[str] = None
     bio: Optional[str] = None
+    sync_preview_scroll_enabled: Optional[bool] = None
+    autosave_enabled: Optional[bool] = None
 
 
 class UserUpdatePassword(BaseModel):
@@ -67,6 +69,8 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     full_name: str
+    sync_preview_scroll_enabled: bool
+    autosave_enabled: bool
 
     class Config:
         """Pydantic config."""

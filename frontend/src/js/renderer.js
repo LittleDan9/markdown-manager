@@ -8,12 +8,23 @@ const md = new MarkdownIt({
   typographer: true
 });
 
+// Helper: map token index to source line number
+function getLineAttr(tokens, idx) {
+  const token = tokens[idx];
+  // MarkdownIt sets token.map = [startLine, endLine] for block tokens
+  if (token && token.map && token.map.length) {
+    return `data-line="${token.map[0] + 1}"`;
+  }
+  return "";
+}
+
 
 md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const token = tokens[idx];
   const info = token.info.trim();
   const lang = info || "";
   const diagramSource = token.content?.trim() || "";
+  const lineAttr = getLineAttr(tokens, idx);
   if (info.toLowerCase() === "mermaid") {
     const mermaidDiagram = MermaidService.diagramCache.get(diagramSource);
     if (mermaidDiagram) {
@@ -21,6 +32,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
         class="mermaid"
         data-processed="true"
         data-mermaid-source="${diagramSource}"
+        ${lineAttr}
       >
         ${mermaidDiagram}
       </div>`;
@@ -29,6 +41,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
       class="mermaid"
       data-processed="false"
       data-mermaid-source="${diagramSource}"
+      ${lineAttr}
     >
       <div class="code-block">
         <div class="code-block-header">
@@ -60,7 +73,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   }
 
   return `
-    <div class="code-block">
+    <div class="code-block" ${lineAttr}>
     <div class="code-block-header">
       <span class="code-block-lang">${lang.toUpperCase()}</span>
       <button class="code-block-copy-btn" data-prismjs-copy>
@@ -70,6 +83,41 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     ${codeBlock}
     </div>
   `;
+};
+// Headings
+for (let i = 1; i <= 6; i++) {
+  md.renderer.rules[`heading_open`] = (tokens, idx, options, env, self) => {
+    const lineAttr = getLineAttr(tokens, idx);
+    // Add data-line to heading open tag
+    const token = tokens[idx];
+    return `<${token.tag} ${lineAttr}>`;
+  };
+}
+
+// Paragraphs
+md.renderer.rules.paragraph_open = (tokens, idx, options, env, self) => {
+  const lineAttr = getLineAttr(tokens, idx);
+  const token = tokens[idx];
+  return `<${token.tag} ${lineAttr}>`;
+};
+
+// Blockquotes
+md.renderer.rules.blockquote_open = (tokens, idx, options, env, self) => {
+  const lineAttr = getLineAttr(tokens, idx);
+  const token = tokens[idx];
+  return `<${token.tag} ${lineAttr}>`;
+};
+
+// Lists
+md.renderer.rules.bullet_list_open = (tokens, idx, options, env, self) => {
+  const lineAttr = getLineAttr(tokens, idx);
+  const token = tokens[idx];
+  return `<${token.tag} ${lineAttr}>`;
+};
+md.renderer.rules.ordered_list_open = (tokens, idx, options, env, self) => {
+  const lineAttr = getLineAttr(tokens, idx);
+  const token = tokens[idx];
+  return `<${token.tag} ${lineAttr}>`;
 };
 
 export function render(content) {
