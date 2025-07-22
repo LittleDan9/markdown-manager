@@ -3,11 +3,8 @@ import { Api } from "./api";
 class UserAPI extends Api {
   // Verify password reset code (for step 2 in password reset flow)
   async verifyResetCode(email, code) {
-    const response = await this.apiCall("/auth/password-reset-verify", "POST", { email, code });
-    if (!response.ok) {
-      return { success: false, message: await response.text() };
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/password-reset-verify", "POST", { email, code });
+    return res.data;
   }
   // Validate token and fetch current user
   async getCurrentUser(token = null) {
@@ -15,11 +12,8 @@ class UserAPI extends Api {
     if (token || this.getToken()) {
       headers["Authorization"] = `Bearer ${token || this.getToken()}`;
     }
-    const response = await fetch(`${this.apiBase}/auth/me`, { headers });
-    if (!response.ok) {
-      return null;
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/me", "GET", null, headers);
+    return res.data;
   }
   constructor() {
     super();
@@ -29,11 +23,8 @@ class UserAPI extends Api {
   async fetchUser() {
     const token = this.getToken();
     if (!token) return null;
-    const response = await this.apiCall("/auth/user");
-    if (!response.ok) {
-      throw new Error("Failed to fetch user data");
-    }
-    this.user = await response.json();
+    const res = await this.apiCall("/auth/user");
+    this.user = res.data;
     return this.user;
   }
 
@@ -43,58 +34,38 @@ class UserAPI extends Api {
 
 
   async login(email, password){
-    const response = await this.apiCall("/auth/login", "POST", { email, password });
-    if (!response.ok) {
-      throw new Error("Login failed");
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/login", "POST", { email, password });
+    return res.data;
   }
 
   async currentUser() {
-    const response = await this.apiCall("/auth/me");
-    if (!response.ok) {
-      return {};
-    }
-    const payload = await response.json();
-    return payload
+    const res = await this.apiCall("/auth/me");
+    return res.data;
   }
 
   async loginMFA(email, password, code) {
-    const response = await this.apiCall("/auth/login-mfa", "POST", { email, password, code });
-    if (!response.ok) {
-      throw new Error("MFA verification failed");
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/login-mfa", "POST", { email, password, code });
+    return res.data;
   }
 
   async resetPassword(email) {
-    const response = await this.apiCall("/auth/password-reset-request", "POST", { email });
-    if (!response.ok) {
-      throw new Error("Password reset failed");
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/password-reset-request", "POST", { email });
+    return res.data;
   }
 
   async resetPasswordVerify(token, newPassword) {
-    const response = await this.apiCall("/auth/password-reset-confirm", "POST", { token, new_password: newPassword });
-    if (!response.ok) {
-      throw new Error("Password reset verification failed");
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/password-reset-confirm", "POST", { token, new_password: newPassword });
+    return res.data;
   }
 
   async register(userData) {
-    const response = await this.apiCall("/auth/register", "POST", userData);
-    if (!response.ok) {
-      throw new Error("Registration failed");
-    }
-    return await response.json();
+    const res = await this.apiCall("/auth/register", "POST", userData);
+    return res.data;
   }
 
   async updateProfileInfo(profile) {
     const res = await this.apiCall(`/users/profile`, "PUT", profile);
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async updatePassword(currentPassword, newPassword) {
@@ -102,27 +73,23 @@ class UserAPI extends Api {
       current_password: currentPassword,
       new_password: newPassword
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async setupMFA() {
     const res = await this.apiCall(`/mfa/setup`, "POST");
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async enableMFA() {
     const res = await this.apiCall(`/mfa/enable`, "POST");
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   // Verify TOTP code during setup
   async verifyMFASetup(code) {
     const res = await this.apiCall(`/mfa/verify`, "POST", { totp_code: code });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   // Confirm password to enable MFA
@@ -131,8 +98,7 @@ class UserAPI extends Api {
       totp_code: code,
       current_password: password
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async disableMFA(password, code) {
@@ -140,26 +106,22 @@ class UserAPI extends Api {
       current_password: password,
       totp_code: code
     });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async getBackupCodes() {
     const res = await this.apiCall(`/mfa/backup-codes`, "GET");
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async regenerateBackupCodes(code) {
     const res = await this.apiCall(`/mfa/regenerate-backup-codes`, "POST", { code });
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
   async deleteAccount() {
     const res = await this.apiCall(`/users/delete`, "DELETE");
-    if (!res.ok) throw new Error(await res.text());
-    return res.json();
+    return res.data;
   }
 
 }

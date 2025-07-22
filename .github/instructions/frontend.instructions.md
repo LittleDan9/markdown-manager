@@ -35,3 +35,17 @@ When using GitHub Copilot Chat in this repository to write or review React + Rea
 
 10. **Enforce Quality with Type-Checking & Testing**
     Adopt TypeScript or PropTypes, configure ESLint (hooks + a11y plugins), and write behavior-driven tests with Jest + React Testing Library.
+
+11. **Understand API Integration**
+    All API calls should be made using the frontend/src/js/api helper libraries. This ensures consistency and maintainability across the codebase.
+
+12. **Management of Document Storage**
+    Use the `frontend/src/js/storage/documentStorage` module for all document storage operations. This module provides a consistent interface for managing documents, ensuring that all storage operations are handled uniformly across the application.
+
+13. **Localstorage vs Backend Storage**
+    Everything a user does can be stored in localstorage, but the data should be synchronized regularly and before logout. If the user is a guest, their information should be stored in localstorage. Once they register and login, their data should be migrated to the backend. If a user logs out the UI should be reset to default state and all localstorage data should be cleared.
+
+14. **User Feedback is Important**
+    Use the `frontend/src/components/NotificationProvider` module to provide user feedback. This includes notifications, alerts, successes, and any other user-facing messages. Ensure that all feedback is clear, concise, and actionable. Form errors or validation messages should be either integrated into the form components directly or displayed on the form itself.
+
+

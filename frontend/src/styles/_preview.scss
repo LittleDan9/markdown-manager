@@ -1,4 +1,124 @@
+// ─── INLINE CODE ───
+// ─── INLINE CODE ───
+#previewContainer #preview .preview-scroll p > code:not([class*="language-"]) {
+  color: #e83e8c; // Bootstrap magenta for light theme
+  background: #f8f9fa;
+  border-radius: 4px;
+  padding: 2px 4px;
+  font-size: 0.95em;
+}
+
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll p > code:not([class*="language-"]) {
+  color: #f7e06e !important; // Muted yellow for dark theme
+  background: #232323 !important;
+}
 // ─── PREVIEW PANE STYLES ───
+// ─── MARKDOWN LISTS ───
+#previewContainer #preview .preview-scroll ul,
+#previewContainer #preview .preview-scroll ol {
+  margin: 1rem 0 1rem 2rem;
+  padding-left: 1.5rem;
+}
+
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll ul,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll ol {
+  color: #fff;
+}
+
+// ─── HORIZONTAL RULES ───
+#previewContainer #preview .preview-scroll hr {
+  border: none;
+  border-top: 2px solid #212529;
+  margin: 2rem 0;
+}
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll hr {
+  border-top: 2px solid #666;
+}
+
+// ─── HEADINGS ───
+#previewContainer #preview .preview-scroll h1,
+#previewContainer #preview .preview-scroll h2,
+#previewContainer #preview .preview-scroll h3,
+#previewContainer #preview .preview-scroll h4,
+#previewContainer #preview .preview-scroll h5,
+#previewContainer #preview .preview-scroll h6 {
+  font-weight: bold;
+  margin-top: 2rem;
+  margin-bottom: 1rem;
+  line-height: 1.2;
+}
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll h1,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll h2,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll h3,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll h4,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll h5,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll h6 {
+  color: #fff;
+}
+
+// ─── IMAGES ───
+#previewContainer #preview .preview-scroll img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 0.25rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  margin: 1rem 0;
+}
+
+// ─── LINKS ───
+#previewContainer #preview .preview-scroll a {
+  color: #0d6efd;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+#previewContainer #preview .preview-scroll a:hover {
+  color: #0056b3;
+}
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll a {
+  color: #66b3ff;
+}
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll a:hover {
+  color: #99ccff;
+}
+
+// ─── INLINE CODE (already styled in .pdf-export-mode) ───
+
+// ─── BLOCKQUOTES (already styled above) ───
+
+// ─── TABLES (already styled above) ───
+
+// ─── STRONG/EMPHASIS ───
+#previewContainer #preview .preview-scroll strong,
+#previewContainer #preview .preview-scroll b {
+  font-weight: bold;
+}
+#previewContainer #preview .preview-scroll em,
+#previewContainer #preview .preview-scroll i {
+  font-style: italic;
+}
+
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll strong,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll b {
+  color: #fff;
+}
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll em,
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll i {
+  color: #cccccc;
+}
+
+// ─── PREFORMATTED TEXT ───
+#previewContainer #preview .preview-scroll pre {
+  background: #f8f9fa;
+  color: #212529;
+  border-radius: 0.25rem;
+  padding: 1rem;
+  overflow-x: auto;
+  margin: 1rem 0;
+}
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll pre {
+  background: #2d2d2d;
+  color: #f8f8f2;
+}
 
 // Align preview controls with the preview div
 #previewControls {
@@ -32,6 +152,45 @@
 }
 
 // PDF Export styling for different themes
+// ─── MARKDOWN TABLE STYLES ───
+#previewContainer #preview .preview-scroll table {
+  border-collapse: collapse;
+  /* width: 100%; removed to allow table to shrink to fit content */
+  margin-bottom: 1rem;
+  background: #fff;
+  th, td {
+    border: 2px solid #212529;
+    padding: 0.75rem;
+    text-align: left;
+  }
+  th {
+    font-weight: bold;
+    background: #f8f9fa;
+  }
+  tr:nth-child(even) td {
+    background: #f3f3f3;
+  }
+}
+
+[data-bs-theme="dark"] #previewContainer #preview .preview-scroll table {
+  border-collapse: collapse;
+  /* width: 100%; removed to allow table to shrink to fit content */
+  margin-bottom: 1rem;
+  background: #2d2d2d;
+  th, td {
+    border: 2px solid #666;
+    padding: 0.75rem;
+    text-align: left;
+    color: #fff;
+  }
+  th {
+    font-weight: bold;
+    background: #404040;
+  }
+  tr:nth-child(even) td {
+    background: #353535;
+  }
+}
 .pdf-export-mode {
   // Dark mode with good contrast
   &[data-theme="dark"] {
@@ -56,7 +215,7 @@
 
     code:not([class*="language-"]) {
       background-color: #2d2d2d !important;
-      color: #f92672 !important;
+      color: #f7e06e !important;
       padding: 0.125rem 0.25rem !important;
       border-radius: 0.25rem !important;
     }

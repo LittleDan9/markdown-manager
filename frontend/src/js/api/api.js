@@ -1,5 +1,6 @@
 // api.js - Common API base class for DRY HTTP requests
 import config from "../config";
+import axios from "axios";
 
 export class Api {
   constructor() {
@@ -11,6 +12,7 @@ export class Api {
   }
 
   async apiCall(endpoint, method = "GET", body = null, extraHeaders = {}) {
+    const url = `${this.apiBase}${endpoint}`;
     const headers = {
       "Content-Type": "application/json",
       ...extraHeaders,
@@ -21,11 +23,12 @@ export class Api {
     }
     const config = {
       method,
+      url,
       headers,
+      data: body,
     };
-    if (body) {
-      config.body = JSON.stringify(body);
-    }
-    return fetch(`${this.apiBase}${endpoint}`, config);
+    // Remove data for GET requests
+    if (method === "GET") delete config.data;
+    return axios(config);
   }
 }

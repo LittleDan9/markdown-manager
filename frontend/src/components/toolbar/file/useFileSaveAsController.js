@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useDocument } from "../../../context/DocumentProvider.jsx";
+import { useDocument } from "../../../context/DocumentProvider";
 import { useNotification } from "../../NotificationProvider";
 
 export function useFileSaveAsController({ setDocumentTitle, setContent }) {

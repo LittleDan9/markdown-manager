@@ -10,6 +10,9 @@ const { split } = require('lodash');
 
 
 module.exports = {
+  cache: {
+    type: 'filesystem',
+  },
   mode: 'development',
   devtool: 'source-map',
   entry: './src/index.js',

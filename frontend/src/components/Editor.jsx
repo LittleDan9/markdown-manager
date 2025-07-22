@@ -1,12 +1,16 @@
 import React, { useEffect, useRef } from "react";
 import EditorSingleton from "../js/Editor";
 import { useTheme } from "../context/ThemeContext";
+import { useDocument } from "../context/DocumentProvider";
+import HighlightService from "../js/services/HighlightService";
 import useAutoSave from "../hooks/useAutoSave";
 
 function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnabled = true }) {
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
   const { theme } = useTheme();
+  const { highlightedBlocks, setHighlightedBlocks } = useDocument();
+  const highlightDebounceRef = useRef();
 
   // Integrate autosave hook
   useAutoSave(currentDocument, saveDocument, autosaveEnabled);
@@ -14,23 +18,44 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
   // Initialize Monaco on mount
   useEffect(() => {
     if (editorRef.current && !monacoInstanceRef.current) {
-        EditorSingleton.setup(editorRef.current, value, theme).then((instance) => {
-          monacoInstanceRef.current = instance;
-          instance.onDidChangeModelContent(() => {
-            const newValue = instance.getValue();
-            if (newValue !== value) onChange(newValue);
-          });
+      EditorSingleton.setup(editorRef.current, value, theme).then((instance) => {
+        monacoInstanceRef.current = instance;
+        instance.onDidChangeModelContent(() => {
+          const newValue = instance.getValue();
+          if (newValue !== value) onChange(newValue);
+          // Detect fenced code block edits and trigger highlight
+          if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
+          highlightDebounceRef.current = setTimeout(() => {
+            // Find all fenced code blocks in the markdown
+            const fencedRegex = /```(\w+)?\n([\s\S]*?)```/g;
+            let match;
+            const blocks = [];
+            while ((match = fencedRegex.exec(newValue)) !== null) {
+              const language = match[1] ? match[1].trim() : "";
+              const code = match[2] || "";
+              // Generate a stable placeholderId for this block
+              const placeholderId = `syntax-highlight-${language}-${code.length}-${code.slice(0,10).replace(/[^a-zA-Z0-9]/g,"")}`;
+              blocks.push({ code, language, placeholderId });
+            }
+            if (blocks.length > 0) {
+              HighlightService.highlightBlocks(blocks).then(results => {
+                setHighlightedBlocks(prev => ({ ...prev, ...results }));
+              });
+            }
+          }, 150); // Debounce 150ms
         });
+      });
+    }
+    // Cleanup on umount
+    return () => {
+      if (monacoInstanceRef.current) {
+        monacoInstanceRef.current.dispose();
+        monacoInstanceRef.current = null;
       }
-      // Cleanup on umount
-      return () => {
-        if (monacoInstanceRef.current) {
-          monacoInstanceRef.current.dispose();
-          monacoInstanceRef.current = null;
-        }
-      };
-      // eslint-disable-next-line
-    }, []);
+      if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
+    };
+    // eslint-disable-next-line
+  }, []);
 
   // Update Monaco when them changes
   useEffect(() => {

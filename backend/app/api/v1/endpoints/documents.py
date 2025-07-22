@@ -1,7 +1,7 @@
 """Document management API endpoints."""
 from typing import List, Optional
-import sqlalchemy as sa
 
+import sqlalchemy as sa
 from fastapi import APIRouter, Body, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,7 +21,9 @@ async def get_current_document(
 ) -> Document | None:
     """Get the user's current document."""
     if current_user.current_doc_id:
-        document = await document_crud.document.get(db=db, id=current_user.current_doc_id)
+        document = await document_crud.document.get(
+            db=db, id=current_user.current_doc_id
+        )
         if document and document.user_id == current_user.id:
             return Document.model_validate(document, from_attributes=True)
     return None
@@ -32,12 +34,14 @@ async def set_current_document(
     doc_id: int = Body(..., embed=True),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> dict:
+) -> dict[str, object]:
     """Set the user's current document ID."""
     # Validate document ownership
     document = await document_crud.document.get(db=db, id=doc_id)
     if not document or document.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Document not found or not owned by user")
+        raise HTTPException(
+            status_code=404, detail="Document not found or not owned by user"
+        )
     # Update user
     await db.execute(
         sa.update(User).where(User.id == current_user.id).values(current_doc_id=doc_id)

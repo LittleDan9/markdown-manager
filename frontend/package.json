@@ -4,7 +4,7 @@
   "description": "Simple Markdown Preview tool with Mermaid Support",
   "private": "true",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "build": "webpack --mode=production && npm run copy-prism-themes",
     "copy-prism-themes": "node scripts/copy-prism-themes.js",
     "build:clean": "rm -rf dist && npm run build",

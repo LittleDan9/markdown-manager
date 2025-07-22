@@ -3,7 +3,7 @@ import { Dropdown } from "react-bootstrap";
 import { useNotification } from "../NotificationProvider";
 import UserMenuLoggedIn from "./UserMenuLoggedIn";
 import UserMenuLoggedOut from "./UserMenuLoggedOut";
-import { useAuth } from "../../context/AuthProvider.jsx";
+import { useAuth } from "../../context/AuthProvider";
 
 
 function UserToolbar({ handleThemeToggle, theme }) {

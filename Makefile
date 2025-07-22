@@ -95,13 +95,13 @@ quality: ## Run pre-commit hooks
 install: ## Install frontend + backend deps
 	@echo "$(YELLOW)📦 Installing dependencies...$(NC)"
 	cd $(FRONTEND_DIR) && npm install
-	cd $(BACKEND_DIR)    && poetry lock && poetry install
+	cd $(BACKEND_DIR)    && poetry lock && poetry install && poetry run playwright install chromium
 	@echo "$(GREEN)✅ All dependencies installed$(NC)"
 
 clean: ## Clean build artifacts
 	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
 
-build: clean ## Build production assets
+build: ## Build production assets
 	@./scripts/build.sh $(FRONTEND_DIR)
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -122,10 +122,12 @@ dev-backend: ## Backend dev server
 	cd $(BACKEND_DIR) && docker compose up --build -d backend
 
 # ────────────────────────────────────────────────────────────────────────────
-test: ## Run pytest
-	@echo "$(YELLOW)🧪 Running tests...$(NC)"
+test: ## Run backend (pytest) and frontend (Jest) tests
+	@echo "$(YELLOW)🧪 Running backend tests...$(NC)"
 	cd $(BACKEND_DIR) && poetry run pytest
-	@echo "$(GREEN)✅ Tests complete$(NC)"
+	@echo "$(YELLOW)🧪 Running frontend tests...$(NC)"
+	cd $(FRONTEND_DIR) && npm test
+	@echo "$(GREEN)✅ All tests complete$(NC)"
 
 status: ## Check dev server status
 	@echo "$(YELLOW)📊 Dev Server Status$(NC)"

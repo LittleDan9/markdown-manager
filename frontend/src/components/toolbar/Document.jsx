@@ -263,7 +263,13 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         </span>
       )}
       <span className="text-muted small">
-        Last saved: {currentDocument.lastModified ? formatDistanceToNow(new Date(currentDocument.lastModified), { addSuffix: true }) : "Never"}
+        Last saved: {
+          currentDocument.updated_at
+            ? formatDistanceToNow(new Date(currentDocument.updated_at), { addSuffix: true })
+            : currentDocument.created_at
+              ? formatDistanceToNow(new Date(currentDocument.created_at), { addSuffix: true })
+              : "Never"
+        }
       </span>
       <ConfirmModal
         show={show}

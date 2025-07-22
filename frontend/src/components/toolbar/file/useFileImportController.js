@@ -1,5 +1,5 @@
 import { useState, useRef } from "react";
-import { useDocument } from "../../../context/DocumentProvider.jsx";
+import { useDocument } from "../../../context/DocumentProvider";
 import { useNotification } from "../../NotificationProvider";
 
 export function useFileImportController({ setDocumentTitle, setContent }) {

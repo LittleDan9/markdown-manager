@@ -8,7 +8,7 @@ import PasswordResetModal from "../modals/PasswordResetModal";
 import RegisterModal from "../modals/RegisterModal";
 import UserAPI from "../../js/api/userApi";
 import { useNotification } from "../NotificationProvider";
-import { useAuth } from "../../context/AuthProvider.jsx";
+import { useAuth } from "../../context/AuthProvider";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();

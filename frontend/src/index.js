@@ -8,11 +8,9 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 // import * as bootstrap from "bootstrap";
 
 import "./styles/main.scss";
-import "prism-themes/themes/prism-one-dark.css";
-import "prism-themes/themes/prism-one-light.css";
 
 import { DocumentProvider } from "./context/DocumentProvider";
-import { AuthProvider } from "./context/AuthProvider.jsx";
+import { AuthProvider } from "./context/AuthProvider";
 
 const container = document.getElementById("root");
 const root = createRoot(container);

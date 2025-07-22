@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
 import userApi from "../../js/api/userApi";
-import { useAuth } from "../../context/AuthProvider.jsx";
+import { useAuth } from "../../context/AuthProvider";
 import { useNotification } from "../NotificationProvider";
 
 function DisableMFASection({ setActiveTab }) {
