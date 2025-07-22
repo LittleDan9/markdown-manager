@@ -37,6 +37,16 @@ class DocumentInDB(DocumentBase):
 
     class Config:
         from_attributes = True
+        json_encoders = {
+            datetime: lambda v: _isoformat_utc(v)
+        }
+
+
+def _isoformat_utc(dt: datetime) -> str:
+    """Format datetime as ISO 8601 with Z (UTC)."""
+    if dt.tzinfo:
+        return dt.astimezone().replace(microsecond=0).isoformat().replace('+00:00', 'Z')
+    return dt.replace(microsecond=0).isoformat() + 'Z'
 
 
 class Document(DocumentInDB):

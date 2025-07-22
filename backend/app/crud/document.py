@@ -145,7 +145,9 @@ class DocumentCRUD:
         content: Optional[str] = None,
         category: Optional[str] = None,
     ) -> Optional[Document]:
-        """Update a document if it belongs to the user."""
+        """Update a document if it belongs to the user. Sets updated_at to current UTC time."""
+        from datetime import datetime, timezone
+
         result = await db.execute(
             select(Document).filter(
                 Document.id == document_id, Document.user_id == user_id
@@ -161,6 +163,9 @@ class DocumentCRUD:
             document.content = content
         if category is not None:
             document.category = category
+
+        # Always set updated_at to current UTC time
+        document.updated_at = datetime.now(timezone.utc)
 
         await db.commit()
         await db.refresh(document)

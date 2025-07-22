@@ -233,42 +233,42 @@ const DocumentStorage = {
     let now = new Date().toISOString();
     let document = { ...doc };
     // Set updated_at and created_at
-    document.updated_at = now;
-    if (!document.created_at) document.created_at = now;
-
+    if (!isAuthenticated) {
+      // For guest users, always set updated_at to now (ISO 8601 UTC with 'Z')
+      const isoNow = new Date().toISOString();
+      document.updated_at = isoNow;
+      if (!document.created_at) document.created_at = isoNow;
+    }
     // If not present, generate a local id
     if (!id) {
       id = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
       document.id = id;
     }
-
     // Sync to backend if authenticated
     if (isAuthenticated) {
       const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
       let backendDoc;
       if (!doc.id || String(doc.id).startsWith("doc_")) {
-        // New document, use POST
+        // New document: create in backend
         backendDoc = await DocumentsApi.createDocument({
-          name: doc.name,
-          content: doc.content,
-          category: doc.category,
+          name: document.name,
+          content: document.content,
+          category: document.category,
         });
-        // Update local doc with backend id and updated_at/created_at
         document.id = backendDoc.id;
         document.updated_at = backendDoc.updated_at || now;
         document.created_at = backendDoc.created_at || document.created_at;
       } else {
-        // Existing backend doc, use PUT
+        // Existing backend doc: update via PUT
         backendDoc = await DocumentsApi.updateDocument(doc.id, {
-          name: doc.name,
-          content: doc.content,
-          category: doc.category,
+          name: document.name,
+          content: document.content,
+          category: document.category,
         });
         document.updated_at = backendDoc.updated_at || now;
         document.created_at = backendDoc.created_at || document.created_at;
       }
     }
-
     docsObj[document.id] = document;
     setLocalDocuments(docsObj);
     // On save, set current document and sync current_doc_id if not default
