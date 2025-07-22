@@ -2,9 +2,20 @@ import React, { useState } from "react";
 import ConfirmModal from "../../modals/ConfirmModal";
 import DocumentForm from "../../modals/DocumentForm";
 
-export default function FileImportModal({ show, onHide, onConfirm, defaultName = "", icon }) {
+export default function FileImportModal({ show, onHide, onConfirm, defaultName = "", icon, selectedFile }) {
   const [selectedCategory, setSelectedCategory] = useState("General");
-  const [filename, setFilename] = useState(defaultName || "");
+  const initialFilename = React.useMemo(() => {
+    if (selectedFile && typeof selectedFile.name === "string") {
+      return selectedFile.name.replace(/\.md$/i, "");
+    }
+    return defaultName || "";
+  }, [selectedFile, defaultName]);
+  const [filename, setFilename] = useState(initialFilename);
+
+  // Sync filename with selectedFile changes
+  React.useEffect(() => {
+    setFilename(initialFilename);
+  }, [initialFilename]);
   const [newCategory, setNewCategory] = useState("");
   const [categoryError, setCategoryError] = useState("");
 
