@@ -12,8 +12,18 @@ class UserAPI extends Api {
     if (token || this.getToken()) {
       headers["Authorization"] = `Bearer ${token || this.getToken()}`;
     }
-    const res = await this.apiCall("/auth/me", "GET", null, headers);
-    return res.data;
+    try {
+      const res = await this.apiCall("/auth/me", "GET", null, headers);
+      return res.data;
+    } catch (e) {
+      if (e?.response?.status === 403) {
+        // Not authenticated, return null
+        return null;
+      }
+      // Log other errors
+      console.error("Error in getCurrentUser:", e);
+      return null;
+    }
   }
   constructor() {
     super();

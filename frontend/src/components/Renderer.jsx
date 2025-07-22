@@ -5,7 +5,7 @@ import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../js/services/HighlightService";
 import MermaidService from "../js/services/MermaidService";
 
-function Renderer({ content, onRenderHTML }) {
+function Renderer({ content, onRenderHTML, scrollToLine }) {
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const [html, setHtml] = useState("");
@@ -70,6 +70,16 @@ function Renderer({ content, onRenderHTML }) {
   }, [content, highlightedBlocks]);
 
   // ...existing code...
+  // Scroll to line if requested
+  useEffect(() => {
+    if (scrollToLine && previewRef.current) {
+      // Find the element with data-line attribute
+      const el = previewRef.current.querySelector(`[data-line='${scrollToLine}']`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    }
+  }, [scrollToLine, html]);
   // Process any new mermaid diagrams
   useEffect(() => {
     if (previewRef.current && previewRef.current.querySelectorAll("[data-mermaid-source][data-processed='false']").length > 0) {

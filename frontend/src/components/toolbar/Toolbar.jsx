@@ -6,7 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDocument } from "../../context/DocumentProvider";
 import { useNotification } from "../NotificationProvider";
 
-function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue, renderedHTML }) {
+function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue, renderedHTML }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
@@ -56,6 +56,8 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, setContent, editorValue,
             setDocumentTitle={setDocumentTitle}
             autosaveEnabled={autosaveEnabled}
             setAutosaveEnabled={setAutosaveEnabled}
+            syncPreviewScrollEnabled={syncPreviewScrollEnabled}
+            setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled}
             setContent={setContent}
             editorValue={editorValue}
             importMarkdownFile={importMarkdownFile}
