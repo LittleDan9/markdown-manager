@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthProvider.jsx";
 
 import config from "../js/config";
@@ -15,6 +15,8 @@ const DocumentContext = createContext();
 
 export function DocumentProvider({ children }) {
   const { token, user, isAuthenticated } = useAuth();
+  const prevAuthRef = useRef(isAuthenticated);
+  const autosaveWasEnabledRef = useRef(true);
   // State
   const [currentDocument, setCurrentDocument] = useState({
     id: null,
@@ -30,43 +32,81 @@ export function DocumentProvider({ children }) {
   // Shared highlighted code blocks for fenced code
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
 
-  // Load documents/categories on mount or auth change
-  useEffect(() => {
-    if (!isAuthenticated) {
-      // Clear localStorage on logout
-      localStorage.removeItem(DOCUMENTS_KEY);
-      localStorage.removeItem(CURRENT_DOC_KEY);
-      localStorage.removeItem("lastDocumentId");
-      localStorage.removeItem(CATEGORIES_KEY);
-      setDocuments([]);
-      setCategories([DEFAULT_CATEGORY]);
-      setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
-      return;
+  // --- Sync/Merge Logic ---
+  // Helper: trigger RecoveryProvider for conflicts
+  const triggerRecovery = useCallback((conflicts) => {
+    if (conflicts && conflicts.length > 0) {
+      window.dispatchEvent(new CustomEvent("showRecoveryModal", { detail: conflicts }));
     }
-    // On initial load, filter out invalid docs from savedDocuments
+  }, []);
+
+  // Main sync/merge function
+  const syncAndMergeDocuments = useCallback(async () => {
+    setLoading(true);
+    try {
+      // Disable autosave during sync
+      if (window.setAutosaveEnabled) {
+        autosaveWasEnabledRef.current = window.getAutosaveEnabled ? window.getAutosaveEnabled() : true;
+        window.setAutosaveEnabled(false);
+      }
+      // Sync and merge
+      const result = await DocumentStorage.syncAndMergeDocuments(isAuthenticated, token);
+      setDocuments(DocumentStorage.getAllDocuments());
+      setCategories(DocumentStorage.getCategories());
+      // If there are conflicts, trigger recovery
+      if (result && result.conflicts && result.conflicts.length > 0) {
+        triggerRecovery(result.conflicts);
+      }
+      // After sync, update localStorage to reflect backend state
+      // (already handled by DocumentStorage)
+    } catch (e) {
+      setError("Sync/merge failed");
+    } finally {
+      setLoading(false);
+      // Re-enable autosave if it was previously enabled
+      if (window.setAutosaveEnabled && autosaveWasEnabledRef.current) {
+        window.setAutosaveEnabled(true);
+      }
+    }
+  }, [isAuthenticated, token, triggerRecovery]);
+
+  // --- Mount/Transition Effects ---
+  // On mount for authenticated user, and on login
+  useEffect(() => {
+    // Only clear localStorage on explicit logout (not here)
+    // On mount or login, if authenticated, sync/merge
+    if (isAuthenticated) {
+      syncAndMergeDocuments();
+    }
+    // On guest, do NOT clear localStorage
+    // On logout, AuthProvider already clears localStorage
+    // On mount, filter out invalid docs from savedDocuments
     const localDocs = localStorage.getItem(DOCUMENTS_KEY);
     let validDocs = localDocs ? Object.values(JSON.parse(localDocs)).filter(doc => doc && typeof doc.name === "string" && doc.name !== "__category_placeholder__" && doc.name.trim() && typeof doc.category === "string" && doc.category !== "__category_placeholder__" && doc.category.trim()) : [];
     if (!validDocs || validDocs.length === 0) {
       validDocs = [{ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" }];
       localStorage.setItem(DOCUMENTS_KEY, JSON.stringify({ [validDocs[0].id || "untitled"]: validDocs[0] }));
     }
-    async function loadData() {
-      setLoading(true);
-      setError("");
-      try {
-        let docs = [];
-        let cats = [];
-        // ...existing code...
-        // (rest of the logic unchanged)
-      } catch (e) {
-        console.error("Failed to load documents or categories:", e);
-        setError("Failed to load documents or categories.");
-      } finally {
-        setLoading(false);
-      }
+    // ...existing code...
+  }, [isAuthenticated, token, syncAndMergeDocuments]);
+
+  // On login transition (guest -> user)
+  useEffect(() => {
+    if (!prevAuthRef.current && isAuthenticated) {
+      // Just logged in
+      syncAndMergeDocuments();
     }
-    loadData();
-  }, [isAuthenticated, token]);
+    prevAuthRef.current = isAuthenticated;
+  }, [isAuthenticated, syncAndMergeDocuments]);
+
+  // Periodic sync/merge (every 3 minutes)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => {
+      syncAndMergeDocuments();
+    }, 180000); // 3 minutes
+    return () => clearInterval(interval);
+  }, [isAuthenticated, syncAndMergeDocuments]);
 
   // Save current document using DocumentStorage abstraction
   const saveDocument = useCallback(async (doc) => {
