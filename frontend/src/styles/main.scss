@@ -1,6 +1,10 @@
 // ─── MARKDOWN MANAGER STYLES ───
 // Main stylesheet using all partial files in logical order
 
+// 0. Global variables
+@use "variables";
+@use "mixins";
+
 // 1. Base styles and resets
 @use "base";
 

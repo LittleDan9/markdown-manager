@@ -22,9 +22,5 @@
     "vue"
   ],
   "author": "Dan Little",
-  "license": "ISC",
-  "devDependencies": {
-    "glob": "^11.0.3",
-    "purgecss": "^7.0.2"
-  }
+  "license": "ISC"
 }
