@@ -5,7 +5,7 @@ import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../js/services/HighlightService";
 import useAutoSave from "../hooks/useAutoSave";
 
-function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnabled = true, onCursorLineChange }) {
+function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange }) {
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
   const { theme } = useTheme();
@@ -13,9 +13,15 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
   const highlightDebounceRef = useRef();
   const resizeObserverRef = useRef(null);
   const layoutDebounceRef = useRef();
+  const { currentDocument, saveDocument } = useDocument();
 
-  // Integrate autosave hook
-  useAutoSave(currentDocument, saveDocument, autosaveEnabled);
+  // Integrate autosave hook: save with latest editor value
+  useAutoSave(
+    { ...currentDocument, content: value },
+    saveDocument,
+    autosaveEnabled,
+    30000
+  );
 
   // Initialize Monaco on mount and observe container resize
   useEffect(() => {

@@ -171,10 +171,13 @@ const DocumentStorage = {
     }
     // 3. Update localStorage to match merged
     setLocalDocuments(mergedDocsObj);
-    // Always update categories from localStorage after sync
-    setLocalCategories(
-      Array.from(new Set(Object.values(mergedDocsObj).map(doc => doc.category).filter(Boolean)))
-    );
+    // Preserve custom categories: merge existing local categories with those from docs
+    const docCategories = Array.from(new Set(
+      Object.values(mergedDocsObj).map(doc => doc.category).filter(Boolean)
+    ));
+    const localCategories = getLocalCategories();
+    const combined = Array.from(new Set([...localCategories, ...docCategories]));
+    setLocalCategories(combined);
     // Also update localStorage settings from backend if local is default/null
     if (userProfile) {
       if (localAutosave === null) {
@@ -192,7 +195,10 @@ const DocumentStorage = {
         }
       }
     }
-    return Object.values(mergedDocsObj);
+    // Return non-placeholder documents
+    return Object.values(mergedDocsObj).filter(
+      (doc) => doc.name !== "__category_placeholder__"
+    );
   },
 
   getDocumentStats() {
@@ -213,8 +219,12 @@ const DocumentStorage = {
     };
   },
   getAllDocuments() {
-    return Object.values(getLocalDocuments());
+    // Exclude placeholder documents created to track categories
+    return Object.values(getLocalDocuments()).filter(
+      (doc) => doc.name !== "__category_placeholder__"
+    );
   },
+
   getDocument(id) {
     return getLocalDocuments()[id] || null;
   },
@@ -245,16 +255,31 @@ const DocumentStorage = {
       document.id = id;
     }
     // Sync to backend if authenticated
-    if (isAuthenticated) {
-      const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
-      let backendDoc;
-      if (!doc.id || String(doc.id).startsWith("doc_")) {
-        // New document: create in backend
-        backendDoc = await DocumentsApi.createDocument({
-          name: document.name,
-          content: document.content,
-          category: document.category,
-        });
+      if (isAuthenticated) {
+        const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+        let backendDoc;
+        if (!doc.id || String(doc.id).startsWith("doc_")) {
+          // New document: attempt create, fallback to update on duplicate
+          try {
+          backendDoc = await DocumentsApi.createDocument({
+            name: document.name,
+            content: document.content,
+            category: document.category,
+          });
+        } catch (e) {
+          // If duplicate exists, fetch existing and update instead
+          if (e.message?.includes('exists')) {
+            const all = await DocumentsApi.getAllDocuments(document.category);
+            const dup = all.find(d => d.name === document.name && d.category === document.category);
+            if (dup) {
+              backendDoc = await DocumentsApi.updateDocument(dup.id, {
+                name: document.name,
+                content: document.content,
+                category: document.category,
+              });
+            } else throw e;
+          } else throw e;
+        }
         document.id = backendDoc.id;
         document.updated_at = backendDoc.updated_at || now;
         document.created_at = backendDoc.created_at || document.created_at;
@@ -282,10 +307,6 @@ const DocumentStorage = {
     // Remove current doc if deleted
     const current = getCurrentDocument();
     if (current && current.id === id) {
-      setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
-    }
-    if (isAuthenticated) {
-      const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
       try {
         await DocumentsApi.deleteDocument(id);
       } catch (e) {
@@ -297,7 +318,8 @@ const DocumentStorage = {
     return getLocalCategories();
   },
   addCategory: async function(category, isAuthenticated, token) {
-    const catsArr = getLocalCategories();
+    let catsArr = getLocalCategories();
+    // Ensure local placeholder
     if (!catsArr.includes(category)) {
       catsArr.push(category);
       setLocalCategories(catsArr);
@@ -305,8 +327,13 @@ const DocumentStorage = {
     if (isAuthenticated) {
       const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
       try {
-        await DocumentsApi.addCategory(category);
-      } catch (e) {}
+        // Use server's authoritative list
+        const remoteCats = await DocumentsApi.addCategory(category);
+        setLocalCategories(remoteCats);
+        catsArr = remoteCats;
+      } catch (e) {
+        // fallback on local
+      }
     }
     return catsArr;
   },
@@ -319,17 +346,29 @@ const DocumentStorage = {
       if (docsObj[id].category === name) {
         if (options.deleteDocs) {
           delete docsObj[id];
-        } else if (options.migrateTo) {
-          docsObj[id].category = options.migrateTo;
+        } else {
+          // Migrate to specified category or default 'General'
+          docsObj[id].category = options.migrateTo || DEFAULT_CATEGORY;
         }
+      }
+    });
+    // Remove any placeholder docs locally
+    Object.keys(docsObj).forEach((id) => {
+      if (docsObj[id].name === "__category_placeholder__") {
+        delete docsObj[id];
       }
     });
     setLocalDocuments(docsObj);
     if (isAuthenticated) {
       const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
       try {
-        await DocumentsApi.deleteCategory(name, options);
-      } catch (e) {}
+        // Call API and update local categories based on server response
+        const remoteCats = await DocumentsApi.deleteCategory(name, options);
+        setLocalCategories(remoteCats);
+        catsArr = remoteCats;
+      } catch (e) {
+        // ignore errors and fallback to local categories
+      }
     }
     return catsArr;
   },
@@ -355,6 +394,12 @@ const DocumentStorage = {
   setCurrentDocument,
   async syncCurrentDocumentOnLogin(isAuthenticated, token) {
     if (!isAuthenticated) return;
+    // Sync all documents and settings from backend before setting current document
+    try {
+      await this.syncAndMergeDocuments(isAuthenticated, token);
+    } catch (e) {
+      // continue even if merge fails
+    }
     const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
     try {
       const currentId = await DocumentsApi.getCurrentDocumentId();
