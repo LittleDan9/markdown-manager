@@ -1,10 +1,12 @@
+@import 'mixins';
+
 .preview-line-highlight {
   background: none;
   transition: background 0.3s, color 0.3s;
   color: #f7e06e !important;
   font-weight: bold;
 
-  [data-bs-theme="dark"] & {
+  @include dark {
     background: #232323 !important;
     color: #f7e06e !important;
   }
@@ -19,13 +21,13 @@
       }
 
       p > code:not([class*="language-"]) {
-        color: #e83e8c; // Bootstrap magenta for light theme
+        color: #e83e8c;
         background: #f8f9fa;
         border-radius: 4px;
         padding: 2px 4px;
         font-size: 0.95em;
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           color: #f7e06e !important; // Muted yellow for dark theme
           background: #232323 !important;
         }
@@ -47,17 +49,12 @@
           padding: 0;
         }
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           color: #fff;
           /* Apply same spacing in dark theme */
-          & > li {
-            margin: 0.25rem 0;
-          }
+          & > li { margin: 0.25rem 0; }
           /* Reset paragraph margins in dark theme lists */
-          & > li > p {
-            margin: 0;
-            padding: 0;
-          }
+          & > li > p { margin: 0; padding: 0; }
         }
       }
 
@@ -66,7 +63,7 @@
         border-top: 2px solid #212529;
         margin: 2rem 0;
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           border-top: 2px solid #666;
         }
       }
@@ -82,9 +79,22 @@
         margin-bottom: 1rem;
         line-height: 1.2;
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           color: #fff;
         }
+      }
+      // Heading sizes adjustments for better distinction
+      h3 {
+        font-size: 1.5rem;
+      }
+      h4 {
+        font-size: 1.25rem;
+      }
+      h5 {
+        font-size: 1rem;
+      }
+      h6 {
+        font-size: 0.875rem;
       }
 
       img {
@@ -104,12 +114,9 @@
           color: #0056b3;
         }
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           color: #66b3ff;
-
-          &:hover {
-            color: #99ccff;
-          }
+          &:hover { color: #99ccff; }
         }
       }
 
@@ -117,18 +124,14 @@
       b {
         font-weight: bold;
 
-        [data-bs-theme="dark"] & {
-          color: #fff;
-        }
+        @include dark { color: #fff; }
       }
 
       em,
       i {
         font-style: italic;
 
-        [data-bs-theme="dark"] & {
-          color: #cccccc;
-        }
+        @include dark { color: #cccccc; }
       }
 
       pre {
@@ -139,7 +142,7 @@
         overflow-x: auto;
         margin: 1rem 0;
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           background: #2d2d2d;
           color: #f8f8f2;
         }
@@ -157,7 +160,7 @@
           margin: 0;
         }
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           color: #cccccc;
           border-left: 4px solid #666;
           background-color: #2d2d2d;
@@ -165,6 +168,10 @@
       }
 
       table {
+        /* Force table to size to content only */
+        display: inline-table !important;
+        width: auto !important;
+        max-width: none !important;
         border-collapse: collapse;
         margin-bottom: 1rem;
         background: #fff;
@@ -185,24 +192,21 @@
           background: #f3f3f3;
         }
 
-        [data-bs-theme="dark"] & {
+        @include dark {
           background: #2d2d2d;
-
-          th,
-          td {
-            border: 2px solid #666;
-            color: #fff;
-          }
-
-          th {
-            background: #404040;
-          }
-
-          tr:nth-child(even) td {
-            background: #353535;
-          }
+          th, td { border: 2px solid #666; color: #fff; }
+          th { background: #404040; }
+          tr:nth-child(even) td { background: #353535; }
         }
       }
     }
   }
+}
+
+// Override Bootstrap table defaults within preview to size table to content only
+#previewContainer #preview .preview-scroll table {
+  display: inline-table !important;
+  width: auto !important;
+  max-width: none !important;
+  table-layout: auto !important;
 }
