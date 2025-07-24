@@ -4,9 +4,6 @@
 // 1. Base styles and resets
 @use "base";
 
-// 2. Theme system
-@use "theme";
-
 // 3. Main layout and structure
 @use "layout";
 
@@ -17,5 +14,5 @@
 @use "code";
 @use "modals";
 
-// 5. Responsive design (should come last to override other styles)
-@use "responsive";
+// // 5. Responsive design (should come last to override other styles)
+// @use "responsive";

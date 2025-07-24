@@ -11,7 +11,7 @@ class MermaidService {
     try {
       await mermaid.initialize({
         startOnLoad: false,
-        theme: theme,
+        theme: theme === 'dark' ? 'dark' : 'default',
         flowchart: {
           htmlLabels: false,
           curve: "linear",
