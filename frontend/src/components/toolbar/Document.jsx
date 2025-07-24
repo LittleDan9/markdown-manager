@@ -4,6 +4,8 @@ import ConfirmModal from "../modals/ConfirmModal";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
 import { Dropdown } from "react-bootstrap";
 import { useDocument } from "../../context/DocumentProvider";
+import { useNotification } from "../../components/NotificationProvider";
+import DocumentStorage from "../../storage/DocumentStorage";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
@@ -12,9 +14,14 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, error, setCategories, currentDocument } = useDocument();
-  // Always ensure 'General' is present
-  const categories = rawCategories.includes("General") ? rawCategories : ["General", ...rawCategories.filter(c => c !== "General")];
+  const notification = useNotification();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument } = useDocument();
+  // Always ensure 'Drafts' and 'General' are present at top
+  // Always show Drafts and General first, then custom categories sorted alphabetically
+  const customCats = rawCategories
+    .filter(c => c !== "Drafts" && c !== "General")
+    .sort((a, b) => a.localeCompare(b));
+  const categories = ["Drafts", "General", ...customCats];
   const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
   const [newCategory, setNewCategory] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
@@ -22,7 +29,17 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
-  const { saveDocument } = useDocument();
+  const { renameDocument } = useDocument();
+
+  // Save document immediately when changing category
+  const handleCategorySelect = async (category) => {
+    setCurrentCategory(category);
+    try {
+      await saveDocument({ ...currentDocument, category });
+    } catch (err) {
+      notification.showError("Failed to update document category.");
+    }
+  };
 
   // Keep titleInput in sync with currentDocument.name
   useEffect(() => {
@@ -61,7 +78,6 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   };
 
   const handleTitleChange = (e) => setTitleInput(e.target.value);
-  const { renameDocument } = useDocument();
   const handleTitleBlur = async () => {
     setEditingTitle(false);
     const newTitle = titleInput.trim();
@@ -103,7 +119,9 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
 
   const handleAddCategory = async (category) => {
     if (!category) return;
-    await addCategory(category);
+    // Call addCategory (syncs to storage/backend) and update UI list
+    const updatedCats = await addCategory(category);
+    setCategories(updatedCats);
     setCurrentCategory(category);
     setNewCategory("");
   };
@@ -196,12 +214,12 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
             <Dropdown.Item
               key={category}
               active={category === currentCategory}
-              onClick={() => setCurrentCategory(category)}
+              onClick={() => handleCategorySelect(category)}
               className={`d-flex justify-content-between align-items-center
                   ${category === currentCategory ? "text-bg-secondary" : ""}`}
             >
               <span className="text-truncate">{category}</span>
-              {category !== "General" && (
+              {category !== "General" && category !== "Drafts" && (
                 <button
                   type="button"
                   className="btn btn-link btn-sm p-0 ms-2 text-danger"
@@ -299,20 +317,23 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         categories={categories}
         documentsInCategory={deleteDocsInCategory}
         loading={deleteLoading}
-        onDelete={async ({ migrateTo, deleteDocs }) => {
+      onDelete={async ({ migrateTo, deleteDocs }) => {
+          if (!deleteTargetCategory) {
+            notification.showError("No category selected to delete.");
+            setShowDeleteModal(false);
+            return;
+          }
           setDeleteLoading(true);
           try {
-            const DocumentsApi = (await import("../../js/api/documentsApi.js")).default;
-            if (deleteDocs) {
-              await DocumentsApi.deleteCategory(deleteTargetCategory, { deleteDocs: true });
-            } else {
-              await DocumentsApi.deleteCategory(deleteTargetCategory, { migrateTo });
-            }
-            // Refresh categories and documents
+            // Delete or migrate category and get updated list
+            const updatedCats = await deleteCategory(deleteTargetCategory, { deleteDocs, migrateTo });
+            setCategories(updatedCats);
             setCurrentCategory("General");
+            setDocuments(DocumentStorage.getAllDocuments());
+            createDocument();
             setShowDeleteModal(false);
           } catch (err) {
-            setCategoryError("Failed to delete category");
+            notification.showError("Failed to delete category");
           } finally {
             setDeleteLoading(false);
           }

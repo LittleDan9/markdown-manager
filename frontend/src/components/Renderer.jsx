@@ -71,17 +71,12 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
     // Do NOT call onRenderHTML here; wait for Mermaid rendering below
   }, [content, highlightedBlocks]);
 
-  // ...existing code...
-  // Scroll to line if requested and highlight it for 5 seconds
+  // Scroll to line if requested without highlight effect
   useEffect(() => {
     if (scrollToLine && previewRef.current) {
       const el = previewRef.current.querySelector(`[data-line='${scrollToLine}']`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
-        el.classList.add("preview-line-highlight");
-        setTimeout(() => {
-          el.classList.remove("preview-line-highlight");
-        }, 5000);
       }
     }
   }, [scrollToLine, html]);

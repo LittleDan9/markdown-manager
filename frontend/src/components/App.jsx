@@ -72,6 +72,27 @@ function App() {
       setContent(currentDocument.content ?? "");
     }
   }, [currentDocument]);
+  // Capture Ctrl+S to save current content
+  useEffect(() => {
+    const handleKeyDown = async (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        // Only save if content differs from currentDocument
+        if (!currentDocument || content === currentDocument.content) return;
+        try {
+          const saved = await saveDocument({ ...currentDocument, content }, isAuthenticated);
+          if (saved) {
+            notification.showSuccess('Document saved successfully.');
+          }
+        } catch {
+          notification.showError('Save failed.');
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [content, currentDocument, saveDocument, isAuthenticated, notification]);
+
   return (
     <ThemeProvider>
       <ThemeEffects />
@@ -86,7 +107,6 @@ function App() {
               setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled}
               setContent={setContent}
               editorValue={content}
-              renderedHTML={renderedHTML}
               fullscreenPreview={fullscreenPreview}
               setFullscreenPreview={setFullscreenPreview}
             />
@@ -97,8 +117,6 @@ function App() {
                   value={content}
                   onChange={setContent}
                   autosaveEnabled={autosaveEnabled}
-                  currentDocument={currentDocument}
-                  saveDocument={saveDocument}
                   onCursorLineChange={setCursorLine}
                   fullscreenPreview={fullscreenPreview}
                 />
