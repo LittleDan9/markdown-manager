@@ -14,9 +14,8 @@
   #preview {
     .preview-scroll {
 
-      div > .mermaid {
+      & > .mermaid {
         margin: 1.5rem 0 !important;
-        border: 1px solid red;
       }
 
       p > code:not([class*="language-"]) {
@@ -34,11 +33,31 @@
 
       ul,
       ol {
-        margin: 1rem 0 1rem 2rem;
-        padding-left: 1.5rem;
+        /* Reduced vertical margins and left padding for lists */
+        margin: 0.75rem 0 0.75rem 1rem;
+        padding-left: 1rem;
+
+        /* Tighter list item spacing */
+        & > li {
+          margin: 0.25rem 0;
+        }
+        /* Reset paragraph margins inside list items to eliminate extra gaps */
+        & > li > p {
+          margin: 0;
+          padding: 0;
+        }
 
         [data-bs-theme="dark"] & {
           color: #fff;
+          /* Apply same spacing in dark theme */
+          & > li {
+            margin: 0.25rem 0;
+          }
+          /* Reset paragraph margins in dark theme lists */
+          & > li > p {
+            margin: 0;
+            padding: 0;
+          }
         }
       }
 
