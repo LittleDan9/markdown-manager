@@ -1,5 +1,5 @@
 """CRUD operations for documents."""
-from typing import List, Optional
+from typing import Any, List, Optional
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,29 +33,53 @@ class DocumentCRUD:
         return True
 
     async def delete_category_for_user(
-        self, db: AsyncSession, user_id: int, category: str
+        self,
+        db: AsyncSession,
+        user_id: int,
+        category: str,
+        delete_docs: bool = False,
+        migrate_to: Optional[str] = None,
     ) -> int:
-        """Delete a category for a user by moving all documents to 'General' and removing category placeholder docs."""
+        """
+        Delete or migrate a category for a user.
+        If delete_docs=True, deletes all documents in this category.
+        Otherwise, moves docs to migrate_to (or 'General').
+        Also removes placeholder docs for this category.
+        Returns number of affected documents.
+        """
         from sqlalchemy import delete, update
 
+        # Prevent deletion of default
         if category.strip().lower() == "general":
             return 0
-        # Move all documents to 'General'
-        stmt = (
-            update(Document)
-            .where(Document.user_id == user_id, Document.category == category)
-            .values(category="General")
-        )
-        result = await db.execute(stmt)
+
+        # Prepare statement (Delete or Update)
+        stmt: Any  # Prepare statement (Delete or Update)
+        if delete_docs:
+            # Remove all docs in this category
+            stmt = delete(Document).where(
+                Document.user_id == user_id,
+                Document.category == category,
+            )
+        else:
+            # Migrate docs to target category or default General
+            target = migrate_to or "General"
+            stmt = (
+                update(Document)
+                .where(Document.user_id == user_id, Document.category == category)
+                .values(category=target)
+            )
+        result: Any = await db.execute(stmt)
         # Delete any placeholder docs for this category
-        del_stmt = delete(Document).where(
+        placeholder_del = delete(Document).where(
             Document.user_id == user_id,
             Document.category == category,
             Document.name == "__category_placeholder__",
         )
-        await db.execute(del_stmt)
+        await db.execute(placeholder_del)
         await db.commit()
-        return result.rowcount
+        # Cast rowcount to int for correct return type
+        return int(result.rowcount)
 
     async def update_category_name_for_user(
         self, db: AsyncSession, user_id: int, old_name: str, new_name: str
@@ -67,8 +91,8 @@ class DocumentCRUD:
         exists_stmt = select(Document).where(
             Document.user_id == user_id, Document.category == new_name
         )
-        result = await db.execute(exists_stmt)
-        if result.scalar_one_or_none():
+        exists_result: Any = await db.execute(exists_stmt)
+        if exists_result.scalar_one_or_none():
             return 0  # Do not rename if new_name already exists
 
         # Update all documents with old_name to new_name
@@ -77,11 +101,10 @@ class DocumentCRUD:
             .where(Document.user_id == user_id, Document.category == old_name)
             .values(category=new_name)
         )
-        result = await db.execute(update_stmt)
+        exec_result: Any = await db.execute(update_stmt)
         await db.commit()
-        return result.rowcount
-
-    """CRUD operations for documents."""
+        # Cast rowcount to int for correct return type
+        return int(exec_result.rowcount)
 
     async def get(self, db: AsyncSession, id: int) -> Optional[Document]:
         """Get a document by ID."""

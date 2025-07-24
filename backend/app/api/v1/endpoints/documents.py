@@ -71,17 +71,33 @@ async def add_category(
 @router.delete("/categories/{category}", response_model=List[str])
 async def delete_category(
     category: str,
+    delete_docs: bool = Query(
+        False, alias="delete_docs", description="Delete all documents in this category"
+    ),
+    migrate_to: Optional[str] = Query(
+        None, alias="migrate_to", description="Category to migrate documents to"
+    ),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> list[str]:
-    """Delete a category for the current user. Moves all documents to 'General'."""
+    """
+    Delete a category for the current user.
+    If delete_docs=True, removes all documents in this category.
+    Otherwise, moves documents to migrate_to (or 'General').
+    """
+    # Perform delete or migrate as requested
     affected = await document_crud.document.delete_category_for_user(
-        db=db, user_id=int(current_user.id), category=category
+        db=db,
+        user_id=int(current_user.id),
+        category=category,
+        delete_docs=delete_docs,
+        migrate_to=migrate_to,
     )
     if affected == 0:
         raise HTTPException(
             status_code=400, detail="Cannot delete General or category not found"
         )
+    # Return updated category list
     categories = await document_crud.document.get_categories_by_user(
         db=db, user_id=int(current_user.id)
     )
