@@ -11,15 +11,23 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const highlightDebounceRef = useRef();
+  const resizeObserverRef = useRef(null);
+  const layoutDebounceRef = useRef();
 
   // Integrate autosave hook
   useAutoSave(currentDocument, saveDocument, autosaveEnabled);
 
-  // Initialize Monaco on mount
+  // Initialize Monaco on mount and observe container resize
   useEffect(() => {
     if (editorRef.current && !monacoInstanceRef.current) {
       EditorSingleton.setup(editorRef.current, value, theme).then((instance) => {
         monacoInstanceRef.current = instance;
+        setTimeout(() => {
+          const textarea = editorRef.current.querySelector('textarea.monaco-mouse-cursor-text');
+          if (textarea) {
+            textarea.id = 'monaco-editor-textarea';
+          }
+        }, 0);
         instance.onDidChangeModelContent(() => {
           const newValue = instance.getValue();
           if (newValue !== value) onChange(newValue);
@@ -43,6 +51,7 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
               });
             }
           }, 150); // Debounce 150ms
+
         });
         // Listen for cursor position changes and emit line number
         instance.onDidChangeCursorPosition((e) => {
@@ -52,18 +61,35 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
         });
       });
     }
-    // Cleanup on umount
+    // Setup ResizeObserver to call layout on Monaco when container resizes (debounced)
+    if (editorRef.current) {
+      resizeObserverRef.current = new window.ResizeObserver(() => {
+        if (layoutDebounceRef.current) clearTimeout(layoutDebounceRef.current);
+        layoutDebounceRef.current = setTimeout(() => {
+          if (monacoInstanceRef.current) {
+            monacoInstanceRef.current.layout();
+          }
+        }, 100); // 100ms debounce
+      });
+      resizeObserverRef.current.observe(editorRef.current);
+    }
+    // Cleanup on unmount
     return () => {
       if (monacoInstanceRef.current) {
         monacoInstanceRef.current.dispose();
         monacoInstanceRef.current = null;
       }
       if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
+      if (layoutDebounceRef.current) clearTimeout(layoutDebounceRef.current);
+      if (resizeObserverRef.current && editorRef.current) {
+        resizeObserverRef.current.disconnect();
+        resizeObserverRef.current = null;
+      }
     };
     // eslint-disable-next-line
   }, []);
 
-  // Update Monaco when them changes
+  // Update Monaco when theme changes
   useEffect(() => {
     if (monacoInstanceRef.current) {
       EditorSingleton.applyTheme(theme);
@@ -78,6 +104,7 @@ function Editor({ value, onChange, currentDocument, saveDocument, autosaveEnable
       monacoInstanceRef.current.setValue(value);
     }
   }, [value]);
+
   return (
     <div id="editorContainer" style={{ height: "100%", width: "100%" }}>
       <div

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from "react";
 import { useAuth } from "./AuthProvider.jsx";
-
+import { useNotification } from "../components/NotificationProvider.jsx";
 import config from "../js/config";
 import { saveAs } from "file-saver";
 import DocumentStorage from "../storage/DocumentStorage";
@@ -31,6 +31,8 @@ export function DocumentProvider({ children }) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   // Shared highlighted code blocks for fenced code
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
+  // Notification
+  const notification = useNotification();
 
   // --- Sync/Merge Logic ---
   // Helper: trigger RecoveryProvider for conflicts
@@ -50,7 +52,19 @@ export function DocumentProvider({ children }) {
         window.setAutosaveEnabled(false);
       }
       // Sync and merge
-      const result = await DocumentStorage.syncAndMergeDocuments(isAuthenticated, token);
+      let result;
+      try {
+        result = await DocumentStorage.syncAndMergeDocuments(isAuthenticated, token);
+      } catch (e) {
+        // Check if error is from getCurrentUser (user profile fetch)
+        if (e && e.message && e.message.toLowerCase().includes("user")) {
+          notification?.showWarning(
+            "Unable to fetch user profile from backend. Working in offline/local mode. Only local documents are accessible.",
+            8000
+          );
+        }
+        result = DocumentStorage.getAllDocuments();
+      }
       setDocuments(DocumentStorage.getAllDocuments());
       setCategories(DocumentStorage.getCategories());
       // If there are conflicts, trigger recovery
@@ -68,7 +82,7 @@ export function DocumentProvider({ children }) {
         window.setAutosaveEnabled(true);
       }
     }
-  }, [isAuthenticated, token, triggerRecovery]);
+  }, [isAuthenticated, token, triggerRecovery, notification]);
 
   // --- Mount/Transition Effects ---
   // On mount for authenticated user, and on login
@@ -183,15 +197,23 @@ export function DocumentProvider({ children }) {
     setError("");
     try {
       const doc = DocumentStorage.getDocument(id);
-      if (!doc) throw new Error("Document not found");
+      if (!doc) {
+        notification?.showError("Document not found. Working in local mode.", 6000);
+        setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
+        DocumentStorage.setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
+        return;
+      }
       setCurrentDocument(doc);
       DocumentStorage.setCurrentDocument(doc); // Ensure localStorage is updated
     } catch (e) {
       setError("Failed to load document.");
+      notification?.showError("Failed to load document. Working in local mode.", 6000);
+      setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
+      DocumentStorage.setCurrentDocument({ id: null, name: "Untitled Document", category: DEFAULT_CATEGORY, content: "" });
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [notification]);
 
   // Delete document using DocumentStorage
   const deleteDocument = useCallback(async (id) => {

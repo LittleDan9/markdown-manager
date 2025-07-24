@@ -5,13 +5,14 @@ import Editor from "./Editor";
 import Renderer from "./Renderer";
 import { ThemeProvider } from "../context/ThemeContext";
 import ThemeEffects from "./ThemeEffects";
-import { NotificationProvider } from "./NotificationProvider";
 import { AuthProvider } from "../context/AuthProvider";
 
 import { useDocument } from "../context/DocumentProvider";
+import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
 
 import UserAPI from "../js/api/userApi";
 import { useAuth } from "../context/AuthProvider";
+import { useNotification } from "./NotificationProvider.jsx";
 
 function App() {
   const { isAuthenticated } = useAuth();
@@ -28,7 +29,9 @@ function App() {
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
+  const notification = useNotification();
 
+  // Load user profile settings on mount
   // Load user profile settings on mount
   useEffect(() => {
     async function fetchProfileSettings() {
@@ -42,6 +45,8 @@ function App() {
         }
       } catch (e) {
         // fallback to localStorage
+        console.error("Failed to fetch user profile settings:", e);
+        notification?.showError("Failed to fetch user profile settings. Using local defaults.");
       }
     }
     fetchProfileSettings();
@@ -70,7 +75,7 @@ function App() {
   return (
     <ThemeProvider>
       <ThemeEffects />
-      <NotificationProvider>
+      <PreviewHTMLProvider>
         <div id="appRoot" className="app-root">
           <div id="container">
             <Header />
@@ -109,7 +114,7 @@ function App() {
             </div>
           </div>
         </div>
-      </NotificationProvider>
+      </PreviewHTMLProvider>
     </ThemeProvider>
   );
 }

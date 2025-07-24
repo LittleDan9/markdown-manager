@@ -15,12 +15,14 @@ import { useFileOpenController } from "./useFileOpenController";
 import { useFileSaveController } from "./useFileSaveController";
 import { useFileExportController } from "./useFileExportController";
 import { useTheme } from "../../../context/ThemeContext.jsx";
+import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
 
-export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue, renderedHTML }) {
+export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue }) {
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc } = useDocument();
   const { showSuccess, showError } = useNotification();
+  const { previewHTML } = usePreviewHTML();
 
   // Import modal controller
   const importController = useFileImportController({ setDocumentTitle, setContent });
@@ -102,7 +104,7 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
   // Save controller
   const saveController = useFileSaveController({ saveDocument, currentDocument, editorValue, setDocumentTitle });
   // Export controller
-  const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, renderedHTML, theme });
+  const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, previewHTML, theme });
   // Log before export actions
   const handleExportPDF = () => {
     exportController.handleExportPDF();
@@ -209,7 +211,7 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
           </Dropdown.Item>
           <Dropdown.Item
             onClick={handleExportPDF}
-            disabled={!renderedHTML || renderedHTML === ""}
+            disabled={!previewHTML || previewHTML === ""}
           >
             <i className="bi bi-filetype-pdf me-2"></i>Export PDF
           </Dropdown.Item>

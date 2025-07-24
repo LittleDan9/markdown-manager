@@ -38,7 +38,7 @@ module.exports = {
       return path.resolve(__dirname, 'dist');
     })(),
     publicPath: '/',
-    clean:true,
+    clean: true,
   },
   module: {
     rules: [
@@ -121,6 +121,11 @@ module.exports = {
     }),
   ],
   devServer: {
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless'
+    },
     static: [
       {
         directory: path.resolve(__dirname, 'public'),

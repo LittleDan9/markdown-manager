@@ -19,41 +19,6 @@
   // ─── MAIN AREA: fill everything below the header and toolbar ───
   #main {
 
-    // ─── FULLSCREEN MODE ───
-    // &.fullscreen-mode {
-    //   #editorContainer {
-    //     display: none !important;
-    //   }
-
-    //   #previewContainer {
-    //     flex: 1 1 100% !important;
-    //     width: 100% !important;
-    //     max-width: 100vw !important;
-    //     min-width: 0 !important;
-    //     height: 100%;
-    //     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-    //     // padding: 1rem;
-    //     border-radius: 0.5rem;
-
-    //     #preview {
-    //       width: 100% !important;
-    //       border-radius: 0.5rem;
-    //       border: #ced4da 1px solid;
-    //       padding: 0.25rem;
-    //     }
-
-    //     .preview-scroll,
-    //     .main-content {
-    //       flex: 1 1 auto;
-    //       overflow: auto;
-    //       min-height: 0;
-    //       padding: 0;
-    //       border-radius: inherit;
-    //     }
-    //   }
-    // }
-
-
     display: flex;
     flex: 1 1 auto; // share 100vh minus header and toolbar, shrink/grow if needed
     min-height: 0; // allow its children to shrink
@@ -74,7 +39,7 @@
     .editor-wrapper,
     .renderer-wrapper {
       overflow: hidden;             // hide the editor as it shrinks
-      transition: width 0.3s ease;  // smooth grow/shrink
+      // transition: width 0.3s ease;  // smooth grow/shrink
     }
 
     // ─── LEFT EDITOR PANE (40% width) ───
@@ -129,6 +94,7 @@
         padding: 1rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        -webkit-hyphens: auto;
         hyphens: auto;
 
         // Ensure content doesn't overflow horizontally

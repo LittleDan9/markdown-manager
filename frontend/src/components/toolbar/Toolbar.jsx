@@ -62,7 +62,6 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled
             editorValue={editorValue}
             importMarkdownFile={importMarkdownFile}
             setImportMarkdownFile={setImportMarkdownFile}
-            renderedHTML={renderedHTML}
           />
           <div className="vr opacity-50"></div>
           <div className="d-flex align-items-center">

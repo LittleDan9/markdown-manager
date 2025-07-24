@@ -22,7 +22,7 @@ class UserAPI extends Api {
       }
       // Log other errors
       console.error("Error in getCurrentUser:", e);
-      return null;
+      throw e;
     }
   }
   constructor() {
