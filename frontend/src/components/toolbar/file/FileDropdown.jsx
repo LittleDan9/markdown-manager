@@ -17,71 +17,52 @@ import { useFileExportController } from "./useFileExportController";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
 
-export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue }) {
+export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled }) {
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
-  const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc } = useDocument();
+  const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges } = useDocument();
   const { showSuccess, showError } = useNotification();
   const { previewHTML } = usePreviewHTML();
 
   // Import modal controller
-  const importController = useFileImportController({ setDocumentTitle, setContent });
+  const importController = useFileImportController({ setDocumentTitle });
 
   // Import logic with unsaved changes handling
   const handleImportWithUnsavedCheck = async () => {
-    let hasUnsavedChanges = false;
-    if (isDefaultDoc) {
-      hasUnsavedChanges =
-        currentDocument && (
-          currentDocument.name !== "Untitled Document" ||
-          editorValue !== "" ||
-          currentDocument.category !== "General"
-        );
-    } else if (currentDocument && currentDocument.id) {
-      const savedDoc = documents.find(doc => doc.id === currentDocument.id);
-      if (savedDoc) {
-        hasUnsavedChanges =
-          currentDocument.name !== savedDoc.name ||
-          editorValue !== savedDoc.content ||
-          currentDocument.category !== savedDoc.category;
-      } else {
-        hasUnsavedChanges = true;
-      }
-    }
     if (isDefaultDoc && hasUnsavedChanges) {
-      saveAsController.openSaveAs(editorValue, currentDocument.name);
+      saveAsController.openSaveAs(currentDocument.content, currentDocument.name);
       return;
     }
     if (!isDefaultDoc && !autosaveEnabled && hasUnsavedChanges) {
-      try{
-      openModal(
-        async (actionKey) => {
-          if (actionKey === "save") {
-            await saveDocument({ ...currentDocument, content: editorValue });
-            showSuccess(`Previous document "${currentDocument.name}" saved.`);
-          }
-          if (actionKey === "save" || actionKey === "confirm") {
-            importController.handleImport();
-          }
-        },
-        {
-          title: "Unsaved Changes",
-          message: "You have unsaved changes. What would you like to do before importing?",
-          buttons: [
-            { icon: "bi bi-save", text: "Save", variant: "primary", action: "save", autoFocus: true },
-            { icon: "bi bi-trash", text: "Discard", variant: "danger", action: "confirm" },
-            { icon: "bi bi-arrow-return-right", text: "Cancel", variant: "secondary", action: "cancel" },
-          ],
-          icon: <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>,
-        },
-      );
-    }catch (error) {
-      console.error("Error handling import with unsaved check:", error);
-    }
+      try {
+        openModal(
+          async (actionKey) => {
+            if (actionKey === "save") {
+              await saveDocument({ ...currentDocument, content: currentDocument.content });
+              showSuccess(`Previous document "${currentDocument.name}" saved.`);
+            }
+            if (actionKey === "save" || actionKey === "confirm") {
+              importController.handleImport();
+            }
+          },
+          {
+            title: "Unsaved Changes",
+            message: "You have unsaved changes. What would you like to do before importing?",
+            buttons: [
+              { icon: "bi bi-save", text: "Save", variant: "primary", action: "save", autoFocus: true },
+              { icon: "bi bi-trash", text: "Discard", variant: "danger", action: "confirm" },
+              { icon: "bi bi-arrow-return-right", text: "Cancel", variant: "secondary", action: "cancel" },
+            ],
+            icon: <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>,
+          },
+        );
+      } catch (error) {
+        // Removed debug statement
+      }
       return;
     }
     if (!isDefaultDoc && autosaveEnabled && hasUnsavedChanges) {
-      await saveDocument({ ...currentDocument, content: editorValue });
+      await saveDocument({ ...currentDocument, content: currentDocument.content });
       showSuccess(`Previous document "${currentDocument.name}" saved.`);
       importController.handleImport();
       return;
@@ -89,7 +70,7 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
     importController.handleImport();
   };
   // Save As modal controller
-  const saveAsController = useFileSaveAsController({ setDocumentTitle, setContent });
+  const saveAsController = useFileSaveAsController({ setDocumentTitle });
   // Overwrite modal controller
   const overwriteController = useFileOverwriteController({ importController });
   // Open modal controller
@@ -98,11 +79,10 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
     currentDocument,
     loadDocument,
     setDocumentTitle,
-    setContent,
     showSuccess,
   });
   // Save controller
-  const saveController = useFileSaveController({ saveDocument, currentDocument, editorValue, setDocumentTitle });
+  const saveController = useFileSaveController({ saveDocument, currentDocument, setDocumentTitle });
   // Export controller
   const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, previewHTML, theme });
   // Log before export actions
@@ -111,46 +91,22 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
   };
 
   const handleNew = async () => {
-    let hasUnsavedChanges = false;
-    if (isDefaultDoc) {
-      hasUnsavedChanges =
-        currentDocument && (
-          currentDocument.name !== "Untitled Document" ||
-          editorValue !== "" ||
-          currentDocument.category !== "General"
-        );
-      console.log("hasUnsavedChanges (default):", hasUnsavedChanges);
-    } else if (currentDocument && currentDocument.id) {
-      const savedDoc = documents.find(doc => doc.id === currentDocument.id);
-      if (savedDoc) {
-        hasUnsavedChanges =
-          currentDocument.name !== savedDoc.name ||
-          editorValue !== savedDoc.content ||
-          currentDocument.category !== savedDoc.category;
-      } else {
-        hasUnsavedChanges = true;
-      }
-      console.log("hasUnsavedChanges (existing):", hasUnsavedChanges);
-    }
     if (isDefaultDoc && hasUnsavedChanges) {
-      console.log("Triggering SaveAs modal");
-      saveAsController.openSaveAs(editorValue, currentDocument.name);
+      saveAsController.openSaveAs(currentDocument.content, currentDocument.name);
       return;
     }
     if (!isDefaultDoc) {
       if (autosaveEnabled && hasUnsavedChanges) {
-        console.log("Autosave enabled, saving and creating new doc");
-        await saveDocument({ ...currentDocument, content: editorValue });
+        await saveDocument({ ...currentDocument, content: currentDocument.content });
         showSuccess(`Previous document "${currentDocument.name}" saved.`);
         createDocument();
         setDocumentTitle("Untitled Document");
         return;
       } else if (!autosaveEnabled && hasUnsavedChanges) {
-        console.log("Unsaved changes, showing confirm modal");
         openModal(
           async (actionKey) => {
             if (actionKey === "save") {
-              await saveDocument({ ...currentDocument, content: editorValue });
+              await saveDocument({ ...currentDocument, content: currentDocument.content });
               showSuccess(`Previous document "${currentDocument.name}" saved.`);
             }
             if (actionKey === "save" || actionKey === "confirm") {
@@ -172,7 +128,6 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
         return;
       }
     }
-    console.log("No unsaved changes, creating new doc");
     createDocument();
     setDocumentTitle("Untitled Document");
     showSuccess("Previous document did not need saving. New document created.");
@@ -186,9 +141,26 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
           id="fileMenuDropdown"
           size="sm"
           variant="secondary"
-          className="dropdownToggle"
+          className="dropdownToggle position-relative"
         >
           <i className="bi bi-folder me-1"></i>File
+          {hasUnsavedChanges && (
+            <span
+              style={{
+                position: "absolute",
+                top: 6,
+                right: 8,
+                width: 10,
+                height: 10,
+                background: "#dc3545",
+                borderRadius: "50%",
+                display: "inline-block",
+                border: "2px solid white",
+                zIndex: 2,
+              }}
+              title="You have unsaved changes"
+            />
+          )}
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <Dropdown.Item onClick={handleNew}>
@@ -261,7 +233,7 @@ export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAut
           }
           openController.handleOpenFile(doc);
         }}
-        setContent={typeof setContent === "function" ? setContent : undefined}
+        // setContent prop removed
         deleteDocument={deleteDocument}
       />
       <FileSaveAsModal

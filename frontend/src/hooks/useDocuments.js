@@ -5,7 +5,7 @@ import useCategoryManagement from './useCategoryManagement';
 import useExportDocuments from './useExportDocuments';
 import useChangeTracker from './useChangeTracker';
 
-import DocumentStorage from '../storage/DocumentStorage';
+import DocumentManager from '../storage/DocumentManager';
 import { useCallback } from 'react';
 export default function useDocuments(opts) {
   // Local storage & CRUD for docs
@@ -46,9 +46,9 @@ export default function useDocuments(opts) {
     setLoading(true);
     setError('');
     try {
-      const saved = await DocumentStorage.saveDocument(doc, opts.isAuthenticated, opts.token);
+      const saved = await DocumentManager.saveDocument(doc);
       setCurrentDocument(saved);
-      setDocuments(DocumentStorage.getAllDocuments());
+      setDocuments(DocumentManager.getAllDocuments());
       return saved;
     } catch {
       setError('Save failed');
@@ -56,7 +56,7 @@ export default function useDocuments(opts) {
     } finally {
       setLoading(false);
     }
-  }, [opts.isAuthenticated, opts.token]);
+  }, [setCurrentDocument, setDocuments]);
   // Unsaved changes tracker
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents);
   // Highlighted blocks

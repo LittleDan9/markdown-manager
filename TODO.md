@@ -1,6 +1,8 @@
-Here are some additional storage features you might consider for DocumentStorage.js:
+# Storage System Enhancement Ideas
 
-Document Versioning/History:
+Here are some additional storage features you might consider for the modular storage system:
+
+## Document Versioning/History
 
 Store previous versions of documents for undo/restore functionality.
 Useful for recovering from accidental changes or deletions.

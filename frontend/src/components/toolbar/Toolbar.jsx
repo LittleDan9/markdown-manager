@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import FileDropdown from "./file/FileDropdown";
 import DocumentToolbar from "./Document";
 import UserToolbar from "./User";
@@ -6,14 +6,24 @@ import { useTheme } from "../../context/ThemeContext";
 import { useDocument } from "../../context/DocumentProvider";
 import { useNotification } from "../NotificationProvider";
 
-function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, setContent, editorValue, renderedHTML, fullscreenPreview, setFullscreenPreview }) {
+function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, fullscreenPreview, setFullscreenPreview }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
-  const [documentTitle, setDocumentTitle] = useState(
+  const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
   );
   const [importMarkdownFile, setImportMarkdownFile] = useState(null);
+
+  // Memoize setDocumentTitle to prevent infinite re-renders
+  const setDocumentTitle = useCallback((title) => {
+    setDocumentTitleState(title);
+  }, []);
+
+  // Memoize setImportMarkdownFile to prevent infinite re-renders
+  const memoizedSetImportMarkdownFile = useCallback((file) => {
+    setImportMarkdownFile(file);
+  }, []);
 
   useEffect(() => {
     // Update theme icons for both guest and user menus
@@ -38,7 +48,7 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled
   });
 
   useEffect(() => {
-    setDocumentTitle(currentDocument?.name || "Untitled Document");
+    setDocumentTitleState(currentDocument?.name || "Untitled Document");
   }, [currentDocument?.name]);
 
   const handleThemeToggle = (e) => {
@@ -52,17 +62,7 @@ function Toolbar({ autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled
       <div className="d-flex align-items-center justify-content-between w-100">
         {/* Left side: File Menu & Document Title */}
         <div className="d-flex align-items-center gap-3">
-          <FileDropdown
-            setDocumentTitle={setDocumentTitle}
-            autosaveEnabled={autosaveEnabled}
-            setAutosaveEnabled={setAutosaveEnabled}
-            syncPreviewScrollEnabled={syncPreviewScrollEnabled}
-            setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled}
-            setContent={setContent}
-            editorValue={editorValue}
-            importMarkdownFile={importMarkdownFile}
-            setImportMarkdownFile={setImportMarkdownFile}
-          />
+          <FileDropdown setDocumentTitle={setDocumentTitle} autosaveEnabled={autosaveEnabled} setAutosaveEnabled={setAutosaveEnabled} syncPreviewScrollEnabled={syncPreviewScrollEnabled} setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled} />
           <div className="vr opacity-50"></div>
           <div className="d-flex align-items-center">
             <i className="bi bi-file-earmark-text me-2 text-muted"></i>
