@@ -11,6 +11,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
   const spellDebounceRef = useRef(null);
+  const suggestionsMapRef = useRef(new Map());
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const highlightDebounceRef = useRef();
@@ -42,16 +43,57 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
           const text = instance.getValue();
           const issues = SpellCheckService.check(text);
           const model = instance.getModel();
-          const markers = issues.map(({ word, suggestions, lineNumber, column }) => ({
-            startLineNumber: lineNumber,
-            startColumn: column,
-            endLineNumber: lineNumber,
-            endColumn: column + word.length,
-            message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
-            severity: monaco.MarkerSeverity.Warning,
-          }));
+          // populate suggestions map for initial load
+          suggestionsMapRef.current.clear();
+          const markers = issues.map(({ word, suggestions, lineNumber, column }) => {
+            const key = `${lineNumber}:${column}`;
+            suggestionsMapRef.current.set(key, suggestions);
+            return {
+              startLineNumber: lineNumber,
+              startColumn: column,
+              endLineNumber: lineNumber,
+              endColumn: column + word.length,
+              message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
+              severity: monaco.MarkerSeverity.Warning,
+            };
+          });
           monaco.editor.setModelMarkers(model, "spell", markers);
         })();
+        
+        // register quick-fix code actions for spelling suggestions
+        monaco.languages.registerCodeActionProvider('markdown', {
+          providedCodeActionKinds: ['quickfix'],
+          provideCodeActions: (model, range, context) => {
+            const actions = [];
+            context.markers.forEach(marker => {
+              if (marker.owner !== 'spell') return;
+              const key = `${marker.startLineNumber}:${marker.startColumn}`;
+              const suggestions = suggestionsMapRef.current.get(key) || [];
+              suggestions.forEach(suggestion => {
+                actions.push({
+                  title: suggestion,
+                  kind: 'quickfix',
+                  edit: {
+                    edits: [{
+                      resource: model.uri,
+                      textEdit: {
+                        range: new monaco.Range(
+                          marker.startLineNumber,
+                          marker.startColumn,
+                          marker.endLineNumber,
+                          marker.endColumn
+                        ),
+                        text: suggestion
+                      }
+                    }]
+                  },
+                  diagnostics: [marker]
+                });
+              });
+            });
+            return { actions, dispose: () => {} };
+          }
+        });
         setTimeout(() => {
           const textarea = editorRef.current.querySelector('textarea.monaco-mouse-cursor-text');
           if (textarea) {
@@ -68,14 +110,20 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
             const text = instance.getValue();
             const issues = SpellCheckService.check(text);
             const model = instance.getModel();
-            const markers = issues.map(({ word, suggestions, lineNumber, column }) => ({
-              startLineNumber: lineNumber,
-              startColumn: column,
-              endLineNumber: lineNumber,
-              endColumn: column + word.length,
-              message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
-              severity: monaco.MarkerSeverity.Warning,
-            }));
+            // populate suggestions map and build markers
+            suggestionsMapRef.current.clear();
+            const markers = issues.map(({ word, suggestions, lineNumber, column }) => {
+              const key = `${lineNumber}:${column}`;
+              suggestionsMapRef.current.set(key, suggestions);
+              return {
+                startLineNumber: lineNumber,
+                startColumn: column,
+                endLineNumber: lineNumber,
+                endColumn: column + word.length,
+                message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
+                severity: monaco.MarkerSeverity.Warning,
+              };
+            });
             monaco.editor.setModelMarkers(model, "spell", markers);
           }, 300);
 
