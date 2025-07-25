@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import DocumentStorage from "../storage/DocumentStorage";
 import UserAPI from "../js/api/userApi.js";
+import CustomDictionarySyncService from "../js/services/CustomDictionarySyncService";
 import PropTypes from "prop-types";
 import config from "../js/config.js";
 
@@ -68,6 +69,15 @@ export function AuthProvider({ children }) {
     const data = await UserAPI.login(email, password);
     setToken(data.token);
     await fetchCurrentUser(data.token);
+
+    // Sync custom dictionary after successful login
+    try {
+      await CustomDictionarySyncService.syncAfterLogin();
+    } catch (error) {
+      console.error('Dictionary sync failed after login:', error);
+      // Don't fail the login process if dictionary sync fails
+    }
+
     return data;
   }, [setToken, fetchCurrentUser]);
 
@@ -75,6 +85,15 @@ export function AuthProvider({ children }) {
     const data = await UserAPI.loginMFA(email, password, code);
     setToken(data.token);
     await fetchCurrentUser(data.token);
+
+    // Sync custom dictionary after successful MFA login
+    try {
+      await CustomDictionarySyncService.syncAfterLogin();
+    } catch (error) {
+      console.error('Dictionary sync failed after MFA login:', error);
+      // Don't fail the login process if dictionary sync fails
+    }
+
     return data;
   }, [setToken, fetchCurrentUser]);
 
@@ -82,6 +101,15 @@ export function AuthProvider({ children }) {
     const data = await UserAPI.register(formData);
     setToken(data.token);
     await fetchCurrentUser(data.token);
+
+    // Sync custom dictionary after successful registration
+    try {
+      await CustomDictionarySyncService.syncAfterLogin();
+    } catch (error) {
+      console.error('Dictionary sync failed after registration:', error);
+      // Don't fail the registration process if dictionary sync fails
+    }
+
     return data;
   }, [setToken, fetchCurrentUser]);
 
@@ -94,6 +122,10 @@ export function AuthProvider({ children }) {
     localStorage.removeItem("documentCategories");
     localStorage.removeItem("lastDocumentId");
     DocumentStorage.setCurrentDocument(null);
+
+    // Clear custom dictionary when logging out
+    // Keep local words for anonymous usage
+    // CustomDictionarySyncService.clearLocal(); // Uncomment if you want to clear local dictionary on logout
   }, [setToken, setUser]);
 
   const fetchCurrentUser = useCallback(async (overrideToken = null) => {

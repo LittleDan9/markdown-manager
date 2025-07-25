@@ -6,6 +6,7 @@ import LoginModal from "../modals/LoginModal";
 import VerifyMFAModal from "../modals/VerifyMFAModal";
 import PasswordResetModal from "../modals/PasswordResetModal";
 import RegisterModal from "../modals/RegisterModal";
+import UserSettingsModal from "../modals/UserSettingsModal";
 import UserAPI from "../../js/api/userApi";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../context/AuthProvider";
@@ -25,6 +26,7 @@ function UserMenuLoggedOut() {
   const [registerError, setRegisterError] = useState("");
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [devMode, setDevMode] = useState(false);
+  const [showDictionaryModal, setShowDictionaryModal] = useState(false);
 
   // Listen for passwordResetTokenFound event from legacy JS
   React.useEffect(() => {
@@ -140,6 +142,10 @@ function UserMenuLoggedOut() {
     setShowPasswordResetModal(true);
   };
 
+  const handleDictionary = () => {
+    setShowDictionaryModal(true);
+  };
+
   const onEmailChange = (e) => {
     setPasswordResetEmail(e.target.value);
   };
@@ -173,6 +179,10 @@ function UserMenuLoggedOut() {
         <i className="bi bi-person-plus me-2"></i>Sign Up
       </Dropdown.Item>
       <Dropdown.Divider />
+      <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
+        <i className="bi bi-book me-2"></i>Dictionary
+      </Dropdown.Item>
+      <Dropdown.Divider />
       <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
         <ThemeToggle idPrefix="userMenu" />
       </Dropdown.Item>
@@ -203,6 +213,14 @@ function UserMenuLoggedOut() {
       onHide={handleHideRegister}
       onRegister={handleRegister}
       error={registerError}
+    />
+    <UserSettingsModal
+      show={showDictionaryModal}
+      onHide={() => setShowDictionaryModal(false)}
+      defaultActiveKey="dictionary"
+      activeTab="dictionary"
+      setActiveTab={() => {}} // No-op for guest users
+      guestMode={true}
     />
     </>
   );

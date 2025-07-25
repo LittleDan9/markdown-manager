@@ -68,6 +68,9 @@ class User(BaseModel):
 
     recovered_documents = relationship("DocumentRecovery", back_populates="user")
 
+    # Custom dictionary relationship
+    custom_dictionary_words = relationship("CustomDictionary", back_populates="user")
+
     @property
     def full_name(self) -> str:
         """Get the user's full name."""

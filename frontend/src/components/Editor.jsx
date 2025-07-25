@@ -2,8 +2,11 @@ import React, { useEffect, useRef } from "react";
 import EditorSingleton from "../js/Editor";
 import { useTheme } from "../context/ThemeContext";
 import { useDocument } from "../context/DocumentProvider";
+import { useAuth } from "../context/AuthProvider";
+import { useNotification } from "./NotificationProvider";
 import HighlightService from "../js/services/HighlightService";
 import SpellCheckService from "../js/services/SpellCheckService";
+import customDictionaryApi from "../js/api/customDictionaryApi";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import useAutoSave from "../hooks/useAutoSave";
 
@@ -13,6 +16,8 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
   const spellDebounceRef = useRef(null);
   const suggestionsMapRef = useRef(new Map());
   const { theme } = useTheme();
+  const { user } = useAuth();
+  const { showSuccess, showError, showWarning } = useNotification();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const highlightDebounceRef = useRef();
   const resizeObserverRef = useRef(null);
@@ -27,6 +32,34 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     30000
   );
 
+  // Helper function to run spell check
+  const runSpellCheck = (editorInstance) => {
+    if (!editorInstance) return;
+
+    const text = editorInstance.getValue();
+    const issues = SpellCheckService.check(text);
+    const model = editorInstance.getModel();
+
+    // Clear existing spell check markers
+    suggestionsMapRef.current.clear();
+
+    // Create new markers
+    const markers = issues.map(({ word, suggestions, lineNumber, column }) => {
+      const key = `${lineNumber}:${column}`;
+      suggestionsMapRef.current.set(key, suggestions);
+      return {
+        startLineNumber: lineNumber,
+        startColumn: column,
+        endLineNumber: lineNumber,
+        endColumn: column + word.length,
+        message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
+        severity: monaco.MarkerSeverity.Warning,
+      };
+    });
+
+    monaco.editor.setModelMarkers(model, "spell", markers);
+  };
+
   // Initialize SpellCheckService once
   useEffect(() => {
     SpellCheckService.init().catch(console.error);
@@ -40,26 +73,9 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         // initial spell-check on load
         (async () => {
           await SpellCheckService.init();
-          const text = instance.getValue();
-          const issues = SpellCheckService.check(text);
-          const model = instance.getModel();
-          // populate suggestions map for initial load
-          suggestionsMapRef.current.clear();
-          const markers = issues.map(({ word, suggestions, lineNumber, column }) => {
-            const key = `${lineNumber}:${column}`;
-            suggestionsMapRef.current.set(key, suggestions);
-            return {
-              startLineNumber: lineNumber,
-              startColumn: column,
-              endLineNumber: lineNumber,
-              endColumn: column + word.length,
-              message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
-              severity: monaco.MarkerSeverity.Warning,
-            };
-          });
-          monaco.editor.setModelMarkers(model, "spell", markers);
+          runSpellCheck(instance);
         })();
-        
+
         // register quick-fix code actions for spelling suggestions
         monaco.languages.registerCodeActionProvider('markdown', {
           providedCodeActionKinds: ['quickfix'],
@@ -69,6 +85,14 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
               if (marker.owner !== 'spell') return;
               const key = `${marker.startLineNumber}:${marker.startColumn}`;
               const suggestions = suggestionsMapRef.current.get(key) || [];
+              const misspelledWord = model.getValueInRange({
+                startLineNumber: marker.startLineNumber,
+                startColumn: marker.startColumn,
+                endLineNumber: marker.endLineNumber,
+                endColumn: marker.endColumn
+              });
+
+              // Add spelling suggestions
               suggestions.forEach(suggestion => {
                 actions.push({
                   title: suggestion,
@@ -90,8 +114,56 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
                   diagnostics: [marker]
                 });
               });
+
+              // Add "Add to Dictionary" action
+              actions.push({
+                title: `Add "${misspelledWord}" to dictionary`,
+                kind: 'quickfix',
+                edit: undefined, // No text edit, just run the command
+                command: {
+                  id: 'addToDictionary',
+                  title: 'Add to Dictionary',
+                  arguments: [misspelledWord]
+                },
+                diagnostics: [marker]
+              });
             });
             return { actions, dispose: () => {} };
+          }
+        });
+
+        // Register the "Add to Dictionary" command
+        monaco.editor.registerCommand('addToDictionary', async (accessor, word) => {
+          try {
+            console.log(`Attempting to add "${word}" to dictionary...`);
+
+            // Add to local spell checker
+            SpellCheckService.addCustomWord(word);
+
+            // If user is logged in, also add to backend
+            if (user) {
+              try {
+                await customDictionaryApi.addWord(word);
+                showSuccess(`Added "${word}" to your dictionary`);
+              } catch (error) {
+                if (error.message?.includes("already exists")) {
+                  showWarning(`"${word}" is already in your dictionary`);
+                } else {
+                  showError(`Failed to save "${word}" to server: ${error.message}`);
+                  // Still show success for local addition
+                  showSuccess(`Added "${word}" to local dictionary`);
+                }
+              }
+            } else {
+              showSuccess(`Added "${word}" to local dictionary`);
+            }
+
+            // Re-run spell check to update markers
+            runSpellCheck(monacoInstanceRef.current);
+
+          } catch (error) {
+            console.error('Error adding word to dictionary:', error);
+            showError(`Failed to add "${word}" to dictionary`);
           }
         });
         setTimeout(() => {
@@ -107,24 +179,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
           // Debounced spell-check
           if (spellDebounceRef.current) clearTimeout(spellDebounceRef.current);
           spellDebounceRef.current = setTimeout(() => {
-            const text = instance.getValue();
-            const issues = SpellCheckService.check(text);
-            const model = instance.getModel();
-            // populate suggestions map and build markers
-            suggestionsMapRef.current.clear();
-            const markers = issues.map(({ word, suggestions, lineNumber, column }) => {
-              const key = `${lineNumber}:${column}`;
-              suggestionsMapRef.current.set(key, suggestions);
-              return {
-                startLineNumber: lineNumber,
-                startColumn: column,
-                endLineNumber: lineNumber,
-                endColumn: column + word.length,
-                message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
-                severity: monaco.MarkerSeverity.Warning,
-              };
-            });
-            monaco.editor.setModelMarkers(model, "spell", markers);
+            runSpellCheck(instance);
           }, 300);
 
           // Detect fenced code block edits and trigger highlight

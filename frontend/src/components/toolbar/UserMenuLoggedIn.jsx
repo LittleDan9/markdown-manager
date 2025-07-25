@@ -29,6 +29,11 @@ function UserMenuLoggedIn() {
     setShowSettingsModal(true);
   };
 
+  const handleDictionary = () => {
+    setActiveTab("dictionary");
+    setShowSettingsModal(true);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem("authToken");
     localStorage.removeItem("tokenType");
@@ -50,6 +55,9 @@ function UserMenuLoggedIn() {
             <i className="bi bi-shield-lock me-2"></i>MFA
           </Dropdown.Item>
         )}
+        <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
+          <i className="bi bi-book me-2"></i>Dictionary
+        </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
           <ThemeToggle idPrefix="userMenu"/>
