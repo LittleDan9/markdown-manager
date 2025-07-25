@@ -3,10 +3,11 @@ import { Modal, Nav, Tab, Card, Alert } from "react-bootstrap";
 import ProfileInfoTab from "./ProfileInfoTab";
 import SecurityTab from "./SecurityTab";
 import MFATab from "./MFATab";
+import DictionaryTab from "./DictionaryTab";
 import userApi from "../../js/api/userApi";
 import { useAuth } from "../../context/AuthProvider";
 
-function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab }) {
+function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false }) {
   const { user, setUser } = useAuth();
   const [form, setForm] = useState({
     profileFirstName: user.first_name || "",
@@ -92,52 +93,71 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
     <Modal show={show} onHide={onHide} size="lg" centered>
       <Modal.Header closeButton>
         <Modal.Title id="profileModalLabel">
-          <i className="bi bi-person me-2"></i>Profile
+          <i className={guestMode ? "bi bi-book me-2" : "bi bi-person me-2"}></i>
+          {guestMode ? "Custom Dictionary" : "Profile"}
         </Modal.Title>
       </Modal.Header>
       <Modal.Body>
         <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
           <Nav variant="tabs" id="profileTabs">
-            <Nav.Item>
-              <Nav.Link eventKey="profile-info">
-                <i className="bi bi-person me-1"></i>Profile Info
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="security-settings">
-                <i className="bi bi-shield-lock me-1"></i>Security
-              </Nav.Link>
-            </Nav.Item>
-            {user.mfa_enabled && (
+            {!guestMode && (
+              <Nav.Item>
+                <Nav.Link eventKey="profile-info">
+                  <i className="bi bi-person me-1"></i>Profile Info
+                </Nav.Link>
+              </Nav.Item>
+            )}
+            {!guestMode && (
+              <Nav.Item>
+                <Nav.Link eventKey="security-settings">
+                  <i className="bi bi-shield-lock me-1"></i>Security
+                </Nav.Link>
+              </Nav.Item>
+            )}
+            {!guestMode && user?.mfa_enabled && (
               <Nav.Item>
                 <Nav.Link eventKey="mfa-details">
                   <i className="bi bi-key me-1"></i>MFA Details
                 </Nav.Link>
               </Nav.Item>
             )}
+            <Nav.Item>
+              <Nav.Link eventKey="dictionary">
+                <i className="bi bi-book me-1"></i>Dictionary
+              </Nav.Link>
+            </Nav.Item>
           </Nav>
           <Tab.Content id="profileTabContent">
-            <Tab.Pane eventKey="profile-info">
-              <ProfileInfoTab
-                form={form}
-                handleChange={e => setForm({ ...form, [e.target.id]: e.target.value })}
-                error={error}
-                success={success}
-                handleSubmit={handleSubmit}
-              />
-            </Tab.Pane>
-            <Tab.Pane eventKey="security-settings">
-              <SecurityTab
-                form={form}
-                handleChange={e => setForm({ ...form, [e.target.id]: e.target.value })}
-                error={error}
-                success={success}
-                handlePasswordSubmit={handlePasswordSubmit}
-                setActiveTab={setActiveTab}
-              />
-            </Tab.Pane>
-            <Tab.Pane eventKey="mfa-details">
-              <MFATab setActiveTab={setActiveTab} />
+            {!guestMode && (
+              <Tab.Pane eventKey="profile-info">
+                <ProfileInfoTab
+                  form={form}
+                  handleChange={e => setForm({ ...form, [e.target.id]: e.target.value })}
+                  error={error}
+                  success={success}
+                  handleSubmit={handleSubmit}
+                />
+              </Tab.Pane>
+            )}
+            {!guestMode && (
+              <Tab.Pane eventKey="security-settings">
+                <SecurityTab
+                  form={form}
+                  handleChange={e => setForm({ ...form, [e.target.id]: e.target.value })}
+                  error={error}
+                  success={success}
+                  handlePasswordSubmit={handlePasswordSubmit}
+                  setActiveTab={setActiveTab}
+                />
+              </Tab.Pane>
+            )}
+            {!guestMode && (
+              <Tab.Pane eventKey="mfa-details">
+                <MFATab setActiveTab={setActiveTab} />
+              </Tab.Pane>
+            )}
+            <Tab.Pane eventKey="dictionary">
+              <DictionaryTab />
             </Tab.Pane>
           </Tab.Content>
         </Tab.Container>
