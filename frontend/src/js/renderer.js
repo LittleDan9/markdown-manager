@@ -24,6 +24,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const info = token.info.trim();
   const lang = info || "";
   const diagramSource = token.content?.trim() || "";
+  const encodedSource = encodeURIComponent(diagramSource);
   const lineAttr = getLineAttr(tokens, idx);
   if (info.toLowerCase() === "mermaid") {
     const mermaidDiagram = MermaidService.diagramCache.get(diagramSource);
@@ -31,7 +32,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
       return `<div
         class="mermaid"
         data-processed="true"
-        data-mermaid-source="${diagramSource}"
+        data-mermaid-source="${encodedSource}"
         ${lineAttr}
       >
         ${mermaidDiagram}
@@ -40,7 +41,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     return `<div
       class="mermaid"
       data-processed="false"
-      data-mermaid-source="${diagramSource}"
+      data-mermaid-source="${encodedSource}"
       ${lineAttr}
     >
       <div class="code-block">

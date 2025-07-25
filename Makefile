@@ -186,7 +186,7 @@ db-restore: ## Restore from backup: make db-restore BACKUP=filename
 deploy: deploy-front deploy-back
 #deploy-nginx ## Build + full deploy
 
-deploy-front: install build ## Sync frontend dist
+deploy-front: build ## Sync frontend dist
 	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 
 deploy-back: ## Sync backend + migrations + restart

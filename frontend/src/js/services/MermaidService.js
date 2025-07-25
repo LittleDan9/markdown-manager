@@ -59,7 +59,9 @@ class MermaidService {
     if (mermaidBlocks.length === 0) return;
 
     for (const block of mermaidBlocks) {
-      const diagramSource = block.dataset.mermaidSource?.trim() || "";
+      // Decode the encoded source from data attribute
+      const encodedSource = block.dataset.mermaidSource?.trim() || "";
+      const diagramSource = decodeURIComponent(encodedSource);
       if (!diagramSource) continue;
 
       // Check cache
@@ -104,7 +106,10 @@ class MermaidService {
   showError(mermaidElement, errorMessage) {
     const textContent = mermaidElement.querySelector(".language-mermaid")
     textContent.innerHTML = `<code class="text-warning">${errorMessage}</code>`;
-    this.diagramCache.set(mermaidElement.dataset.mermaidSource, mermaidElement.outerHTML);
+    // Decode the encoded source before caching
+    const encodedSource = mermaidElement.dataset.mermaidSource?.trim() || "";
+    const diagramSource = decodeURIComponent(encodedSource);
+    this.diagramCache.set(diagramSource, mermaidElement.outerHTML);
   }
 }
 

@@ -42,6 +42,11 @@ module.exports = {
   },
   module: {
     rules: [
+      // Load Hunspell dictionary files as raw text
+      {
+        test: /\.(aff|dic)$/,
+        type: 'asset/source',
+      },
       {
         test: /\.ico$/,
         type: 'asset/resource',
@@ -116,6 +121,15 @@ module.exports = {
         {
           from: 'src/assets/favicon.ico',
           to: 'favicon.ico',
+        },
+        // Copy hunspell dictionary files for spell checker
+        {
+          from: require.resolve('dictionary-en-us/index.aff'),
+          to: 'dictionary/index.aff',
+        },
+        {
+          from: require.resolve('dictionary-en-us/index.dic'),
+          to: 'dictionary/index.dic',
         },
       ],
     }),

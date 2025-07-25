@@ -3,11 +3,14 @@ import EditorSingleton from "../js/Editor";
 import { useTheme } from "../context/ThemeContext";
 import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../js/services/HighlightService";
+import SpellCheckService from "../js/services/SpellCheckService";
+import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import useAutoSave from "../hooks/useAutoSave";
 
 function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange }) {
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
+  const spellDebounceRef = useRef(null);
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const highlightDebounceRef = useRef();
@@ -23,11 +26,32 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     30000
   );
 
+  // Initialize SpellCheckService once
+  useEffect(() => {
+    SpellCheckService.init().catch(console.error);
+  }, []);
+
   // Initialize Monaco on mount and observe container resize
   useEffect(() => {
     if (editorRef.current && !monacoInstanceRef.current) {
       EditorSingleton.setup(editorRef.current, value, theme).then((instance) => {
         monacoInstanceRef.current = instance;
+        // initial spell-check on load
+        (async () => {
+          await SpellCheckService.init();
+          const text = instance.getValue();
+          const issues = SpellCheckService.check(text);
+          const model = instance.getModel();
+          const markers = issues.map(({ word, suggestions, lineNumber, column }) => ({
+            startLineNumber: lineNumber,
+            startColumn: column,
+            endLineNumber: lineNumber,
+            endColumn: column + word.length,
+            message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
+            severity: monaco.MarkerSeverity.Warning,
+          }));
+          monaco.editor.setModelMarkers(model, "spell", markers);
+        })();
         setTimeout(() => {
           const textarea = editorRef.current.querySelector('textarea.monaco-mouse-cursor-text');
           if (textarea) {
@@ -37,6 +61,24 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         instance.onDidChangeModelContent(() => {
           const newValue = instance.getValue();
           if (newValue !== value) onChange(newValue);
+
+          // Debounced spell-check
+          if (spellDebounceRef.current) clearTimeout(spellDebounceRef.current);
+          spellDebounceRef.current = setTimeout(() => {
+            const text = instance.getValue();
+            const issues = SpellCheckService.check(text);
+            const model = instance.getModel();
+            const markers = issues.map(({ word, suggestions, lineNumber, column }) => ({
+              startLineNumber: lineNumber,
+              startColumn: column,
+              endLineNumber: lineNumber,
+              endColumn: column + word.length,
+              message: `Possible typo: "${word}". Suggestions: ${suggestions.join(", ")}`,
+              severity: monaco.MarkerSeverity.Warning,
+            }));
+            monaco.editor.setModelMarkers(model, "spell", markers);
+          }, 300);
+
           // Detect fenced code block edits and trigger highlight
           if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
           highlightDebounceRef.current = setTimeout(() => {
@@ -86,6 +128,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         monacoInstanceRef.current = null;
       }
       if (highlightDebounceRef.current) clearTimeout(highlightDebounceRef.current);
+      if (spellDebounceRef.current) clearTimeout(spellDebounceRef.current);
       if (layoutDebounceRef.current) clearTimeout(layoutDebounceRef.current);
       if (resizeObserverRef.current && editorRef.current) {
         resizeObserverRef.current.disconnect();
