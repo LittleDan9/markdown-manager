@@ -185,18 +185,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         EditorSingleton.setup(editorRef.current, actualValue, theme).then((instance) => {
           monacoInstanceRef.current = instance;
 
-          // Initial spell-check with performance considerations
-          (async () => {
-            await SpellCheckService.init();
-
-            // Only run spell check if not deferred or after defer delay
-            const spellStrategy = PerformanceOptimizer.getSpellCheckStrategy(actualValue);
-            if (spellStrategy.enabled) {
-              setTimeout(() => {
-                runSpellCheck(instance);
-              }, spellStrategy.delay || 100);
-            }
-          })();
+          // Removed initial spell-check here to avoid double invocation; spell check will run on content change (debounced)
 
           // register quick-fix code actions for spelling suggestions
           monaco.languages.registerCodeActionProvider('markdown', {
