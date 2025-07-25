@@ -48,7 +48,7 @@ COPY ./backend /app
 RUN pip install poetry
 
 # Install Python dependencies
-RUN poetry lock && poetry install && poetry run playwright install chromium
+RUN poetry lock && poetry install && poetry run playwright install-deps && poetry run playwright install chromium
 
 # Expose FastAPI port
 EXPOSE 8000

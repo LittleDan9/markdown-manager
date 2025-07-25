@@ -48,7 +48,9 @@ export function AuthProvider({ children }) {
   // Set user getter for DocumentSyncService (for context-driven sync)
   useEffect(() => {
     DocumentSyncService.setUserGetter(() => user);
-  }, [user]);
+    DocumentSyncService.setTokenGetter(() => token);
+    DocumentSyncService.setIsAuthenticatedGetter(() => isAuthenticated);
+  }, [user, isAuthenticated, token]);
   const [autosaveEnabled, setAutosaveEnabledState] = useState(() => {
     const saved = localStorage.getItem("autosaveEnabled");
     return saved === null ? true : saved === "true";

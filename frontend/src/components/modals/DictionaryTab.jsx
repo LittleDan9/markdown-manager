@@ -32,10 +32,10 @@ function DictionaryTab() {
 
   // Load dictionary entries on mount and when user changes
   useEffect(() => {
-    console.log('DictionaryTab mounted, localStorage contents:', localStorage.getItem('customDictionary'));
-    console.log('Current user state:', user);
-    console.log('Has auth token:', !!localStorage.getItem("authToken"));
-    console.log('Is authenticated:', isAuthenticated);
+    // console.log('DictionaryTab mounted, localStorage contents:', localStorage.getItem('customDictionary'));
+    // console.log('Current user state:', user);
+    // console.log('Has auth token:', !!localStorage.getItem("authToken"));
+    // console.log('Is authenticated:', isAuthenticated);
     updateLocalWordCount();
     loadEntries();
   }, [user, isAuthenticated]);
@@ -60,11 +60,8 @@ function DictionaryTab() {
     setSuccess("");
 
     try {
-      console.log('Loading dictionary entries and syncing...');
-
       // First sync local and backend dictionaries
       const syncResult = await CustomDictionarySyncService.syncAfterLogin();
-      console.log('Sync completed, merged words count:', syncResult.length);
 
       // Update local word count after sync
       await updateLocalWordCount();
@@ -74,12 +71,10 @@ function DictionaryTab() {
       if (token) {
         // Then load the entries from backend for display
         const data = await customDictionaryApi.getEntries();
-        console.log('Loaded entries from backend:', data.length);
 
         // Ensure data is an array
         setEntries(Array.isArray(data) ? data : []);
       } else {
-        console.log('No auth token, skipping backend entries load');
         setEntries([]);
       }
     } catch (err) {
@@ -310,7 +305,7 @@ function DictionaryTab() {
                 </div>
                 <div className="btn-group btn-group-sm">
                   <Button
-                    variant="outline-secondary"
+                    variant="outline-primary"
                     size="sm"
                     onClick={() => setEditingEntry(entry)}
                     title="Edit notes"

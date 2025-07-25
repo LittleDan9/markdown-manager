@@ -3,34 +3,53 @@
 
 class DocumentSyncService {
   constructor() {
-    this.isAuthenticated = false;
-    this.token = null;
+    this.getIsAuthenticated = null;
+    this.getToken = null;
     this.syncQueue = [];
     this.isProcessingQueue = false;
     this.maxRetries = 3;
     this.retryDelay = 1000; // 1 second base delay
     this.getUser = null; // callback for user/profile
+    this._lastIsAuthenticated = false; // Track last known authentication state
+
   }
 
   setUserGetter(fn) {
     this.getUser = fn;
   }
 
-  initialize(isAuthenticated, token) {
-    console.log('[DocumentSyncService] initialize called. isAuthenticated:', isAuthenticated, 'token:', token);
-    this.isAuthenticated = isAuthenticated;
-    this.token = token;
-    if (isAuthenticated) {
-      console.log('[DocumentSyncService] Authenticated. Processing sync queue.');
-      this.processQueue();
-    } else {
-      console.log('[DocumentSyncService] Not authenticated. Sync queue will not process.');
-    }
+  setTokenGetter(fn) {
+    this.getToken = fn;
   }
+
+  setIsAuthenticatedGetter(fn) {
+    this.getIsAuthenticated = fn;
+    this._checkAuthenticationChange();
+  }
+
+  _checkAuthenticationChange() {
+    const isAuthenticated = this.getIsAuthenticated();
+    if (isAuthenticated && !this._lastIsAuthenticated){
+      this.processQueue();
+    }
+    this._lastIsAuthenticated = isAuthenticated;
+  }
+
+  // initialize(isAuthenticated, token) {
+  //   console.log('[DocumentSyncService] initialize called. isAuthenticated:', isAuthenticated, 'token:', token);
+  //   this.isAuthenticated = isAuthenticated;
+  //   this.token = token;
+  //   if (isAuthenticated) {
+  //     console.log('[DocumentSyncService] Authenticated. Processing sync queue.');
+  //     this.processQueue();
+  //   } else {
+  //     console.log('[DocumentSyncService] Not authenticated. Sync queue will not process.');
+  //   }
+  // }
 
   // Queue operations for sync
   queueDocumentSync(document) {
-    if (!this.isAuthenticated) {
+    if (!this.getIsAuthenticated()) {
       console.log('Skipping document sync: not authenticated');
       return;
     }
@@ -45,7 +64,7 @@ class DocumentSyncService {
   }
 
   queueDocumentDelete(id) {
-    if (!this.isAuthenticated) {
+    if (!this.getIsAuthenticated()) {
       console.log('Skipping document delete sync: not authenticated');
       return;
     }
@@ -61,7 +80,7 @@ class DocumentSyncService {
 
   queueCurrentDocumentSync(documentId) {
     console.log('[DocumentSyncService] queueCurrentDocumentSync called with documentId:', documentId);
-    if (!this.isAuthenticated) {
+    if (!this.getIsAuthenticated()) {
       console.log('[DocumentSyncService] Skipping current document sync: not authenticated');
       return;
     }
@@ -76,7 +95,7 @@ class DocumentSyncService {
   }
 
   queueCategorySync(operation, data) {
-    if (!this.isAuthenticated) {
+    if (!this.getIsAuthenticated()) {
       console.log('Skipping category sync: not authenticated');
       return;
     }
@@ -92,7 +111,7 @@ class DocumentSyncService {
 
   // Full sync operations
   async syncAllDocuments() {
-    if (!this.isAuthenticated) return [];
+    if (!this.getIsAuthenticated()) return [];
 
     try {
       const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
@@ -179,7 +198,7 @@ class DocumentSyncService {
   }
 
   async syncUserSettings() {
-    if (!this.isAuthenticated) return;
+    if (!this.getIsAuthenticated()) return;
 
     try {
       const UserApi = (await import("../js/api/userApi.js")).default;
@@ -233,7 +252,7 @@ class DocumentSyncService {
   }
 
   async syncCategories() {
-    if (!this.isAuthenticated) return;
+    if (!this.getIsAuthenticated()) return;
 
     try {
       const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
@@ -266,7 +285,7 @@ class DocumentSyncService {
 
   // Process the sync queue
   async processQueue() {
-    if (this.isProcessingQueue || !this.isAuthenticated || this.syncQueue.length === 0) {
+    if (this.isProcessingQueue || !this.getIsAuthenticated() || this.syncQueue.length === 0) {
       return;
     }
 
@@ -275,7 +294,7 @@ class DocumentSyncService {
     // Emit queue start event
     this._emitQueueProgress();
 
-    while (this.syncQueue.length > 0 && this.isAuthenticated) {
+    while (this.syncQueue.length > 0 && this.getIsAuthenticated()) {
       const operation = this.syncQueue.shift();
 
       try {
@@ -296,7 +315,7 @@ class DocumentSyncService {
         if (operation.retryCount < this.maxRetries) {
           // Re-queue for retry with exponential backoff
           setTimeout(() => {
-            if (this.isAuthenticated) { // Only retry if still authenticated
+            if (this.getIsAuthenticated()) { // Only retry if still authenticated
               this.syncQueue.push(operation);
               this.processQueue();
             }
@@ -314,7 +333,7 @@ class DocumentSyncService {
     this._emitQueueProgress();
 
     // If queue is empty and logout is pending, complete it
-    if (this.syncQueue.length === 0 && !this.isAuthenticated) {
+    if (this.syncQueue.length === 0 && !this.getIsAuthenticated()) {
       window.dispatchEvent(new CustomEvent('markdown-manager:logout-ready'));
     }
   }
@@ -322,7 +341,7 @@ class DocumentSyncService {
   // Private methods
   async _processOperation(operation) {
     // Double-check authentication before processing
-    if (!this.isAuthenticated || !this.token) {
+    if (!this.getIsAuthenticated() || !this.token) {
       throw new Error('Not authenticated');
     }
 
@@ -407,7 +426,7 @@ class DocumentSyncService {
   clearQueue() {
     console.log('Clearing sync queue and stopping authentication');
     this.syncQueue = [];
-    this.isAuthenticated = false;
+
     this.token = null;
     this.isProcessingQueue = false; // Stop any ongoing processing
   }

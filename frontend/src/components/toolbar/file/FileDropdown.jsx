@@ -26,6 +26,11 @@ export default function FileDropdown({ setDocumentTitle }) {
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges } = useDocument();
   const { showSuccess, showError } = useNotification();
   const { previewHTML } = usePreviewHTML();
+  // Debug: Log previewHTML value on render
+  React.useEffect(() => {
+    console.log('[FileDropdown] previewHTML:', previewHTML);
+    // Removed showSuccess from useEffect to prevent render loop
+  }, [previewHTML]);
 
   // Import modal controller
   const importController = useFileImportController({ setDocumentTitle });
@@ -90,7 +95,9 @@ export default function FileDropdown({ setDocumentTitle }) {
   const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, previewHTML, theme });
   // Log before export actions
   const handleExportPDF = () => {
-    exportController.handleExportPDF();
+    console.log('[FileDropdown] handleExportPDF called. previewHTML:', previewHTML);
+    showSuccess && showSuccess('Debug: handleExportPDF called');
+    exportController.handleExportPDF && exportController.handleExportPDF();
   };
 
   const handleNew = async () => {
@@ -185,7 +192,11 @@ export default function FileDropdown({ setDocumentTitle }) {
             <i className="bi bi-filetype-md me-2"></i>Export Markdown
           </Dropdown.Item>
           <Dropdown.Item
-            onClick={handleExportPDF}
+            onClick={() => {
+              console.log('[Dropdown.Item] Export PDF clicked. previewHTML:', previewHTML);
+              showSuccess && showSuccess('Debug: Export PDF menu item clicked');
+              handleExportPDF();
+            }}
             disabled={!previewHTML || previewHTML === ""}
           >
             <i className="bi bi-filetype-pdf me-2"></i>Export PDF
