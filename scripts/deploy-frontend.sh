@@ -8,13 +8,13 @@ set -e
 source ./scripts/colors.sh
 
 
-FRONTEND_DIR=$1
+FRONT_DIST_DIR=$1
 REMOTE_USER_HOST=$2
 FRONTEND_BASE=$3
 
 KEY=~/.ssh/id_danbian
-if [ -z "$FRONTEND_DIR" ] || [ -z "$REMOTE_USER_HOST" ] || [ -z "$FRONTEND_BASE" ]; then
-  echo "$RED❌ Missing required arguments: FRONTEND_DIR, REMOTE_USER_HOST, FRONTEND_BASE$NC"
+if [ -z "$FRONT_DIST_DIR" ] || [ -z "$REMOTE_USER_HOST" ] || [ -z "$FRONTEND_BASE" ]; then
+  echo "$RED❌ Missing required arguments: FRONT_DIST_DIR, REMOTE_USER_HOST, FRONTEND_BASE$NC"
   exit 1
 fi
 
@@ -31,6 +31,6 @@ rsync -azhq --delete \
   --no-times \
   --no-group \
   --progress \
-  $FRONTEND_DIR/ $REMOTE_USER_HOST:$FRONTEND_BASE/
+  $FRONT_DIST_DIR/ $REMOTE_USER_HOST:$FRONTEND_BASE/
 
 echo "$GREEN✅ Frontend deployment complete$NC"

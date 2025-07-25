@@ -7,5 +7,5 @@ source ./scripts/colors.sh
 
 echo "$YELLOW📦 Installing dependencies...$NC"
 pushd $FRONTEND_DIR && npm install && popd
-pushd $BACKEND_DIR && ~/.local/bin/poetry lock && ~/.local/bin/poetry install && ~/.local/bin/poetry run playwright install chromium && popd
+pushd $BACKEND_DIR && ~/.local/bin/poetry lock && ~/.local/bin/poetry install --no-root && ~/.local/bin/poetry run playwright install-deps && ~/.local/bin/poetry run playwright install chromium && popd
 echo "$GREEN✅ All dependencies installed$NC"

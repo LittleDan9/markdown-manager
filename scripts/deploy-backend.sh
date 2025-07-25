@@ -52,6 +52,8 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST <<EOH
   cd $BACKEND_BASE
   poetry install --only=main
   poetry run alembic upgrade head
+  poetry run playwright install-deps
+  poetry run playwright install chromium
   sudo systemctl restart markdown-manager-api.service
 EOH
 
