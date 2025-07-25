@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
-import DocumentStorage from "../storage/DocumentStorage";
+import DocumentManager from "../storage/DocumentManager";
+import StorageMigration from "../storage/StorageMigration";
 import UserAPI from "../js/api/userApi.js";
 import CustomDictionarySyncService from "../js/services/CustomDictionarySyncService";
+import LogoutProgressModal from "../components/LogoutProgressModal";
 import PropTypes from "prop-types";
 import config from "../js/config.js";
 
@@ -37,21 +39,80 @@ const AuthContext = createContext({
 });
 
 export function AuthProvider({ children }) {
+  // Ensure DocumentManager sync service is authenticated after reload if token and user are valid (not defaultUser)
+  useEffect(() => {
+    if (
+      token &&
+      typeof user === 'object' &&
+      user !== null &&
+      typeof user.id !== 'undefined' &&
+      user.id !== -1 &&
+      user.display_name !== 'Guest'
+    ) {
+      DocumentManager.handleLogin(token);
+    }
+  }, [token, user]);
   const [user, setUserState] = useState(defaultUser);
   const [token, setTokenState] = useState(localStorage.getItem("authToken"));
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+
+  // Initialize DocumentManager on first load
+  useEffect(() => {
+    const initializeStorage = async () => {
+      // Check if migration is needed
+      if (!StorageMigration.isMigrationComplete()) {
+        try {
+          const migrationResult = await StorageMigration.migrateFromOldSystem();
+          if (!migrationResult.success) {
+            console.error('Storage migration failed:', migrationResult.message);
+          } else {
+            console.log('Storage migration completed successfully');
+          }
+        } catch (error) {
+          console.error('Storage migration error:', error);
+        }
+      }
+
+      // Initialize the document manager
+      await DocumentManager.initialize();
+      DocumentManager.handleLogin(token);
+    };
+
+    initializeStorage();
+  }, []);
+
+  // Listen for logout pending events from DocumentManager
+  useEffect(() => {
+    const handleLogoutPending = (event) => {
+      console.log('Logout pending event received:', event.detail);
+      setShowLogoutModal(true);
+    };
+
+    window.addEventListener('markdown-manager:logout-pending', handleLogoutPending);
+
+    return () => {
+      window.removeEventListener('markdown-manager:logout-pending', handleLogoutPending);
+    };
+  }, []);
 
   // Helper to update token in state and localStorage
   const setToken = useCallback((newToken) => {
+    const oldToken = token;
     setTokenState(newToken);
     if (newToken) {
       localStorage.setItem("authToken", newToken);
+      // If token changed and we have a user, notify DocumentManager
+      if (oldToken !== newToken && user && user.id !== -1) {
+        DocumentManager.handleTokenRefresh(newToken);
+      }
     } else {
       localStorage.removeItem("authToken");
     }
-  }, []);
+  }, [token, user]);
 
   // Helper to update user state
   const setUser = useCallback((value) => {
+    console.log('[AuthProvider] setUser called', value);
     if (value == null) {
       setUserState(defaultUser);
     } else {
@@ -70,6 +131,9 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     await fetchCurrentUser(data.token);
 
+    // Initialize DocumentManager with authentication
+    await DocumentManager.handleLogin(data.token);
+
     // Sync custom dictionary after successful login
     try {
       await CustomDictionarySyncService.syncAfterLogin();
@@ -85,6 +149,9 @@ export function AuthProvider({ children }) {
     const data = await UserAPI.loginMFA(email, password, code);
     setToken(data.token);
     await fetchCurrentUser(data.token);
+
+    // Initialize DocumentManager with authentication
+    await DocumentManager.handleLogin(data.token);
 
     // Sync custom dictionary after successful MFA login
     try {
@@ -102,6 +169,9 @@ export function AuthProvider({ children }) {
     setToken(data.token);
     await fetchCurrentUser(data.token);
 
+    // Initialize DocumentManager with authentication
+    await DocumentManager.handleLogin(data.token);
+
     // Sync custom dictionary after successful registration
     try {
       await CustomDictionarySyncService.syncAfterLogin();
@@ -114,19 +184,36 @@ export function AuthProvider({ children }) {
   }, [setToken, fetchCurrentUser]);
 
   const logout = useCallback(async () => {
+    // Try normal logout first (will show modal if sync pending)
+    const logoutCompleted = await DocumentManager.handleLogout();
+
+    if (logoutCompleted) {
+      // Normal logout completed
+      setToken(null);
+      setUser(null);
+
+      // Clear custom dictionary when logging out
+      // Keep local words for anonymous usage
+      // CustomDictionarySyncService.clearLocal(); // Uncomment if you want to clear local dictionary on logout
+    }
+    // If logout was deferred due to pending sync, the modal will handle it
+  }, [setToken, setUser]);
+
+  // Handle force logout from the modal
+  const handleForceLogout = useCallback(async () => {
+    setShowLogoutModal(false);
+
+    // Clear auth state immediately
     setToken(null);
     setUser(null);
-    // Flush all document-related localStorage keys
-    localStorage.removeItem("savedDocuments");
-    localStorage.removeItem("currentDocument");
-    localStorage.removeItem("documentCategories");
-    localStorage.removeItem("lastDocumentId");
-    DocumentStorage.setCurrentDocument(null);
 
-    // Clear custom dictionary when logging out
-    // Keep local words for anonymous usage
-    // CustomDictionarySyncService.clearLocal(); // Uncomment if you want to clear local dictionary on logout
+    // DocumentManager.forceLogout() will be called by the modal's force-logout event
   }, [setToken, setUser]);
+
+  // Handle logout cancellation
+  const handleLogoutCanceled = useCallback(() => {
+    setShowLogoutModal(false);
+  }, []);
 
   const fetchCurrentUser = useCallback(async (overrideToken = null) => {
     const userData = await UserAPI.getCurrentUser(overrideToken || token);
@@ -134,9 +221,12 @@ export function AuthProvider({ children }) {
       setUser(null);
       return null;
     }
-    setUser(userData);
+    // Only update if user data actually changed
+    if (JSON.stringify(userData) !== JSON.stringify(user)) {
+      setUser(userData);
+    }
     return userData;
-  }, [token, setUser]);
+  }, [token, setUser, user]);
 
   const updateProfile = useCallback(async (profileData) => {
     const data = await UserAPI.updateProfileInfo(profileData);
@@ -196,7 +286,16 @@ export function AuthProvider({ children }) {
     confirmPasswordReset,
   }), [user, token, isAuthenticated, setUser, setToken, login, loginMFA, register, logout, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset]);
 
-  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={contextValue}>
+      {children}
+      <LogoutProgressModal
+        show={showLogoutModal}
+        onForceLogout={handleForceLogout}
+        onCanceled={handleLogoutCanceled}
+      />
+    </AuthContext.Provider>
+  );
 }
 
 AuthProvider.propTypes = {

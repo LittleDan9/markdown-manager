@@ -1,4 +1,4 @@
-@import 'mixins';
+@use 'mixins';
 
 .preview-line-highlight {
   background: none;
@@ -6,7 +6,7 @@
   color: #f7e06e !important;
   font-weight: bold;
 
-  @include dark {
+  @include mixins.dark {
     background: #232323 !important;
     color: #f7e06e !important;
   }
@@ -27,7 +27,7 @@
         padding: 2px 4px;
         font-size: 0.95em;
 
-        @include dark {
+        @include mixins.dark {
           color: #f7e06e !important; // Muted yellow for dark theme
           background: #232323 !important;
         }
@@ -49,7 +49,7 @@
           padding: 0;
         }
 
-        @include dark {
+        @include mixins.dark {
           color: #fff;
           /* Apply same spacing in dark theme */
           & > li { margin: 0.25rem 0; }
@@ -63,7 +63,7 @@
         border-top: 2px solid #212529;
         margin: 2rem 0;
 
-        @include dark {
+        @include mixins.dark {
           border-top: 2px solid #666;
         }
       }
@@ -79,7 +79,7 @@
         margin-bottom: 1rem;
         line-height: 1.2;
 
-        @include dark {
+        @include mixins.dark {
           color: #fff;
         }
       }
@@ -114,7 +114,7 @@
           color: #0056b3;
         }
 
-        @include dark {
+        @include mixins.dark {
           color: #66b3ff;
           &:hover { color: #99ccff; }
         }
@@ -124,14 +124,14 @@
       b {
         font-weight: bold;
 
-        @include dark { color: #fff; }
+        @include mixins.dark { color: #fff; }
       }
 
       em,
       i {
         font-style: italic;
 
-        @include dark { color: #cccccc; }
+        @include mixins.dark { color: #cccccc; }
       }
 
       pre {
@@ -142,7 +142,7 @@
         overflow-x: auto;
         margin: 1rem 0;
 
-        @include dark {
+        @include mixins.dark {
           background: #2d2d2d;
           color: #f8f8f2;
         }
@@ -160,7 +160,7 @@
           margin: 0;
         }
 
-        @include dark {
+        @include mixins.dark {
           color: #cccccc;
           border-left: 4px solid #666;
           background-color: #2d2d2d;
@@ -192,7 +192,7 @@
           background: #f3f3f3;
         }
 
-        @include dark {
+        @include mixins.dark {
           background: #2d2d2d;
           th, td { border: 2px solid #666; color: #fff; }
           th { background: #404040; }

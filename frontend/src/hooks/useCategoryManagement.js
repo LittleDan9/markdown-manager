@@ -1,11 +1,11 @@
 import { useState, useCallback, useEffect } from 'react';
-import DocumentStorage from '../storage/DocumentStorage';
+import DocumentManager from '../storage/DocumentManager';
 
 export default function useCategoryManagement({ isAuthenticated, token }) {
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
   // Ensure both Drafts and General appear first by default
-  const stored = DocumentStorage.getCategories() || [];
+  const stored = DocumentManager.getCategories() || [];
   const initialCategories = Array.from(
     new Set([DRAFTS_CATEGORY, DEFAULT_CATEGORY, ...stored])
   );
@@ -23,19 +23,19 @@ export default function useCategoryManagement({ isAuthenticated, token }) {
     if (!name || name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return categories;
     }
-    const updated = await DocumentStorage.addCategory(name, isAuthenticated, token);
+    const updated = await DocumentManager.addCategory(name);
     setCategories(updated);
     return updated;
-  }, [isAuthenticated, token]);
+  }, [categories]);
 
   const deleteCategory = useCallback(async (name, options = {}) => {
     if (name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return categories;
     }
-    const updated = await DocumentStorage.deleteCategory(name, options, isAuthenticated, token);
+    const updated = await DocumentManager.deleteCategory(name, options);
     setCategories(updated);
     return updated;
-  }, [isAuthenticated, token]);
+  }, [categories]);
 
   const renameCategory = useCallback(async (oldName, newName) => {
     const name = (newName || '').trim();
@@ -48,10 +48,10 @@ export default function useCategoryManagement({ isAuthenticated, token }) {
     ) {
       return categories;
     }
-    const updated = await DocumentStorage.renameCategory(oldName, name, isAuthenticated, token);
+    const updated = await DocumentManager.renameCategory(oldName, name);
     setCategories(updated);
     return updated;
-  }, [isAuthenticated, token]);
+  }, [categories]);
 
   return { categories, setCategories, addCategory, deleteCategory, renameCategory };
 }

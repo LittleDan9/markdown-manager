@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import DocumentStorage from '../storage/DocumentStorage';
+import DocumentManager from '../storage/DocumentManager';
 
 const DOCUMENTS_KEY = 'savedDocuments';
 const CURRENT_DOC_KEY = 'currentDocument';
@@ -30,7 +30,7 @@ export default function useLocalDocuments() {
   const createDocument = useCallback(() => {
     // Generate a unique untitled name: 'Untitled Document', 'Untitled Document 2', etc.
     const untitledBase = 'Untitled Document';
-    const allDocs = DocumentStorage.getAllDocuments();
+    const allDocs = DocumentManager.getAllDocuments();
     const regex = new RegExp(`^${untitledBase}(?: (\\d+))?$`);
     const counts = allDocs
       .map(d => {
@@ -44,24 +44,24 @@ export default function useLocalDocuments() {
   }, []);
 
   const loadDocument = useCallback((id) => {
-    const doc = DocumentStorage.getDocument(id);
+    const doc = DocumentManager.getDocument(id);
     setCurrentDocument(doc || { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY, content: '' });
   }, []);
 
   const deleteDocument = useCallback((id) => {
-    DocumentStorage.deleteDocument(id);
-    const all = DocumentStorage.getAllDocuments();
+    DocumentManager.deleteDocument(id);
+    const all = DocumentManager.getAllDocuments();
     setDocuments(all);
     setCurrentDocument(all[0] || { id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY, content: '' });
   }, []);
 
   const renameDocument = useCallback((id, newName, newCategory = DEFAULT_CATEGORY) => {
-    const doc = DocumentStorage.getDocument(id);
+    const doc = DocumentManager.getDocument(id);
     if (!doc) return;
     doc.name = newName;
     doc.category = newCategory;
-    DocumentStorage.saveDocument(doc);
-    setDocuments(DocumentStorage.getAllDocuments());
+    DocumentManager.saveDocument(doc);
+    setDocuments(DocumentManager.getAllDocuments());
     setCurrentDocument(doc);
   }, []);
 

@@ -5,7 +5,7 @@ import { useConfirmModal } from "../../hooks/useConfirmModal";
 import { Dropdown } from "react-bootstrap";
 import { useDocument } from "../../context/DocumentProvider";
 import { useNotification } from "../../components/NotificationProvider";
-import DocumentStorage from "../../storage/DocumentStorage";
+import DocumentManager from "../../storage/DocumentManager";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
@@ -329,7 +329,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
             const updatedCats = await deleteCategory(deleteTargetCategory, { deleteDocs, migrateTo });
             setCategories(updatedCats);
             setCurrentCategory("General");
-            setDocuments(DocumentStorage.getAllDocuments());
+            setDocuments(DocumentManager.getAllDocuments());
             createDocument();
             setShowDeleteModal(false);
           } catch (err) {

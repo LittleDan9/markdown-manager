@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { useDocument } from "../../../context/DocumentProvider";
 import { useNotification } from "../../NotificationProvider";
+import DocumentManager from "../../../storage/DocumentManager";
 
 export function useFileImportController({ setDocumentTitle, setContent }) {
   const { saveDocument, currentDocument, importMarkdownFile, loadDocument, createDocument, documents } = useDocument();
@@ -46,13 +47,13 @@ export function useFileImportController({ setDocumentTitle, setContent }) {
     // Ensure category is saved to backend if authenticated and not present
     let categories = [];
     try {
-      categories = await DocumentStorage.getCategories();
+      categories = await DocumentManager.getCategories();
     } catch (e) {
       categories = ["General"];
     }
     if (!categories.includes(safeCategory)) {
       try {
-        await DocumentStorage.addCategory(safeCategory, currentDocument && currentDocument.id !== null, null);
+        await DocumentManager.addCategory(safeCategory);
       } catch (e) {
         // Ignore category add errors
       }

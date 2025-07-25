@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Header from "./Header";
 import Toolbar from "./toolbar/Toolbar";
 import Editor from "./Editor";
@@ -67,11 +67,12 @@ function App() {
   }, [syncPreviewScrollEnabled, isAuthenticated]);
 
   useEffect(() => {
-    // Always sync content with currentDocument after document load/change
+    // Sync content with currentDocument after document load/change
+    // Only update if document actually changed to prevent render loops
     if (currentDocument && currentDocument.content !== content) {
       setContent(currentDocument.content ?? "");
     }
-  }, [currentDocument]);
+  }, [currentDocument.id, currentDocument.content]);
   // Capture Ctrl+S to save current content
   useEffect(() => {
     const handleKeyDown = async (e) => {

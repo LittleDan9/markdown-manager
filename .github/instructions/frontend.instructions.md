@@ -40,7 +40,7 @@ When using GitHub Copilot Chat in this repository to write or review React + Rea
     All API calls should be made using the frontend/src/js/api helper libraries. This ensures consistency and maintainability across the codebase.
 
 12. **Management of Document Storage**
-    Use the `frontend/src/js/storage/documentStorage` module for all document storage operations. This module provides a consistent interface for managing documents, ensuring that all storage operations are handled uniformly across the application.
+    Use the `frontend/src/storage/DocumentManager` module for all document storage operations. This module provides a consistent interface for managing documents, ensuring that all storage operations are handled uniformly across the application. The system is now modular with separate services for local storage, sync, and event handling.
 
 13. **Localstorage vs Backend Storage**
     Everything a user does can be stored in localstorage, but the data should be synchronized regularly and before logout. If the user is a guest, their information should be stored in localstorage. Once they register and login, their data should be migrated to the backend. If a user logs out the UI should be reset to default state and all localstorage data should be cleared.
