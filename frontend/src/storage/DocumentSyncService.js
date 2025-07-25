@@ -9,6 +9,11 @@ class DocumentSyncService {
     this.isProcessingQueue = false;
     this.maxRetries = 3;
     this.retryDelay = 1000; // 1 second base delay
+    this.getUser = null; // callback for user/profile
+  }
+
+  setUserGetter(fn) {
+    this.getUser = fn;
   }
 
   initialize(isAuthenticated, token) {
@@ -180,10 +185,8 @@ class DocumentSyncService {
       const UserApi = (await import("../js/api/userApi.js")).default;
       const LocalStorage = (await import("./LocalDocumentStorage.js")).default;
 
-      const [userProfile] = await Promise.all([
-        UserApi.getCurrentUser(this.token).catch(() => null)
-      ]);
-
+      // Use context user/profile if available
+      const userProfile = this.getUser ? this.getUser() : null;
       if (!userProfile) return;
 
       // Sync settings

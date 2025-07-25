@@ -17,7 +17,10 @@ import { useFileExportController } from "./useFileExportController";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
 
-export default function FileDropdown({ setDocumentTitle, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled }) {
+import { useAuth } from "../../../context/AuthProvider";
+
+export default function FileDropdown({ setDocumentTitle }) {
+  const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges } = useDocument();
