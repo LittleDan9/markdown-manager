@@ -10,20 +10,11 @@ import { AuthProvider } from "../context/AuthProvider";
 import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
 
-import UserAPI from "../js/api/userApi";
 import { useAuth } from "../context/AuthProvider";
 import { useNotification } from "./NotificationProvider.jsx";
 
 function App() {
-  const { isAuthenticated } = useAuth();
-  const [autosaveEnabled, setAutosaveEnabled] = useState(() => {
-    const saved = localStorage.getItem("autosaveEnabled");
-    return saved === null ? true : saved === "true";
-  });
-  const [syncPreviewScrollEnabled, setSyncPreviewScrollEnabled] = useState(() => {
-    const saved = localStorage.getItem("syncPreviewScrollEnabled");
-    return saved === null ? true : saved === "true";
-  });
+  const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
   const { currentDocument, saveDocument } = useDocument();
   const [content, setContent] = useState(currentDocument?.content || "");
   const [renderedHTML, setRenderedHTML] = useState("");
@@ -31,40 +22,7 @@ function App() {
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const notification = useNotification();
 
-  // Load user profile settings on mount
-  // Load user profile settings on mount
-  useEffect(() => {
-    async function fetchProfileSettings() {
-      try {
-        const user = await UserAPI.getCurrentUser();
-        if (user && user.sync_preview_scroll_enabled !== undefined) {
-          setSyncPreviewScrollEnabled(Boolean(user.sync_preview_scroll_enabled));
-        }
-        if (user && user.autosave_enabled !== undefined) {
-          setAutosaveEnabled(Boolean(user.autosave_enabled));
-        }
-      } catch (e) {
-        // fallback to localStorage
-        console.error("Failed to fetch user profile settings:", e);
-        notification?.showError("Failed to fetch user profile settings. Using local defaults.");
-      }
-    }
-    fetchProfileSettings();
-  }, []);
 
-  useEffect(() => {
-    localStorage.setItem("autosaveEnabled", autosaveEnabled);
-    if (isAuthenticated) {
-      UserAPI.updateProfileInfo({ autosave_enabled: autosaveEnabled });
-    }
-  }, [autosaveEnabled, isAuthenticated]);
-
-  useEffect(() => {
-    localStorage.setItem("syncPreviewScrollEnabled", syncPreviewScrollEnabled);
-    if (isAuthenticated) {
-      UserAPI.updateProfileInfo({ sync_preview_scroll_enabled: syncPreviewScrollEnabled });
-    }
-  }, [syncPreviewScrollEnabled, isAuthenticated]);
 
   useEffect(() => {
     // Sync content with currentDocument after document load/change
@@ -102,10 +60,6 @@ function App() {
           <div id="container">
             <Header />
             <Toolbar
-              autosaveEnabled={autosaveEnabled}
-              setAutosaveEnabled={setAutosaveEnabled}
-              syncPreviewScrollEnabled={syncPreviewScrollEnabled}
-              setSyncPreviewScrollEnabled={setSyncPreviewScrollEnabled}
               setContent={setContent}
               editorValue={content}
               fullscreenPreview={fullscreenPreview}
@@ -117,7 +71,6 @@ function App() {
                 <Editor
                   value={content}
                   onChange={setContent}
-                  autosaveEnabled={autosaveEnabled}
                   onCursorLineChange={setCursorLine}
                   fullscreenPreview={fullscreenPreview}
                 />

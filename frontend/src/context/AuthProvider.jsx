@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
 import DocumentManager from "../storage/DocumentManager";
+import DocumentSyncService from "../storage/DocumentSyncService";
 import StorageMigration from "../storage/StorageMigration";
 import UserAPI from "../js/api/userApi.js";
 import CustomDictionarySyncService from "../js/services/CustomDictionarySyncService";
@@ -38,7 +39,24 @@ const AuthContext = createContext({
   confirmPasswordReset: async () => {},
 });
 
+import { useRef } from "react";
+
 export function AuthProvider({ children }) {
+  // Track if we just logged in or registered to avoid duplicate fetchCurrentUser
+  const justLoggedInRef = useRef(false);
+  // Profile settings state
+  // Set user getter for DocumentSyncService (for context-driven sync)
+  useEffect(() => {
+    DocumentSyncService.setUserGetter(() => user);
+  }, [user]);
+  const [autosaveEnabled, setAutosaveEnabledState] = useState(() => {
+    const saved = localStorage.getItem("autosaveEnabled");
+    return saved === null ? true : saved === "true";
+  });
+  const [syncPreviewScrollEnabled, setSyncPreviewScrollEnabledState] = useState(() => {
+    const saved = localStorage.getItem("syncPreviewScrollEnabled");
+    return saved === null ? true : saved === "true";
+  });
   // Ensure DocumentManager sync service is authenticated after reload if token and user are valid (not defaultUser)
   useEffect(() => {
     if (
@@ -129,6 +147,7 @@ export function AuthProvider({ children }) {
   const login = useCallback(async (email, password) => {
     const data = await UserAPI.login(email, password);
     setToken(data.token);
+    justLoggedInRef.current = true;
     await fetchCurrentUser(data.token);
 
     // Initialize DocumentManager with authentication
@@ -148,6 +167,7 @@ export function AuthProvider({ children }) {
   const loginMFA = useCallback(async (email, password, code) => {
     const data = await UserAPI.loginMFA(email, password, code);
     setToken(data.token);
+    justLoggedInRef.current = true;
     await fetchCurrentUser(data.token);
 
     // Initialize DocumentManager with authentication
@@ -167,6 +187,7 @@ export function AuthProvider({ children }) {
   const register = useCallback(async (formData) => {
     const data = await UserAPI.register(formData);
     setToken(data.token);
+    justLoggedInRef.current = true;
     await fetchCurrentUser(data.token);
 
     // Initialize DocumentManager with authentication
@@ -216,6 +237,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const fetchCurrentUser = useCallback(async (overrideToken = null) => {
+    console.log('[AuthProvider] fetchCurrentUser called with token:', overrideToken || token);
     const userData = await UserAPI.getCurrentUser(overrideToken || token);
     if (!userData || !userData.id) {
       setUser(null);
@@ -252,13 +274,26 @@ export function AuthProvider({ children }) {
     return await UserAPI.resetPasswordVerify(token, new_password);
   }, []);
 
-  // On mount, fetch user if token exists
+  // On mount, fetch user if token exists and load profile settings
   useEffect(() => {
     if (token) {
+      if (justLoggedInRef.current) {
+        justLoggedInRef.current = false;
+        // Skip fetchCurrentUser here, just did it after login/register
+        return;
+      }
       fetchCurrentUser(token).then((user) => {
         // Only call logout if token exists and is invalid
         if (!user) {
           logout();
+        } else {
+          // Load profile settings from user profile if available
+          if (user.sync_preview_scroll_enabled !== undefined) {
+            setSyncPreviewScrollEnabledState(Boolean(user.sync_preview_scroll_enabled));
+          }
+          if (user.autosave_enabled !== undefined) {
+            setAutosaveEnabledState(Boolean(user.autosave_enabled));
+          }
         }
       });
     } else {
@@ -266,6 +301,20 @@ export function AuthProvider({ children }) {
       setUser(null);
     }
   }, [token, fetchCurrentUser, setUser, logout]);
+  // Sync profile settings to localStorage and backend
+  useEffect(() => {
+    localStorage.setItem("autosaveEnabled", autosaveEnabled);
+    if (isAuthenticated) {
+      UserAPI.updateProfileInfo({ autosave_enabled: autosaveEnabled });
+    }
+  }, [autosaveEnabled, isAuthenticated]);
+
+  useEffect(() => {
+    localStorage.setItem("syncPreviewScrollEnabled", syncPreviewScrollEnabled);
+    if (isAuthenticated) {
+      UserAPI.updateProfileInfo({ sync_preview_scroll_enabled: syncPreviewScrollEnabled });
+    }
+  }, [syncPreviewScrollEnabled, isAuthenticated]);
 
   const isAuthenticated = !!token && user && user.id !== -1;
 
@@ -284,7 +333,11 @@ export function AuthProvider({ children }) {
     deleteAccount,
     requestPasswordReset,
     confirmPasswordReset,
-  }), [user, token, isAuthenticated, setUser, setToken, login, loginMFA, register, logout, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset]);
+    autosaveEnabled,
+    setAutosaveEnabled: setAutosaveEnabledState,
+    syncPreviewScrollEnabled,
+    setSyncPreviewScrollEnabled: setSyncPreviewScrollEnabledState,
+  }), [user, token, isAuthenticated, setUser, setToken, login, loginMFA, register, logout, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset, autosaveEnabled, syncPreviewScrollEnabled]);
 
   return (
     <AuthContext.Provider value={contextValue}>

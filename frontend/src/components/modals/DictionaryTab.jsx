@@ -132,11 +132,7 @@ function DictionaryTab() {
     }
   };
 
-    const handleDeleteWord = async (wordToDelete) => {
-    if (!confirm(`Are you sure you want to delete "${wordToDelete}" from your dictionary?`)) {
-      return;
-    }
-
+  const handleDeleteWord = async (wordToDelete) => {
     try {
       // Use the sync service to delete from both local and backend
       await CustomDictionarySyncService.deleteWord(wordToDelete);
@@ -349,7 +345,11 @@ function DictionaryTab() {
             </Button>
             <Button
               variant="danger"
-              onClick={() => handleDeleteWord(deleteConfirm)}
+              onClick={async () => {
+                const word = deleteConfirm?.word;
+                setDeleteConfirm(null);
+                if (word) await handleDeleteWord(word);
+              }}
               disabled={loading}
             >
               {loading ? <Spinner size="sm" /> : "Delete"}
