@@ -1,9 +1,9 @@
 import React, { useEffect, useState, useRef } from "react";
-import { render } from "../js/renderer";
+import { render } from "../services/MarkdownRender";
 import { useTheme } from "../context/ThemeContext";
 import { useDocument } from "../context/DocumentProvider";
-import HighlightService from "../js/services/HighlightService";
-import MermaidService from "../js/services/MermaidService";
+import HighlightService from "../services/HighlightService";
+import MermaidService from "../services/MermaidService";
 import { usePreviewHTML } from "../context/PreviewHTMLContext";
 
 

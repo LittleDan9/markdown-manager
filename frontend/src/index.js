@@ -18,12 +18,12 @@ const container = document.getElementById("root");
 const root = createRoot(container);
 root.render(
   <GlobalErrorBoundary>
-    <AuthProvider>
-      <NotificationProvider>
+    <NotificationProvider>
+      <AuthProvider>
         <DocumentProvider>
           <App />
         </DocumentProvider>
-      </NotificationProvider>
-    </AuthProvider>
+      </AuthProvider>
+    </NotificationProvider>
   </GlobalErrorBoundary>
 );

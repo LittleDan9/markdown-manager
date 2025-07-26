@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, Accordion, Button, Form, Alert, ProgressBar, Spinner } from "react-bootstrap";
+import { useNotification } from "../NotificationProvider";
 
 function PasswordResetModal({ show, onHide, onReset, devMode }) {
   const [step, setStep] = useState(1);
@@ -10,9 +11,10 @@ function PasswordResetModal({ show, onHide, onReset, devMode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const { showSuccess, showError } = useNotification();
 
   // Reset all state on modal open/close
-  React.useEffect(() => {
+  useEffect(() => {
     if (show) {
       setStep(1);
       setEmail("");
@@ -24,6 +26,18 @@ function PasswordResetModal({ show, onHide, onReset, devMode }) {
       setSuccess("");
     }
   }, [show]);
+
+  useEffect(() => {
+    if (success) {
+      showSuccess(success);
+    }
+  }, [success]);
+
+  useEffect(() => {
+    if (error) {
+      showError(error);
+    }
+  }, [error]);
 
   // Step 1: Request reset
   const handleRequest = async (e) => {
@@ -94,7 +108,7 @@ function PasswordResetModal({ show, onHide, onReset, devMode }) {
         setSuccess("Password has been reset successfully! You can now login.");
         setTimeout(() => {
           onHide();
-        }, 1500);
+        }, 500);
       } else {
         setError(result.message || "Failed to reset password.");
       }

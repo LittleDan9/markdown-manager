@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { Toast, ToastContainer } from "react-bootstrap";
 
 const NotificationContext = createContext();
@@ -9,6 +9,8 @@ export function useNotification() {
 
 export function NotificationProvider({ children }) {
   const [toasts, setToasts] = useState([]);
+
+
 
   const showNotification = useCallback((message, type = "info", duration = 5000) => {
     // Log to console for debugging
@@ -31,6 +33,18 @@ export function NotificationProvider({ children }) {
     showWarning: (msg, duration) => showNotification(msg, "warning", duration),
     showInfo: (msg, duration) => showNotification(msg, "info", duration),
   };
+
+  useEffect(() => {
+    const handleNotification = (event) => {
+      const { message, type, duration } = event.detail;
+      showNotification(message, type, duration);
+    };
+
+    window.addEventListener("notification", handleNotification);
+    return () => {
+      window.removeEventListener("notification", handleNotification);
+    };
+  }, [showNotification]);
 
   return (
     <NotificationContext.Provider value={contextValue}>

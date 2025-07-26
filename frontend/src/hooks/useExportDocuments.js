@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { saveAs } from 'file-saver';
-import DocumentsApi from '../js/api/documentsApi';
+import DocumentsApi from '../api/documentsApi';
 
 export default function useExportDocuments(currentDocument, setLoading, setError) {
   const exportAsMarkdown = useCallback((content, filename) => {

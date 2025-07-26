@@ -1,42 +1,35 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { toggleTheme, useTheme } from "../../context/ThemeContext";
-import LoginModal from "../modals/LoginModal";
-import VerifyMFAModal from "../modals/VerifyMFAModal";
-import PasswordResetModal from "../modals/PasswordResetModal";
 import RegisterModal from "../modals/RegisterModal";
 import UserSettingsModal from "../modals/UserSettingsModal";
-import UserAPI from "../../js/api/userApi";
+import UserAPI from "../../api/userApi";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../context/AuthProvider";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();
-  const [showLogin, setShowLogin] = useState(false);
-  const [loginEmail, setLoginEmail] = useState("");
-  const [showMFA, setShowMFA] = useState(false);
-  const [mfaLoading, setMFAloading] = useState(false);
-  const [mfaError, setMFAError] = useState("");
-  const [pendingEmail, setPendingEmail] = useState("");
-  const [pendingPassword, setPendingPassword] = useState("");
-  const { setUser } = useAuth();
+  const {
+    setUser,
+    login,
+    setShowLoginModal,
+    setShowMFAModal,
+    pendingEmail,
+    setPendingEmail,
+    pendingPassword,
+    setPendingPassword,
+    mfaLoading,
+    mfaError,
+    verifyMFA,
+  } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [showRegister, setShowRegister] = useState(false);
   const [registerError, setRegisterError] = useState("");
-  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
-  const [devMode, setDevMode] = useState(false);
+
   const [showDictionaryModal, setShowDictionaryModal] = useState(false);
 
-  // Listen for passwordResetTokenFound event from legacy JS
-  React.useEffect(() => {
-    const handler = (e) => {
-      setPasswordResetToken(e.detail.resetToken);
-      setShowPasswordResetVerify(true);
-    };
-    window.addEventListener("passwordResetTokenFound", handler);
-    return () => window.removeEventListener("passwordResetTokenFound", handler);
-  }, []);
+
   const handleShowRegister = () => {
     setShowRegister(true);
     setRegisterError("");
@@ -61,12 +54,6 @@ function UserMenuLoggedOut() {
         setRegisterError(error.message || "Registration failed.");
       });
   }
-
-    const handleShowMFA = () => {
-    setShowMFA(true);
-    setMFAError("");
-    setMFAloading(false);
-  };
 
   const handleVerify = async (code) => {
     setMFAloading(true);
@@ -98,81 +85,17 @@ function UserMenuLoggedOut() {
     }
   };
 
-  const handleBack = () => {
-    setShowMFA(false);
-    handleShowLogin();
-  };
-
-  const handleShowLogin = (e) => {
-    if (e) e.preventDefault();
-    console.log("Showing login modal");
-    setShowLogin(true);
-  }
-
-  const handleLoginModalClose = () => {
-    setShowLogin(false);
-    setLoginEmail("");
-  };
-
-  const handleLoginSubmit = async ({ email, password }) => {
-    try{
-      const loginResponse = await UserAPI.login(email, password);
-      console.log(loginResponse)
-      if (loginResponse.mfa_required){
-        setShowLogin(false);
-        setPendingEmail(email);
-        setPendingPassword(password);
-        handleShowMFA();
-        return;
-      }
-      localStorage.setItem("authToken", loginResponse.access_token);
-      localStorage.setItem("tokenType", loginResponse.token_type);
-      const user = loginResponse.user || {};
-      setUser(user);
-      showSuccess(`Welcome back, ${user.display_name}`);
-      setShowLogin(false);
-      setLoginEmail("");
-    }catch (e) {
-      showError(e.message || "Login failed. Please try again.");
-    }
-  };
-
-  const handleForgotPassword = (email) => {
-    setShowLogin(false);
-    setShowPasswordResetModal(true);
-  };
-
   const handleDictionary = () => {
     setShowDictionaryModal(true);
   };
 
-  const onEmailChange = (e) => {
-    setPasswordResetEmail(e.target.value);
-  };
-
-  // Password reset logic for modal
-  const passwordResetApi = {
-    request: async (email) => {
-      const res = await UserAPI.resetPassword(email);
-      console.log(res);
-      if (res.debug_token) setDevMode(true);
-      return res;
-    },
-    verify: async () => {
-      // No API call for step 2; always succeed (just UI step)
-      return { success: true };
-    },
-    setPassword: async ({ code, newPassword }) => {
-      // Step 3: Pass code (token) and new password to backend
-      const res = await UserAPI.resetPasswordVerify(code, newPassword);
-      if (res && (res.message || res.success)) return { success: true };
-      return { success: false, message: res?.message || "Failed to reset password." };
-    },
-  };
   return (
     <>
     <Dropdown.Menu>
-      <Dropdown.Item id="loginBtn" onClick={handleShowLogin}>
+      <Dropdown.Item id="loginBtn" onClick={e => {
+        e.preventDefault();
+        setShowLoginModal(true);
+      }}>
         <i className="bi bi-box-arrow-in-right me-2"></i>Login
       </Dropdown.Item>
       <Dropdown.Item id="registerBtn" onClick={handleShowRegister}>
@@ -187,27 +110,6 @@ function UserMenuLoggedOut() {
         <ThemeToggle idPrefix="userMenu" />
       </Dropdown.Item>
     </Dropdown.Menu>
-    <LoginModal
-      show={showLogin}
-      onHide={handleLoginModalClose}
-      onLogin={handleLoginSubmit}
-      onForgotPassword={handleForgotPassword}
-      email={loginEmail}
-    />
-    <VerifyMFAModal
-      show={showMFA}
-      onHide={() => setShowMFA(false)}
-      onVerify={handleVerify}
-      onBack={handleBack}
-      loading={mfaLoading}
-      error={mfaError}
-    />
-    <PasswordResetModal
-      show={showPasswordResetModal}
-      onHide={() => setShowPasswordResetModal(false)}
-      onReset={passwordResetApi}
-      devMode={devMode}
-    />
     <RegisterModal
       show={showRegister}
       onHide={handleHideRegister}

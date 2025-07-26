@@ -1,14 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
-import EditorSingleton from "../js/Editor";
+import EditorSingleton from "../services/EditorService";
 import { useTheme } from "../context/ThemeContext";
 import { useDocument } from "../context/DocumentProvider";
 import { useAuth } from "../context/AuthProvider";
 import { useNotification } from "./NotificationProvider";
-import HighlightService from "../js/services/HighlightService";
-import SpellCheckService from "../js/services/SpellCheckService";
-import PerformanceOptimizer from "../js/services/PerformanceOptimizer";
-import DocumentLazyLoader from "../js/services/DocumentLazyLoader";
-import customDictionaryApi from "../js/api/customDictionaryApi";
+import HighlightService from "../services/HighlightService";
+import SpellCheckService from "../services/SpellCheckService";
+import PerformanceOptimizer from "../services/PerformanceOptimizer";
+import DocumentLazyLoader from "../services/DocumentLazyLoader";
+import customDictionaryApi from "../api/customDictionaryApi";
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import useAutoSave from "../hooks/useAutoSave";
 

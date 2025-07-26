@@ -1,6 +1,6 @@
 import MarkdownIt from "markdown-it"
-import HighlightService from "./services/HighlightService";
-import MermaidService from "./services/MermaidService";
+import HighlightService from "./HighlightService";
+import MermaidService from "./MermaidService";
 
 const md = new MarkdownIt({
   html: true,

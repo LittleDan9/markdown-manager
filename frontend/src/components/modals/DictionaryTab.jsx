@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
 import { useAuth } from "../../context/AuthProvider";
-import customDictionaryApi from "../../js/api/customDictionaryApi";
-import CustomDictionarySyncService from "../../js/services/CustomDictionarySyncService";
-import SpellCheckService from "../../js/services/SpellCheckService";
+import customDictionaryApi from "../../api/customDictionaryApi";
+import CustomDictionarySyncService from "../../services/CustomDictionarySyncService";
+import SpellCheckService from "../../services/SpellCheckService";
 
 function DictionaryTab() {
   const { user } = useAuth();

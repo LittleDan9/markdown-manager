@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
-import userApi from "../../js/api/userApi";
+import userApi from "../../api/userApi";
 import { useAuth } from "../../context/AuthProvider";
 import { useNotification } from "../NotificationProvider";
 

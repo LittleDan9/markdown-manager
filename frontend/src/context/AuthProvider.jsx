@@ -1,12 +1,14 @@
-import React, { createContext, useContext, useState, useCallback, useMemo, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import DocumentManager from "../storage/DocumentManager";
-import DocumentSyncService from "../storage/DocumentSyncService";
 import StorageMigration from "../storage/StorageMigration";
-import UserAPI from "../js/api/userApi.js";
-import CustomDictionarySyncService from "../js/services/CustomDictionarySyncService";
+import UserAPI from "../api/userApi.js";
+import CustomDictionarySyncService from "../services/CustomDictionarySyncService";
 import LogoutProgressModal from "../components/LogoutProgressModal";
 import PropTypes from "prop-types";
-import config from "../js/config.js";
+import config from "../config.js";
+import LoginModal from "../components/modals/LoginModal";
+import VerifyMFAModal from "../components/modals/VerifyMFAModal";
+import PasswordResetModal from "../components/modals/PasswordResetModal";
 
 const defaultUser = {
   bio: "",
@@ -39,18 +41,41 @@ const AuthContext = createContext({
   confirmPasswordReset: async () => {},
 });
 
-import { useRef } from "react";
 
 export function AuthProvider({ children }) {
   // Track if we just logged in or registered to avoid duplicate fetchCurrentUser
   const justLoggedInRef = useRef(false);
+  const [logoutModalConfig, setLogoutModalConfig] = useState(null);
+  // Auth modals state
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showMFAModal, setShowMFAModal] = useState(false);
+  const [loginEmail, setLoginEmail] = useState("");
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [mfaLoading, setMFALoading] = useState(false);
+  const [mfaError, setMFAError] = useState("");
+  const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
+  const [devMode, setDevMode] = useState(false);
+
+  // Listen for passwordResetTokenFound event from legacy JS
+  useEffect(() => {
+    const handler = (e) => {
+      setPasswordResetToken(e.detail.resetToken);
+      setShowPasswordResetVerify(true);
+    };
+    window.addEventListener("passwordResetTokenFound", handler);
+    return () => window.removeEventListener("passwordResetTokenFound", handler);
+  }, []);
   // Profile settings state
   // Set user getter for DocumentSyncService (for context-driven sync)
   useEffect(() => {
-    DocumentSyncService.setUserGetter(() => user);
-    DocumentSyncService.setTokenGetter(() => token);
-    DocumentSyncService.setIsAuthenticatedGetter(() => isAuthenticated);
+    if (!justLoggedInRef.current) {
+      const detail = {user, token, isAuthenticated};
+      window.dispatchEvent(new CustomEvent('auth:changed', { detail }));
+    }
   }, [user, isAuthenticated, token]);
+
+
   const [autosaveEnabled, setAutosaveEnabledState] = useState(() => {
     const saved = localStorage.getItem("autosaveEnabled");
     return saved === null ? true : saved === "true";
@@ -147,24 +172,62 @@ export function AuthProvider({ children }) {
 
   // Auth actions
   const login = useCallback(async (email, password) => {
-    const data = await UserAPI.login(email, password);
-    setToken(data.token);
+    const loginResponse = await UserAPI.login(email, password);
+    if (loginResponse.mfa_required) {
+      setShowLoginModal(false);
+      setPendingEmail(email);
+      setPendingPassword(password);
+      setShowMFAModal(true);
+      return loginResponse;
+    }
     justLoggedInRef.current = true;
-    await fetchCurrentUser(data.token);
-
-    // Initialize DocumentManager with authentication
-    await DocumentManager.handleLogin(data.token);
-
-    // Sync custom dictionary after successful login
+    setToken(loginResponse.access_token);
+    setUser(loginResponse.user || defaultUser);
+    await fetchCurrentUser(loginResponse.access_token);
+    window.dispatchEvent(new CustomEvent('auth:login', {
+      detail: {
+        user: loginResponse.user,
+        token: loginResponse.access_token
+      }
+    }));
     try {
       await CustomDictionarySyncService.syncAfterLogin();
     } catch (error) {
       console.error('Dictionary sync failed after login:', error);
-      // Don't fail the login process if dictionary sync fails
     }
-
-    return data;
+    setShowLoginModal(false);
+    setLoginEmail("");
+    justLoggedInRef.current = false;
+    return loginResponse;
   }, [setToken, fetchCurrentUser]);
+  // MFA verification handler
+  const verifyMFA = useCallback(async (code) => {
+    setMFALoading(true);
+    setMFAError("");
+    try {
+      const response = await UserAPI.loginMFA(pendingEmail, pendingPassword, code);
+      if (response) {
+        setShowMFAModal(false);
+        setPendingEmail("");
+        setPendingPassword("");
+        setToken(response.token);
+        justLoggedInRef.current = true;
+        await fetchCurrentUser(response.token);
+        window.dispatchEvent(new CustomEvent('auth:login', { detail: { user, token } }));
+        try {
+          await CustomDictionarySyncService.syncAfterLogin();
+        } catch (error) {
+          console.error('Dictionary sync failed after MFA login:', error);
+        }
+      } else {
+        setMFAError(response.message || "Verification failed.");
+      }
+    } catch (error) {
+      setMFAError(error.message || "Verification failed.");
+    } finally {
+      setMFALoading(false);
+    }
+  }, [pendingEmail, pendingPassword, setToken, fetchCurrentUser]);
 
   const loginMFA = useCallback(async (email, password, code) => {
     const data = await UserAPI.loginMFA(email, password, code);
@@ -208,18 +271,35 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     // Try normal logout first (will show modal if sync pending)
-    const logoutCompleted = await DocumentManager.handleLogout();
+    let delayLogoutReceived = false;
+    let modalConfig = null;
 
-    if (logoutCompleted) {
-      // Normal logout completed
-      setToken(null);
-      setUser(null);
+    const handleDelayLogout = (event) => {
+      delayLogoutReceived = true;
+      modalConfig = event.detail;
+      setLogoutModalConfig(modalConfig);
+      setShowLogoutModal(true);
+      window.removeEventListener('auth:delayLogout', handleDelayLogout);
+    };
 
-      // Clear custom dictionary when logging out
-      // Keep local words for anonymous usage
-      // CustomDictionarySyncService.clearLocal(); // Uncomment if you want to clear local dictionary on logout
-    }
+    window.addEventListener('auth:delayLogout', handleDelayLogout);
+    window.dispatchEvent(new CustomEvent('auth:logout'));
+
+    setTimeout(() => {
+      window.removeEventListener('auth:delayLogout', handleDelayLogout);
+      if (!delayLogoutReceived) {
+        setToken(null);
+        setUser(defaultUser);
+        // CustomDictionarySyncService.clearLocal(); Should listen for the logout-comp event instead
+      }
+    }, 500);
     // If logout was deferred due to pending sync, the modal will handle it
+  }, []);
+
+  const performLogout = useCallback(() => {
+    setToken(null);
+    setUser(defaultUser);
+    window.dispatchEvent(new CustomEvent('auth:logout-complete'));
   }, [setToken, setUser]);
 
   // Handle force logout from the modal
@@ -303,6 +383,8 @@ export function AuthProvider({ children }) {
       setUser(null);
     }
   }, [token, fetchCurrentUser, setUser, logout]);
+
+
   // Sync profile settings to localStorage and backend
   useEffect(() => {
     localStorage.setItem("autosaveEnabled", autosaveEnabled);
@@ -339,8 +421,40 @@ export function AuthProvider({ children }) {
     setAutosaveEnabled: setAutosaveEnabledState,
     syncPreviewScrollEnabled,
     setSyncPreviewScrollEnabled: setSyncPreviewScrollEnabledState,
-  }), [user, token, isAuthenticated, setUser, setToken, login, loginMFA, register, logout, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset, autosaveEnabled, syncPreviewScrollEnabled]);
-
+    // Modal controls
+    showLoginModal,
+    setShowLoginModal,
+    showMFAModal,
+    setShowMFAModal,
+    loginEmail,
+    setLoginEmail,
+    pendingEmail,
+    setPendingEmail,
+    pendingPassword,
+    setPendingPassword,
+    mfaLoading,
+    mfaError,
+    verifyMFA,
+  }), [user, token, isAuthenticated, setUser, setToken, login, loginMFA, register, logout, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset, autosaveEnabled, syncPreviewScrollEnabled, showLoginModal, showMFAModal, loginEmail, pendingEmail, pendingPassword, mfaLoading, mfaError, verifyMFA]);
+  // Password reset logic for modal
+  const passwordResetApi = {
+    request: async (email) => {
+      const res = await UserAPI.resetPassword(email);
+      console.log(res);
+      if (res.debug_token) setDevMode(true);
+      return res;
+    },
+    verify: async () => {
+      // No API call for step 2; always succeed (just UI step)
+      return { success: true };
+    },
+    setPassword: async ({ code, newPassword }) => {
+      // Step 3: Pass code (token) and new password to backend
+      const res = await UserAPI.resetPasswordVerify(code, newPassword);
+      if (res && (res.message || res.success)) return { success: true };
+      return { success: false, message: res?.message || "Failed to reset password." };
+    },
+  };
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
@@ -348,6 +462,34 @@ export function AuthProvider({ children }) {
         show={showLogoutModal}
         onForceLogout={handleForceLogout}
         onCanceled={handleLogoutCanceled}
+      />
+      {/* Auth modals */}
+      <PasswordResetModal
+        show={showPasswordResetModal}
+        onHide={() => {
+          setShowPasswordResetModal(false);
+          setShowLoginModal(true);
+        }}
+        onReset={passwordResetApi}
+        devMode={devMode}
+      />
+      <LoginModal
+        show={showLoginModal}
+        onHide={() => setShowLoginModal(false)}
+        onForgotPassword={() => setShowPasswordResetModal(true)}
+        onLogin={login}
+        email={loginEmail}
+      />
+      <VerifyMFAModal
+        show={showMFAModal}
+        onHide={() => setShowMFAModal(false)}
+        onVerify={verifyMFA}
+        loading={mfaLoading}
+        error={mfaError}
+        onBack={() => {
+          setShowMFAModal(false);
+          setShowLoginModal(true);
+        }}
       />
     </AuthContext.Provider>
   );

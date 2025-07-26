@@ -1,5 +1,5 @@
 import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
-import PerformanceOptimizer from "./services/PerformanceOptimizer";
+import PerformanceOptimizer from "./PerformanceOptimizer";
 
 class Editor {
   async setup(domNode, value, theme){
