@@ -90,36 +90,6 @@ class StorageEventHandler {
     const SyncService = (await import('./DocumentSyncService.js')).default;
 
     switch (type) {
-      case 'login':
-        // Initialize sync service with auth info
-        SyncService.initialize(true, data.token);
-
-        // Perform initial sync
-        try {
-          await Promise.all([
-            SyncService.syncAllDocuments(),
-            SyncService.syncUserSettings(),
-            SyncService.syncCategories()
-          ]);
-        } catch (error) {
-          console.error('Initial sync failed:', error);
-          // Emit error event for user notification
-          this._emitErrorEvent('Initial sync failed. Some changes may not be saved to the server.');
-        }
-        break;
-
-      case 'logout':
-        // First, immediately clear sync service to prevent any ongoing operations
-        SyncService.clearQueue();
-        SyncService.initialize(false, null);
-
-        // Then clear local storage
-        const LocalStorage = (await import('./LocalDocumentStorage.js')).default;
-        LocalStorage.clearAllData();
-
-        console.log('Logout complete: sync stopped and local data cleared');
-        break;
-
       case 'token-refresh':
         // Update token in sync service
         SyncService.initialize(true, data.token);

@@ -1,55 +1,70 @@
 // Handles synchronization between localStorage and backend
 // Operates independently of local storage operations
+import { notification } from "@/services/EventDispatchService.js";
 
 class DocumentSyncService {
   constructor() {
-    this.getIsAuthenticated = null;
-    this.getToken = null;
+    this.isAuthenticated = false;
+    this.token = null;
     this.syncQueue = [];
     this.isProcessingQueue = false;
     this.maxRetries = 3;
     this.retryDelay = 1000; // 1 second base delay
-    this.getUser = null; // callback for user/profile
+    this.user = null;
     this._lastIsAuthenticated = false; // Track last known authentication state
 
-  }
+    window.addEventListener('auth:changed', (event) => {
+      const { user, token, isAuthenticated } = event.detail;
+      // Update internal state
+      this.user = user;
+      this.token = token;
+      this.isAuthenticated = isAuthenticated;
+      this._checkAuthenticationChange();
+    });
 
-  setUserGetter(fn) {
-    this.getUser = fn;
-  }
+    window.addEventListener('auth:login', (event) => {
+      const { user, token } = event.detail;
+      this.user = user;
+      this.token = token;
+      this.isAuthenticated = true;
+      this._checkAuthenticationChange();
+      (async () => {
+        try {
+          await Promise.all([
+            this.syncAllDocuments(),
+            this.syncUserSettings(),
+            this.syncCategories()
+          ]);
+        } catch (error) {
+          console.error('Initial sync failed:', error);
+          notification.error('Initial sync failed. Some changes may not be saved to the server.');
+        }
+      })();
 
-  setTokenGetter(fn) {
-    this.getToken = fn;
-  }
-
-  setIsAuthenticatedGetter(fn) {
-    this.getIsAuthenticated = fn;
-    this._checkAuthenticationChange();
+      window.addEventListener('auth:logout-complete', () => {
+        // First, immediately clear sync service to prevent any ongoing operations
+        this.clearQueue();
+        (async () => {
+          // Then clear local storage
+          const LocalStorage = (await import('./LocalDocumentStorage.js')).default;
+          LocalStorage.clearAllData();
+        })();
+        console.log('Logout complete: sync stopped and local data cleared');
+        this._checkAuthenticationChange();
+      });
+    });
   }
 
   _checkAuthenticationChange() {
-    const isAuthenticated = this.getIsAuthenticated();
-    if (isAuthenticated && !this._lastIsAuthenticated){
+    if (this.isAuthenticated && !this._lastIsAuthenticated){
       this.processQueue();
     }
-    this._lastIsAuthenticated = isAuthenticated;
+    this._lastIsAuthenticated = this.isAuthenticated;
   }
-
-  // initialize(isAuthenticated, token) {
-  //   console.log('[DocumentSyncService] initialize called. isAuthenticated:', isAuthenticated, 'token:', token);
-  //   this.isAuthenticated = isAuthenticated;
-  //   this.token = token;
-  //   if (isAuthenticated) {
-  //     console.log('[DocumentSyncService] Authenticated. Processing sync queue.');
-  //     this.processQueue();
-  //   } else {
-  //     console.log('[DocumentSyncService] Not authenticated. Sync queue will not process.');
-  //   }
-  // }
 
   // Queue operations for sync
   queueDocumentSync(document) {
-    if (!this.getIsAuthenticated()) {
+    if (!this.isAuthenticated) {
       console.log('Skipping document sync: not authenticated');
       return;
     }
@@ -64,7 +79,7 @@ class DocumentSyncService {
   }
 
   queueDocumentDelete(id) {
-    if (!this.getIsAuthenticated()) {
+    if (!this.isAuthenticated) {
       console.log('Skipping document delete sync: not authenticated');
       return;
     }
@@ -80,7 +95,7 @@ class DocumentSyncService {
 
   queueCurrentDocumentSync(documentId) {
     console.log('[DocumentSyncService] queueCurrentDocumentSync called with documentId:', documentId);
-    if (!this.getIsAuthenticated()) {
+    if (!this.isAuthenticated) {
       console.log('[DocumentSyncService] Skipping current document sync: not authenticated');
       return;
     }
@@ -95,7 +110,7 @@ class DocumentSyncService {
   }
 
   queueCategorySync(operation, data) {
-    if (!this.getIsAuthenticated()) {
+    if (!this.isAuthenticated) {
       console.log('Skipping category sync: not authenticated');
       return;
     }
@@ -111,10 +126,10 @@ class DocumentSyncService {
 
   // Full sync operations
   async syncAllDocuments() {
-    if (!this.getIsAuthenticated()) return [];
+    if (!this.isAuthenticated) return [];
 
     try {
-      const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+      const DocumentsApi = (await import("../api/documentsApi.js")).default;
       const LocalStorage = (await import("./LocalDocumentStorage.js")).default;
 
       // Get backend documents
@@ -198,14 +213,14 @@ class DocumentSyncService {
   }
 
   async syncUserSettings() {
-    if (!this.getIsAuthenticated()) return;
+    if (!this.isAuthenticated) return;
 
     try {
-      const UserApi = (await import("../js/api/userApi.js")).default;
+      const UserApi = (await import("../api/userApi.js")).default;
       const LocalStorage = (await import("./LocalDocumentStorage.js")).default;
 
       // Use context user/profile if available
-      const userProfile = this.getUser ? this.getUser() : null;
+      const userProfile = this.user ? this.user : null;
       if (!userProfile) return;
 
       // Sync settings
@@ -252,10 +267,10 @@ class DocumentSyncService {
   }
 
   async syncCategories() {
-    if (!this.getIsAuthenticated()) return;
+    if (!this.isAuthenticated) return;
 
     try {
-      const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+      const DocumentsApi = (await import("../api/documentsApi.js")).default;
       const LocalStorage = (await import("./LocalDocumentStorage.js")).default;
 
       const [backendCategories] = await Promise.all([
@@ -285,7 +300,7 @@ class DocumentSyncService {
 
   // Process the sync queue
   async processQueue() {
-    if (this.isProcessingQueue || !this.getIsAuthenticated() || this.syncQueue.length === 0) {
+    if (this.isProcessingQueue || !this.isAuthenticated || this.syncQueue.length === 0) {
       return;
     }
 
@@ -294,7 +309,7 @@ class DocumentSyncService {
     // Emit queue start event
     this._emitQueueProgress();
 
-    while (this.syncQueue.length > 0 && this.getIsAuthenticated()) {
+    while (this.syncQueue.length > 0 && this.isAuthenticated) {
       const operation = this.syncQueue.shift();
 
       try {
@@ -315,7 +330,7 @@ class DocumentSyncService {
         if (operation.retryCount < this.maxRetries) {
           // Re-queue for retry with exponential backoff
           setTimeout(() => {
-            if (this.getIsAuthenticated()) { // Only retry if still authenticated
+            if (this.isAuthenticated) { // Only retry if still authenticated
               this.syncQueue.push(operation);
               this.processQueue();
             }
@@ -333,7 +348,7 @@ class DocumentSyncService {
     this._emitQueueProgress();
 
     // If queue is empty and logout is pending, complete it
-    if (this.syncQueue.length === 0 && !this.getIsAuthenticated()) {
+    if (this.syncQueue.length === 0 && !this.isAuthenticated) {
       window.dispatchEvent(new CustomEvent('markdown-manager:logout-ready'));
     }
   }
@@ -341,11 +356,11 @@ class DocumentSyncService {
   // Private methods
   async _processOperation(operation) {
     // Double-check authentication before processing
-    if (!this.getIsAuthenticated() || !this.token) {
+    if (!this.isAuthenticated || !this.token) {
       throw new Error('Not authenticated');
     }
 
-    const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+    const DocumentsApi = (await import("../api/documentsApi.js")).default;
 
     switch (operation.type) {
       case 'document:save':
@@ -376,7 +391,7 @@ class DocumentSyncService {
   }
 
   async _syncDocument(document) {
-    const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+    const DocumentsApi = (await import("../api/documentsApi.js")).default;
 
     if (!document.id || String(document.id).startsWith("doc_")) {
       // Create new document
@@ -403,7 +418,7 @@ class DocumentSyncService {
   }
 
   async _syncCurrentDocumentId(documentId) {
-    const DocumentsApi = (await import("../js/api/documentsApi.js")).default;
+    const DocumentsApi = (await import("../api/documentsApi.js")).default;
     console.log('[DocumentSyncService] _syncCurrentDocumentId: sending to backend:', documentId);
     try {
       const result = await DocumentsApi.setCurrentDocumentId(documentId);

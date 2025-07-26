@@ -37,7 +37,7 @@ When using GitHub Copilot Chat in this repository to write or review React + Rea
     Adopt TypeScript or PropTypes, configure ESLint (hooks + a11y plugins), and write behavior-driven tests with Jest + React Testing Library.
 
 11. **Understand API Integration**
-    All API calls should be made using the frontend/src/js/api helper libraries. This ensures consistency and maintainability across the codebase.
+    All API calls should be made using the frontend/src/api helper libraries. This ensures consistency and maintainability across the codebase.
 
 12. **Management of Document Storage**
     Use the `frontend/src/storage/DocumentManager` module for all document storage operations. This module provides a consistent interface for managing documents, ensuring that all storage operations are handled uniformly across the application. The system is now modular with separate services for local storage, sync, and event handling.

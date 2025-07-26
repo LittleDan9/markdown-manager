@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal, Button, Form, Alert } from "react-bootstrap";
 
 function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp }) {
@@ -7,7 +7,7 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   // Update email field if emailProp changes while modal is open
-  React.useEffect(() => {
+  useEffect(() => {
     if (show) {
       setEmail(emailProp || "");
     }
@@ -22,7 +22,7 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
       if (!email || !password) {
         setError("Email and password are required.");
       } else {
-        await (onLogin ? onLogin({ email, password }) : Promise.resolve());
+        await (onLogin ? onLogin(email, password) : Promise.resolve());
         setEmail("");
         setPassword("");
         onHide();

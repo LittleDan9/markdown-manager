@@ -98,6 +98,9 @@ module.exports = {
   },
   resolve: {
     extensions: ['.js', '.jsx', '.tsx', '.ts'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
   },
   plugins: [
     new CompressionPlugin(),

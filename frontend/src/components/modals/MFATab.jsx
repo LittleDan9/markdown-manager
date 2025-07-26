@@ -3,7 +3,7 @@ import { Alert } from "react-bootstrap";
 import MFAModal from "./MFAModal";
 import BackupCodesSection from "./BackupCodesSection";
 import DisableMFASection from "./DisableMFASection";
-import userApi from "../../js/api/userApi";
+import userApi from "../../api/userApi";
 import { useAuth } from "../../context/AuthProvider";
 import { useNotification } from "../NotificationProvider";
 

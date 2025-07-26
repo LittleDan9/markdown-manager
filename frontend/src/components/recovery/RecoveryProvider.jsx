@@ -44,7 +44,7 @@ export function RecoveryProvider({ children }) {
   async function handleSave(doc, token) {
     // Save recovered doc to backend (create new or update)
     try {
-      const DocumentsApi = (await import("../../js/api/documentsApi.js")).default;
+      const DocumentsApi = (await import("../../api/documentsApi.js")).default;
       if (!doc.document_id || String(doc.document_id).startsWith("doc_")) {
         // New document, create
         await DocumentsApi.createDocument({
@@ -72,7 +72,7 @@ export function RecoveryProvider({ children }) {
   async function handleOverwrite(doc, token) {
     // Overwrite backend doc with recovered content
     try {
-      const DocumentsApi = (await import("../../js/api/documentsApi.js")).default;
+      const DocumentsApi = (await import("../../api/documentsApi.js")).default;
       await DocumentsApi.updateDocument(doc.document_id, {
         name: doc.name,
         content: doc.content,
@@ -111,7 +111,7 @@ export function RecoveryProvider({ children }) {
     setLoading(true);
     setError("");
     try {
-      const RecoveryApi = (await import("../../js/api/recoveryApi.js")).default;
+      const RecoveryApi = (await import("../../api/recoveryApi.js")).default;
       const docs = await RecoveryApi.fetchRecoveredDocs(userId, token);
       setRecoveredDocs(docs);
     } catch (e) {
@@ -125,7 +125,7 @@ export function RecoveryProvider({ children }) {
     setLoading(true);
     setError("");
     try {
-      const RecoveryApi = (await import("../../js/api/recoveryApi.js")).default;
+      const RecoveryApi = (await import("../../api/recoveryApi.js")).default;
       await RecoveryApi.resolveRecoveryDoc(docId, token);
       setRecoveredDocs(prev => prev.filter(doc => doc.id !== docId));
     } catch (e) {

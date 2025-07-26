@@ -9,7 +9,7 @@ import { useTheme } from "../../context/ThemeContext";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
-  const { user, setUser } = useAuth();
+  const { user, setUser, logout } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
@@ -35,10 +35,13 @@ function UserMenuLoggedIn() {
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("authToken");
-    localStorage.removeItem("tokenType");
-    setUser(null);
-    showSuccess("You have been logged out.");
+    logout().then(() => {
+      showSuccess("You have been logged out.");
+    });
+    // localStorage.removeItem("authToken");
+    // localStorage.removeItem("tokenType");
+    // setUser(null);
+    // showSuccess("You have been logged out.");
   };
 
   return (
