@@ -12,7 +12,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const [html, setHtml] = useState("");
-  const previewRef = useRef(null);
+  const previewScrollRef = useRef(null);
   const { previewHTML, setPreviewHTML } = usePreviewHTML();
   const mermaidRendering = useRef(false);
 
@@ -83,8 +83,8 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
 
   // Scroll to line if requested without highlight effect
   useEffect(() => {
-    if (scrollToLine && previewRef.current) {
-      const el = previewRef.current.querySelector(`[data-line='${scrollToLine}']`);
+    if (scrollToLine && previewScrollRef.current) {
+      const el = previewScrollRef.current.querySelector(`[data-line='${scrollToLine}']`);
       if (el) {
         el.scrollIntoView({ behavior: "smooth", block: "center" });
       }
@@ -120,8 +120,8 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
 
   return (
     <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>
-      <div id="preview" ref={previewRef}>
-        <div className="preview-scroll" dangerouslySetInnerHTML={{ __html: previewHTML }}></div>
+      <div id="preview">
+        <div className="preview-scroll" ref={previewScrollRef} dangerouslySetInnerHTML={{ __html: previewHTML }}></div>
       </div>
     </div>
   );

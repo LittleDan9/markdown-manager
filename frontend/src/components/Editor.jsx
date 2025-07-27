@@ -396,7 +396,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
               }
 
               // Re-run spell check to update markers
-              runSpellCheck(monacoInstanceRef.current);
+              runFullSpellCheck(monacoInstanceRef.current);
 
             } catch (error) {
               console.error('Error adding word to dictionary:', error);
