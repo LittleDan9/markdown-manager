@@ -13,6 +13,9 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import useAutoSave from "../hooks/useAutoSave";
 
 function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange }) {
+  // Track regions modified during full spell check
+  const modifiedRegionsRef = useRef([]);
+  const fullSpellCheckInProgressRef = useRef(false);
   const editorRef = useRef(null);
   const monacoInstanceRef = useRef(null);
   const spellDebounceRef = useRef(null);
@@ -56,6 +59,8 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
 
   // Full document spell check (independent function)
   const runFullSpellCheck = async (editorInstance, textOverride) => {
+    fullSpellCheckInProgressRef.current = true;
+    modifiedRegionsRef.current = [];
     if (!editorInstance) return;
     const text = textOverride ?? editorInstance.getValue();
     const strategy = PerformanceOptimizer.getSpellCheckStrategy(text);
@@ -63,6 +68,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     if (!strategy.enabled) {
       monaco.editor.setModelMarkers(editorInstance.getModel(), "spell", []);
       if (strategy.message) showWarning(strategy.message);
+      fullSpellCheckInProgressRef.current = false;
       return;
     }
     suggestionsMapRef.current.clear();
@@ -70,14 +76,35 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     const documentSize = text.length;
     const hasLotsOfCode = (text.match(/```/g) || []).length > 4;
     const hasLotsOfTechnicalTerms = (text.match(/[A-Z]{2,}/g) || []).length > 20;
+    // Use worker for large documents or technical content
     if (hasLotsOfCode || hasLotsOfTechnicalTerms || documentSize > 5000) {
       try {
-        const issues = SpellCheckService.check(text);
-        const limitedIssues = issues.slice(0, 20);
+        setSpellCheckProgress({ progress: 0, message: 'Spell checking in background...' });
+        // Use async worker-based spell check with progress callback
+        const { checkAsync } = await import('../services/SpellCheckService.worker');
+        await SpellCheckService.init();
+        const customWords = SpellCheckService.getCustomWords();
+        const issues = await checkAsync(
+          text,
+          customWords,
+          ({ progress, currentChunk, totalChunks }) => {
+            setSpellCheckProgress({
+              progress: progress * 100,
+              message: `Spell checking... ${currentChunk}/${totalChunks} chunks`
+            });
+          }
+        );
+        setSpellCheckProgress(null);
+        const limitedIssues = issues.slice(0, 500);
         applySpellCheckResults(editorInstance, limitedIssues);
+        fullSpellCheckInProgressRef.current = false;
+        // Catch up: process modified regions
+        await processModifiedRegions(editorInstance);
       } catch (error) {
+        setSpellCheckProgress(null);
         console.error('Spell check error:', error);
         showWarning('Spell check failed - document may contain too many technical terms');
+        fullSpellCheckInProgressRef.current = false;
       }
       return;
     }
@@ -94,13 +121,49 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         (allResults) => {
           setSpellCheckProgress(null);
           applySpellCheckResults(editorInstance, allResults);
+          fullSpellCheckInProgressRef.current = false;
+          // Catch up: process modified regions
+          processModifiedRegions(editorInstance);
         }
       );
     } else {
+      // For small documents, use synchronous spell check
       const issues = SpellCheckService.check(text);
       applySpellCheckResults(editorInstance, issues);
+      fullSpellCheckInProgressRef.current = false;
+      // Catch up: process modified regions
+      await processModifiedRegions(editorInstance);
     }
   };
+
+  // Helper to process all modified regions after full spell check
+  const processModifiedRegions = async (editorInstance) => {
+    // Merge overlapping/adjacent regions
+    const merged = mergeRegions(modifiedRegionsRef.current);
+    for (const region of merged) {
+      await runRegionSpellCheck(editorInstance, region, 100);
+    }
+    modifiedRegionsRef.current = [];
+  };
+
+  // Merge overlapping/adjacent regions
+  function mergeRegions(regions) {
+    if (regions.length === 0) return [];
+    // Sort by startOffset
+    const sorted = regions.slice().sort((a, b) => a.startOffset - b.startOffset);
+    const merged = [sorted[0]];
+    for (let i = 1; i < sorted.length; i++) {
+      const last = merged[merged.length - 1];
+      const curr = sorted[i];
+      if (curr.startOffset <= last.endOffset) {
+        // Overlap/adjacent: merge
+        last.endOffset = Math.max(last.endOffset, curr.endOffset);
+      } else {
+        merged.push({ ...curr });
+      }
+    }
+    return merged;
+  }
 
   // Region-based spell check (n chars back/forward, terminate at whitespace)
   const runRegionSpellCheck = async (editorInstance, changeRange, n = 100) => {
@@ -187,7 +250,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     const model = editorInstance.getModel();
 
     // Limit the number of markers to prevent performance issues
-    const maxMarkers = 100; // Limit to prevent Chrome freezing
+    const maxMarkers = 500; // Limit to prevent Chrome freezing
     const limitedIssues = issues.slice(0, maxMarkers);
 
     const markers = limitedIssues.map(({ word, suggestions, lineNumber, column }) => {
@@ -353,21 +416,23 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
             let finalValue = newValue;
             if (isUsingLazyLoad) finalValue = newValue;
             if (finalValue !== value) onChange(finalValue);
-            // Region-based spell check
+            // Region-based spell check or track region for catch-up
             if (spellDebounceRef.current) clearTimeout(spellDebounceRef.current);
             spellDebounceRef.current = setTimeout(() => {
-              // Use event.changes to get the changed range
+              if (isInitialLoadRef.current) return; // Suppress region spell check during initial load
               if (event && event.changes && event.changes.length > 0) {
-                // Use first change for region
                 const change = event.changes[0];
-                // Monaco provides rangeOffset and rangeLength
                 const changeRange = {
                   startOffset: change.rangeOffset,
                   endOffset: change.rangeOffset + change.text.length
                 };
-                runRegionSpellCheck(instance, changeRange, 100); // n=100
+                if (fullSpellCheckInProgressRef.current) {
+                  // Track region for catch-up
+                  modifiedRegionsRef.current.push(changeRange);
+                } else {
+                  runRegionSpellCheck(instance, changeRange, 100);
+                }
               } else {
-                // Fallback: full spell check
                 runFullSpellCheck(instance);
               }
             }, 1000);
@@ -437,6 +502,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
 
   // Update Monaco value if parent value changes (external update) - FIXED: Add ref to prevent loops
   const lastExternalValueRef = useRef(value);
+  const isInitialLoadRef = useRef(false);
   useEffect(() => {
     if (
       monacoInstanceRef.current &&
@@ -444,7 +510,11 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
       monacoInstanceRef.current.getValue() !== value
     ) {
       lastExternalValueRef.current = value;
+      isInitialLoadRef.current = true;
       monacoInstanceRef.current.setValue(value);
+      runFullSpellCheck(monacoInstanceRef.current, value).finally(() => {
+        isInitialLoadRef.current = false;
+      });
     }
   }, [value]);
 
