@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Dropdown, ButtonGroup } from "react-bootstrap";
 import FileOpenModal from "./FileOpenModal";
 import FileImportModal from "./FileImportModal";
@@ -27,10 +27,10 @@ export default function FileDropdown({ setDocumentTitle }) {
   const { showSuccess, showError } = useNotification();
   const { previewHTML } = usePreviewHTML();
   // Debug: Log previewHTML value on render
-  // React.useEffect(() => {
-  //   console.log('[FileDropdown] previewHTML:', previewHTML);
-  //   // Removed showSuccess from useEffect to prevent render loop
-  // }, [previewHTML]);
+  useEffect(() => {
+    // console.log('[FileDropdown] previewHTML:', previewHTML);
+    // Removed showSuccess from useEffect to prevent render loop
+  }, [previewHTML]);
 
   // Import modal controller
   const importController = useFileImportController({ setDocumentTitle });
@@ -96,8 +96,8 @@ export default function FileDropdown({ setDocumentTitle }) {
   // Log before export actions
   const handleExportPDF = () => {
     console.log('[FileDropdown] handleExportPDF called. previewHTML:', previewHTML);
-    showSuccess && showSuccess('Debug: handleExportPDF called');
-    exportController.handleExportPDF && exportController.handleExportPDF();
+    // exportController.handleExportPDF && exportController.handleExportPDF();
+    exportAsPDF(previewHTML, currentDocument.name, theme);
   };
 
   const handleNew = async () => {
@@ -193,8 +193,6 @@ export default function FileDropdown({ setDocumentTitle }) {
           </Dropdown.Item>
           <Dropdown.Item
             onClick={() => {
-              console.log('[Dropdown.Item] Export PDF clicked. previewHTML:', previewHTML);
-              showSuccess && showSuccess('Debug: Export PDF menu item clicked');
               handleExportPDF();
             }}
             disabled={!previewHTML || previewHTML === ""}

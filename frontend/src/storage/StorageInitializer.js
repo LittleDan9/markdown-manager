@@ -1,29 +1,14 @@
 // Migration and initialization script for the new storage system
 // Run this during app startup to ensure smooth transition
 
+import { notification } from '@/services/EventDispatchService.js';
 import DocumentManager from './storage/DocumentManager.js';
-import StorageMigration from './storage/StorageMigration.js';
 
 class StorageInitializer {
   static async initialize() {
     console.log('Initializing document storage system...');
 
     try {
-      // 1. Check and run migration if needed
-      if (!StorageMigration.isMigrationComplete()) {
-        console.log('Running storage migration...');
-        const migrationResult = await StorageMigration.migrateFromOldSystem();
-
-        if (migrationResult.success) {
-          console.log(`Migration successful: ${migrationResult.message}`);
-        } else {
-          console.error(`Migration failed: ${migrationResult.message}`);
-          // Continue anyway, new system should work
-        }
-      } else {
-        console.log('Storage migration already complete');
-      }
-
       // 2. Initialize DocumentManager
       await DocumentManager.initialize();
       console.log('DocumentManager initialized');
@@ -32,7 +17,9 @@ class StorageInitializer {
       const cleanup = DocumentManager.onError((message) => {
         console.error('Storage error:', message);
         // You can integrate with your notification system here
-        // NotificationProvider.showError(message);
+        notification.error({
+          message: 'Storage Error: ' + message,
+       });
       });
 
       // 4. Return cleanup function for app shutdown
@@ -62,31 +49,6 @@ class StorageInitializer {
     if (process.env.NODE_ENV === 'development') {
       console.log('Migration complete. Update any remaining references to use DocumentManager instead.');
     }
-  }
-
-  // Emergency rollback if something goes wrong
-  static async rollback() {
-    try {
-      const result = StorageMigration.restoreFromBackup();
-      if (result.success) {
-        console.log('Successfully rolled back to old storage format');
-        // Reload the page to use old system
-        window.location.reload();
-      } else {
-        console.error('Rollback failed:', result.error);
-      }
-    } catch (error) {
-      console.error('Rollback error:', error);
-    }
-  }
-
-  // Get migration status for debugging
-  static getMigrationStatus() {
-    return {
-      isComplete: StorageMigration.isMigrationComplete(),
-      backup: StorageMigration.getBackupInfo(),
-      currentSystem: 'modular'
-    };
   }
 }
 

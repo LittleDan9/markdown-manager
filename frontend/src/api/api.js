@@ -11,11 +11,11 @@ export class Api {
     return localStorage.getItem("authToken");
   }
 
-  async apiCall(endpoint, method = "GET", body = null, extraHeaders = {}) {
+  async apiCall(endpoint, method = "GET", body = null, extraHeaders = {}, options = {}) {
     const url = `${this.apiBase}${endpoint}`;
     const headers = {
       "Content-Type": "application/json",
-      ...extraHeaders,
+      ...extraHeaders
     };
     const token = this.getToken();
     if (token) {
@@ -26,6 +26,7 @@ export class Api {
       url,
       headers,
       data: body,
+      ...options
     };
     // Remove data for GET requests
     if (method === "GET") delete config.data;

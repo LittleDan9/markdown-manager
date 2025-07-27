@@ -34,7 +34,7 @@ export default function useSyncDocuments({
       } catch (e) {
         // Handle authentication errors gracefully
         if (e?.response?.status === 403 || e?.message?.includes('authentication')) {
-          console.log('Authentication error during sync, user may have been logged out');
+          console.error('Authentication error during sync, user may have been logged out');
           return; // Exit early, don't show error
         }
 
@@ -48,25 +48,14 @@ export default function useSyncDocuments({
       }
       const docs = DocumentManager.getAllDocuments();
       const cats = DocumentManager.getCategories();
-      console.log('[useSyncDocuments] setDocuments called. docs.length:', docs.length, 'First doc:', docs[0]);
       if (typeof window !== 'undefined') {
         window._lastDocs = window._lastDocs || [];
-        if (JSON.stringify(window._lastDocs) !== JSON.stringify(docs)) {
-          console.log('[useSyncDocuments] setDocuments: docs changed');
-        } else {
-          console.log('[useSyncDocuments] setDocuments: docs did NOT change');
-        }
         window._lastDocs = docs;
       }
       setDocuments(docs);
-      console.log('[useSyncDocuments] setCategories called. cats:', cats);
+
       if (typeof window !== 'undefined') {
         window._lastCats = window._lastCats || [];
-        if (JSON.stringify(window._lastCats) !== JSON.stringify(cats)) {
-          console.log('[useSyncDocuments] setCategories: cats changed');
-        } else {
-          console.log('[useSyncDocuments] setCategories: cats did NOT change');
-        }
         window._lastCats = cats;
       }
       setCategories(cats);
