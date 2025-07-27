@@ -119,10 +119,10 @@ self.onmessage = async function(e) {
     }
     // Debug: log issues found in this chunk
     if (chunkIssues > 0) {
-      console.log(`[SpellWorker] Chunk ${chunkIndex + 1}/${totalChunks}: Found ${chunkIssues} issues.`);
+      // console.log(`[SpellWorker] Chunk ${chunkIndex + 1}/${totalChunks}: Found ${chunkIssues} issues.`);
       if (issues.length > 0) {
         const sample = issues[issues.length - 1];
-        console.log(`[SpellWorker] Sample issue:`, sample);
+        // console.log(`[SpellWorker] Sample issue:`, sample);
       }
     }
     // Report progress
@@ -136,10 +136,10 @@ self.onmessage = async function(e) {
     if (chunkIndex + 1 < totalChunks) {
       setTimeout(() => processChunk(chunkIndex + 1), 10);
     } else {
-      console.log(`[SpellWorker] Spell check complete. Total issues: ${issues.length}`);
+      // console.log(`[SpellWorker] Spell check complete. Total issues: ${issues.length}`);
       if (issues.length > 0) {
-        console.log(`[SpellWorker] First issue:`, issues[0]);
-        console.log(`[SpellWorker] Last issue:`, issues[issues.length - 1]);
+        // console.log(`[SpellWorker] First issue:`, issues[0]);
+        // console.log(`[SpellWorker] Last issue:`, issues[issues.length - 1]);
       }
       self.postMessage({ type: 'complete', requestId, issues });
     }

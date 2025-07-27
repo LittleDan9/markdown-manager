@@ -1,4 +1,5 @@
 import mermaid from "mermaid";
+// import { transpileModule } from "typescript";
 // import MarkdownIt from "markdown-it";
 
 class MermaidService {
@@ -38,6 +39,10 @@ class MermaidService {
     }
   }
 
+  getTheme() {
+    return this.theme;
+  }
+
   isEmptyMermaidSVG(svgHtml) {
     const parser = new DOMParser();
     const svgElement = parser.parseFromString(svgHtml, "image/svg+xml").documentElement;
@@ -50,14 +55,15 @@ class MermaidService {
     );
   }
 
-  async render(previewElement, theme = null) {
+  async render(htmlString, theme = null) {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlString;
     if (theme && theme !== this.theme) {
       await this.updateTheme(theme);
     }
 
-    const mermaidBlocks = previewElement.querySelectorAll(".mermaid[data-mermaid-source][data-processed='false']");
+    const mermaidBlocks = tempDiv.querySelectorAll(".mermaid[data-mermaid-source][data-processed='false']");
     if (mermaidBlocks.length === 0) return;
-
     for (const block of mermaidBlocks) {
       // Decode the encoded source from data attribute
       const encodedSource = block.dataset.mermaidSource?.trim() || "";
@@ -92,6 +98,7 @@ class MermaidService {
         }
         block.setAttribute("data-processed", "true");
         this.diagramCache.set(diagramSource, svgElement.parentNode.outerHTML);
+        return tempDiv.innerHTML;
       } catch (error) {
         this.showError(block, error.message || "Failed to render diagram");
       }

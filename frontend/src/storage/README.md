@@ -135,18 +135,6 @@ The system uses custom events for communication:
 
 ### From Old DocumentStorage
 
-1. **Run Migration**:
-```javascript
-import StorageMigration from './storage/StorageMigration.js';
-
-if (!StorageMigration.isMigrationComplete()) {
-  const result = await StorageMigration.migrateFromOldSystem();
-  if (!result.success) {
-    console.error('Migration failed:', result.message);
-  }
-}
-```
-
 2. **Update Code**:
 ```javascript
 // OLD

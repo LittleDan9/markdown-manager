@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import DocumentManager from "../storage/DocumentManager";
-import StorageMigration from "../storage/StorageMigration";
 import UserAPI from "../api/userApi.js";
 import CustomDictionarySyncService from "../services/CustomDictionarySyncService";
 import LogoutProgressModal from "../components/LogoutProgressModal";
@@ -106,20 +105,6 @@ export function AuthProvider({ children }) {
   // Initialize DocumentManager on first load
   useEffect(() => {
     const initializeStorage = async () => {
-      // Check if migration is needed
-      if (!StorageMigration.isMigrationComplete()) {
-        try {
-          const migrationResult = await StorageMigration.migrateFromOldSystem();
-          if (!migrationResult.success) {
-            console.error('Storage migration failed:', migrationResult.message);
-          } else {
-            console.log('Storage migration completed successfully');
-          }
-        } catch (error) {
-          console.error('Storage migration error:', error);
-        }
-      }
-
       // Initialize the document manager
       await DocumentManager.initialize();
       DocumentManager.handleLogin(token);
@@ -159,7 +144,6 @@ export function AuthProvider({ children }) {
 
   // Helper to update user state
   const setUser = useCallback((value) => {
-    console.log('[AuthProvider] setUser called', value);
     if (value == null) {
       setUserState(defaultUser);
     } else {

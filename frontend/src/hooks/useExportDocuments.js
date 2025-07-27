@@ -26,6 +26,7 @@ export default function useExportDocuments(currentDocument, setLoading, setError
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (e) {
+      console.error('PDF export failed:', e);
       setError('PDF export failed');
     } finally {
       setLoading(false);

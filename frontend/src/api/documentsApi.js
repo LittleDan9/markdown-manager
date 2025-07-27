@@ -35,34 +35,12 @@ class DocumentsApi extends Api {
   }
 
   async exportAsPDF(htmlContent, documentName, isDarkMode = false) {
-    // Create a DOM that will allow extraction of all SVGs
-    // const dom = document.createElement("div");
-    // dom.innerHTML = htmlContent;
-
-    // // Find all <svg> elements with id starting with "mermaid-"
-    // const mermaidSvgs = dom.querySelectorAll('svg[id^="mermaid-"]');
-
-    // // Example: loop and update each SVG (replace with your logic)
-    // const jobs = mermaidSvgs.map(async (svg) => {
-    //   const dataUri = await this.svgToPngDataUri(svg)
-    //   // Replace the SVG with an <img> tag containing the PNG data URI
-    //   const img = document.createElement("img");
-    //   img.src = dataUri;
-    //   img.style.width = "100%"; // Optional: set width to 100% of container
-    //   img.style.height = "auto"; // Maintain aspect ratio
-    //   svg.replaceWith(img);
-    // });
-
-    // await Promise.all(jobs);
-
-    // After modifications, get the updated HTML
-    // const renderedHTML = dom.innerHTML;
     const requestData = {
       html_content: htmlContent,
       document_name: documentName,
       is_dark_mode: isDarkMode,
     };
-    const res = await this.apiCall(`/pdf/export`, "POST", requestData);
+    const res = await this.apiCall(`/pdf/export`, "POST", requestData, {}, { responseType: 'blob' });
     return res.data; // PDF binary or blob
   }
 

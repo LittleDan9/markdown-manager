@@ -49,7 +49,6 @@ class DocumentSyncService {
           const LocalStorage = (await import('./LocalDocumentStorage.js')).default;
           LocalStorage.clearAllData();
         })();
-        console.log('Logout complete: sync stopped and local data cleared');
         this._checkAuthenticationChange();
       });
     });
@@ -65,7 +64,6 @@ class DocumentSyncService {
   // Queue operations for sync
   queueDocumentSync(document) {
     if (!this.isAuthenticated) {
-      console.log('Skipping document sync: not authenticated');
       return;
     }
 
@@ -80,7 +78,6 @@ class DocumentSyncService {
 
   queueDocumentDelete(id) {
     if (!this.isAuthenticated) {
-      console.log('Skipping document delete sync: not authenticated');
       return;
     }
 
@@ -94,9 +91,7 @@ class DocumentSyncService {
   }
 
   queueCurrentDocumentSync(documentId) {
-    console.log('[DocumentSyncService] queueCurrentDocumentSync called with documentId:', documentId);
     if (!this.isAuthenticated) {
-      console.log('[DocumentSyncService] Skipping current document sync: not authenticated');
       return;
     }
     this.syncQueue.push({
@@ -105,13 +100,11 @@ class DocumentSyncService {
       retryCount: 0,
       timestamp: Date.now()
     });
-    console.log('[DocumentSyncService] Queued current-document:set operation:', { documentId });
     this.processQueue();
   }
 
   queueCategorySync(operation, data) {
     if (!this.isAuthenticated) {
-      console.log('Skipping category sync: not authenticated');
       return;
     }
 
@@ -319,7 +312,7 @@ class DocumentSyncService {
       } catch (error) {
         // If we get a 403 or authentication error, stop processing
         if (error.response?.status === 403 || error.message?.includes('authentication')) {
-          console.log('Authentication error during sync, stopping queue processing');
+          console.error('Authentication error during sync, stopping queue processing');
           this.clearQueue();
           break;
         }
@@ -419,13 +412,10 @@ class DocumentSyncService {
 
   async _syncCurrentDocumentId(documentId) {
     const DocumentsApi = (await import("../api/documentsApi.js")).default;
-    console.log('[DocumentSyncService] _syncCurrentDocumentId: sending to backend:', documentId);
     try {
       const result = await DocumentsApi.setCurrentDocumentId(documentId);
-      console.log('[DocumentSyncService] _syncCurrentDocumentId: backend response:', result);
       return result;
     } catch (error) {
-      console.error('[DocumentSyncService] _syncCurrentDocumentId: error:', error);
       throw error;
     }
   }
@@ -439,7 +429,6 @@ class DocumentSyncService {
 
   // Clear queue on logout
   clearQueue() {
-    console.log('Clearing sync queue and stopping authentication');
     this.syncQueue = [];
 
     this.token = null;
@@ -457,7 +446,6 @@ class DocumentSyncService {
 
   // Force stop all operations immediately
   forceStop() {
-    console.log('Force stopping all sync operations');
     this.clearQueue();
     // Emit event to notify any listeners
     window.dispatchEvent(new CustomEvent('markdown-manager:sync-force-stopped'));

@@ -5,15 +5,16 @@ import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../services/HighlightService";
 import MermaidService from "../services/MermaidService";
 import { usePreviewHTML } from "../context/PreviewHTMLContext";
+import mermaid from "mermaid";
 
 
 function Renderer({ content, scrollToLine, fullscreenPreview }) {
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks } = useDocument();
   const [html, setHtml] = useState("");
-  const prevHtmlRef = useRef("");
   const previewRef = useRef(null);
-  const { setPreviewHTML } = usePreviewHTML();
+  const { previewHTML, setPreviewHTML } = usePreviewHTML();
+  const mermaidRendering = useRef(false);
 
 
   // Render Markdown to HTML, replacing code blocks with highlighted HTML from context if available
@@ -50,12 +51,16 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
         blocksToHighlight.push({ code, language, placeholderId });
       }
     });
-    htmlString = tempDiv.innerHTML;
-    setHtml(htmlString);
-    prevHtmlRef.current = content;
     // Trigger highlight for unprocessed blocks
     if (blocksToHighlight.length > 0) {
       HighlightService.highlightBlocks(blocksToHighlight).then(results => {
+        blocksToHighlight.forEach(({ placeholderId }) => {
+          const block = tempDiv.querySelector(`[data-syntax-placeholder="${placeholderId}"]`);
+          if (block && results[placeholderId]) {
+            block.querySelector("code").innerHTML = results[placeholderId];
+            block.setAttribute("data-processed", "true");
+          }
+        });
         // Only update if there are new highlights
         const newHighlights = {};
         Object.entries(results).forEach(([id, html]) => {
@@ -66,7 +71,12 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
         if (Object.keys(newHighlights).length > 0) {
           setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
         }
+        htmlString = tempDiv.innerHTML;
+        setHtml(htmlString);
       });
+    } else {
+      htmlString = tempDiv.innerHTML;
+      setHtml(htmlString);
     }
     // Do NOT call onRenderHTML here; wait for Mermaid rendering below
   }, [content, highlightedBlocks]);
@@ -82,37 +92,36 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
   }, [scrollToLine, html]);
   // Process any new mermaid diagrams when html changes
   useEffect(() => {
-    if (previewRef.current) {
-      const unprocessedBlocks = previewRef.current.querySelectorAll("[data-mermaid-source][data-processed='false']");
-      if (unprocessedBlocks.length > 0) {
-        MermaidService.render(previewRef.current, theme).then(() => {
-            setPreviewHTML(previewRef.current.innerHTML);
+
+    if (mermaidRendering.current ) return; // Skip if already rendering
+
+    if( html && html.includes("data-mermaid-source") ){
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = html;
+      if( theme !== MermaidService.getTheme() ){
+        // Process Mermaid diagrams
+        const allBlocks = tempDiv.querySelectorAll("[data-mermaid-source]");
+        allBlocks.forEach(block => {
+          block.setAttribute("data-processed", "false");
         });
-      } else {
-        setPreviewHTML(previewRef.current.innerHTML);
       }
+      const unprocessedBlocks = tempDiv.querySelectorAll("[data-mermaid-source][data-processed='false']");
+      if (unprocessedBlocks.length > 0) {
+        mermaidRendering.current = true;
+        MermaidService.render(tempDiv.innerHTML, theme).then((updatedHtml) => {
+          mermaidRendering.current = false;
+          setPreviewHTML(updatedHtml);
+        });
+      }
+    } else {
+      setPreviewHTML(html);
     }
-  }, [html]);
+  }, [html, theme]);
 
-  // On theme change, force all diagrams to be reprocessed and rerendered
-  useEffect(() => {
-    if (previewRef.current) {
-      const allBlocks = previewRef.current.querySelectorAll("[data-mermaid-source]");
-      allBlocks.forEach(block => {
-        block.setAttribute("data-processed", "false");
-      });
-      MermaidService.render(previewRef.current, theme).then(() => {
-        setPreviewHTML(previewRef.current.innerHTML);
-      });
-
-    }
-  }, [theme]);
-
-  // ...existing code...
   return (
     <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>
       <div id="preview" ref={previewRef}>
-        <div className="preview-scroll" dangerouslySetInnerHTML={{ __html: html }}></div>
+        <div className="preview-scroll" dangerouslySetInnerHTML={{ __html: previewHTML }}></div>
       </div>
     </div>
   );
