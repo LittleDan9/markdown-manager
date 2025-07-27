@@ -54,39 +54,26 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     }
   }, [value, showWarning]); // CRITICAL FIX: Removed performanceInfo from dependencies
 
-  // RE-ENABLED: Spell check with conservative settings (cursor tracking disabled)
-  const runSpellCheck = async (editorInstance) => {
+  // Full document spell check (independent function)
+  const runFullSpellCheck = async (editorInstance, textOverride) => {
     if (!editorInstance) return;
-
-    const text = editorInstance.getValue();
+    const text = textOverride ?? editorInstance.getValue();
     const strategy = PerformanceOptimizer.getSpellCheckStrategy(text);
 
     if (!strategy.enabled) {
-      // Clear existing markers and show message
       monaco.editor.setModelMarkers(editorInstance.getModel(), "spell", []);
-      if (strategy.message) {
-        showWarning(strategy.message);
-      }
+      if (strategy.message) showWarning(strategy.message);
       return;
     }
-
-    // Clear existing markers
     suggestionsMapRef.current.clear();
     monaco.editor.setModelMarkers(editorInstance.getModel(), "spell", []);
-
-    // For technical documents with lots of specialized terms, be more conservative
     const documentSize = text.length;
-    const hasLotsOfCode = (text.match(/```/g) || []).length > 4; // More than 4 code blocks
-    const hasLotsOfTechnicalTerms = (text.match(/[A-Z]{2,}/g) || []).length > 20; // Lots of acronyms
-
+    const hasLotsOfCode = (text.match(/```/g) || []).length > 4;
+    const hasLotsOfTechnicalTerms = (text.match(/[A-Z]{2,}/g) || []).length > 20;
     if (hasLotsOfCode || hasLotsOfTechnicalTerms || documentSize > 5000) {
-      console.log("Technical document detected - using conservative spell check");
-
-      // For technical documents, use a more targeted approach
       try {
         const issues = SpellCheckService.check(text);
-        // Very conservative limit for technical documents to prevent performance problems
-        const limitedIssues = issues.slice(0, 20); // Even more conservative
+        const limitedIssues = issues.slice(0, 20);
         applySpellCheckResults(editorInstance, limitedIssues);
       } catch (error) {
         console.error('Spell check error:', error);
@@ -94,11 +81,8 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
       }
       return;
     }
-
     if (strategy.progressive) {
-      // Progressive spell check for larger documents
       setSpellCheckProgress({ progress: 0, message: strategy.message });
-
       await SpellCheckService.checkProgressive(
         text,
         (progress) => {
@@ -113,9 +97,88 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         }
       );
     } else {
-      // Normal spell check for smaller documents
       const issues = SpellCheckService.check(text);
       applySpellCheckResults(editorInstance, issues);
+    }
+  };
+
+  // Region-based spell check (n chars back/forward, terminate at whitespace)
+  const runRegionSpellCheck = async (editorInstance, changeRange, n = 100) => {
+    if (!editorInstance || !changeRange) return;
+    const text = editorInstance.getValue();
+    // Find region boundaries
+    let start = Math.max(0, changeRange.startOffset - n);
+    let end = Math.min(text.length, changeRange.endOffset + n);
+    // Move start backward to previous whitespace
+    while (start > 0 && !/\s/.test(text[start - 1])) start--;
+    // Move end forward to next whitespace
+    while (end < text.length && !/\s/.test(text[end])) end++;
+    const regionText = text.slice(start, end);
+    const model = editorInstance.getModel();
+    const startPos = model.getPositionAt(start);
+    const regionIssues = SpellCheckService.check(regionText);
+    // Map region issues to document positions
+    const mappedIssues = regionIssues.map(issue => ({
+      ...issue,
+      lineNumber: startPos.lineNumber + (issue.lineNumber - 1),
+      column: (issue.lineNumber === 1 ? startPos.column + issue.column - 1 : issue.column),
+      offset: issue.offset
+    }));
+
+    // Update suggestionsMap only for region
+    // 1. Build set of keys for region
+    const regionKeys = new Set(mappedIssues.map(i => `${i.lineNumber}:${i.column}`));
+    // 2. Remove any previous region keys that are no longer present
+    for (const key of suggestionsMapRef.current.keys()) {
+      // If key is in region and not in new issues, remove
+      const [line, col] = key.split(":").map(Number);
+      if (line >= startPos.lineNumber && line <= startPos.lineNumber + (end - start) && !regionKeys.has(key)) {
+        suggestionsMapRef.current.delete(key);
+      }
+    }
+    // 3. Add/update new region issues
+    mappedIssues.forEach(({ lineNumber, column, suggestions }) => {
+      const key = `${lineNumber}:${column}`;
+      suggestionsMapRef.current.set(key, suggestions);
+    });
+
+    // Only update markers in region
+    const existingMarkers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
+    // Calculate affected line/column range
+    const regionStartPos = model.getPositionAt(start);
+    const regionEndPos = model.getPositionAt(end);
+    // Remove markers that overlap with the region (by line/column)
+    const filteredMarkers = existingMarkers.filter(m => {
+      // If marker is completely outside region, keep it
+      if (m.endLineNumber < regionStartPos.lineNumber || m.startLineNumber > regionEndPos.lineNumber) return true;
+      // If marker is on region boundary, check columns
+      if (m.endLineNumber === regionStartPos.lineNumber && m.endColumn <= regionStartPos.column) return true;
+      if (m.startLineNumber === regionEndPos.lineNumber && m.startColumn >= regionEndPos.column) return true;
+      // Otherwise, marker overlaps region, so remove
+      return false;
+    });
+    // Add new region markers
+    const regionMarkers = mappedIssues.map(mappedIssue => {
+      const { word, suggestions, lineNumber, column } = mappedIssue;
+      const suggestionText = suggestions.length > 0 ? suggestions.slice(0, 3).join(", ") : "No suggestions";
+      return {
+        startLineNumber: lineNumber,
+        startColumn: column,
+        endLineNumber: lineNumber,
+        endColumn: column + word.length,
+        message: `"${word}" - ${suggestionText}`,
+        severity: monaco.MarkerSeverity.Warning
+      };
+    });
+    // Set all markers (outside region + new region markers)
+    monaco.editor.setModelMarkers(model, "spell", filteredMarkers.concat(regionMarkers));
+  };
+
+  // Helper for document load
+  const handleDocumentLoad = (newContent, runFullSpellCheckBool = true) => {
+    if (monacoInstanceRef.current) {
+      monacoInstanceRef.current.setValue(newContent);
+      if (runFullSpellCheckBool) runFullSpellCheck(monacoInstanceRef.current, newContent);
     }
   };
 
@@ -285,24 +348,29 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
             }
           }, 0);
 
-          instance.onDidChangeModelContent(() => {
+          instance.onDidChangeModelContent((event) => {
             const newValue = instance.getValue();
-
-            // For lazy-loaded documents, we need to merge changes back to original
             let finalValue = newValue;
-            if (isUsingLazyLoad) {
-              // For now, just pass through - in a full implementation we'd merge changes
-              // back to the original document structure
-              finalValue = newValue;
-            }
-
+            if (isUsingLazyLoad) finalValue = newValue;
             if (finalValue !== value) onChange(finalValue);
-
-            // Re-enabled: Conservative spell-check (cursor tracking disabled)
+            // Region-based spell check
             if (spellDebounceRef.current) clearTimeout(spellDebounceRef.current);
             spellDebounceRef.current = setTimeout(() => {
-              runSpellCheck(instance);
-            }, 1000); // 1 second debounce for safety
+              // Use event.changes to get the changed range
+              if (event && event.changes && event.changes.length > 0) {
+                // Use first change for region
+                const change = event.changes[0];
+                // Monaco provides rangeOffset and rangeLength
+                const changeRange = {
+                  startOffset: change.rangeOffset,
+                  endOffset: change.rangeOffset + change.text.length
+                };
+                runRegionSpellCheck(instance, changeRange, 100); // n=100
+              } else {
+                // Fallback: full spell check
+                runFullSpellCheck(instance);
+              }
+            }, 1000);
           });
 
           // RE-ENABLED: Cursor position tracking for preview scroll (with line change optimization)
