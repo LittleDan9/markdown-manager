@@ -112,6 +112,8 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
           mermaidRendering.current = false;
           setPreviewHTML(updatedHtml);
         });
+      } else {
+        setPreviewHTML(tempDiv.innerHTML);
       }
     } else {
       setPreviewHTML(html);
