@@ -62,7 +62,7 @@ function MFATab({ setActiveTab }) {
     setError("");
     try {
       const password = e.target.enablePassword.value;
-      const res = await userApi.confirmEnableMFA(password);
+      const res = await userApi.enableMFA(password);
       if (res.success) {
         // Fetch backup codes for step 4
         const codesRes = await userApi.getBackupCodes();

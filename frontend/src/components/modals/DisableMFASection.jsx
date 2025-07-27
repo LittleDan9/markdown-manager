@@ -1,11 +1,11 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
 import userApi from "../../api/userApi";
-import { useAuth } from "../../context/AuthProvider";
+import { AuthProvider, useAuth } from "../../context/AuthProvider";
 import { useNotification } from "../NotificationProvider";
 
 function DisableMFASection({ setActiveTab }) {
-  const { user, setUser } = useAuth();
+  const { user, setUser, disableMFA } = useAuth();
   const [showDisable, setShowDisable] = useState(false);
   const [disableLoading, setDisableLoading] = useState(false);
   const [disableError, setDisableError] = useState("");
@@ -28,14 +28,10 @@ function DisableMFASection({ setActiveTab }) {
     const password = e.target.disableMFAPassword.value;
     const code = e.target.disableMFACode.value;
     try {
-      await userApi.disableMFA(password, code);
+      await disableMFA(password, code);
       setShowDisable(false);
-    } catch (err) {
-      setDisableError(err.message || "Failed to disable MFA.");
     } finally {
       setDisableLoading(false);
-      showSuccess("Two-factor authentication disabled successfully.");
-      setUser({ ...user, mfa_enabled: false });
       if (setActiveTab) setActiveTab('security-settings');
     }
   };

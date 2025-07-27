@@ -27,10 +27,10 @@ export default function FileDropdown({ setDocumentTitle }) {
   const { showSuccess, showError } = useNotification();
   const { previewHTML } = usePreviewHTML();
   // Debug: Log previewHTML value on render
-  React.useEffect(() => {
-    console.log('[FileDropdown] previewHTML:', previewHTML);
-    // Removed showSuccess from useEffect to prevent render loop
-  }, [previewHTML]);
+  // React.useEffect(() => {
+  //   console.log('[FileDropdown] previewHTML:', previewHTML);
+  //   // Removed showSuccess from useEffect to prevent render loop
+  // }, [previewHTML]);
 
   // Import modal controller
   const importController = useFileImportController({ setDocumentTitle });

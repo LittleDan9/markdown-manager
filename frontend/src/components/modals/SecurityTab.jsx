@@ -7,7 +7,7 @@ import { useNotification } from "../NotificationProvider";
 import { set } from "lodash";
 
 function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubmit, setActiveTab }) {
-  const { user , setUser} = useAuth();
+  const { user , setUser, enableMFA} = useAuth();
   const [showMFAModal, setShowMFAModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -28,6 +28,7 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
       console.log(data);
       setSetupData(data);
       setShowMFAModal(true);
+
       setStep(1);
     } catch (err) {
       setError(err.message || "Failed to start MFA setup.");
@@ -73,14 +74,13 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
         return;
       }
       // Confirm MFA enable with password and verified TOTP code
-      const res = await userApi.confirmEnableMFA(password, verifiedCode);
-      if (res.success) {
+      const response = await enableMFA(password, verifiedCode);
+      if (response.success) {
         // Fetch backup codes for step 4
-        const codes = await userApi.getBackupCodes();
-        setBackupCodes(codes.backup_codes);
+        setBackupCodes(response.backup_codes);
         setStep(4);
       } else {
-        setError("Password incorrect.");
+        setError("Validation failed!");
       }
     } catch (err) {
       setError(err.message || "Failed to enable MFA.");
@@ -93,7 +93,6 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
   const handleComplete = () => {
     setShowMFAModal(false);
     showSuccess("MFA setup completed successfully.");
-    setUser({ ...user, mfa_enabled: true });
     if (setActiveTab) setActiveTab('mfa-details');
   };
   return (

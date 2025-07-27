@@ -9,6 +9,8 @@ import config from "../config.js";
 import LoginModal from "../components/modals/LoginModal";
 import VerifyMFAModal from "../components/modals/VerifyMFAModal";
 import PasswordResetModal from "../components/modals/PasswordResetModal";
+import { notification } from "@/services/EventDispatchService.js";
+import { LocalDocumentStorage } from "@/storage";
 
 const defaultUser = {
   bio: "",
@@ -183,7 +185,6 @@ export function AuthProvider({ children }) {
     justLoggedInRef.current = true;
     setToken(loginResponse.access_token);
     setUser(loginResponse.user || defaultUser);
-    await fetchCurrentUser(loginResponse.access_token);
     window.dispatchEvent(new CustomEvent('auth:login', {
       detail: {
         user: loginResponse.user,
@@ -199,7 +200,7 @@ export function AuthProvider({ children }) {
     setLoginEmail("");
     justLoggedInRef.current = false;
     return loginResponse;
-  }, [setToken, fetchCurrentUser]);
+  }, [setToken]);
   // MFA verification handler
   const verifyMFA = useCallback(async (code) => {
     setMFALoading(true);
@@ -210,10 +211,10 @@ export function AuthProvider({ children }) {
         setShowMFAModal(false);
         setPendingEmail("");
         setPendingPassword("");
-        setToken(response.token);
+        setToken(response.access_token);
+        setUser(response.user || defaultUser);
         justLoggedInRef.current = true;
-        await fetchCurrentUser(response.token);
-        window.dispatchEvent(new CustomEvent('auth:login', { detail: { user, token } }));
+        window.dispatchEvent(new CustomEvent('auth:login', { detail: { user: response.user, token: response.access_token } }));
         try {
           await CustomDictionarySyncService.syncAfterLogin();
         } catch (error) {
@@ -227,47 +228,8 @@ export function AuthProvider({ children }) {
     } finally {
       setMFALoading(false);
     }
-  }, [pendingEmail, pendingPassword, setToken, fetchCurrentUser]);
+  }, [pendingEmail, pendingPassword, setToken, setUser]);
 
-  const loginMFA = useCallback(async (email, password, code) => {
-    const data = await UserAPI.loginMFA(email, password, code);
-    setToken(data.token);
-    justLoggedInRef.current = true;
-    await fetchCurrentUser(data.token);
-
-    // Initialize DocumentManager with authentication
-    await DocumentManager.handleLogin(data.token);
-
-    // Sync custom dictionary after successful MFA login
-    try {
-      await CustomDictionarySyncService.syncAfterLogin();
-    } catch (error) {
-      console.error('Dictionary sync failed after MFA login:', error);
-      // Don't fail the login process if dictionary sync fails
-    }
-
-    return data;
-  }, [setToken, fetchCurrentUser]);
-
-  const register = useCallback(async (formData) => {
-    const data = await UserAPI.register(formData);
-    setToken(data.token);
-    justLoggedInRef.current = true;
-    await fetchCurrentUser(data.token);
-
-    // Initialize DocumentManager with authentication
-    await DocumentManager.handleLogin(data.token);
-
-    // Sync custom dictionary after successful registration
-    try {
-      await CustomDictionarySyncService.syncAfterLogin();
-    } catch (error) {
-      console.error('Dictionary sync failed after registration:', error);
-      // Don't fail the registration process if dictionary sync fails
-    }
-
-    return data;
-  }, [setToken, fetchCurrentUser]);
 
   const logout = useCallback(async () => {
     // Try normal logout first (will show modal if sync pending)
@@ -288,18 +250,18 @@ export function AuthProvider({ children }) {
     setTimeout(() => {
       window.removeEventListener('auth:delayLogout', handleDelayLogout);
       if (!delayLogoutReceived) {
-        setToken(null);
-        setUser(defaultUser);
+        performLogout();
         // CustomDictionarySyncService.clearLocal(); Should listen for the logout-comp event instead
       }
     }, 500);
     // If logout was deferred due to pending sync, the modal will handle it
-  }, []);
+  }, [performLogout]);
 
   const performLogout = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('auth:logout-complete'));
+    LocalDocumentStorage.clearAllData();
     setToken(null);
     setUser(defaultUser);
-    window.dispatchEvent(new CustomEvent('auth:logout-complete'));
   }, [setToken, setUser]);
 
   // Handle force logout from the modal
@@ -307,11 +269,10 @@ export function AuthProvider({ children }) {
     setShowLogoutModal(false);
 
     // Clear auth state immediately
-    setToken(null);
-    setUser(null);
+    performLogout();
 
     // DocumentManager.forceLogout() will be called by the modal's force-logout event
-  }, [setToken, setUser]);
+  }, [performLogout]);
 
   // Handle logout cancellation
   const handleLogoutCanceled = useCallback(() => {
@@ -319,7 +280,6 @@ export function AuthProvider({ children }) {
   }, []);
 
   const fetchCurrentUser = useCallback(async (overrideToken = null) => {
-    console.log('[AuthProvider] fetchCurrentUser called with token:', overrideToken || token);
     const userData = await UserAPI.getCurrentUser(overrideToken || token);
     if (!userData || !userData.id) {
       setUser(null);
@@ -347,6 +307,37 @@ export function AuthProvider({ children }) {
     await logout();
     return data;
   }, [logout]);
+
+  const disableMFA = useCallback(async (password, code) => {
+    try {
+      await UserAPI.disableMFA(password, code);
+      setUser((prevUser) => ({ ...prevUser, mfa_enabled: false }));
+      notification.success("Two-factor authentication disabled successfully.");
+      return true;
+    } catch (error) {
+      window.dispatchEvent(new CustomEvent('notification:error'));
+      notification.error(error.message || "Failed to disable MFA.");
+      return false;
+    }
+  }, [setUser]);
+
+  const enableMFA = useCallback(async (password, code) => {
+    try {
+      const response = await UserAPI.enableMFA(password, code);
+      if (response.success) {
+        setUser((user) => ({ ...user, mfa_enabled: true }));
+        notification.success("Two-factor authentication enabled successfully.");
+        const codes = await UserAPI.getBackupCodes();
+        return {success: true, backup_codes: codes.backup_codes};
+      }
+      // If we reach here, MFA enable failed
+      notification.error("Failed to enable MFA.");
+      return {success: false};
+    } catch (err) {
+      notification.error(err.message || "Failed to enable MFA.");
+      return {success: false};
+    }
+  }, [setUser, user]);
 
   const requestPasswordReset = useCallback(async (email) => {
     return await UserAPI.resetPassword(email);
@@ -382,7 +373,7 @@ export function AuthProvider({ children }) {
       // No token: do not call logout, just set user to null
       setUser(null);
     }
-  }, [token, fetchCurrentUser, setUser, logout]);
+  }, []);
 
 
   // Sync profile settings to localStorage and backend
@@ -406,12 +397,10 @@ export function AuthProvider({ children }) {
     user,
     token,
     isAuthenticated,
-    setUser,
-    setToken,
     login,
-    loginMFA,
-    register,
     logout,
+    enableMFA,
+    disableMFA,
     updateProfile,
     updatePassword,
     deleteAccount,
@@ -435,7 +424,7 @@ export function AuthProvider({ children }) {
     mfaLoading,
     mfaError,
     verifyMFA,
-  }), [user, token, isAuthenticated, setUser, setToken, login, loginMFA, register, logout, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset, autosaveEnabled, syncPreviewScrollEnabled, showLoginModal, showMFAModal, loginEmail, pendingEmail, pendingPassword, mfaLoading, mfaError, verifyMFA]);
+  }), [user, token, isAuthenticated, login, logout, enableMFA, disableMFA, updateProfile, updatePassword, deleteAccount, requestPasswordReset, confirmPasswordReset, autosaveEnabled, syncPreviewScrollEnabled, showLoginModal, showMFAModal, loginEmail, pendingEmail, pendingPassword, mfaLoading, mfaError, verifyMFA]);
   // Password reset logic for modal
   const passwordResetApi = {
     request: async (email) => {

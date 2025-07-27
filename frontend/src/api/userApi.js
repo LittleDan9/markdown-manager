@@ -91,10 +91,10 @@ class UserAPI extends Api {
     return res.data;
   }
 
-  async enableMFA() {
-    const res = await this.apiCall(`/mfa/enable`, "POST");
-    return res.data;
-  }
+  // async confirmEnableMFA() {
+  //   const res = await this.apiCall(`/mfa/enable`, "POST");
+  //   return res.data;
+  // }
 
   // Verify TOTP code during setup
   async verifyMFASetup(code) {
@@ -103,7 +103,7 @@ class UserAPI extends Api {
   }
 
   // Confirm password to enable MFA
-  async confirmEnableMFA(password, code) {
+  async enableMFA(password, code) {
     const res = await this.apiCall(`/mfa/enable`, "POST", {
       totp_code: code,
       current_password: password
