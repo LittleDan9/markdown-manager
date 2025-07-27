@@ -8,6 +8,13 @@ const LAST_DOC_ID_KEY = "lastDocumentId";
 const DEFAULT_CATEGORY = "General";
 
 class LocalDocumentStorage {
+  constructor() {
+    // Listen for logout-complete event to clear all local document data
+    window.addEventListener('auth:logout-complete', () => {
+      this.clearAllData();
+    });
+  }
+
   // Document operations
   getAllDocuments() {
     const docs = this._getStoredDocuments();
@@ -264,3 +271,5 @@ class LocalDocumentStorage {
 }
 
 export default new LocalDocumentStorage();
+
+
