@@ -13,6 +13,43 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import useAutoSave from "../hooks/useAutoSave";
 
 function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange }) {
+  // Utility to offset all suggestion map keys and Monaco markers after an edit
+  function offsetSpellCheckPositions(offsetLine, offsetColumn, lineDelta, columnDelta) {
+    // Update suggestionsMapRef keys
+    const newMap = new Map();
+    for (const [key, suggestions] of suggestionsMapRef.current.entries()) {
+      const [line, col] = key.split(":").map(Number);
+      if (line > offsetLine || (line === offsetLine && col >= offsetColumn)) {
+        // Offset lines and columns after the edit
+        const newLine = line + lineDelta;
+        const newCol = col + (lineDelta === 0 ? columnDelta : 0);
+        newMap.set(`${newLine}:${newCol}`, suggestions);
+      } else {
+        newMap.set(key, suggestions);
+      }
+    }
+    suggestionsMapRef.current = newMap;
+
+    // Update Monaco spell markers
+    if (monacoInstanceRef.current) {
+      const model = monacoInstanceRef.current.getModel();
+      const markers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
+      const updatedMarkers = markers.map(m => {
+        if (m.startLineNumber > offsetLine || (m.startLineNumber === offsetLine && m.startColumn >= offsetColumn)) {
+          // Offset lines and columns after the edit
+          return {
+            ...m,
+            startLineNumber: m.startLineNumber + lineDelta,
+            endLineNumber: m.endLineNumber + lineDelta,
+            startColumn: m.startColumn + (lineDelta === 0 ? columnDelta : 0),
+            endColumn: m.endColumn + (lineDelta === 0 ? columnDelta : 0)
+          };
+        }
+        return m;
+      });
+      monaco.editor.setModelMarkers(model, 'spell', updatedMarkers);
+    }
+  }
   // Track regions modified during full spell check
   const modifiedRegionsRef = useRef([]);
   const fullSpellCheckInProgressRef = useRef(false);
@@ -429,6 +466,13 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
                 if (fullSpellCheckInProgressRef.current) {
                   // Track region for catch-up
                   modifiedRegionsRef.current.push(changeRange);
+                  // If edit is outside the region, offset spell check positions
+                  // Calculate line/column delta
+                  const model = instance.getModel();
+                  const startPos = model.getPositionAt(change.rangeOffset);
+                  const lineDelta = (change.text.match(/\n/g) || []).length;
+                  const columnDelta = change.text.length - (change.rangeLength || 0);
+                  offsetSpellCheckPositions(startPos.lineNumber, startPos.column, lineDelta, columnDelta);
                 } else {
                   runRegionSpellCheck(instance, changeRange, 100);
                 }
