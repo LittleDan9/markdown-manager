@@ -215,15 +215,21 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     while (end < text.length && !/\s/.test(text[end])) end++;
     const regionText = text.slice(start, end);
     const model = editorInstance.getModel();
-    const startPos = model.getPositionAt(start);
+    // Use Monaco's model to recalculate word positions in the region
     const regionIssues = SpellCheckService.check(regionText);
-    // Map region issues to document positions
-    const mappedIssues = regionIssues.map(issue => ({
-      ...issue,
-      lineNumber: startPos.lineNumber + (issue.lineNumber - 1),
-      column: (issue.lineNumber === 1 ? startPos.column + issue.column - 1 : issue.column),
-      offset: issue.offset
-    }));
+    // Map each issue using its unique offset (from regex.exec), not indexOf
+    const mappedIssues = regionIssues.map(issue => {
+      // Use the offset property from the spell check result (relative to regionText)
+      const regionOffset = typeof issue.offset === 'number' ? issue.offset : regionText.indexOf(issue.word);
+      const globalOffset = start + regionOffset;
+      const pos = model.getPositionAt(globalOffset);
+      return {
+        ...issue,
+        lineNumber: pos.lineNumber,
+        column: pos.column,
+        offset: globalOffset
+      };
+    });
 
     // Update suggestionsMap only for region
     // 1. Build set of keys for region
@@ -359,12 +365,20 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
                 if (marker.owner !== 'spell') return;
                 const key = `${marker.startLineNumber}:${marker.startColumn}`;
                 const suggestions = suggestionsMapRef.current.get(key) || [];
-                const misspelledWord = model.getValueInRange({
+                // Get the current word at the marker position
+                const lineContent = model.getLineContent(marker.startLineNumber);
+                let wordStart = marker.startColumn - 1;
+                let wordEnd = marker.endColumn - 1;
+                // Try to get the actual word at the marker position
+                const wordMatch = lineContent.slice(wordStart).match(/^\w+/);
+                let actualWord = wordMatch ? wordMatch[0] : model.getValueInRange({
                   startLineNumber: marker.startLineNumber,
                   startColumn: marker.startColumn,
                   endLineNumber: marker.endLineNumber,
                   endColumn: marker.endColumn
                 });
+                // Adjust endColumn if word length changed
+                const newEndColumn = marker.startColumn + actualWord.length;
 
                 // Add spelling suggestions
                 suggestions.forEach(suggestion => {
@@ -378,26 +392,31 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
                           range: new monaco.Range(
                             marker.startLineNumber,
                             marker.startColumn,
-                            marker.endLineNumber,
-                            marker.endColumn
+                            marker.startLineNumber,
+                            newEndColumn
                           ),
                           text: suggestion
                         }
                       }]
                     },
-                    diagnostics: [marker]
+                    diagnostics: [marker],
+                    command: {
+                      id: 'runRegionSpellCheckAfterCorrection',
+                      title: 'Run Region Spell Check After Correction',
+                      arguments: [marker.startLineNumber, marker.startColumn, actualWord, suggestion]
+                    }
                   });
                 });
 
                 // Add "Add to Dictionary" action
                 actions.push({
-                  title: `Add "${misspelledWord}" to dictionary`,
+                  title: `Add "${actualWord}" to dictionary`,
                   kind: 'quickfix',
                   edit: undefined, // No text edit, just run the command
                   command: {
                     id: 'addToDictionary',
                     title: 'Add to Dictionary',
-                    arguments: [misspelledWord]
+                    arguments: [actualWord]
                   },
                   diagnostics: [marker]
                 });
@@ -439,6 +458,84 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
               console.error('Error adding word to dictionary:', error);
               showError(`Failed to add "${word}" to dictionary`);
             }
+          });
+
+          // Register a command to run region spell check after correction
+          monaco.editor.registerCommand('runRegionSpellCheckAfterCorrection', async (accessor, lineNumber, column, wordLength) => {
+            // Debounce to ensure Monaco model is updated
+            setTimeout(() => {
+              if (monacoInstanceRef.current) {
+                const model = monacoInstanceRef.current.getModel();
+                // Always get the latest value
+                const docText = model.getValue();
+                const startOffset = model.getOffsetAt({ lineNumber, column });
+                const oldWordLength = oldWord.length;
+                const newWordLength = newWord.length;
+                const lengthDelta = newWordLength - oldWordLength;
+
+                // Find whitespace before and after the replaced word
+                let wsStart = startOffset;
+                while (wsStart > 0 && !/\s/.test(docText[wsStart - 1])) wsStart--;
+                let wsEnd = startOffset + newWordLength;
+                while (wsEnd < docText.length && !/\s/.test(docText[wsEnd])) wsEnd++;
+
+                // Remove all spell markers and suggestions that overlap the whitespace-to-whitespace range
+                const allMarkers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
+                const wsStartPos = model.getPositionAt(wsStart);
+                const wsEndPos = model.getPositionAt(wsEnd);
+                const cleanedMarkers = allMarkers.filter(m => {
+                  // If marker is completely outside the whitespace-to-whitespace range, keep it
+                  if (m.endLineNumber < wsStartPos.lineNumber || m.startLineNumber > wsEndPos.lineNumber) return true;
+                  if (m.endLineNumber === wsStartPos.lineNumber && m.endColumn <= wsStartPos.column) return true;
+                  if (m.startLineNumber === wsEndPos.lineNumber && m.startColumn >= wsEndPos.column) return true;
+                  // Otherwise, marker overlaps the range, so remove
+                  return false;
+                });
+                monaco.editor.setModelMarkers(model, 'spell', cleanedMarkers);
+
+                // Also clear suggestions in the affected region
+                const keysToDelete = [];
+                for (const key of suggestionsMapRef.current.keys()) {
+                  const [kLine, kCol] = key.split(":").map(Number);
+                  // Only clear suggestions within the whitespace-to-whitespace range
+                  if (
+                    (kLine > wsStartPos.lineNumber && kLine < wsEndPos.lineNumber) ||
+                    (kLine === wsStartPos.lineNumber && kCol >= wsStartPos.column) ||
+                    (kLine === wsEndPos.lineNumber && kCol < wsEndPos.column)
+                  ) {
+                    keysToDelete.push(key);
+                  }
+                }
+                keysToDelete.forEach(key => suggestionsMapRef.current.delete(key));
+
+                // Offset all markers and suggestions after the replaced word if length changed
+                if (lengthDelta !== 0) {
+                  offsetSpellCheckPositions(lineNumber, column + oldWordLength, 0, lengthDelta);
+                }
+
+                // Now run region spell check for the expanded region (n words before/after)
+                const n = 2;
+                let regionStart = startOffset;
+                let regionEnd = startOffset + newWordLength;
+                let wordCountBefore = 0, wordCountAfter = 0;
+                while (regionStart > 0 && wordCountBefore < n) {
+                  regionStart--;
+                  if (/\b/.test(docText[regionStart])) wordCountBefore++;
+                }
+                while (regionEnd < docText.length && docText[regionEnd] === ' ') {
+                  regionEnd++;
+                }
+                while (regionEnd < docText.length && wordCountAfter < n) {
+                  if (/\b/.test(docText[regionEnd])) wordCountAfter++;
+                  regionEnd++;
+                }
+                const regionChangeRange = {
+                  startOffset: regionStart,
+                  endOffset: regionEnd
+                };
+                runRegionSpellCheck(monacoInstanceRef.current, regionChangeRange, 100);
+              }
+            }, 350);
           });
 
           setTimeout(() => {

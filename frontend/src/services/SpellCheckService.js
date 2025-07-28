@@ -209,7 +209,8 @@ class SpellCheckService {
             word,
             suggestions,
             lineNumber: position.lineNumber,
-            column: position.column
+            column: position.column,
+            offset // <--- always include offset for region mapping
           });
         }
       }
