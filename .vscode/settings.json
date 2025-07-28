@@ -16,5 +16,5 @@
     "python.linting.enabled": false,
     "python.testing.pytestEnabled": false,
     "github.copilot.chat.codeGeneration.useInstructionFiles": true,
-    "files.eol":"\n",
+    "files.eol": "\n",
 }
