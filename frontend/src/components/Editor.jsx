@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import EditorSingleton from "../services/EditorService";
 import { useTheme } from "../context/ThemeContext";
 import { useDocument } from "../context/DocumentProvider";
@@ -13,43 +13,6 @@ import * as monaco from "monaco-editor/esm/vs/editor/editor.api";
 import useAutoSave from "../hooks/useAutoSave";
 
 function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange }) {
-  // Utility to offset all suggestion map keys and Monaco markers after an edit
-  function offsetSpellCheckPositions(offsetLine, offsetColumn, lineDelta, columnDelta) {
-    // Update suggestionsMapRef keys
-    const newMap = new Map();
-    for (const [key, suggestions] of suggestionsMapRef.current.entries()) {
-      const [line, col] = key.split(":").map(Number);
-      if (line > offsetLine || (line === offsetLine && col >= offsetColumn)) {
-        // Offset lines and columns after the edit
-        const newLine = line + lineDelta;
-        const newCol = col + (lineDelta === 0 ? columnDelta : 0);
-        newMap.set(`${newLine}:${newCol}`, suggestions);
-      } else {
-        newMap.set(key, suggestions);
-      }
-    }
-    suggestionsMapRef.current = newMap;
-
-    // Update Monaco spell markers
-    if (monacoInstanceRef.current) {
-      const model = monacoInstanceRef.current.getModel();
-      const markers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
-      const updatedMarkers = markers.map(m => {
-        if (m.startLineNumber > offsetLine || (m.startLineNumber === offsetLine && m.startColumn >= offsetColumn)) {
-          // Offset lines and columns after the edit
-          return {
-            ...m,
-            startLineNumber: m.startLineNumber + lineDelta,
-            endLineNumber: m.endLineNumber + lineDelta,
-            startColumn: m.startColumn + (lineDelta === 0 ? columnDelta : 0),
-            endColumn: m.endColumn + (lineDelta === 0 ? columnDelta : 0)
-          };
-        }
-        return m;
-      });
-      monaco.editor.setModelMarkers(model, 'spell', updatedMarkers);
-    }
-  }
   // Track regions modified during full spell check
   const modifiedRegionsRef = useRef([]);
   const fullSpellCheckInProgressRef = useRef(false);
@@ -73,6 +36,8 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
   const [lazyLoadInfo, setLazyLoadInfo] = useState(null);
   const [isUsingLazyLoad, setIsUsingLazyLoad] = useState(false);
 
+  const offsetPositionsCb = useCallback(offsetSpellCheckPositions, []);
+
   // Integrate autosave hook: save with latest editor value
   useAutoSave(
     { ...currentDocument, content: value },
@@ -80,6 +45,60 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
     autosaveEnabled,
     30000
   );
+
+  // Utility to offset all suggestion map keys and Monaco markers after an edit
+  function offsetSpellCheckPositions(offsetLine, offsetColumn, lineDelta, columnDelta) {
+    // Update suggestionsMapRef keys
+    const newMap = new Map();
+    for (const [key, suggestions] of suggestionsMapRef.current.entries()) {
+      const [line, col] = key.split(":").map(Number);
+      if (lineDelta === 0) {
+        // Single-line edit: shift columns after the edit point on the same line
+        if (line === offsetLine && col >= offsetColumn) {
+          newMap.set(`${line}:${col + columnDelta}`, suggestions);
+        } else {
+          newMap.set(key, suggestions);
+        }
+      } else {
+        // Multi-line edit: shift line numbers for lines after the edit
+        if (line > offsetLine) {
+          newMap.set(`${line + lineDelta}:${col}`, suggestions);
+        } else {
+          newMap.set(key, suggestions);
+        }
+      }
+    }
+    suggestionsMapRef.current = newMap;
+
+    // Update Monaco spell markers
+    if (monacoInstanceRef.current) {
+      const model = monacoInstanceRef.current.getModel();
+      const markers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
+      const updatedMarkers = markers.map(m => {
+        if (lineDelta === 0) {
+          // Single-line edit: shift columns after the edit point on the same line
+          if (m.startLineNumber === offsetLine && m.startColumn >= offsetColumn) {
+            return {
+              ...m,
+              startColumn: m.startColumn + columnDelta,
+              endColumn: m.endColumn + columnDelta
+            };
+          }
+        } else {
+          // Multi-line edit: shift line numbers for lines after the edit
+          if (m.startLineNumber > offsetLine) {
+            return {
+              ...m,
+              startLineNumber: m.startLineNumber + lineDelta,
+              endLineNumber: m.endLineNumber + lineDelta
+            };
+          }
+        }
+        return m;
+      });
+      monaco.editor.setModelMarkers(model, 'spell', updatedMarkers);
+    }
+  }
 
   // Show performance notification when needed - FIXED: Remove performanceInfo from dependencies to prevent infinite loop
   useEffect(() => {
@@ -203,23 +222,104 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
   }
 
   // Region-based spell check (n chars back/forward, terminate at whitespace)
-  const runRegionSpellCheck = async (editorInstance, changeRange, n = 100) => {
+  const runRegionSpellCheck = async (editorInstance, changeRange) => {
     if (!editorInstance || !changeRange) return;
     const text = editorInstance.getValue();
-    // Find region boundaries
-    let start = Math.max(0, changeRange.startOffset - n);
-    let end = Math.min(text.length, changeRange.endOffset + n);
-    // Move start backward to previous whitespace
-    while (start > 0 && !/\s/.test(text[start - 1])) start--;
-    // Move end forward to next whitespace
-    while (end < text.length && !/\s/.test(text[end])) end++;
+    // Expand region to full lines: go to previous and next line break
+    let start = changeRange.startOffset;
+    let end = changeRange.endOffset;
+    while (start > 0 && text[start - 1] !== '\n') start--;
+    while (end < text.length && text[end] !== '\n') end++;
     const regionText = text.slice(start, end);
     const model = editorInstance.getModel();
-    // Use Monaco's model to recalculate word positions in the region
+
+    // If region is very large, use async worker-based spell check for this region
+    if (regionText.length > 5000) {
+      try {
+        // Show progress indicator for large region spell check
+        setSpellCheckProgress({ progress: 0, message: 'Spell checking large region...' });
+        const { checkAsync } = await import('../services/SpellCheckService.worker');
+        await SpellCheckService.init();
+        const customWords = SpellCheckService.getCustomWords();
+        // Use progress callback for region
+        const issues = await checkAsync(
+          regionText,
+          customWords,
+          ({ progress, currentChunk, totalChunks }) => {
+            setSpellCheckProgress({
+              progress: progress * 100,
+              message: `Spell checking... ${currentChunk}/${totalChunks} chunks`
+            });
+          }
+        );
+        setSpellCheckProgress(null);
+        // Limit the number of markers for performance (same as full doc)
+        const maxMarkers = 500;
+        const limitedIssues = issues.slice(0, maxMarkers);
+        if (issues.length > maxMarkers) {
+          showWarning(`Spell check complete: ${limitedIssues.length}/${issues.length} issues shown for this region (limited for performance)`);
+        }
+        // Map each issue using its unique offset (from regex.exec), not indexOf
+        const mappedIssues = limitedIssues.map(issue => {
+          const regionOffset = typeof issue.offset === 'number' ? issue.offset : regionText.indexOf(issue.word);
+          const globalOffset = start + regionOffset;
+          const pos = model.getPositionAt(globalOffset);
+          return {
+            ...issue,
+            lineNumber: pos.lineNumber,
+            column: pos.column,
+            offset: globalOffset
+          };
+        });
+        // Update suggestionsMap only for region
+        const regionStartPos = model.getPositionAt(start);
+        const regionEndPos = model.getPositionAt(end);
+        for (const key of suggestionsMapRef.current.keys()) {
+          const [line, col] = key.split(":").map(Number);
+          if (
+            (line > regionStartPos.lineNumber && line < regionEndPos.lineNumber) ||
+            (line === regionStartPos.lineNumber && col >= regionStartPos.column) ||
+            (line === regionEndPos.lineNumber && col < regionEndPos.column)
+          ) {
+            suggestionsMapRef.current.delete(key);
+          }
+        }
+        mappedIssues.forEach(({ lineNumber, column, suggestions }) => {
+          const key = `${lineNumber}:${column}`;
+          suggestionsMapRef.current.set(key, suggestions);
+        });
+        // Only update markers in region
+        const existingMarkers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
+        const filteredMarkers = existingMarkers.filter(m => {
+          if (m.endLineNumber < regionStartPos.lineNumber || m.startLineNumber > regionEndPos.lineNumber) return true;
+          if (m.endLineNumber === regionStartPos.lineNumber && m.endColumn <= regionStartPos.column) return true;
+          if (m.startLineNumber === regionEndPos.lineNumber && m.startColumn >= regionEndPos.column) return true;
+          return false;
+        });
+        const regionMarkers = mappedIssues.map(mappedIssue => {
+          const { word, suggestions, lineNumber, column } = mappedIssue;
+          const suggestionText = suggestions.length > 0 ? suggestions.slice(0, 3).join(", ") : "No suggestions";
+          return {
+            startLineNumber: lineNumber,
+            startColumn: column,
+            endLineNumber: lineNumber,
+            endColumn: column + word.length,
+            message: `"${word}" - ${suggestionText}`,
+            severity: monaco.MarkerSeverity.Warning
+          };
+        });
+        monaco.editor.setModelMarkers(model, "spell", filteredMarkers.concat(regionMarkers));
+        return;
+      } catch (error) {
+        setSpellCheckProgress(null);
+        console.error('Region spell check (worker) failed:', error);
+        // Fallback to sync method below
+      }
+    }
+
+    // Otherwise, use synchronous spell check for the region
     const regionIssues = SpellCheckService.check(regionText);
-    // Map each issue using its unique offset (from regex.exec), not indexOf
     const mappedIssues = regionIssues.map(issue => {
-      // Use the offset property from the spell check result (relative to regionText)
       const regionOffset = typeof issue.offset === 'number' ? issue.offset : regionText.indexOf(issue.word);
       const globalOffset = start + regionOffset;
       const pos = model.getPositionAt(globalOffset);
@@ -230,40 +330,29 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         offset: globalOffset
       };
     });
-
-    // Update suggestionsMap only for region
-    // 1. Build set of keys for region
-    const regionKeys = new Set(mappedIssues.map(i => `${i.lineNumber}:${i.column}`));
-    // 2. Remove any previous region keys that are no longer present
+    const regionStartPos = model.getPositionAt(start);
+    const regionEndPos = model.getPositionAt(end);
     for (const key of suggestionsMapRef.current.keys()) {
-      // If key is in region and not in new issues, remove
       const [line, col] = key.split(":").map(Number);
-      if (line >= startPos.lineNumber && line <= startPos.lineNumber + (end - start) && !regionKeys.has(key)) {
+      if (
+        (line > regionStartPos.lineNumber && line < regionEndPos.lineNumber) ||
+        (line === regionStartPos.lineNumber && col >= regionStartPos.column) ||
+        (line === regionEndPos.lineNumber && col < regionEndPos.column)
+      ) {
         suggestionsMapRef.current.delete(key);
       }
     }
-    // 3. Add/update new region issues
     mappedIssues.forEach(({ lineNumber, column, suggestions }) => {
       const key = `${lineNumber}:${column}`;
       suggestionsMapRef.current.set(key, suggestions);
     });
-
-    // Only update markers in region
     const existingMarkers = monaco.editor.getModelMarkers({ resource: model.uri }).filter(m => m.owner === 'spell');
-    // Calculate affected line/column range
-    const regionStartPos = model.getPositionAt(start);
-    const regionEndPos = model.getPositionAt(end);
-    // Remove markers that overlap with the region (by line/column)
     const filteredMarkers = existingMarkers.filter(m => {
-      // If marker is completely outside region, keep it
       if (m.endLineNumber < regionStartPos.lineNumber || m.startLineNumber > regionEndPos.lineNumber) return true;
-      // If marker is on region boundary, check columns
       if (m.endLineNumber === regionStartPos.lineNumber && m.endColumn <= regionStartPos.column) return true;
       if (m.startLineNumber === regionEndPos.lineNumber && m.startColumn >= regionEndPos.column) return true;
-      // Otherwise, marker overlaps region, so remove
       return false;
     });
-    // Add new region markers
     const regionMarkers = mappedIssues.map(mappedIssue => {
       const { word, suggestions, lineNumber, column } = mappedIssue;
       const suggestionText = suggestions.length > 0 ? suggestions.slice(0, 3).join(", ") : "No suggestions";
@@ -276,7 +365,6 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         severity: monaco.MarkerSeverity.Warning
       };
     });
-    // Set all markers (outside region + new region markers)
     monaco.editor.setModelMarkers(model, "spell", filteredMarkers.concat(regionMarkers));
   };
 
@@ -461,7 +549,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
           });
 
           // Register a command to run region spell check after correction
-          monaco.editor.registerCommand('runRegionSpellCheckAfterCorrection', async (accessor, lineNumber, column, wordLength) => {
+          monaco.editor.registerCommand('runRegionSpellCheckAfterCorrection', async (accessor, lineNumber, column, newWord, oldWord) => {
             // Debounce to ensure Monaco model is updated
             setTimeout(() => {
               if (monacoInstanceRef.current) {
@@ -510,7 +598,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
 
                 // Offset all markers and suggestions after the replaced word if length changed
                 if (lengthDelta !== 0) {
-                  offsetSpellCheckPositions(lineNumber, column + oldWordLength, 0, lengthDelta);
+                  offsetPositionsCb(lineNumber, column + oldWordLength, 0, lengthDelta);
                 }
 
                 // Now run region spell check for the expanded region (n words before/after)
@@ -569,7 +657,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
                   const startPos = model.getPositionAt(change.rangeOffset);
                   const lineDelta = (change.text.match(/\n/g) || []).length;
                   const columnDelta = change.text.length - (change.rangeLength || 0);
-                  offsetSpellCheckPositions(startPos.lineNumber, startPos.column, lineDelta, columnDelta);
+                  offsetPositionsCb(startPos.lineNumber, startPos.column, lineDelta, columnDelta);
                 } else {
                   runRegionSpellCheck(instance, changeRange, 100);
                 }

@@ -131,44 +131,135 @@ class SpellCheckService {
   /**
    * Parse Markdown and extract only text content (skip code blocks, inline code, etc.)
    */
-  extractMarkdownTextContent(text) {
-    let cleanText = text;
-
-    // Remove fenced code blocks (```...```)
-    cleanText = cleanText.replace(/```[\s\S]*?```/g, '');
-
-    // Remove inline code (`...`)
-    cleanText = cleanText.replace(/`[^`\n]*`/g, '');
-
-    // Remove HTML tags
-    cleanText = cleanText.replace(/<[^>]*>/g, '');
-
-    // Remove URLs
-    cleanText = cleanText.replace(/https?:\/\/[^\s]+/g, '');
-
-    // Remove Markdown links [text](url)
-    cleanText = cleanText.replace(/\[([^\]]*)\]\([^)]*\)/g, '$1');
-
-    // Remove image references ![alt](url)
-    cleanText = cleanText.replace(/!\[[^\]]*\]\([^)]*\)/g, '');
-
-    // Remove Markdown headers (keep the text)
-    cleanText = cleanText.replace(/^#{1,6}\s+/gm, '');
-
-    // Remove list markers
-    cleanText = cleanText.replace(/^\s*[-*+]\s+/gm, '');
-    cleanText = cleanText.replace(/^\s*\d+\.\s+/gm, '');
-
-    // Remove blockquotes
-    cleanText = cleanText.replace(/^\s*>\s+/gm, '');
-
-    // Remove emphasis markers but keep text
-    cleanText = cleanText.replace(/\*\*([^*]+)\*\*/g, '$1'); // bold
-    cleanText = cleanText.replace(/\*([^*]+)\*/g, '$1'); // italic
-    cleanText = cleanText.replace(/__([^_]+)__/g, '$1'); // bold
-    cleanText = cleanText.replace(/_([^_]+)_/g, '$1'); // italic
-
-    return cleanText;
+  /**
+   * Extracts text content from Markdown and builds a mapping from cleaned text offsets to original text offsets.
+   * @param {string} text
+   * @returns {{ cleanText: string, offsetMap: number[] }}
+   */
+  extractMarkdownTextContentWithMap(text) {
+    let cleanText = '';
+    const offsetMap = [];
+    let i = 0;
+    const len = text.length;
+    while (i < len) {
+      // Fenced code block
+      if (text.startsWith('```', i)) {
+        const end = text.indexOf('```', i + 3);
+        i = end !== -1 ? end + 3 : len;
+        continue;
+      }
+      // Inline code
+      if (text[i] === '`') {
+        const end = text.indexOf('`', i + 1);
+        i = end !== -1 ? end + 1 : len;
+        continue;
+      }
+      // HTML tag
+      if (text[i] === '<') {
+        const end = text.indexOf('>', i + 1);
+        i = end !== -1 ? end + 1 : len;
+        continue;
+      }
+      // URL
+      if (/https?:\/\//.test(text.slice(i, i + 8))) {
+        const match = text.slice(i).match(/^https?:\/\/[\S]+/);
+        if (match) {
+          i += match[0].length;
+          continue;
+        }
+      }
+      // Markdown link [text](url)
+      if (text[i] === '[') {
+        const closeBracket = text.indexOf(']', i);
+        const openParen = text.indexOf('(', closeBracket);
+        const closeParen = text.indexOf(')', openParen);
+        if (closeBracket !== -1 && openParen === closeBracket + 1 && closeParen !== -1) {
+          // Keep the link text only
+          for (let j = i + 1; j < closeBracket; j++) {
+            cleanText += text[j];
+            offsetMap.push(j);
+          }
+          i = closeParen + 1;
+          continue;
+        }
+      }
+      // Image ![alt](url)
+      if (text.startsWith('![', i)) {
+        const closeBracket = text.indexOf(']', i + 2);
+        const openParen = text.indexOf('(', closeBracket);
+        const closeParen = text.indexOf(')', openParen);
+        if (closeBracket !== -1 && openParen === closeBracket + 1 && closeParen !== -1) {
+          i = closeParen + 1;
+          continue;
+        }
+      }
+      // Markdown header
+      if (text[i] === '#' && (i === 0 || text[i - 1] === '\n')) {
+        let j = i;
+        while (text[j] === '#') j++;
+        if (text[j] === ' ') {
+          i = j + 1;
+          continue;
+        }
+      }
+      // List marker
+      if ((/^\s*[-*+]\s/.test(text.slice(i, i + 4)) || /^\s*\d+\.\s/.test(text.slice(i, i + 6))) && (i === 0 || text[i - 1] === '\n')) {
+        // Skip marker
+        let j = i;
+        while (text[j] && !/\S/.test(text[j])) j++;
+        if (['-', '*', '+'].includes(text[j])) {
+          j++;
+          if (text[j] === ' ') j++;
+          i = j;
+          continue;
+        }
+        // Numbered list
+        let numMatch = text.slice(j).match(/^(\d+)\. /);
+        if (numMatch) {
+          i = j + numMatch[0].length;
+          continue;
+        }
+      }
+      // Blockquote
+      if (text[i] === '>' && (i === 0 || text[i - 1] === '\n')) {
+        let j = i + 1;
+        if (text[j] === ' ') j++;
+        i = j;
+        continue;
+      }
+      // Emphasis markers
+      if ((text[i] === '*' || text[i] === '_') && text[i + 1] === text[i]) {
+        // bold
+        let j = i + 2;
+        while (j < len && !(text[j] === text[i] && text[j + 1] === text[i])) j++;
+        if (j < len) {
+          for (let k = i + 2; k < j; k++) {
+            cleanText += text[k];
+            offsetMap.push(k);
+          }
+          i = j + 2;
+          continue;
+        }
+      }
+      if (text[i] === '*' || text[i] === '_') {
+        // italic
+        let j = i + 1;
+        while (j < len && text[j] !== text[i]) j++;
+        if (j < len) {
+          for (let k = i + 1; k < j; k++) {
+            cleanText += text[k];
+            offsetMap.push(k);
+          }
+          i = j + 1;
+          continue;
+        }
+      }
+      // Default: keep character
+      cleanText += text[i];
+      offsetMap.push(i);
+      i++;
+    }
+    return { cleanText, offsetMap };
   }
 
   check(text) {
@@ -179,38 +270,38 @@ class SpellCheckService {
       console.warn('Large document detected. Consider using checkProgressive() for better performance.');
     }
 
-    // Extract only text content from Markdown
-    const textContent = this.extractMarkdownTextContent(text);
+    // Extract only text content from Markdown and build offset map
+    const { cleanText, offsetMap } = this.extractMarkdownTextContentWithMap(text);
 
     const results = [];
     const regex = /\b[A-Za-z']+\b/g;
     let match;
     const customWords = this.getCustomWords();
 
-    while ((match = regex.exec(textContent)) !== null) {
+    while ((match = regex.exec(cleanText)) !== null) {
       const word = match[0];
-      // Check both the standard speller and custom dictionary
       if (!this.speller.correct(word) && !this.isCustomWord(word)) {
-        // Use nspell's suggest, but include custom words as candidates for close matches only
         let suggestions = this.speller.suggest(word);
-        // Add custom words that are close matches (edit distance <= 2)
         const closeCustomWords = customWords.filter(customWord => {
           if (customWord === word) return false;
-          // Simple edit distance check
           return getEditDistance(word.toLowerCase(), customWord.toLowerCase()) <= 2;
         });
         suggestions = Array.from(new Set([...suggestions, ...closeCustomWords]));
-        const offset = match.index;
-
-        // Find the position in the original text
-        const position = this.findWordPositionInOriginalText(word, offset, text, textContent);
-        if (position) {
+        const cleanOffset = match.index;
+        // Map cleanText offset to original text offset
+        const origOffset = offsetMap[cleanOffset] !== undefined ? offsetMap[cleanOffset] : null;
+        if (origOffset !== null) {
+          // Compute line/column in original text
+          const upTo = text.slice(0, origOffset);
+          const lines = upTo.split('\n');
+          const lineNumber = lines.length;
+          const column = lines[lines.length - 1].length + 1;
           results.push({
             word,
             suggestions,
-            lineNumber: position.lineNumber,
-            column: position.column,
-            offset // <--- always include offset for region mapping
+            lineNumber,
+            column,
+            offset: origOffset
           });
         }
       }
@@ -329,30 +420,7 @@ function getEditDistance(a, b) {
       // Use requestIdleCallback if available, otherwise setTimeout
       if (window.requestIdleCallback) {
         requestIdleCallback(processNextChunk, { timeout: 100 });
-      } else {
-        setTimeout(processNextChunk, 50);
-      }
-    };
-
-    // Start processing
-    setTimeout(processNextChunk, strategy.delay || 500);
-    return this.progressiveCheckState.results;
-  }
-
-  /**
-   * Process a single chunk of text
-   */
-  checkChunk(text, startOffset = 0) {
-    if (!this.speller) return [];
-
-    const results = [];
-    const regex = /\b[A-Za-z']+\b/g;
-    let match;
-
-    while ((match = regex.exec(text)) !== null) {
-      const word = match[0];
-      if (!this.speller.correct(word) && !this.isCustomWord(word)) {
-        const suggestions = this.speller.suggest(word);
+  // findWordPositionInOriginalText is no longer needed with offsetMap
         const offset = startOffset + match.index;
 
         // compute line and column based on total offset
