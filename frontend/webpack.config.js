@@ -4,9 +4,9 @@ const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const { RuntimeGlobals } = require('webpack');
+const { RuntimeGlobals, experiments } = require('webpack');
 const { userInfo } = require('os');
-const { split } = require('lodash');
+const { split, min } = require('lodash');
 
 
 module.exports = {
@@ -37,8 +37,8 @@ module.exports = {
       }
       return path.resolve(__dirname, 'dist');
     })(),
-    publicPath: '/',
     clean: true,
+    publicPath: '/',
   },
   module: {
     rules: [
@@ -52,8 +52,19 @@ module.exports = {
         type: 'asset/resource',
       },
       {
+        test: /\.worker\.js$/,
+        use: {
+          loader: 'worker-loader',
+          options: {
+            filename: '[name].[contenthash].worker.js',
+            chunkFilename: '[name].[contenthash].worker.js',
+            esModule: true,
+          }
+        }
+      },
+      {
         test: /\.(js|jsx)$/,
-        exclude: /node_modules/,
+        exclude: [/node_modules/, /\.worker\.js$/],
         use: {
           loader: 'babel-loader',
           options: {
@@ -100,6 +111,19 @@ module.exports = {
     extensions: ['.js', '.jsx', '.tsx', '.ts'],
     alias: {
       '@': path.resolve(__dirname, 'src'),
+    },
+    fallback: {
+      fs: false,
+      os: false,
+      http: false,
+      https: false,
+      crypto: false,
+      stream: false,
+      zlib: false,
+      vm: false,
+      url: false,
+      module: false,
+      querystring: false,
     },
   },
   plugins: [
@@ -165,6 +189,7 @@ module.exports = {
   optimization: {
     splitChunks: {
       chunks: 'all',
-    }
+    },
+    minimize: false,
   },
 };
