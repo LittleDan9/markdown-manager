@@ -50,18 +50,19 @@ module.exports = {
         test: /\.ico$/,
         type: 'asset/resource',
       },
-      {
-        test: /\.worker\.js$/,
-        exclude: [/node_modules/],
-        use: {
-          loader: 'worker-loader',
-          options: {
-            filename: '[name].[contenthash].worker.js',
-            chunkFilename: '[name].[contenthash].worker.js',
-            esModule: true,
-          }
-        }
-      },
+      // {
+      //   test: /\.worker\.js$/,
+      //   exclude: [/node_modules/],
+      //   use: {
+      //     loader: 'worker-loader',
+      //     options: {
+      //       filename: '[name].js',
+      //       chunkFilename: '[name].[contenthash].js',
+      //       esModule: true,
+      //       inline: 'no-fallback',
+      //     }
+      //   }
+      // },
       {
         test: /\.(js|jsx)$/,
         exclude: [/node_modules/, /\.worker\.js$/],
@@ -150,9 +151,9 @@ module.exports = {
   ],
   devServer: {
     headers: {
-      // 'Cross-Origin-Embedder-Policy': 'require-corp',
-      // 'Cross-Origin-Opener-Policy': 'same-origin',
-      // 'Cross-Origin-Embedder-Policy': 'credentialless'
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless'
     },
     static: [
       {

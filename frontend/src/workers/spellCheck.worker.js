@@ -56,7 +56,12 @@ function extractMarkdownTextContent(text) {
 }
 
 self.onmessage = async function (e) {
+  debugger;
   try {
+    if (e.data.type !== 'spellCheckChunk'){
+      console.warn('[SpellCheckWorker unknon message type');
+      return;
+    }
     console.log('[SpellCheckWorker] Received message:', e.data);
     const { chunk, customWords, requestId } = e.data;
     await loadDictionary();
