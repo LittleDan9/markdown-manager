@@ -1,5 +1,6 @@
 // SpellCheckService.js (worker integration)
 // Add this to your SpellCheckService module
+import WorkScriptURL from '@/services/SpellCheckService.worker.js';
 
 let spellCheckWorker = null;
 let workerReady = false;
@@ -7,7 +8,7 @@ let pendingRequests = [];
 
 function initWorker() {
   if (spellCheckWorker) return;
-  spellCheckWorker = new Worker(new URL('../workers/spellCheck.worker.js', import.meta.url), { type: 'module' });
+  spellCheckWorker = new Worker(WorkScriptURL, { type: 'module' });
   spellCheckWorker.onmessage = (e) => {
     const { type, issues, requestId, progress, currentChunk, totalChunks } = e.data;
     const req = pendingRequests.find(r => r.id === requestId);
@@ -33,5 +34,3 @@ export async function checkAsync(text, customWords = [], progressCallback) {
     spellCheckWorker.postMessage({ text, customWords, requestId });
   });
 }
-
-// ...existing SpellCheckService code...

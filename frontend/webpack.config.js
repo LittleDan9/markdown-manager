@@ -52,6 +52,17 @@ module.exports = {
         type: 'asset/resource',
       },
       {
+        test: /\.worker\.js$/,
+        use: {
+          loader: 'worker-loader',
+          options: {
+            filename: '[name].[contenthash].worker.js',
+            chunkFilename: '[name].[contenthash].worker.js',
+            esModule: true,
+          }
+        }
+      },
+      {
         test: /\.(js|jsx)$/,
         exclude: /node_modules/,
         use: {

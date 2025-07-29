@@ -6,6 +6,7 @@ import { useAuth } from "../context/AuthProvider";
 import { useNotification } from "./NotificationProvider";
 import HighlightService from "../services/HighlightService";
 import SpellCheckService from "../services/SpellCheckService";
+import DictionaryService from "../services/DictionaryService";
 import PerformanceOptimizer from "../services/PerformanceOptimizer";
 import DocumentLazyLoader from "../services/DocumentLazyLoader";
 import customDictionaryApi from "../api/customDictionaryApi";
@@ -139,7 +140,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         // Use async worker-based spell check with progress callback
         const { checkAsync } = await import('../services/SpellCheckService.worker');
         await SpellCheckService.init();
-        const customWords = SpellCheckService.getCustomWords();
+        const customWords = DictionaryService.getCustomWords();
         const issues = await checkAsync(
           text,
           customWords,
@@ -240,7 +241,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
         setSpellCheckProgress({ progress: 0, message: 'Spell checking large region...' });
         const { checkAsync } = await import('../services/SpellCheckService.worker');
         await SpellCheckService.init();
-        const customWords = SpellCheckService.getCustomWords();
+        const customWords = DictionaryService.getCustomWords();
         // Use progress callback for region
         const issues = await checkAsync(
           regionText,
@@ -519,7 +520,7 @@ function Editor({ value, onChange, autosaveEnabled = true, onCursorLineChange })
               console.log(`Attempting to add "${word}" to dictionary...`);
 
               // Add to local spell checker
-              SpellCheckService.addCustomWord(word);
+              DictionaryService.addCustomWord(word);
 
               // If user is logged in, also add to backend
               if (user) {
