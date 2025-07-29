@@ -6,7 +6,7 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { RuntimeGlobals, experiments } = require('webpack');
 const { userInfo } = require('os');
-const { split, min } = require('lodash');
+const { split, min, includes } = require('lodash');
 
 
 module.exports = {
@@ -42,7 +42,6 @@ module.exports = {
   },
   module: {
     rules: [
-      // Load Hunspell dictionary files as raw text
       {
         test: /\.(aff|dic)$/,
         type: 'asset/source',
@@ -53,6 +52,7 @@ module.exports = {
       },
       {
         test: /\.worker\.js$/,
+        exclude: [/node_modules/],
         use: {
           loader: 'worker-loader',
           options: {
@@ -112,19 +112,6 @@ module.exports = {
     alias: {
       '@': path.resolve(__dirname, 'src'),
     },
-    fallback: {
-      fs: false,
-      os: false,
-      http: false,
-      https: false,
-      crypto: false,
-      stream: false,
-      zlib: false,
-      vm: false,
-      url: false,
-      module: false,
-      querystring: false,
-    },
   },
   plugins: [
     new CompressionPlugin(),
@@ -163,9 +150,9 @@ module.exports = {
   ],
   devServer: {
     headers: {
-      'Cross-Origin-Embedder-Policy': 'require-corp',
-      'Cross-Origin-Opener-Policy': 'same-origin',
-      'Cross-Origin-Embedder-Policy': 'credentialless'
+      // 'Cross-Origin-Embedder-Policy': 'require-corp',
+      // 'Cross-Origin-Opener-Policy': 'same-origin',
+      // 'Cross-Origin-Embedder-Policy': 'credentialless'
     },
     static: [
       {
@@ -177,14 +164,6 @@ module.exports = {
     open: false,
     port: 3000,
     watchFiles: ['src/**/*', 'public/**/*'],
-    // watchFiles: {
-    //   paths: ['src/**/*', 'public/**/*'],
-    //   options: {
-    //     usePolling: true, // Use polling to detect changes
-    //     interval: 1000, // Check for changes every second
-    //     ignored: /node_modules/,
-    //   },
-    // }
   },
   optimization: {
     splitChunks: {

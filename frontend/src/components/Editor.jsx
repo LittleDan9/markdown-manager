@@ -1,17 +1,13 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
-import {
-  getChangedRegion,
-  toMonacoMarkers,
-  registerQuickFixActions
-} from '@/utils';
-import { container } from 'webpack';
+import { getChangedRegion, toMonacoMarkers, registerQuickFixActions } from '@/utils';
 import { useTheme } from '@/context/ThemeContext';
 
-export default function Editor({ value, onChange }) {
-  const containerRef = useRef(null);
-  const editorRef = useRef(null);
+export default function Editor({ value, onChange, autoSaveEnabled = true, onCursorLineChange }) {
+  const containerRef = useRef(null); // for the DOM node
+  const editorRef = useRef(null);    // for the Monaco editor instance
   const suggestionsMap = useRef(new Map());
   const [progress, setProgress] = useState(0);
   const { theme } = useTheme();
@@ -21,37 +17,68 @@ export default function Editor({ value, onChange }) {
     SpellCheckService.init().catch(console.error);
   }, []);
 
+  // 2) Register Monaco quick-fix actions once
   useEffect(() => {
     if (!containerRef.current) return;
     EditorSingleton
-    .setup(containerRef.current, value, theme)
-    .then(editor => {
-      editorRef.current = editor;
-      registerQuickFixActions(editor, suggestionsMap.current);
-    })
-    .catch(console.error);
+      .setup(containerRef.current, value, theme)
+      .then(editor => {
+        editorRef.current = editor;
+        editor.setValue(value);
+        let lastLineNumber = 1;
+
+        editor.onDidChangeCursorPosition((e) => {
+          if (onCursorLineChange && e.position.lineNumber !== lastLineNumber) {
+            lastLineNumber = e.position.lineNumber;
+            onCursorLineChange(e.position.lineNumber);
+          }
+        });
+
+        editor.onDidChangeModelContent(() => {
+          onChange(editor.getValue());
+        });
+
+        registerQuickFixActions(editor, suggestionsMap);
+        if (value.length > 0) {
+          setProgress(0);
+          SpellCheckService.scan(value, setProgress)
+            .then(issues => {
+              suggestionsMap.current = toMonacoMarkers(
+                editor,
+                issues,
+                0,
+                suggestionsMap.current
+              );
+              setProgress(0);
+            })
+            .catch(console.error);
+        }
+      })
+      .catch(console.error);
   }, []);
 
-  // 2) Register Monaco quick-fix actions once
   useEffect(() => {
-    if (!editorRef.current) return;
-    registerQuickFixActions(editorRef.current, suggestionsMap);
-  }, []);
+    if (editorRef.current) {
+      editorRef.current.applyTheme(theme);
+    }
+  }, [theme]);
 
-  // 3) Re-scan on every change
+  // Track previous value for delta region detection
+  const prevValueRef = useRef(value);
   useEffect(() => {
     if (!editorRef.current) return;
     const editor = editorRef.current;
-    if (!editor) return;
-
-    const { regionText, startOffset } = getChangedRegion(editorRef.current, value);
-    const isLarge = regionText.length > 5000;
-    const progressCb = isLarge ? setProgress : () => {};
-
+    const prevValue = prevValueRef.current;
+    const { regionText, startOffset } = getChangedRegion(editor, prevValue, value);
+    prevValueRef.current = value;
+    const isLarge = regionText.length > 100;
+    const progressCb = isLarge ? setProgress : () => { };
+    editor.setValue(value);
     setProgress(0);
     SpellCheckService
-      .scan(regionText, SpellCheckService.getCustomWords(), progressCb)
+      .scan(regionText, progressCb)
       .then(issues => {
+        console.log(issues)
         suggestionsMap.current = toMonacoMarkers(
           editor,
           issues,
@@ -64,9 +91,9 @@ export default function Editor({ value, onChange }) {
   }, [value]);
 
   return (
-    <div className="editor-container">
+    <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative" }}>
       {progress > 0 && progress < 100 && <ProgressBar percent={progress} />}
-      <div ref={editorRef} style={{ height: '100%' }} />
+      <div id="editor" ref={containerRef} style={{ height: "100%", width: "100%" }} />
     </div>
   );
 }

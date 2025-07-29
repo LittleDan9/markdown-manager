@@ -6,17 +6,26 @@ let customWordSet = new Set();
 let affData = null;
 let dicData = null;
 
+console.log('[SpellCheckWorker] Initializing spell checker worker');
+
 async function loadDictionary() {
   if (speller) return;
-  if (!affData) {
-    const affResponse = await fetch('/dictionary/index.aff');
-    affData = await affResponse.text();
+  try {
+    if (!affData) {
+      const affResponse = await fetch('/dictionary/index.aff');
+      affData = await affResponse.text();
+    }
+    if (!dicData) {
+      const dicResponse = await fetch('/dictionary/index.dic');
+      dicData = await dicResponse.text();
+    }
+    console.log('[SpellCheckWorker] Initializing nspell');
+    speller = nspell(affData, dicData);
+    console.log('[SpellCheckWorker] nspell initialized')
+  } catch (err) {
+    console.error('[SpellCheckWorker] Error loading dictionary:', err);
+    throw err;
   }
-  if (!dicData) {
-    const dicResponse = await fetch('/dictionary/index.dic');
-    dicData = await dicResponse.text();
-  }
-  speller = nspell(affData, dicData);
 }
 
 function addCustomWords(words) {
@@ -46,45 +55,51 @@ function extractMarkdownTextContent(text) {
   return { originalText: text, codeFenceRegions, inlineCodeRegions };
 }
 
-self.onmessage = async function(e) {
-  const { chunk, customWords, requestId } = e.data;
-  await loadDictionary();
-  addCustomWords(customWords);
-  // chunk: { text, startOffset, endOffset }
-  const { text, startOffset } = chunk;
-  let issues = [];
-  // Get code fence and inline code regions for the chunk (or pass full doc if needed)
-  // For now, just use chunk text
-  const { codeFenceRegions, inlineCodeRegions } = extractMarkdownTextContent(text);
-  const regex = /\b[A-Za-z']+\b/g;
-  let match;
-  while ((match = regex.exec(text)) !== null) {
-    const word = match[0];
-    const globalOffset = startOffset + match.index;
-    // Skip words inside code fence or inline code regions (using chunk offsets)
-    if (codeFenceRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
-    if (inlineCodeRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
-    // For each line, skip markdown tokens at the start
-    const upTo = text.slice(0, match.index);
-    const lines = upTo.split('\n');
-    const currentLine = lines[lines.length - 1];
-    if (/^(\s*(#{1,6}|---|\*\*\*|\*{3,}|_{3,}|>+|[-*+]\s+|\d+\.\s+))/.test(currentLine)) {
-      const tokenMatch = currentLine.match(/^(\s*(#{1,6}|---|\*\*\*|\*{3,}|_{3,}|>+|[-*+]\s+|\d+\.\s+))/);
-      if (tokenMatch && match.index < (upTo.length + tokenMatch[0].length)) continue;
-    }
-    if (customWordSet.has(word.trim().toLowerCase())) continue;
-    if (customWordSet.has(word.trim()) ||
+self.onmessage = async function (e) {
+  try {
+    console.log('[SpellCheckWorker] Received message:', e.data);
+    const { chunk, customWords, requestId } = e.data;
+    await loadDictionary();
+    addCustomWords(customWords);
+    // chunk: { text, startOffset, endOffset }
+    const { text, startOffset } = chunk;
+    let issues = [];
+    // Get code fence and inline code regions for the chunk (or pass full doc if needed)
+    // For now, just use chunk text
+    const { codeFenceRegions, inlineCodeRegions } = extractMarkdownTextContent(text);
+    const regex = /\b[A-Za-z']+\b/g;
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      const word = match[0];
+      const globalOffset = startOffset + match.index;
+      // Skip words inside code fence or inline code regions (using chunk offsets)
+      if (codeFenceRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
+      if (inlineCodeRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
+      // For each line, skip markdown tokens at the start
+      const upTo = text.slice(0, match.index);
+      const lines = upTo.split('\n');
+      const currentLine = lines[lines.length - 1];
+      if (/^(\s*(#{1,6}|---|\*\*\*|\*{3,}|_{3,}|>+|[-*+]\s+|\d+\.\s+))/.test(currentLine)) {
+        const tokenMatch = currentLine.match(/^(\s*(#{1,6}|---|\*\*\*|\*{3,}|_{3,}|>+|[-*+]\s+|\d+\.\s+))/);
+        if (tokenMatch && match.index < (upTo.length + tokenMatch[0].length)) continue;
+      }
+      if (customWordSet.has(word.trim().toLowerCase())) continue;
+      if (customWordSet.has(word.trim()) ||
         customWordSet.has(word.trim().toUpperCase()) ||
         customWordSet.has(word.trim()[0].toUpperCase() + word.trim().slice(1).toLowerCase())) continue;
-    if (!speller.correct(word)) {
-      const suggestions = speller.suggest(word);
-      // Compute line/column in chunk
-      const upToGlobal = text.slice(0, match.index);
-      const linesGlobal = upToGlobal.split('\n');
-      const lineNumber = linesGlobal.length;
-      const column = linesGlobal[linesGlobal.length - 1].length + 1;
-      issues.push({ word, suggestions, lineNumber, column, offset: globalOffset });
+      if (!speller.correct(word)) {
+        const suggestions = speller.suggest(word);
+        // Compute line/column in chunk
+        const upToGlobal = text.slice(0, match.index);
+        const linesGlobal = upToGlobal.split('\n');
+        const lineNumber = linesGlobal.length;
+        const column = linesGlobal[linesGlobal.length - 1].length + 1;
+        issues.push({ word, suggestions, lineNumber, column, offset: globalOffset });
+      }
     }
+    self.postMessage({ type: 'spellCheckChunkResult', requestId, issues });
+  } catch (err) {
+    console.error('[SpellCheckWorker] Error processing chunk:', err);
+    self.postMessage({ type: 'spellCheckChunkError', requestId, error: err.message });
   }
-  self.postMessage({ type: 'spellCheckChunkResult', requestId, issues });
 };
