@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react";
 import DocumentManager from "../storage/DocumentManager";
 import UserAPI from "../api/userApi.js";
-import CustomDictionarySyncService from "../services/CustomDictionarySyncService";
+import DictionaryService from "@/services/DictionaryService";
 import LogoutProgressModal from "../components/LogoutProgressModal";
 import PropTypes from "prop-types";
 import config from "../config.js";
@@ -176,7 +176,7 @@ export function AuthProvider({ children }) {
       }
     }));
     try {
-      await CustomDictionarySyncService.syncAfterLogin();
+      await DictionaryService.syncAfterLogin();
     } catch (error) {
       console.error('Dictionary sync failed after login:', error);
     }
@@ -200,7 +200,7 @@ export function AuthProvider({ children }) {
         justLoggedInRef.current = true;
         window.dispatchEvent(new CustomEvent('auth:login', { detail: { user: response.user, token: response.access_token } }));
         try {
-          await CustomDictionarySyncService.syncAfterLogin();
+          await DictionaryService.syncAfterLogin();
         } catch (error) {
           console.error('Dictionary sync failed after MFA login:', error);
         }
@@ -235,7 +235,7 @@ export function AuthProvider({ children }) {
       window.removeEventListener('auth:delayLogout', handleDelayLogout);
       if (!delayLogoutReceived) {
         performLogout();
-        // CustomDictionarySyncService.clearLocal(); Should listen for the logout-comp event instead
+        // DictionaryService.clearLocal(); Should listen for the logout-comp event instead
       }
     }, 500);
     // If logout was deferred due to pending sync, the modal will handle it

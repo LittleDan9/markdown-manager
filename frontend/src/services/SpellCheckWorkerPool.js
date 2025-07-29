@@ -1,17 +1,15 @@
 // SpellCheckWorkerPool.js
 // Manages a pool of spell check workers for parallel chunk processing
-
+// import SpellCheckWorker from 'worker-loader!@/workers/spellCheck.worker.js';
 const DEFAULT_MAX_WORKERS = 4;
 
 // workerScriptUrl must be a URL object (e.g., new URL('../workers/spellCheck.worker.js', import.meta.url))
 class SpellCheckWorkerPool {
-  constructor(SpellCheckWorker, maxWorkers) {
-    console.log('[SpellCheckWorkerPool] SpellCheckWorker:', SpellCheckWorker);
+  constructor(maxWorkers) {
     this.maxWorkers = Math.min(
       maxWorkers || navigator.hardwareConcurrency || 2,
       DEFAULT_MAX_WORKERS
     );
-    this.SpellCheckWorker = SpellCheckWorker;
     this.workers = [];
     this.idleWorkers = [];
     this.taskQueue = [];
@@ -30,7 +28,8 @@ class SpellCheckWorkerPool {
       try {
         // workerScriptUrl is always a URL object
         console.log(`[SpellCheckWorkerPool] Creating worker #${i+1}`);
-        const worker = new this.SpellCheckWorker({ type: 'module' });
+        // const worker = new SpellCheckWorker({ type: 'module' });
+        const worker = new Worker(new URL('@/workers/spellCheck.worker.js', import.meta.url), {type: 'module'});
 
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
         worker.onerror = (err) => {

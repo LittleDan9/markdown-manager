@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
 import { useAuth } from "../../context/AuthProvider";
 import customDictionaryApi from "../../api/customDictionaryApi";
-import CustomDictionarySyncService from "../../services/CustomDictionarySyncService";
+import DictionaryService from "@/services/DictionaryService";
 import SpellCheckService from "../../services/SpellCheckService";
 
 function DictionaryTab() {
@@ -23,8 +23,7 @@ function DictionaryTab() {
   // Update local word count
   const updateLocalWordCount = async () => {
     // Ensure SpellCheckService is initialized before getting words
-    await SpellCheckService.init();
-    const customWords = SpellCheckService.getCustomWords();
+    const customWords = DictionaryService.getCustomWords();
     console.log('updateLocalWordCount: words found:', customWords.length, customWords);
     console.log('updateLocalWordCount: localStorage raw:', localStorage.getItem('customDictionary'));
     setLocalWordCount(customWords.length);

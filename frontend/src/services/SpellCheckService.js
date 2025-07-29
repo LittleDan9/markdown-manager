@@ -3,7 +3,6 @@
 
 // import { chunkText } from './utils';
 import SpellCheckWorkerPool from '@/services/SpellCheckWorkerPool';
-import WorkerScriptURL from 'worker-loader!@/workers/spellCheck.worker.js';
 import { chunkTextWithOffsets } from '@/utils';
 import DictionaryService from '@/services/DictionaryService';
 
@@ -11,7 +10,7 @@ export class SpellCheckService {
   constructor(chunkSize = 1000) {
     this.speller = null;
     this.poolSize = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2));
-    this.workerPool = new SpellCheckWorkerPool(WorkerScriptURL, this.poolSize);
+    this.workerPool = new SpellCheckWorkerPool(this.poolSize);
     this.chunkSize = chunkSize;
     this.progressiveCheckState = {
       isRunning: false,

@@ -34,7 +34,8 @@ class Editor {
       // Disable potentially expensive decorations
       renderLineHighlight: "none",
       renderWhitespace: "none",
-      renderControlCharacters: false
+      renderControlCharacters: false,
+      direction: "LTR"
     };
 
     // Apply performance optimizations for large documents
