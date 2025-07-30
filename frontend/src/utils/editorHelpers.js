@@ -83,25 +83,25 @@ export function toMonacoMarkers(
   startOffset,
   prevSuggestionsMap = new Map()
 ) {
-  const model          = editor.getModel();
-  const oldMarkers     = monaco.editor.getModelMarkers({ resource: model.uri })
+  const model = editor.getModel();
+  const oldMarkers = monaco.editor.getModelMarkers({ resource: model.uri })
     .filter(m => m.owner === 'spell');
-  const newMarkers     = [];
+  const newMarkers = [];
   const newSuggestions = new Map();
 
   // clear out any old spell markers within [startOffset … end]
   const regionEndOffset = startOffset + issues.reduce((max, i) => Math.max(max, i.offset), 0) + 1;
   const filteredOld = oldMarkers.filter(m => {
     const s = model.getOffsetAt({ lineNumber: m.startLineNumber, column: m.startColumn });
-    const e = model.getOffsetAt({ lineNumber: m.endLineNumber,   column: m.endColumn });
+    const e = model.getOffsetAt({ lineNumber: m.endLineNumber, column: m.endColumn });
     return e < startOffset || s > regionEndOffset;
   });
 
   // build fresh markers + suggestion map
   for (const issue of issues) {
     const globalOffset = startOffset + issue.offset;
-    const pos          = model.getPositionAt(globalOffset);
-    const msg          = `"${issue.word}" — ${issue.suggestions?.slice(0,3).join(', ') || 'no suggestions'}`;
+    const pos = model.getPositionAt(globalOffset);
+    const msg = `"${issue.word}" — ${issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions'}`;
 
     newMarkers.push({
       owner: 'spell',
@@ -135,11 +135,28 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
   const disposables = [];
 
   // code action provider
-  disposables.push(monaco.languages.registerCodeActionProvider('javascript', {
+  disposables.push(monaco.languages.registerCodeActionProvider('markdown', {
     provideCodeActions(model, range) {
-      const key = `${range.startLineNumber}:${range.startColumn}`;
-      const suggestions = suggestionsMapRef.current.get(key);
-      if (!suggestions?.length) return { actions: [], dispose: () => {} };
+      const word = model.getValueInRange(range);
+      let key = `${range.startLineNumber}:${range.startColumn}`;
+      let suggestions = suggestionsMapRef.current.get(key);
+
+      if (!suggestions) {
+        for (let [k, v] of suggestionsMapRef.current.entries()) {
+          const [line, col] = k.split(':').map(Number);
+          if (
+            line === range.startLineNumber &&
+            col <= range.startColumn &&
+            (col + (v[0]?.length || 0)) >= range.startColumn
+          ) {
+            suggestions = v;
+            key = k;
+            break;
+          }
+        }
+      }
+      if (!suggestions) return { actions: [], dispose: () => { } };
+
 
       const actions = suggestions.map((word, idx) => ({
         title: `Replace with "${word}"`,
@@ -159,7 +176,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
 
       // add “Add to dictionary” last, pass editor and suggestionsMapRef (ref object) as arguments
       actions.push({
-        title: 'Add to dictionary',
+        title: `Add ${word}`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToDictionary',
@@ -169,7 +186,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
         }
       });
 
-      return { actions, dispose: () => {} };
+      return { actions, dispose: () => { } };
     }
   }));
 
@@ -194,22 +211,4 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
 
   // clean up if needed
   return () => disposables.forEach(d => d.dispose && d.dispose());
-}
-
-/**
- * 4) Simple ProgressBar component
- */
-export function ProgressBar({ percent }) {
-  return (
-    <div style={{ height: 4, background: '#eee', width: '100%', marginBottom: 4 }}>
-      <div
-        style={{
-          height: '100%',
-          width: `${Math.min(Math.max(percent, 0), 100)}%`,
-          background: '#007acc',
-          transition: 'width 0.2s ease-out'
-        }}
-      />
-    </div>
-  );
 }

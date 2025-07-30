@@ -4,19 +4,32 @@ import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
 import { getChangedRegion, toMonacoMarkers, registerQuickFixActions } from '@/utils';
 import { useTheme } from '@/context/ThemeContext';
+import { useDebouncedCallback } from '@/utils/useDebouncedCallback';
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 export default function Editor({ value, onChange, autoSaveEnabled = true, onCursorLineChange }) {
   const containerRef = useRef(null); // for the DOM node
   const editorRef = useRef(null);    // for the Monaco editor instance
   const suggestionsMap = useRef(new Map());
-  const [progress, setProgress] = useState(0);
+  const [progress, setProgress] = useState(null);
   const { theme } = useTheme();
   const lastEditorValue = useRef(value);
   const previousValueRef = useRef(value);
+  const lastProgressRef = useRef(null);
 
-  // Debounce Refs
+  /* Debounce Refs */
+  // Spell Checking
   const debounceTimeout = useRef(null);
   const lastSpellCheckTime = useRef(Date.now());
+
+  // Cursor Line Change
+  const lastLineNumberRef = useRef(1);
+  const debouncedLineChange = useDebouncedCallback((lineNumber) => {
+    if (onCursorLineChange && lineNumber !== lastLineNumberRef.current) {
+      lastLineNumberRef.current = lineNumber;
+      onCursorLineChange(lineNumber);
+    }
+  }, 300); // Adjust debounce time as needed
 
   // 1) Initialize spell-checker once
   useEffect(() => {
@@ -34,10 +47,7 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
         let lastLineNumber = 1;
 
         editor.onDidChangeCursorPosition((e) => {
-          if (onCursorLineChange && e.position.lineNumber !== lastLineNumber) {
-            lastLineNumber = e.position.lineNumber;
-            onCursorLineChange(e.position.lineNumber);
-          }
+          debouncedLineChange(e.position.lineNumber);
         });
 
         editor.onDidChangeModelContent(() => {
@@ -46,21 +56,15 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
           onChange(editor.getValue());
         });
 
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_DOT, // Ctrl + .
+          () => {
+            editor.trigger('', 'editor.action.quickFix', {});
+          }
+        );
+
         registerQuickFixActions(editor, suggestionsMap);
-        if (value.length > 0) {
-          setProgress(0);
-          SpellCheckService.scan(value, setProgress)
-            .then(issues => {
-              suggestionsMap.current = toMonacoMarkers(
-                editor,
-                issues,
-                0,
-                suggestionsMap.current
-              );
-              setProgress(0);
-            })
-            .catch(console.error);
-        }
+        spellCheckDocument(value, 0);
       })
       .catch(console.error);
   }, []);
@@ -89,48 +93,86 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
     if (value !== previousValueRef.current) {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 
-      const runSpellCheck = () => {
+      const runAndHandleSpellCheck = () => {
         const { regionText, startOffset } = getChangedRegion(editor, previousValueRef.current, value);
         previousValueRef.current = value;
         lastSpellCheckTime.current = Date.now();
 
         if (regionText.length > 0) {
-          const isLarge = regionText.length > 100;
-          const progressCb = isLarge ? setProgress : () => { };
-          setProgress(0);
-          SpellCheckService
-            .scan(regionText, progressCb)
-            .then(issues => {
-              console.log(issues)
-              suggestionsMap.current = toMonacoMarkers(
-                editor,
-                issues,
-                startOffset,
-                suggestionsMap.current
-              );
-              setProgress(0);
-            })
-            .catch(console.error);
+          spellCheckDocument(regionText, startOffset)
         }
       }
       // If last spell check was more than 30s ago, run immediately
       const now = Date.now();
       if (now - lastSpellCheckTime.current > 30000) {
-        runSpellCheck();
+        runAndHandleSpellCheck();
       } else {
-        debounceTimeout.current = setTimeout(runSpellCheck, 3000); // 3s debounce
+        debounceTimeout.current = setTimeout(runAndHandleSpellCheck, 3000); // 3s debounce
       }
     }
-        // Cleanup on unmount
+    // Cleanup on unmount
     return () => {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     };
   }, [value, setProgress]);
 
+  const spellCheckDocument = async (text, startOffset) => {
+    if (!text || text.length === 0) return;
+    const isLarge = text.length > 100;
+    const progressCb = isLarge ? (processObj) => {
+      lastProgressRef.current = processObj;
+      setProgress(processObj);
+    } : () => { };
+    SpellCheckService
+      .scan(text, progressCb)
+      .then(issues => {
+        suggestionsMap.current = toMonacoMarkers(
+          editorRef.current,
+          issues,
+          startOffset,
+          suggestionsMap.current
+        );
+        if (lastProgressRef.current && lastProgressRef.current.percentComplete >= 100) {
+          setTimeout(() => setProgress(null), 500); // Hide after 500ms
+        } else {
+          setProgress(null);
+        }
+      })
+      .catch(console.error);
+  }
+
   return (
     <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative" }}>
-      {progress > 0 && progress < 100 && <ProgressBar percent={progress} />}
       <div id="editor" ref={containerRef} style={{ height: "100%", width: "100%" }} />
+      {progress && (
+        <div
+          className="alert alert-info"
+          style={{
+            position: "absolute",
+            bottom: "10px",
+            right: "10px",
+            zIndex: 1000,
+            maxWidth: "250px",
+            fontSize: "12px",
+            padding: "8px 12px"
+          }}
+        >
+          <div className="d-flex align-items-center">
+            <div className="spinner-border spinner-border-sm me-2" role="status">
+              <span className="visually-hidden">Loading...</span>
+            </div>
+            <div>
+              <div>Spell Checking Document</div>
+              <div className="progress mt-1" style={{ height: "4px" }}>
+                <div
+                  className="progress-bar"
+                  style={{ width: `${progress.percentComplete}%` }}
+                ></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

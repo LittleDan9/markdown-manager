@@ -1,9 +1,7 @@
 // SpellCheckWorkerPool.js
 // Manages a pool of spell check workers for parallel chunk processing
-// import SpellCheckWorker from 'worker-loader!@/workers/spellCheck.worker.js';
-const DEFAULT_MAX_WORKERS = 4;
+const DEFAULT_MAX_WORKERS = 6;
 
-// workerScriptUrl must be a URL object (e.g., new URL('../workers/spellCheck.worker.js', import.meta.url))
 class SpellCheckWorkerPool {
   constructor(maxWorkers) {
     this.maxWorkers = Math.min(
@@ -21,14 +19,10 @@ class SpellCheckWorkerPool {
   }
 
   async init() {
-    // Create workers (classic, no module type)
     if (this.workers?.length > 0) return;
 
     for (let i = 0; i < this.maxWorkers; i++) {
       try {
-        // workerScriptUrl is always a URL object
-        console.log(`[SpellCheckWorkerPool] Creating worker #${i+1}`);
-        // const worker = new SpellCheckWorker({ type: 'module' });
         const worker = new Worker(new URL('@/workers/spellCheck.worker.js', import.meta.url), {type: 'module'});
 
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
@@ -37,7 +31,6 @@ class SpellCheckWorkerPool {
         };
         this.workers.push(worker);
         this.idleWorkers.push(worker);
-        console.log(`[SpellCheckWorkerPool] Worker #${i+1} created successfully.`);
       } catch (err) {
         console.error(`[SpellCheckWorkerPool] Failed to create worker #${i+1}:`, err);
         if (err && err.message && err.message.includes('Failed to construct')) {
@@ -60,17 +53,16 @@ class SpellCheckWorkerPool {
   }
 
   runSpellCheckOnChunks(chunks, customWords, progressCallback) {
-    console.log(`[SpellCheckWorkerPool] Running spell check on ${chunks.length} chunks with ${this.maxWorkers} workers.`);
     this.results = new Array(chunks.length);
     this.progressCallback = progressCallback;
     this.totalChunks = chunks.length;
     this.completedChunks = 0;
     this.taskQueue = chunks.map((chunk, idx) => ({ chunk, idx }));
     this.activeTasks = 0;
-    this._customWords = customWords; // Store customWords for use in _disACpatchTasks
+    this._customWords = customWords; // Store customWords for use in _dispatchTasks
     return new Promise((resolve, reject) => {
-      this._resolve = (...args) => { console.log('[SpellCheckWorkerPool] Promise resolved with:', ...args); resolve(...args); };
-      this._reject = (...args) => { console.log('[SpellCheckWorkerPool] Promise rejected with:', ...args); reject(...args); };
+      this._resolve = (...args) => { resolve(...args); };
+      this._reject = (...args) => { reject(...args); };
       this._dispatchTasks();
     });
   }
@@ -81,7 +73,6 @@ class SpellCheckWorkerPool {
       const { chunk, idx } = this.taskQueue.shift();
       this.activeTasks++;
       worker._currentTaskIdx = idx;
-      console.log('[SpellCheckWorkerPool] Dispatching chunk', idx, 'to worker', worker);
       worker.postMessage({
         type: 'spellCheckChunk',
         chunk,
@@ -91,14 +82,13 @@ class SpellCheckWorkerPool {
   }
 
   _handleWorkerMessage(worker, e) {
-    console.log('[SpellCheckWorkerPool] Worker message received:', e.data);
     if (e.data && e.data.type === 'spellCheckChunkResult') {
       const idx = worker._currentTaskIdx;
       this.results[idx] = e.data.issues;
       this.completedChunks++;
       if (this.progressCallback) {
         this.progressCallback({
-          progress: this.completedChunks / this.totalChunks,
+          percentComplete: (this.completedChunks / this.totalChunks) * 100,
           currentChunk: this.completedChunks,
           totalChunks: this.totalChunks
         });

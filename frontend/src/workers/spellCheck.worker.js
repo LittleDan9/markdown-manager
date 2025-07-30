@@ -6,8 +6,6 @@ let customWordSet = new Set();
 let affData = null;
 let dicData = null;
 
-console.log('[SpellCheckWorker] Initializing spell checker worker');
-
 async function loadDictionary() {
   if (speller) return;
   try {
@@ -19,9 +17,7 @@ async function loadDictionary() {
       const dicResponse = await fetch('/dictionary/index.dic');
       dicData = await dicResponse.text();
     }
-    console.log('[SpellCheckWorker] Initializing nspell');
     speller = nspell(affData, dicData);
-    console.log('[SpellCheckWorker] nspell initialized')
   } catch (err) {
     console.error('[SpellCheckWorker] Error loading dictionary:', err);
     throw err;
@@ -61,7 +57,6 @@ self.onmessage = async function (e) {
       console.warn('[SpellCheckWorker unknown message type');
       return;
     }
-    console.log('[SpellCheckWorker] Received message:', e.data);
     const { chunk, customWords, requestId } = e.data;
     await loadDictionary();
     addCustomWords(customWords);
@@ -103,7 +98,7 @@ self.onmessage = async function (e) {
     }
     self.postMessage({ type: 'spellCheckChunkResult', requestId, issues });
   } catch (err) {
-    console.error('[SpellCheckWorker] Error processing chunk:', err);
+
     self.postMessage({ type: 'spellCheckChunkError', requestId, error: err.message });
   }
 };
