@@ -56,10 +56,9 @@ function extractMarkdownTextContent(text) {
 }
 
 self.onmessage = async function (e) {
-  debugger;
   try {
     if (e.data.type !== 'spellCheckChunk'){
-      console.warn('[SpellCheckWorker unknon message type');
+      console.warn('[SpellCheckWorker unknown message type');
       return;
     }
     console.log('[SpellCheckWorker] Received message:', e.data);

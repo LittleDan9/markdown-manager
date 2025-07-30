@@ -10,7 +10,7 @@ import { chunkTextWithOffsets } from './chunkText'; // if you need it
  * - If editor is provided, use its selection/cursor to refine the region.
  * Returns { regionText, startOffset } for spell checking.
  */
-export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold = 5000) {
+export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold = 1000) {
   if (!prevValue || prevValue.length === 0) {
     // Full scan if no previous value
     return { regionText: newValue, startOffset: 0 };

@@ -11,6 +11,12 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
   const suggestionsMap = useRef(new Map());
   const [progress, setProgress] = useState(0);
   const { theme } = useTheme();
+  const lastEditorValue = useRef(value);
+  const previousValueRef = useRef(value);
+
+  // Debounce Refs
+  const debounceTimeout = useRef(null);
+  const lastSpellCheckTime = useRef(Date.now());
 
   // 1) Initialize spell-checker once
   useEffect(() => {
@@ -35,6 +41,8 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
         });
 
         editor.onDidChangeModelContent(() => {
+          const newValue = editor.getValue();
+          lastEditorValue.current = newValue;
           onChange(editor.getValue());
         });
 
@@ -63,32 +71,61 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
     }
   }, [theme]);
 
-  // Track previous value for delta region detection
-  const prevValueRef = useRef(value);
   useEffect(() => {
     if (!editorRef.current) return;
     const editor = editorRef.current;
-    const prevValue = prevValueRef.current;
-    const { regionText, startOffset } = getChangedRegion(editor, prevValue, value);
-    prevValueRef.current = value;
-    const isLarge = regionText.length > 100;
-    const progressCb = isLarge ? setProgress : () => { };
-    editor.setValue(value);
-    setProgress(0);
-    SpellCheckService
-      .scan(regionText, progressCb)
-      .then(issues => {
-        console.log(issues)
-        suggestionsMap.current = toMonacoMarkers(
-          editor,
-          issues,
-          startOffset,
-          suggestionsMap.current
-        );
-        setProgress(0);
-      })
-      .catch(console.error);
-  }, [value]);
+
+    if (value !== lastEditorValue.current) {
+      editor.setValue(value);
+      lastEditorValue.current = value;
+
+
+      // If auto-save is enabled, trigger a format on save
+      // This is a placeholder for any auto-save logic you might want to implement
+      // if (autoSaveEnabled) {
+      //   editor.trigger('autoSave', 'editor.action.formatDocument');
+      // }
+    }
+    if (value !== previousValueRef.current) {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+
+      const runSpellCheck = () => {
+        const { regionText, startOffset } = getChangedRegion(editor, previousValueRef.current, value);
+        previousValueRef.current = value;
+        lastSpellCheckTime.current = Date.now();
+
+        if (regionText.length > 0) {
+          const isLarge = regionText.length > 100;
+          const progressCb = isLarge ? setProgress : () => { };
+          setProgress(0);
+          SpellCheckService
+            .scan(regionText, progressCb)
+            .then(issues => {
+              console.log(issues)
+              suggestionsMap.current = toMonacoMarkers(
+                editor,
+                issues,
+                startOffset,
+                suggestionsMap.current
+              );
+              setProgress(0);
+            })
+            .catch(console.error);
+        }
+      }
+      // If last spell check was more than 30s ago, run immediately
+      const now = Date.now();
+      if (now - lastSpellCheckTime.current > 30000) {
+        runSpellCheck();
+      } else {
+        debounceTimeout.current = setTimeout(runSpellCheck, 3000); // 3s debounce
+      }
+    }
+        // Cleanup on unmount
+    return () => {
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    };
+  }, [value, setProgress]);
 
   return (
     <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative" }}>
