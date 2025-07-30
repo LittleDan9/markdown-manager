@@ -42,10 +42,12 @@ export class SpellCheckService {
     await this.init();
 
     const bucket = chunkTextWithOffsets(text, this.chunkSize);
-    const chunks = bucket.map(chunks => chunks.text);
-    const offsets = bucket.map(chunks => chunks.offset);
+    const chunks = bucket.map(chunk => ({
+      text: chunk.text,
+      startOffset: chunk.offset,
+    }));
 
-    this.workerPool._chunkOffsets = offsets;
+    this.workerPool._chunkOffsets = chunks.map(c => c.offset);
 
     const issues = await this.workerPool.runSpellCheckOnChunks(
       chunks,
