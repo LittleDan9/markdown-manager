@@ -4,6 +4,17 @@ import customDictionaryApi from '../api/customDictionaryApi';
 // Manages custom dictionary words, localStorage, and backend sync for spell checking
 
 class DictionaryService {
+  constructor() {
+    this.CUSTOM_WORDS_KEY = 'customDictionary';
+    this.customWords = new Set();
+    window.addEventListener('auth:logout-complete', () => {
+      this.clearLocal();
+    });
+    window.addEventListener('auth:login-complete', () => {
+      this.syncAfterLogin();
+    });
+    this.loadCustomWordsFromStorage();
+  }
   /**
    * Sync dictionary with backend after login
    * Loads words from backend and merges with local storage
@@ -106,11 +117,6 @@ class DictionaryService {
   clearLocal() {
     this.setCustomWords([]);
     console.log('Local custom dictionary cleared');
-  }
-  constructor() {
-    this.CUSTOM_WORDS_KEY = 'customDictionary';
-    this.customWords = new Set();
-    this.loadCustomWordsFromStorage();
   }
 
   /**

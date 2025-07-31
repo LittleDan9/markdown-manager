@@ -8,7 +8,7 @@ import { useEffect, useRef } from "react";
  * @param {boolean} enabled - Whether autosave is enabled.
  * @param {number} delay - Debounce delay in ms (default: 2000)
  */
-export default function useAutoSave(currentDocument, saveDocument, enabled = true, delay = 30000) {
+export default function useAutoSave(currentDocument, saveDocument, enabled = true, delay = 120000) {
   const intervalRef = useRef();
   const hibernateRef = useRef(false);
   const lastSavedContentRef = useRef(currentDocument.content);

@@ -2,6 +2,8 @@
 // Provides the main interface for document operations
 // Combines LocalDocumentStorage with sync capabilities
 
+import LocalStorage from './LocalDocumentStorage.js';
+
 class DocumentManager {
   constructor() {
     this.isInitialized = false;
@@ -21,83 +23,82 @@ class DocumentManager {
   }
 
   // Document operations
+
   getAllDocuments() {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.getAllDocuments();
   }
 
+
   getDocument(id) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.getDocument(id);
   }
 
+
   async saveDocument(doc) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     try {
       const savedDoc = LocalStorage.saveDocument(doc);
       return savedDoc;
     } catch (error) {
-      // Re-throw with more context if needed
       throw error;
     }
   }
 
+
   async deleteDocument(id) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     const deletedDoc = LocalStorage.deleteDocument(id);
     return deletedDoc;
   }
 
+
   searchDocuments(query) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.searchDocuments(query);
   }
 
   // Current document operations
+
   getCurrentDocument() {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.getCurrentDocument();
   }
 
+
   setCurrentDocument(doc) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.setCurrentDocument(doc);
   }
 
+
   clearCurrentDocument() {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.clearCurrentDocument();
   }
 
+
   getLastDocumentId() {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.getLastDocumentId();
   }
 
   // Category operations
+
   getCategories() {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.getCategories();
   }
 
+
   async addCategory(category) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.addCategory(category);
   }
 
+
   async deleteCategory(name, options = {}) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.deleteCategory(name, options);
   }
 
+
   async renameCategory(oldName, newName) {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.renameCategory(oldName, newName);
   }
 
   // Stats and utilities
+
   getDocumentStats() {
-    const LocalStorage = require('./LocalDocumentStorage.js').default;
     return LocalStorage.getDocumentStats();
   }
 
@@ -194,10 +195,9 @@ class DocumentManager {
   }
 
   // Migration utilities (for moving from old storage format)
+
   async migrateFromLegacyStorage(legacyData) {
     try {
-      const LocalStorage = require('./LocalDocumentStorage.js').default;
-
       // Clear existing data first
       LocalStorage.clearAllData();
 
@@ -227,10 +227,8 @@ class DocumentManager {
   }
 
   // Private methods
-  async _getLocalStorage() {
-    // Dynamic import to avoid circular dependencies
-    return (await import('./LocalDocumentStorage.js')).default;
-  }
+
+  // Removed _getLocalStorage, not needed with static import
 
   _exportToCsv(documents) {
     const headers = ['ID', 'Name', 'Category', 'Created', 'Updated', 'Content Length'];
