@@ -14,7 +14,7 @@ import { useFileOverwriteController } from "./useFileOverwriteController";
 import { useFileOpenController } from "./useFileOpenController";
 import { useFileSaveController } from "./useFileSaveController";
 import { useFileExportController } from "./useFileExportController";
-import { useTheme } from "../../../context/ThemeContext.jsx";
+import { useTheme } from "../../../context/ThemeProvider.jsx";
 import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
 
 import { useAuth } from "../../../context/AuthProvider";

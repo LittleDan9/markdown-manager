@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
-import { toggleTheme, useTheme } from "../../context/ThemeContext";
+import { toggleTheme, useTheme } from "../../context/ThemeProvider";
 import RegisterModal from "../modals/RegisterModal";
 import UserSettingsModal from "../modals/UserSettingsModal";
 import UserAPI from "../../api/userApi";

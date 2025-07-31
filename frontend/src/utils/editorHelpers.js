@@ -137,35 +137,47 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
   // code action provider
   disposables.push(monaco.languages.registerCodeActionProvider('markdown', {
     provideCodeActions(model, range) {
-      const word = model.getValueInRange(range);
-      let key = `${range.startLineNumber}:${range.startColumn}`;
-      let suggestions = suggestionsMapRef.current.get(key);
-
+      const wordInfo = model.getWordAtPosition(range.getStartPosition())
+      if (!wordInfo || !wordInfo.word) return { actions: [], dispose: () => { } };
+      const trueRange = new monaco.Range(
+        range.startLineNumber,
+        wordInfo.startColumn,
+        range.endLineNumber,
+        wordInfo.startColumn + wordInfo.word.length
+      );
+      const wordKey = `${range.startLineNumber}:${wordInfo.startColumn}`;
+      let suggestions = suggestionsMapRef.current.get(wordKey);
+      let key = wordKey;
+      // Fallback: legacy scan if still not found
       if (!suggestions) {
-        for (let [k, v] of suggestionsMapRef.current.entries()) {
-          const [line, col] = k.split(':').map(Number);
-          if (
-            line === range.startLineNumber &&
-            col <= range.startColumn &&
-            (col + (v[0]?.length || 0)) >= range.startColumn
-          ) {
-            suggestions = v;
-            key = k;
-            break;
+        const pos = range.getStartPosition();
+        const lineContent = model.getLineContent(pos.lineNumber);
+        let scanCol = pos.column - 1; // Monaco columns are 1-based
+        while (scanCol > 0 && /\S/.test(lineContent[scanCol - 1])) {
+          scanCol--;
+        }
+        if (scanCol > 0 && scanCol < pos.column) {
+          const fallbackKey = `${pos.lineNumber}:${scanCol}`;
+          suggestions = suggestionsMapRef.current.get(fallbackKey);
+          if (suggestions) {
+            key = fallbackKey;
           }
         }
+
+
       }
       if (!suggestions) return { actions: [], dispose: () => { } };
 
 
+
       const actions = suggestions.map((word, idx) => ({
-        title: `Replace with "${word}"`,
+        title: `${word}`,
         kind: 'quickfix',
         edit: {
           edits: [{
             resource: model.uri,
-            edit: {
-              range,
+            textEdit: {
+              range: trueRange,
               text: word
             }
           }]
@@ -176,7 +188,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
 
       // add “Add to dictionary” last, pass editor and suggestionsMapRef (ref object) as arguments
       actions.push({
-        title: `Add ${word}`,
+        title: `Add ${wordInfo.word}`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToDictionary',
@@ -204,7 +216,17 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
       const word = model.getValueInRange(range);
       SpellCheckService.addCustomWord(word);
       suggestionsMapRefArg.current.delete(key);
-      // Optionally, trigger a UI update if needed
+
+      // After suggestionsMapRefArg.current.delete(key);
+      /// TODO: FIgure out why this is breaking things
+      // const model = editorInstance.getModel();
+      // const lineNumber = range.startLineNumber;
+      // const lineContent = model.getLineContent(lineNumber);
+      // const regionText = lineContent.slice(range.startColumn - 1);
+      // const startOffset = model.getOffsetAt({ lineNumber, column: range.startColumn });
+      // SpellCheckService.scan(regionText).then(issues => {
+      //   toMonacoMarkers({ getModel: () => model }, issues, startOffset);
+      // });
     });
     monaco.editor._spellAddToDictionaryRegistered = true;
   }

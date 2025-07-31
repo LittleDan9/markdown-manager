@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import { render } from "../services/MarkdownRender";
-import { useTheme } from "../context/ThemeContext";
+import { useTheme } from "../context/ThemeProvider";
 import { useDocument } from "../context/DocumentProvider";
 import HighlightService from "../services/HighlightService";
 import MermaidService from "../services/MermaidService";

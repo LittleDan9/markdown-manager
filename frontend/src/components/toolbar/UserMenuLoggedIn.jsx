@@ -5,7 +5,7 @@ import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../context/AuthProvider";
 import UserSettingsModal from "../modals/UserSettingsModal";
-import { useTheme } from "../../context/ThemeContext";
+import { useTheme } from "../../context/ThemeProvider";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
