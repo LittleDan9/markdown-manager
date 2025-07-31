@@ -154,23 +154,6 @@ export default function FileDropdown({ setDocumentTitle }) {
           className="dropdownToggle position-relative"
         >
           <i className="bi bi-folder me-1"></i>File
-          {hasUnsavedChanges && (
-            <span
-              style={{
-                position: "absolute",
-                top: 6,
-                right: 8,
-                width: 10,
-                height: 10,
-                background: "#dc3545",
-                borderRadius: "50%",
-                display: "inline-block",
-                border: "2px solid white",
-                zIndex: 2,
-              }}
-              title="You have unsaved changes"
-            />
-          )}
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <Dropdown.Item onClick={handleNew}>

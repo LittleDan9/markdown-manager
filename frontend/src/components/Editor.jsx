@@ -55,7 +55,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
         editor.onDidChangeModelContent(() => {
           const newValue = editor.getValue();
           lastEditorValue.current = newValue;
-          onChange(editor.getValue());
+          onChange(newValue);
         });
 
         editor.addCommand(

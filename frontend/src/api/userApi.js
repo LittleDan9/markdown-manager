@@ -16,8 +16,13 @@ class UserAPI extends Api {
       const res = await this.apiCall("/auth/me", "GET", null, headers);
       return res.data;
     } catch (e) {
-      if (e?.response?.status === 403) {
+      if (e?.response?.status === 401) {
         // Not authenticated, return null
+        return null;
+      }
+      if (e?.response?.status === 403) {
+        // Forbidden: trigger force logout for full cleanup
+        window.dispatchEvent(new CustomEvent('auth:force-logout'));
         return null;
       }
       // Log other errors

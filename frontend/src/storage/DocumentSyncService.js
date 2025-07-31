@@ -245,7 +245,10 @@ class DocumentSyncService {
       }
 
       // Sync current document
-      if (localCurrentDoc && localCurrentDoc.id && !this._isDefaultDocument(localCurrentDoc)) {
+      if (userProfile.current_document) {
+        // Set the current document from backend response
+        LocalStorage.setCurrentDocument(userProfile.current_document);
+      } else if (localCurrentDoc && localCurrentDoc.id && !this._isDefaultDocument(localCurrentDoc)) {
         await this._syncCurrentDocumentId(localCurrentDoc.id);
       } else if (userProfile.current_doc_id) {
         const doc = LocalStorage.getDocument(userProfile.current_doc_id);

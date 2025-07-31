@@ -14,13 +14,22 @@ import useAutoSave from "@/hooks/useAutoSave";
 function App() {
   const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
   const { currentDocument, saveDocument } = useDocument();
-  const [content, setContent] = useState(currentDocument?.content || "");
+  const { content, setContent } = useDocument();
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
 
-  useAutoSave(currentDocument, saveDocument, autosaveEnabled);
+  const runAutoSave = () => {
+    saveDocument(currentDocument)
+      .then(() => {
+        showSuccess("Document autosaved successfully.");
+      })
+      .catch((error) => {
+        showError("Failed to save document: " + error.message);
+      });
+  };
+  useAutoSave(currentDocument, runAutoSave, autosaveEnabled);
 
   useEffect(() => {
     // Sync content with currentDocument after document load/change
@@ -30,11 +39,31 @@ function App() {
     }
   }, [currentDocument.id, currentDocument.content]);
   // Capture Ctrl+S to save current content
+  // Register Ctrl+S handler only once, always using latest state via refs
+  const contentRef = useRef(content);
+  const currentDocumentRef = useRef(currentDocument);
+  const saveDocumentRef = useRef(saveDocument);
+  const isAuthenticatedRef = useRef(isAuthenticated);
+  const showSuccessRef = useRef(showSuccess);
+  const showErrorRef = useRef(showError);
+
+  useEffect(() => { contentRef.current = content; }, [content]);
+  useEffect(() => { currentDocumentRef.current = currentDocument; }, [currentDocument]);
+  useEffect(() => { saveDocumentRef.current = saveDocument; }, [saveDocument]);
+  useEffect(() => { isAuthenticatedRef.current = isAuthenticated; }, [isAuthenticated]);
+  useEffect(() => { showSuccessRef.current = showSuccess; }, [showSuccess]);
+  useEffect(() => { showErrorRef.current = showError; }, [showError]);
+
   useEffect(() => {
     const handleKeyDown = async (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        // Only save if content differs from currentDocument
+        const content = contentRef.current;
+        const currentDocument = currentDocumentRef.current;
+        const saveDocument = saveDocumentRef.current;
+        const isAuthenticated = isAuthenticatedRef.current;
+        const showSuccess = showSuccessRef.current;
+        const showError = showErrorRef.current;
         if (!currentDocument || content === currentDocument.content) return;
         try {
           const saved = await saveDocument({ ...currentDocument, content }, isAuthenticated);
@@ -48,7 +77,7 @@ function App() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [content, currentDocument, saveDocument, isAuthenticated]);
+  }, []);
 
   return (
     <ThemeProvider>

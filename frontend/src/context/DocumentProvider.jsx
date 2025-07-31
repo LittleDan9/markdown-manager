@@ -21,6 +21,7 @@ export function DocumentProvider({ children }) {
     category: DEFAULT_CATEGORY,
     content: ''
   });
+  const [content, setContent] = useState(currentDocument?.content || "");
   const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([DRAFTS_CATEGORY, DEFAULT_CATEGORY]);
   const [loading, setLoading] = useState(false);
@@ -182,7 +183,7 @@ export function DocumentProvider({ children }) {
   );
 
   // Change tracking
-  const hasUnsavedChanges = useChangeTracker(currentDocument, documents);
+  const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
 
   const value = {
     user,
@@ -209,6 +210,8 @@ export function DocumentProvider({ children }) {
     exportAsPDF,
     importMarkdownFile,
     saveDocument,
+    content,
+    setContent,
   };
   return (
     <DocumentContext.Provider value={value}>

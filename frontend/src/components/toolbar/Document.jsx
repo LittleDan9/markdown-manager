@@ -7,6 +7,7 @@ import { useDocument } from "../../context/DocumentProvider";
 import { useNotification } from "../../components/NotificationProvider";
 import DocumentManager from "../../storage/DocumentManager";
 import { formatDistanceToNow } from "date-fns";
+import { use } from "react";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
@@ -15,7 +16,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const notification = useNotification();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument } = useDocument();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges } = useDocument();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const customCats = rawCategories
@@ -30,6 +31,13 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
   const { renameDocument } = useDocument();
+  const [ lastSavedText, setLastSavedText ] = useState("");
+
+  useEffect(() => {
+    setTimeout(() => {
+      setLastSavedText(getLastSavedText());
+    }, 1000);
+  }, []);
 
   // Save document immediately when changing category
   const handleCategorySelect = async (category) => {
@@ -292,7 +300,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         </span>
       )}
       <span className="vr opacity-50 mx-2"></span>
-      {currentDocument.name === "Untitled Document" && (
+      {currentDocument.name === "Untitled Document" ? (
         <span
           className="me-2"
           title="This document will remain your current document but will not be saved until you provide a title."
@@ -300,7 +308,15 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         >
           <i className="bi bi-exclamation-diamond text-danger"></i>
         </span>
-      )}
+      ) : hasUnsavedChanges ? (
+        <span
+          className="me-2"
+          title="You have unsaved changes in this document. Don't forget to save!"
+          style={{ cursor: "pointer" }}
+        >
+          <i className="bi bi-exclamation-circle text-warning"></i>
+        </span>
+      ) : null}
       <span className="text-muted small">
         Last saved: {getLastSavedText()}
       </span>

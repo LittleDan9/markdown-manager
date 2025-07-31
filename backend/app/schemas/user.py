@@ -71,11 +71,17 @@ class UserResponse(UserBase):
     full_name: str
     sync_preview_scroll_enabled: bool
     autosave_enabled: bool
+    current_doc_id: Optional[int] = None
+    current_document: Optional["Document"] = None  # Should match Document schema
 
     class Config:
         """Pydantic config."""
 
         from_attributes = True
+
+
+# Import placed at the end to avoid circular import issues
+from app.schemas.document import Document
 
 
 class Token(BaseModel):

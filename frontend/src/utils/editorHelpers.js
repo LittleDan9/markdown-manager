@@ -2,6 +2,7 @@
 import * as monaco from 'monaco-editor';
 import SpellCheckService from '../services/SpellCheckService';
 import { chunkTextWithOffsets } from './chunkText'; // if you need it
+import DictionaryService from '@/services/DictionaryService';
 
 /**
  * Compute the changed region between prevValue and newValue, using the editor's selection/cursor if available.
@@ -183,7 +184,12 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
           }]
         },
         diagnostics: [],
-        isPreferred: idx === 0
+        isPreferred: idx === 0,
+        command: {
+          id: 'spell.checkRegion',
+          title: 'Spell Check Region',
+          arguments: [trueRange, editor]
+        }
       }));
 
       // add “Add to dictionary” last, pass editor and suggestionsMapRef (ref object) as arguments
@@ -211,24 +217,36 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
         console.error('spell.addToDictionary: Invalid editor instance passed:', editorInstance);
         return;
       }
-      const [line, col] = key.split(':').map(Number);
+
       const model = editorInstance.getModel();
-      const word = model.getValueInRange(range);
-      SpellCheckService.addCustomWord(word);
+      const wordInfo = model.getWordAtPosition(range.getStartPosition())
+      if (!wordInfo || !wordInfo.word) return;
+
+      DictionaryService.addCustomWord(wordInfo.word);
       suggestionsMapRefArg.current.delete(key);
 
-      // After suggestionsMapRefArg.current.delete(key);
-      /// TODO: FIgure out why this is breaking things
-      // const model = editorInstance.getModel();
-      // const lineNumber = range.startLineNumber;
-      // const lineContent = model.getLineContent(lineNumber);
-      // const regionText = lineContent.slice(range.startColumn - 1);
-      // const startOffset = model.getOffsetAt({ lineNumber, column: range.startColumn });
-      // SpellCheckService.scan(regionText).then(issues => {
-      //   toMonacoMarkers({ getModel: () => model }, issues, startOffset);
-      // });
+      // Run a full document scan to update all markers for the new dictionary word
+      const fullText = model.getValue();
+      SpellCheckService.scan(fullText).then(issues => {
+        toMonacoMarkers({ getModel: () => model }, issues, 0);
+      });
     });
     monaco.editor._spellAddToDictionaryRegistered = true;
+  }
+
+  if (!monaco.editor._spellCheckRegionRegistered) {
+    monaco.editor.registerCommand('spell.checkRegion', (accessor, ...args) => {
+      const [range, editorInstance] = args;
+      const model = editorInstance.getModel();
+      const lineNumber = range.startLineNumber;
+      const lineContent = model.getLineContent(lineNumber);
+      const regionText = lineContent.slice(range.startColumn - 1);
+      const startOffset = model.getOffsetAt({ lineNumber, column: 0 });
+      SpellCheckService.scan(lineContent).then(issues => {
+        toMonacoMarkers({ getModel: () => model }, issues, startOffset);
+      });
+    });
+    monaco.editor._spellCheckRegionRegistered = true;
   }
 
   // clean up if needed
