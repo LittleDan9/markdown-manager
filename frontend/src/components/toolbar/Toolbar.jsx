@@ -2,18 +2,14 @@ import React, { useEffect, useState, useCallback } from "react";
 import FileDropdown from "./file/FileDropdown";
 import DocumentToolbar from "./Document";
 import UserToolbar from "./User";
-import { useTheme } from "../../context/ThemeContext";
-import { useDocument } from "../../context/DocumentProvider";
-import { useNotification } from "../NotificationProvider";
-
-
-import { useAuth } from "../../context/AuthProvider";
+import { useTheme } from "@/context/ThemeProvider";
+import { useDocument } from "@/context/DocumentProvider";
+import { useNotification } from "@/components/NotificationProvider";
 
 function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorValue }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
-  const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
   );

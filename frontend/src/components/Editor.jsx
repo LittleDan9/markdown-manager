@@ -3,11 +3,13 @@ import React, { useEffect, useRef, useState } from 'react';
 import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
 import { getChangedRegion, toMonacoMarkers, registerQuickFixActions } from '@/utils';
-import { useTheme } from '@/context/ThemeContext';
+import { useTheme } from '@/context/ThemeProvider';
 import { useDebouncedCallback } from '@/utils/useDebouncedCallback';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+import { useAuth } from '@/context/AuthProvider';
+import { AuthProvider } from '@/context/AuthProvider';
 
-export default function Editor({ value, onChange, autoSaveEnabled = true, onCursorLineChange }) {
+export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null); // for the DOM node
   const editorRef = useRef(null);    // for the Monaco editor instance
   const suggestionsMap = useRef(new Map());
@@ -46,9 +48,9 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
         editor.setValue(value);
         let lastLineNumber = 1;
 
-        editor.onDidChangeCursorPosition((e) => {
-          debouncedLineChange(e.position.lineNumber);
-        });
+        // editor.onDidChangeCursorPosition((e) => {
+        //   debouncedLineChange(e.position.lineNumber);
+        // });
 
         editor.onDidChangeModelContent(() => {
           const newValue = editor.getValue();
@@ -82,14 +84,9 @@ export default function Editor({ value, onChange, autoSaveEnabled = true, onCurs
     if (value !== lastEditorValue.current) {
       editor.setValue(value);
       lastEditorValue.current = value;
-
-
-      // If auto-save is enabled, trigger a format on save
-      // This is a placeholder for any auto-save logic you might want to implement
-      // if (autoSaveEnabled) {
-      //   editor.trigger('autoSave', 'editor.action.formatDocument');
-      // }
     }
+
+
     if (value !== previousValueRef.current) {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
 

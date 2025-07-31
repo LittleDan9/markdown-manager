@@ -3,15 +3,13 @@ import Header from "./Header";
 import Toolbar from "./toolbar/Toolbar";
 import Editor from "./Editor";
 import Renderer from "./Renderer";
-import { ThemeProvider } from "../context/ThemeContext";
-import ThemeEffects from "./ThemeEffects";
-import { AuthProvider } from "../context/AuthProvider";
-
+import { ThemeProvider } from "../context/ThemeProvider";
 import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
+import { useNotification } from "../components/NotificationProvider.jsx";
 
 import { useAuth } from "../context/AuthProvider";
-import { useNotification } from "./NotificationProvider.jsx";
+import useAutoSave from "@/hooks/useAutoSave";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
@@ -20,9 +18,9 @@ function App() {
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
-  const notification = useNotification();
+  const { showError } = useNotification();
 
-
+  useAutoSave(currentDocument, saveDocument, autosaveEnabled);
 
   useEffect(() => {
     // Sync content with currentDocument after document load/change
@@ -41,20 +39,19 @@ function App() {
         try {
           const saved = await saveDocument({ ...currentDocument, content }, isAuthenticated);
           if (saved) {
-            notification.showSuccess('Document saved successfully.');
+            showSuccess('Document saved successfully.');
           }
         } catch {
-          notification.showError('Save failed.');
+          showError('Save failed.');
         }
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [content, currentDocument, saveDocument, isAuthenticated, notification]);
+  }, [content, currentDocument, saveDocument, isAuthenticated]);
 
   return (
     <ThemeProvider>
-      <ThemeEffects />
       <PreviewHTMLProvider>
         <div id="appRoot" className="app-root">
           <div id="container">
