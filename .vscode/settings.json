@@ -17,4 +17,5 @@
     "python.testing.pytestEnabled": false,
     "github.copilot.chat.codeGeneration.useInstructionFiles": true,
     "files.eol": "\n",
+    "mypy-type-checker.path": ["./backend/.venv/bin/mypy", "./backend/venv/Scripts/mypy.exe"],
 }

@@ -1,6 +1,12 @@
 import { Api } from "./api";
 
 class UserAPI extends Api {
+  // Request a new access token using the refresh token cookie
+  async refreshToken() {
+    // The refresh token should be sent as a cookie
+    const res = await this.apiCall("/auth/refresh", "POST", null, {}, { withCredentials: true });
+    return res.data;
+  }
   // Verify password reset code (for step 2 in password reset flow)
   async verifyResetCode(email, code) {
     const res = await this.apiCall("/auth/password-reset-verify", "POST", { email, code });
@@ -48,8 +54,9 @@ class UserAPI extends Api {
   }
 
 
-  async login(email, password){
-    const res = await this.apiCall("/auth/login", "POST", { email, password });
+  async login(email, password) {
+    // Use withCredentials to receive refresh token cookie
+    const res = await this.apiCall("/auth/login", "POST", { email, password }, {}, { withCredentials: true });
     return res.data;
   }
 
@@ -59,8 +66,13 @@ class UserAPI extends Api {
   }
 
   async loginMFA(email, password, code) {
-    const res = await this.apiCall("/auth/login-mfa", "POST", { email, password, code });
+    // Use withCredentials to receive refresh token cookie
+    const res = await this.apiCall("/auth/login-mfa", "POST", { email, password, code }, {}, { withCredentials: true });
     return res.data;
+  }
+  // Call backend logout endpoint to clear refresh token cookie
+  async logout() {
+    await this.apiCall("/auth/logout", "POST", null, {}, { withCredentials: true });
   }
 
   async resetPassword(email) {

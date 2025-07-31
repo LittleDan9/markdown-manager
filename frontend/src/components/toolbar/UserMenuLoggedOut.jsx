@@ -22,6 +22,7 @@ function UserMenuLoggedOut() {
     mfaLoading,
     mfaError,
     verifyMFA,
+    setLoginEmail,
   } = useAuth();
   const { showSuccess, showError } = useNotification();
   const [showRegister, setShowRegister] = useState(false);

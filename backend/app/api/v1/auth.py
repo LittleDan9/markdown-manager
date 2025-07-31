@@ -3,7 +3,8 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, Cookie, Response
+from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import (
@@ -30,6 +31,13 @@ from app.schemas.user import (
 router = APIRouter()
 
 
+def create_refresh_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire, "type": "refresh"})
+    return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
+
+
 @router.post("/register", response_model=UserResponse)
 async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) -> Any:
     """Register a new user."""
@@ -47,7 +55,11 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) ->
 
 
 @router.post("/login", response_model=LoginResponse)
-async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db)) -> Any:
+async def login(
+    user_credentials: UserLogin,
+    db: AsyncSession = Depends(get_db),
+    response: Response = None,
+) -> Any:
     """Authenticate user and return access token (or require MFA)."""
     user = await authenticate_user(
         db, user_credentials.email, user_credentials.password
@@ -73,13 +85,78 @@ async def login(user_credentials: UserLogin, db: AsyncSession = Depends(get_db))
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-
+    refresh_token_expires = timedelta(days=14)
+    refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
+    if response is not None:
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,  # Set to True in production
+            samesite="lax",
+            max_age=14 * 24 * 60 * 60,
+            path="/",
+        )
     return LoginResponse(
         mfa_required=False,
         access_token=access_token,
         token_type="bearer",
         user=user,
     )
+
+
+# --- Refresh Token Endpoint ---
+@router.post("/refresh", response_model=Token)
+async def refresh_token(
+    response: Response,
+    refresh_token: str = Cookie(None),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Refresh access token using a valid refresh token (from cookie)."""
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate refresh token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if not refresh_token:
+        raise credentials_exception
+    try:
+        payload = jwt.decode(
+            refresh_token, settings.secret_key, algorithms=[settings.algorithm]
+        )
+        email = payload.get("sub")
+        if not isinstance(email, str) or not email:
+            raise credentials_exception
+        token_type = payload.get("type")
+        if token_type != "refresh":
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    user = await crud_user.get_user_by_email(db, email=email)
+    if user is None or not user.is_active:
+        raise credentials_exception
+    # Issue new access token
+    access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
+    access_token = create_access_token(
+        data={"sub": user.email}, expires_delta=access_token_expires
+    )
+    # Optionally refresh the refresh token itself (sliding window)
+    refresh_token_expires = timedelta(days=14)
+    new_refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
+    response.set_cookie(
+        key="refresh_token",
+        value=new_refresh_token,
+        httponly=True,
+        secure=True,  # Set to True in production
+        samesite="lax",
+        max_age=14 * 24 * 60 * 60,
+        path="/",
+    )
+    return {
+        "access_token": access_token,
+        "token_type": "bearer",
+        "user": user,
+    }
 
 
 @router.get("/me", response_model=UserResponse)
@@ -178,7 +255,9 @@ async def confirm_password_reset(
 
 @router.post("/login-mfa", response_model=Token)
 async def login_mfa(
-    mfa_credentials: LoginMFARequest, db: AsyncSession = Depends(get_db)
+    mfa_credentials: LoginMFARequest,
+    db: AsyncSession = Depends(get_db),
+    response: Response = None,
 ) -> Any:
     """Complete MFA login with TOTP code."""
     # Re-authenticate the user (verify password again for security)
@@ -214,9 +293,27 @@ async def login_mfa(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-
+    refresh_token_expires = timedelta(days=14)
+    refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
+    if response is not None:
+        response.set_cookie(
+            key="refresh_token",
+            value=refresh_token,
+            httponly=True,
+            secure=True,  # Set to True in production
+            samesite="lax",
+            max_age=14 * 24 * 60 * 60,
+            path="/",
+        )
     return {
         "access_token": access_token,
         "token_type": "bearer",
         "user": user,
     }
+
+
+# --- Logout Endpoint ---
+@router.post("/logout")
+async def logout(response: Response):
+    response.delete_cookie("refresh_token", path="/")
+    return {"message": "Logged out"}
