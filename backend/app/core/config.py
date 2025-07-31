@@ -20,7 +20,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
         "your-secret-key-here-change-in-production-make-it-long-and-random"
     )
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30 * 24 * 7  # 7 days
+    access_token_expire_minutes: int = 90  # 90 minutes
 
     # File storage settings
     documents_directory: str = "./documents"

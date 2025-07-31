@@ -76,6 +76,30 @@ export function AuthProvider({ children }) {
     }
   }, [user, isAuthenticated, token]);
 
+  useEffect(() => {
+    let refreshInterval = null;
+    async function doRefresh() {
+      try {
+        const res = await UserAPI.refreshToken();
+        if (res && res.access_token) {
+          setToken(res.access_token);
+        }
+      } catch (err) {
+        // If refresh fails, log out
+        setToken(null);
+        setUser(null);
+      }
+    }
+    if (isAuthenticated) {
+      // Start timer
+      refreshInterval = setInterval(doRefresh, 60 * 60 * 1000); // 1 hour
+      // Immediate refresh on auth
+      doRefresh();
+    }
+    return () => {
+      if (refreshInterval) clearInterval(refreshInterval);
+    };
+  }, [isAuthenticated]);
 
   const [autosaveEnabled, setAutosaveEnabledState] = useState(() => {
     const saved = localStorage.getItem("autosaveEnabled");
@@ -231,11 +255,12 @@ export function AuthProvider({ children }) {
     window.addEventListener('auth:delayLogout', handleDelayLogout);
     window.dispatchEvent(new CustomEvent('auth:logout'));
 
-    setTimeout(() => {
+    setTimeout(async () => {
       window.removeEventListener('auth:delayLogout', handleDelayLogout);
       if (!delayLogoutReceived) {
+        // Call backend to clear refresh token cookie
+        await UserAPI.logout();
         performLogout();
-        // DictionaryService.clearLocal(); Should listen for the logout-comp event instead
       }
     }, 500);
     // If logout was deferred due to pending sync, the modal will handle it
@@ -331,17 +356,30 @@ export function AuthProvider({ children }) {
     return await UserAPI.resetPasswordVerify(token, new_password);
   }, []);
 
-  // On mount, fetch user if token exists and load profile settings
+  // On mount, if no valid access token, try to refresh using refresh token cookie
   useEffect(() => {
-    if (token) {
-      if (justLoggedInRef.current) {
-        justLoggedInRef.current = false;
-        // Skip fetchCurrentUser here, just did it after login/register
-        return;
-      }
-      fetchCurrentUser(token).then((user) => {
-        // Only call logout if token exists and is invalid
+    const tryInitialAuth = async () => {
+      if (token) {
+        if (justLoggedInRef.current) {
+          justLoggedInRef.current = false;
+          // Skip fetchCurrentUser here, just did it after login/register
+          return;
+        }
+        const user = await fetchCurrentUser(token);
         if (!user) {
+          // Token invalid, try refresh
+          try {
+            const res = await UserAPI.refreshToken();
+            if (res && res.access_token) {
+              setToken(res.access_token);
+              await fetchCurrentUser(res.access_token);
+              return;
+            }
+          } catch (err) {
+            // Refresh failed, log out
+            logout();
+            return;
+          }
           logout();
         } else {
           // Load profile settings from user profile if available
@@ -352,11 +390,24 @@ export function AuthProvider({ children }) {
             setAutosaveEnabledState(Boolean(user.autosave_enabled));
           }
         }
-      });
-    } else {
-      // No token: do not call logout, just set user to null
-      setUser(null);
-    }
+      } else {
+        // No token: try refresh
+        try {
+          const res = await UserAPI.refreshToken();
+          if (res && res.access_token) {
+            setToken(res.access_token);
+            await fetchCurrentUser(res.access_token);
+            return;
+          }
+        } catch (err) {
+          // Refresh failed, set user to null
+          setUser(null);
+          return;
+        }
+        setUser(null);
+      }
+    };
+    tryInitialAuth();
   }, []);
 
 

@@ -4,7 +4,6 @@ import io
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 
-# from weasyprint import CSS, HTML
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 

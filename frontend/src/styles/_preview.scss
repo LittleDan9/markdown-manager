@@ -18,6 +18,9 @@
 
       & > .mermaid {
         margin: 1.5rem 0 !important;
+        svg[id^="mermaid"] {
+          max-height: 600px;
+        }
       }
 
       p > code:not([class*="language-"]) {
