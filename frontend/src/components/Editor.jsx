@@ -48,9 +48,9 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
         editor.setValue(value);
         let lastLineNumber = 1;
 
-        // editor.onDidChangeCursorPosition((e) => {
-        //   debouncedLineChange(e.position.lineNumber);
-        // });
+        editor.onDidChangeCursorPosition((e) => {
+          debouncedLineChange(e.position.lineNumber);
+        });
 
         editor.onDidChangeModelContent(() => {
           const newValue = editor.getValue();
@@ -71,11 +71,31 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
       .catch(console.error);
   }, []);
 
+  
+
   useEffect(() => {
     if (editorRef.current) {
       editorRef.current.applyTheme(theme);
     }
   }, [theme]);
+
+  // Listen for storage:cleared event and clear editor value
+  useEffect(() => {
+    const handleStorageCleared = (e) => {
+      if (e.detail?.type === 'storage:cleared') {
+        if (editorRef.current) {
+          editorRef.current.setValue("");
+        }
+        lastEditorValue.current = "";
+        previousValueRef.current = "";
+        if (onChange) onChange("");
+      }
+    };
+    window.addEventListener('markdown-manager:storage', handleStorageCleared);
+    return () => {
+      window.removeEventListener('markdown-manager:storage', handleStorageCleared);
+    };
+  }, []);
 
   useEffect(() => {
     if (!editorRef.current) return;
