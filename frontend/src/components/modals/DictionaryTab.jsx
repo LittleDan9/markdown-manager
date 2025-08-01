@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
-import { useAuth } from "../../context/AuthProvider";
-import customDictionaryApi from "../../api/customDictionaryApi";
+import { useAuth } from "@/context/AuthProvider";
+import customDictionaryApi from "@/api/customDictionaryApi";
 import DictionaryService from "@/services/DictionaryService";
-import SpellCheckService from "../../services/SpellCheckService";
+import SpellCheckService from "@/services/SpellCheckService";
 
 function DictionaryTab() {
   const { user } = useAuth();
@@ -41,7 +41,12 @@ function DictionaryTab() {
 
   // Update local word count when component becomes visible
   useEffect(() => {
+    const handler = () => {
+      loadEntries();
+    }
+    window.addEventListener('dictionary:wordAdded', handler);
     updateLocalWordCount();
+    return () => window.removeEventListener('dictionary:wordAdded', handler);
   }, []);
 
   const loadEntries = async () => {
@@ -60,7 +65,7 @@ function DictionaryTab() {
 
     try {
       // First sync local and backend dictionaries
-      const syncResult = await CustomDictionarySyncService.syncAfterLogin();
+      const syncResult = await DictionaryService.syncAfterLogin();
 
       // Update local word count after sync
       await updateLocalWordCount();
@@ -104,7 +109,7 @@ function DictionaryTab() {
 
     try {
       // Use the sync service to add word to both local and backend
-      await CustomDictionarySyncService.addWord(newWord.trim(), newWordNotes.trim() || null);
+      await DictionaryService.addWord(newWord.trim(), newWordNotes.trim() || null);
 
       // Update local word count
       await updateLocalWordCount();
@@ -129,7 +134,7 @@ function DictionaryTab() {
   const handleDeleteWord = async (wordToDelete) => {
     try {
       // Use the sync service to delete from both local and backend
-      await CustomDictionarySyncService.deleteWord(wordToDelete);
+      await DictionaryService.deleteWord(wordToDelete);
 
       // Update local word count
       await updateLocalWordCount();
@@ -161,7 +166,7 @@ function DictionaryTab() {
   const handleSyncWithBackend = async () => {
     setLoading(true);
     try {
-      await CustomDictionarySyncService.syncAfterLogin();
+      await DictionaryService.syncAfterLogin();
       await loadEntries(); // Reload entries to show any new words
       setSuccess("Dictionary synced with server");
     } catch (err) {

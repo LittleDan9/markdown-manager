@@ -155,6 +155,7 @@ class DictionaryService {
     if (normalizedWord) {
       this.customWords.add(normalizedWord);
       this.saveCustomWordsToStorage();
+      window.dispatchEvent(new CustomEvent('dictionary:wordAdded', { detail: { word: normalizedWord } }));
     }
   }
 
