@@ -13,6 +13,7 @@ import "./styles/main.scss";
 import { DocumentProvider } from "./context/DocumentProvider";
 import { AuthProvider } from "./context/AuthProvider";
 import { NotificationProvider } from "./components/NotificationProvider.jsx";
+import { RecoveryProvider } from "./components/recovery/RecoveryProvider.jsx";
 
 const container = document.getElementById("root");
 const root = createRoot(container);
@@ -20,9 +21,11 @@ root.render(
   <GlobalErrorBoundary>
     <NotificationProvider>
       <AuthProvider>
-        <DocumentProvider>
-          <App />
-        </DocumentProvider>
+        <RecoveryProvider>
+          <DocumentProvider>
+            <App />
+          </DocumentProvider>
+        </RecoveryProvider>
       </AuthProvider>
     </NotificationProvider>
   </GlobalErrorBoundary>

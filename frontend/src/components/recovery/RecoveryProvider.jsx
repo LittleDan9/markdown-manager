@@ -45,6 +45,8 @@ export function RecoveryProvider({ children }) {
     // Save recovered doc to backend (create new or update)
     try {
       const DocumentsApi = (await import("../../api/documentsApi.js")).default;
+      const RecoveryApi = (await import("../../api/recoveryApi.js")).default;
+
       if (!doc.document_id || String(doc.document_id).startsWith("doc_")) {
         // New document, create
         await DocumentsApi.createDocument({
@@ -60,8 +62,15 @@ export function RecoveryProvider({ children }) {
           category: doc.category,
         });
       }
+
+      // Remove from recovery system
+      if (doc.id && !doc.id.toString().startsWith('conflict_') && !doc.id.toString().startsWith('orphaned_')) {
+        await RecoveryApi.resolveRecoveryDoc(doc.id, token);
+      }
+
       showSuccess(`Document '${doc.name}' has been restored and saved to your account.`);
     } catch (e) {
+      console.error('Save error:', e);
       showError(`Failed to save document '${doc.name}'. Please try again.`);
     }
     await resolveDoc(doc.id, token);
@@ -73,13 +82,22 @@ export function RecoveryProvider({ children }) {
     // Overwrite backend doc with recovered content
     try {
       const DocumentsApi = (await import("../../api/documentsApi.js")).default;
+      const RecoveryApi = (await import("../../api/recoveryApi.js")).default;
+
       await DocumentsApi.updateDocument(doc.document_id, {
         name: doc.name,
         content: doc.content,
         category: doc.category,
       });
+
+      // Remove from recovery system
+      if (doc.id && !doc.id.toString().startsWith('conflict_') && !doc.id.toString().startsWith('orphaned_')) {
+        await RecoveryApi.resolveRecoveryDoc(doc.id, token);
+      }
+
       showSuccess(`Document '${doc.name}' has been overwritten and saved.`);
     } catch (e) {
+      console.error('Overwrite error:', e);
       showError(`Failed to overwrite document '${doc.name}'. Please try again.`);
     }
     await resolveDoc(doc.id, token);
@@ -88,6 +106,20 @@ export function RecoveryProvider({ children }) {
   }
 
   function handleDiscard(doc, token) {
+    const performDiscard = async () => {
+      try {
+        const RecoveryApi = (await import("../../api/recoveryApi.js")).default;
+
+        // Remove from backend recovery system if it exists there
+        if (doc.id && !doc.id.toString().startsWith('conflict_') && !doc.id.toString().startsWith('orphaned_')) {
+          await RecoveryApi.resolveRecoveryDoc(doc.id, token);
+        }
+      } catch (error) {
+        console.error('Failed to remove from recovery system:', error);
+      }
+    };
+
+    performDiscard();
     resolveDoc(doc.id, token);
     showWarning(`Document '${doc.name}' was discarded and will not be restored.`);
     setActiveDoc(null);
