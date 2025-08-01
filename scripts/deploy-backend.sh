@@ -53,7 +53,9 @@ rsync -azhq \
   ./nginx/ $REMOTE_USER_HOST:/etc/nginx/
 
 ssh -q -T -i $KEY $REMOTE_USER_HOST <<'EOH'
-  sudo ln -s /etc/nginx/sites-available/littledan.com /etc/nginx/sites-enabled/
+  if [ ! -L /etc/nginx/sites-enabled/littledan.com ]; then
+    sudo ln -s /etc/nginx/sites-available/littledan.com /etc/nginx/sites-enabled/
+  fi
   sudo nginx -t
   sudo systemctl reload nginx
 EOH
