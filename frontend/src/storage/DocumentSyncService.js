@@ -135,6 +135,7 @@ class DocumentSyncService {
 
       const toSyncToBackend = [];
       const toUpdateLocally = [];
+      const conflicts = []; // Track conflicts for recovery system
 
       // Find local docs that need to be synced to backend
       for (const localDoc of localDocs) {
@@ -144,7 +145,7 @@ class DocumentSyncService {
             toSyncToBackend.push({ action: 'create', document: localDoc });
           }
         } else if (backendDocsById.has(localDoc.id)) {
-          // Compare timestamps to see which is newer
+          // Compare timestamps and content to detect conflicts
           const backendDoc = backendDocsById.get(localDoc.id);
           const localTime = new Date(localDoc.updated_at || localDoc.created_at || 0).getTime();
           const backendTime = new Date(backendDoc.updated_at || backendDoc.created_at || 0).getTime();

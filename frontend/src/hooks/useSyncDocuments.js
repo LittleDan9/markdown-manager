@@ -28,7 +28,7 @@ export default function useSyncDocuments({
       let result;
       try {
         result = await DocumentManager.triggerFullSync();
-        if (!result) {
+        if (!result || !result.success) {
           throw new Error('Sync failed');
         }
       } catch (e) {
@@ -44,7 +44,7 @@ export default function useSyncDocuments({
             8000
           );
         }
-        result = { conflicts: [], docs: DocumentManager.getAllDocuments() };
+        result = { success: false, conflicts: [], docs: DocumentManager.getAllDocuments() };
       }
       const docs = DocumentManager.getAllDocuments();
       const cats = DocumentManager.getCategories();

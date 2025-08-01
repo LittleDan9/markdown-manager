@@ -110,16 +110,28 @@ class StorageEventHandler {
   async triggerFullSync() {
     const SyncService = (await import('./DocumentSyncService.js')).default;
     try {
-      await Promise.all([
+      const [syncResult] = await Promise.all([
         SyncService.syncAllDocuments(),
         SyncService.syncUserSettings(),
         SyncService.syncCategories()
       ]);
-      return true;
+
+      // Return sync result with conflicts
+      return {
+        success: true,
+        conflicts: syncResult?.conflicts || [],
+        syncedToBackend: syncResult?.syncedToBackend || 0,
+        updatedLocally: syncResult?.updatedLocally || 0,
+        conflictsFound: syncResult?.conflictsFound || 0
+      };
     } catch (error) {
       console.error('Manual sync failed:', error);
       this._emitErrorEvent('Sync failed. Please try again.');
-      return false;
+      return {
+        success: false,
+        conflicts: [],
+        error: error.message
+      };
     }
   }
 
