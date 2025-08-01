@@ -17,6 +17,9 @@ class CustomDictionary(BaseModel):
 
     __tablename__ = "custom_dictionaries"
 
+    # Primary key
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+
     # Foreign key to user
     user_id: Mapped[int] = mapped_column(
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
