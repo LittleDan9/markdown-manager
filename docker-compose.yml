@@ -15,6 +15,23 @@ services:
       - CHOKIDAR_USEPOLLING=true
     init: true
 
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: markdown_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./backend/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -25,8 +42,7 @@ services:
     working_dir: /app
     volumes:
       - ./backend/app:/app/app
-      - ./backend/migrations/versions:/app/migrations/versions
-      - ./backend/markdown_manager.db:/app/markdown_manager.db
+      - ./backend/migrations/versions:/app/migrations/versionss
     ports:
       - "8000:8000"
     env_file:
@@ -34,3 +50,7 @@ services:
     environment:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
+    depends_on:
+      db:
+        condition: service_healthy

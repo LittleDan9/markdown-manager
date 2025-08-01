@@ -13,6 +13,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
     port: int = 8000
 
     # Database settings
+    # Default to SQLite, but can be overridden by the DATABASE_URL environment variable (e.g., for Postgres)
+    # Example Postgres URL: 'postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager'
     database_url: str = "sqlite+aiosqlite:///./markdown_manager.db"
 
     # Security settings
