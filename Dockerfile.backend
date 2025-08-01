@@ -20,19 +20,19 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-ENV POETRY_VIRTUALENVS_IN_PROJECT=true
+ENV POETRY_VIRTUALENVS_CREATE=false
+
+# Install Poetry
+RUN pip install poetry playwright
+
+# Install Python dependencies and Playwright (including Chromium)
+
+RUN python -m playwright install-deps
+RUN python -m playwright install chromium
 
 # Copy only dependency files first for better cache usage
 COPY ./backend/pyproject.toml ./backend/poetry.lock /app/
-
-# Install Poetry
-RUN pip install poetry
-
-# Install Python dependencies and Playwright (including Chromium)
 RUN poetry lock && poetry install --no-root
-RUN poetry run playwright install-deps
-RUN poetry run playwright install chromium
-
 
 FROM python:3.13-slim AS backend
 
@@ -57,8 +57,9 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Copy only the virtual environment from builder
-COPY --from=builder /app/.venv /app/.venv
+# Copy installed Python packages from builder
+COPY --from=builder /usr/local/lib/python3.13/site-packages /usr/local/lib/python3.13/site-packages
+# COPY --from=builder /usr/local/lib/python3.13/dist-packages /usr/local/lib/python3.13/dist-packages
 
 # Copy the backend application code (excluding dependency files)
 COPY ./backend /app
@@ -70,5 +71,6 @@ ENV DEBUG_PASSWORD_RESET_TOKEN=true
 # Expose FastAPI port
 EXPOSE 8000
 
-# Start FastAPI app
-CMD ["python", "-m", "uvicorn", "app.main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]
+COPY ./backend/scripts/entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+ENTRYPOINT ["/app/entrypoint.sh"]

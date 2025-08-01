@@ -1,20 +1,21 @@
+
 [Unit]
-Description=Markdown Manager API
-After=network.target
+Description=Markdown Manager API (Docker)
+After=network.target docker.service
+Requires=docker.service
+
 
 [Service]
-Type=exec
-User=dlittle
-Group=dlittle
-WorkingDirectory=/opt/markdown-manager-api
-Environment="PATH=/home/dlittle/.local/bin:/opt/markdown-manager-api/.venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/home/dlittle/.local/bin/poetry run uvicorn app.main:app --host 127.0.0.1 --port 8000
-ExecReload=/bin/kill -HUP $MAINPID
-KillMode=mixed
-TimeoutStopSec=5
-PrivateTmp=true
+Type=simple
 Restart=on-failure
 RestartSec=5s
+EnvironmentFile=/etc/markdown-manager.env
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-api \
+  -e DATABASE_URL=${DATABASE_URL} \
+  -p 8000:8000 \
+  littledan9/markdown-manager:latest
+ExecStop=/usr/bin/docker stop markdown-manager-api
+
 
 [Install]
 WantedBy=multi-user.target

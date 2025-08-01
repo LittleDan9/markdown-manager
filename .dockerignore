@@ -5,6 +5,9 @@ venv/
 env.back/
 venv.bak/
 backend/.venv
+backend/postgres-data
+backend/*.db
+backend/*.service
 
 __pycache__/
 *.pyc
@@ -18,3 +21,4 @@ backend/__pycache__/
 frontend/node_modules/
 frontend/.cache/
 frontend/.env
+
