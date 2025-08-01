@@ -167,6 +167,7 @@ class DictionaryService {
     const normalizedWord = word.toLowerCase().trim();
     this.customWords.delete(normalizedWord);
     this.saveCustomWordsToStorage();
+    window.dispatchEvent(new CustomEvent('dictionary:wordRemoved', { detail: { word: normalizedWord } }));
   }
 
   /**
@@ -193,6 +194,7 @@ class DictionaryService {
   setCustomWords(words) {
     this.customWords = new Set(words.map(word => word.toLowerCase()));
     this.saveCustomWordsToStorage();
+    window.dispatchEvent(new CustomEvent('dictionary:updated', { detail: { words: Array.from(this.customWords) } }));
   }
 
   /**
@@ -206,6 +208,7 @@ class DictionaryService {
     const mergedWords = new Set([...currentWords, ...backendWordsSet]);
     this.customWords = mergedWords;
     this.saveCustomWordsToStorage();
+    window.dispatchEvent(new CustomEvent('dictionary:synced', { detail: { words: Array.from(this.customWords) } }));
     return Array.from(mergedWords);
   }
 }

@@ -39,14 +39,22 @@ function DictionaryTab() {
     loadEntries();
   }, [user, isAuthenticated]);
 
-  // Update local word count when component becomes visible
+  // Update local word count when component becomes visible or dictionary changes
   useEffect(() => {
-    const handler = () => {
-      loadEntries();
+    const handler = async () => {
+      await loadEntries();
     }
+
+    // Listen for all dictionary events
     window.addEventListener('dictionary:wordAdded', handler);
-    updateLocalWordCount();
-    return () => window.removeEventListener('dictionary:wordAdded', handler);
+    window.addEventListener('dictionary:wordRemoved', handler);
+    window.addEventListener('dictionary:updated', handler);
+
+    return () => {
+      window.removeEventListener('dictionary:wordAdded', handler);
+      window.removeEventListener('dictionary:wordRemoved', handler);
+      window.removeEventListener('dictionary:updated', handler);
+    };
   }, []);
 
   const loadEntries = async () => {
