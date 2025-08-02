@@ -26,6 +26,7 @@ class CSSService:
         """Load local CSS files into cache."""
         css_files: Dict[str, Path] = {
             "base": self.static_dir / "pdf-base.css",
+            "mermaid": self.static_dir / "pdf-mermaid.css",
             "light": self.static_dir / "pdf-light.css",
             "dark": self.static_dir / "pdf-dark.css",
             # "prism-dark": self.static_dir / "prism-pdf-dark.css",
@@ -82,6 +83,7 @@ class CSSService:
         """Get combined CSS for PDF generation."""
         css_parts: list[str] = [
             self.css_cache.get("base", ""),
+            self.css_cache.get("mermaid", ""),
             self.css_cache.get("dark" if is_dark_mode else "light", ""),
             self.css_cache.get("prism-dark" if is_dark_mode else "prism-light", ""),
         ]

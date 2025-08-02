@@ -29,7 +29,7 @@ RUN pip install --no-cache-dir poetry
 
 COPY ./backend/pyproject.toml ./backend/poetry.lock /markdown-manager/
 
-RUN poetry install --no-root --without=dev --no-cache
+RUN poetry lock && poetry install --no-root --without=dev --no-cache
 RUN poetry run playwright install chromium && \
     poetry run playwright install-deps chromium
 
