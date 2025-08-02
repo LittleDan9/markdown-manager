@@ -1,0 +1,55 @@
+/* Mermaid PDF Print Styles
+   Restrict .mermaid diagrams to fit within a single page, prevent SVG splitting, and control page breaks for optimal layout.
+*/
+
+.mermaid {
+    max-width: 100%;
+    max-height: 10.5in; /* A4 page height minus margins (approx 11.7in - 2*0.5in) */
+    width: 100%;
+    display: block;
+    margin: 24px 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    overflow: hidden;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    max-height: 10.5in;
+    width: 100%;
+    height: auto;
+    display: block;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* Prevent page break before mermaid if less than 50% page height remains */
+.mermaid {
+    break-before: auto;
+    page-break-before: auto;
+}
+
+@media print {
+  .mermaid {
+    /* If less than 50% of the page remains, force page break before */
+    /* This is a hint; actual support depends on the PDF renderer */
+    break-before: page;
+    page-break-before: always;
+  }
+}
+
+/* Prevent content after mermaid from being orphaned on a new page if less than 15% remains */
+.mermaid + * {
+    break-after: auto;
+    page-break-after: auto;
+}
+
+@media print {
+  .mermaid + * {
+    /* If less than 15% of the page remains, force page break after mermaid */
+    break-after: page;
+    page-break-after: always;
+  }
+}
+
+/* Note: CSS cannot dynamically measure remaining page height, so these rules are best-effort hints for paged media renderers. For precise control, use a PDF renderer that supports advanced CSS Paged Media features. */

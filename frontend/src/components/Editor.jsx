@@ -71,7 +71,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
       .catch(console.error);
   }, []);
 
-  
+
 
   useEffect(() => {
     if (editorRef.current) {
