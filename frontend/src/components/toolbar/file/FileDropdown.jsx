@@ -95,8 +95,6 @@ export default function FileDropdown({ setDocumentTitle }) {
   const exportController = useFileExportController({ exportAsMarkdown, exportAsPDF, currentDocument, previewHTML, theme });
   // Log before export actions
   const handleExportPDF = () => {
-    console.log('[FileDropdown] handleExportPDF called. previewHTML:', previewHTML);
-    // exportController.handleExportPDF && exportController.handleExportPDF();
     exportAsPDF(previewHTML, currentDocument.name, theme);
   };
 

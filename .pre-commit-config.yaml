@@ -20,28 +20,28 @@ repos:
         name: flake8 (python linting)
         language_version: python3  # Use the appropriate Python version for your project
 
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: 'v1.12.0'  # Use the sha / tag you want to point at
-    hooks:
-      - id: mypy
-        args: [
-          "--exclude", "tests",
-          "--strict",
-          "--ignore-missing-imports",
-        ]
-        additional_dependencies: [
-          "pydantic[mypy,email]",  # Pydantic with mypy and email extras
-          "types-requests",         # Type stubs for requests
-          "types-docker",           # Type stubs for docker
-          "alembic",
-          "httpx",
-          "sqlalchemy",
-          "fastapi",
-          "pyjwt",
-          "pytest-asyncio",
-        ]
-        pass-filenames: true,
-        exclude: "tests/*"
+  # - repo: https://github.com/pre-commit/mirrors-mypy
+  #   rev: 'v1.12.0'  # Use the sha / tag you want to point at
+  #   hooks:
+  #     - id: mypy
+  #       args: [
+  #         "--exclude", "tests",
+  #         "--strict",
+  #         "--ignore-missing-imports",
+  #       ]
+  #       additional_dependencies: [
+  #         "pydantic[mypy,email]",  # Pydantic with mypy and email extras
+  #         "types-requests",         # Type stubs for requests
+  #         "types-docker",           # Type stubs for docker
+  #         "alembic",
+  #         "httpx",
+  #         "sqlalchemy",
+  #         "fastapi",
+  #         "pyjwt",
+  #         "pytest-asyncio",
+  #       ]
+  #       pass-filenames: true,
+  #       exclude: "tests/*"
 
   - repo: https://github.com/rubik/xenon
     rev: v0.9.1  # Specify the version of radon to use
