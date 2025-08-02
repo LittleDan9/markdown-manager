@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -18,12 +18,13 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """User creation schema."""
 
-    password: str
+    password: str = Field(..., min_length=8)
 
 
 class UserUpdate(BaseModel):
     """User update schema."""
 
+    email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     display_name: Optional[str] = None

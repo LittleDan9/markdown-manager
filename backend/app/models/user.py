@@ -62,8 +62,9 @@ class User(BaseModel):
     )
     current_document: Mapped[Optional["Document"]] = relationship(
         "Document",
-        back_populates="current_users",
         foreign_keys=[current_doc_id],
+        lazy="noload",  # Prevent automatic loading to avoid greenlet issues
+        back_populates=None,
     )
 
     recovered_documents = relationship("DocumentRecovery", back_populates="user")

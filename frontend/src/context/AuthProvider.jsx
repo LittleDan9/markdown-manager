@@ -126,6 +126,11 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     let refreshInterval = null;
     async function doRefresh() {
+      // Only attempt refresh if we have a valid token
+      if (!token || token.trim() === '') {
+        return;
+      }
+
       try {
         const res = await UserAPI.refreshToken();
         if (res && res.access_token) {
@@ -146,7 +151,7 @@ export function AuthProvider({ children }) {
     return () => {
       if (refreshInterval) clearInterval(refreshInterval);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, token]); // Add token dependency
 
   const [autosaveEnabled, setAutosaveEnabledState] = useState(() => {
     const saved = localStorage.getItem("autosaveEnabled");
@@ -453,7 +458,7 @@ export function AuthProvider({ children }) {
   // On mount, if no valid access token, try to refresh using refresh token cookie
   useEffect(() => {
     const tryInitialAuth = async () => {
-      if (token) {
+      if (token && token.trim() !== '') {
         if (justLoggedInRef.current) {
           justLoggedInRef.current = false;
           // Skip fetchCurrentUser here, just did it after login/register
@@ -461,7 +466,7 @@ export function AuthProvider({ children }) {
         }
         const user = await fetchCurrentUser(token);
         if (!user) {
-          // Token invalid, try refresh
+          // Token invalid, try refresh only if we had a token
           try {
             const res = await UserAPI.refreshToken();
             if (res && res.access_token) {
@@ -485,24 +490,31 @@ export function AuthProvider({ children }) {
           }
         }
       } else {
-        // No token: try refresh
-        try {
-          const res = await UserAPI.refreshToken();
-          if (res && res.access_token) {
-            setToken(res.access_token);
-            await fetchCurrentUser(res.access_token);
+        // No token: only try refresh if we might have a refresh cookie
+        // Check if we previously had authentication
+        const hadPreviousAuth = localStorage.getItem('lastKnownAuthState') === 'authenticated';
+
+        if (hadPreviousAuth) {
+          try {
+            const res = await UserAPI.refreshToken();
+            if (res && res.access_token) {
+              setToken(res.access_token);
+              await fetchCurrentUser(res.access_token);
+              return;
+            }
+          } catch (err) {
+            // Refresh failed, ensure we're in guest state
+            setUser(defaultUser);
             return;
           }
-        } catch (err) {
-          // Refresh failed, set user to null
-          setUser(null);
-          return;
         }
-        setUser(null);
+
+        // No token and no previous auth - start as guest
+        setUser(defaultUser);
       }
     };
     tryInitialAuth();
-  }, []);
+  }, []); // Remove dependencies to run only on mount
 
 
   // Sync profile settings to localStorage and backend

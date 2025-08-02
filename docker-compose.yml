@@ -39,11 +39,12 @@ services:
     image: backend
     tmpfs:
       - /tmp  # for FastAPI temp files
-    working_dir: /app
+    working_dir: /markdown_manager
     volumes:
-      - ./backend/app:/app/app
-      - ./backend/migrations/versions:/app/migrations/versions
-      - ./backend/markdown_manager.db:/app/markdown_manager.db
+      - ./backend/app:/markdown_manager/app
+      - ./backend/migrations/:/markdown_manager/migrations/
+      - ./backend/markdown_manager.db:/markdown_manager/markdown_manager.db
+      - ./backend/alembic.ini:/markdown_manager/alembic.ini
     ports:
       - "8000:8000"
     env_file:

@@ -3,9 +3,19 @@ import { Api } from "./api";
 class UserAPI extends Api {
   // Request a new access token using the refresh token cookie
   async refreshToken() {
-    // The refresh token should be sent as a cookie
-    const res = await this.apiCall("/auth/refresh", "POST", null, {}, { withCredentials: true });
-    return res.data;
+    try {
+      // The refresh token should be sent as a cookie
+      const res = await this.apiCall("/auth/refresh", "POST", null, {}, { withCredentials: true });
+      return res.data;
+    } catch (error) {
+      // If refresh fails due to no auth (401/403), don't log error for guests
+      if (error?.response?.status === 401 || error?.response?.status === 403) {
+        return null;
+      }
+      // Log other errors (500, network issues, etc.)
+      console.error("Token refresh failed:", error);
+      throw error;
+    }
   }
   // Verify password reset code (for step 2 in password reset flow)
   async verifyResetCode(email, code) {
@@ -17,7 +27,11 @@ class UserAPI extends Api {
     const headers = { "Content-Type": "application/json" };
     if (token || this.getToken()) {
       headers["Authorization"] = `Bearer ${token || this.getToken()}`;
+    } else {
+      // No token available, return null for guest user
+      return null;
     }
+
     try {
       const res = await this.apiCall("/auth/me", "GET", null, headers);
       return res.data;
