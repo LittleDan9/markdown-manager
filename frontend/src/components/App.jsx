@@ -3,6 +3,9 @@ import Header from "./Header";
 import Toolbar from "./toolbar/Toolbar";
 import Editor from "./Editor";
 import Renderer from "./Renderer";
+import LogLevelController from "./LogLevelController";
+import IconBrowser from "./IconBrowser";
+import { Modal } from "react-bootstrap";
 import { ThemeProvider } from "../context/ThemeProvider";
 import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
@@ -18,6 +21,7 @@ function App() {
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
+  const [showIconBrowser, setShowIconBrowser] = useState(false);
   const { showError, showSuccess } = useNotification();
 
   const runAutoSave = () => {
@@ -90,6 +94,7 @@ function App() {
               editorValue={content}
               fullscreenPreview={fullscreenPreview}
               setFullscreenPreview={setFullscreenPreview}
+              setShowIconBrowser={setShowIconBrowser}
             />
             <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
               {/* editor is always in the DOM, but width: 0 when closed */}
@@ -112,7 +117,24 @@ function App() {
             </div>
           </div>
         </div>
+        
+        {/* Icon Browser Modal */}
+        <Modal 
+          show={showIconBrowser} 
+          onHide={() => setShowIconBrowser(false)}
+          size="xl"
+          scrollable
+          data-bs-theme={document.documentElement.getAttribute('data-bs-theme')}
+        >
+          <Modal.Header closeButton className="border-bottom">
+            <Modal.Title>AWS Icon Browser</Modal.Title>
+          </Modal.Header>
+          <Modal.Body style={{ minHeight: '70vh' }} className="p-0">
+            <IconBrowser />
+          </Modal.Body>
+        </Modal>
       </PreviewHTMLProvider>
+      <LogLevelController />
     </ThemeProvider>
   );
 }

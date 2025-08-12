@@ -98,6 +98,11 @@ module.exports = {
         type: 'asset/inline', // Inline SVG as data URL
       },
       {
+        test: /\.svg$/,
+        include: path.resolve(__dirname, 'node_modules/aws-icons'),
+        type: 'asset/source', // Import SVG content as string
+      },
+      {
         test: /\.tsx?$/,
         use: "ts-loader",
         exclude: /node_modules/,
