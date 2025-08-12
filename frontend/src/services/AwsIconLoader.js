@@ -25,22 +25,22 @@ class AwsIconLoader {
       const parser = new DOMParser();
       const svgDoc = parser.parseFromString(svgContent, 'image/svg+xml');
       const svgElement = svgDoc.documentElement;
-      
+
       // Check for parsing errors
       const errorNode = svgDoc.querySelector('parsererror');
       if (errorNode) {
         console.warn('SVG parsing error:', errorNode.textContent);
         return null;
       }
-      
+
       // Extract attributes
       const viewBox = svgElement.getAttribute('viewBox') || '0 0 64 64';
       const width = parseInt(svgElement.getAttribute('width')) || 64;
       const height = parseInt(svgElement.getAttribute('height')) || 64;
-      
+
       // Get the inner content (everything inside the <svg> tag)
       const body = svgElement.innerHTML;
-      
+
       return {
         body: body,
         width: width,
@@ -77,13 +77,13 @@ class AwsIconLoader {
    */
   createIconAliases(originalKey, filename) {
     const aliases = [originalKey];
-    
+
     // Add original filename without extension
     const baseFilename = filename.replace(/\.svg$/, '');
     if (baseFilename !== originalKey) {
       aliases.push(baseFilename.toLowerCase());
     }
-    
+
     // Add common variations
     const variations = [
       originalKey.replace(/-/g, ''), // Remove all hyphens
@@ -91,13 +91,13 @@ class AwsIconLoader {
       baseFilename.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase(), // camelCase to kebab-case
       baseFilename.toLowerCase().replace(/[^a-z0-9]/g, ''), // Alphanumeric only
     ];
-    
+
     variations.forEach(variation => {
       if (variation && !aliases.includes(variation)) {
         aliases.push(variation);
       }
     });
-    
+
     return aliases;
   }
 
@@ -127,16 +127,16 @@ class AwsIconLoader {
           const svgContent = serviceIconsContext(iconPath);
           const filename = iconPath.replace('./', '');
           const iconData = this.processSvgIcon(svgContent);
-          
+
           if (iconData) {
             const normalizedKey = this.normalizeIconKey(filename);
             const aliases = this.createIconAliases(normalizedKey, filename);
-            
+
             // Add icon under all aliases
             aliases.forEach(alias => {
               icons[alias] = iconData;
             });
-            
+
             loadedIcons.push({
               filename,
               normalizedKey,
@@ -186,11 +186,11 @@ class AwsIconLoader {
           const svgContent = groupIconsContext(iconPath);
           const filename = iconPath.replace('./', '');
           const iconData = this.processSvgIcon(svgContent);
-          
+
           if (iconData) {
             const normalizedKey = this.normalizeIconKey(filename);
             const aliases = this.createIconAliases(normalizedKey, filename);
-            
+
             aliases.forEach(alias => {
               icons[alias] = iconData;
             });
@@ -215,6 +215,106 @@ class AwsIconLoader {
   }
 
   /**
+   * Load AWS category icons
+   * @returns {Object} - Icon pack for AWS categories
+   */
+  async getAwsCategoryIcons() {
+    if (this.iconPacks['category']) {
+      return this.iconPacks['category'];
+    }
+
+    try {
+      const categoryIconsContext = require.context(
+        '../../node_modules/aws-icons/icons/category',
+        false,
+        /\.svg$/
+      );
+
+      const icons = {};
+      categoryIconsContext.keys().forEach(iconPath => {
+        try {
+          const svgContent = categoryIconsContext(iconPath);
+          const filename = iconPath.replace('./', '');
+          const iconData = this.processSvgIcon(svgContent);
+
+          if (iconData) {
+            const normalizedKey = this.normalizeIconKey(filename);
+            const aliases = this.createIconAliases(normalizedKey, filename);
+
+            aliases.forEach(alias => {
+              icons[alias] = iconData;
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load category icon ${iconPath}:`, error);
+        }
+      });
+
+      const iconPack = {
+        prefix: 'awscat',
+        icons: icons
+      };
+
+      this.iconPacks['category'] = iconPack;
+      return iconPack;
+
+    } catch (error) {
+      console.error('Failed to load AWS category icons:', error);
+      return { prefix: 'awscat', icons: {} };
+    }
+  }
+
+  /**
+   * Load AWS resource icons
+   * @returns {Object} - Icon pack for AWS resources
+   */
+  async getAwsResourceIcons() {
+    if (this.iconPacks['resource']) {
+      return this.iconPacks['resource'];
+    }
+
+    try {
+      const resourceIconsContext = require.context(
+        '../../node_modules/aws-icons/icons/resource',
+        false,
+        /\.svg$/
+      );
+
+      const icons = {};
+      resourceIconsContext.keys().forEach(iconPath => {
+        try {
+          const svgContent = resourceIconsContext(iconPath);
+          const filename = iconPath.replace('./', '');
+          const iconData = this.processSvgIcon(svgContent);
+
+          if (iconData) {
+            const normalizedKey = this.normalizeIconKey(filename);
+            const aliases = this.createIconAliases(normalizedKey, filename);
+
+            aliases.forEach(alias => {
+              icons[alias] = iconData;
+            });
+          }
+        } catch (error) {
+          console.warn(`Failed to load resource icon ${iconPath}:`, error);
+        }
+      });
+
+      const iconPack = {
+        prefix: 'awsres',
+        icons: icons
+      };
+
+      this.iconPacks['resource'] = iconPack;
+      return iconPack;
+
+    } catch (error) {
+      console.error('Failed to load AWS resource icons:', error);
+      return { prefix: 'awsres', icons: {} };
+    }
+  }
+
+  /**
    * Get all AWS networking and architectural icons
    * @returns {Object} - Complete icon pack for Mermaid
    */
@@ -229,9 +329,11 @@ class AwsIconLoader {
   async getAllIconPacks() {
     const packs = await Promise.all([
       this.getAwsServiceIcons(),
-      this.getAwsGroupIcons()
+      this.getAwsGroupIcons(),
+      this.getAwsCategoryIcons(),
+      this.getAwsResourceIcons()
     ]);
-    
+
     return packs.filter(pack => pack && Object.keys(pack.icons).length > 0);
   }
 
@@ -242,9 +344,11 @@ class AwsIconLoader {
   async getIconMetadata() {
     const servicePack = await this.getAwsServiceIcons();
     const groupPack = await this.getAwsGroupIcons();
-    
+    const categoryPack = await this.getAwsCategoryIcons();
+    const resourcePack = await this.getAwsResourceIcons();
+
     const metadata = [];
-    
+
     // Process service icons
     if (servicePack && servicePack.icons) {
       Object.entries(servicePack.icons).forEach(([key, iconData]) => {
@@ -258,7 +362,7 @@ class AwsIconLoader {
         });
       });
     }
-    
+
     // Process group icons
     if (groupPack && groupPack.icons) {
       Object.entries(groupPack.icons).forEach(([key, iconData]) => {
@@ -272,7 +376,35 @@ class AwsIconLoader {
         });
       });
     }
-    
+
+    // Process category icons
+    if (categoryPack && categoryPack.icons) {
+      Object.entries(categoryPack.icons).forEach(([key, iconData]) => {
+        metadata.push({
+          key,
+          prefix: 'awscat',
+          fullName: `awscat:${key}`,
+          category: 'category',
+          iconData,
+          usage: `service mycategory(awscat:${key})[My Category]`
+        });
+      });
+    }
+
+    // Process resource icons
+    if (resourcePack && resourcePack.icons) {
+      Object.entries(resourcePack.icons).forEach(([key, iconData]) => {
+        metadata.push({
+          key,
+          prefix: 'awsres',
+          fullName: `awsres:${key}`,
+          category: 'resource',
+          iconData,
+          usage: `service myresource(awsres:${key})[My Resource]`
+        });
+      });
+    }
+
     return metadata;
   }
 }

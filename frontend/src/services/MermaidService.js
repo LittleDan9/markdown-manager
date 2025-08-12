@@ -45,7 +45,7 @@ class MermaidService {
           htmlLabels: false,
           curve: "linear",
         },
-        suppressErrorRendering: false, // Let Mermaid show its own errors
+        suppressErrorRendering: true, // Prevent Mermaid from injecting error DOM
         logLevel: "error", // Show error logs for debugging
         htmlLabels: false,
         secure: ["secure", "securityLevel", "startOnLoad", "maxTextSize"],
@@ -102,23 +102,25 @@ class MermaidService {
       // Register AWS SVG icons from aws-icons package (dynamically loads all icons)
       try {
         serviceLogger.debug('Attempting to load AWS SVG icons dynamically...');
-        const awsSvgIcons = await AwsIconLoader.getAllAwsServiceIcons();
-        serviceLogger.debug('AWS SVG icons result:', awsSvgIcons);
-        
+
+        // Load all AWS icon packs
+        const [awsSvgIcons, awsGroupIcons, awsCategoryIcons, awsResourceIcons] = await Promise.all([
+          AwsIconLoader.getAwsServiceIcons(),
+          AwsIconLoader.getAwsGroupIcons(),
+          AwsIconLoader.getAwsCategoryIcons(),
+          AwsIconLoader.getAwsResourceIcons()
+        ]);
+
+        // Register service icons
         if (awsSvgIcons && awsSvgIcons.icons && Object.keys(awsSvgIcons.icons).length > 0) {
-          // Push the icon pack in the same format as codiva icons
           iconPacks.push({
             name: 'awssvg',
-            icons: awsSvgIcons // The whole structure with prefix and icons
+            icons: awsSvgIcons
           });
-          serviceLogger.info(`AWS SVG icons loaded successfully: ${Object.keys(awsSvgIcons.icons).length} icons available`);
-          serviceLogger.debug('Sample AWS SVG icons (first 10):', Object.keys(awsSvgIcons.icons).slice(0, 10).join(', '));
-        } else {
-          serviceLogger.warn('AWS SVG icons returned empty or invalid data:', awsSvgIcons);
+          serviceLogger.info(`AWS Service icons loaded: ${Object.keys(awsSvgIcons.icons).length} icons available`);
         }
-        
-        // Also try to load AWS group icons
-        const awsGroupIcons = await AwsIconLoader.getAwsGroupIcons();
+
+        // Register group icons
         if (awsGroupIcons && awsGroupIcons.icons && Object.keys(awsGroupIcons.icons).length > 0) {
           iconPacks.push({
             name: 'awsgrp',
@@ -126,7 +128,25 @@ class MermaidService {
           });
           serviceLogger.info(`AWS Group icons loaded: ${Object.keys(awsGroupIcons.icons).length} icons available`);
         }
-        
+
+        // Register category icons
+        if (awsCategoryIcons && awsCategoryIcons.icons && Object.keys(awsCategoryIcons.icons).length > 0) {
+          iconPacks.push({
+            name: 'awscat',
+            icons: awsCategoryIcons
+          });
+          serviceLogger.info(`AWS Category icons loaded: ${Object.keys(awsCategoryIcons.icons).length} icons available`);
+        }
+
+        // Register resource icons
+        if (awsResourceIcons && awsResourceIcons.icons && Object.keys(awsResourceIcons.icons).length > 0) {
+          iconPacks.push({
+            name: 'awsres',
+            icons: awsResourceIcons
+          });
+          serviceLogger.info(`AWS Resource icons loaded: ${Object.keys(awsResourceIcons.icons).length} icons available`);
+        }
+
       } catch (error) {
         serviceLogger.error('AWS SVG icons failed to load:', error);
         serviceLogger.error('Error stack:', error.stack);
@@ -138,7 +158,7 @@ class MermaidService {
         iconPacks.forEach((pack, index) => {
           serviceLogger.info(`Pack ${index + 1}: name="${pack.name}", prefix="${pack.prefix || 'none'}", icon count=${pack.icons ? Object.keys(pack.icons).length : 'unknown'}`);
         });
-        
+
         mermaid.registerIconPacks(iconPacks);
         serviceLogger.info(`Icon packs registered successfully: ${iconPacks.map(p => p.name || p.prefix).join(', ')}`);
       } else {
@@ -196,6 +216,27 @@ class MermaidService {
     return null;
   }
 
+  /**
+   * Check if the SVG contains Mermaid error indicators
+   * @param {string} svgHtml - The SVG HTML string
+   * @returns {boolean} - True if the SVG contains error indicators
+   */
+  containsMermaidError(svgHtml) {
+    // Check for common Mermaid error indicators in the SVG
+    const errorIndicators = [
+      'syntax error',
+      'parse error',
+      'mermaid-error',
+      'error-icon',
+      'bomb',
+      'exclamation',
+      'Parse error on line'
+    ];
+    
+    const lowerSvg = svgHtml.toLowerCase();
+    return errorIndicators.some(indicator => lowerSvg.includes(indicator));
+  }
+
   async render(htmlString, theme = null) {
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlString;
@@ -239,6 +280,13 @@ class MermaidService {
         this.debug("- SVG length:", svg.length);
         this.debug("- SVG preview:", svg.substring(0, 200) + "...");
 
+        // Check if Mermaid returned an error in the SVG
+        if (this.containsMermaidError(svg)) {
+          this.debug("SVG contains Mermaid error indicators");
+          this.showError(block, "Diagram contains syntax errors.");
+          continue;
+        }
+
         if (this.isEmptyMermaidSVG(svg)) {
           this.debug("SVG detected as empty by isEmptyMermaidSVG check");
           this.showError(block, "Diagram rendered but appears empty or invalid.");
@@ -256,10 +304,9 @@ class MermaidService {
         block.setAttribute("data-processed", "true");
         this.diagramCache.set(diagramSource, svgElement.parentNode.outerHTML);
       } catch (error) {
-        // Mermaid should handle most errors with suppressErrorRendering: false
-        // This is just a fallback for any unexpected errors
+        // Catch any render errors and show clean error message
         this.logError("Mermaid render error:", error, "\nDiagram source:", diagramSource);
-        this.showError(block, error.message || "Failed to render diagram.");
+        this.showError(block, "Failed to render diagram due to syntax errors.");
       }
     }
 

@@ -26,11 +26,11 @@ const IconBrowser = () => {
       setLoading(true);
       setError(null);
       const metadata = await AwsIconLoader.getIconMetadata();
-      
+
       // Remove duplicates (same iconData reference but different keys)
       const uniqueIcons = [];
       const seenIconData = new Set();
-      
+
       metadata.forEach(icon => {
         const iconKey = `${icon.category}-${icon.iconData.body}`;
         if (!seenIconData.has(iconKey)) {
@@ -38,7 +38,7 @@ const IconBrowser = () => {
           uniqueIcons.push(icon);
         }
       });
-      
+
       setIcons(uniqueIcons);
       logger.info(`Loaded ${uniqueIcons.length} unique icons for browsing`);
     } catch (err) {
@@ -55,7 +55,7 @@ const IconBrowser = () => {
     // Filter by search term
     if (searchTerm) {
       const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(icon => 
+      filtered = filtered.filter(icon =>
         icon.key.toLowerCase().includes(term) ||
         icon.fullName.toLowerCase().includes(term)
       );
@@ -83,7 +83,7 @@ const IconBrowser = () => {
   const renderIcon = (iconData) => {
     if (!iconData || !iconData.body) {
       return (
-        <div 
+        <div
           className="d-flex align-items-center justify-content-center border rounded bg-body-secondary"
           style={{ width: '48px', height: '48px' }}
         >
@@ -104,9 +104,11 @@ const IconBrowser = () => {
     );
   };
 
-  const categories = ['all', 'service', 'group'];
+  const categories = ['all', 'service', 'group', 'category', 'resource'];
   const serviceCount = icons.filter(icon => icon.category === 'service').length;
   const groupCount = icons.filter(icon => icon.category === 'group').length;
+  const categoryCount = icons.filter(icon => icon.category === 'category').length;
+  const resourceCount = icons.filter(icon => icon.category === 'resource').length;
 
   if (loading) {
     return (
@@ -150,8 +152,14 @@ const IconBrowser = () => {
               <Badge bg="primary" className="me-2">
                 {serviceCount} Services
               </Badge>
-              <Badge bg="secondary">
+              <Badge bg="secondary" className="me-2">
                 {groupCount} Groups
+              </Badge>
+              <Badge bg="info" className="me-2">
+                {categoryCount} Categories
+              </Badge>
+              <Badge bg="success">
+                {resourceCount} Resources
               </Badge>
             </div>
           </div>
@@ -169,7 +177,7 @@ const IconBrowser = () => {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   {searchTerm && (
-                    <Button 
+                    <Button
                       variant="outline-secondary"
                       onClick={() => setSearchTerm('')}
                     >
@@ -188,8 +196,11 @@ const IconBrowser = () => {
                 >
                   {categories.map(category => (
                     <option key={category} value={category}>
-                      {category === 'all' ? 'All Categories' : 
-                       category === 'service' ? 'AWS Services' : 'AWS Groups'}
+                      {category === 'all' ? 'All Categories' :
+                       category === 'service' ? 'AWS Services' :
+                       category === 'group' ? 'AWS Groups' :
+                       category === 'category' ? 'AWS Categories' :
+                       'AWS Resources'}
                     </option>
                   ))}
                 </Form.Select>
@@ -208,11 +219,15 @@ const IconBrowser = () => {
           <Alert variant="info" className="mb-4">
             <Alert.Heading className="h6">How to Use Icons in Mermaid</Alert.Heading>
             <p className="mb-2">
-              Click the "Copy Usage" button on any icon to copy the Mermaid syntax. Example:
+              Click the "Copy Usage" button on any icon to copy the Mermaid syntax. Examples:
             </p>
             <code>service myec2(awssvg:ec2)[My EC2 Instance]</code>
             <br />
             <code>group myvpc(awsgrp:vpc)[My VPC Group]</code>
+            <br />
+            <code>service mycat(awscat:compute)[Compute Category]</code>
+            <br />
+            <code>service myres(awsres:bucket)[S3 Bucket Resource]</code>
           </Alert>
 
           {/* Icons Grid */}
@@ -225,29 +240,34 @@ const IconBrowser = () => {
                       {renderIcon(icon.iconData)}
                       <div className="ms-3 flex-grow-1">
                         <h6 className="mb-1">{icon.key}</h6>
-                        <Badge 
-                          bg={icon.category === 'service' ? 'primary' : 'secondary'}
+                        <Badge
+                          bg={
+                            icon.category === 'service' ? 'primary' :
+                            icon.category === 'group' ? 'secondary' :
+                            icon.category === 'category' ? 'info' :
+                            'success'
+                          }
                           className="mb-1"
                         >
                           {icon.category}
                         </Badge>
                       </div>
                     </div>
-                    
+
                     <div className="mb-2">
                       <small className="text-muted">Mermaid Reference:</small>
                       <div className="font-monospace small bg-body-tertiary p-2 rounded">
                         {icon.fullName}
                       </div>
                     </div>
-                    
+
                     <div className="mb-3">
                       <small className="text-muted">Usage Example:</small>
                       <div className="font-monospace small bg-body-tertiary p-2 rounded">
                         {icon.usage}
                       </div>
                     </div>
-                    
+
                     <div className="mt-auto">
                       <Row>
                         <Col>
