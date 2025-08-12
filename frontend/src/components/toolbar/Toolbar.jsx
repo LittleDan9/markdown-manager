@@ -6,7 +6,7 @@ import { useTheme } from "@/context/ThemeProvider";
 import { useDocument } from "@/context/DocumentProvider";
 import { useNotification } from "@/components/NotificationProvider";
 
-function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorValue }) {
+function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorValue, setShowIconBrowser }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
@@ -74,6 +74,19 @@ function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorVa
         </div>
         {/* Right side: Utility Controls */}
         <div className="d-flex align-items-center gap-2" id="utilityControls">
+          <button
+            id="iconBrowserBtn"
+            className="btn btn-sm btn-outline-secondary"
+            data-bs-toggle="tooltip"
+            data-bs-placement="bottom"
+            title="Browse AWS Icons for Mermaid"
+            onClick={(e) => {
+              e.preventDefault();
+              setShowIconBrowser(true);
+            }}
+          >
+            <i className="bi bi-grid-3x3-gap"></i>
+          </button>
           <button
             id="searchBtn"
             className="btn btn-sm btn-outline-secondary"
