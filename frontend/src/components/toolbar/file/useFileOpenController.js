@@ -8,9 +8,9 @@ export function useFileOpenController({ saveDocument, currentDocument, loadDocum
     setShowOpenModal(true);
   }, []);
 
-  const handleOpenFile = useCallback((doc) => {
+  const handleOpenFile = useCallback(async (doc) => {
     setPendingOpenId(doc.id);
-    loadDocument(doc.id);
+    await loadDocument(doc.id);
     setShowOpenModal(false);
   }, [loadDocument]);
 
