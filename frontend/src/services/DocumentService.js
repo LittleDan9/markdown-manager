@@ -392,6 +392,26 @@ class DocumentService {
   }
 
   /**
+   * Set current document ID on the backend
+   * @param {string|number} id - Document ID to set as current
+   */
+  async setCurrentDocumentId(id) {
+    const { isAuthenticated, token } = this.getAuthState();
+    if (!isAuthenticated || !token) {
+      // Skip for unauthenticated users
+      return;
+    }
+
+    try {
+      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      await DocumentsApi.setCurrentDocumentId(id);
+    } catch (error) {
+      console.error('Failed to set current document ID:', error);
+      // Don't throw - this is a background operation
+    }
+  }
+
+  /**
    * Export document as Markdown file
    * @param {string} content - Document content
    * @param {string} filename - Optional filename (uses current document name if not provided)

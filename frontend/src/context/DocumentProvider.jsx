@@ -61,23 +61,59 @@ export function DocumentProvider({ children }) {
       }
     }
 
-    const docs = DocumentService.getAllDocuments();
-    setDocuments(docs);
+    const loadCurrentDocument = async () => {
+      const docs = DocumentService.getAllDocuments();
+      setDocuments(docs);
 
-    // Load current document or create new one
-    if (docs.length > 0) {
-      const lastDoc = docs[0]; // Most recently updated
-      setCurrentDocument(lastDoc);
-      setContent(lastDoc.content || '');
+      if (docs.length === 0) {
+        const newDoc = DocumentService.createNewDocument();
+        setCurrentDocument(newDoc);
+        setContent('');
+        // Track current document in localStorage
+        DocumentStorageService.setCurrentDocument(newDoc);
+        return;
+      }
+
+      let currentDoc = null;
+
+      // If authenticated, try to get current document from backend
+      if (isAuthenticated && token) {
+        try {
+          const { documentsApi } = await import('../api/documentsApi.js');
+          const currentDocId = await documentsApi.getCurrentDocumentId();
+          
+          if (currentDocId) {
+            // Find the document with this ID
+            currentDoc = docs.find(doc => doc.id === currentDocId);
+            console.log('Loaded current document from backend:', currentDocId, currentDoc ? 'found' : 'not found');
+          }
+        } catch (error) {
+          console.log('Failed to fetch current document from backend:', error.message);
+        }
+      }
+
+      // If backend didn't provide a valid current doc, check localStorage
+      if (!currentDoc) {
+        const storedCurrentDoc = DocumentStorageService.getCurrentDocument();
+        if (storedCurrentDoc && storedCurrentDoc.id) {
+          currentDoc = docs.find(doc => doc.id === storedCurrentDoc.id);
+          console.log('Loaded current document from localStorage:', storedCurrentDoc.id, currentDoc ? 'found' : 'not found');
+        }
+      }
+
+      // Fall back to most recently updated document
+      if (!currentDoc) {
+        currentDoc = docs[0]; // Most recently updated
+        console.log('Falling back to most recent document:', currentDoc.id);
+      }
+
+      setCurrentDocument(currentDoc);
+      setContent(currentDoc.content || '');
       // Track current document in localStorage
-      DocumentStorageService.setCurrentDocument(lastDoc);
-    } else {
-      const newDoc = DocumentService.createNewDocument();
-      setCurrentDocument(newDoc);
-      setContent('');
-      // Track current document in localStorage
-      DocumentStorageService.setCurrentDocument(newDoc);
-    }
+      DocumentStorageService.setCurrentDocument(currentDoc);
+    };
+
+    loadCurrentDocument();
   }, [isAuthenticated, token, authInitialized]);
 
   // Update categories whenever documents change
@@ -128,7 +164,7 @@ export function DocumentProvider({ children }) {
     DocumentStorageService.setCurrentDocument(newDoc);
   }, []);
 
-  const loadDocument = useCallback((id) => {
+  const loadDocument = useCallback(async (id) => {
     setLoading(true);
     try {
       const doc = DocumentService.loadDocument(id);
@@ -138,6 +174,9 @@ export function DocumentProvider({ children }) {
         
         // Track current document in localStorage
         DocumentStorageService.setCurrentDocument(doc);
+        
+        // Update current document ID on backend for authenticated users
+        await DocumentService.setCurrentDocumentId(doc.id);
       } else {
         notification.showError('Document not found');
       }
