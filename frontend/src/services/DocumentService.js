@@ -282,6 +282,34 @@ class DocumentService {
   }
 
   /**
+   * Get categories extracted from all documents
+   * Always includes Drafts and General, plus unique categories from documents
+   */
+  getCategories() {
+    const documents = this.getAllDocuments();
+    const DEFAULT_CATEGORIES = ['Drafts', 'General'];
+    
+    // Extract unique categories from documents
+    const documentCategories = [...new Set(
+      documents
+        .map(doc => doc.category)
+        .filter(cat => cat && cat.trim() !== '')
+    )];
+    
+    // Combine default categories with document categories, removing duplicates
+    const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...documentCategories])];
+    
+    // Sort categories: Drafts first, General second, then alphabetically
+    return allCategories.sort((a, b) => {
+      if (a === 'Drafts') return -1;
+      if (b === 'Drafts') return 1;
+      if (a === 'General') return -1;
+      if (b === 'General') return 1;
+      return a.localeCompare(b);
+    });
+  }
+
+  /**
    * Create new document
    */
   createNewDocument() {

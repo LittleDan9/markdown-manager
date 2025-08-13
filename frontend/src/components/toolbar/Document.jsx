@@ -42,7 +42,9 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const handleCategorySelect = async (category) => {
     setCurrentCategory(category);
     try {
-      await saveDocument({ ...currentDocument, category });
+      const updatedDoc = { ...currentDocument, category };
+      const saved = await saveDocument(updatedDoc);
+      // The saveDocument in DocumentProvider will handle current document tracking
     } catch (err) {
       notification.showError("Failed to update document category.");
     }
@@ -126,9 +128,12 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
 
   const handleAddCategory = async (category) => {
     if (!category) return;
-    // Call addCategory (syncs to storage/backend) and update UI list
+    
+    // Call addCategory which will update the current document with the new category
     const updatedCats = await addCategory(category);
     setCategories(updatedCats);
+    
+    // The current document has been updated with the new category, so sync the UI
     setCurrentCategory(category);
     setNewCategory("");
   };
@@ -299,7 +304,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         </span>
       )}
       <span className="vr opacity-50 mx-2"></span>
-      {currentDocument.name === "Untitled Document" ? (
+      {/^Untitled Document( \d+)?$/.test(currentDocument.name) ? (
         <span
           className="me-2"
           title="This document will remain your current document but will not be saved until you provide a title."
