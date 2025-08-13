@@ -4,9 +4,10 @@
  * Uses AuthService directly instead of events
  */
 
-import LocalDocumentStorage from '../storage/LocalDocumentStorage.js';
+import DocumentStorageService from './DocumentStorageService.js';
 import { notification } from './EventDispatchService.js';
 import AuthService from './AuthService.js';
+import { saveAs } from 'file-saver';
 
 class DocumentService {
   constructor() {
@@ -128,7 +129,7 @@ class DocumentService {
 
   _saveToLocalStorage(document) {
     try {
-      return LocalDocumentStorage.saveDocument(document);
+      return DocumentStorageService.saveDocument(document);
     } catch (error) {
       console.error('Local storage save failed:', error);
       throw new Error(`Local save failed: ${error.message}`);
@@ -192,7 +193,7 @@ class DocumentService {
         category: localDoc.category
       };
 
-      return LocalDocumentStorage.saveDocument(updatedDoc);
+      return DocumentStorageService.saveDocument(updatedDoc);
     } catch (error) {
       console.warn('Failed to update local storage with backend data:', error);
       return backendDoc; // Return backend doc if local update fails
@@ -232,7 +233,7 @@ class DocumentService {
    * Load document by ID
    */
   loadDocument(id) {
-    return LocalDocumentStorage.getDocument(id);
+    return DocumentStorageService.getDocument(id);
   }
 
   /**
@@ -241,7 +242,7 @@ class DocumentService {
   async deleteDocument(id, showNotification = true) {
     try {
       // Step 1: Delete from localStorage immediately
-      const deletedDoc = LocalDocumentStorage.deleteDocument(id);
+      const deletedDoc = DocumentStorageService.deleteDocument(id);
 
       if (!deletedDoc) {
         throw new Error('Document not found');
@@ -276,7 +277,7 @@ class DocumentService {
    * Get all documents
    */
   getAllDocuments() {
-    return LocalDocumentStorage.getAllDocuments();
+    return DocumentStorageService.getAllDocuments();
   }
 
   /**
@@ -318,7 +319,7 @@ class DocumentService {
 
       // Get backend documents
       const backendDocs = await DocumentsApi.getAllDocuments();
-      const localDocs = LocalDocumentStorage.getAllDocuments();
+      const localDocs = DocumentStorageService.getAllDocuments();
 
       // Simple merge strategy: backend wins for conflicts
       const mergedDocs = new Map();
@@ -335,7 +336,7 @@ class DocumentService {
       });
 
       // Update localStorage with merged documents
-      LocalDocumentStorage.bulkUpdateDocuments(Array.from(mergedDocs.values()));
+      DocumentStorageService.bulkUpdateDocuments(Array.from(mergedDocs.values()));
 
       // Save local-only documents to backend
       const savePromises = [];
@@ -359,6 +360,81 @@ class DocumentService {
       notification.error(`Sync failed: ${error.message}`);
       throw error;
     }
+  }
+
+  /**
+   * Export document as Markdown file
+   * @param {string} content - Document content
+   * @param {string} filename - Optional filename (uses current document name if not provided)
+   */
+  exportAsMarkdown(content, filename = null) {
+    try {
+      const name = filename || 'document';
+      const fileName = name.endsWith('.md') ? name : `${name}.md`;
+      const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+      saveAs(blob, fileName);
+
+      notification.success(`Document exported as ${fileName}`);
+    } catch (error) {
+      console.error('Markdown export failed:', error);
+      notification.error('Failed to export document');
+      throw error;
+    }
+  }
+
+  /**
+   * Export document as PDF
+   * @param {string} htmlContent - Rendered HTML content
+   * @param {string} filename - Optional filename
+   * @param {string} theme - Theme ('light' or 'dark')
+   */
+  async exportAsPDF(htmlContent, filename = null, theme = 'light') {
+    try {
+      const documentName = filename || 'document';
+      const isDark = theme === 'dark';
+
+      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDark);
+
+      const url = window.URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = documentName.endsWith('.pdf') ? documentName : `${documentName}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      notification.success(`Document exported as ${link.download}`);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      notification.error('PDF export failed');
+      throw error;
+    }
+  }
+
+  /**
+   * Import Markdown file
+   * @param {File} file - File object to import
+   * @returns {Promise<Object>} - Object with content and name
+   */
+  importMarkdownFile(file) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        try {
+          const content = e.target.result;
+          const name = file.name.replace(/\.md$/, '');
+          resolve({ content, name });
+        } catch (error) {
+          reject(error);
+        }
+      };
+
+      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.readAsText(file);
+    });
   }
 
     /**

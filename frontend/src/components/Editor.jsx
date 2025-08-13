@@ -78,24 +78,6 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
     }
   }, [theme]);
 
-  // Listen for storage:cleared event and clear editor value
-  useEffect(() => {
-    const handleStorageCleared = (e) => {
-      if (e.detail?.type === 'storage:cleared') {
-        if (editorRef.current) {
-          editorRef.current.setValue("");
-        }
-        lastEditorValue.current = "";
-        previousValueRef.current = "";
-        if (onChange) onChange("");
-      }
-    };
-    window.addEventListener('markdown-manager:storage', handleStorageCleared);
-    return () => {
-      window.removeEventListener('markdown-manager:storage', handleStorageCleared);
-    };
-  }, []);
-
   useEffect(() => {
     if (!editorRef.current) return;
     const editor = editorRef.current;

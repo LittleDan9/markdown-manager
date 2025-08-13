@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect, useMemo, useCall
 import DocumentService from '../services/DocumentService.js';
 import { useAuth } from './AuthContext';
 import { useNotification } from '../components/NotificationProvider.jsx';
-import useExportDocuments from '../hooks/useExportDocuments';
 import useChangeTracker from '../hooks/useChangeTracker';
 
 const DocumentContext = createContext();
@@ -31,7 +30,7 @@ export function DocumentProvider({ children }) {
   useEffect(() => {
     const docs = DocumentService.getAllDocuments();
     setDocuments(docs);
-    
+
     // Load current document or create new one
     if (docs.length > 0) {
       const lastDoc = docs[0]; // Most recently updated
@@ -87,20 +86,20 @@ export function DocumentProvider({ children }) {
 
     setLoading(true);
     setError('');
-    
+
     try {
       const saved = await DocumentService.saveDocument(docToSave, showNotification);
-      
+
       // Update state with saved document
       setCurrentDocument(saved);
       if (saved.id === currentDocument.id) {
         setContent(saved.content);
       }
-      
+
       // Refresh documents list
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
-      
+
       return saved;
     } catch (err) {
       console.error('Save failed:', err);
@@ -118,11 +117,11 @@ export function DocumentProvider({ children }) {
     setLoading(true);
     try {
       await DocumentService.deleteDocument(id, showNotification);
-      
+
       // Refresh documents list
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
-      
+
       // If deleted document was current, switch to another or create new
       if (currentDocument.id === id) {
         if (docs.length > 0) {
@@ -157,11 +156,11 @@ export function DocumentProvider({ children }) {
       };
 
       await DocumentService.saveDocument(updatedDoc, false);
-      
+
       // Refresh state
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
-      
+
       if (currentDocument.id === id) {
         setCurrentDocument(updatedDoc);
       }
@@ -177,7 +176,7 @@ export function DocumentProvider({ children }) {
     if (!name || name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return categories;
     }
-    
+
     if (!categories.includes(name)) {
       const updated = [...categories, name];
       setCategories(updated);
@@ -190,10 +189,10 @@ export function DocumentProvider({ children }) {
     if (name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return categories;
     }
-    
+
     const updated = categories.filter(cat => cat !== name);
     setCategories(updated);
-    
+
     // Handle documents in the deleted category
     const docs = DocumentService.getAllDocuments();
     const promises = docs
@@ -205,13 +204,13 @@ export function DocumentProvider({ children }) {
         };
         return DocumentService.saveDocument(updatedDoc, false);
       });
-    
+
     await Promise.all(promises);
-    
+
     // Refresh documents
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
-    
+
     return updated;
   }, [categories]);
 
@@ -226,10 +225,10 @@ export function DocumentProvider({ children }) {
     ) {
       return categories;
     }
-    
+
     const updated = categories.map(cat => cat === oldName ? name : cat);
     setCategories(updated);
-    
+
     // Update documents in the renamed category
     const docs = DocumentService.getAllDocuments();
     const promises = docs
@@ -241,28 +240,28 @@ export function DocumentProvider({ children }) {
         };
         return DocumentService.saveDocument(updatedDoc, false);
       });
-    
+
     await Promise.all(promises);
-    
+
     // Refresh documents
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
-    
+
     return updated;
   }, [categories]);
 
   // Sync with backend
   const syncWithBackend = useCallback(async () => {
     if (!isAuthenticated) return;
-    
+
     setLoading(true);
     try {
       await DocumentService.syncWithBackend();
-      
+
       // Refresh local state after sync
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
-      
+
       // Update current document if it exists in the refreshed list
       if (currentDocument.id) {
         const updatedCurrent = docs.find(doc => doc.id === currentDocument.id);
@@ -290,12 +289,27 @@ export function DocumentProvider({ children }) {
     }
   }, [isAuthenticated, token]);
 
-  // Export functionality
-  const { exportAsMarkdown, exportAsPDF, importMarkdownFile } = useExportDocuments(
-    currentDocument,
-    setLoading,
-    setError
-  );
+  // Export functionality using DocumentService directly
+  const exportAsMarkdown = useCallback((content, filename) => {
+    return DocumentService.exportAsMarkdown(content, filename || currentDocument?.name);
+  }, [currentDocument]);
+
+  const exportAsPDF = useCallback(async (htmlContent, filename = null, theme = 'light') => {
+    setLoading(true);
+    setError('');
+    try {
+      await DocumentService.exportAsPDF(htmlContent, filename || currentDocument?.name, theme);
+    } catch (error) {
+      console.error('PDF export failed:', error);
+      setError('PDF export failed');
+    } finally {
+      setLoading(false);
+    }
+  }, [currentDocument, setLoading, setError]);
+
+  const importMarkdownFile = useCallback(async (file) => {
+    return DocumentService.importMarkdownFile(file);
+  }, []);
 
   // Change tracking
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
