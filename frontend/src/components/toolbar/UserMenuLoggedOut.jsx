@@ -6,7 +6,7 @@ import RegisterModal from "../modals/RegisterModal";
 import UserSettingsModal from "../modals/UserSettingsModal";
 import UserAPI from "../../api/userApi";
 import { useNotification } from "../NotificationProvider";
-import { useAuth } from "../../context/AuthProvider";
+import { useAuth } from "../../context/AuthContext";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();

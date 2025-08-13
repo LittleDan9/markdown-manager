@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Form, Card, Button, Alert } from "react-bootstrap";
 import MFAModal from "./MFAModal";
 import userApi from "../../api/userApi";
-import { useAuth } from "../../context/AuthProvider";
+import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../NotificationProvider";
 import { set } from "lodash";
 

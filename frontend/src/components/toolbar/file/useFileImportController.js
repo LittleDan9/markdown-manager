@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useDocument } from "../../../context/DocumentProvider";
 import { useNotification } from "../../NotificationProvider";
-import DocumentManager from "../../../storage/DocumentManager";
+import DocumentService from "../../../services/DocumentService";
 
 export function useFileImportController({ setDocumentTitle, setContent }) {
   const { saveDocument, currentDocument, importMarkdownFile, loadDocument, createDocument, documents } = useDocument();
@@ -44,20 +44,15 @@ export function useFileImportController({ setDocumentTitle, setContent }) {
     if (!importedFileData) return;
     const safeName = (filename && filename !== "__category_placeholder__") ? filename : "Untitled Document";
     const safeCategory = (selectedCategory && selectedCategory !== "__category_placeholder__") ? selectedCategory : "General";
-    // Ensure category is saved to backend if authenticated and not present
+    // Ensure category exists in the list (will be added locally, sync happens in background)
     let categories = [];
     try {
-      categories = await DocumentManager.getCategories();
+      categories = DocumentService.getAllDocuments().map(doc => doc.category).filter(Boolean);
+      categories = Array.from(new Set([...categories, "General", "Drafts"]));
     } catch (e) {
-      categories = ["General"];
+      categories = ["General", "Drafts"];
     }
-    if (!categories.includes(safeCategory)) {
-      try {
-        await DocumentManager.addCategory(safeCategory);
-      } catch (e) {
-        // Ignore category add errors
-      }
-    }
+    // Note: Category management is now handled by the DocumentProvider
     const docToSave = {
       name: safeName,
       category: safeCategory,

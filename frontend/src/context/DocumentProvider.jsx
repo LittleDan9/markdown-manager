@@ -1,10 +1,9 @@
-import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
-import { useAuth } from "./AuthProvider.jsx";
-import { useNotification } from "../components/NotificationProvider.jsx";
-import DocumentManager from "../storage/DocumentManager";
-import useSyncDocuments from "../hooks/useSyncDocuments";
-import useExportDocuments from "../hooks/useExportDocuments";
-import useChangeTracker from "../hooks/useChangeTracker";
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import DocumentService from '../services/DocumentService.js';
+import { useAuth } from './AuthContext';
+import { useNotification } from '../components/NotificationProvider.jsx';
+import useExportDocuments from '../hooks/useExportDocuments';
+import useChangeTracker from '../hooks/useChangeTracker';
 
 const DocumentContext = createContext();
 
@@ -21,132 +20,202 @@ export function DocumentProvider({ children }) {
     category: DEFAULT_CATEGORY,
     content: ''
   });
-  const [content, setContent] = useState(currentDocument?.content || "");
+  const [content, setContent] = useState('');
   const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([DRAFTS_CATEGORY, DEFAULT_CATEGORY]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
 
-  // Document operations
-  function createDocument() {
-    const untitledBase = 'Untitled Document';
-    const allDocs = DocumentManager.getAllDocuments();
-    const regex = new RegExp(`^${untitledBase}(?: (\\d+))?$`);
-    const counts = allDocs
-      .map(d => {
-        const m = d.name.match(regex);
-        return m ? (m[1] ? parseInt(m[1], 10) : 1) : null;
-      })
-      .filter(n => n !== null);
-    const max = counts.length > 0 ? Math.max(...counts) : 0;
-    const newName = max === 0 ? untitledBase : `${untitledBase} ${max + 1}`;
-    const newDoc = {
-      id: null,
-      name: newName,
-      category: DEFAULT_CATEGORY,
-      content: ''
-    };
-    setCurrentDocument(newDoc);
-  }
-
+  // Initialize documents on mount
   useEffect(() => {
-    const doc = DocumentManager.getCurrentDocument();
-    if (doc) {
-      loadDocument(doc.id);
+    const docs = DocumentService.getAllDocuments();
+    setDocuments(docs);
+    
+    // Load current document or create new one
+    if (docs.length > 0) {
+      const lastDoc = docs[0]; // Most recently updated
+      setCurrentDocument(lastDoc);
+      setContent(lastDoc.content || '');
+    } else {
+      const newDoc = DocumentService.createNewDocument();
+      setCurrentDocument(newDoc);
+      setContent('');
     }
-  }, [isAuthenticated]);
+  }, []);
 
-  function loadDocument(id) {
-    const doc = DocumentManager.getDocument(id);
-    if (doc) {
-      // Show loading state for large documents
-      if (doc.content && doc.content.length > 100000) { // 100KB
-        setLoading(true);
-        // Use setTimeout to allow UI to update before processing large document
-        setTimeout(() => {
-          setCurrentDocument(doc);
-          DocumentManager.setCurrentDocument(doc); // Ensure localStorage is updated
-          localStorage.setItem('lastDocumentId', id);
-          setLoading(false);
-        }, 100);
-      } else {
+  // Keep content in sync with current document
+  useEffect(() => {
+    if (currentDocument && currentDocument.content !== content) {
+      setContent(currentDocument.content || '');
+    }
+  }, [currentDocument.id]);
+
+  // Document operations
+  const createDocument = useCallback(() => {
+    const newDoc = DocumentService.createNewDocument();
+    setCurrentDocument(newDoc);
+    setContent('');
+  }, []);
+
+  const loadDocument = useCallback((id) => {
+    setLoading(true);
+    try {
+      const doc = DocumentService.loadDocument(id);
+      if (doc) {
         setCurrentDocument(doc);
-        DocumentManager.setCurrentDocument(doc); // Ensure localStorage is updated
-        localStorage.setItem('lastDocumentId', id);
+        setContent(doc.content || '');
+      } else {
+        notification.showError('Document not found');
       }
+    } catch (error) {
+      console.error('Failed to load document:', error);
+      notification.showError('Failed to load document');
+    } finally {
+      setLoading(false);
     }
-  }
+  }, [notification]);
 
-  async function saveDocument(doc) {
+  const saveDocument = useCallback(async (doc, showNotification = true) => {
+    if (!doc) return null;
+
+    // Create document to save with current content
+    const docToSave = {
+      ...doc,
+      content: doc.id === currentDocument.id ? content : doc.content
+    };
+
     setLoading(true);
     setError('');
+    
     try {
-      const saved = await DocumentManager.saveDocument(doc);
+      const saved = await DocumentService.saveDocument(docToSave, showNotification);
+      
+      // Update state with saved document
       setCurrentDocument(saved);
-      const docs = DocumentManager.getAllDocuments();
-      setDocuments(docs);
-      if (saved.id) {
-        localStorage.setItem('lastDocumentId', saved.id);
+      if (saved.id === currentDocument.id) {
+        setContent(saved.content);
       }
+      
+      // Refresh documents list
+      const docs = DocumentService.getAllDocuments();
+      setDocuments(docs);
+      
       return saved;
     } catch (err) {
-      setError('Save failed');
+      console.error('Save failed:', err);
+      setError('Save failed: ' + err.message);
+      if (showNotification) {
+        notification.showError('Save failed: ' + err.message);
+      }
       return null;
     } finally {
       setLoading(false);
     }
-  }
+  }, [content, currentDocument, notification]);
 
-  function deleteDocument(id) {
-    DocumentManager.deleteDocument(id);
-    const all = DocumentManager.getAllDocuments();
-    setDocuments(all);
-    const newDoc = all[0] || {
-      id: null,
-      name: 'Untitled Document',
-      category: DEFAULT_CATEGORY,
-      content: ''
-    };
-    setCurrentDocument(newDoc);
-  }
+  const deleteDocument = useCallback(async (id, showNotification = true) => {
+    setLoading(true);
+    try {
+      await DocumentService.deleteDocument(id, showNotification);
+      
+      // Refresh documents list
+      const docs = DocumentService.getAllDocuments();
+      setDocuments(docs);
+      
+      // If deleted document was current, switch to another or create new
+      if (currentDocument.id === id) {
+        if (docs.length > 0) {
+          const newCurrent = docs[0];
+          setCurrentDocument(newCurrent);
+          setContent(newCurrent.content || '');
+        } else {
+          const newDoc = DocumentService.createNewDocument();
+          setCurrentDocument(newDoc);
+          setContent('');
+        }
+      }
+    } catch (error) {
+      console.error('Delete failed:', error);
+      if (showNotification) {
+        notification.showError('Delete failed: ' + error.message);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [currentDocument, notification]);
 
-  function renameDocument(id, newName, newCategory = DEFAULT_CATEGORY) {
-    const doc = DocumentManager.getDocument(id);
-    if (!doc) return;
-    doc.name = newName;
-    doc.category = newCategory;
-    DocumentManager.saveDocument(doc);
-    const docs = DocumentManager.getAllDocuments();
-    setDocuments(docs);
-    setCurrentDocument(doc);
-  }
+  const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
+    try {
+      const doc = DocumentService.loadDocument(id);
+      if (!doc) return;
 
-  // Category operations
-  async function addCategory(category) {
+      const updatedDoc = {
+        ...doc,
+        name: newName,
+        category: newCategory
+      };
+
+      await DocumentService.saveDocument(updatedDoc, false);
+      
+      // Refresh state
+      const docs = DocumentService.getAllDocuments();
+      setDocuments(docs);
+      
+      if (currentDocument.id === id) {
+        setCurrentDocument(updatedDoc);
+      }
+    } catch (error) {
+      console.error('Rename failed:', error);
+      notification.showError('Rename failed: ' + error.message);
+    }
+  }, [currentDocument, notification]);
+
+  // Category operations (simplified - manage locally for now)
+  const addCategory = useCallback(async (category) => {
     const name = (category || '').trim();
     if (!name || name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return categories;
     }
-    const updated = await DocumentManager.addCategory(name);
-    const cats = Array.from(new Set([DRAFTS_CATEGORY, DEFAULT_CATEGORY, ...updated]));
-    setCategories(cats);
-    return updated;
-  }
+    
+    if (!categories.includes(name)) {
+      const updated = [...categories, name];
+      setCategories(updated);
+      return updated;
+    }
+    return categories;
+  }, [categories]);
 
-  async function deleteCategory(name, options = {}) {
+  const deleteCategory = useCallback(async (name, options = {}) => {
     if (name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return categories;
     }
-    const updated = await DocumentManager.deleteCategory(name, options);
-    const cats = Array.from(new Set([DRAFTS_CATEGORY, DEFAULT_CATEGORY, ...updated]));
-    setCategories(cats);
-    const docs = DocumentManager.getAllDocuments();
-    setDocuments(docs); // Refresh documents after category change
+    
+    const updated = categories.filter(cat => cat !== name);
+    setCategories(updated);
+    
+    // Handle documents in the deleted category
+    const docs = DocumentService.getAllDocuments();
+    const promises = docs
+      .filter(doc => doc.category === name)
+      .map(doc => {
+        const updatedDoc = {
+          ...doc,
+          category: options.migrateTo || DEFAULT_CATEGORY
+        };
+        return DocumentService.saveDocument(updatedDoc, false);
+      });
+    
+    await Promise.all(promises);
+    
+    // Refresh documents
+    const refreshedDocs = DocumentService.getAllDocuments();
+    setDocuments(refreshedDocs);
+    
     return updated;
-  }
+  }, [categories]);
 
-  async function renameCategory(oldName, newName) {
+  const renameCategory = useCallback(async (oldName, newName) => {
     const name = (newName || '').trim();
     if (
       oldName === DEFAULT_CATEGORY ||
@@ -157,23 +226,69 @@ export function DocumentProvider({ children }) {
     ) {
       return categories;
     }
-    const updated = await DocumentManager.renameCategory(oldName, name);
-    const cats = Array.from(new Set([DRAFTS_CATEGORY, DEFAULT_CATEGORY, ...updated]));
-    setCategories(cats);
-    const docs = DocumentManager.getAllDocuments();
-    setDocuments(docs); // Refresh documents after category change
+    
+    const updated = categories.map(cat => cat === oldName ? name : cat);
+    setCategories(updated);
+    
+    // Update documents in the renamed category
+    const docs = DocumentService.getAllDocuments();
+    const promises = docs
+      .filter(doc => doc.category === oldName)
+      .map(doc => {
+        const updatedDoc = {
+          ...doc,
+          category: name
+        };
+        return DocumentService.saveDocument(updatedDoc, false);
+      });
+    
+    await Promise.all(promises);
+    
+    // Refresh documents
+    const refreshedDocs = DocumentService.getAllDocuments();
+    setDocuments(refreshedDocs);
+    
     return updated;
-  }
-  // Sync documents (keeps the valuable sync logic)
-  useSyncDocuments({
-    isAuthenticated,
-    token,
-    notification,
-    setDocuments,
-    setCategories: (cats) => setCategories(Array.from(new Set([DRAFTS_CATEGORY, DEFAULT_CATEGORY, ...cats]))),
-    setLoading,
-    setError
-  });
+  }, [categories]);
+
+  // Sync with backend
+  const syncWithBackend = useCallback(async () => {
+    if (!isAuthenticated) return;
+    
+    setLoading(true);
+    try {
+      await DocumentService.syncWithBackend();
+      
+      // Refresh local state after sync
+      const docs = DocumentService.getAllDocuments();
+      setDocuments(docs);
+      
+      // Update current document if it exists in the refreshed list
+      if (currentDocument.id) {
+        const updatedCurrent = docs.find(doc => doc.id === currentDocument.id);
+        if (updatedCurrent) {
+          setCurrentDocument(updatedCurrent);
+          setContent(updatedCurrent.content || '');
+        }
+      }
+    } catch (error) {
+      console.error('Sync failed:', error);
+      setError('Sync failed: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, currentDocument]);
+
+  // Auto-sync on authentication changes
+  useEffect(() => {
+    if (isAuthenticated && token) {
+      // Small delay to ensure auth is fully established
+      const timer = setTimeout(() => {
+        syncWithBackend();
+      }, 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [isAuthenticated, token]);
 
   // Export functionality
   const { exportAsMarkdown, exportAsPDF, importMarkdownFile } = useExportDocuments(
@@ -185,7 +300,7 @@ export function DocumentProvider({ children }) {
   // Change tracking
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     token,
     isAuthenticated,
@@ -212,7 +327,14 @@ export function DocumentProvider({ children }) {
     saveDocument,
     content,
     setContent,
-  };
+    syncWithBackend,
+  }), [
+    user, token, isAuthenticated, currentDocument, documents, categories, loading, error,
+    hasUnsavedChanges, highlightedBlocks, content, createDocument, loadDocument,
+    deleteDocument, renameDocument, addCategory, deleteCategory, renameCategory,
+    exportAsMarkdown, exportAsPDF, importMarkdownFile, saveDocument, syncWithBackend
+  ]);
+
   return (
     <DocumentContext.Provider value={value}>
       {children}

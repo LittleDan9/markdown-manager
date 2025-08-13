@@ -4,7 +4,7 @@ import MFAModal from "./MFAModal";
 import BackupCodesSection from "./BackupCodesSection";
 import DisableMFASection from "./DisableMFASection";
 import userApi from "../../api/userApi";
-import { useAuth } from "../../context/AuthProvider";
+import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../NotificationProvider";
 
 function MFATab({ setActiveTab }) {

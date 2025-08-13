@@ -11,7 +11,7 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 import "./styles/main.scss";
 
 import { DocumentProvider } from "./context/DocumentProvider";
-import { AuthProvider } from "./context/AuthProvider";
+import { AuthProvider } from "./context/AuthContext";
 import { NotificationProvider } from "./components/NotificationProvider.jsx";
 import { RecoveryProvider } from "./components/recovery/RecoveryProvider.jsx";
 import { LoggerProvider } from "./context/LoggerProvider.jsx";

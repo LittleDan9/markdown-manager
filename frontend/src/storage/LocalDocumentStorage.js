@@ -9,10 +9,7 @@ const DEFAULT_CATEGORY = "General";
 
 class LocalDocumentStorage {
   constructor() {
-    // Listen for logout-complete event to clear all local document data
-    window.addEventListener('auth:logout-complete', () => {
-      this.clearAllData();
-    });
+    // Constructor now clean - no event listeners
   }
 
   // Document operations

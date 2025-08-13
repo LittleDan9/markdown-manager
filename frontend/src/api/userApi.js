@@ -4,10 +4,13 @@ class UserAPI extends Api {
   // Request a new access token using the refresh token cookie
   async refreshToken() {
     try {
+      console.log('UserAPI.refreshToken: Attempting refresh with credentials');
       // The refresh token should be sent as a cookie
       const res = await this.apiCall("/auth/refresh", "POST", null, {}, { withCredentials: true });
+      console.log('UserAPI.refreshToken: Refresh successful', res.data);
       return res.data;
     } catch (error) {
+      console.log('UserAPI.refreshToken: Refresh failed', error?.response?.status, error?.response?.data);
       // If refresh fails due to no auth (401/403), don't log error for guests
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return null;
@@ -28,21 +31,26 @@ class UserAPI extends Api {
     if (token || this.getToken()) {
       headers["Authorization"] = `Bearer ${token || this.getToken()}`;
     } else {
+      console.log('UserAPI.getCurrentUser: No token available, returning null');
       // No token available, return null for guest user
       return null;
     }
 
     try {
+      console.log('UserAPI.getCurrentUser: Fetching user with token');
       const res = await this.apiCall("/auth/me", "GET", null, headers);
+      console.log('UserAPI.getCurrentUser: User fetch successful', res.data);
       return res.data;
     } catch (e) {
+      console.log('UserAPI.getCurrentUser: User fetch failed', e?.response?.status, e?.response?.data);
       if (e?.response?.status === 401) {
         // Not authenticated, return null
+        console.log('UserAPI.getCurrentUser: 401 - Not authenticated');
         return null;
       }
       if (e?.response?.status === 403) {
-        // Forbidden: trigger force logout for full cleanup
-        window.dispatchEvent(new CustomEvent('auth:force-logout'));
+        // Forbidden: return null instead of dispatching event
+        console.log('UserAPI.getCurrentUser: 403 - Forbidden');
         return null;
       }
       // Log other errors
