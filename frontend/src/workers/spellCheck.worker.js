@@ -137,6 +137,17 @@ self.onmessage = async function (e) {
       // Skip words that are URLs or email addresses
       if (/^https?:\/\/|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(word)) continue;
       
+      // Check if this word is part of an email address by looking at surrounding context
+      const contextStart = Math.max(0, match.index - 50);
+      const contextEnd = Math.min(text.length, match.index + word.length + 50);
+      const context = text.slice(contextStart, contextEnd);
+      const emailRegex = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/;
+      const emailMatch = context.match(emailRegex);
+      if (emailMatch && context.indexOf(word) >= context.indexOf(emailMatch[0]) && 
+          context.indexOf(word) < context.indexOf(emailMatch[0]) + emailMatch[0].length) {
+        continue;
+      }
+      
       // Skip words that are part of HTML tags
       const beforeWord = text.slice(Math.max(0, match.index - 10), match.index);
       const afterWord = text.slice(match.index + word.length, Math.min(text.length, match.index + word.length + 10));
