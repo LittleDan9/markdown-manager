@@ -13,6 +13,7 @@ export function DocumentProvider({ children }) {
   // Document state
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
+  const [authInitialized, setAuthInitialized] = useState(false);
   const [currentDocument, setCurrentDocument] = useState({
     id: null,
     name: 'Untitled Document',
@@ -26,14 +27,55 @@ export function DocumentProvider({ children }) {
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
 
-  // Initialize documents on mount
+  // Track authentication initialization state
   useEffect(() => {
+    // Add a small delay to allow AuthService to initialize
+    const timer = setTimeout(() => {
+      setAuthInitialized(true);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize documents on mount and when auth changes
+  useEffect(() => {
+    // Don't load documents until auth is initialized
+    if (!authInitialized) return;
+
+    // If we're not authenticated and there's no valid token, clear document state
+    if (!isAuthenticated && !token) {
+      // Check if we previously had authentication but lost it
+      const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
+      if (lastKnownAuth === 'authenticated') {
+        // This means we lost authentication, clear document state
+        console.log('Authentication lost, clearing document state');
+        DocumentService.clearDocumentState();
+        setDocuments([]);
+        const newDoc = DocumentService.createNewDocument();
+        setCurrentDocument(newDoc);
+        setContent('');
+        return;
+      }
+    }
+
     const docs = DocumentService.getAllDocuments();
-    setDocuments(docs);
+
+    // Filter out any private documents if not authenticated
+    let filteredDocs = docs;
+    if (!isAuthenticated) {
+      filteredDocs = docs.filter(doc =>
+        !doc.id ||
+        String(doc.id).startsWith('doc_') ||
+        !doc.content ||
+        doc.content.trim() === ''
+      );
+    }
+
+    setDocuments(filteredDocs);
 
     // Load current document or create new one
-    if (docs.length > 0) {
-      const lastDoc = docs[0]; // Most recently updated
+    if (filteredDocs.length > 0) {
+      const lastDoc = filteredDocs[0]; // Most recently updated
       setCurrentDocument(lastDoc);
       setContent(lastDoc.content || '');
     } else {
@@ -41,7 +83,30 @@ export function DocumentProvider({ children }) {
       setCurrentDocument(newDoc);
       setContent('');
     }
-  }, []);
+  }, [isAuthenticated, token, authInitialized]); // Add authInitialized dependency
+
+  // Additional safety check: if we have documents but no valid auth, clear them
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (!isAuthenticated && !token && documents.length > 0) {
+        // Check if these documents should be accessible to a guest user
+        const hasPrivateContent = documents.some(doc =>
+          doc.id && !String(doc.id).startsWith('doc_') && doc.content && doc.content.trim() !== ''
+        );
+
+        if (hasPrivateContent) {
+          console.log('Found private documents without authentication, clearing state');
+          DocumentService.clearDocumentState();
+          setDocuments([]);
+          const newDoc = DocumentService.createNewDocument();
+          setCurrentDocument(newDoc);
+          setContent('');
+        }
+      }
+    }, 2000); // Give auth initialization time to complete
+
+    return () => clearTimeout(timer);
+  }, [documents, isAuthenticated, token]);
 
   // Keep content in sync with current document
   useEffect(() => {
@@ -289,6 +354,30 @@ export function DocumentProvider({ children }) {
     }
   }, [isAuthenticated, token]);
 
+  // Handle logout scenarios - clear document state when user is logged out
+  useEffect(() => {
+    if (!isAuthenticated && !token) {
+      // Check if this is a logout scenario vs initial load
+      const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
+      if (lastKnownAuth === 'authenticated') {
+        // User was authenticated but now isn't - this is a logout
+        // Clear document state to prevent showing private documents
+        console.log('Logout detected, clearing document state');
+        DocumentService.clearDocumentState();
+        setDocuments([]);
+        const newDoc = DocumentService.createNewDocument();
+        setCurrentDocument(newDoc);
+        setContent('');
+
+        // Update last known auth state
+        localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+      }
+    } else if (isAuthenticated && token) {
+      // User is authenticated, update state
+      localStorage.setItem('lastKnownAuthState', 'authenticated');
+    }
+  }, [isAuthenticated, token]);
+
   // Export functionality using DocumentService directly
   const exportAsMarkdown = useCallback((content, filename) => {
     return DocumentService.exportAsMarkdown(content, filename || currentDocument?.name);
@@ -318,6 +407,7 @@ export function DocumentProvider({ children }) {
     user,
     token,
     isAuthenticated,
+    authInitialized,
     currentDocument,
     setCurrentDocument,
     documents,
@@ -343,7 +433,7 @@ export function DocumentProvider({ children }) {
     setContent,
     syncWithBackend,
   }), [
-    user, token, isAuthenticated, currentDocument, documents, categories, loading, error,
+    user, token, isAuthenticated, authInitialized, currentDocument, documents, categories, loading, error,
     hasUnsavedChanges, highlightedBlocks, content, createDocument, loadDocument,
     deleteDocument, renameDocument, addCategory, deleteCategory, renameCategory,
     exportAsMarkdown, exportAsPDF, importMarkdownFile, saveDocument, syncWithBackend

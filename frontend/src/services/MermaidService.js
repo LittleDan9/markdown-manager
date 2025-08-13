@@ -187,17 +187,39 @@ class MermaidService {
     const archServices = svgElement.querySelectorAll('.architecture-service');
     const archElements = svgElement.querySelectorAll('[data-id]'); // Generic architecture elements
 
+    // Look for generic diagram elements
+    const allPaths = svgElement.querySelectorAll('path');
+    const allRects = svgElement.querySelectorAll('rect');
+    const allTexts = svgElement.querySelectorAll('text');
+    const allGroups = svgElement.querySelectorAll('g');
+
+    // Check for SVG dimensions - if very small, might be empty
+    const svgWidth = svgElement.getAttribute('width') || svgElement.style.width || '';
+    const svgHeight = svgElement.getAttribute('height') || svgElement.style.height || '';
+
     this.debug("SVG content analysis:");
     this.debug("- Nodes:", nodes ? nodes.children.length : 0);
     this.debug("- Edges:", edges ? edges.children.length : 0);
     this.debug("- Architecture groups:", archGroups.length);
     this.debug("- Architecture services:", archServices.length);
     this.debug("- Architecture elements:", archElements.length);
+    this.debug("- All paths:", allPaths.length);
+    this.debug("- All rects:", allRects.length);
+    this.debug("- All texts:", allTexts.length);
+    this.debug("- All groups:", allGroups.length);
+    this.debug("- SVG dimensions:", svgWidth, "x", svgHeight);
 
     const hasFlowchartContent = (nodes && nodes.children.length) || (edges && edges.children.length);
     const hasArchContent = archGroups.length > 0 || archServices.length > 0 || archElements.length > 0;
+    const hasGenericContent = allPaths.length > 1 || allRects.length > 0 || allTexts.length > 0; // paths > 1 because empty SVGs often have one background path
 
-    const isEmpty = !hasFlowchartContent && !hasArchContent;
+    // Only consider it empty if it has NO meaningful content AND is very small
+    const isEmpty = !hasFlowchartContent && !hasArchContent && !hasGenericContent && (svgHtml.length < 500 || allTexts.length === 0);
+
+    this.debug("- Has flowchart content:", hasFlowchartContent);
+    this.debug("- Has architecture content:", hasArchContent);
+    this.debug("- Has generic content:", hasGenericContent);
+    this.debug("- SVG length:", svgHtml.length);
     this.debug("- Is empty:", isEmpty);
 
     return isEmpty;
@@ -222,19 +244,29 @@ class MermaidService {
    * @returns {boolean} - True if the SVG contains error indicators
    */
   containsMermaidError(svgHtml) {
-    // Check for common Mermaid error indicators in the SVG
-    const errorIndicators = [
-      'syntax error',
-      'parse error',
-      'mermaid-error',
-      'error-icon',
-      'bomb',
-      'exclamation',
-      'Parse error on line'
+    // Only check for very specific error patterns that Mermaid actually outputs for errors
+    const errorPatterns = [
+      /Parse error on line \d+/i,
+      /<text[^>]*>[\s]*Parse error on line/i,
+      /<text[^>]*>[\s]*Syntax error/i,
+      /class="error-icon"/i,
+      /id="mermaid-error"/i
     ];
-    
-    const lowerSvg = svgHtml.toLowerCase();
-    return errorIndicators.some(indicator => lowerSvg.includes(indicator));
+
+    // Check for error patterns
+    const hasErrorPattern = errorPatterns.some(pattern => pattern.test(svgHtml));
+
+    this.debug("Error detection results:");
+    this.debug("- Has specific error pattern:", hasErrorPattern);
+    if (hasErrorPattern) {
+      errorPatterns.forEach((pattern, index) => {
+        if (pattern.test(svgHtml)) {
+          this.debug(`- Matched error pattern ${index + 1}:`, pattern.toString());
+        }
+      });
+    }
+
+    return hasErrorPattern;
   }
 
   async render(htmlString, theme = null) {
@@ -279,17 +311,18 @@ class MermaidService {
         this.debug("Mermaid render result:");
         this.debug("- SVG length:", svg.length);
         this.debug("- SVG preview:", svg.substring(0, 200) + "...");
+        this.debug("- Full SVG content:", svg); // Add full SVG debug
 
         // Check if Mermaid returned an error in the SVG
         if (this.containsMermaidError(svg)) {
           this.debug("SVG contains Mermaid error indicators");
-          this.showError(block, "Diagram contains syntax errors.");
+          this.showError(block, "Diagram rendering failed: Mermaid detected syntax errors in the diagram source.");
           continue;
         }
 
         if (this.isEmptyMermaidSVG(svg)) {
           this.debug("SVG detected as empty by isEmptyMermaidSVG check");
-          this.showError(block, "Diagram rendered but appears empty or invalid.");
+          this.showError(block, "Diagram rendered but appears empty. This could indicate a syntax error or unsupported diagram type.");
           continue;
         }
 

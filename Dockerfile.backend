@@ -2,8 +2,8 @@
 # Multi-stage build: Dependencies in Python stage, Runtime with Ubuntu
 # ==============================================================================
 
-# Stage 1: Build dependencies and virtual environment with Python 3.13
-FROM python:3.13-slim AS python-base
+# Stage 1: Build dependencies and virtual environment with Python 3.11
+FROM python:3.11-slim AS python-base
 
 # Set Poetry environment variables for the build stage
 ENV POETRY_VIRTUALENVS_CREATE=true \
@@ -15,16 +15,25 @@ ENV POETRY_VIRTUALENVS_CREATE=true \
 # Install Poetry
 RUN pip install --no-cache-dir poetry
 
-# Set working directory
-WORKDIR /app
+# Set working directory to match final container path
+WORKDIR /markdown-manager
 
 # Copy dependency files first (for better layer caching)
 COPY ./backend/pyproject.toml ./backend/poetry.lock ./
 
 # Install Python dependencies in virtual environment
-RUN poetry lock && \
-    poetry install --no-root --without=dev --no-cache && \
+# Create venv in the same path as it will be in the final container
+RUN poetry config virtualenvs.in-project true && \
+    poetry config virtualenvs.create true && \
+    poetry install --no-root --without=dev && \
     rm -rf $POETRY_CACHE_DIR
+
+# Verify virtual environment was created correctly
+RUN ls -la /markdown-manager/.venv/bin/ && \
+    /markdown-manager/.venv/bin/python --version && \
+    which pip && \
+    /markdown-manager/.venv/bin/alembic --version && \
+    /markdown-manager/.venv/bin/uvicorn --version
 
 # Install Playwright Chromium browser
 RUN .venv/bin/playwright install chromium
@@ -42,7 +51,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
 COPY --from=python-base /usr/local /usr/local
 COPY --from=python-base /lib/x86_64-linux-gnu/libssl.so* /lib/x86_64-linux-gnu/
 COPY --from=python-base /lib/x86_64-linux-gnu/libcrypto.so* /lib/x86_64-linux-gnu/
-COPY --from=python-base /app/.venv /markdown-manager/.venv
+COPY --from=python-base /markdown-manager/.venv /markdown-manager/.venv
 COPY --from=python-base /opt/playwright/browsers /opt/playwright/browsers
 
 # Install minimal runtime dependencies

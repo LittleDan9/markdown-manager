@@ -267,10 +267,29 @@ export function AuthProvider({ children }) {
       console.error('Dictionary sync failed after login:', error);
     }
 
-    // Trigger recovery check after successful login
-    setTimeout(() => {
-      checkForRecoveryDocuments(loginResponse.user.id, loginResponse.access_token);
-    }, 1000);
+    // Check for recovery documents first, then sync if no recovery needed
+    try {
+      const RecoveryApi = (await import("../api/recoveryApi.js")).default;
+      const recoveredDocs = await RecoveryApi.fetchRecoveredDocs(loginResponse.user.id, loginResponse.access_token);
+
+      if (recoveredDocs && recoveredDocs.length > 0) {
+        // Show recovery modal and let user handle recovery
+        window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: recoveredDocs }));
+      } else {
+        // No recovery docs, proceed with normal document sync
+        const DocumentService = (await import('../services/DocumentService.js')).default;
+        await DocumentService.syncWithBackend();
+      }
+    } catch (error) {
+      console.error('Recovery check failed, falling back to document sync:', error);
+      // Fallback to document sync if recovery check fails
+      try {
+        const DocumentService = (await import('../services/DocumentService.js')).default;
+        await DocumentService.syncWithBackend();
+      } catch (syncError) {
+        console.error('Document sync failed after login:', syncError);
+      }
+    }
 
     setShowLoginModal(false);
     setLoginEmail("");
@@ -295,6 +314,30 @@ export function AuthProvider({ children }) {
           await DictionaryService.syncAfterLogin();
         } catch (error) {
           console.error('Dictionary sync failed after MFA login:', error);
+        }
+
+        // Check for recovery documents first, then sync if no recovery needed
+        try {
+          const RecoveryApi = (await import("../api/recoveryApi.js")).default;
+          const recoveredDocs = await RecoveryApi.fetchRecoveredDocs(response.user.id, response.access_token);
+
+          if (recoveredDocs && recoveredDocs.length > 0) {
+            // Show recovery modal and let user handle recovery
+            window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: recoveredDocs }));
+          } else {
+            // No recovery docs, proceed with normal document sync
+            const DocumentService = (await import('../services/DocumentService.js')).default;
+            await DocumentService.syncWithBackend();
+          }
+        } catch (error) {
+          console.error('Recovery check failed after MFA, falling back to document sync:', error);
+          // Fallback to document sync if recovery check fails
+          try {
+            const DocumentService = (await import('../services/DocumentService.js')).default;
+            await DocumentService.syncWithBackend();
+          } catch (syncError) {
+            console.error('Document sync failed after MFA login:', syncError);
+          }
         }
       } else {
         setMFAError(response.message || "Verification failed.");

@@ -55,17 +55,35 @@ class AuthService {
           const res = await UserAPI.refreshToken();
           if (res && res.access_token) {
             this.setToken(res.access_token);
-            await this.fetchCurrentUser(res.access_token);
+            const refreshedUser = await this.fetchCurrentUser(res.access_token);
+            if (refreshedUser) {
+              this.setUser(refreshedUser);
+              this.isAuthenticated = true;
+              this.startTokenRefresh();
+              localStorage.setItem('lastKnownAuthState', 'authenticated');
+
+              // Load profile settings
+              if (refreshedUser.sync_preview_scroll_enabled !== undefined) {
+                localStorage.setItem("syncPreviewScrollEnabled", Boolean(refreshedUser.sync_preview_scroll_enabled));
+              }
+              if (refreshedUser.autosave_enabled !== undefined) {
+                localStorage.setItem("autosaveEnabled", Boolean(refreshedUser.autosave_enabled));
+              }
+            } else {
+              this.performLogout();
+            }
           } else {
             this.performLogout();
           }
         } catch (err) {
+          console.error('Token refresh failed during initialization:', err);
           this.performLogout();
         }
       } else {
         this.setUser(user);
         this.isAuthenticated = true;
         this.startTokenRefresh();
+        localStorage.setItem('lastKnownAuthState', 'authenticated');
 
         // Load profile settings
         if (user.sync_preview_scroll_enabled !== undefined) {
@@ -83,14 +101,29 @@ class AuthService {
           const res = await UserAPI.refreshToken();
           if (res && res.access_token) {
             this.setToken(res.access_token);
-            await this.fetchCurrentUser(res.access_token);
+            const user = await this.fetchCurrentUser(res.access_token);
+            if (user) {
+              this.setUser(user);
+              this.isAuthenticated = true;
+              this.startTokenRefresh();
+              localStorage.setItem('lastKnownAuthState', 'authenticated');
+            } else {
+              this.performLogout();
+            }
+          } else {
+            this.performLogout();
           }
         } catch (err) {
-          // Refresh failed, stay as guest
+          console.error('Refresh attempt failed during initialization:', err);
+          // Refresh failed, set as guest and mark as unauthenticated
           this.setUser(defaultUser);
+          this.isAuthenticated = false;
+          localStorage.setItem('lastKnownAuthState', 'unauthenticated');
         }
       } else {
         this.setUser(defaultUser);
+        this.isAuthenticated = false;
+        // Don't set lastKnownAuthState here as this might be first visit
       }
     }
   }

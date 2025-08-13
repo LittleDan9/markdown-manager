@@ -68,10 +68,6 @@ class DocumentService {
       // Step 1: Save to localStorage immediately (prevents data loss)
       const localSavedDoc = this._saveToLocalStorage(document);
 
-      if (showNotification) {
-        notification.success('Document saved locally');
-      }
-
       // Step 2: Sync to backend if authenticated
       const { isAuthenticated, token } = this.getAuthState();
       if (isAuthenticated && token) {
@@ -83,7 +79,7 @@ class DocumentService {
             const finalDoc = this._updateLocalStorageWithBackendData(localSavedDoc, backendSavedDoc);
 
             if (showNotification) {
-              notification.success('Document synced to server');
+              notification.success('Document saved successfully');
             }
 
             return finalDoc;
@@ -112,6 +108,11 @@ class DocumentService {
           }
 
           return localSavedDoc; // Return local document even if backend failed
+        }
+      } else {
+        // Not authenticated - only local save
+        if (showNotification) {
+          notification.success('Document saved successfully');
         }
       }
 
@@ -437,7 +438,26 @@ class DocumentService {
     });
   }
 
-    /**
+  /**
+   * Clear all document state (for logout scenarios)
+   * This should be called when user authentication is lost
+   */
+  clearDocumentState() {
+    try {
+      DocumentStorageService.clearAllData();
+
+      // Clear any pending saves
+      this.saveQueue.clear();
+      this.retryAttempts.clear();
+
+      return true;
+    } catch (error) {
+      console.error('Failed to clear document state:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get save queue status (for debugging)
    */
   getSaveStatus() {
