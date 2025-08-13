@@ -16,7 +16,7 @@ import useAutoSave from "@/hooks/useAutoSave";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
-  const { currentDocument, saveDocument } = useDocument();
+  const { currentDocument, saveDocument, authInitialized } = useDocument();
   const { content, setContent } = useDocument();
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
@@ -26,21 +26,43 @@ function App() {
 
   const runAutoSave = useCallback(async () => {
     try {
-      await saveDocument(currentDocument, false); // Don't show notifications for auto-save
+      // Create document with current content for auto-save
+      const docWithCurrentContent = { ...currentDocument, content };
+      const savedDoc = await saveDocument(docWithCurrentContent, false); // Don't show notifications for auto-save
+      
+      // If the save was successful, the DocumentProvider will update the currentDocument
+      // The useChangeTracker will then see that the saved content matches current content
+      console.log('Auto-save completed successfully for:', savedDoc?.name);
     } catch (error) {
       console.warn("Auto-save failed:", error);
     }
-  }, [saveDocument, currentDocument]);
+  }, [saveDocument, currentDocument, content]);
 
-  useAutoSave(currentDocument, runAutoSave, autosaveEnabled);
+  useAutoSave(currentDocument, content, runAutoSave, autosaveEnabled, 5000); // 5 seconds for testing
 
   useEffect(() => {
+    // Don't sync content until auth is initialized
+    if (!authInitialized) return;
+
     // Sync content with currentDocument after document load/change
     // Only update if document actually changed to prevent render loops
+    // BUT: Only sync if we're authenticated OR it's a safe local document
     if (currentDocument && currentDocument.content !== content) {
-      setContent(currentDocument.content ?? "");
+      // Check if this is a private document that shouldn't be shown without auth
+      const isPrivateDocument = currentDocument.id &&
+        !String(currentDocument.id).startsWith('doc_') &&
+        currentDocument.content &&
+        currentDocument.content.trim() !== '';
+
+      // Only set content if authenticated OR it's not a private document
+      if (isAuthenticated || !isPrivateDocument) {
+        setContent(currentDocument.content ?? "");
+      } else {
+        // Clear content for private documents when not authenticated
+        setContent("");
+      }
     }
-  }, [currentDocument.id, currentDocument.content]);
+  }, [currentDocument.id, currentDocument.content, isAuthenticated, authInitialized]);
   // Capture Ctrl+S to save current content
   // Register Ctrl+S handler only once, always using latest state via refs
   const contentRef = useRef(content);
@@ -61,25 +83,60 @@ function App() {
     const handleKeyDown = async (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
+        console.log('Ctrl+S detected!'); // Debug log
+        
         const content = contentRef.current;
         const currentDocument = currentDocumentRef.current;
         const saveDocument = saveDocumentRef.current;
         const isAuthenticated = isAuthenticatedRef.current;
         const showSuccess = showSuccessRef.current;
         const showError = showErrorRef.current;
-        if (!currentDocument || content === currentDocument.content) return;
+        
+        console.log('Save refs state:', {
+          hasContent: !!content,
+          hasDocument: !!currentDocument,
+          hasSaveFunction: !!saveDocument,
+          isAuthenticated,
+          documentId: currentDocument?.id,
+          contentLength: content?.length || 0
+        });
+        
+        if (!currentDocument) {
+          showError('No document to save.');
+          return;
+        }
+
+        if (!saveDocument) {
+          showError('Save function not available.');
+          return;
+        }
+
+        // Always save if we have a document, even if content appears unchanged
+        // because the user explicitly requested a save
         try {
-          const saved = await saveDocument({ ...currentDocument, content }, isAuthenticated);
-          if (saved) {
-            showSuccess('Document saved successfully.');
+          console.log('Starting save operation...');
+          
+          const saved = await saveDocument({ ...currentDocument, content }, true); // Show notifications
+          
+          console.log('Save operation completed:', { saved: !!saved });
+          
+          if (!saved) {
+            showError('Save failed - no document returned.');
           }
-        } catch {
-          showError('Save failed.');
+          // Note: Success notifications are handled by DocumentService
+        } catch (error) {
+          console.error('Ctrl+S save error:', error);
+          showError(`Save failed: ${error.message || 'Unknown error'}`);
         }
       }
     };
+    
+    console.log('Registering Ctrl+S handler'); // Debug log
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    return () => {
+      console.log('Unregistering Ctrl+S handler'); // Debug log
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, []);
 
   return (
@@ -98,20 +155,36 @@ function App() {
             <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
               {/* editor is always in the DOM, but width: 0 when closed */}
               <div className="editor-wrapper">
-                <Editor
-                  value={content}
-                  onChange={setContent}
-                  onCursorLineChange={setCursorLine}
-                  fullscreenPreview={fullscreenPreview}
-                />
+                {authInitialized ? (
+                  <Editor
+                    value={content}
+                    onChange={setContent}
+                    onCursorLineChange={setCursorLine}
+                    fullscreenPreview={fullscreenPreview}
+                  />
+                ) : (
+                  <div className="d-flex justify-content-center align-items-center h-100">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="renderer-wrapper">
-                <Renderer
-                  content={content}
-                  onRenderHTML={html => setRenderedHTML(html)}
-                  scrollToLine={syncPreviewScrollEnabled ? cursorLine : null}
-                  fullscreenPreview={fullscreenPreview}
-                />
+                {authInitialized ? (
+                  <Renderer
+                    content={content}
+                    onRenderHTML={html => setRenderedHTML(html)}
+                    scrollToLine={syncPreviewScrollEnabled ? cursorLine : null}
+                    fullscreenPreview={fullscreenPreview}
+                  />
+                ) : (
+                  <div className="d-flex justify-content-center align-items-center h-100">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading...</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

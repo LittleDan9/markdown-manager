@@ -4,11 +4,12 @@ import { useEffect, useRef } from "react";
  * useAutoSave
  * Automatically saves the document after changes, with simple debounce.
  * @param {object} currentDocument - The current document object.
- * @param {function} saveDocument - The save function from context.
+ * @param {string} content - The current content string.
+ * @param {function} saveCallback - The save function to call.
  * @param {boolean} enabled - Whether autosave is enabled.
  * @param {number} delay - Debounce delay in ms (default: 30000 = 30 seconds)
  */
-export default function useAutoSave(currentDocument, saveDocument, enabled = true, delay = 30000) {
+export default function useAutoSave(currentDocument, content, saveCallback, enabled = true, delay = 30000) {
   const timeoutRef = useRef();
   const lastSavedContentRef = useRef('');
   const lastSavedDocumentIdRef = useRef(null);
@@ -19,39 +20,63 @@ export default function useAutoSave(currentDocument, saveDocument, enabled = tru
     if (currentDocument && currentDocument.id !== lastSavedDocumentIdRef.current) {
       lastSavedContentRef.current = currentDocument.content || '';
       lastSavedDocumentIdRef.current = currentDocument.id;
+      console.log('AutoSave: Document changed, initializing refs for:', currentDocument.name);
     }
-  }, [currentDocument.id]);
+  }, [currentDocument?.id, currentDocument?.name]);
 
   // Auto-save when content changes
   useEffect(() => {
-    if (!enabled || !currentDocument || isSavingRef.current) {
+    if (!enabled || !currentDocument || !saveCallback || isSavingRef.current) {
       return;
     }
 
-    const currentContent = currentDocument.content || '';
+    const currentContent = content || '';
 
     // Only auto-save if content actually changed and document has a name
     const hasContentChanged = currentContent !== lastSavedContentRef.current;
     const hasValidName = currentDocument.name && currentDocument.name.trim() !== '';
     const isNotEmpty = currentContent.trim() !== '';
+    const isNotUntitled = !currentDocument.name?.includes('Untitled Document');
+    const hasRealContent = currentContent.length > 10; // More than just a few characters
 
-    if (hasContentChanged && hasValidName && isNotEmpty) {
+    console.log('AutoSave: Checking conditions:', {
+      enabled,
+      hasContentChanged,
+      hasValidName,
+      isNotEmpty,
+      isNotUntitled,
+      hasRealContent,
+      currentContentLength: currentContent.length,
+      lastSavedContentLength: lastSavedContentRef.current.length,
+      documentName: currentDocument.name
+    });
+
+    if (hasContentChanged && hasValidName && isNotEmpty && isNotUntitled && hasRealContent) {
       // Clear existing timeout
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+        console.log('AutoSave: Cleared existing timeout');
       }
+
+      console.log(`AutoSave: Setting timeout for ${delay}ms for document:`, currentDocument.name);
 
       // Set new timeout for auto-save
       timeoutRef.current = setTimeout(async () => {
-        if (isSavingRef.current) return;
+        if (isSavingRef.current) {
+          console.log('AutoSave: Save already in progress, skipping');
+          return;
+        }
 
         try {
           isSavingRef.current = true;
-          await saveDocument(currentDocument, false); // Don't show notification for auto-save
+          console.log('AutoSave: Starting save for:', currentDocument.name);
+          
+          await saveCallback();
+          
           lastSavedContentRef.current = currentContent;
-          console.log('Auto-save completed for:', currentDocument.name);
+          console.log('AutoSave: Completed successfully for:', currentDocument.name);
         } catch (error) {
-          console.warn('Auto-save failed:', error);
+          console.warn('AutoSave: Failed for:', currentDocument.name, error);
         } finally {
           isSavingRef.current = false;
         }
@@ -63,22 +88,23 @@ export default function useAutoSave(currentDocument, saveDocument, enabled = tru
         clearTimeout(timeoutRef.current);
       }
     };
-  }, [currentDocument, currentDocument?.content, enabled, delay, saveDocument]);
+  }, [currentDocument, content, enabled, delay, saveCallback]);
 
   // Save on page unload if there are unsaved changes
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || !saveCallback) return;
 
     const handleBeforeUnload = (e) => {
-      const currentContent = currentDocument?.content || '';
+      const currentContent = content || '';
       const hasUnsavedChanges = currentContent !== lastSavedContentRef.current;
 
       if (hasUnsavedChanges && currentDocument?.name?.trim()) {
+        console.log('AutoSave: Attempting save on page unload');
         // Try to save synchronously (best effort)
         try {
-          saveDocument(currentDocument, false);
+          saveCallback();
         } catch (error) {
-          console.warn('Failed to save on page unload:', error);
+          console.warn('AutoSave: Failed to save on page unload:', error);
         }
 
         // Show browser confirmation dialog
@@ -92,5 +118,5 @@ export default function useAutoSave(currentDocument, saveDocument, enabled = tru
     return () => {
       window.removeEventListener("beforeunload", handleBeforeUnload);
     };
-  }, [enabled, saveDocument, currentDocument]);
+  }, [enabled, saveCallback, currentDocument, content]);
 }

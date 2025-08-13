@@ -75,7 +75,18 @@ export function RecoveryProvider({ children }) {
     }
     await resolveDoc(doc.id, token);
     setActiveDoc(null);
-    if (recoveredDocs.length === 1) setShowModal(false);
+    if (recoveredDocs.length === 1) {
+      setShowModal(false);
+      // Trigger document sync after all recovery is complete
+      setTimeout(async () => {
+        try {
+          const DocumentService = (await import("../../services/DocumentService.js")).default;
+          await DocumentService.syncWithBackend();
+        } catch (error) {
+          console.error('Document sync failed after recovery completion:', error);
+        }
+      }, 500);
+    }
   }
 
   async function handleOverwrite(doc, token) {
@@ -102,7 +113,18 @@ export function RecoveryProvider({ children }) {
     }
     await resolveDoc(doc.id, token);
     setActiveDoc(null);
-    if (recoveredDocs.length === 1) setShowModal(false);
+    if (recoveredDocs.length === 1) {
+      setShowModal(false);
+      // Trigger document sync after all recovery is complete
+      setTimeout(async () => {
+        try {
+          const DocumentService = (await import("../../services/DocumentService.js")).default;
+          await DocumentService.syncWithBackend();
+        } catch (error) {
+          console.error('Document sync failed after recovery completion:', error);
+        }
+      }, 500);
+    }
   }
 
   function handleDiscard(doc, token) {
@@ -123,7 +145,18 @@ export function RecoveryProvider({ children }) {
     resolveDoc(doc.id, token);
     showWarning(`Document '${doc.name}' was discarded and will not be restored.`);
     setActiveDoc(null);
-    if (recoveredDocs.length === 1) setShowModal(false);
+    if (recoveredDocs.length === 1) {
+      setShowModal(false);
+      // Trigger document sync after all recovery is complete
+      setTimeout(async () => {
+        try {
+          const DocumentService = (await import("../../services/DocumentService.js")).default;
+          await DocumentService.syncWithBackend();
+        } catch (error) {
+          console.error('Document sync failed after recovery completion:', error);
+        }
+      }, 500);
+    }
   }
 
   function handleDiscardAll() {
@@ -131,6 +164,16 @@ export function RecoveryProvider({ children }) {
     showWarning("All recovered documents have been discarded.");
     setShowModal(false);
     setActiveDoc(null);
+
+    // Trigger document sync after all recovery is complete
+    setTimeout(async () => {
+      try {
+        const DocumentService = (await import("../../services/DocumentService.js")).default;
+        await DocumentService.syncWithBackend();
+      } catch (error) {
+        console.error('Document sync failed after recovery completion:', error);
+      }
+    }, 500);
   }
   // Recovery state: list of recovered docs, loading, error
   const [recoveredDocs, setRecoveredDocs] = useState([]);
