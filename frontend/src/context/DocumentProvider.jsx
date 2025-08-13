@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import DocumentService from '../services/DocumentService.js';
+import DocumentStorageService from '../services/DocumentStorageService.js';
 import { useAuth } from './AuthContext';
 import { useNotification } from '../components/NotificationProvider.jsx';
 import useChangeTracker from '../hooks/useChangeTracker';
@@ -54,36 +55,36 @@ export function DocumentProvider({ children }) {
         const newDoc = DocumentService.createNewDocument();
         setCurrentDocument(newDoc);
         setContent('');
+        // Track current document in localStorage
+        DocumentStorageService.setCurrentDocument(newDoc);
         return;
       }
     }
 
     const docs = DocumentService.getAllDocuments();
-
-    // Filter out any private documents if not authenticated
-    let filteredDocs = docs;
-    if (!isAuthenticated) {
-      filteredDocs = docs.filter(doc =>
-        !doc.id ||
-        String(doc.id).startsWith('doc_') ||
-        !doc.content ||
-        doc.content.trim() === ''
-      );
-    }
-
-    setDocuments(filteredDocs);
+    setDocuments(docs);
 
     // Load current document or create new one
-    if (filteredDocs.length > 0) {
-      const lastDoc = filteredDocs[0]; // Most recently updated
+    if (docs.length > 0) {
+      const lastDoc = docs[0]; // Most recently updated
       setCurrentDocument(lastDoc);
       setContent(lastDoc.content || '');
+      // Track current document in localStorage
+      DocumentStorageService.setCurrentDocument(lastDoc);
     } else {
       const newDoc = DocumentService.createNewDocument();
       setCurrentDocument(newDoc);
       setContent('');
+      // Track current document in localStorage
+      DocumentStorageService.setCurrentDocument(newDoc);
     }
-  }, [isAuthenticated, token, authInitialized]); // Add authInitialized dependency
+  }, [isAuthenticated, token, authInitialized]);
+
+  // Update categories whenever documents change
+  useEffect(() => {
+    const newCategories = DocumentService.getCategories();
+    setCategories(newCategories);
+  }, [documents]);
 
   // Additional safety check: if we have documents but no valid auth, clear them
   useEffect(() => {
@@ -101,6 +102,8 @@ export function DocumentProvider({ children }) {
           const newDoc = DocumentService.createNewDocument();
           setCurrentDocument(newDoc);
           setContent('');
+          // Track current document in localStorage
+          DocumentStorageService.setCurrentDocument(newDoc);
         }
       }
     }, 2000); // Give auth initialization time to complete
@@ -120,6 +123,9 @@ export function DocumentProvider({ children }) {
     const newDoc = DocumentService.createNewDocument();
     setCurrentDocument(newDoc);
     setContent('');
+    
+    // Track current document in localStorage
+    DocumentStorageService.setCurrentDocument(newDoc);
   }, []);
 
   const loadDocument = useCallback((id) => {
@@ -129,6 +135,9 @@ export function DocumentProvider({ children }) {
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
+        
+        // Track current document in localStorage
+        DocumentStorageService.setCurrentDocument(doc);
       } else {
         notification.showError('Document not found');
       }
@@ -160,6 +169,9 @@ export function DocumentProvider({ children }) {
       if (saved.id === currentDocument.id) {
         setContent(saved.content);
       }
+
+      // Track current document in localStorage
+      DocumentStorageService.setCurrentDocument(saved);
 
       // Refresh documents list
       const docs = DocumentService.getAllDocuments();
@@ -193,10 +205,14 @@ export function DocumentProvider({ children }) {
           const newCurrent = docs[0];
           setCurrentDocument(newCurrent);
           setContent(newCurrent.content || '');
+          // Track current document in localStorage
+          DocumentStorageService.setCurrentDocument(newCurrent);
         } else {
           const newDoc = DocumentService.createNewDocument();
           setCurrentDocument(newDoc);
           setContent('');
+          // Track current document in localStorage
+          DocumentStorageService.setCurrentDocument(newDoc);
         }
       }
     } catch (error) {
@@ -220,14 +236,17 @@ export function DocumentProvider({ children }) {
         category: newCategory
       };
 
-      await DocumentService.saveDocument(updatedDoc, false);
+      // Save to backend and localStorage
+      const saved = await DocumentService.saveDocument(updatedDoc, false);
 
       // Refresh state
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
 
       if (currentDocument.id === id) {
-        setCurrentDocument(updatedDoc);
+        setCurrentDocument(saved || updatedDoc);
+        // Track current document in localStorage
+        DocumentStorageService.setCurrentDocument(saved || updatedDoc);
       }
     } catch (error) {
       console.error('Rename failed:', error);
@@ -235,49 +254,66 @@ export function DocumentProvider({ children }) {
     }
   }, [currentDocument, notification]);
 
-  // Category operations (simplified - manage locally for now)
+  // Simple category operations - categories are derived from documents
   const addCategory = useCallback(async (category) => {
-    const name = (category || '').trim();
-    if (!name || name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
-      return categories;
+    if (!category || !category.trim()) {
+      return DocumentService.getCategories();
     }
 
-    if (!categories.includes(name)) {
-      const updated = [...categories, name];
-      setCategories(updated);
-      return updated;
+    // To add a category, update the current document to use it
+    // This creates the category automatically since categories are derived from documents
+    const updatedDoc = {
+      ...currentDocument,
+      category: category.trim()
+    };
+
+    // Save the current document with the new category (this will sync to backend if authenticated)
+    const saved = await saveDocument(updatedDoc, false);
+    
+    // Update current document tracking
+    if (saved) {
+      DocumentStorageService.setCurrentDocument(saved);
     }
-    return categories;
-  }, [categories]);
+
+    return DocumentService.getCategories();
+  }, [currentDocument, saveDocument]);
 
   const deleteCategory = useCallback(async (name, options = {}) => {
     if (name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
-      return categories;
+      return DocumentService.getCategories();
     }
-
-    const updated = categories.filter(cat => cat !== name);
-    setCategories(updated);
 
     // Handle documents in the deleted category
     const docs = DocumentService.getAllDocuments();
     const promises = docs
       .filter(doc => doc.category === name)
-      .map(doc => {
+      .map(async doc => {
         const updatedDoc = {
           ...doc,
           category: options.migrateTo || DEFAULT_CATEGORY
         };
-        return DocumentService.saveDocument(updatedDoc, false);
+        // Save each document (this will sync to backend if authenticated)
+        return await DocumentService.saveDocument(updatedDoc, false);
       });
 
     await Promise.all(promises);
 
-    // Refresh documents
+    // If current document was affected, update tracking
+    if (currentDocument.category === name) {
+      const updatedCurrentDoc = {
+        ...currentDocument,
+        category: options.migrateTo || DEFAULT_CATEGORY
+      };
+      setCurrentDocument(updatedCurrentDoc);
+      DocumentStorageService.setCurrentDocument(updatedCurrentDoc);
+    }
+
+    // Refresh documents and categories will be updated automatically
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
 
-    return updated;
-  }, [categories]);
+    return DocumentService.getCategories();
+  }, [currentDocument]);
 
   const renameCategory = useCallback(async (oldName, newName) => {
     const name = (newName || '').trim();
@@ -288,32 +324,40 @@ export function DocumentProvider({ children }) {
       name === DEFAULT_CATEGORY ||
       name === DRAFTS_CATEGORY
     ) {
-      return categories;
+      return DocumentService.getCategories();
     }
-
-    const updated = categories.map(cat => cat === oldName ? name : cat);
-    setCategories(updated);
 
     // Update documents in the renamed category
     const docs = DocumentService.getAllDocuments();
     const promises = docs
       .filter(doc => doc.category === oldName)
-      .map(doc => {
+      .map(async doc => {
         const updatedDoc = {
           ...doc,
           category: name
         };
-        return DocumentService.saveDocument(updatedDoc, false);
+        // Save each document (this will sync to backend if authenticated)
+        return await DocumentService.saveDocument(updatedDoc, false);
       });
 
     await Promise.all(promises);
 
-    // Refresh documents
+    // If current document was affected, update tracking
+    if (currentDocument.category === oldName) {
+      const updatedCurrentDoc = {
+        ...currentDocument,
+        category: name
+      };
+      setCurrentDocument(updatedCurrentDoc);
+      DocumentStorageService.setCurrentDocument(updatedCurrentDoc);
+    }
+
+    // Refresh documents and categories will be updated automatically
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
 
-    return updated;
-  }, [categories]);
+    return DocumentService.getCategories();
+  }, [currentDocument]);
 
   // Sync with backend
   const syncWithBackend = useCallback(async () => {
@@ -342,17 +386,6 @@ export function DocumentProvider({ children }) {
       setLoading(false);
     }
   }, [isAuthenticated, currentDocument]);
-
-  // Auto-sync on authentication changes
-  useEffect(() => {
-    if (isAuthenticated && token) {
-      // Small delay to ensure auth is fully established
-      const timer = setTimeout(() => {
-        syncWithBackend();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [isAuthenticated, token]);
 
   // Handle logout scenarios - clear document state when user is logged out
   useEffect(() => {
