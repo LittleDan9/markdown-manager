@@ -11,13 +11,18 @@ import DictionaryService from '@/services/DictionaryService';
  * - If editor is provided, use its selection/cursor to refine the region.
  * Returns { regionText, startOffset } for spell checking.
  */
-export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold = 1000) {
+export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold = 2000) {
   if (!prevValue || prevValue.length === 0) {
     // Full scan if no previous value
     return { regionText: newValue, startOffset: 0 };
   }
   if (prevValue === newValue) {
     return { regionText: '', startOffset: 0 };
+  }
+
+  // For small documents, always do full scan to avoid positioning issues
+  if (newValue.length <= fullTextThreshold) {
+    return { regionText: newValue, startOffset: 0 };
   }
 
   // Find first and last changed indices
@@ -27,10 +32,7 @@ export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold 
   while (start < endPrev && start < endNew && prevValue[start] === newValue[start]) {
     start++;
   }
-  // If only appended, scan from start to end of new text
-  if (start === endPrev && endNew > endPrev) {
-    return { regionText: newValue.slice(start), startOffset: start };
-  }
+  
   // Find end of change (from end)
   let tailPrev = endPrev - 1;
   let tailNew = endNew - 1;
@@ -38,36 +40,53 @@ export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold 
     tailPrev--;
     tailNew--;
   }
-  // Expand start to previous word boundary
+  
+  // Expand to word boundaries and line boundaries for better context
   let scanStart = start;
-  while (scanStart > 0 && /\w/.test(newValue[scanStart - 1])) {
+  let scanEnd = tailNew + 1;
+  
+  // Expand start to beginning of paragraph or sentence
+  while (scanStart > 0 && !/[\n\r]/.test(newValue[scanStart - 1])) {
     scanStart--;
   }
-  // Expand end to end of line
-  let scanEnd = tailNew + 1;
-  while (scanEnd < newValue.length && newValue[scanEnd] !== '\n') {
+  
+  // Expand end to end of paragraph or sentence
+  while (scanEnd < newValue.length && !/[\n\r]/.test(newValue[scanEnd])) {
     scanEnd++;
   }
 
-  // If editor is available, use its selection/cursor to further refine the region
+  // If editor is available, expand to include the visible area around cursor
   if (editor && typeof editor.getSelection === 'function') {
     const sel = editor.getSelection();
     if (sel) {
       const model = editor.getModel();
       const startPos = sel.getStartPosition();
       const endPos = sel.getEndPosition();
-      const selStartOffset = model.getOffsetAt({ lineNumber: startPos.lineNumber, column: 1 });
-      const selEndOffset = model.getOffsetAt({ lineNumber: endPos.lineNumber + 1, column: 1 }) - 1;
-      // Expand region to include selection if it overlaps
+      
+      // Expand to include a few lines around the cursor for context
+      const expandLines = 3;
+      const expandStartLine = Math.max(1, startPos.lineNumber - expandLines);
+      const expandEndLine = Math.min(model.getLineCount(), endPos.lineNumber + expandLines);
+      
+      const selStartOffset = model.getOffsetAt({ lineNumber: expandStartLine, column: 1 });
+      const selEndOffset = model.getOffsetAt({ lineNumber: expandEndLine, column: model.getLineMaxColumn(expandEndLine) });
+      
+      // Use the expanded selection if it makes sense
       scanStart = Math.min(scanStart, selStartOffset);
       scanEnd = Math.max(scanEnd, selEndOffset);
     }
   }
 
-  // If the region is large or the doc is small, scan the whole doc
-  if (newValue.length <= fullTextThreshold || scanEnd - scanStart > fullTextThreshold) {
+  // Ensure we don't exceed document bounds
+  scanStart = Math.max(0, scanStart);
+  scanEnd = Math.min(newValue.length, scanEnd);
+
+  // If the region is still large relative to the document, just scan the whole thing
+  const regionSize = scanEnd - scanStart;
+  if (regionSize > fullTextThreshold * 0.7) {
     return { regionText: newValue, startOffset: 0 };
   }
+
   return { regionText: newValue.slice(scanStart, scanEnd), startOffset: scanStart };
 }
 
@@ -90,31 +109,60 @@ export function toMonacoMarkers(
   const newMarkers = [];
   const newSuggestions = new Map();
 
-  // clear out any old spell markers within [startOffset … end]
-  const regionEndOffset = startOffset + issues.reduce((max, i) => Math.max(max, i.offset), 0) + 1;
-  const filteredOld = oldMarkers.filter(m => {
-    const s = model.getOffsetAt({ lineNumber: m.startLineNumber, column: m.startColumn });
-    const e = model.getOffsetAt({ lineNumber: m.endLineNumber, column: m.endColumn });
-    return e < startOffset || s > regionEndOffset;
-  });
-
-  // build fresh markers + suggestion map
-  for (const issue of issues) {
-    const globalOffset = startOffset + issue.offset;
-    const pos = model.getPositionAt(globalOffset);
-    const msg = `"${issue.word}" — ${issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions'}`;
-
-    newMarkers.push({
-      owner: 'spell',
-      severity: monaco.MarkerSeverity.Warning,
-      message: msg,
-      startLineNumber: pos.lineNumber,
-      startColumn: pos.column,
-      endLineNumber: pos.lineNumber,
-      endColumn: pos.column + issue.word.length,
+  // If startOffset is 0, we're doing a full document scan - clear all old markers
+  let filteredOld = [];
+  if (startOffset === 0) {
+    // Full document scan - clear all spell markers
+    filteredOld = [];
+    newSuggestions.clear();
+  } else {
+    // Regional scan - calculate the actual region bounds more carefully
+    let regionEndOffset = startOffset;
+    if (issues.length > 0) {
+      regionEndOffset = Math.max(
+        ...issues.map(i => startOffset + i.offset + (i.word ? i.word.length : 0))
+      );
+    }
+    
+    // Keep markers outside the scanned region
+    filteredOld = oldMarkers.filter(m => {
+      const markerStart = model.getOffsetAt({ lineNumber: m.startLineNumber, column: m.startColumn });
+      const markerEnd = model.getOffsetAt({ lineNumber: m.endLineNumber, column: m.endColumn });
+      return markerEnd < startOffset || markerStart > regionEndOffset;
     });
+    
+    // Preserve suggestions for markers we're keeping
+    filteredOld.forEach(m => {
+      const key = `${m.startLineNumber}:${m.startColumn}`;
+      if (prevSuggestionsMap.has(key)) {
+        newSuggestions.set(key, prevSuggestionsMap.get(key));
+      }
+    });
+  }
 
-    newSuggestions.set(`${pos.lineNumber}:${pos.column}`, issue.suggestions || []);
+  // build fresh markers + suggestion map for new issues
+  for (const issue of issues) {
+    try {
+      const globalOffset = startOffset + issue.offset;
+      const pos = model.getPositionAt(globalOffset);
+      const wordLength = issue.word ? issue.word.length : 1;
+      const msg = `"${issue.word}" — ${issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions'}`;
+
+      newMarkers.push({
+        owner: 'spell',
+        severity: monaco.MarkerSeverity.Warning,
+        message: msg,
+        startLineNumber: pos.lineNumber,
+        startColumn: pos.column,
+        endLineNumber: pos.lineNumber,
+        endColumn: pos.column + wordLength,
+      });
+
+      const key = `${pos.lineNumber}:${pos.column}`;
+      newSuggestions.set(key, issue.suggestions || []);
+    } catch (error) {
+      console.warn('Error creating marker for spell issue:', error, issue);
+    }
   }
 
   // apply combined markers

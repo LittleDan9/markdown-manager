@@ -97,15 +97,17 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
         lastSpellCheckTime.current = Date.now();
 
         if (regionText.length > 0) {
-          spellCheckDocument(regionText, startOffset)
+          spellCheckDocument(regionText, startOffset);
         }
       }
+      
       // If last spell check was more than 30s ago, run immediately
       const now = Date.now();
       if (now - lastSpellCheckTime.current > 30000) {
         runAndHandleSpellCheck();
       } else {
-        debounceTimeout.current = setTimeout(runAndHandleSpellCheck, 3000); // 3s debounce
+        // Use longer debounce for more stable spell checking
+        debounceTimeout.current = setTimeout(runAndHandleSpellCheck, 5000); // 5s debounce
       }
     }
     // Cleanup on unmount
@@ -116,27 +118,37 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
 
   const spellCheckDocument = async (text, startOffset) => {
     if (!text || text.length === 0) return;
+    
+    // Skip spell checking for very small changes (likely just typing)
+    if (startOffset > 0 && text.length < 10) return;
+    
     const isLarge = text.length > 100;
     const progressCb = isLarge ? (processObj) => {
       lastProgressRef.current = processObj;
       setProgress(processObj);
     } : () => { };
-    SpellCheckService
-      .scan(text, progressCb)
-      .then(issues => {
+    
+    try {
+      const issues = await SpellCheckService.scan(text, progressCb);
+      
+      if (editorRef.current) {
         suggestionsMap.current = toMonacoMarkers(
           editorRef.current,
           issues,
           startOffset,
           suggestionsMap.current
         );
-        if (lastProgressRef.current && lastProgressRef.current.percentComplete >= 100) {
-          setTimeout(() => setProgress(null), 500); // Hide after 500ms
-        } else {
-          setProgress(null);
-        }
-      })
-      .catch(console.error);
+      }
+      
+      if (lastProgressRef.current && lastProgressRef.current.percentComplete >= 100) {
+        setTimeout(() => setProgress(null), 500); // Hide after 500ms
+      } else {
+        setProgress(null);
+      }
+    } catch (error) {
+      console.error('Spell check error:', error);
+      setProgress(null);
+    }
   }
 
   return (
