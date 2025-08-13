@@ -15,7 +15,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const notification = useNotification();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges } = useDocument();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content } = useDocument();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const customCats = rawCategories
@@ -50,10 +50,17 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
     }
   };
 
-  // Keep titleInput in sync with currentDocument.name
+  // Keep parent component title in sync
   useEffect(() => {
-    setTitleInput(currentDocument.name || "Untitled Document");
-  }, [currentDocument.name, currentDocument.updated_at]);
+    setDocumentTitle(currentDocument.name || "Untitled Document");
+  }, [currentDocument.name, currentDocument.id, setDocumentTitle]);
+
+  // Keep titleInput in sync with currentDocument.name when not editing
+  useEffect(() => {
+    if (!editingTitle) {
+      setTitleInput(currentDocument.name || "Untitled Document");
+    }
+  }, [currentDocument.name, currentDocument.id, editingTitle]);
 
   // Ensure Last Saved indicator parses UTC and displays in local time
   const getLastSavedText = () => {
@@ -91,13 +98,23 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
     setEditingTitle(false);
     const newTitle = titleInput.trim();
     if (newTitle && newTitle !== currentDocument.name) {
-      // Update document name in context and backend/localStorage
-      if (currentDocument.id) {
-        await renameDocument(currentDocument.id, newTitle, currentDocument.category);
+      try {
+        // Update document name in context and backend/localStorage
+        if (currentDocument.id) {
+          // Existing document - use rename function
+          await renameDocument(currentDocument.id, newTitle, currentDocument.category);
+        } else {
+          // New document - save to get an ID and update title
+          const updatedDoc = { ...currentDocument, name: newTitle, content };
+          await saveDocument(updatedDoc);
+        }
+        // Update the toolbar title display
         setDocumentTitle(newTitle);
-      } else {
-        await saveDocument({ ...currentDocument, name: newTitle });
-        setDocumentTitle(newTitle);
+      } catch (error) {
+        console.error('Failed to update document title:', error);
+        notification.showError('Failed to update document title');
+        // Reset title input to original value on error
+        setTitleInput(currentDocument.name || "Untitled Document");
       }
     }
   };
@@ -108,7 +125,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
       handleTitleBlur();
     } else if (e.key === "Escape") {
       setEditingTitle(false);
-      setTitleInput(documentTitle || "Untitled Document");
+      setTitleInput(currentDocument.name || "Untitled Document");
     }
   };
 
