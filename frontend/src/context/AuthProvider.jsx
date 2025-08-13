@@ -9,7 +9,7 @@ import LoginModal from "../components/modals/LoginModal";
 import VerifyMFAModal from "../components/modals/VerifyMFAModal";
 import PasswordResetModal from "../components/modals/PasswordResetModal";
 import { notification } from "@/services/EventDispatchService.js";
-import { LocalDocumentStorage } from "@/storage";
+import DocumentStorageService from "@/services/DocumentStorageService.js";
 
 const defaultUser = {
   bio: "",
@@ -336,7 +336,7 @@ export function AuthProvider({ children }) {
 
   const performLogout = useCallback(() => {
     window.dispatchEvent(new CustomEvent('auth:logout-complete'));
-    LocalDocumentStorage.clearAllData();
+    DocumentStorageService.clearAllData();
     setToken(null);
     setUser(defaultUser);
     // Mark auth state as unauthenticated for recovery tracking

@@ -4,7 +4,7 @@
  */
 
 import UserAPI from '../api/userApi.js';
-import { LocalDocumentStorage } from '../storage/index.js';
+import DocumentStorageService from './DocumentStorageService.js';
 import { notification } from './EventDispatchService.js';
 import DictionaryService from './DictionaryService.js';
 
@@ -31,7 +31,7 @@ class AuthService {
     this.refreshInterval = null;
     this.justLoggedIn = false;
     this.recoveryCallback = null;
-    
+
     // Initialize auth state
     this.initializeAuth();
   }
@@ -66,7 +66,7 @@ class AuthService {
         this.setUser(user);
         this.isAuthenticated = true;
         this.startTokenRefresh();
-        
+
         // Load profile settings
         if (user.sync_preview_scroll_enabled !== undefined) {
           localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
@@ -140,12 +140,12 @@ class AuthService {
     if (this.refreshInterval) {
       clearInterval(this.refreshInterval);
     }
-    
+
     this.refreshInterval = setInterval(async () => {
       if (!this.token || this.token.trim() === '') {
         return;
       }
-      
+
       try {
         const res = await UserAPI.refreshToken();
         if (res && res.access_token) {
@@ -178,7 +178,7 @@ class AuthService {
         this.setUser(null);
         return null;
       }
-      
+
       // Only update if user data actually changed
       if (JSON.stringify(userData) !== JSON.stringify(this.user)) {
         this.setUser(userData);
@@ -195,25 +195,25 @@ class AuthService {
    */
   async login(email, password) {
     const loginResponse = await UserAPI.login(email, password);
-    
+
     if (loginResponse.mfa_required) {
       return { mfaRequired: true, email, password };
     }
-    
+
     this.justLoggedIn = true;
     this.setToken(loginResponse.access_token);
     this.setUser(loginResponse.user || defaultUser);
     this.isAuthenticated = true;
-    
+
     try {
       await DictionaryService.syncAfterLogin();
     } catch (error) {
       console.error('Dictionary sync failed after login:', error);
     }
-    
+
     this.startTokenRefresh();
     localStorage.setItem('lastKnownAuthState', 'authenticated');
-    
+
     // Trigger recovery check after successful login
     setTimeout(async () => {
       const recoveredDocs = await this.checkForRecoveryDocuments(loginResponse.user.id, loginResponse.access_token);
@@ -221,7 +221,7 @@ class AuthService {
         this.recoveryCallback(recoveredDocs);
       }
     }, 1000);
-    
+
     this.justLoggedIn = false;
     return { success: true, user: loginResponse.user };
   }
@@ -237,16 +237,16 @@ class AuthService {
         this.setUser(response.user || defaultUser);
         this.isAuthenticated = true;
         this.justLoggedIn = true;
-        
+
         try {
           await DictionaryService.syncAfterLogin();
         } catch (error) {
           console.error('Dictionary sync failed after MFA login:', error);
         }
-        
+
         this.startTokenRefresh();
         localStorage.setItem('lastKnownAuthState', 'authenticated');
-        
+
         return { success: true, user: response.user };
       } else {
         return { success: false, message: response.message || "Verification failed." };
@@ -262,7 +262,7 @@ class AuthService {
   async logout() {
     // Check if there are pending sync operations that should delay logout
     const pendingOperations = this.checkPendingOperations();
-    
+
     if (pendingOperations.length > 0) {
       return {
         delayed: true,
@@ -270,13 +270,13 @@ class AuthService {
         forceLogout: () => this.performLogout()
       };
     }
-    
+
     try {
       await UserAPI.logout();
     } catch (error) {
       console.error('Logout API call failed:', error);
     }
-    
+
     this.performLogout();
     return { success: true };
   }
@@ -286,7 +286,7 @@ class AuthService {
    */
   performLogout() {
     this.stopTokenRefresh();
-    LocalDocumentStorage.clearAllData();
+    DocumentStorageService.clearAllData();
     this.setToken(null);
     this.setUser(defaultUser);
     this.isAuthenticated = false;
@@ -387,7 +387,7 @@ class AuthService {
         autosaveEnabled: 'autosave_enabled',
         syncPreviewScrollEnabled: 'sync_preview_scroll_enabled'
       };
-      
+
       const backendKey = settingMap[key];
       if (backendKey) {
         try {
