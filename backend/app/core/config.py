@@ -23,6 +23,9 @@ class Settings(BaseSettings):  # type: ignore[misc]
     )
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 90  # 90 minutes
+    
+    # Cookie settings
+    secure_cookies: bool = False  # Set to True in production with HTTPS
 
     # File storage settings
     documents_directory: str = "./documents"

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
-import { useAuth } from "@/context/AuthProvider";
+import { useAuth } from "@/context/AuthContext";
 import customDictionaryApi from "@/api/customDictionaryApi";
 import DictionaryService from "@/services/DictionaryService";
 import SpellCheckService from "@/services/SpellCheckService";

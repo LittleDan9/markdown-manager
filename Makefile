@@ -59,13 +59,16 @@ BACKEND_PROD_PORT  := 8000
 # Database path on prod
 PROD_DB_PATH := $(BACKEND_BASE)/markdown_manager.db
 
+# Production environment file path
+PROD_ENV_FILE := /etc/markdown-manager.env
+
 # ────────────────────────────────────────────────────────────────────────────
 # PHONY TARGETS
 # ────────────────────────────────────────────────────────────────────────────
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test
-.PHONY: migrate migrate-create db-backup db-restore status stop
-.PHONY: deploy deploy-front deploy-back deploy-nginx
+.PHONY: migrate migrate-create migrate-prod db-backup db-restore db-backup-prod db-restore-prod status stop
+.PHONY: deploy deploy-front deploy-back deploy-nginx setup-remote-ops db-backup-ops db-restore-ops db-backup-ssh db-restore-ssh
 
 # ────────────────────────────────────────────────────────────────────────────
 help: ## Show this help
@@ -78,7 +81,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} /^dev|dev-frontend|dev-backend/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Database:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^migrate|db-backup|db-restore/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"} /^migrate|migrate-prod|db-backup|db-restore|db-backup-prod|db-restore-prod|setup-remote-ops|db-backup-ops|db-restore-ops|db-backup-ssh|db-restore-ssh/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Deployment:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^deploy/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -165,6 +168,10 @@ migrate-create: ## Create new migration: make migrate-create MESSAGE="desc"
 	cd $(BACKEND_DIR) && poetry run alembic revision --autogenerate -m "$(MESSAGE)"
 	@echo "$(GREEN)✅ Migration created$(NC)"
 
+migrate-prod: ## Run DB migrations on production
+	@echo "$(YELLOW)🔄 Running migrations on production...$(NC)"
+	@./scripts/migrate-prod.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(PROD_ENV_FILE)
+
 db-backup: ## Backup prod DB locally
 	@if [ -f "$(BACKEND_DIR)/markdown_manager.db" ]; then \
 	 cp $(BACKEND_DIR)/markdown_manager.db $(BACKEND_DIR)/markdown_manager.db.backup.$$(date +%Y%m%d_%H%M%S); \
@@ -181,6 +188,53 @@ db-restore: ## Restore from backup: make db-restore BACKUP=filename
 	 echo "$(GREEN)✅ Restored from $(BACKUP)$(NC)"; \
 	else echo "$(RED)❌ Backup not found$(NC)"; exit 1; \
 	fi
+
+db-backup-prod: ## Backup production database to local machine
+	@./scripts/db-backup-prod.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(PROD_ENV_FILE) ./backups
+
+db-restore-prod: ## Restore production from backup: make db-restore-prod BACKUP=filename
+	@if [ -z "$(BACKUP)" ]; then \
+	 echo "$(RED)❌ Provide BACKUP filename from ./backups/$(NC)"; \
+	 echo "$(BLUE)Available backups:$(NC)"; \
+	 ls -la ./backups/*.json 2>/dev/null || echo "$(YELLOW)No backups found$(NC)"; \
+	 exit 1; \
+	fi
+	@./scripts/db-restore-prod.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(BACKUP) $(PROD_ENV_FILE) ./backups
+
+# ────────────────────────────────────────────────────────────────────────────
+# OPERATIONAL ENVIRONMENT TARGETS
+# ────────────────────────────────────────────────────────────────────────────
+
+setup-remote-ops: ## Set up operational environment on remote server
+	@./scripts/setup-remote-ops.sh $(REMOTE_USER_HOST)
+
+db-backup-ops: ## Backup production database using operational environment
+	@./scripts/db-backup-prod.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(PROD_ENV_FILE) ./backups
+
+db-restore-ops: ## Restore production using operational environment: make db-restore-ops BACKUP=filename  
+	@if [ -z "$(BACKUP)" ]; then \
+	 echo "$(RED)❌ Provide BACKUP filename from ./backups/$(NC)"; \
+	 echo "$(BLUE)Available backups:$(NC)"; \
+	 ls -la ./backups/*.json 2>/dev/null || echo "$(YELLOW)No backups found$(NC)"; \
+	 exit 1; \
+	fi
+	@./scripts/db-restore-prod.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(PROD_ENV_FILE) $(BACKUP)
+
+# ────────────────────────────────────────────────────────────────────────────
+# SSH PORT FORWARDING APPROACH (SIMPLER)
+# ────────────────────────────────────────────────────────────────────────────
+
+db-backup-ssh: ## Backup production database using SSH port forwarding (simpler approach)
+	@./scripts/db-backup-prod-ssh.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(PROD_ENV_FILE) ./backups
+
+db-restore-ssh: ## Restore production using SSH port forwarding: make db-restore-ssh BACKUP=filename
+	@if [ -z "$(BACKUP)" ]; then \
+	 echo "$(RED)❌ Provide BACKUP filename from ./backups/$(NC)"; \
+	 echo "$(BLUE)Available backups:$(NC)"; \
+	 ls -la ./backups/*.json 2>/dev/null || echo "$(YELLOW)No backups found$(NC)"; \
+	 exit 1; \
+	fi
+	@./scripts/db-restore-prod-ssh.sh $(REMOTE_USER_HOST) $(BACKEND_BASE) $(PROD_ENV_FILE) $(BACKUP)
 
 # ────────────────────────────────────────────────────────────────────────────
 deploy: deploy-front deploy-back

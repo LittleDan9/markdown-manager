@@ -1,4 +1,5 @@
 import customDictionaryApi from '../api/customDictionaryApi';
+import AuthService from './AuthService.js';
 
 // DictionaryService.js
 // Manages custom dictionary words, localStorage, and backend sync for spell checking
@@ -7,14 +8,17 @@ class DictionaryService {
   constructor() {
     this.CUSTOM_WORDS_KEY = 'customDictionary';
     this.customWords = new Set();
-    window.addEventListener('auth:logout-complete', () => {
-      this.clearLocal();
-    });
-    window.addEventListener('auth:login-complete', () => {
-      this.syncAfterLogin();
-    });
     this.loadCustomWordsFromStorage();
   }
+
+  /**
+   * Clear local dictionary data (called during logout)
+   */
+  clearLocal() {
+    this.customWords.clear();
+    localStorage.removeItem(this.CUSTOM_WORDS_KEY);
+  }
+
   /**
    * Sync dictionary with backend after login
    * Loads words from backend and merges with local storage
@@ -24,8 +28,8 @@ class DictionaryService {
       console.log('Syncing custom dictionary after login...');
 
       // Check if user has auth token before making API calls
-      const token = localStorage.getItem("authToken");
-      if (!token) {
+      const { token, isAuthenticated } = AuthService.getAuthState();
+      if (!isAuthenticated || !token) {
         console.log('No auth token found, skipping backend sync');
         return this.getCustomWords();
       }
@@ -71,8 +75,8 @@ class DictionaryService {
    */
   async addWord(word, notes = null) {
     this.addCustomWord(word);
-    const token = localStorage.getItem("authToken");
-    if (!token) {
+    const { token, isAuthenticated } = AuthService.getAuthState();
+    if (!isAuthenticated || !token) {
       console.log('No auth token, word added to local storage only');
       return;
     }
@@ -90,8 +94,8 @@ class DictionaryService {
    */
   async removeWord(word) {
     this.removeCustomWord(word);
-    const token = localStorage.getItem("authToken");
-    if (!token) {
+    const { token, isAuthenticated } = AuthService.getAuthState();
+    if (!isAuthenticated || !token) {
       console.log('No auth token, word removed from local storage only');
       return;
     }

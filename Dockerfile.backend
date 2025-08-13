@@ -1,6 +1,8 @@
 FROM python:3.13-slim
 
-# Install only essential runtime dependencies for Playwright Chromium
+# Install onl# Copy application files
+COPY ./backend/app /markdown-manager/app
+COPY ./backend/scripts /markdown-manager/scriptssential runtime dependencies for Playwright Chromium
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Core Chromium dependencies
     libnss3 \
@@ -36,6 +38,7 @@ RUN poetry run playwright install chromium && \
 
 # Copy application code
 COPY ./backend/app /markdown-manager/app
+COPY ./backend/scripts /markdown-manager/scripts
 COPY ./backend/scripts/entrypoint.sh /markdown-manager/entrypoint.sh
 COPY ./backend/migrations/env.py /markdown-manager/migrations/env.py
 COPY ./backend/migrations/versions /markdown-manager/migrations/versions

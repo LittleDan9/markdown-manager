@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useMemo, useEffect, useRef } from "react";
-import DocumentManager from "../storage/DocumentManager";
+import DocumentService from "../services/DocumentService";
 import UserAPI from "../api/userApi.js";
 import DictionaryService from "@/services/DictionaryService";
 import LogoutProgressModal from "../components/LogoutProgressModal";
@@ -161,29 +161,15 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem("syncPreviewScrollEnabled");
     return saved === null ? true : saved === "true";
   });
-  // Ensure DocumentManager sync service is authenticated after reload if token and user are valid (not defaultUser)
-  useEffect(() => {
-    if (
-      token &&
-      typeof user === 'object' &&
-      user !== null &&
-      typeof user.id !== 'undefined' &&
-      user.id !== -1 &&
-      user.display_name !== 'Guest'
-    ) {
-      DocumentManager.handleLogin(token);
-    }
-  }, [token, user]);
+    // DocumentService automatically handles auth state via events
   const [user, setUserState] = useState(defaultUser);
   const [token, setTokenState] = useState(localStorage.getItem("authToken"));
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Initialize DocumentManager on first load and check for recovery
+  // Initialize DocumentService on first load and check for recovery
   useEffect(() => {
     const initializeStorage = async () => {
-      // Initialize the document manager
-      await DocumentManager.initialize();
-      DocumentManager.handleLogin(token);
+      // DocumentService automatically initializes, no manual setup needed
 
       // Check for orphaned local documents on app startup
       checkForOrphanedDocuments();
@@ -228,19 +214,7 @@ export function AuthProvider({ children }) {
     }
   }, [isAuthenticated, user]);
 
-  // Listen for logout pending events from DocumentManager
-  useEffect(() => {
-    const handleLogoutPending = (event) => {
-      console.log('Logout pending event received:', event.detail);
-      setShowLogoutModal(true);
-    };
-
-    window.addEventListener('markdown-manager:logout-pending', handleLogoutPending);
-
-    return () => {
-      window.removeEventListener('markdown-manager:logout-pending', handleLogoutPending);
-    };
-  }, []);
+  // Note: DocumentService handles logout events automatically
 
   // Helper to update token in state and localStorage
   const setToken = useCallback((newToken) => {
@@ -248,10 +222,7 @@ export function AuthProvider({ children }) {
     setTokenState(newToken);
     if (newToken) {
       localStorage.setItem("authToken", newToken);
-      // If token changed and we have a user, notify DocumentManager
-      if (oldToken !== newToken && user && user.id !== -1) {
-        DocumentManager.handleTokenRefresh(newToken);
-      }
+      // DocumentService listens for auth events automatically
     } else {
       localStorage.removeItem("authToken");
     }
@@ -379,7 +350,7 @@ export function AuthProvider({ children }) {
     // Clear auth state immediately
     performLogout();
 
-    // DocumentManager.forceLogout() will be called by the modal's force-logout event
+    // DocumentService handles logout automatically
   }, [performLogout]);
 
   // Handle logout cancellation

@@ -6,8 +6,7 @@ import { getChangedRegion, toMonacoMarkers, registerQuickFixActions } from '@/ut
 import { useTheme } from '@/context/ThemeProvider';
 import { useDebouncedCallback } from '@/utils/useDebouncedCallback';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import { useAuth } from '@/context/AuthProvider';
-import { AuthProvider } from '@/context/AuthProvider';
+import { useAuth } from '@/context/AuthContext';
 
 export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null); // for the DOM node

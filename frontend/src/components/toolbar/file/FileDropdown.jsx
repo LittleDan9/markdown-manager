@@ -17,7 +17,7 @@ import { useFileExportController } from "./useFileExportController";
 import { useTheme } from "../../../context/ThemeProvider.jsx";
 import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
 
-import { useAuth } from "../../../context/AuthProvider";
+import { useAuth } from "../../../context/AuthContext";
 
 export default function FileDropdown({ setDocumentTitle }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();

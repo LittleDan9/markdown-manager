@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import Header from "./Header";
 import Toolbar from "./toolbar/Toolbar";
 import Editor from "./Editor";
@@ -11,7 +11,7 @@ import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
 import { useNotification } from "../components/NotificationProvider.jsx";
 
-import { useAuth } from "../context/AuthProvider";
+import { useAuth } from "../context/AuthContext";
 import useAutoSave from "@/hooks/useAutoSave";
 
 function App() {
@@ -24,15 +24,14 @@ function App() {
   const [showIconBrowser, setShowIconBrowser] = useState(false);
   const { showError, showSuccess } = useNotification();
 
-  const runAutoSave = () => {
-    saveDocument(currentDocument)
-      .then(() => {
-        showSuccess("Document autosaved successfully.");
-      })
-      .catch((error) => {
-        showError("Failed to save document: " + error.message);
-      });
-  };
+  const runAutoSave = useCallback(async () => {
+    try {
+      await saveDocument(currentDocument, false); // Don't show notifications for auto-save
+    } catch (error) {
+      console.warn("Auto-save failed:", error);
+    }
+  }, [saveDocument, currentDocument]);
+
   useAutoSave(currentDocument, runAutoSave, autosaveEnabled);
 
   useEffect(() => {
@@ -117,10 +116,10 @@ function App() {
             </div>
           </div>
         </div>
-        
+
         {/* Icon Browser Modal */}
-        <Modal 
-          show={showIconBrowser} 
+        <Modal
+          show={showIconBrowser}
           onHide={() => setShowIconBrowser(false)}
           size="xl"
           scrollable

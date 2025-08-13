@@ -44,8 +44,7 @@ const LogoutProgressModal = ({ show, onForceLogout, onCanceled }) => {
 
   const handleForceLogout = () => {
     setForcingLogout(true);
-    // Trigger force stop through the document manager
-    window.dispatchEvent(new CustomEvent('markdown-manager:force-logout'));
+    // Call the force logout directly
     onForceLogout();
   };
 

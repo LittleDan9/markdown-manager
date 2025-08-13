@@ -1,34 +1,38 @@
 import { useState, useEffect } from 'react';
 
-const DEFAULT_CATEGORY = 'General';
-
-// Utility function to check if document has unsaved changes
-export function checkHasUnsavedChanges(currentDocument, documents, editorContent = null) {
-  // Use editorContent if provided, otherwise use currentDocument.content
-  const contentToCheck = editorContent !== null ? editorContent : currentDocument?.content || '';
-
-  if (!currentDocument?.id) {
-    return (
-      currentDocument?.name !== 'Untitled Document' ||
-      contentToCheck !== '' ||
-      currentDocument?.category !== DEFAULT_CATEGORY
-    );
-  }
-
-  const saved = documents.find(d => d.id === currentDocument.id);
-  return (
-    !saved ||
-    saved.name !== currentDocument.name ||
-    saved.content !== contentToCheck ||
-    saved.category !== currentDocument.category
-  );
-}
-
-export default function useChangeTracker(currentDocument, documents, editorContent = null) {
+/**
+ * Track unsaved changes in the current document
+ * @param {Object} currentDocument - Current document object
+ * @param {Array} documents - Array of all documents
+ * @param {string} content - Current editor content
+ * @returns {boolean} - Whether there are unsaved changes
+ */
+export default function useChangeTracker(currentDocument, documents, content) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
   useEffect(() => {
-    setHasUnsavedChanges(checkHasUnsavedChanges(currentDocument, documents, editorContent));
-  }, [currentDocument, documents, editorContent]);
+    if (!currentDocument) {
+      setHasUnsavedChanges(false);
+      return;
+    }
+
+    // Compare current content with saved content
+    const savedContent = currentDocument.content || '';
+    const currentContent = content || '';
+
+    // Check if content has changed
+    const contentChanged = savedContent !== currentContent;
+
+    // For new documents (no ID), consider it "changed" if there's content
+    const isNewDocument = !currentDocument.id || String(currentDocument.id).startsWith('doc_');
+    const hasContent = currentContent.trim() !== '';
+
+    if (isNewDocument) {
+      setHasUnsavedChanges(hasContent);
+    } else {
+      setHasUnsavedChanges(contentChanged);
+    }
+  }, [currentDocument, content]);
+
   return hasUnsavedChanges;
 }

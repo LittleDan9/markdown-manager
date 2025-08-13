@@ -5,7 +5,7 @@ import SecurityTab from "./SecurityTab";
 import MFATab from "./MFATab";
 import DictionaryTab from "./DictionaryTab";
 import userApi from "../../api/userApi";
-import { useAuth } from "../../context/AuthProvider";
+import { useAuth } from "../../context/AuthContext";
 
 function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false }) {
   const { user, setUser } = useAuth();

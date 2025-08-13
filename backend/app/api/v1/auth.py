@@ -92,7 +92,7 @@ async def login(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,  # Set to True in production
+            secure=settings.secure_cookies,  # Environment-based setting
             samesite="lax",
             max_age=14 * 24 * 60 * 60,
             path="/",
@@ -147,7 +147,7 @@ async def refresh_token(
         key="refresh_token",
         value=new_refresh_token,
         httponly=True,
-        secure=True,  # Set to True in production
+        secure=settings.secure_cookies,  # Environment-based setting
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
@@ -300,7 +300,7 @@ async def login_mfa(
             key="refresh_token",
             value=refresh_token,
             httponly=True,
-            secure=True,  # Set to True in production
+            secure=settings.secure_cookies,  # Environment-based setting
             samesite="lax",
             max_age=14 * 24 * 60 * 60,
             path="/",
