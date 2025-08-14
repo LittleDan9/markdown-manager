@@ -17,24 +17,24 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   // Auth state from service
   const [authState, setAuthState] = useState(AuthService.getAuthState());
-  
+
   // Modal states
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showMFAModal, setShowMFAModal] = useState(false);
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  
+
   // MFA state
   const [pendingEmail, setPendingEmail] = useState("");
   const [pendingPassword, setPendingPassword] = useState("");
   const [mfaLoading, setMFALoading] = useState(false);
   const [mfaError, setMFAError] = useState("");
-  
+
   // Other UI state
   const [loginEmail, setLoginEmail] = useState("");
   const [devMode, setDevMode] = useState(false);
   const [logoutConfig, setLogoutConfig] = useState(null);
-  
+
   // Settings state
   const [autosaveEnabled, setAutosaveEnabledState] = useState(() => {
     const saved = localStorage.getItem("autosaveEnabled");
@@ -53,21 +53,7 @@ export function AuthProvider({ children }) {
   // Initialize and set up auth state synchronization
   useEffect(() => {
     updateAuthState();
-    
-    // Set up recovery callback
-    AuthService.setRecoveryCallback((recoveredDocs) => {
-      // Dispatch event for RecoveryProvider compatibility
-      window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: recoveredDocs }));
-    });
-    
-    // Check for orphaned docs on startup
-    const orphanedDocs = AuthService.checkForOrphanedDocuments();
-    if (orphanedDocs.length > 0) {
-      setTimeout(() => {
-        window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: orphanedDocs }));
-      }, 2000);
-    }
-    
+
     // Listen for legacy password reset events if needed
     const handler = (e) => {
       // Handle password reset token from legacy JS if applicable
@@ -80,7 +66,7 @@ export function AuthProvider({ children }) {
   // Auth actions
   const login = useCallback(async (email, password) => {
     const result = await AuthService.login(email, password);
-    
+
     if (result.mfaRequired) {
       setShowLoginModal(false);
       setPendingEmail(email);
@@ -88,23 +74,23 @@ export function AuthProvider({ children }) {
       setShowMFAModal(true);
       return result;
     }
-    
+
     if (result.success) {
       setShowLoginModal(false);
       setLoginEmail("");
       updateAuthState();
     }
-    
+
     return result;
   }, [updateAuthState]);
 
   const verifyMFA = useCallback(async (code) => {
     setMFALoading(true);
     setMFAError("");
-    
+
     try {
       const result = await AuthService.verifyMFA(pendingEmail, pendingPassword, code);
-      
+
       if (result.success) {
         setShowMFAModal(false);
         setPendingEmail("");
@@ -113,7 +99,7 @@ export function AuthProvider({ children }) {
       } else {
         setMFAError(result.message || "Verification failed.");
       }
-      
+
       return result;
     } catch (error) {
       const errorMsg = error.message || "Verification failed.";
@@ -126,13 +112,13 @@ export function AuthProvider({ children }) {
 
   const logout = useCallback(async () => {
     const result = await AuthService.logout();
-    
+
     if (result.delayed) {
       setLogoutConfig(result);
       setShowLogoutModal(true);
       return;
     }
-    
+
     if (result.success) {
       updateAuthState();
     }
@@ -204,7 +190,7 @@ export function AuthProvider({ children }) {
     verify: async () => ({ success: true }), // UI step only
     setPassword: async ({ code, newPassword }) => {
       const res = await confirmPasswordReset(code, newPassword);
-      return res && (res.message || res.success) 
+      return res && (res.message || res.success)
         ? { success: true }
         : { success: false, message: res?.message || "Failed to reset password." };
     },
@@ -215,7 +201,7 @@ export function AuthProvider({ children }) {
     user: authState.user,
     token: authState.token,
     isAuthenticated: authState.isAuthenticated,
-    
+
     // Auth actions
     login,
     logout,
@@ -226,13 +212,13 @@ export function AuthProvider({ children }) {
     disableMFA,
     requestPasswordReset,
     confirmPasswordReset,
-    
+
     // Settings
     autosaveEnabled,
     setAutosaveEnabled,
     syncPreviewScrollEnabled,
     setSyncPreviewScrollEnabled,
-    
+
     // Modal controls
     showLoginModal,
     setShowLoginModal,
@@ -252,7 +238,7 @@ export function AuthProvider({ children }) {
   return (
     <AuthContext.Provider value={contextValue}>
       {children}
-      
+
       {/* Auth Modals */}
       <LoginModal
         show={showLoginModal}
@@ -264,7 +250,7 @@ export function AuthProvider({ children }) {
         onLogin={login}
         email={loginEmail}
       />
-      
+
       <VerifyMFAModal
         show={showMFAModal}
         onHide={() => setShowMFAModal(false)}
@@ -276,7 +262,7 @@ export function AuthProvider({ children }) {
           setShowLoginModal(true);
         }}
       />
-      
+
       <PasswordResetModal
         show={showPasswordResetModal}
         onHide={() => {
@@ -286,7 +272,7 @@ export function AuthProvider({ children }) {
         onReset={passwordResetApi}
         devMode={devMode}
       />
-      
+
       <LogoutProgressModal
         show={showLogoutModal}
         onForceLogout={forceLogout}

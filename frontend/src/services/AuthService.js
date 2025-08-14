@@ -30,17 +30,9 @@ class AuthService {
     this.isAuthenticated = false;
     this.refreshInterval = null;
     this.justLoggedIn = false;
-    this.recoveryCallback = null;
 
     // Initialize auth state
     this.initializeAuth();
-  }
-
-  /**
-   * Set recovery callback to handle recovery documents
-   */
-  setRecoveryCallback(callback) {
-    this.recoveryCallback = callback;
   }
 
   /**
@@ -247,14 +239,6 @@ class AuthService {
     this.startTokenRefresh();
     localStorage.setItem('lastKnownAuthState', 'authenticated');
 
-    // Trigger recovery check after successful login
-    setTimeout(async () => {
-      const recoveredDocs = await this.checkForRecoveryDocuments(loginResponse.user.id, loginResponse.access_token);
-      if (recoveredDocs.length > 0 && this.recoveryCallback) {
-        this.recoveryCallback(recoveredDocs);
-      }
-    }, 1000);
-
     this.justLoggedIn = false;
     return { success: true, user: loginResponse.user };
   }
@@ -433,22 +417,6 @@ class AuthService {
   }
 
   /**
-   * Check for recovery documents (placeholder)
-   */
-  async checkForRecoveryDocuments(userId, token) {
-    try {
-      const RecoveryApi = (await import("../api/recoveryApi.js")).default;
-      const recoveredDocs = await RecoveryApi.fetchRecoveredDocs(userId, token);
-      if (recoveredDocs && recoveredDocs.length > 0) {
-        // Return recovery docs instead of dispatching event
-        return recoveredDocs;
-      }
-    } catch (error) {
-      console.error('Failed to check for recovery documents:', error);
-    }
-    return [];
-  }
-
   /**
    * Check for orphaned documents (documents with local IDs that need migration)
    */

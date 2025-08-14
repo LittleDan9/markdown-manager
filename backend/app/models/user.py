@@ -67,8 +67,6 @@ class User(BaseModel):
         back_populates=None,
     )
 
-    recovered_documents = relationship("DocumentRecovery", back_populates="user")
-
     # Custom dictionary relationship
     custom_dictionary_words = relationship("CustomDictionary", back_populates="user")
 

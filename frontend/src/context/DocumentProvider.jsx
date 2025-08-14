@@ -222,11 +222,18 @@ export function DocumentProvider({ children }) {
         }
       }
 
-      // Show recovery modal if there are conflicts
+      // Show success message for completed migration
       if (conflicts.length > 0) {
-        console.log(`Found ${conflicts.length} conflicts, showing recovery modal`);
-        // Trigger recovery modal
-        window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: conflicts }));
+        console.log(`Found ${conflicts.length} conflicts that need user resolution`);
+        // For now, we'll log these conflicts but won't show a recovery modal
+        // In the future, we could implement inline conflict resolution
+        conflicts.forEach(conflict => {
+          console.warn(`Content conflict for document "${conflict.name}":`, {
+            localContent: conflict.content.substring(0, 100) + '...',
+            backendContent: conflict.backend_content.substring(0, 100) + '...'
+          });
+        });
+        notification.showWarning(`Migration completed with ${conflicts.length} content conflicts. Local versions will be used.`);
       } else {
         notification.showSuccess(`Successfully migrated ${toMigrate.length} documents to your account.`);
       }

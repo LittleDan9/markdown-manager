@@ -10,6 +10,7 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { showSuccess, showError } = useNotification();
 
   // Filter documents by selected category
@@ -23,10 +24,14 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
   }
 
   const handleDelete = async () => {
-    if (!docToDelete) return;
+    if (!docToDelete || isDeleting) {
+      return;
+    }
+
+    setIsDeleting(true);
+
     try {
       await deleteDocument(docToDelete.id);
-      showSuccess(`Document '${docToDelete.name}' deleted.`);
       setShowConfirm(false);
       setDocToDelete(null);
       setSelectedDocId(null);
@@ -34,6 +39,8 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
       showError(`Failed to delete document '${docToDelete.name}'.`);
       setShowConfirm(false);
       setDocToDelete(null);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -128,21 +135,22 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
         message={`Are you sure you want to delete '${docToDelete?.name}'? This cannot be undone.`}
         icon={<i className="bi bi-trash text-danger me-2"></i>}
         buttons={[
-          { text: "Delete", variant: "danger", action: "delete", autoFocus: true },
-          { text: "Cancel", variant: "secondary", action: "cancel" },
+          { text: "Delete", variant: "danger", action: "delete", autoFocus: true, disabled: isDeleting },
+          { text: "Cancel", variant: "secondary", action: "cancel", disabled: isDeleting },
         ]}
         onAction={async (actionKey) => {
           if (actionKey === "delete") {
             await handleDelete();
-            setShowConfirm(false);
           } else if (actionKey === "cancel") {
             setShowConfirm(false);
             setDocToDelete(null);
           }
         }}
         onHide={() => {
-          setShowConfirm(false);
-          setDocToDelete(null);
+          if (!isDeleting) {
+            setShowConfirm(false);
+            setDocToDelete(null);
+          }
         }}
       />
     </>
