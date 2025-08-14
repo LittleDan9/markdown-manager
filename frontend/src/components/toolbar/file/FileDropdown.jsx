@@ -23,7 +23,7 @@ export default function FileDropdown({ setDocumentTitle }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
-  const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges } = useDocument();
+  const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content } = useDocument();
   const { showSuccess, showError } = useNotification();
   const { previewHTML } = usePreviewHTML();
   // Debug: Log previewHTML value on render
@@ -88,6 +88,7 @@ export default function FileDropdown({ setDocumentTitle }) {
     loadDocument,
     setDocumentTitle,
     showSuccess,
+    content,
   });
   // Save controller
   const saveController = useFileSaveController({ saveDocument, currentDocument, setDocumentTitle });
