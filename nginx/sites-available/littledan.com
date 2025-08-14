@@ -61,8 +61,8 @@ server {
 
     # API backend - proxy to FastAPI
     location /api/ {
-        # API rate limiting
-        limit_req zone=api burst=10 nodelay;
+        # API rate limiting - increased burst for dictionary tab with multiple categories
+        limit_req zone=api burst=50 nodelay;
         limit_conn api_conn 5;
 
         # Additional bot blocking for API endpoints

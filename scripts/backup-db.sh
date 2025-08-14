@@ -60,9 +60,6 @@ psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json
 echo "$YELLOW📋 Exporting custom_dictionaries table...$NC"
 psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT * FROM custom_dictionaries ORDER BY id) t;" > "$TEMP_DIR/custom_dictionaries.json"
 
-echo "$YELLOW📋 Exporting document_recovery table...$NC"
-psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT * FROM document_recovery ORDER BY id) t;" > "$TEMP_DIR/document_recovery.json"
-
 # Build final JSON structure (removed alembic_version)
 {
     echo "{"
@@ -71,8 +68,7 @@ psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json
     echo "  \"tables\": {"
     echo "    \"users\": $(cat "$TEMP_DIR/users.json" | sed 's/^ *//' | tr -d '\n'),"
     echo "    \"documents\": $(cat "$TEMP_DIR/documents.json" | sed 's/^ *//' | tr -d '\n'),"
-    echo "    \"custom_dictionaries\": $(cat "$TEMP_DIR/custom_dictionaries.json" | sed 's/^ *//' | tr -d '\n'),"
-    echo "    \"document_recovery\": $(cat "$TEMP_DIR/document_recovery.json" | sed 's/^ *//' | tr -d '\n')"
+    echo "    \"custom_dictionaries\": $(cat "$TEMP_DIR/custom_dictionaries.json" | sed 's/^ *//' | tr -d '\n')"
     echo "  }"
     echo "}"
 } > "$BACKUP_FILE"
