@@ -450,37 +450,38 @@ class AuthService {
   }
 
   /**
-   * Check for orphaned documents
+   * Check for orphaned documents (documents with local IDs that need migration)
+   */
+  /**
+   * Check for orphaned documents (documents with local IDs that need migration)
    */
   checkForOrphanedDocuments() {
     try {
       const localDocs = JSON.parse(localStorage.getItem('markdown_manager_documents') || '[]');
-      const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
 
-      // If we have local documents but no auth token, they might be orphaned
-      if (localDocs.length > 0 && !localStorage.getItem('authToken') && lastKnownAuth === 'authenticated') {
-        const orphanedDocs = localDocs
-          .filter(doc => doc.content && doc.content.trim() !== '' && doc.name !== 'Untitled Document')
-          .map(doc => ({
-            id: `orphaned_${doc.id}_${Date.now()}`,
-            document_id: doc.id,
-            name: doc.name,
-            category: doc.category,
-            content: doc.content,
-            collision: false,
-            recoveredAt: new Date().toISOString(),
-            conflictType: 'orphaned'
-          }));
+      // Check for documents with local IDs regardless of auth state
+      const orphanedDocs = localDocs
+        .filter(doc =>
+          doc.id && String(doc.id).startsWith('doc_') &&
+          doc.content && doc.content.trim() !== '' &&
+          doc.name !== 'Untitled Document'
+        )
+        .map(doc => ({
+          id: `orphaned_${doc.id}_${Date.now()}`,
+          document_id: doc.id,
+          name: doc.name,
+          category: doc.category,
+          content: doc.content,
+          collision: false,
+          recoveredAt: new Date().toISOString(),
+          conflictType: 'orphaned'
+        }));
 
-        return orphanedDocs;
-      }
-
-      // Update last known auth state
-      localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+      return orphanedDocs;
     } catch (error) {
       console.error('Failed to check for orphaned documents:', error);
+      return [];
     }
-    return [];
   }
 }
 

@@ -15,6 +15,7 @@ export function DocumentProvider({ children }) {
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
   const [authInitialized, setAuthInitialized] = useState(false);
+  const [migrationStatus, setMigrationStatus] = useState('idle'); // 'idle', 'checking', 'migrating', 'complete'
   const [currentDocument, setCurrentDocument] = useState({
     id: null,
     name: 'Untitled Document',
@@ -38,10 +39,223 @@ export function DocumentProvider({ children }) {
     return () => clearTimeout(timer);
   }, []);
 
+  // Migration function to handle local documents when user logs in
+  const migrateLocalDocuments = useCallback(async () => {
+    if (!isAuthenticated || !token) return;
+
+    setMigrationStatus('checking');
+    setLoading(true);
+
+    try {
+      // Get all local documents
+      const localDocs = DocumentStorageService.getAllDocuments();
+
+      // Find documents with local IDs that need migration
+      const localIdDocs = localDocs.filter(doc =>
+        doc.id && String(doc.id).startsWith('doc_') &&
+        doc.content && doc.content.trim() !== '' &&
+        doc.name !== 'Untitled Document'
+      );
+
+      if (localIdDocs.length === 0) {
+        setMigrationStatus('complete');
+        return;
+      }
+
+      console.log(`Found ${localIdDocs.length} local documents to migrate:`, localIdDocs.map(d => d.name));
+      setMigrationStatus('migrating');
+
+      // Get backend documents to check for conflicts
+      const backendDocs = await DocumentService.getAllBackendDocuments();
+      const conflicts = [];
+      const toMigrate = [];
+
+      // Check each local document for conflicts
+      for (const localDoc of localIdDocs) {
+        const backendConflict = backendDocs.find(backendDoc =>
+          backendDoc.name === localDoc.name && backendDoc.category === localDoc.category
+        );
+
+        if (backendConflict) {
+          // Found a name/category conflict - now check if content differs
+          const localContent = (localDoc.content || '').trim();
+          const backendContent = (backendConflict.content || '').trim();
+
+          if (localContent === backendContent) {
+            // Content is identical - auto-resolve by updating local document with backend ID
+            console.log(`Auto-resolving identical content for: ${localDoc.name}`);
+
+            // Update local storage to use backend document
+            const updatedDoc = {
+              ...backendConflict,
+              content: localDoc.content, // Preserve any formatting differences
+            };
+
+            // Remove old document and save updated one
+            DocumentStorageService.deleteDocument(localDoc.id);
+            DocumentStorageService.saveDocument(updatedDoc);
+
+            // Update current document reference if it matches
+            const currentDoc = DocumentStorageService.getCurrentDocument();
+            if (currentDoc && currentDoc.id === localDoc.id) {
+              DocumentStorageService.setCurrentDocument(updatedDoc);
+            }
+
+            // This is automatically resolved, no conflict needed
+            console.log(`Successfully auto-resolved ${localDoc.name}: ${localDoc.id} -> ${backendConflict.id}`);
+          } else {
+            // Content differs - this is a real conflict that needs user intervention
+            conflicts.push({
+              id: `conflict_${localDoc.id}_${Date.now()}`,
+              document_id: backendConflict.id,
+              name: localDoc.name,
+              category: localDoc.category,
+              content: localDoc.content,
+              collision: true,
+              backend_content: backendConflict.content,
+              local_id: localDoc.id,
+              conflict_type: 'content_conflict'
+            });
+          }
+        } else {
+          // No name conflict - safe to migrate
+          toMigrate.push(localDoc);
+        }
+      }
+
+      // Migrate non-conflicting documents automatically
+      for (const doc of toMigrate) {
+        try {
+          console.log(`Migrating document: ${doc.name}`);
+          const savedDoc = await DocumentService.saveDocument({
+            ...doc,
+            content: doc.content || '',
+            category: doc.category || DEFAULT_CATEGORY
+          }, false); // Don't show notifications during migration
+
+          if (savedDoc) {
+            console.log(`Successfully migrated ${doc.name}: ${doc.id} -> ${savedDoc.id}`);
+
+            // Update current document reference if it matches the migrated document
+            const currentDoc = DocumentStorageService.getCurrentDocument();
+            if (currentDoc && currentDoc.id === doc.id) {
+              DocumentStorageService.setCurrentDocument(savedDoc);
+            }
+          }
+        } catch (error) {
+          console.error(`Failed to migrate document ${doc.name}:`, error);
+          console.log('Error details:', {
+            status: error.response?.status,
+            data: error.response?.data,
+            message: error.message
+          });
+
+          // Check if this is a name conflict error
+          const isNameConflict = error.response?.status === 400 &&
+            (error.response?.data?.detail?.includes?.('already exists') ||
+             error.response?.data?.detail?.detail?.includes?.('already exists') ||
+             error.response?.data?.detail?.conflict_type === 'name_conflict' ||
+             error.message?.includes('already exists'));
+
+          if (isNameConflict) {
+            console.log(`Name conflict detected for document: ${doc.name}`);
+
+            // Check if the error response includes the conflicting document
+            let conflictingDoc = null;
+            if (error.response?.data?.detail?.existing_document) {
+              conflictingDoc = error.response.data.detail.existing_document;
+              console.log('Conflicting document from API:', conflictingDoc);
+            } else {
+              // Fallback: find the conflicting backend document manually
+              conflictingDoc = backendDocs.find(backendDoc =>
+                backendDoc.name === doc.name && backendDoc.category === doc.category
+              );
+            }
+
+            if (conflictingDoc) {
+              // Compare content to see if this is a real conflict
+              const localContent = (doc.content || '').trim();
+              const backendContent = (conflictingDoc.content || '').trim();
+
+              if (localContent === backendContent) {
+                // Auto-resolve identical content even after save failure
+                console.log(`Auto-resolving post-save identical content for: ${doc.name}`);
+                DocumentStorageService.deleteDocument(doc.id);
+                DocumentStorageService.saveDocument(conflictingDoc);
+
+                const currentDoc = DocumentStorageService.getCurrentDocument();
+                if (currentDoc && currentDoc.id === doc.id) {
+                  DocumentStorageService.setCurrentDocument(conflictingDoc);
+                }
+                // Don't add to conflicts - this is resolved
+                continue;
+              }
+            }
+
+            // Real content conflict or couldn't find conflicting doc
+            conflicts.push({
+              id: `name_conflict_${doc.id}_${Date.now()}`,
+              document_id: conflictingDoc?.id || null,
+              name: doc.name,
+              category: doc.category,
+              content: doc.content,
+              collision: true,
+              backend_content: conflictingDoc?.content || '',
+              local_id: doc.id,
+              conflict_type: 'name_conflict'
+            });
+          } else {
+            console.log(`General migration error for document: ${doc.name}`);
+            // Other migration error
+            conflicts.push({
+              id: `migration_error_${doc.id}_${Date.now()}`,
+              document_id: null,
+              name: doc.name,
+              category: doc.category,
+              content: doc.content,
+              collision: false,
+              error: `Migration failed: ${error.message}`,
+              local_id: doc.id,
+              conflict_type: 'migration_error'
+            });
+          }
+        }
+      }
+
+      // Show recovery modal if there are conflicts
+      if (conflicts.length > 0) {
+        console.log(`Found ${conflicts.length} conflicts, showing recovery modal`);
+        // Trigger recovery modal
+        window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: conflicts }));
+      } else {
+        notification.showSuccess(`Successfully migrated ${toMigrate.length} documents to your account.`);
+      }
+
+      setMigrationStatus('complete');
+    } catch (error) {
+      console.error('Migration failed:', error);
+      setError('Failed to migrate local documents. Please try again.');
+      setMigrationStatus('complete');
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, token, notification]);
+
   // Initialize documents on mount and when auth changes
   useEffect(() => {
     // Don't load documents until auth is initialized
     if (!authInitialized) return;
+
+    // If user just became authenticated, run migration first
+    if (isAuthenticated && token && migrationStatus === 'idle') {
+      migrateLocalDocuments();
+      return;
+    }
+
+    // Don't load documents if migration is in progress
+    if (migrationStatus === 'checking' || migrationStatus === 'migrating') {
+      return;
+    }
 
     // If we're not authenticated and there's no valid token, clear document state
     if (!isAuthenticated && !token) {
@@ -62,6 +276,17 @@ export function DocumentProvider({ children }) {
     }
 
     const loadCurrentDocument = async () => {
+      // If authenticated, sync with backend first to get latest documents
+      if (isAuthenticated && token) {
+        try {
+          console.log('Syncing with backend on mount...');
+          await DocumentService.syncWithBackend();
+        } catch (error) {
+          console.warn('Failed to sync with backend on mount:', error.message);
+          // Continue with local documents if sync fails
+        }
+      }
+
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
 
@@ -81,7 +306,7 @@ export function DocumentProvider({ children }) {
         try {
           const { documentsApi } = await import('../api/documentsApi.js');
           const currentDocId = await documentsApi.getCurrentDocumentId();
-          
+
           if (currentDocId) {
             // Find the document with this ID
             currentDoc = docs.find(doc => doc.id === currentDocId);
@@ -114,7 +339,7 @@ export function DocumentProvider({ children }) {
     };
 
     loadCurrentDocument();
-  }, [isAuthenticated, token, authInitialized]);
+  }, [isAuthenticated, token, authInitialized, migrationStatus]);
 
   // Update categories whenever documents change
   useEffect(() => {
@@ -159,7 +384,7 @@ export function DocumentProvider({ children }) {
     const newDoc = DocumentService.createNewDocument();
     setCurrentDocument(newDoc);
     setContent('');
-    
+
     // Track current document in localStorage
     DocumentStorageService.setCurrentDocument(newDoc);
   }, []);
@@ -171,10 +396,10 @@ export function DocumentProvider({ children }) {
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
-        
+
         // Track current document in localStorage
         DocumentStorageService.setCurrentDocument(doc);
-        
+
         // Update current document ID on backend for authenticated users
         await DocumentService.setCurrentDocumentId(doc.id);
       } else {
@@ -308,7 +533,7 @@ export function DocumentProvider({ children }) {
 
     // Save the current document with the new category (this will sync to backend if authenticated)
     const saved = await saveDocument(updatedDoc, false);
-    
+
     // Update current document tracking
     if (saved) {
       DocumentStorageService.setCurrentDocument(saved);
@@ -480,6 +705,7 @@ export function DocumentProvider({ children }) {
     token,
     isAuthenticated,
     authInitialized,
+    migrationStatus,
     currentDocument,
     setCurrentDocument,
     documents,
@@ -505,7 +731,7 @@ export function DocumentProvider({ children }) {
     setContent,
     syncWithBackend,
   }), [
-    user, token, isAuthenticated, authInitialized, currentDocument, documents, categories, loading, error,
+    user, token, isAuthenticated, authInitialized, migrationStatus, currentDocument, documents, categories, loading, error,
     hasUnsavedChanges, highlightedBlocks, content, createDocument, loadDocument,
     deleteDocument, renameDocument, addCategory, deleteCategory, renameCategory,
     exportAsMarkdown, exportAsPDF, importMarkdownFile, saveDocument, syncWithBackend
