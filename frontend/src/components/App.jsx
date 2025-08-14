@@ -5,6 +5,7 @@ import Editor from "./Editor";
 import Renderer from "./Renderer";
 import LogLevelController from "./LogLevelController";
 import IconBrowser from "./IconBrowser";
+import LoadingOverlay from "./LoadingOverlay";
 import { Modal } from "react-bootstrap";
 import { ThemeProvider } from "../context/ThemeProvider";
 import { useDocument } from "../context/DocumentProvider";
@@ -16,7 +17,7 @@ import useAutoSave from "@/hooks/useAutoSave";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
-  const { currentDocument, saveDocument, authInitialized } = useDocument();
+  const { currentDocument, saveDocument, authInitialized, migrationStatus } = useDocument();
   const { content, setContent } = useDocument();
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
@@ -29,7 +30,7 @@ function App() {
       // Create document with current content for auto-save
       const docWithCurrentContent = { ...currentDocument, content };
       const savedDoc = await saveDocument(docWithCurrentContent, false); // Don't show notifications for auto-save
-      
+
       // If the save was successful, the DocumentProvider will update the currentDocument
       // The useChangeTracker will then see that the saved content matches current content
       console.log('Auto-save completed successfully for:', savedDoc?.name);
@@ -84,14 +85,14 @@ function App() {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
         console.log('Ctrl+S detected!'); // Debug log
-        
+
         const content = contentRef.current;
         const currentDocument = currentDocumentRef.current;
         const saveDocument = saveDocumentRef.current;
         const isAuthenticated = isAuthenticatedRef.current;
         const showSuccess = showSuccessRef.current;
         const showError = showErrorRef.current;
-        
+
         console.log('Save refs state:', {
           hasContent: !!content,
           hasDocument: !!currentDocument,
@@ -100,7 +101,7 @@ function App() {
           documentId: currentDocument?.id,
           contentLength: content?.length || 0
         });
-        
+
         if (!currentDocument) {
           showError('No document to save.');
           return;
@@ -115,11 +116,11 @@ function App() {
         // because the user explicitly requested a save
         try {
           console.log('Starting save operation...');
-          
+
           const saved = await saveDocument({ ...currentDocument, content }, true); // Show notifications
-          
+
           console.log('Save operation completed:', { saved: !!saved });
-          
+
           if (!saved) {
             showError('Save failed - no document returned.');
           }
@@ -130,7 +131,7 @@ function App() {
         }
       }
     };
-    
+
     console.log('Registering Ctrl+S handler'); // Debug log
     window.addEventListener('keydown', handleKeyDown);
     return () => {
@@ -207,6 +208,12 @@ function App() {
         </Modal>
       </PreviewHTMLProvider>
       <LogLevelController />
+
+      {/* Migration Loading Overlay */}
+      <LoadingOverlay
+        show={migrationStatus === 'checking' || migrationStatus === 'migrating'}
+        text={migrationStatus === 'checking' ? 'Checking for documents to migrate...' : 'Migrating your documents...'}
+      />
     </ThemeProvider>
   );
 }

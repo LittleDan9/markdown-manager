@@ -194,6 +194,23 @@ class DocumentService {
         category: localDoc.category
       };
 
+      // If the ID changed (local doc had temporary ID), remove the old document
+      if (localDoc.id !== backendDoc.id && localDoc.id && String(localDoc.id).startsWith('doc_')) {
+        DocumentStorageService.deleteDocument(localDoc.id);
+
+        // Update current document reference if it matches the old ID
+        const currentDoc = DocumentStorageService.getCurrentDocument();
+        if (currentDoc && currentDoc.id === localDoc.id) {
+          DocumentStorageService.setCurrentDocument(updatedDoc);
+        }
+
+        // Update last document ID if it matches the old ID
+        const lastDocId = DocumentStorageService.getLastDocumentId();
+        if (lastDocId === localDoc.id) {
+          localStorage.setItem('lastDocumentId', backendDoc.id);
+        }
+      }
+
       return DocumentStorageService.saveDocument(updatedDoc);
     } catch (error) {
       console.warn('Failed to update local storage with backend data:', error);
@@ -275,10 +292,29 @@ class DocumentService {
   }
 
   /**
-   * Get all documents
+   * Get all documents (local only)
    */
   getAllDocuments() {
     return DocumentStorageService.getAllDocuments();
+  }
+
+  /**
+   * Get all documents from backend
+   */
+  async getAllBackendDocuments() {
+    const { isAuthenticated, token } = this.getAuthState();
+    if (!isAuthenticated || !token) {
+      return [];
+    }
+
+    try {
+      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const documents = await DocumentsApi.getAllDocuments();
+      return documents || [];
+    } catch (error) {
+      console.error('Failed to fetch backend documents:', error);
+      return [];
+    }
   }
 
   /**
@@ -288,17 +324,17 @@ class DocumentService {
   getCategories() {
     const documents = this.getAllDocuments();
     const DEFAULT_CATEGORIES = ['Drafts', 'General'];
-    
+
     // Extract unique categories from documents
     const documentCategories = [...new Set(
       documents
         .map(doc => doc.category)
         .filter(cat => cat && cat.trim() !== '')
     )];
-    
+
     // Combine default categories with document categories, removing duplicates
     const allCategories = [...new Set([...DEFAULT_CATEGORIES, ...documentCategories])];
-    
+
     // Sort categories: Drafts first, General second, then alphabetically
     return allCategories.sort((a, b) => {
       if (a === 'Drafts') return -1;
@@ -399,6 +435,12 @@ class DocumentService {
     const { isAuthenticated, token } = this.getAuthState();
     if (!isAuthenticated || !token) {
       // Skip for unauthenticated users
+      return;
+    }
+
+    // Skip if ID is a local temporary ID (not saved to backend yet)
+    if (String(id).startsWith('doc_')) {
+      console.warn('Skipping setCurrentDocumentId for local temporary ID:', id);
       return;
     }
 

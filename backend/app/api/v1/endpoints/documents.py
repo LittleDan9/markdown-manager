@@ -146,20 +146,34 @@ async def create_document(
 
     from app.models.document import Document
 
-    existing = await db.execute(
+    existing_result = await db.execute(
         select(Document).filter(
             Document.user_id == current_user.id,
             Document.name == document_data.name,
             Document.category == document_data.category,
         )
     )
-    if existing.scalar_one_or_none():
+    existing_doc = existing_result.scalar_one_or_none()
+
+    if existing_doc:
         from fastapi import HTTPException
+        from app.schemas.document import DocumentConflictError, Document as DocumentSchema
+
+        # Convert to response schema
+        existing_document_schema = DocumentSchema.model_validate(existing_doc, from_attributes=True)
+
+        # Create detailed error response with conflicting document
+        conflict_detail = DocumentConflictError(
+            detail="A document with this name and category already exists.",
+            conflict_type="name_conflict",
+            existing_document=existing_document_schema
+        )
 
         raise HTTPException(
             status_code=400,
-            detail="A document with this name and category already exists.",
+            detail=conflict_detail.model_dump()
         )
+
     document = await document_crud.document.create(
         db=db,
         user_id=current_user.id,

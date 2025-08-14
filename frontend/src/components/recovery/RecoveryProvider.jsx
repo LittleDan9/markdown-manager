@@ -47,17 +47,52 @@ export function RecoveryProvider({ children }) {
       const DocumentsApi = (await import("../../api/documentsApi.js")).default;
       const RecoveryApi = (await import("../../api/recoveryApi.js")).default;
 
+      let documentName = doc.name;
+
+      // If this is a name conflict, auto-generate a unique name
+      if (doc.collision || doc.error_type === 'name_conflict') {
+        const baseName = doc.name;
+        let counter = 1;
+        let isUnique = false;
+
+        // Keep trying new names until we find one that doesn't conflict
+        while (!isUnique && counter <= 20) { // Safety limit
+          documentName = `${baseName} (${counter})`;
+          try {
+            // Check if this name already exists by trying to fetch it
+            const existingDocs = await DocumentsApi.getAllDocuments();
+            const nameExists = existingDocs.some(existingDoc =>
+              existingDoc.name === documentName && existingDoc.category === doc.category
+            );
+
+            if (!nameExists) {
+              isUnique = true;
+            } else {
+              counter++;
+            }
+          } catch (error) {
+            // If we can't check, assume it's unique and let the backend handle it
+            isUnique = true;
+          }
+        }
+
+        if (!isUnique) {
+          // Fallback: add timestamp
+          documentName = `${baseName} (${new Date().toISOString().slice(0, 19).replace(/:/g, '-')})`;
+        }
+      }
+
       if (!doc.document_id || String(doc.document_id).startsWith("doc_")) {
         // New document, create
         await DocumentsApi.createDocument({
-          name: doc.name,
+          name: documentName,
           content: doc.content,
           category: doc.category,
         });
       } else {
         // Existing document, update
         await DocumentsApi.updateDocument(doc.document_id, {
-          name: doc.name,
+          name: documentName,
           content: doc.content,
           category: doc.category,
         });
@@ -68,7 +103,11 @@ export function RecoveryProvider({ children }) {
         await RecoveryApi.resolveRecoveryDoc(doc.id, token);
       }
 
-      showSuccess(`Document '${doc.name}' has been restored and saved to your account.`);
+      const message = documentName !== doc.name
+        ? `Document saved as '${documentName}' to avoid naming conflict.`
+        : `Document '${doc.name}' has been restored and saved to your account.`;
+
+      showSuccess(message);
     } catch (e) {
       console.error('Save error:', e);
       showError(`Failed to save document '${doc.name}'. Please try again.`);

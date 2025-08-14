@@ -61,3 +61,11 @@ class DocumentList(BaseModel):
     documents: list[Document]
     total: int
     categories: list[str]
+
+
+class DocumentConflictError(BaseModel):
+    """Schema for document conflict error response."""
+
+    detail: str
+    conflict_type: str = "name_conflict"
+    existing_document: Document
