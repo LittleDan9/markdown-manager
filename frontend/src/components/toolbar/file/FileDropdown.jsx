@@ -141,6 +141,82 @@ export default function FileDropdown({ setDocumentTitle }) {
     showSuccess("Previous document did not need saving. New document created.");
   };
 
+  // Handle close - same as new but different messaging
+  const handleClose = async () => {
+    if (isDefaultDoc && hasUnsavedChanges) {
+      saveAsController.openSaveAs(currentDocument.content, currentDocument.name);
+      return;
+    }
+    if (!isDefaultDoc) {
+      if (autosaveEnabled && hasUnsavedChanges) {
+        await saveDocument({ ...currentDocument, content: currentDocument.content });
+        showSuccess(`Document "${currentDocument.name}" saved and closed.`);
+        createDocument();
+        setDocumentTitle("Untitled Document");
+        return;
+      } else if (!autosaveEnabled && hasUnsavedChanges) {
+        openModal(
+          async (actionKey) => {
+            if (actionKey === "save") {
+              await saveDocument({ ...currentDocument, content: currentDocument.content });
+              showSuccess(`Document "${currentDocument.name}" saved and closed.`);
+            }
+            if (actionKey === "save" || actionKey === "confirm") {
+              createDocument();
+              setDocumentTitle("Untitled Document");
+            }
+          },
+          {
+            title: "Unsaved Changes",
+            message: "You have unsaved changes. What would you like to do before closing?",
+            buttons: [
+              { text: "Save & Close", variant: "primary", action: "save", autoFocus: true },
+              { text: "Close Without Saving", variant: "danger", action: "confirm" },
+              { text: "Cancel", variant: "secondary", action: "cancel" },
+            ],
+            icon: <i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>,
+          },
+        );
+        return;
+      }
+    }
+    createDocument();
+    setDocumentTitle("Untitled Document");
+    showSuccess("Document closed.");
+  };
+
+  // Handle delete current document
+  const handleDelete = () => {
+    if (isDefaultDoc) {
+      showError("Cannot delete an unsaved document.");
+      return;
+    }
+
+    openModal(
+      async (actionKey) => {
+        if (actionKey === "delete") {
+          try {
+            await deleteDocument(currentDocument.id);
+            // DocumentService will show success notification
+            createDocument();
+            setDocumentTitle("Untitled Document");
+          } catch (error) {
+            showError(`Failed to delete document: ${error.message}`);
+          }
+        }
+      },
+      {
+        title: "Delete Document",
+        message: `Are you sure you want to delete '${currentDocument.name}'? This cannot be undone.`,
+        buttons: [
+          { text: "Delete", variant: "danger", action: "delete", autoFocus: true },
+          { text: "Cancel", variant: "secondary", action: "cancel" },
+        ],
+        icon: <i className="bi bi-trash text-danger me-2"></i>,
+      },
+    );
+  };
+
   // Accept setCurrentCategory as a prop
   return (
     <>
@@ -160,9 +236,15 @@ export default function FileDropdown({ setDocumentTitle }) {
           <Dropdown.Item onClick={openController.openOpenModal}>
             <i className="bi bi-folder2-open me-2"></i>Open
           </Dropdown.Item>
+          <Dropdown.Item onClick={handleClose} disabled={isDefaultDoc && !hasUnsavedChanges}>
+            <i className="bi bi-x-circle me-2"></i>Close
+          </Dropdown.Item>
           <Dropdown.Divider />
           <Dropdown.Item onClick={saveController.handleSave}>
             <i className="bi bi-save me-2"></i>Save
+          </Dropdown.Item>
+          <Dropdown.Item onClick={handleDelete} disabled={isDefaultDoc}>
+            <i className="bi bi-trash me-2"></i>Delete
           </Dropdown.Item>
           <Dropdown.Divider />
           <Dropdown.Item onClick={handleImportWithUnsavedCheck}>

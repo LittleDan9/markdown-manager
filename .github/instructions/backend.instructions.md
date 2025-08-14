@@ -42,4 +42,7 @@ When using GitHub Copilot Chat in this repository to write or review DRY FastAPI
 12. **Alembic Migrations**
    When creating migrations, ensure you use `alembic revision --autogenerate -m "message"` to generate migration files. Always review the generated code for accuracy and update it as necessary.
 
+13. **Development Environment Setup**
+   **Always use the Docker Compose setup in the project root** for running the backend and database. Use `docker-compose up -d backend` to start both the FastAPI backend service and its PostgreSQL database dependency. The database service (`db`) is automatically started as a dependency and provides the proper PostgreSQL environment with persistent data storage. Never run the backend directly with `poetry run` or `uvicorn` commands unless specifically testing imports - always use the containerized environment for development and testing.
+
 > Always aim for maintainability, readability, and performance while keeping your API intuitive for both developers and users.

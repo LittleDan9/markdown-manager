@@ -267,7 +267,7 @@ class DocumentService {
       }
 
       if (showNotification) {
-        notification.success('Document deleted');
+        notification.success(`Document '${deletedDoc.name}' deleted`);
       }
 
       // Step 2: Delete from backend if authenticated and document exists on backend

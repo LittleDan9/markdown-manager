@@ -42,54 +42,6 @@ const AuthContext = createContext({
   confirmPasswordReset: async () => {},
 });
 
-// Recovery utility functions
-const checkForRecoveryDocuments = async (userId, token) => {
-  try {
-    const RecoveryApi = (await import("../api/recoveryApi.js")).default;
-    const recoveredDocs = await RecoveryApi.fetchRecoveredDocs(userId, token);
-    if (recoveredDocs && recoveredDocs.length > 0) {
-      window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: recoveredDocs }));
-    }
-  } catch (error) {
-    console.error('Failed to check for recovery documents:', error);
-  }
-};
-
-const checkForOrphanedDocuments = async () => {
-  try {
-    const localDocs = JSON.parse(localStorage.getItem('markdown_manager_documents') || '[]');
-    const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
-
-    // If we have local documents but no auth token, they might be orphaned
-    if (localDocs.length > 0 && !localStorage.getItem('authToken') && lastKnownAuth === 'authenticated') {
-      const orphanedDocs = localDocs
-        .filter(doc => doc.content && doc.content.trim() !== '' && doc.name !== 'Untitled Document')
-        .map(doc => ({
-          id: `orphaned_${doc.id}_${Date.now()}`,
-          document_id: doc.id,
-          name: doc.name,
-          category: doc.category,
-          content: doc.content,
-          collision: false,
-          recoveredAt: new Date().toISOString(),
-          conflictType: 'orphaned'
-        }));
-
-      if (orphanedDocs.length > 0) {
-        // Delay to ensure UI is ready
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: orphanedDocs }));
-        }, 2000);
-      }
-    }
-
-    // Update last known auth state
-    localStorage.setItem('lastKnownAuthState', 'unauthenticated');
-  } catch (error) {
-    console.error('Failed to check for orphaned documents:', error);
-  }
-};
-
 export function AuthProvider({ children }) {
   // Track if we just logged in or registered to avoid duplicate fetchCurrentUser
   const justLoggedInRef = useRef(false);
@@ -166,55 +118,10 @@ export function AuthProvider({ children }) {
   const [token, setTokenState] = useState(localStorage.getItem("authToken"));
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Initialize DocumentService on first load and check for recovery
+  // Initialize DocumentService on first load
   useEffect(() => {
-    const initializeStorage = async () => {
-      // DocumentService automatically initializes, no manual setup needed
-
-      // Check for orphaned local documents on app startup
-      checkForOrphanedDocuments();
-    };
-
     initializeStorage();
   }, []);
-
-  // Network reconnection recovery trigger
-  useEffect(() => {
-    const handleOnline = () => {
-      if (isAuthenticated && user && user.id !== -1) {
-        console.log('Network reconnected, checking for recovery documents...');
-        setTimeout(() => {
-          checkForRecoveryDocuments(user.id, token);
-        }, 1000);
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (!document.hidden && isAuthenticated && user && user.id !== -1) {
-        console.log('App regained focus, checking for recovery documents...');
-        setTimeout(() => {
-          checkForRecoveryDocuments(user.id, token);
-        }, 500);
-      }
-    };
-
-    window.addEventListener('online', handleOnline);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [isAuthenticated, user, token]);
-
-  // Track authentication state changes for recovery
-  useEffect(() => {
-    if (isAuthenticated && user && user.id !== -1) {
-      localStorage.setItem('lastKnownAuthState', 'authenticated');
-    }
-  }, [isAuthenticated, user]);
-
-  // Note: DocumentService handles logout events automatically
 
   // Helper to update token in state and localStorage
   const setToken = useCallback((newToken) => {
@@ -267,28 +174,11 @@ export function AuthProvider({ children }) {
       console.error('Dictionary sync failed after login:', error);
     }
 
-    // Check for recovery documents first, then sync if no recovery needed
     try {
-      const RecoveryApi = (await import("../api/recoveryApi.js")).default;
-      const recoveredDocs = await RecoveryApi.fetchRecoveredDocs(loginResponse.user.id, loginResponse.access_token);
-
-      if (recoveredDocs && recoveredDocs.length > 0) {
-        // Show recovery modal and let user handle recovery
-        window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: recoveredDocs }));
-      } else {
-        // No recovery docs, proceed with normal document sync
-        const DocumentService = (await import('../services/DocumentService.js')).default;
-        await DocumentService.syncWithBackend();
-      }
-    } catch (error) {
-      console.error('Recovery check failed, falling back to document sync:', error);
-      // Fallback to document sync if recovery check fails
-      try {
-        const DocumentService = (await import('../services/DocumentService.js')).default;
-        await DocumentService.syncWithBackend();
-      } catch (syncError) {
-        console.error('Document sync failed after login:', syncError);
-      }
+      const DocumentService = (await import('../services/DocumentService.js')).default;
+      await DocumentService.syncWithBackend();
+    } catch (syncError) {
+      console.error('Document sync failed after login:', syncError);
     }
 
     setShowLoginModal(false);
@@ -316,28 +206,11 @@ export function AuthProvider({ children }) {
           console.error('Dictionary sync failed after MFA login:', error);
         }
 
-        // Check for recovery documents first, then sync if no recovery needed
         try {
-          const RecoveryApi = (await import("../api/recoveryApi.js")).default;
-          const recoveredDocs = await RecoveryApi.fetchRecoveredDocs(response.user.id, response.access_token);
-
-          if (recoveredDocs && recoveredDocs.length > 0) {
-            // Show recovery modal and let user handle recovery
-            window.dispatchEvent(new CustomEvent('showRecoveryModal', { detail: recoveredDocs }));
-          } else {
-            // No recovery docs, proceed with normal document sync
-            const DocumentService = (await import('../services/DocumentService.js')).default;
-            await DocumentService.syncWithBackend();
-          }
-        } catch (error) {
-          console.error('Recovery check failed after MFA, falling back to document sync:', error);
-          // Fallback to document sync if recovery check fails
-          try {
-            const DocumentService = (await import('../services/DocumentService.js')).default;
-            await DocumentService.syncWithBackend();
-          } catch (syncError) {
-            console.error('Document sync failed after MFA login:', syncError);
-          }
+          const DocumentService = (await import('../services/DocumentService.js')).default;
+          await DocumentService.syncWithBackend();
+        } catch (syncError) {
+          console.error('Document sync failed after MFA login:', syncError);
         }
       } else {
         setMFAError(response.message || "Verification failed.");
@@ -382,7 +255,6 @@ export function AuthProvider({ children }) {
     DocumentStorageService.clearAllData();
     setToken(null);
     setUser(defaultUser);
-    // Mark auth state as unauthenticated for recovery tracking
     localStorage.setItem('lastKnownAuthState', 'unauthenticated');
   }, [setToken, setUser]);
 
