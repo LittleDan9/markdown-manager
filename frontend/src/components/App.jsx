@@ -161,6 +161,7 @@ function App() {
                     value={content}
                     onChange={setContent}
                     onCursorLineChange={setCursorLine}
+                    categoryId={currentDocument?.category_id}
                     fullscreenPreview={fullscreenPreview}
                   />
                 ) : (

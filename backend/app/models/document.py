@@ -11,6 +11,7 @@ from sqlalchemy.sql import func
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.category import Category
     from app.models.user import User
 
 
@@ -22,9 +23,7 @@ class Document(Base):  # type: ignore[misc]
 
     __tablename__ = "documents"
     __allow_unmapped__ = True
-    __table_args__ = (
-        UniqueConstraint("user_id", "name", "category", name="uq_user_name_category"),
-    )
+    __table_args__ = (UniqueConstraint("user_id", "name", name="uq_user_name"),)
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
@@ -49,9 +48,20 @@ class Document(Base):  # type: ignore[misc]
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
 
+    # Foreign key to category (optional)
+    category_id: Mapped[int | None] = mapped_column(
+        Integer,
+        ForeignKey("categories.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
+
     # Relationship
     owner: Mapped["User"] = relationship(
         "User", back_populates="documents", foreign_keys=[user_id]
+    )
+    category_ref: Mapped["Category | None"] = relationship(
+        "Category", back_populates="documents"
     )
     # For current_doc_id relationship (reverse link from User)
     current_users: Mapped[list["User"]] = relationship(

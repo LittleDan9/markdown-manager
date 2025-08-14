@@ -2,18 +2,22 @@ import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
 import { useAuth } from "@/context/AuthContext";
 import customDictionaryApi from "@/api/customDictionaryApi";
+import categoriesApi from "@/api/categoriesApi";
 import DictionaryService from "@/services/DictionaryService";
 import SpellCheckService from "@/services/SpellCheckService";
 
 function DictionaryTab() {
   const { user } = useAuth();
   const [entries, setEntries] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [selectedCategory, setSelectedCategory] = useState(''); // Empty string for user-level
   const [localWordCount, setLocalWordCount] = useState(0);
   const [newWord, setNewWord] = useState("");
   const [newWordNotes, setNewWordNotes] = useState("");
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [syncing, setSyncing] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
 
@@ -22,11 +26,85 @@ function DictionaryTab() {
 
   // Update local word count
   const updateLocalWordCount = async () => {
-    // Ensure SpellCheckService is initialized before getting words
-    const customWords = DictionaryService.getCustomWords();
+    // Get words based on selected category
+    let customWords;
+    if (selectedCategory) {
+      // Category-specific words only (not combined with user words)
+      customWords = DictionaryService.getCategoryWords(selectedCategory);
+    } else {
+      // Just user-level words
+      customWords = DictionaryService.getCustomWords();
+    }
     console.log('updateLocalWordCount: words found:', customWords.length, customWords);
-    console.log('updateLocalWordCount: localStorage raw:', localStorage.getItem('customDictionary'));
+    console.log('updateLocalWordCount: selectedCategory:', selectedCategory);
     setLocalWordCount(customWords.length);
+  };
+
+  // Load categories on mount and when authentication changes
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadCategories();
+    } else {
+      // For demo purposes, show some mock categories when not authenticated
+      // to demonstrate the UI - in production this would be empty
+      setCategories([
+        { id: 'demo-1', name: 'General' },
+        { id: 'demo-2', name: 'Technical' },
+        { id: 'demo-3', name: 'Personal' }
+      ]);
+    }
+  }, [isAuthenticated]);
+
+  // Handle authentication state changes for syncing
+  useEffect(() => {
+    if (isAuthenticated) {
+      // When user logs in, trigger sync and reload everything
+      handleLoginSync();
+    } else {
+      // When user logs out, reset to demo categories
+      setSelectedCategory('');
+      setEntries([]);
+    }
+  }, [isAuthenticated]);
+
+  const handleLoginSync = async () => {
+    try {
+      setSyncing(true);
+      setLoading(true);
+      console.log('User logged in, syncing dictionaries...');
+
+      // First load real categories
+      await loadCategories();
+
+      // Then sync dictionaries (this will handle demo category migration)
+      await DictionaryService.syncAfterLogin();
+
+      // Reset category selection to default
+      setSelectedCategory('');
+
+      // Reload entries
+      await loadEntries();
+
+      setSuccess('Dictionary synced successfully with server! Any words you added locally have been uploaded.');
+    } catch (error) {
+      console.error('Failed to sync after login:', error);
+      setError('Failed to sync dictionary with server');
+    } finally {
+      setSyncing(false);
+      setLoading(false);
+    }
+  };
+
+  const loadCategories = async () => {
+    try {
+      console.log('Loading categories...');
+      const categoriesData = await categoriesApi.getCategories();
+      console.log('Categories loaded:', categoriesData);
+      setCategories(categoriesData);
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      // Don't show error to user - categories are optional
+    }
   };
 
   // Load dictionary entries on mount and when user changes
@@ -37,7 +115,7 @@ function DictionaryTab() {
     // console.log('Is authenticated:', isAuthenticated);
     updateLocalWordCount();
     loadEntries();
-  }, [user, isAuthenticated]);
+  }, [user, isAuthenticated, selectedCategory]);
 
   // Update local word count when component becomes visible or dictionary changes
   useEffect(() => {
@@ -49,11 +127,17 @@ function DictionaryTab() {
     window.addEventListener('dictionary:wordAdded', handler);
     window.addEventListener('dictionary:wordRemoved', handler);
     window.addEventListener('dictionary:updated', handler);
+    window.addEventListener('dictionary:categoryWordAdded', handler);
+    window.addEventListener('dictionary:categoryWordRemoved', handler);
+    window.addEventListener('dictionary:categoryUpdated', handler);
 
     return () => {
       window.removeEventListener('dictionary:wordAdded', handler);
       window.removeEventListener('dictionary:wordRemoved', handler);
       window.removeEventListener('dictionary:updated', handler);
+      window.removeEventListener('dictionary:categoryWordAdded', handler);
+      window.removeEventListener('dictionary:categoryWordRemoved', handler);
+      window.removeEventListener('dictionary:categoryUpdated', handler);
     };
   }, []);
 
@@ -61,9 +145,32 @@ function DictionaryTab() {
     // Update local word count first
     await updateLocalWordCount();
 
-    // If user is not authenticated, just update local count and return
+    // If user is not authenticated, use local storage data
     if (!isAuthenticated) {
-      setEntries([]);
+      // For unauthenticated users, we need to simulate entries from local storage
+      if (selectedCategory) {
+        // When a category is selected, show category-specific words from local storage
+        const categoryWords = DictionaryService.getCategoryWords(selectedCategory);
+        const categoryEntries = categoryWords.map((word, index) => ({
+          id: `local-category-${selectedCategory}-${index}`,
+          word,
+          notes: null,
+          category_id: selectedCategory,
+          created_at: new Date().toISOString()
+        }));
+        setEntries(categoryEntries);
+      } else {
+        // When no category is selected, show user-level words from local storage
+        const userWords = DictionaryService.getCustomWords();
+        const userEntries = userWords.map((word, index) => ({
+          id: `local-user-${index}`,
+          word,
+          notes: null,
+          category_id: null,
+          created_at: new Date().toISOString()
+        }));
+        setEntries(userEntries);
+      }
       return;
     }
 
@@ -72,17 +179,15 @@ function DictionaryTab() {
     setSuccess("");
 
     try {
-      // First sync local and backend dictionaries
-      const syncResult = await DictionaryService.syncAfterLogin();
-
-      // Update local word count after sync
+      // Update local word count after any changes
       await updateLocalWordCount();
 
       // Only load entries from backend if user is authenticated
       const token = localStorage.getItem("authToken");
       if (token) {
-        // Then load the entries from backend for display
-        const data = await customDictionaryApi.getEntries();
+        // Load entries based on selected category
+        const categoryId = selectedCategory || null;
+        const data = await customDictionaryApi.getEntries(categoryId);
 
         // Ensure data is an array
         setEntries(Array.isArray(data) ? data : []);
@@ -117,7 +222,8 @@ function DictionaryTab() {
 
     try {
       // Use the sync service to add word to both local and backend
-      await DictionaryService.addWord(newWord.trim(), newWordNotes.trim() || null);
+      const categoryId = selectedCategory || null;
+      await DictionaryService.addWord(newWord.trim(), newWordNotes.trim() || null, categoryId);
 
       // Update local word count
       await updateLocalWordCount();
@@ -127,7 +233,9 @@ function DictionaryTab() {
 
       setNewWord("");
       setNewWordNotes("");
-      setSuccess(`Added "${newWord.trim()}" to your dictionary`);
+
+      const categoryText = selectedCategory ? ` to ${categories.find(c => c.id === selectedCategory)?.name || 'category'}` : '';
+      setSuccess(`Added "${newWord.trim()}" to your dictionary${categoryText}`);
     } catch (err) {
       if (err.message?.includes("already exists")) {
         setError("This word is already in your dictionary");
@@ -142,7 +250,8 @@ function DictionaryTab() {
   const handleDeleteWord = async (wordToDelete) => {
     try {
       // Use the sync service to delete from both local and backend
-      await DictionaryService.deleteWord(wordToDelete);
+      const categoryId = selectedCategory || null;
+      await DictionaryService.deleteWord(wordToDelete, categoryId);
 
       // Update local word count
       await updateLocalWordCount();
@@ -150,7 +259,8 @@ function DictionaryTab() {
       // Reload entries to update the list
       await loadEntries();
 
-      setSuccess(`Deleted "${wordToDelete}" from your dictionary`);
+      const categoryText = selectedCategory ? ` from ${categories.find(c => c.id === selectedCategory)?.name || 'category'}` : '';
+      setSuccess(`Deleted "${wordToDelete}" from your dictionary${categoryText}`);
     } catch (err) {
       console.error("Error deleting word:", err);
       setError(err.message || "Failed to delete word");
@@ -172,14 +282,16 @@ function DictionaryTab() {
   };
 
   const handleSyncWithBackend = async () => {
+    setSyncing(true);
     setLoading(true);
     try {
       await DictionaryService.syncAfterLogin();
       await loadEntries(); // Reload entries to show any new words
-      setSuccess("Dictionary synced with server");
+      setSuccess("Dictionary synced with server. All categories updated.");
     } catch (err) {
       setError(err.message || "Failed to sync dictionary");
     } finally {
+      setSyncing(false);
       setLoading(false);
     }
   };
@@ -190,18 +302,63 @@ function DictionaryTab() {
         <Card.Title>
           <i className="bi bi-book me-2"></i>Custom Dictionary
           <Badge bg="secondary" className="ms-2">
-            {isAuthenticated ? `${entries.length} words` : `${localWordCount} local words`}
+            {isAuthenticated
+              ? `${entries.length} words`
+              : selectedCategory
+                ? `${localWordCount} category words`
+                : `${localWordCount} personal words`
+            }
           </Badge>
+          {selectedCategory && (
+            <Badge bg="info" className="ms-2">
+              {categories.find(c => c.id === selectedCategory)?.name || 'Category'}
+            </Badge>
+          )}
         </Card.Title>
         <Card.Text className="text-muted">
           {isAuthenticated
-            ? "Manage your personal spell check dictionary. Words added here will not be flagged as misspelled in the editor."
+            ? selectedCategory
+              ? `Manage custom words for the ${categories.find(c => c.id === selectedCategory)?.name || 'selected'} category. These words won't be flagged as misspelled in documents of this category.`
+              : "Manage your personal spell check dictionary. Words added here will not be flagged as misspelled in any document."
             : "Your custom words are stored locally. Log in to sync them across devices."
           }
         </Card.Text>
 
         {error && <Alert variant="danger">{error}</Alert>}
         {success && <Alert variant="success">{success}</Alert>}
+        {syncing && (
+          <Alert variant="info">
+            <Spinner size="sm" className="me-2" />
+            Syncing your local dictionary with the server...
+          </Alert>
+        )}
+
+        {/* Category selection - show when categories are available */}
+        {categories.length > 0 && (
+          <div className="mb-3">
+            <Form.Group>
+              <Form.Label>Dictionary Scope</Form.Label>
+              <Form.Select
+                value={selectedCategory}
+                onChange={(e) => setSelectedCategory(e.target.value)}
+                disabled={loading}
+              >
+                <option value="">Personal Dictionary (All Documents)</option>
+                {categories.map(category => (
+                  <option key={category.id} value={category.id}>
+                    {category.name} Category
+                  </option>
+                ))}
+              </Form.Select>
+              <Form.Text className="text-muted">
+                {isAuthenticated
+                  ? "Choose whether to manage your personal dictionary or a category-specific dictionary."
+                  : "Category selection available after login. Currently showing demo categories."
+                }
+              </Form.Text>
+            </Form.Group>
+          </div>
+        )}
 
         {/* Add new word form */}
         <Form onSubmit={handleAddWord} className="mb-4">
@@ -265,77 +422,108 @@ function DictionaryTab() {
             <div className="mt-2">Loading dictionary...</div>
           </div>
         ) : !isAuthenticated ? (
-          // Show local words for non-authenticated users
+          // Show local words for non-authenticated users with proper category filtering
           <div>
-            {console.log('Rendering local words section, localWordCount:', localWordCount, 'customWords:', SpellCheckService.getCustomWords())}
             <Alert variant="info">
               <i className="bi bi-info-circle me-2"></i>
               You're using a local dictionary. Log in to sync your words across devices.
+              {selectedCategory && (
+                <div className="mt-2">
+                  <strong>Category:</strong> {categories.find(c => c.id === selectedCategory)?.name || 'Selected Category'}
+                </div>
+              )}
             </Alert>
-            {localWordCount === 0 ? (
+            {entries.length === 0 ? (
               <Alert variant="secondary">
-                No custom words yet. Add words above or use "Add to Dictionary" in the editor.
+                {selectedCategory
+                  ? `No custom words in the ${categories.find(c => c.id === selectedCategory)?.name || 'selected'} category yet.`
+                  : "No custom words yet."
+                } Add words above or use "Add to Dictionary" in the editor.
               </Alert>
             ) : (
-              <ListGroup>
-                {SpellCheckService.getCustomWords().map((word, index) => (
-                  <ListGroup.Item key={index} className="d-flex justify-content-between align-items-center">
-                    <div className="fw-bold">{word}</div>
-                    <Button
-                      variant="outline-danger"
-                      size="sm"
-                      onClick={async () => {
-                        SpellCheckService.removeCustomWord(word);
-                        await updateLocalWordCount();
-                        setSuccess(`Removed "${word}" from local dictionary`);
-                      }}
-                      title="Remove word"
-                    >
-                      <i className="bi bi-trash"></i>
-                    </Button>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
+              <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem' }}>
+                <ListGroup variant="flush">
+                  {entries.map((entry) => (
+                    <ListGroup.Item key={entry.id} className="d-flex justify-content-between align-items-center">
+                      <div className="fw-bold">{entry.word}</div>
+                      <Button
+                        variant="outline-danger"
+                        size="sm"
+                        onClick={async () => {
+                          // Handle local word deletion based on category
+                          if (selectedCategory) {
+                            DictionaryService.removeCategoryWord(selectedCategory, entry.word);
+                          } else {
+                            DictionaryService.removeCustomWord(entry.word);
+                          }
+                          await updateLocalWordCount();
+                          await loadEntries(); // Refresh the list
+                          const scopeText = selectedCategory
+                            ? ` from ${categories.find(c => c.id === selectedCategory)?.name || 'category'} dictionary`
+                            : ' from personal dictionary';
+                          setSuccess(`Removed "${entry.word}"${scopeText}`);
+                        }}
+                        title="Remove word"
+                      >
+                        <i className="bi bi-trash"></i>
+                      </Button>
+                    </ListGroup.Item>
+                  ))}
+                </ListGroup>
+              </div>
             )}
           </div>
         ) : !Array.isArray(entries) || entries.length === 0 ? (
           <Alert variant="info">
-            No custom words in your dictionary yet. Add words above or use "Add to Dictionary" in the editor.
+            {selectedCategory
+              ? `No custom words in the ${categories.find(c => c.id === selectedCategory)?.name || 'selected'} category dictionary yet. Add words above or use "Add to Dictionary" in the editor when working with documents in this category.`
+              : "No custom words in your personal dictionary yet. Add words above or use \"Add to Dictionary\" in the editor."
+            }
           </Alert>
         ) : (
-          <ListGroup>
-            {entries.map((entry) => (
-              <ListGroup.Item key={entry.id} className="d-flex justify-content-between align-items-start">
-                <div className="flex-grow-1">
-                  <div className="fw-bold">{entry.word}</div>
-                  {entry.notes && (
-                    <small className="text-muted">{entry.notes}</small>
-                  )}
-                  <small className="text-muted d-block">
-                    Added: {new Date(entry.created_at).toLocaleDateString()}
-                  </small>
-                </div>
-                <div className="btn-group btn-group-sm">
-                  <Button
-                    variant="outline-primary"
-                    size="sm"
-                    onClick={() => setEditingEntry(entry)}
-                    title="Edit notes"
-                  >
-                    <i className="bi bi-pencil"></i>
-                  </Button>
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    onClick={() => setDeleteConfirm(entry)}
-                    title="Delete word"
-                  >
-                    <i className="bi bi-trash"></i>
-                  </Button>
-                </div>
-              </ListGroup.Item>
-            ))}
-          </ListGroup>
+          <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem' }}>
+            <ListGroup variant="flush">
+              {entries.map((entry) => (
+                <ListGroup.Item key={entry.id} className="d-flex justify-content-between align-items-start">
+                  <div className="flex-grow-1">
+                    <div className="fw-bold">{entry.word}</div>
+                    {entry.notes && (
+                      <small className="text-muted">{entry.notes}</small>
+                    )}
+                    <small className="text-muted d-block">
+                      Added: {new Date(entry.created_at).toLocaleDateString()}
+                      {entry.category_id && (
+                        <span className="ms-2">
+                          • Category: {categories.find(c => c.id === entry.category_id)?.name || 'Unknown'}
+                        </span>
+                      )}
+                      {!entry.category_id && (
+                        <span className="ms-2">• Personal Dictionary</span>
+                      )}
+                    </small>
+                  </div>
+                  <div className="btn-group btn-group-sm">
+                    <Button
+                      variant="outline-primary"
+                      size="sm"
+                      onClick={() => setEditingEntry(entry)}
+                      title="Edit notes"
+                    >
+                      <i className="bi bi-pencil"></i>
+                    </Button>
+                    <Button
+                      variant="outline-danger"
+                      size="sm"
+                      onClick={() => setDeleteConfirm(entry)}
+                      title="Delete word"
+                    >
+                      <i className="bi bi-trash"></i>
+                    </Button>
+                  </div>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </div>
         )}
 
         {/* Delete confirmation modal */}

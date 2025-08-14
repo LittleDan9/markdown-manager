@@ -8,7 +8,7 @@ import { useDebouncedCallback } from '@/utils/useDebouncedCallback';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import { useAuth } from '@/context/AuthContext';
 
-export default function Editor({ value, onChange, onCursorLineChange }) {
+export default function Editor({ value, onChange, onCursorLineChange, categoryId }) {
   const containerRef = useRef(null); // for the DOM node
   const editorRef = useRef(null);    // for the Monaco editor instance
   const suggestionsMap = useRef(new Map());
@@ -64,7 +64,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
           }
         );
 
-        registerQuickFixActions(editor, suggestionsMap);
+        registerQuickFixActions(editor, suggestionsMap, categoryId);
         spellCheckDocument(value, 0);
       })
       .catch(console.error);
@@ -100,7 +100,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
           spellCheckDocument(regionText, startOffset);
         }
       }
-      
+
       // If last spell check was more than 30s ago, run immediately
       const now = Date.now();
       if (now - lastSpellCheckTime.current > 30000) {
@@ -118,19 +118,19 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
 
   const spellCheckDocument = async (text, startOffset) => {
     if (!text || text.length === 0) return;
-    
+
     // Skip spell checking for very small changes (likely just typing)
     if (startOffset > 0 && text.length < 10) return;
-    
+
     const isLarge = text.length > 100;
     const progressCb = isLarge ? (processObj) => {
       lastProgressRef.current = processObj;
       setProgress(processObj);
     } : () => { };
-    
+
     try {
-      const issues = await SpellCheckService.scan(text, progressCb);
-      
+      const issues = await SpellCheckService.scan(text, progressCb, categoryId);
+
       if (editorRef.current) {
         suggestionsMap.current = toMonacoMarkers(
           editorRef.current,
@@ -139,7 +139,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
           suggestionsMap.current
         );
       }
-      
+
       if (lastProgressRef.current && lastProgressRef.current.percentComplete >= 100) {
         setTimeout(() => setProgress(null), 500); // Hide after 500ms
       } else {

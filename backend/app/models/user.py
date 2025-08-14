@@ -70,6 +70,11 @@ class User(BaseModel):
     # Custom dictionary relationship
     custom_dictionary_words = relationship("CustomDictionary", back_populates="user")
 
+    # Categories relationship
+    categories = relationship(
+        "Category", back_populates="user", cascade="all, delete-orphan"
+    )
+
     @property
     def full_name(self) -> str:
         """Get the user's full name."""

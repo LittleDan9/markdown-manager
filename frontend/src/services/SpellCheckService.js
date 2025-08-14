@@ -38,7 +38,7 @@ export class SpellCheckService {
     }
   }
 
-  async scan(text, onProgress = () => {}){
+  async scan(text, onProgress = () => {}, categoryId = null){
     await this.init();
 
     const bucket = chunkTextWithOffsets(text, this.chunkSize);
@@ -49,13 +49,51 @@ export class SpellCheckService {
 
     this.workerPool._chunkOffsets = chunks.map(c => c.offset);
 
+    // Get applicable custom words for this category
+    const customWords = DictionaryService.getAllApplicableWords(categoryId);
+
     const issues = await this.workerPool.runSpellCheckOnChunks(
       chunks,
-      DictionaryService.getCustomWords(),
+      customWords,
       onProgress
     );
 
     return issues;
+  }
+
+  /**
+   * Get custom words for backward compatibility
+   * @param {string} [categoryId] - Optional category ID
+   * @returns {string[]} Array of custom words
+   */
+  getCustomWords(categoryId = null) {
+    return DictionaryService.getAllApplicableWords(categoryId);
+  }
+
+  /**
+   * Add a custom word - delegates to DictionaryService
+   * @param {string} word - Word to add
+   * @param {string} [categoryId] - Optional category ID
+   */
+  addCustomWord(word, categoryId = null) {
+    if (categoryId) {
+      DictionaryService.addCategoryWord(categoryId, word);
+    } else {
+      DictionaryService.addCustomWord(word);
+    }
+  }
+
+  /**
+   * Remove a custom word - delegates to DictionaryService
+   * @param {string} word - Word to remove
+   * @param {string} [categoryId] - Optional category ID
+   */
+  removeCustomWord(word, categoryId = null) {
+    if (categoryId) {
+      DictionaryService.removeCategoryWord(categoryId, word);
+    } else {
+      DictionaryService.removeCustomWord(word);
+    }
   }
 }
 

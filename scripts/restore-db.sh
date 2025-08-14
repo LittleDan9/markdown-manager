@@ -103,21 +103,21 @@ GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"$DB_USER\";
 "
 
 # Restore tables in dependency order (removed alembic_version)
-for table in users documents custom_dictionaries document_recovery; do
+for table in users documents custom_dictionaries; do
     echo "$YELLOW📥 Restoring $table table...$NC"
-    
+
     # Extract JSON array for table and check if it exists and is not null
     table_data=$(jq -r ".tables.$table" "$BACKUP_FILE")
-    
+
     if [ "$table_data" != "null" ] && [ "$table_data" != "[]" ] && [ -n "$table_data" ]; then
         # Convert JSON array to individual JSON objects
         echo "$table_data" | jq -c '.[]' > "$TEMP_DIR/$table.json"
-        
+
         # Check if we have actual data
         if [ -s "$TEMP_DIR/$table.json" ]; then
             # Convert each JSON object to INSERT statement
             > "$TEMP_DIR/$table.sql"  # Clear file
-            
+
             while IFS= read -r row; do
                 if [ -n "$row" ] && [ "$row" != "null" ]; then
                     # Escape single quotes in JSON for SQL
@@ -125,7 +125,7 @@ for table in users documents custom_dictionaries document_recovery; do
                     echo "INSERT INTO $table SELECT * FROM json_populate_record(NULL::$table, '$escaped_row');" >> "$TEMP_DIR/$table.sql"
                 fi
             done < "$TEMP_DIR/$table.json"
-            
+
             # Execute SQL file if it has content
             if [ -s "$TEMP_DIR/$table.sql" ]; then
                 psql "$LOCAL_DB_URL" -f "$TEMP_DIR/$table.sql"
@@ -148,7 +148,7 @@ psql "$LOCAL_DB_URL" -c "
 SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;
 SELECT setval(pg_get_serial_sequence('documents', 'id'), COALESCE(MAX(id), 1)) FROM documents;
 SELECT setval(pg_get_serial_sequence('custom_dictionaries', 'id'), COALESCE(MAX(id), 1)) FROM custom_dictionaries;
-SELECT setval(pg_get_serial_sequence('document_recovery', 'id'), COALESCE(MAX(id), 1)) FROM document_recovery;
+SELECT setval(pg_get_serial_sequence('categories', 'id'), COALESCE(MAX(id), 1)) FROM categories;
 "
 
 echo "$GREEN✅ Database restore complete$NC"
@@ -156,19 +156,19 @@ echo "$GREEN✅ Database restore complete$NC"
 # Show restore summary (fixed duplicate query)
 echo "$YELLOW📊 Restore Summary:$NC"
 psql "$LOCAL_DB_URL" -c "
-SELECT 
-    'users' as table_name, COUNT(*) as records 
+SELECT
+    'users' as table_name, COUNT(*) as records
 FROM users
 UNION ALL
-SELECT 
-    'documents' as table_name, COUNT(*) as records 
+SELECT
+    'documents' as table_name, COUNT(*) as records
 FROM documents
 UNION ALL
-SELECT 
-    'custom_dictionaries' as table_name, COUNT(*) as records 
+SELECT
+    'custom_dictionaries' as table_name, COUNT(*) as records
 FROM custom_dictionaries
 UNION ALL
-SELECT 
-    'document_recovery' as table_name, COUNT(*) as records 
-FROM document_recovery;
+SELECT
+    'categories' as table_name, COUNT(*) as records
+FROM categories;
 "

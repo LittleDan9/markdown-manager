@@ -32,7 +32,7 @@ export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold 
   while (start < endPrev && start < endNew && prevValue[start] === newValue[start]) {
     start++;
   }
-  
+
   // Find end of change (from end)
   let tailPrev = endPrev - 1;
   let tailNew = endNew - 1;
@@ -40,16 +40,16 @@ export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold 
     tailPrev--;
     tailNew--;
   }
-  
+
   // Expand to word boundaries and line boundaries for better context
   let scanStart = start;
   let scanEnd = tailNew + 1;
-  
+
   // Expand start to beginning of paragraph or sentence
   while (scanStart > 0 && !/[\n\r]/.test(newValue[scanStart - 1])) {
     scanStart--;
   }
-  
+
   // Expand end to end of paragraph or sentence
   while (scanEnd < newValue.length && !/[\n\r]/.test(newValue[scanEnd])) {
     scanEnd++;
@@ -62,15 +62,15 @@ export function getChangedRegion(editor, prevValue, newValue, fullTextThreshold 
       const model = editor.getModel();
       const startPos = sel.getStartPosition();
       const endPos = sel.getEndPosition();
-      
+
       // Expand to include a few lines around the cursor for context
       const expandLines = 3;
       const expandStartLine = Math.max(1, startPos.lineNumber - expandLines);
       const expandEndLine = Math.min(model.getLineCount(), endPos.lineNumber + expandLines);
-      
+
       const selStartOffset = model.getOffsetAt({ lineNumber: expandStartLine, column: 1 });
       const selEndOffset = model.getOffsetAt({ lineNumber: expandEndLine, column: model.getLineMaxColumn(expandEndLine) });
-      
+
       // Use the expanded selection if it makes sense
       scanStart = Math.min(scanStart, selStartOffset);
       scanEnd = Math.max(scanEnd, selEndOffset);
@@ -123,14 +123,14 @@ export function toMonacoMarkers(
         ...issues.map(i => startOffset + i.offset + (i.word ? i.word.length : 0))
       );
     }
-    
+
     // Keep markers outside the scanned region
     filteredOld = oldMarkers.filter(m => {
       const markerStart = model.getOffsetAt({ lineNumber: m.startLineNumber, column: m.startColumn });
       const markerEnd = model.getOffsetAt({ lineNumber: m.endLineNumber, column: m.endColumn });
       return markerEnd < startOffset || markerStart > regionEndOffset;
     });
-    
+
     // Preserve suggestions for markers we're keeping
     filteredOld.forEach(m => {
       const key = `${m.startLineNumber}:${m.startColumn}`;
@@ -180,7 +180,7 @@ export function toMonacoMarkers(
  *    - “Replace with…” suggestions
  *    - “Add to dictionary”
  */
-export function registerQuickFixActions(editor, suggestionsMapRef) {
+export function registerQuickFixActions(editor, suggestionsMapRef, categoryId = null) {
   const disposables = [];
 
   // code action provider
@@ -248,7 +248,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
           id: 'spell.addToDictionary',
           title: 'Add to dictionary',
           // Only pass the Monaco editor instance, never a ref or DOM node
-          arguments: [key, range, editor, suggestionsMapRef]
+          arguments: [key, range, editor, suggestionsMapRef, categoryId]
         }
       });
 
@@ -259,8 +259,8 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
   // Register the command globally only once
   if (!monaco.editor._spellAddToDictionaryRegistered) {
     monaco.editor.registerCommand('spell.addToDictionary', (accessor, ...args) => {
-      // args: [key, range, editor, suggestionsMapRef]
-      const [key, range, editorInstance, suggestionsMapRefArg] = args;
+      // args: [key, range, editor, suggestionsMapRef, categoryId]
+      const [key, range, editorInstance, suggestionsMapRefArg, categoryId] = args;
       if (!editorInstance || typeof editorInstance.getModel !== 'function' || !suggestionsMapRefArg) {
         console.error('spell.addToDictionary: Invalid editor instance passed:', editorInstance);
         return;
@@ -270,12 +270,18 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
       const wordInfo = model.getWordAtPosition(range.getStartPosition())
       if (!wordInfo || !wordInfo.word) return;
 
-      DictionaryService.addCustomWord(wordInfo.word);
+      // Add word to the appropriate dictionary scope
+      if (categoryId) {
+        DictionaryService.addCategoryWord(categoryId, wordInfo.word);
+      } else {
+        DictionaryService.addCustomWord(wordInfo.word);
+      }
+
       suggestionsMapRefArg.current.delete(key);
 
       // Run a full document scan to update all markers for the new dictionary word
       const fullText = model.getValue();
-      SpellCheckService.scan(fullText).then(issues => {
+      SpellCheckService.scan(fullText, () => {}, categoryId).then(issues => {
         toMonacoMarkers({ getModel: () => model }, issues, 0);
       });
     });
@@ -284,13 +290,13 @@ export function registerQuickFixActions(editor, suggestionsMapRef) {
 
   if (!monaco.editor._spellCheckRegionRegistered) {
     monaco.editor.registerCommand('spell.checkRegion', (accessor, ...args) => {
-      const [range, editorInstance] = args;
+      const [range, editorInstance, categoryId] = args;
       const model = editorInstance.getModel();
       const lineNumber = range.startLineNumber;
       const lineContent = model.getLineContent(lineNumber);
       const regionText = lineContent.slice(range.startColumn - 1);
       const startOffset = model.getOffsetAt({ lineNumber, column: 0 });
-      SpellCheckService.scan(lineContent).then(issues => {
+      SpellCheckService.scan(lineContent, () => {}, categoryId).then(issues => {
         toMonacoMarkers({ getModel: () => model }, issues, startOffset);
       });
     });

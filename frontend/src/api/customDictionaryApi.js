@@ -5,20 +5,43 @@ import { Api } from './api';
 
 class CustomDictionaryAPI extends Api {
   /**
-   * Get all custom dictionary words for the current user (words only)
+   * Get custom dictionary words for the current user, optionally filtered by category
+   * @param {number} [categoryId] - Optional category ID to filter words
    * @returns {Promise<{words: string[], count: number}>}
    */
-  async getWords() {
-    const response = await this.apiCall('/dictionary/words');
+  async getWords(categoryId = null) {
+    const params = categoryId ? { category_id: categoryId } : {};
+    const response = await this.apiCall('/dictionary/words', 'GET', null, params);
     return response.data;
   }
 
   /**
-   * Get all custom dictionary entries with details for the current user
+   * Get all custom dictionary words for the current user (both user-level and category-level)
+   * @returns {Promise<{words: string[], count: number}>}
+   */
+  async getAllWords() {
+    const response = await this.apiCall('/dictionary/words/all');
+    return response.data;
+  }
+
+  /**
+   * Get custom dictionary words for a specific category
+   * @param {number} categoryId - The category ID
+   * @returns {Promise<{category_id: number, words: string[], count: number}>}
+   */
+  async getCategoryWords(categoryId) {
+    const response = await this.apiCall(`/dictionary/category/${categoryId}/words`);
+    return response.data;
+  }
+
+  /**
+   * Get custom dictionary entries with details, optionally filtered by category
+   * @param {number} [categoryId] - Optional category ID to filter entries
    * @returns {Promise<Array>}
    */
-  async getEntries() {
-    const response = await this.apiCall('/dictionary/');
+  async getEntries(categoryId = null) {
+    const params = categoryId ? { category_id: categoryId } : {};
+    const response = await this.apiCall('/dictionary/', 'GET', null, params);
     return response.data;
   }
 
@@ -26,13 +49,19 @@ class CustomDictionaryAPI extends Api {
    * Add a new word to the custom dictionary
    * @param {string} word - The word to add
    * @param {string} [notes] - Optional notes about the word
+   * @param {number} [categoryId] - Optional category ID for category-level dictionary
    * @returns {Promise<Object>}
    */
-  async addWord(word, notes = null) {
-    const response = await this.apiCall('/dictionary/', 'POST', {
+  async addWord(word, notes = null, categoryId = null) {
+    const data = {
       word: word.trim(),
       notes
-    });
+    };
+    if (categoryId) {
+      data.category_id = categoryId;
+    }
+
+    const response = await this.apiCall('/dictionary/', 'POST', data);
     return response.data;
   }
 
@@ -62,20 +91,24 @@ class CustomDictionaryAPI extends Api {
   /**
    * Delete a word from the custom dictionary by word text
    * @param {string} word - The word to delete
+   * @param {number} [categoryId] - Optional category ID for category-specific deletion
    * @returns {Promise<Object>}
    */
-  async deleteWordByText(word) {
-    const response = await this.apiCall(`/dictionary/word/${encodeURIComponent(word)}`, 'DELETE');
+  async deleteWordByText(word, categoryId = null) {
+    const params = categoryId ? { category_id: categoryId } : {};
+    const response = await this.apiCall(`/dictionary/word/${encodeURIComponent(word)}`, 'DELETE', null, params);
     return response.data;
   }
 
   /**
    * Bulk add words to the custom dictionary
    * @param {string[]} words - Array of words to add
+   * @param {number} [categoryId] - Optional category ID for category-level dictionary
    * @returns {Promise<Array>}
    */
-  async bulkAddWords(words) {
-    const response = await this.apiCall('/dictionary/bulk', 'POST', words);
+  async bulkAddWords(words, categoryId = null) {
+    const params = categoryId ? { category_id: categoryId } : {};
+    const response = await this.apiCall('/dictionary/bulk', 'POST', words, params);
     return response.data;
   }
 }

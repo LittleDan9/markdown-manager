@@ -1,14 +1,19 @@
 import customDictionaryApi from '../api/customDictionaryApi';
+import categoriesApi from '../api/categoriesApi';
 import AuthService from './AuthService.js';
 
 // DictionaryService.js
 // Manages custom dictionary words, localStorage, and backend sync for spell checking
+// Supports both user-level and category-level dictionaries
 
 class DictionaryService {
   constructor() {
     this.CUSTOM_WORDS_KEY = 'customDictionary';
+    this.CATEGORY_WORDS_KEY = 'categoryCustomDictionary';
     this.customWords = new Set();
+    this.categoryWords = new Map(); // Map<categoryId, Set<word>>
     this.loadCustomWordsFromStorage();
+    this.loadCategoryWordsFromStorage();
   }
 
   /**
@@ -16,12 +21,48 @@ class DictionaryService {
    */
   clearLocal() {
     this.customWords.clear();
+    this.categoryWords.clear();
     localStorage.removeItem(this.CUSTOM_WORDS_KEY);
+    localStorage.removeItem(this.CATEGORY_WORDS_KEY);
+  }
+
+  /**
+   * Load category words from localStorage
+   */
+  loadCategoryWordsFromStorage() {
+    try {
+      const stored = localStorage.getItem(this.CATEGORY_WORDS_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        this.categoryWords = new Map();
+        for (const [categoryId, words] of Object.entries(data)) {
+          this.categoryWords.set(categoryId, new Set(words));
+        }
+      }
+    } catch (err) {
+      console.error('Error loading category words from storage:', err);
+    }
+  }
+
+  /**
+   * Save category words to localStorage
+   */
+  saveCategoryWordsToStorage() {
+    try {
+      const data = {};
+      for (const [categoryId, wordsSet] of this.categoryWords.entries()) {
+        data[categoryId] = Array.from(wordsSet);
+      }
+      localStorage.setItem(this.CATEGORY_WORDS_KEY, JSON.stringify(data));
+    } catch (err) {
+      console.error('Error saving category words to storage:', err);
+    }
   }
 
   /**
    * Sync dictionary with backend after login
    * Loads words from backend and merges with local storage
+   * Now supports both user-level and category-level dictionaries
    */
   async syncAfterLogin() {
     try {
@@ -34,33 +75,36 @@ class DictionaryService {
         return this.getCustomWords();
       }
 
-      // Get words from backend
-      const response = await customDictionaryApi.getWords();
-      console.log('Backend response:', response);
+      // Get user-level words from backend
+      const userResponse = await customDictionaryApi.getWords();
+      console.log('Backend user words response:', userResponse);
 
       // Extract words array from response
-      const backendWords = response.words || [];
-      console.log('Backend words:', backendWords);
+      const backendUserWords = userResponse.words || [];
+      console.log('Backend user words:', backendUserWords);
 
-      // Get local words
-      const localWords = this.getCustomWords();
-      console.log('Local words:', localWords);
+      // Get local user words
+      const localUserWords = this.getCustomWords();
+      console.log('Local user words:', localUserWords);
 
-      // Merge and update local storage
-      const mergedWords = this.syncWithBackend(backendWords);
+      // Merge user-level words and update local storage
+      const mergedUserWords = this.syncWithBackend(backendUserWords);
 
-      // If there are local words not on backend, upload them
-      const wordsToUpload = localWords.filter(word =>
-        !backendWords.includes(word.toLowerCase())
+      // If there are local user words not on backend, upload them
+      const userWordsToUpload = localUserWords.filter(word =>
+        !backendUserWords.includes(word.toLowerCase())
       );
 
-      if (wordsToUpload.length > 0) {
-        console.log(`Uploading ${wordsToUpload.length} local words to backend...`);
-        await customDictionaryApi.bulkAddWords(wordsToUpload);
+      if (userWordsToUpload.length > 0) {
+        console.log(`Uploading ${userWordsToUpload.length} local user words to backend...`);
+        await customDictionaryApi.bulkAddWords(userWordsToUpload);
       }
 
-      console.log(`Dictionary sync complete. Total words: ${mergedWords.length}`);
-      return mergedWords;
+      // Sync category-level dictionaries
+      await this.syncCategoryWords();
+
+      console.log(`Dictionary sync complete. Total user words: ${mergedUserWords.length}`);
+      return mergedUserWords;
     } catch (error) {
       console.error('Failed to sync custom dictionary:', error);
       // Don't throw error - allow app to continue working with local words
@@ -69,19 +113,164 @@ class DictionaryService {
   }
 
   /**
+   * Sync category-level words with backend
+   * Handles mapping from demo categories to real categories during login
+   */
+  async syncCategoryWords() {
+    try {
+      // Get all categories from backend to sync their dictionaries
+      const categories = await categoriesApi.getCategories();
+      console.log('Syncing categories:', categories);
+
+      // Create a mapping from demo categories to real categories by name
+      const demoToRealCategoryMap = this.createCategoryMapping(categories);
+
+      // Sync real categories
+      for (const category of categories) {
+        try {
+          // Get category words from backend
+          const categoryResponse = await customDictionaryApi.getWords(category.id);
+          const backendCategoryWords = categoryResponse.words || [];
+
+          // Get local category words (both from real category ID and potential demo mapping)
+          let localCategoryWords = this.getCategoryWords(category.id);
+
+          // Also check if there are words stored under demo category IDs that should be mapped to this real category
+          const demoWords = this.getMappedDemoWords(category, demoToRealCategoryMap);
+          if (demoWords.length > 0) {
+            console.log(`Found ${demoWords.length} demo words to migrate to category ${category.name}`);
+            localCategoryWords = [...new Set([...localCategoryWords, ...demoWords])];
+          }
+
+          // Merge category words
+          this.syncCategoryWithBackend(category.id, backendCategoryWords);
+
+          // Upload any local category words not on backend
+          const categoryWordsToUpload = localCategoryWords.filter(word =>
+            !backendCategoryWords.includes(word.toLowerCase())
+          );
+
+          if (categoryWordsToUpload.length > 0) {
+            console.log(`Uploading ${categoryWordsToUpload.length} local words for category ${category.name}...`);
+            await customDictionaryApi.bulkAddWords(categoryWordsToUpload, category.id);
+
+            // Update local storage with the real category ID
+            this.migrateDemoWordsToRealCategory(category, demoWords);
+          }
+        } catch (error) {
+          console.error(`Failed to sync category ${category.name}:`, error);
+          // Continue with other categories
+        }
+      }
+
+      // Clean up any remaining demo category data
+      this.cleanupDemoCategories();
+
+    } catch (error) {
+      console.error('Failed to sync category dictionaries:', error);
+    }
+  }
+
+  /**
+   * Create mapping from demo categories to real categories by name
+   * @param {Array} realCategories - Real categories from backend
+   * @returns {Map} Mapping from demo category name to real category
+   */
+  createCategoryMapping(realCategories) {
+    const demoCategories = [
+      { id: 'demo-1', name: 'General' },
+      { id: 'demo-2', name: 'Technical' },
+      { id: 'demo-3', name: 'Personal' }
+    ];
+
+    const mapping = new Map();
+
+    for (const demoCategory of demoCategories) {
+      const realCategory = realCategories.find(cat =>
+        cat.name.toLowerCase() === demoCategory.name.toLowerCase()
+      );
+      if (realCategory) {
+        mapping.set(demoCategory.id, realCategory);
+      }
+    }
+
+    return mapping;
+  }
+
+  /**
+   * Get words stored under demo category IDs that should be mapped to a real category
+   * @param {Object} realCategory - Real category from backend
+   * @param {Map} mapping - Demo to real category mapping
+   * @returns {Array} Words to migrate
+   */
+  getMappedDemoWords(realCategory, mapping) {
+    const words = [];
+
+    for (const [demoId, mappedCategory] of mapping.entries()) {
+      if (mappedCategory.id === realCategory.id) {
+        const demoWords = this.getCategoryWords(demoId);
+        words.push(...demoWords);
+      }
+    }
+
+    return words;
+  }
+
+  /**
+   * Migrate words from demo category to real category in local storage
+   * @param {Object} realCategory - Real category from backend
+   * @param {Array} wordsToMigrate - Words to migrate
+   */
+  migrateDemoWordsToRealCategory(realCategory, wordsToMigrate) {
+    if (wordsToMigrate.length === 0) return;
+
+    // Add words to real category
+    for (const word of wordsToMigrate) {
+      this.addCategoryWord(realCategory.id, word);
+    }
+  }
+
+  /**
+   * Clean up demo category data from local storage
+   */
+  cleanupDemoCategories() {
+    const demoIds = ['demo-1', 'demo-2', 'demo-3'];
+    let cleaned = false;
+
+    for (const demoId of demoIds) {
+      if (this.categoryWords.has(demoId)) {
+        this.categoryWords.delete(demoId);
+        cleaned = true;
+      }
+    }
+
+    if (cleaned) {
+      this.saveCategoryWordsToStorage();
+      console.log('Cleaned up demo category data');
+    }
+  }
+
+  /**
    * Add word to both local storage and backend
    * @param {string} word - Word to add
    * @param {string} [notes] - Optional notes
+   * @param {string} [categoryId] - Optional category ID for category-level dictionary
    */
-  async addWord(word, notes = null) {
-    this.addCustomWord(word);
+  async addWord(word, notes = null, categoryId = null) {
+    if (categoryId) {
+      this.addCategoryWord(categoryId, word);
+    } else {
+      this.addCustomWord(word);
+    }
+
     const { token, isAuthenticated } = AuthService.getAuthState();
     if (!isAuthenticated || !token) {
       console.log('No auth token, word added to local storage only');
       return;
     }
+
     try {
-      await customDictionaryApi.addWord(word, notes);
+      await customDictionaryApi.addWord(word, notes, categoryId);
     } catch (error) {
       console.error('Failed to add word to backend:', error);
       throw error;
@@ -91,16 +280,23 @@ class DictionaryService {
   /**
    * Remove word from both local storage and backend
    * @param {string} word - Word to remove
+   * @param {string} [categoryId] - Optional category ID for category-level dictionary
    */
-  async removeWord(word) {
-    this.removeCustomWord(word);
+  async removeWord(word, categoryId = null) {
+    if (categoryId) {
+      this.removeCategoryWord(categoryId, word);
+    } else {
+      this.removeCustomWord(word);
+    }
+
     const { token, isAuthenticated } = AuthService.getAuthState();
     if (!isAuthenticated || !token) {
       console.log('No auth token, word removed from local storage only');
       return;
     }
+
     try {
-      await customDictionaryApi.deleteWordByText(word);
+      await customDictionaryApi.deleteWordByText(word, categoryId);
     } catch (error) {
       console.error('Failed to remove word from backend:', error);
       throw error;
@@ -110,9 +306,10 @@ class DictionaryService {
   /**
    * Alias for removeWord to match expected API
    * @param {string} word - Word to delete
+   * @param {string} [categoryId] - Optional category ID
    */
-  async deleteWord(word) {
-    return this.removeWord(word);
+  async deleteWord(word, categoryId = null) {
+    return this.removeWord(word, categoryId);
   }
 
   /**
@@ -120,7 +317,88 @@ class DictionaryService {
    */
   clearLocal() {
     this.setCustomWords([]);
+    this.setCategoryWords(new Map());
     console.log('Local custom dictionary cleared');
+  }
+
+  /**
+   * Add a word to the category-specific custom dictionary
+   * @param {string} categoryId - The category ID
+   * @param {string} word - The word to add
+   */
+  addCategoryWord(categoryId, word) {
+    const normalizedWord = word.toLowerCase().trim();
+    if (normalizedWord && categoryId) {
+      if (!this.categoryWords.has(categoryId)) {
+        this.categoryWords.set(categoryId, new Set());
+      }
+      this.categoryWords.get(categoryId).add(normalizedWord);
+      this.saveCategoryWordsToStorage();
+      window.dispatchEvent(new CustomEvent('dictionary:categoryWordAdded', {
+        detail: { categoryId, word: normalizedWord }
+      }));
+    }
+  }
+
+  /**
+   * Remove a word from the category-specific custom dictionary
+   * @param {string} categoryId - The category ID
+   * @param {string} word - The word to remove
+   */
+  removeCategoryWord(categoryId, word) {
+    const normalizedWord = word.toLowerCase().trim();
+    if (this.categoryWords.has(categoryId)) {
+      this.categoryWords.get(categoryId).delete(normalizedWord);
+      if (this.categoryWords.get(categoryId).size === 0) {
+        this.categoryWords.delete(categoryId);
+      }
+      this.saveCategoryWordsToStorage();
+      window.dispatchEvent(new CustomEvent('dictionary:categoryWordRemoved', {
+        detail: { categoryId, word: normalizedWord }
+      }));
+    }
+  }
+
+  /**
+   * Get words for a specific category
+   * @param {string} categoryId - The category ID
+   * @returns {string[]}
+   */
+  getCategoryWords(categoryId) {
+    if (!this.categoryWords.has(categoryId)) {
+      return [];
+    }
+    return Array.from(this.categoryWords.get(categoryId));
+  }
+
+  /**
+   * Check if a word is in a category's custom dictionary
+   * @param {string} categoryId - The category ID
+   * @param {string} word - The word to check
+   * @returns {boolean}
+   */
+  isCategoryWord(categoryId, word) {
+    if (!this.categoryWords.has(categoryId)) {
+      return false;
+    }
+    return this.categoryWords.get(categoryId).has(word.toLowerCase());
+  }
+
+  /**
+   * Get all applicable custom words for spell checking
+   * Combines user-level words with category-specific words
+   * @param {string} [categoryId] - Current document's category ID
+   * @returns {string[]}
+   */
+  getAllApplicableWords(categoryId = null) {
+    const userWords = this.getCustomWords();
+    if (!categoryId) {
+      return userWords;
+    }
+
+    const categoryWords = this.getCategoryWords(categoryId);
+    // Combine and deduplicate
+    return [...new Set([...userWords, ...categoryWords])];
   }
 
   /**
@@ -202,6 +480,21 @@ class DictionaryService {
   }
 
   /**
+   * Set category words (used when loading from backend)
+   * @param {Map<string, string[]>} categoryWordsMap - Map of category ID to words array
+   */
+  setCategoryWords(categoryWordsMap) {
+    this.categoryWords = new Map();
+    for (const [categoryId, words] of categoryWordsMap.entries()) {
+      this.categoryWords.set(categoryId, new Set(words.map(word => word.toLowerCase())));
+    }
+    this.saveCategoryWordsToStorage();
+    window.dispatchEvent(new CustomEvent('dictionary:categoryUpdated', {
+      detail: { categoryWords: this.categoryWords }
+    }));
+  }
+
+  /**
    * Sync custom words with backend (add any new words from backend)
    * @param {string[]} backendWords - Words from backend
    */
@@ -213,6 +506,30 @@ class DictionaryService {
     this.customWords = mergedWords;
     this.saveCustomWordsToStorage();
     window.dispatchEvent(new CustomEvent('dictionary:synced', { detail: { words: Array.from(this.customWords) } }));
+    return Array.from(mergedWords);
+  }
+
+  /**
+   * Sync category words with backend
+   * @param {string} categoryId - Category ID
+   * @param {string[]} backendWords - Words from backend for this category
+   */
+  syncCategoryWithBackend(categoryId, backendWords) {
+    const currentWords = this.getCategoryWords(categoryId);
+    const safeBackendWords = Array.isArray(backendWords) ? backendWords : [];
+    const backendWordsSet = new Set(safeBackendWords.map(word => word.toLowerCase()));
+    const mergedWords = new Set([...currentWords, ...backendWordsSet]);
+
+    if (mergedWords.size > 0) {
+      this.categoryWords.set(categoryId, mergedWords);
+    } else {
+      this.categoryWords.delete(categoryId);
+    }
+
+    this.saveCategoryWordsToStorage();
+    window.dispatchEvent(new CustomEvent('dictionary:categorySynced', {
+      detail: { categoryId, words: Array.from(mergedWords) }
+    }));
     return Array.from(mergedWords);
   }
 }

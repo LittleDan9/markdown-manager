@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 
 
 class CustomDictionaryBase(BaseModel):
@@ -12,12 +12,18 @@ class CustomDictionaryBase(BaseModel):
         ..., min_length=1, max_length=100, description="The word to add to dictionary"
     )
     notes: Optional[str] = Field(None, description="Optional notes about the word")
+    category_id: Optional[int] = Field(
+        None, description="Optional category ID for category-level dictionary"
+    )
 
 
 class CustomDictionaryCreate(CustomDictionaryBase):
     """Schema for creating a custom dictionary entry."""
 
-    pass
+    @validator("word")
+    def validate_word(cls, v):
+        """Validate and normalize the word."""
+        return v.lower().strip()
 
 
 class CustomDictionaryUpdate(BaseModel):
@@ -31,6 +37,7 @@ class CustomDictionaryResponse(CustomDictionaryBase):
 
     id: int
     user_id: int
+    category_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
 
@@ -45,3 +52,13 @@ class CustomDictionaryWordsResponse(BaseModel):
 
     words: list[str] = Field(..., description="List of custom words")
     count: int = Field(..., description="Total number of custom words")
+
+
+class CategoryDictionaryWordsResponse(BaseModel):
+    """Schema for getting custom words for a specific category."""
+
+    category_id: int = Field(..., description="Category ID")
+    words: list[str] = Field(..., description="List of custom words for this category")
+    count: int = Field(
+        ..., description="Total number of custom words for this category"
+    )
