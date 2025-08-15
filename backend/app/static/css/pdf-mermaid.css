@@ -1,55 +1,65 @@
 /* Mermaid PDF Print Styles
-   Restrict .mermaid diagrams to fit within a single page, prevent SVG splitting, and control page breaks for optimal layout.
+   Intelligent page break control for diagrams to ensure optimal layout
 */
 
 .mermaid {
     max-width: 100%;
-    max-height: 10.5in; /* A4 page height minus margins (approx 11.7in - 2*0.5in) */
+    max-height: 9.5in; /* Letter page height minus margins (11in - 2*0.5in - 0.5in buffer) */
     width: 100%;
     display: block;
     margin: 24px 0;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
     overflow: hidden;
+    /* Ensure diagrams don't get orphaned */
+    orphans: 1;
+    widows: 1;
 }
 
 .mermaid svg {
     max-width: 100%;
-    max-height: 10.5in;
+    max-height: 9.5in;
     width: 100%;
     height: auto;
     display: block;
-    page-break-inside: avoid;
-    break-inside: avoid;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
 }
 
-/* Prevent page break before mermaid if less than 50% page height remains */
+/* Smart page break handling for mermaid diagrams */
 .mermaid {
-    break-before: auto;
+    /* Default: try to keep with previous content */
     page-break-before: auto;
+    break-before: auto;
+    /* Always avoid breaking after a diagram within a small space */
+    page-break-after: avoid;
+    break-after: avoid-page;
 }
 
-@media print {
-  .mermaid {
-    /* If less than 50% of the page remains, force page break before */
-    /* This is a hint; actual support depends on the PDF renderer */
-    break-before: page;
-    page-break-before: always;
-  }
+/* If mermaid is preceded by a heading, try to keep them together */
+h1 + .mermaid,
+h2 + .mermaid,
+h3 + .mermaid,
+h4 + .mermaid,
+h5 + .mermaid,
+h6 + .mermaid {
+    page-break-before: avoid;
+    break-before: avoid-page;
 }
 
-/* Prevent content after mermaid from being orphaned on a new page if less than 15% remains */
+/* Content following mermaid should have some breathing room */
 .mermaid + * {
-    break-after: auto;
-    page-break-after: auto;
+    page-break-before: auto;
+    break-before: auto;
+    /* Avoid orphaning the next element */
+    orphans: 2;
+    widows: 2;
 }
 
-@media print {
-  .mermaid + * {
-    /* If less than 15% of the page remains, force page break after mermaid */
-    break-after: page;
-    page-break-after: always;
-  }
+/* Special handling for multiple consecutive diagrams */
+.mermaid + .mermaid {
+    /* Allow page breaks between consecutive diagrams if needed */
+    page-break-before: auto;
+    break-before: auto;
+    margin-top: 32px; /* Extra space between diagrams */
 }
-
-/* Note: CSS cannot dynamically measure remaining page height, so these rules are best-effort hints for paged media renderers. For precise control, use a PDF renderer that supports advanced CSS Paged Media features. */
