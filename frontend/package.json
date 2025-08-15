@@ -22,7 +22,10 @@
   "license": "ISC",
   "dependencies": {
     "@codiva/aws-icons": "^2.0.4",
+    "@iconify-json/devicon": "^1.2.41",
+    "@iconify-json/flat-color-icons": "^1.2.3",
     "@iconify-json/logos": "^1.2.9",
+    "@iconify-json/material-icon-theme": "^1.2.22",
     "aws-icons": "^3.0.0",
     "bootstrap": "^5.3.7",
     "bootstrap-icons": "^1.13.1",

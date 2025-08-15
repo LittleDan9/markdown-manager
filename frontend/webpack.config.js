@@ -6,7 +6,6 @@ const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { RuntimeGlobals, experiments } = require('webpack');
 const { userInfo } = require('os');
-const { split, min, includes } = require('lodash');
 
 
 module.exports = {
@@ -174,7 +173,45 @@ module.exports = {
   optimization: {
     splitChunks: {
       chunks: 'all',
+      maxInitialRequests: 20,
+      maxAsyncRequests: 20,
+      cacheGroups: {
+        // Separate Monaco Editor into its own chunk
+        monaco: {
+          test: /[\\/]node_modules[\\/]monaco-editor[\\/]/,
+          name: 'monaco-editor',
+          chunks: 'all',
+          priority: 30,
+          enforce: true,
+        },
+        // Separate Iconify icon packs into their own chunks
+        iconifyPacks: {
+          test: /[\\/]node_modules[\\/]@iconify-json[\\/]/,
+          name: 'iconify-packs',
+          chunks: 'all',
+          priority: 25,
+          enforce: true,
+        },
+        // Common vendor libraries
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10,
+          minChunks: 1,
+        },
+      },
     },
     minimize: false,
+  },
+  // Performance hints for development
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 2000000, // 2MB for development (more lenient)
+    maxAssetSize: 1000000, // 1MB per asset
+    assetFilter: function(assetFilename) {
+      // Only warn for JS and CSS files, ignore fonts/images
+      return /\.(js|css)$/.test(assetFilename);
+    }
   },
 };

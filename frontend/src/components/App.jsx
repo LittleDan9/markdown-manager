@@ -201,7 +201,7 @@ function App() {
           data-bs-theme={document.documentElement.getAttribute('data-bs-theme')}
         >
           <Modal.Header closeButton className="border-bottom">
-            <Modal.Title>AWS Icon Browser</Modal.Title>
+            <Modal.Title>Icon Browser</Modal.Title>
           </Modal.Header>
           <Modal.Body style={{ minHeight: '70vh' }} className="p-0">
             <IconBrowser />
