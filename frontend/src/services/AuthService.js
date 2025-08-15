@@ -30,94 +30,103 @@ class AuthService {
     this.isAuthenticated = false;
     this.refreshInterval = null;
     this.justLoggedIn = false;
+    this.initializationPromise = null;
+    this.isInitialized = false;
 
     // Initialize auth state
-    this.initializeAuth();
+    this.initializationPromise = this.initializeAuth();
   }
 
   /**
    * Initialize authentication state on service creation
+   * Always tries refresh token first, regardless of stored access token state
    */
   async initializeAuth() {
-    if (this.token && this.token.trim() !== '') {
-      const user = await this.fetchCurrentUser(this.token);
-      if (!user) {
-        // Token invalid, try refresh
-        try {
-          const res = await UserAPI.refreshToken();
-          if (res && res.access_token) {
-            this.setToken(res.access_token);
-            const refreshedUser = await this.fetchCurrentUser(res.access_token);
-            if (refreshedUser) {
-              this.setUser(refreshedUser);
-              this.isAuthenticated = true;
-              this.startTokenRefresh();
-              localStorage.setItem('lastKnownAuthState', 'authenticated');
-
-              // Load profile settings
-              if (refreshedUser.sync_preview_scroll_enabled !== undefined) {
-                localStorage.setItem("syncPreviewScrollEnabled", Boolean(refreshedUser.sync_preview_scroll_enabled));
-              }
-              if (refreshedUser.autosave_enabled !== undefined) {
-                localStorage.setItem("autosaveEnabled", Boolean(refreshedUser.autosave_enabled));
-              }
-            } else {
-              this.performLogout();
-            }
-          } else {
-            this.performLogout();
+    console.log('AuthService: Starting initialization');
+    
+    try {
+      // Always try refresh token first - this ensures we get the latest auth state
+      console.log('AuthService: Attempting refresh token');
+      const refreshResult = await UserAPI.refreshToken();
+      
+      if (refreshResult && refreshResult.access_token) {
+        console.log('AuthService: Refresh successful, validating user');
+        this.setToken(refreshResult.access_token);
+        const user = await this.fetchCurrentUser(refreshResult.access_token);
+        
+        if (user) {
+          console.log('AuthService: User validation successful', user.email);
+          this.setUser(user);
+          this.isAuthenticated = true;
+          this.startTokenRefresh();
+          localStorage.setItem('lastKnownAuthState', 'authenticated');
+          
+          // Load profile settings
+          if (user.sync_preview_scroll_enabled !== undefined) {
+            localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
           }
-        } catch (err) {
-          console.error('Token refresh failed during initialization:', err);
+          if (user.autosave_enabled !== undefined) {
+            localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
+          }
+        } else {
+          console.log('AuthService: User validation failed after refresh');
           this.performLogout();
         }
       } else {
-        this.setUser(user);
-        this.isAuthenticated = true;
-        this.startTokenRefresh();
-        localStorage.setItem('lastKnownAuthState', 'authenticated');
-
-        // Load profile settings
-        if (user.sync_preview_scroll_enabled !== undefined) {
-          localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
-        }
-        if (user.autosave_enabled !== undefined) {
-          localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
-        }
-      }
-    } else {
-      // Check if we previously had authentication and try refresh
-      const hadPreviousAuth = localStorage.getItem('lastKnownAuthState') === 'authenticated';
-      if (hadPreviousAuth) {
-        try {
-          const res = await UserAPI.refreshToken();
-          if (res && res.access_token) {
-            this.setToken(res.access_token);
-            const user = await this.fetchCurrentUser(res.access_token);
-            if (user) {
-              this.setUser(user);
-              this.isAuthenticated = true;
-              this.startTokenRefresh();
-              localStorage.setItem('lastKnownAuthState', 'authenticated');
-            } else {
-              this.performLogout();
+        console.log('AuthService: Refresh failed, checking stored token');
+        
+        // Fallback: try stored token if refresh failed
+        if (this.token && this.token.trim() !== '') {
+          console.log('AuthService: Validating stored token');
+          const user = await this.fetchCurrentUser(this.token);
+          
+          if (user) {
+            console.log('AuthService: Stored token is valid', user.email);
+            this.setUser(user);
+            this.isAuthenticated = true;
+            this.startTokenRefresh();
+            localStorage.setItem('lastKnownAuthState', 'authenticated');
+            
+            // Load profile settings
+            if (user.sync_preview_scroll_enabled !== undefined) {
+              localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
+            }
+            if (user.autosave_enabled !== undefined) {
+              localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
             }
           } else {
+            console.log('AuthService: Stored token is invalid');
             this.performLogout();
           }
-        } catch (err) {
-          console.error('Refresh attempt failed during initialization:', err);
-          // Refresh failed, set as guest and mark as unauthenticated
+        } else {
+          console.log('AuthService: No stored token, setting guest state');
           this.setUser(defaultUser);
           this.isAuthenticated = false;
           localStorage.setItem('lastKnownAuthState', 'unauthenticated');
         }
-      } else {
-        this.setUser(defaultUser);
-        this.isAuthenticated = false;
-        // Don't set lastKnownAuthState here as this might be first visit
       }
+    } catch (err) {
+      console.error('AuthService: Initialization failed:', err);
+      // Complete failure - ensure we're in a clean guest state
+      this.performLogout();
+    } finally {
+      this.isInitialized = true;
+      console.log('AuthService: Initialization complete', {
+        isAuthenticated: this.isAuthenticated,
+        userId: this.user?.id,
+        hasToken: !!this.token
+      });
     }
+  }
+
+  /**
+   * Wait for initialization to complete
+   */
+  async waitForInitialization() {
+    if (this.initializationPromise) {
+      await this.initializationPromise;
+    }
+    return this.isInitialized;
   }
 
   /**
@@ -160,6 +169,7 @@ class AuthService {
 
   /**
    * Start token refresh interval
+   * Refreshes tokens every hour, with 14-day refresh token lifespan
    */
   startTokenRefresh() {
     if (this.refreshInterval) {
@@ -172,15 +182,21 @@ class AuthService {
       }
 
       try {
+        console.log('AuthService: Attempting scheduled token refresh');
         const res = await UserAPI.refreshToken();
         if (res && res.access_token) {
+          console.log('AuthService: Scheduled refresh successful');
           this.setToken(res.access_token);
+        } else {
+          console.log('AuthService: Scheduled refresh failed - no token returned');
+          this.performLogout();
         }
       } catch (err) {
-        // If refresh fails, log out
+        console.error('AuthService: Scheduled refresh failed:', err);
+        // If refresh fails, log out to ensure security
         this.performLogout();
       }
-    }, 60 * 60 * 1000); // 1 hour
+    }, 60 * 60 * 1000); // 1 hour - matches backend refresh strategy
   }
 
   /**

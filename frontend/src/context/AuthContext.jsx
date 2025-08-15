@@ -17,6 +17,7 @@ const AuthContext = createContext(null);
 export function AuthProvider({ children }) {
   // Auth state from service
   const [authState, setAuthState] = useState(AuthService.getAuthState());
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // Modal states
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -52,7 +53,15 @@ export function AuthProvider({ children }) {
 
   // Initialize and set up auth state synchronization
   useEffect(() => {
-    updateAuthState();
+    const initializeAuth = async () => {
+      console.log('AuthContext: Waiting for AuthService initialization');
+      await AuthService.waitForInitialization();
+      console.log('AuthContext: AuthService initialization complete');
+      updateAuthState();
+      setIsInitializing(false);
+    };
+
+    initializeAuth();
 
     // Listen for legacy password reset events if needed
     const handler = (e) => {
@@ -201,6 +210,7 @@ export function AuthProvider({ children }) {
     user: authState.user,
     token: authState.token,
     isAuthenticated: authState.isAuthenticated,
+    isInitializing,
 
     // Auth actions
     login,

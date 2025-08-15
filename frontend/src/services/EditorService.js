@@ -16,6 +16,10 @@ class Editor {
       fontFamily: "Consolas, Courier New, monospace",
       fontSize: 14,
       padding: { top: 20, bottom: 10 },
+      // Tab and indentation settings
+      tabSize: 2,
+      insertSpaces: true,
+      detectIndentation: false,
       // Always disable minimap for Markdown editor
       minimap: { enabled: false },
       // Always enable word wrap for Markdown editor

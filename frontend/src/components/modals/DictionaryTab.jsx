@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
 import { useAuth } from "@/context/AuthContext";
+import { useDocument } from "@/context/DocumentProvider";
 import customDictionaryApi from "@/api/customDictionaryApi";
 import categoriesApi from "@/api/categoriesApi";
 import DictionaryService from "@/services/DictionaryService";
@@ -8,6 +9,7 @@ import SpellCheckService from "@/services/SpellCheckService";
 
 function DictionaryTab() {
   const { user } = useAuth();
+  const { categories: documentCategories } = useDocument();
   const [entries, setEntries] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(''); // Empty string for user-level
@@ -26,14 +28,17 @@ function DictionaryTab() {
 
   // Update local word count
   const updateLocalWordCount = async () => {
+    console.log('updateLocalWordCount called with selectedCategory:', selectedCategory);
     // Get words based on selected category
     let customWords;
     if (selectedCategory) {
       // Category-specific words only (not combined with user words)
       customWords = DictionaryService.getCategoryWords(selectedCategory);
+      console.log('getCategoryWords result:', customWords);
     } else {
       // Just user-level words
       customWords = DictionaryService.getCustomWords();
+      console.log('getCustomWords result:', customWords);
     }
     console.log('updateLocalWordCount: words found:', customWords.length, customWords);
     console.log('updateLocalWordCount: selectedCategory:', selectedCategory);
@@ -45,15 +50,17 @@ function DictionaryTab() {
     if (isAuthenticated) {
       loadCategories();
     } else {
-      // For demo purposes, show some mock categories when not authenticated
-      // to demonstrate the UI - in production this would be empty
-      setCategories([
-        { id: 'demo-1', name: 'General' },
-        { id: 'demo-2', name: 'Technical' },
-        { id: 'demo-3', name: 'Personal' }
-      ]);
+      // For unauthenticated users, use the actual document categories
+      // Convert to the format expected by the rest of the component
+      const formattedCategories = documentCategories
+        .map(categoryName => ({
+          id: categoryName, // Use the category name as the ID
+          name: categoryName
+        }));
+      console.log('Using document categories for dictionary:', formattedCategories);
+      setCategories(formattedCategories);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, documentCategories]);
 
   // Handle authentication state changes for syncing
   useEffect(() => {
@@ -142,15 +149,20 @@ function DictionaryTab() {
   }, []);
 
   const loadEntries = async () => {
+    console.log('loadEntries called with selectedCategory:', selectedCategory);
+    
     // Update local word count first
     await updateLocalWordCount();
 
     // If user is not authenticated, use local storage data
     if (!isAuthenticated) {
+      console.log('User not authenticated, loading local entries');
       // For unauthenticated users, we need to simulate entries from local storage
       if (selectedCategory) {
+        console.log('Loading category words for:', selectedCategory);
         // When a category is selected, show category-specific words from local storage
         const categoryWords = DictionaryService.getCategoryWords(selectedCategory);
+        console.log('Category words found:', categoryWords);
         const categoryEntries = categoryWords.map((word, index) => ({
           id: `local-category-${selectedCategory}-${index}`,
           word,
@@ -160,8 +172,10 @@ function DictionaryTab() {
         }));
         setEntries(categoryEntries);
       } else {
+        console.log('Loading user words');
         // When no category is selected, show user-level words from local storage
         const userWords = DictionaryService.getCustomWords();
+        console.log('User words found:', userWords);
         const userEntries = userWords.map((word, index) => ({
           id: `local-user-${index}`,
           word,
@@ -189,8 +203,23 @@ function DictionaryTab() {
         const categoryId = selectedCategory || null;
         const data = await customDictionaryApi.getEntries(categoryId);
 
-        // Ensure data is an array
-        setEntries(Array.isArray(data) ? data : []);
+        // Ensure data is an array and filter by category as fallback
+        let filteredEntries = Array.isArray(data) ? data : [];
+        
+        // Additional frontend filtering as fallback in case backend doesn't filter properly
+        if (selectedCategory) {
+          // For category selection, only show entries that belong to that category
+          filteredEntries = filteredEntries.filter(entry => 
+            entry.category_id === parseInt(selectedCategory)
+          );
+        } else {
+          // For no category selection, only show user-level entries (category_id = null)
+          filteredEntries = filteredEntries.filter(entry => 
+            entry.category_id === null
+          );
+        }
+        
+        setEntries(filteredEntries);
       } else {
         setEntries([]);
       }
@@ -340,7 +369,10 @@ function DictionaryTab() {
               <Form.Label>Dictionary Scope</Form.Label>
               <Form.Select
                 value={selectedCategory}
-                onChange={(e) => setSelectedCategory(e.target.value)}
+                onChange={(e) => {
+                  console.log('Category changed from', selectedCategory, 'to', e.target.value);
+                  setSelectedCategory(e.target.value);
+                }}
                 disabled={loading}
               >
                 <option value="">Personal Dictionary (All Documents)</option>

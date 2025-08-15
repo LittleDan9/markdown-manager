@@ -240,17 +240,41 @@ export function registerQuickFixActions(editor, suggestionsMapRef, categoryId = 
         }
       }));
 
-      // add “Add to dictionary” last, pass editor and suggestionsMapRef (ref object) as arguments
-      actions.push({
-        title: `Add ${wordInfo.word}`,
-        kind: 'quickfix',
-        command: {
-          id: 'spell.addToDictionary',
-          title: 'Add to dictionary',
-          // Only pass the Monaco editor instance, never a ref or DOM node
-          arguments: [key, range, editor, suggestionsMapRef, categoryId]
-        }
-      });
+      // add "Add to dictionary" options - both user and category if applicable
+      if (categoryId) {
+        // Add to category dictionary
+        actions.push({
+          title: `Add "${wordInfo.word}" to Category Dictionary`,
+          kind: 'quickfix',
+          command: {
+            id: 'spell.addToCategoryDictionary',
+            title: 'Add to category dictionary',
+            arguments: [key, range, editor, suggestionsMapRef, categoryId]
+          }
+        });
+
+        // Add to user dictionary (global)
+        actions.push({
+          title: `Add "${wordInfo.word}" to User Dictionary`,
+          kind: 'quickfix',
+          command: {
+            id: 'spell.addToUserDictionary',
+            title: 'Add to user dictionary',
+            arguments: [key, range, editor, suggestionsMapRef, null]
+          }
+        });
+      } else {
+        // Only user dictionary option when no category
+        actions.push({
+          title: `Add "${wordInfo.word}" to User Dictionary`,
+          kind: 'quickfix',
+          command: {
+            id: 'spell.addToUserDictionary',
+            title: 'Add to user dictionary',
+            arguments: [key, range, editor, suggestionsMapRef, null]
+          }
+        });
+      }
 
       return { actions, dispose: () => { } };
     }
@@ -286,6 +310,67 @@ export function registerQuickFixActions(editor, suggestionsMapRef, categoryId = 
       });
     });
     monaco.editor._spellAddToDictionaryRegistered = true;
+  }
+
+
+  // Register category dictionary command
+  if (!monaco.editor._spellAddToCategoryDictionaryRegistered) {
+    monaco.editor.registerCommand('spell.addToCategoryDictionary', async (accessor, ...args) => {
+      const [key, range, editorInstance, suggestionsMapRefArg, categoryId] = args;
+      if (!editorInstance || typeof editorInstance.getModel !== 'function' || !suggestionsMapRefArg) {
+        console.error('spell.addToCategoryDictionary: Invalid editor instance passed:', editorInstance);
+        return;
+      }
+
+      const model = editorInstance.getModel();
+      const wordInfo = model.getWordAtPosition(range.getStartPosition())
+      if (!wordInfo || !wordInfo.word) return;
+
+      try {
+        // Add word to category dictionary (both local storage and backend)
+        await DictionaryService.addWord(wordInfo.word, null, categoryId);
+
+        suggestionsMapRefArg.current.delete(key);
+
+        // Run a full document scan to update all markers for the new dictionary word
+        const fullText = model.getValue();
+        SpellCheckService.scan(fullText, () => {}, categoryId).then(issues => {
+          toMonacoMarkers({ getModel: () => model }, issues, 0);
+        });
+      } catch (error) {
+        console.error('Failed to add word to category dictionary:', error);
+        // Still remove from suggestions map even if backend call fails
+        suggestionsMapRefArg.current.delete(key);
+      }
+    });
+    monaco.editor._spellAddToCategoryDictionaryRegistered = true;
+  }
+
+  // Register user dictionary command
+  if (!monaco.editor._spellAddToUserDictionaryRegistered) {
+    monaco.editor.registerCommand('spell.addToUserDictionary', (accessor, ...args) => {
+      const [key, range, editorInstance, suggestionsMapRefArg, categoryId] = args;
+      if (!editorInstance || typeof editorInstance.getModel !== 'function' || !suggestionsMapRefArg) {
+        console.error('spell.addToUserDictionary: Invalid editor instance passed:', editorInstance);
+        return;
+      }
+
+      const model = editorInstance.getModel();
+      const wordInfo = model.getWordAtPosition(range.getStartPosition())
+      if (!wordInfo || !wordInfo.word) return;
+
+      // Add word to user dictionary (global)
+      DictionaryService.addCustomWord(wordInfo.word);
+
+      suggestionsMapRefArg.current.delete(key);
+
+      // Run a full document scan to update all markers for the new dictionary word
+      const fullText = model.getValue();
+      SpellCheckService.scan(fullText, () => {}, categoryId).then(issues => {
+        toMonacoMarkers({ getModel: () => model }, issues, 0);
+      });
+    });
+    monaco.editor._spellAddToUserDictionaryRegistered = true;
   }
 
   if (!monaco.editor._spellCheckRegionRegistered) {
