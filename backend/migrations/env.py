@@ -16,7 +16,7 @@ config = context.config
 database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./markdown_manager.db")
 
 # Check if we're using a forwarded connection (for restore operations)
-forwarded_url = os.getenv("ALEMBIC_DATABASE_URL")
+forwarded_url = os.getenv("DATABASE_URL")
 if forwarded_url:
     database_url = forwarded_url
 
