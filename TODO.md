@@ -43,18 +43,6 @@ Track and report storage usage (number of documents, total size, etc.).
 
 ---
 
-## Autosave
-
-* Not trigging at a consistent interval
-* Seems that on complete, editor insertion point is moved to line 0, char 0.
-* On autosave, some data is being lost as I think the save might be updating the editor content, which also might be the cause for the item above.
-
-## Preview Pane
-
-* Style Markdown Tables better - Still need to fix 100% background color.
-
----
-
 ## GitHub Integration Options
 
 Great idea! GitHub integration would add significant value to the markdown manager. Here are the possibilities I can envision:
@@ -98,7 +86,11 @@ This would transform the tool from a simple markdown editor into a comprehensive
 
 Would you like me to explore implementing any specific feature first, like GitHub OAuth authentication or repository browsing?
 
-## Auth Token
+---
 
-* Decrease from 7 days
-* implement referesh token. Learn about how this works.
+## Document Share Link
+
+- Produce a link that will allow any person to load a document as a guest from a users protect store.
+- Document valid for only a period of time
+- Document is not replicated, so it will always load the latest version
+
