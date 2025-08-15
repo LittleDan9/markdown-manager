@@ -16,8 +16,8 @@ import { useAuth } from "../context/AuthContext";
 import useAutoSave from "@/hooks/useAutoSave";
 
 function App() {
-  const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
-  const { currentDocument, saveDocument, authInitialized, migrationStatus } = useDocument();
+  const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isInitializing } = useAuth();
+  const { currentDocument, saveDocument, migrationStatus } = useDocument();
   const { content, setContent } = useDocument();
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
@@ -43,7 +43,7 @@ function App() {
 
   useEffect(() => {
     // Don't sync content until auth is initialized
-    if (!authInitialized) return;
+    if (isInitializing) return;
 
     // Sync content with currentDocument after document load/change
     // Only update if document actually changed to prevent render loops
@@ -63,7 +63,7 @@ function App() {
         setContent("");
       }
     }
-  }, [currentDocument.id, currentDocument.content, isAuthenticated, authInitialized]);
+  }, [currentDocument.id, currentDocument.content, isAuthenticated, isInitializing]);
   // Capture Ctrl+S to save current content
   // Register Ctrl+S handler only once, always using latest state via refs
   const contentRef = useRef(content);
@@ -156,24 +156,23 @@ function App() {
             <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
               {/* editor is always in the DOM, but width: 0 when closed */}
               <div className="editor-wrapper">
-                {authInitialized ? (
+                {!isInitializing ? (
                   <Editor
                     value={content}
                     onChange={setContent}
                     onCursorLineChange={setCursorLine}
-                    categoryId={currentDocument?.category_id}
                     fullscreenPreview={fullscreenPreview}
                   />
                 ) : (
                   <div className="d-flex justify-content-center align-items-center h-100">
                     <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Loading...</span>
+                      <span className="visually-hidden">Initializing authentication...</span>
                     </div>
                   </div>
                 )}
               </div>
               <div className="renderer-wrapper">
-                {authInitialized ? (
+                {!isInitializing ? (
                   <Renderer
                     content={content}
                     onRenderHTML={html => setRenderedHTML(html)}
@@ -183,7 +182,7 @@ function App() {
                 ) : (
                   <div className="d-flex justify-content-center align-items-center h-100">
                     <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Loading...</span>
+                      <span className="visually-hidden">Initializing authentication...</span>
                     </div>
                   </div>
                 )}

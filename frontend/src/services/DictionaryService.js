@@ -128,34 +128,28 @@ class DictionaryService {
       // Sync real categories
       for (const category of categories) {
         try {
-          // Get category words from backend
-          const categoryResponse = await customDictionaryApi.getWords(category.id);
+          // Get category words from backend using the correct endpoint
+          const categoryResponse = await customDictionaryApi.getCategoryWords(category.id);
           const backendCategoryWords = categoryResponse.words || [];
 
-          // Get local category words (both from real category ID and potential demo mapping)
-          let localCategoryWords = this.getCategoryWords(category.id);
-
-          // Also check if there are words stored under demo category IDs that should be mapped to this real category
-          const demoWords = this.getMappedDemoWords(category, demoToRealCategoryMap);
-          if (demoWords.length > 0) {
-            console.log(`Found ${demoWords.length} demo words to migrate to category ${category.name}`);
-            localCategoryWords = [...new Set([...localCategoryWords, ...demoWords])];
-          }
-
-          // Merge category words
+          // Sync backend category words to local storage
+          // This replaces any local category words with what's actually in the backend
           this.syncCategoryWithBackend(category.id, backendCategoryWords);
 
-          // Upload any local category words not on backend
-          const categoryWordsToUpload = localCategoryWords.filter(word =>
-            !backendCategoryWords.includes(word.toLowerCase())
-          );
-
-          if (categoryWordsToUpload.length > 0) {
-            console.log(`Uploading ${categoryWordsToUpload.length} local words for category ${category.name}...`);
-            await customDictionaryApi.bulkAddWords(categoryWordsToUpload, category.id);
-
-            // Update local storage with the real category ID
-            this.migrateDemoWordsToRealCategory(category, demoWords);
+          // Handle demo word migration only if there are demo words for this specific category
+          const demoWords = this.getMappedDemoWords(category, demoToRealCategoryMap);
+          if (demoWords.length > 0) {
+            console.log(`Migrating ${demoWords.length} demo words to category ${category.name}...`);
+            try {
+              await customDictionaryApi.bulkAddWords(demoWords, category.id);
+              // Add the migrated words to local storage
+              for (const word of demoWords) {
+                this.addCategoryWord(category.id, word);
+              }
+              this.migrateDemoWordsToRealCategory(category, demoWords);
+            } catch (error) {
+              console.error(`Failed to migrate demo words for category ${category.name}:`, error);
+            }
           }
         } catch (error) {
           console.error(`Failed to sync category ${category.name}:`, error);
@@ -515,22 +509,21 @@ class DictionaryService {
    * @param {string[]} backendWords - Words from backend for this category
    */
   syncCategoryWithBackend(categoryId, backendWords) {
-    const currentWords = this.getCategoryWords(categoryId);
     const safeBackendWords = Array.isArray(backendWords) ? backendWords : [];
     const backendWordsSet = new Set(safeBackendWords.map(word => word.toLowerCase()));
-    const mergedWords = new Set([...currentWords, ...backendWordsSet]);
 
-    if (mergedWords.size > 0) {
-      this.categoryWords.set(categoryId, mergedWords);
+    // Replace local category words with backend words (backend is source of truth)
+    if (backendWordsSet.size > 0) {
+      this.categoryWords.set(categoryId, backendWordsSet);
     } else {
       this.categoryWords.delete(categoryId);
     }
 
     this.saveCategoryWordsToStorage();
     window.dispatchEvent(new CustomEvent('dictionary:categorySynced', {
-      detail: { categoryId, words: Array.from(mergedWords) }
+      detail: { categoryId, words: Array.from(backendWordsSet) }
     }));
-    return Array.from(mergedWords);
+    return Array.from(backendWordsSet);
   }
 }
 
