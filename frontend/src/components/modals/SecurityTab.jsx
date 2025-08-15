@@ -4,7 +4,6 @@ import MFAModal from "./MFAModal";
 import userApi from "../../api/userApi";
 import { useAuth } from "../../context/AuthContext";
 import { useNotification } from "../NotificationProvider";
-import { set } from "lodash";
 
 function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubmit, setActiveTab }) {
   const { user , setUser, enableMFA} = useAuth();

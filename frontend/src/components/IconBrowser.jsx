@@ -1,277 +1,155 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
 import { useLogger } from '../context/LoggerProvider';
-import AwsIconLoader from '../services/AwsIconLoader';
+import IconPackManager from '../services/IconPackManager';
 
-const IconBrowser = () => {
-  const [icons, setIcons] = useState([]);
-  const [allIconsMetadata, setAllIconsMetadata] = useState([]); // Store all possible icons for search
-  const [filteredIcons, setFilteredIcons] = useState([]);
+const ITEMS_PER_ROW = 4;
+const INITIAL_LOAD_SIZE = 24; // 6 rows
+const LOAD_MORE_SIZE = 16;    // 4 more rows per “page”
+
+const DIAGRAM_TYPES = {
+  architecture: {
+    label: 'Architecture Diagram',
+    description: 'architecture-beta diagrams'
+  },
+  flowchart: {
+    label: 'Flowchart',
+    description: 'flowchart diagrams with icon shapes'
+  }
+};
+
+export default function IconBrowser() {
+  const log = useLogger('IconBrowser');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedDiagramType, setSelectedDiagramType] = useState(() => {
-    // Initialize from localStorage, fallback to 'architecture'
-    return localStorage.getItem('iconBrowser_diagramType') || 'architecture';
-  });
+  const [selectedIconPack, setSelectedIconPack] = useState('all');
+  const [selectedDiagramType, setSelectedDiagramType] = useState(
+    () => localStorage.getItem('iconBrowser_diagramType') || 'architecture'
+  );
+  const [availableIconPacks, setAvailableIconPacks] = useState([]);
+  const [availableCategories, setAvailableCategories] = useState(['all']);
+  const [totalIconCount, setTotalIconCount] = useState(0);
+  const [showInstructions, setShowInstructions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [copiedIcon, setCopiedIcon] = useState(null);
-  const [visibleRange, setVisibleRange] = useState({ start: 0, end: 24 });
-  const [hasLoadedAllCategories, setHasLoadedAllCategories] = useState(false);
-  const [showInstructions, setShowInstructions] = useState(false);
-  const logger = useLogger('IconBrowser');
+  const [visibleEnd, setVisibleEnd] = useState(INITIAL_LOAD_SIZE);
+  const [copied, setCopied] = useState('');
 
-  // Constants for virtualization
-  const ITEMS_PER_ROW = 4; // Based on xl=3 (4 columns in XL)
-  const INITIAL_LOAD_SIZE = 24; // Load 6 rows initially
-  const LOAD_MORE_SIZE = 16; // Load 4 more rows when scrolling
-
-  // Diagram type configurations
-  const diagramTypes = {
-    architecture: {
-      label: 'Architecture Diagram',
-      description: 'architecture-beta diagrams',
-      serviceUsage: (key) => `service myservice(awssvg:${key})[My Service]`,
-      groupUsage: (key) => `group mygroup(awsgrp:${key})[My Group]`,
-      categoryUsage: (key) => `service mycategory(awscat:${key})[My Category]`,
-      resourceUsage: (key) => `service myresource(awsres:${key})[My Resource]`
-    },
-    flowchart: {
-      label: 'Flowchart',
-      description: 'flowchart diagrams with icon shapes',
-      serviceUsage: (key) => `A@{ icon: "awssvg:${key}", form: "square", label: "Service" }`,
-      groupUsage: (key) => `A@{ icon: "awsgrp:${key}", form: "circle", label: "Group" }`,
-      categoryUsage: (key) => `A@{ icon: "awscat:${key}", form: "rounded", label: "Category" }`,
-      resourceUsage: (key) => `A@{ icon: "awsres:${key}", form: "square", label: "Resource" }`
-    }
-  };
-
+  // One-time load
   useEffect(() => {
-    loadIcons();
-  }, []);
+    (async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        log.info('Starting icon pack loading...');
+        await IconPackManager.loadAllIconPacks();
+        
+        const packs = IconPackManager.getAvailableIconPacks();
+        const categories = IconPackManager.getAvailableCategories();
+        const totalCount = IconPackManager.getTotalIconCount();
+        
+        setAvailableIconPacks(packs);
+        setAvailableCategories(categories);
+        setTotalIconCount(totalCount);
+        
+        log.info(`Icon packs loaded successfully: ${packs.length} packs, ${categories.length} categories, ${totalCount} total icons`);
+        log.debug('Available packs:', packs);
+        log.debug('Available categories:', categories);
+      } catch (e) {
+        log.error('Failed to load icons', e);
+        setError(`Failed to load icons: ${e.message}. Check console for details.`);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []); // Remove log dependency to prevent infinite loop
 
-  // Save diagram type to localStorage when it changes
+  // Persist diagram type
   useEffect(() => {
     localStorage.setItem('iconBrowser_diagramType', selectedDiagramType);
-    logger.debug(`Saved diagram type to localStorage: ${selectedDiagramType}`);
-  }, [selectedDiagramType, logger]);
+  }, [selectedDiagramType]);
 
+  // Compute filtered icons via memo (KISS — no extra effects)
+  const filteredIcons = useMemo(() => {
+    if (!IconPackManager.isLoaded()) {
+      log.debug('IconPackManager not loaded yet, returning empty array');
+      return [];
+    }
+    
+    log.debug(`Filtering icons with: searchTerm="${searchTerm}", category="${selectedCategory}", pack="${selectedIconPack}"`);
+    
+    const list = IconPackManager.searchIcons(
+      searchTerm,
+      selectedCategory,
+      selectedIconPack
+    ).map(icon => ({
+      ...icon,
+      usage: IconPackManager.generateUsageExample(icon.prefix, icon.key, selectedDiagramType)
+    }));
+    
+    log.debug(`Filtered ${list.length} icons`);
+    return list;
+  }, [searchTerm, selectedCategory, selectedIconPack, selectedDiagramType, log]);
+
+  // Reset visible window when filters change
   useEffect(() => {
-    filterIcons();
-  }, [allIconsMetadata, searchTerm, selectedCategory]);
+    setVisibleEnd(INITIAL_LOAD_SIZE);
+  }, [filteredIcons]);
 
-  // Reset visible range when filters change and we're in virtualized mode
+  const visibleIcons = useMemo(
+    () => filteredIcons.slice(0, Math.min(visibleEnd, filteredIcons.length)),
+    [filteredIcons, visibleEnd]
+  );
+
+  // Simple “infinite” scroll that also works inside modals
   useEffect(() => {
-    setVisibleRange({ start: 0, end: Math.min(INITIAL_LOAD_SIZE, filteredIcons.length) });
-  }, [filteredIcons.length, INITIAL_LOAD_SIZE]);
+    const modalBody = document.querySelector('.modal-body');
+    const target = modalBody || window;
 
-  // Main scroll handler for dynamic loading
-  useEffect(() => {
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = document.documentElement;
-
-      // Check if we're near the bottom (within 400px) and haven't loaded all visible icons
-      if (scrollHeight - scrollTop <= clientHeight + 400 && visibleRange.end < filteredIcons.length) {
-        setVisibleRange(prev => ({
-          start: prev.start,
-          end: Math.min(prev.end + LOAD_MORE_SIZE, filteredIcons.length)
-        }));
-      }
-
-      // Auto-load more categories when user scrolls to near the end and we haven't loaded all yet
-      if (!hasLoadedAllCategories &&
-          scrollHeight - scrollTop <= clientHeight + 600 &&
-          visibleRange.end >= Math.min(filteredIcons.length, 100)) {
-        loadAllCategories();
+    const onScroll = () => {
+      const sc = modalBody || document.documentElement;
+      const { scrollTop, scrollHeight, clientHeight } = sc;
+      if (scrollHeight - scrollTop <= clientHeight + 400 && visibleEnd < filteredIcons.length) {
+        setVisibleEnd(v => Math.min(v + LOAD_MORE_SIZE, filteredIcons.length));
       }
     };
 
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, [filteredIcons.length, visibleRange.end, hasLoadedAllCategories, LOAD_MORE_SIZE]);
+    target.addEventListener('scroll', onScroll);
+    return () => target.removeEventListener('scroll', onScroll);
+  }, [filteredIcons.length, visibleEnd]);
 
-  // Memoize visible icons to prevent unnecessary re-renders
-  const visibleIcons = useMemo(() => {
-    const visibleSet = filteredIcons.slice(visibleRange.start, visibleRange.end);
-    logger.debug(`Showing ${visibleSet.length} of ${filteredIcons.length} icons (range: ${visibleRange.start}-${visibleRange.end})`);
-    return visibleSet;
-  }, [filteredIcons, visibleRange, logger]);
-
-  const loadAllCategories = useCallback(async () => {
-    if (hasLoadedAllCategories) return;
-
-    try {
-      setHasLoadedAllCategories(true);
-      const metadata = await AwsIconLoader.getIconMetadata();
-
-      // Remove duplicates (same iconData reference but different keys)
-      const uniqueIcons = [];
-      const seenIconData = new Set();
-
-      metadata.forEach(icon => {
-        const iconKey = `${icon.category}-${icon.iconData.body}`;
-        if (!seenIconData.has(iconKey)) {
-          seenIconData.add(iconKey);
-          uniqueIcons.push(icon);
-        }
-      });
-
-      setIcons(uniqueIcons);
-      setAllIconsMetadata(uniqueIcons); // Update all icons metadata for search
-      logger.info(`Loaded all ${uniqueIcons.length} unique icons for browsing`);
-    } catch (err) {
-      logger.error('Failed to load all icon categories:', err);
-      setHasLoadedAllCategories(false); // Allow retry
-    }
-  }, [hasLoadedAllCategories, logger]);
-
-  const loadIcons = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      // Load metadata for all icons first for search purposes
-      const allMetadata = await AwsIconLoader.getIconMetadata();
-
-      // Remove duplicates (same iconData reference but different keys)
-      const uniqueAllIcons = [];
-      const seenIconData = new Set();
-
-      allMetadata.forEach(icon => {
-        const iconKey = `${icon.category}-${icon.iconData.body}`;
-        if (!seenIconData.has(iconKey)) {
-          seenIconData.add(iconKey);
-          uniqueAllIcons.push(icon);
-        }
-      });
-
-      setAllIconsMetadata(uniqueAllIcons); // Store all for search
-
-      // Load only the service icons initially for display
-      const servicePack = await AwsIconLoader.getAwsServiceIcons();
-      const displayMetadata = [];
-      if (servicePack && servicePack.icons) {
-        Object.entries(servicePack.icons).forEach(([key, iconData]) => {
-          displayMetadata.push({
-            key,
-            prefix: 'awssvg',
-            fullName: `awssvg:${key}`,
-            category: 'service',
-            iconData,
-            usage: diagramTypes[selectedDiagramType].serviceUsage(key)
-          });
-        });
-      }
-
-      // Remove duplicates from display icons
-      const uniqueDisplayIcons = [];
-      const seenDisplayIconData = new Set();
-
-      displayMetadata.forEach(icon => {
-        const iconKey = `${icon.category}-${icon.iconData.body}`;
-        if (!seenDisplayIconData.has(iconKey)) {
-          seenDisplayIconData.add(iconKey);
-          uniqueDisplayIcons.push(icon);
-        }
-      });
-
-      setIcons(uniqueDisplayIcons);
-      logger.info(`Loaded ${uniqueDisplayIcons.length} unique service icons for display and ${uniqueAllIcons.length} total icons for search`);
-    } catch (err) {
-      logger.error('Failed to load icon metadata:', err);
-      setError('Failed to load AWS icons. Please check the console for details.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const filterIcons = () => {
-    let filtered = allIconsMetadata; // Use all icons metadata for filtering
-
-    // Filter by search term
-    if (searchTerm) {
-      const term = searchTerm.toLowerCase();
-      filtered = filtered.filter(icon =>
-        icon.key.toLowerCase().includes(term) ||
-        icon.fullName.toLowerCase().includes(term)
-      );
-    }
-
-    // Filter by category
-    if (selectedCategory !== 'all') {
-      filtered = filtered.filter(icon => icon.category === selectedCategory);
-    }
-
-    setFilteredIcons(filtered);
-
-    // If we have search results that aren't currently loaded, we need to load them
-    if (filtered.length > 0 && !hasLoadedAllCategories) {
-      const hasNonServiceIcons = filtered.some(icon => icon.category !== 'service');
-      if (hasNonServiceIcons) {
-        loadAllCategories();
-      }
-    }
-  };
-
-  // Update usage examples when diagram type changes
-  useEffect(() => {
-    if (allIconsMetadata.length > 0) {
-      setAllIconsMetadata(prevIcons => prevIcons.map(icon => ({
-        ...icon,
-        usage: diagramTypes[selectedDiagramType][`${icon.category}Usage`](icon.key)
-      })));
-    }
-    if (icons.length > 0) {
-      setIcons(prevIcons => prevIcons.map(icon => ({
-        ...icon,
-        usage: diagramTypes[selectedDiagramType][`${icon.category}Usage`](icon.key)
-      })));
-    }
-  }, [selectedDiagramType]); // Only depend on selectedDiagramType
-
-  const copyToClipboard = async (text, iconKey) => {
+  const copyToClipboard = useCallback(async (text) => {
     try {
       await navigator.clipboard.writeText(text);
-      setCopiedIcon(iconKey);
-      setTimeout(() => setCopiedIcon(null), 2000);
-      logger.debug(`Copied to clipboard: ${text}`);
-    } catch (err) {
-      logger.warn('Failed to copy to clipboard:', err);
+      setCopied(text);
+      setTimeout(() => setCopied(''), 1500);
+    } catch {
+      // no-op
     }
-  };
+  }, []);
 
-  const renderIcon = (iconData) => {
+  // Single, robust SVG renderer (DRY)
+  const renderSVG = useCallback((iconData) => {
     if (!iconData || !iconData.body) {
       return (
-        <div
-          className="d-flex align-items-center justify-content-center border rounded bg-body-secondary"
-          style={{ width: '48px', height: '48px' }}
-        >
+        <div className="d-flex align-items-center justify-content-center border rounded bg-body-secondary"
+             style={{ width: 48, height: 48 }}>
           <small className="text-muted">?</small>
         </div>
       );
     }
-
+    const viewBox = iconData.viewBox || '0 0 24 24';
     return (
       <svg
         width="48"
         height="48"
-        viewBox={iconData.viewBox || '0 0 64 64'}
+        viewBox={viewBox}
         className="border rounded bg-body-secondary"
-        style={{ padding: '4px' }}
+        style={{ padding: 4 }}
         dangerouslySetInnerHTML={{ __html: iconData.body }}
       />
     );
-  };
-
-  const categories = ['all', 'service', 'group', 'category', 'resource'];
-  const serviceCount = allIconsMetadata.filter(icon => icon.category === 'service').length;
-  const groupCount = allIconsMetadata.filter(icon => icon.category === 'group').length;
-  const categoryCount = allIconsMetadata.filter(icon => icon.category === 'category').length;
-  const resourceCount = allIconsMetadata.filter(icon => icon.category === 'resource').length;
-
-  const totalIcons = serviceCount + groupCount + categoryCount + resourceCount;
-  const displayedCount = visibleIcons.length;
+  }, []);
 
   if (loading) {
     return (
@@ -280,7 +158,7 @@ const IconBrowser = () => {
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
-          <p className="mt-2 text-muted">Loading AWS icons...</p>
+          <p className="mt-2 text-muted">Loading icons…</p>
         </div>
       </Container>
     );
@@ -292,7 +170,7 @@ const IconBrowser = () => {
         <Alert variant="danger">
           <Alert.Heading>Error Loading Icons</Alert.Heading>
           <p>{error}</p>
-          <Button variant="outline-danger" onClick={loadIcons}>
+          <Button variant="outline-danger" onClick={() => window.location.reload()}>
             Retry
           </Button>
         </Alert>
@@ -300,94 +178,71 @@ const IconBrowser = () => {
     );
   }
 
+  const categories = availableCategories;
+  const displayedCount = visibleIcons.length;
+
   return (
     <Container fluid className="p-4">
       <Row>
         <Col>
-          <div className="d-flex justify-content-between align-items-center mb-4">
+          <div className="d-flex justify-content-between align-items-start mb-4">
             <div>
-              <h2 className="mb-2">AWS Icon Browser</h2>
-              <p className="text-muted mb-0">
-                Browse and copy AWS icons for use in Mermaid diagrams
-                {!hasLoadedAllCategories && (
-                  <OverlayTrigger
-                    placement="right"
-                    overlay={
-                      <Tooltip>
-                        Smart loading: Started with AWS Service icons for faster initial load.
-                        Groups, Categories, and Resources load automatically as you scroll or search.
-                      </Tooltip>
-                    }
-                  >
-                    <span className="ms-2 text-info" style={{ cursor: 'help' }}>
-                      <i className="bi bi-info-circle"></i>
-                    </span>
-                  </OverlayTrigger>
-                )}
-              </p>
+              <h2 className="mb-2">Icon Browser</h2>
+              <p className="text-muted mb-0">Browse and copy icons for Mermaid diagrams</p>
             </div>
-            <div className="text-end">
-              <Badge bg="primary" className="me-2">
-                {serviceCount} Services
-              </Badge>
-              {allIconsMetadata.length > 0 && (
-                <>
-                  <Badge bg="secondary" className="me-2">
-                    {groupCount} Groups
+            <div className="text-end" style={{ maxWidth: '50%' }}>
+              <div className="d-flex flex-wrap justify-content-end gap-2">
+                <Badge bg="primary">{totalIconCount} Total Icons</Badge>
+                {IconPackManager.getBadgeInfo().map(b => (
+                  <Badge key={b.name} bg={b.badgeColor} style={{ fontSize: '0.75rem' }}>
+                    {(b.displayName.length > 15 ? `${b.displayName.slice(0, 12)}…` : b.displayName)}: {b.iconCount}
                   </Badge>
-                  <Badge bg="info" className="me-2">
-                    {categoryCount} Categories
-                  </Badge>
-                  <Badge bg="success">
-                    {resourceCount} Resources
-                  </Badge>
-                </>
-              )}
-              {!hasLoadedAllCategories && (groupCount + categoryCount + resourceCount > 0) && (
-                <Badge bg="warning" className="ms-2">
-                  Loading more...
-                </Badge>
-              )}
+                ))}
+              </div>
             </div>
           </div>
 
-          {/* Search and Filter Controls */}
+          {/* Controls */}
           <Row className="mb-4">
-            <Col md={4}>
+            <Col md={3}>
               <Form.Group>
                 <Form.Label>Search Icons</Form.Label>
                 <InputGroup>
                   <Form.Control
                     type="text"
-                    placeholder="Search by name (e.g., ec2, lambda, vpc...)"
+                    placeholder="Search by name or pack..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   {searchTerm && (
-                    <Button
-                      variant="outline-secondary"
-                      onClick={() => setSearchTerm('')}
-                    >
-                      Clear
-                    </Button>
+                    <Button variant="outline-secondary" onClick={() => setSearchTerm('')}>Clear</Button>
                   )}
                 </InputGroup>
               </Form.Group>
             </Col>
-            <Col md={3}>
+            <Col md={2}>
+              <Form.Group>
+                <Form.Label>Icon Pack</Form.Label>
+                <Form.Select
+                  value={selectedIconPack}
+                  onChange={(e) => setSelectedIconPack(e.target.value)}
+                >
+                  {availableIconPacks.map(pack => (
+                    <option key={pack.name} value={pack.name}>{pack.displayName}</option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={2}>
               <Form.Group>
                 <Form.Label>Category</Form.Label>
                 <Form.Select
                   value={selectedCategory}
                   onChange={(e) => setSelectedCategory(e.target.value)}
                 >
-                  {categories.map(category => (
-                    <option key={category} value={category}>
-                      {category === 'all' ? 'All Categories' :
-                       category === 'service' ? 'AWS Services' :
-                       category === 'group' ? 'AWS Groups' :
-                       category === 'category' ? 'AWS Categories' :
-                       'AWS Resources'}
+                  {categories.map(c => (
+                    <option key={c} value={c}>
+                      {c === 'all' ? 'All Categories' : c.charAt(0).toUpperCase() + c.slice(1)}
                     </option>
                   ))}
                 </Form.Select>
@@ -400,24 +255,20 @@ const IconBrowser = () => {
                   value={selectedDiagramType}
                   onChange={(e) => setSelectedDiagramType(e.target.value)}
                 >
-                  {Object.entries(diagramTypes).map(([key, config]) => (
-                    <option key={key} value={key}>
-                      {config.label}
-                    </option>
+                  {Object.entries(DIAGRAM_TYPES).map(([k, cfg]) => (
+                    <option key={k} value={k}>{cfg.label}</option>
                   ))}
                 </Form.Select>
               </Form.Group>
             </Col>
             <Col md={2}>
               <div className="pt-4">
-                <small className="text-muted">
-                  Showing {displayedCount} of {filteredIcons.length} icons
-                </small>
+                <small className="text-muted">Showing {displayedCount} of {filteredIcons.length} icons</small>
                 <Button
                   variant="link"
                   size="sm"
                   className="p-0 ms-2"
-                  onClick={() => setShowInstructions(!showInstructions)}
+                  onClick={() => setShowInstructions(s => !s)}
                   aria-controls="usage-instructions"
                   aria-expanded={showInstructions}
                 >
@@ -427,73 +278,74 @@ const IconBrowser = () => {
             </Col>
           </Row>
 
-          {/* Collapsible Usage Instructions */}
+          {/* Instructions */}
           <Collapse in={showInstructions}>
             <div id="usage-instructions">
               <Alert variant="info" className="mb-4">
-                <Alert.Heading className="h6">How to Use Icons in {diagramTypes[selectedDiagramType].label}</Alert.Heading>
-                <p className="mb-2">
-                  Click the "Copy Usage" button on any icon to copy the {diagramTypes[selectedDiagramType].description} syntax. Examples:
-                </p>
+                <Alert.Heading className="h6">How to Use Icons in {DIAGRAM_TYPES[selectedDiagramType].label}</Alert.Heading>
+                <p className="mb-2">Click “Copy Usage” on an icon to copy the syntax ({DIAGRAM_TYPES[selectedDiagramType].description}).</p>
                 {selectedDiagramType === 'architecture' ? (
                   <>
-                    <code>service myec2(awssvg:ec2)[My EC2 Instance]</code>
-                    <br />
-                    <code>group myvpc(awsgrp:vpc)[My VPC Group]</code>
-                    <br />
-                    <code>service mycat(awscat:compute)[Compute Category]</code>
-                    <br />
-                    <code>service myres(awsres:bucket)[S3 Bucket Resource]</code>
+                    <code>service myec2(awssvg:ec2)[My EC2 Instance]</code><br />
+                    <code>group myvpc(awsgrp:vpc)[My VPC Group]</code><br />
+                    <code>service mylogo(logos:aws)[AWS Logo]</code>
                   </>
                 ) : (
                   <>
-                    <code>A@{`{ icon: "awssvg:ec2", form: "square", label: "EC2" }`}</code>
-                    <br />
-                    <code>B@{`{ icon: "awsgrp:vpc", form: "circle", label: "VPC" }`}</code>
-                    <br />
-                    <code>C@{`{ icon: "awscat:compute", form: "rounded", label: "Compute" }`}</code>
-                    <br />
-                    <code>D@{`{ icon: "awsres:bucket", form: "square", label: "S3" }`}</code>
+                    <code>A@{`{ icon: "awssvg:ec2", form: "square", label: "EC2" }`}</code><br />
+                    <code>B@{`{ icon: "awsgrp:vpc", form: "circle", label: "VPC" }`}</code><br />
+                    <code>C@{'{ icon: "logos:aws", form: "rounded", label: "AWS" }'}</code>
                   </>
                 )}
               </Alert>
             </div>
           </Collapse>
 
-          {/* Icons Grid - Using main page scroll */}
+          {/* Grid */}
           <Row>
-            {visibleIcons.map((icon, index) => (
-              <Col key={`${icon.prefix}-${icon.key}-${index}`} xl={3} lg={4} md={6} className="mb-4">
+            {visibleIcons.map((icon, idx) => (
+              <Col key={`${icon.prefix}-${icon.key}-${idx}`} xl={3} lg={4} md={6} className="mb-4">
                 <Card className="h-100">
                   <Card.Body className="d-flex flex-column">
                     <div className="d-flex align-items-center mb-3">
-                      {renderIcon(icon.iconData)}
+                      {renderSVG(icon.iconData)}
                       <div className="ms-3 flex-grow-1">
-                        <h6 className="mb-1">{icon.key}</h6>
-                        <Badge
-                          bg={
-                            icon.category === 'service' ? 'primary' :
-                            icon.category === 'group' ? 'secondary' :
-                            icon.category === 'category' ? 'info' :
-                            'success'
-                          }
-                          className="mb-1"
-                        >
-                          {icon.category}
-                        </Badge>
+                        <h6 className="mb-1" style={{
+                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180
+                        }} title={icon.key}>
+                          {icon.key}
+                        </h6>
+                        <div className="mb-1">
+                          <Badge
+                            bg={IconPackManager.getPackBadgeColor(icon.pack)}
+                            className="me-1"
+                            style={{ fontSize: '0.7rem' }}
+                          >
+                            {icon.packDisplayName.length > 12 ? `${icon.packDisplayName.slice(0, 9)}…` : icon.packDisplayName}
+                          </Badge>
+                          {icon.category !== icon.pack && (
+                            <Badge bg="outline-secondary" className="small" style={{ fontSize: '0.65rem' }}>
+                              {icon.category}
+                            </Badge>
+                          )}
+                        </div>
                       </div>
                     </div>
 
                     <div className="mb-2">
                       <small className="text-muted">Mermaid Reference:</small>
-                      <div className="font-monospace small bg-body-tertiary p-2 rounded">
+                      <div className="font-monospace small bg-body-tertiary p-2 rounded"
+                           style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                           title={icon.fullName}>
                         {icon.fullName}
                       </div>
                     </div>
 
                     <div className="mb-3">
-                      <small className="text-muted">{diagramTypes[selectedDiagramType].label} Usage:</small>
-                      <div className="font-monospace small bg-body-tertiary p-2 rounded">
+                      <small className="text-muted">{DIAGRAM_TYPES[selectedDiagramType].label} Usage:</small>
+                      <div className="font-monospace small bg-body-tertiary p-2 rounded"
+                           style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                           title={icon.usage}>
                         {icon.usage}
                       </div>
                     </div>
@@ -502,22 +354,18 @@ const IconBrowser = () => {
                       <Row>
                         <Col>
                           <Button
-                            variant="outline-primary"
-                            size="sm"
-                            className="w-100"
-                            onClick={() => copyToClipboard(icon.fullName, icon.fullName)}
+                            variant="outline-primary" size="sm" className="w-100"
+                            onClick={() => copyToClipboard(icon.fullName)}
                           >
-                            {copiedIcon === icon.fullName ? 'Copied!' : 'Copy Name'}
+                            {copied === icon.fullName ? 'Copied!' : 'Copy Name'}
                           </Button>
                         </Col>
                         <Col>
                           <Button
-                            variant="primary"
-                            size="sm"
-                            className="w-100"
-                            onClick={() => copyToClipboard(icon.usage, icon.usage)}
+                            variant="primary" size="sm" className="w-100"
+                            onClick={() => copyToClipboard(icon.usage)}
                           >
-                            {copiedIcon === icon.usage ? 'Copied!' : 'Copy Usage'}
+                            {copied === icon.usage ? 'Copied!' : 'Copy Usage'}
                           </Button>
                         </Col>
                       </Row>
@@ -528,45 +376,24 @@ const IconBrowser = () => {
             ))}
           </Row>
 
-          {/* Load more indicator */}
+          {/* Loading hint */}
           {visibleIcons.length < filteredIcons.length && (
             <div className="text-center py-4">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading more icons...</span>
               </div>
-              <p className="mt-2 text-muted">Scroll down for more icons...</p>
-            </div>
-          )}
-
-          {/* Loading more categories indicator */}
-          {!hasLoadedAllCategories && visibleIcons.length >= 80 && (
-            <div className="text-center py-4">
-              <Alert variant="info" className="d-inline-block">
-                <div className="d-flex align-items-center">
-                  <div className="spinner-border spinner-border-sm text-primary me-2" role="status">
-                    <span className="visually-hidden">Loading...</span>
-                  </div>
-                  Loading Groups, Categories, and Resources...
-                </div>
-              </Alert>
+              <p className="mt-2 text-muted">Scroll down for more icons…</p>
             </div>
           )}
 
           {visibleIcons.length === 0 && !loading && (
             <Alert variant="warning" className="text-center">
               <h5>No icons found</h5>
-              <p>
-                {!hasLoadedAllCategories
-                  ? "Try scrolling down to load more icon types, or adjust your search term."
-                  : "Try adjusting your search term or category filter."
-                }
-              </p>
+              <p>Try adjusting your search term, icon pack, or category filter.</p>
             </Alert>
           )}
         </Col>
       </Row>
     </Container>
   );
-};
-
-export default IconBrowser;
+}

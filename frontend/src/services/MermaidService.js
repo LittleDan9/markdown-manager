@@ -1,6 +1,6 @@
 import mermaid from "mermaid";
 import { logger } from "../context/LoggerProvider.jsx";
-import AwsIconLoader from "./AwsIconLoader.js";
+import IconPackManager from "./IconPackManager.js";
 
 // Create service-specific logger
 const serviceLogger = logger.createServiceLogger('MermaidService');
@@ -72,95 +72,27 @@ class MermaidService {
    */
   async registerIconPacks() {
     try {
+      // Load all icon packs using the centralized manager
+      await IconPackManager.loadAllIconPacks();
+
       const iconPacks = [];
 
-      // Register Iconify Logos pack (basic AWS logos)
-      try {
-        iconPacks.push({
-          name: 'logos',
-          loader: () => import('@iconify-json/logos').then((module) => module.icons),
-        });
-        serviceLogger.info('Iconify logos pack registered');
-      } catch (error) {
-        serviceLogger.warn('Iconify logos pack not available:', error.message);
+      // Convert IconPackManager data to Mermaid format
+      for (const [packName, packMetadata] of IconPackManager.getIconPacks()) {
+        const packData = {
+          name: packMetadata.name,
+          icons: packMetadata.icons
+        };
+
+        iconPacks.push(packData);
+        serviceLogger.info(`Registered icon pack: ${packMetadata.displayName} (${packMetadata.iconCount} icons)`);
       }
 
-      // Register comprehensive AWS icons pack (Mermaid-specific)
-      try {
-        const awsCodivaIcons = await import('@codiva/aws-icons');
-        if (awsCodivaIcons) {
-          iconPacks.push({
-            name: 'aws',
-            icons: awsCodivaIcons.default || awsCodivaIcons,
-          });
-          serviceLogger.info('Codiva AWS icons loaded successfully');
-        }
-      } catch (error) {
-        serviceLogger.warn('Codiva AWS icons not available:', error.message);
-      }
-
-      // Register AWS SVG icons from aws-icons package (dynamically loads all icons)
-      try {
-        serviceLogger.debug('Attempting to load AWS SVG icons dynamically...');
-
-        // Load all AWS icon packs
-        const [awsSvgIcons, awsGroupIcons, awsCategoryIcons, awsResourceIcons] = await Promise.all([
-          AwsIconLoader.getAwsServiceIcons(),
-          AwsIconLoader.getAwsGroupIcons(),
-          AwsIconLoader.getAwsCategoryIcons(),
-          AwsIconLoader.getAwsResourceIcons()
-        ]);
-
-        // Register service icons
-        if (awsSvgIcons && awsSvgIcons.icons && Object.keys(awsSvgIcons.icons).length > 0) {
-          iconPacks.push({
-            name: 'awssvg',
-            icons: awsSvgIcons
-          });
-          serviceLogger.info(`AWS Service icons loaded: ${Object.keys(awsSvgIcons.icons).length} icons available`);
-        }
-
-        // Register group icons
-        if (awsGroupIcons && awsGroupIcons.icons && Object.keys(awsGroupIcons.icons).length > 0) {
-          iconPacks.push({
-            name: 'awsgrp',
-            icons: awsGroupIcons
-          });
-          serviceLogger.info(`AWS Group icons loaded: ${Object.keys(awsGroupIcons.icons).length} icons available`);
-        }
-
-        // Register category icons
-        if (awsCategoryIcons && awsCategoryIcons.icons && Object.keys(awsCategoryIcons.icons).length > 0) {
-          iconPacks.push({
-            name: 'awscat',
-            icons: awsCategoryIcons
-          });
-          serviceLogger.info(`AWS Category icons loaded: ${Object.keys(awsCategoryIcons.icons).length} icons available`);
-        }
-
-        // Register resource icons
-        if (awsResourceIcons && awsResourceIcons.icons && Object.keys(awsResourceIcons.icons).length > 0) {
-          iconPacks.push({
-            name: 'awsres',
-            icons: awsResourceIcons
-          });
-          serviceLogger.info(`AWS Resource icons loaded: ${Object.keys(awsResourceIcons.icons).length} icons available`);
-        }
-
-      } catch (error) {
-        serviceLogger.error('AWS SVG icons failed to load:', error);
-        serviceLogger.error('Error stack:', error.stack);
-      }
-
-      // Register all available icon packs
+      // Register all available icon packs with Mermaid
       if (iconPacks.length > 0) {
-        serviceLogger.info(`About to register ${iconPacks.length} icon packs:`);
-        iconPacks.forEach((pack, index) => {
-          serviceLogger.info(`Pack ${index + 1}: name="${pack.name}", prefix="${pack.prefix || 'none'}", icon count=${pack.icons ? Object.keys(pack.icons).length : 'unknown'}`);
-        });
-
+        serviceLogger.info(`About to register ${iconPacks.length} icon packs with Mermaid`);
         mermaid.registerIconPacks(iconPacks);
-        serviceLogger.info(`Icon packs registered successfully: ${iconPacks.map(p => p.name || p.prefix).join(', ')}`);
+        serviceLogger.info(`Icon packs registered successfully: ${iconPacks.map(p => p.name).join(', ')}`);
       } else {
         serviceLogger.warn('No icon packs available - only default Mermaid icons will work');
       }
