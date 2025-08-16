@@ -3,11 +3,11 @@ import io
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 
 from app.services.css_service import css_service
+from app.services.pdf_processor import PDFContentProcessor
 
 router = APIRouter()
 
@@ -18,7 +18,23 @@ async def render_html_to_pdf(html: str, css: str) -> bytes:
         browser = await pw.chromium.launch()
         page = await browser.new_page()
         await page.set_content(f"<style>{css}</style>{html}", wait_until="networkidle")
-        pdf: bytes = await page.pdf(format="Letter", print_background=True)
+
+        # Enhanced PDF options for better page break control
+        pdf: bytes = await page.pdf(
+            format="Letter",
+            print_background=True,
+            prefer_css_page_size=True,  # Respect CSS @page rules
+            margin={
+                "top": "0.5in",
+                "right": "0.5in",
+                "bottom": "0.5in",
+                "left": "0.5in",
+            },
+            # Enable page ranges if needed in future
+            display_header_footer=False,
+            # Scale content slightly to avoid edge cutting
+            scale=0.98,
+        )
         await browser.close()
         return pdf
 
@@ -39,8 +55,17 @@ async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
         # Get CSS styles from CSS service
         css_styles = css_service.get_pdf_css(request.is_dark_mode)
 
-        # Create HTML document with proper structure
+        # Use original content without processing for now to avoid corruption
+        processed_content = request.html_content
 
+        # Still get document statistics for monitoring
+        try:
+            doc_stats = PDFContentProcessor.get_document_stats(request.html_content)
+            print(f"Document stats: {doc_stats}")
+        except Exception as e:
+            print(f"Error getting document stats: {e}")
+
+        # Create HTML document with proper structure
         full_html = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -50,7 +75,7 @@ async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
             <title>{request.document_name}</title>
         </head>
         <body>
-            {request.html_content}
+            {processed_content}
         </body>
         </html>
         """

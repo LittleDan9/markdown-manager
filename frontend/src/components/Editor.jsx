@@ -4,19 +4,24 @@ import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
 import { getChangedRegion, toMonacoMarkers, registerQuickFixActions } from '@/utils';
 import { useTheme } from '@/context/ThemeProvider';
+import { useDocument } from '@/context/DocumentProvider';
 import { useDebouncedCallback } from '@/utils/useDebouncedCallback';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import { useAuth } from '@/context/AuthContext';
 
-export default function Editor({ value, onChange, onCursorLineChange, categoryId }) {
+export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null); // for the DOM node
   const editorRef = useRef(null);    // for the Monaco editor instance
   const suggestionsMap = useRef(new Map());
   const [progress, setProgress] = useState(null);
   const { theme } = useTheme();
+  const { currentDocument } = useDocument();
   const lastEditorValue = useRef(value);
   const previousValueRef = useRef(value);
   const lastProgressRef = useRef(null);
+
+  // Get the category from the current document
+  const categoryId = currentDocument?.category;
 
   /* Debounce Refs */
   // Spell Checking

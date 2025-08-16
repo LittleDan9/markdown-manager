@@ -17,9 +17,9 @@ import { useAuth } from "../context/AuthContext";
 import useAutoSave from "@/hooks/useAutoSave";
 
 function App() {
-  const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
-  const { currentDocument, saveDocument, authInitialized, migrationStatus, setContent } = useDocument();
-  const { content } = useDocument();
+  const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isInitializing } = useAuth();
+  const { currentDocument, saveDocument, migrationStatus } = useDocument();
+  const { content, setContent } = useDocument();
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
@@ -37,13 +37,13 @@ function App() {
     const checkForSharedDocument = async () => {
       const path = window.location.pathname;
       const sharedMatch = path.match(/^\/shared\/([^/]+)$/);
-      
+
       if (sharedMatch) {
         const shareToken = sharedMatch[1];
         setIsSharedView(true);
         setFullscreenPreview(true); // Enable fullscreen preview for shared documents
         setSharedLoading(true);
-        
+
         try {
           const document = await DocumentService.getSharedDocument(shareToken);
           setSharedDocument(document);
@@ -63,7 +63,7 @@ function App() {
     };
 
     checkForSharedDocument();
-    
+
     // Listen for URL changes (if using pushState/popState)
     window.addEventListener('popstate', checkForSharedDocument);
     return () => window.removeEventListener('popstate', checkForSharedDocument);
@@ -95,7 +95,7 @@ function App() {
 
   useEffect(() => {
     // Don't sync content until auth is initialized
-    if (!authInitialized) return;
+    if (isInitializing) return;
 
     // Sync content with currentDocument after document load/change
     // Only update if document actually changed to prevent render loops
@@ -115,7 +115,7 @@ function App() {
         setContent("");
       }
     }
-  }, [currentDocument.id, currentDocument.content, isAuthenticated, authInitialized]);
+  }, [currentDocument.id, currentDocument.content, isAuthenticated, isInitializing]);
   // Capture Ctrl+S to save current content
   // Register Ctrl+S handler only once, always using latest state via refs
   const contentRef = useRef(content);
@@ -198,7 +198,7 @@ function App() {
         <div id="appRoot" className="app-root">
           <div id="container">
             <Header />
-            
+
             <Toolbar
               setContent={setContent}
               editorValue={content}
@@ -214,7 +214,7 @@ function App() {
               {/* editor is always in the DOM, but width: 0 when closed or in shared view */}
               {!isSharedView && (
                 <div className="editor-wrapper">
-                  {authInitialized ? (
+                  {!isInitializing ? (
                     <Editor
                       value={content}
                       onChange={setContent}
@@ -225,7 +225,7 @@ function App() {
                   ) : (
                     <div className="d-flex justify-content-center align-items-center h-100">
                       <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
+                        <span className="visually-hidden">Initializing authentication...</span>
                       </div>
                     </div>
                   )}
@@ -260,7 +260,7 @@ function App() {
                         <p>The shared document could not be found or sharing has been disabled.</p>
                         <hr />
                         <div className="d-flex justify-content-end">
-                          <Button 
+                          <Button
                             variant="outline-danger"
                             onClick={() => window.location.href = '/'}
                           >
@@ -271,8 +271,8 @@ function App() {
                     </Container>
                   )
                 ) : (
-                  // Normal document view
-                  authInitialized ? (
+                  // Normal document view - use improved auth state from main
+                  !isInitializing ? (
                     <Renderer
                       content={content}
                       onRenderHTML={html => setRenderedHTML(html)}
@@ -282,7 +282,7 @@ function App() {
                   ) : (
                     <div className="d-flex justify-content-center align-items-center h-100">
                       <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
+                        <span className="visually-hidden">Initializing authentication...</span>
                       </div>
                     </div>
                   )

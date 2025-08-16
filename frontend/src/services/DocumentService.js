@@ -413,7 +413,11 @@ class DocumentService {
 
       await Promise.all(savePromises);
 
-      notification.success('Documents synchronized successfully');
+      // Don't show notification here to prevent loops - let caller handle it
+      console.log('Documents synchronized successfully:', {
+        syncedCount: savePromises.length,
+        totalCount: mergedDocs.size
+      });
 
       return {
         success: true,
@@ -422,7 +426,7 @@ class DocumentService {
       };
     } catch (error) {
       console.error('Full sync failed:', error);
-      notification.error(`Sync failed: ${error.message}`);
+      // Don't show notification here to prevent loops - let caller handle it
       throw error;
     }
   }

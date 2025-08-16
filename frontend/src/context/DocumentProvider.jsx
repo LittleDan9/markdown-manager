@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DocumentService from '../services/DocumentService.js';
 import DocumentStorageService from '../services/DocumentStorageService.js';
 import { useAuth } from './AuthContext';
@@ -8,14 +8,22 @@ import useChangeTracker from '../hooks/useChangeTracker';
 const DocumentContext = createContext();
 
 export function DocumentProvider({ children }) {
-  const { token, user, isAuthenticated } = useAuth();
+  const { token, user, isAuthenticated, isInitializing } = useAuth();
   const notification = useNotification();
+
+  // Create stable refs for notification functions to avoid dependency issues
+  const notificationRef = useRef();
+  notificationRef.current = notification;
+  
+  const showWarning = useCallback((msg) => notificationRef.current.showWarning(msg), []);
+  const showSuccess = useCallback((msg) => notificationRef.current.showSuccess(msg), []);
+  const showError = useCallback((msg) => notificationRef.current.showError(msg), []);
 
   // Document state
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
-  const [authInitialized, setAuthInitialized] = useState(false);
   const [migrationStatus, setMigrationStatus] = useState('idle'); // 'idle', 'checking', 'migrating', 'complete'
+  const [hasSyncedOnMount, setHasSyncedOnMount] = useState(false); // Track if we've synced on mount
   const [currentDocument, setCurrentDocument] = useState({
     id: null,
     name: 'Untitled Document',
@@ -28,16 +36,6 @@ export function DocumentProvider({ children }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
-
-  // Track authentication initialization state
-  useEffect(() => {
-    // Add a small delay to allow AuthService to initialize
-    const timer = setTimeout(() => {
-      setAuthInitialized(true);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   // Migration function to handle local documents when user logs in
   const migrateLocalDocuments = useCallback(async () => {
@@ -59,6 +57,7 @@ export function DocumentProvider({ children }) {
 
       if (localIdDocs.length === 0) {
         setMigrationStatus('complete');
+        setLoading(false);
         return;
       }
 
@@ -101,10 +100,9 @@ export function DocumentProvider({ children }) {
               DocumentStorageService.setCurrentDocument(updatedDoc);
             }
 
-            // This is automatically resolved, no conflict needed
             console.log(`Successfully auto-resolved ${localDoc.name}: ${localDoc.id} -> ${backendConflict.id}`);
           } else {
-            // Content differs - this is a real conflict that needs user intervention
+            // Content differs - add to conflicts
             conflicts.push({
               id: `conflict_${localDoc.id}_${Date.now()}`,
               document_id: backendConflict.id,
@@ -144,98 +142,27 @@ export function DocumentProvider({ children }) {
           }
         } catch (error) {
           console.error(`Failed to migrate document ${doc.name}:`, error);
-          console.log('Error details:', {
-            status: error.response?.status,
-            data: error.response?.data,
-            message: error.message
+          // Add to conflicts for manual resolution
+          conflicts.push({
+            id: `migration_error_${doc.id}_${Date.now()}`,
+            document_id: null,
+            name: doc.name,
+            category: doc.category,
+            content: doc.content,
+            collision: false,
+            error: `Migration failed: ${error.message}`,
+            local_id: doc.id,
+            conflict_type: 'migration_error'
           });
-
-          // Check if this is a name conflict error
-          const isNameConflict = error.response?.status === 400 &&
-            (error.response?.data?.detail?.includes?.('already exists') ||
-             error.response?.data?.detail?.detail?.includes?.('already exists') ||
-             error.response?.data?.detail?.conflict_type === 'name_conflict' ||
-             error.message?.includes('already exists'));
-
-          if (isNameConflict) {
-            console.log(`Name conflict detected for document: ${doc.name}`);
-
-            // Check if the error response includes the conflicting document
-            let conflictingDoc = null;
-            if (error.response?.data?.detail?.existing_document) {
-              conflictingDoc = error.response.data.detail.existing_document;
-              console.log('Conflicting document from API:', conflictingDoc);
-            } else {
-              // Fallback: find the conflicting backend document manually
-              conflictingDoc = backendDocs.find(backendDoc =>
-                backendDoc.name === doc.name && backendDoc.category === doc.category
-              );
-            }
-
-            if (conflictingDoc) {
-              // Compare content to see if this is a real conflict
-              const localContent = (doc.content || '').trim();
-              const backendContent = (conflictingDoc.content || '').trim();
-
-              if (localContent === backendContent) {
-                // Auto-resolve identical content even after save failure
-                console.log(`Auto-resolving post-save identical content for: ${doc.name}`);
-                DocumentStorageService.deleteDocument(doc.id);
-                DocumentStorageService.saveDocument(conflictingDoc);
-
-                const currentDoc = DocumentStorageService.getCurrentDocument();
-                if (currentDoc && currentDoc.id === doc.id) {
-                  DocumentStorageService.setCurrentDocument(conflictingDoc);
-                }
-                // Don't add to conflicts - this is resolved
-                continue;
-              }
-            }
-
-            // Real content conflict or couldn't find conflicting doc
-            conflicts.push({
-              id: `name_conflict_${doc.id}_${Date.now()}`,
-              document_id: conflictingDoc?.id || null,
-              name: doc.name,
-              category: doc.category,
-              content: doc.content,
-              collision: true,
-              backend_content: conflictingDoc?.content || '',
-              local_id: doc.id,
-              conflict_type: 'name_conflict'
-            });
-          } else {
-            console.log(`General migration error for document: ${doc.name}`);
-            // Other migration error
-            conflicts.push({
-              id: `migration_error_${doc.id}_${Date.now()}`,
-              document_id: null,
-              name: doc.name,
-              category: doc.category,
-              content: doc.content,
-              collision: false,
-              error: `Migration failed: ${error.message}`,
-              local_id: doc.id,
-              conflict_type: 'migration_error'
-            });
-          }
         }
       }
 
-      // Show success message for completed migration
+      // Show results
       if (conflicts.length > 0) {
         console.log(`Found ${conflicts.length} conflicts that need user resolution`);
-        // For now, we'll log these conflicts but won't show a recovery modal
-        // In the future, we could implement inline conflict resolution
-        conflicts.forEach(conflict => {
-          console.warn(`Content conflict for document "${conflict.name}":`, {
-            localContent: conflict.content.substring(0, 100) + '...',
-            backendContent: conflict.backend_content.substring(0, 100) + '...'
-          });
-        });
-        notification.showWarning(`Migration completed with ${conflicts.length} content conflicts. Local versions will be used.`);
-      } else {
-        notification.showSuccess(`Successfully migrated ${toMigrate.length} documents to your account.`);
+        showWarning(`Migration completed with ${conflicts.length} content conflicts. Local versions will be used.`);
+      } else if (toMigrate.length > 0) {
+        showSuccess(`Successfully migrated ${toMigrate.length} documents to your account.`);
       }
 
       setMigrationStatus('complete');
@@ -246,15 +173,21 @@ export function DocumentProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token, notification]);
+  }, [isAuthenticated, token]); // Remove showWarning, showSuccess since they're now stable
 
   // Initialize documents on mount and when auth changes
   useEffect(() => {
-    // Don't load documents until auth is initialized
-    if (!authInitialized) return;
+    // Don't load documents until auth is fully initialized
+    if (isInitializing) {
+      console.log('DocumentProvider: Waiting for auth initialization');
+      return;
+    }
+
+    console.log('DocumentProvider: Auth initialization complete', { isAuthenticated, hasToken: !!token });
 
     // If user just became authenticated, run migration first
     if (isAuthenticated && token && migrationStatus === 'idle') {
+      setHasSyncedOnMount(false); // Reset sync flag for fresh login
       migrateLocalDocuments();
       return;
     }
@@ -264,33 +197,43 @@ export function DocumentProvider({ children }) {
       return;
     }
 
-    // If we're not authenticated and there's no valid token, clear document state
+    // SECURITY: If we're not authenticated, check for and clear any private documents
     if (!isAuthenticated && !token) {
-      // Check if we previously had authentication but lost it
-      const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
-      if (lastKnownAuth === 'authenticated') {
-        // This means we lost authentication, clear document state
-        console.log('Authentication lost, clearing document state');
+      console.log('DocumentProvider: Not authenticated, checking for private documents');
+      const existingDocs = DocumentStorageService.getAllDocuments();
+      const hasPrivateDocuments = existingDocs.some(doc =>
+        doc.id && !String(doc.id).startsWith('doc_') && doc.content && doc.content.trim() !== ''
+      );
+
+      if (hasPrivateDocuments) {
+        console.log('DocumentProvider: Found private documents without auth, clearing all data');
         DocumentService.clearDocumentState();
         setDocuments([]);
         const newDoc = DocumentService.createNewDocument();
         setCurrentDocument(newDoc);
         setContent('');
-        // Track current document in localStorage
         DocumentStorageService.setCurrentDocument(newDoc);
+        showWarning('Session expired. For security, all data has been cleared.');
         return;
       }
     }
 
     const loadCurrentDocument = async () => {
-      // If authenticated, sync with backend first to get latest documents
-      if (isAuthenticated && token) {
+      // If authenticated, sync with backend first to get latest documents (only once on mount)
+      if (isAuthenticated && token && !hasSyncedOnMount) {
         try {
-          console.log('Syncing with backend on mount...');
-          await DocumentService.syncWithBackend();
+          console.log('DocumentProvider: Syncing with backend on mount...');
+          const result = await DocumentService.syncWithBackend();
+          setHasSyncedOnMount(true);
+          
+          if (result.syncedCount > 0) {
+            showSuccess(`Documents synchronized successfully. ${result.syncedCount} documents synced.`);
+          }
         } catch (error) {
-          console.warn('Failed to sync with backend on mount:', error.message);
-          // Continue with local documents if sync fails
+          console.warn('DocumentProvider: Failed to sync with backend on mount:', error.message);
+          showError(`Sync failed: ${error.message}`);
+          // Continue with local documents if sync fails, but still mark as synced to prevent retries
+          setHasSyncedOnMount(true);
         }
       }
 
@@ -301,7 +244,6 @@ export function DocumentProvider({ children }) {
         const newDoc = DocumentService.createNewDocument();
         setCurrentDocument(newDoc);
         setContent('');
-        // Track current document in localStorage
         DocumentStorageService.setCurrentDocument(newDoc);
         return;
       }
@@ -315,38 +257,49 @@ export function DocumentProvider({ children }) {
           const currentDocId = await documentsApi.getCurrentDocumentId();
 
           if (currentDocId) {
-            // Find the document with this ID
             currentDoc = docs.find(doc => doc.id === currentDocId);
-            console.log('Loaded current document from backend:', currentDocId, currentDoc ? 'found' : 'not found');
+            console.log('DocumentProvider: Loaded current document from backend:', currentDocId, currentDoc ? 'found' : 'not found');
           }
         } catch (error) {
-          console.log('Failed to fetch current document from backend:', error.message);
+          console.log('DocumentProvider: Failed to fetch current document from backend:', error.message);
         }
       }
 
-      // If backend didn't provide a valid current doc, check localStorage
+      // If backend didn't provide a valid current doc, check localStorage (only for safe documents)
       if (!currentDoc) {
         const storedCurrentDoc = DocumentStorageService.getCurrentDocument();
         if (storedCurrentDoc && storedCurrentDoc.id) {
-          currentDoc = docs.find(doc => doc.id === storedCurrentDoc.id);
-          console.log('Loaded current document from localStorage:', storedCurrentDoc.id, currentDoc ? 'found' : 'not found');
+          // SECURITY: Only load from localStorage if we're authenticated OR it's a local document
+          const isLocalDoc = String(storedCurrentDoc.id).startsWith('doc_');
+          if (isAuthenticated || isLocalDoc) {
+            currentDoc = docs.find(doc => doc.id === storedCurrentDoc.id);
+            console.log('DocumentProvider: Loaded current document from localStorage:', storedCurrentDoc.id, currentDoc ? 'found' : 'not found');
+          } else {
+            console.log('DocumentProvider: Skipping private document from localStorage - not authenticated');
+          }
         }
       }
 
-      // Fall back to most recently updated document
+      // Fall back to most recently updated document (only if authenticated OR it's a local document)
       if (!currentDoc) {
-        currentDoc = docs[0]; // Most recently updated
-        console.log('Falling back to most recent document:', currentDoc.id);
+        if (isAuthenticated) {
+          currentDoc = docs[0]; // Most recently updated
+          console.log('DocumentProvider: Falling back to most recent document:', currentDoc?.id);
+        } else {
+          // For unauthenticated users, only show local documents
+          const localDocs = docs.filter(doc => String(doc.id).startsWith('doc_'));
+          currentDoc = localDocs[0] || DocumentService.createNewDocument();
+          console.log('DocumentProvider: Falling back to local document for guest:', currentDoc?.id);
+        }
       }
 
       setCurrentDocument(currentDoc);
       setContent(currentDoc.content || '');
-      // Track current document in localStorage
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
 
     loadCurrentDocument();
-  }, [isAuthenticated, token, authInitialized, migrationStatus]);
+  }, [isAuthenticated, token, isInitializing, migrationStatus]); // Remove stable functions from dependencies
 
   // Update categories whenever documents change
   useEffect(() => {
@@ -354,37 +307,37 @@ export function DocumentProvider({ children }) {
     setCategories(newCategories);
   }, [documents]);
 
-  // Additional safety check: if we have documents but no valid auth, clear them
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (!isAuthenticated && !token && documents.length > 0) {
-        // Check if these documents should be accessible to a guest user
-        const hasPrivateContent = documents.some(doc =>
-          doc.id && !String(doc.id).startsWith('doc_') && doc.content && doc.content.trim() !== ''
-        );
-
-        if (hasPrivateContent) {
-          console.log('Found private documents without authentication, clearing state');
-          DocumentService.clearDocumentState();
-          setDocuments([]);
-          const newDoc = DocumentService.createNewDocument();
-          setCurrentDocument(newDoc);
-          setContent('');
-          // Track current document in localStorage
-          DocumentStorageService.setCurrentDocument(newDoc);
-        }
-      }
-    }, 2000); // Give auth initialization time to complete
-
-    return () => clearTimeout(timer);
-  }, [documents, isAuthenticated, token]);
-
   // Keep content in sync with current document
   useEffect(() => {
     if (currentDocument && currentDocument.content !== content) {
       setContent(currentDocument.content || '');
     }
   }, [currentDocument.id]);
+
+  // Handle logout scenarios - clear document state when user is logged out
+  useEffect(() => {
+    if (!isAuthenticated && !token && !isInitializing) {
+      // Check if this is a logout scenario vs initial load
+      const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
+      if (lastKnownAuth === 'authenticated') {
+        // User was authenticated but now isn't - this is a logout
+        // Clear document state to prevent showing private documents
+        console.log('DocumentProvider: Logout detected, clearing document state');
+        DocumentService.clearDocumentState();
+        setDocuments([]);
+        const newDoc = DocumentService.createNewDocument();
+        setCurrentDocument(newDoc);
+        setContent('');
+        setHasSyncedOnMount(false); // Reset sync flag for next login
+
+        // Update last known auth state
+        localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+      }
+    } else if (isAuthenticated && token) {
+      // User is authenticated, update state but don't reset sync flag here
+      localStorage.setItem('lastKnownAuthState', 'authenticated');
+    }
+  }, [isAuthenticated, token, isInitializing]);
 
   // Document operations
   const createDocument = useCallback(() => {
@@ -410,15 +363,15 @@ export function DocumentProvider({ children }) {
         // Update current document ID on backend for authenticated users
         await DocumentService.setCurrentDocumentId(doc.id);
       } else {
-        notification.showError('Document not found');
+        showError('Document not found');
       }
     } catch (error) {
       console.error('Failed to load document:', error);
-      notification.showError('Failed to load document');
+      showError('Failed to load document');
     } finally {
       setLoading(false);
     }
-  }, [notification]);
+  }, []); // Remove notification dependency since showError is now stable
 
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
@@ -453,13 +406,13 @@ export function DocumentProvider({ children }) {
       console.error('Save failed:', err);
       setError('Save failed: ' + err.message);
       if (showNotification) {
-        notification.showError('Save failed: ' + err.message);
+        showError('Save failed: ' + err.message);
       }
       return null;
     } finally {
       setLoading(false);
     }
-  }, [content, currentDocument, notification]);
+  }, [content, currentDocument]); // Remove notification dependency since showError is now stable
 
   const deleteDocument = useCallback(async (id, showNotification = true) => {
     setLoading(true);
@@ -489,12 +442,12 @@ export function DocumentProvider({ children }) {
     } catch (error) {
       console.error('Delete failed:', error);
       if (showNotification) {
-        notification.showError('Delete failed: ' + error.message);
+        showError('Delete failed: ' + error.message);
       }
     } finally {
       setLoading(false);
     }
-  }, [currentDocument, notification]);
+  }, [currentDocument]); // Remove notification dependency since showError is now stable
 
   const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
     try {
@@ -521,24 +474,23 @@ export function DocumentProvider({ children }) {
       }
     } catch (error) {
       console.error('Rename failed:', error);
-      notification.showError('Rename failed: ' + error.message);
+      showError('Rename failed: ' + error.message);
     }
-  }, [currentDocument, notification]);
+  }, [currentDocument]); // Remove notification dependency since showError is now stable
 
-  // Simple category operations - categories are derived from documents
+  // Category operations
   const addCategory = useCallback(async (category) => {
     if (!category || !category.trim()) {
       return DocumentService.getCategories();
     }
 
     // To add a category, update the current document to use it
-    // This creates the category automatically since categories are derived from documents
     const updatedDoc = {
       ...currentDocument,
       category: category.trim()
     };
 
-    // Save the current document with the new category (this will sync to backend if authenticated)
+    // Save the current document with the new category
     const saved = await saveDocument(updatedDoc, false);
 
     // Update current document tracking
@@ -563,7 +515,6 @@ export function DocumentProvider({ children }) {
           ...doc,
           category: options.migrateTo || DEFAULT_CATEGORY
         };
-        // Save each document (this will sync to backend if authenticated)
         return await DocumentService.saveDocument(updatedDoc, false);
       });
 
@@ -607,7 +558,6 @@ export function DocumentProvider({ children }) {
           ...doc,
           category: name
         };
-        // Save each document (this will sync to backend if authenticated)
         return await DocumentService.saveDocument(updatedDoc, false);
       });
 
@@ -658,30 +608,6 @@ export function DocumentProvider({ children }) {
     }
   }, [isAuthenticated, currentDocument]);
 
-  // Handle logout scenarios - clear document state when user is logged out
-  useEffect(() => {
-    if (!isAuthenticated && !token) {
-      // Check if this is a logout scenario vs initial load
-      const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
-      if (lastKnownAuth === 'authenticated') {
-        // User was authenticated but now isn't - this is a logout
-        // Clear document state to prevent showing private documents
-        console.log('Logout detected, clearing document state');
-        DocumentService.clearDocumentState();
-        setDocuments([]);
-        const newDoc = DocumentService.createNewDocument();
-        setCurrentDocument(newDoc);
-        setContent('');
-
-        // Update last known auth state
-        localStorage.setItem('lastKnownAuthState', 'unauthenticated');
-      }
-    } else if (isAuthenticated && token) {
-      // User is authenticated, update state
-      localStorage.setItem('lastKnownAuthState', 'authenticated');
-    }
-  }, [isAuthenticated, token]);
-
   // Export functionality using DocumentService directly
   const exportAsMarkdown = useCallback((content, filename) => {
     return DocumentService.exportAsMarkdown(content, filename || currentDocument?.name);
@@ -711,7 +637,7 @@ export function DocumentProvider({ children }) {
     user,
     token,
     isAuthenticated,
-    authInitialized,
+    isInitializing,
     migrationStatus,
     currentDocument,
     setCurrentDocument,
@@ -738,7 +664,7 @@ export function DocumentProvider({ children }) {
     setContent,
     syncWithBackend,
   }), [
-    user, token, isAuthenticated, authInitialized, migrationStatus, currentDocument, documents, categories, loading, error,
+    user, token, isAuthenticated, isInitializing, migrationStatus, currentDocument, documents, categories, loading, error,
     hasUnsavedChanges, highlightedBlocks, content, createDocument, loadDocument,
     deleteDocument, renameDocument, addCategory, deleteCategory, renameCategory,
     exportAsMarkdown, exportAsPDF, importMarkdownFile, saveDocument, syncWithBackend

@@ -3,7 +3,7 @@ import secrets
 from datetime import datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status, Cookie, Response
+from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -85,6 +85,7 @@ async def login(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
+    # Refresh token expires in 14 days (consistent with frontend expectations)
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     if response is not None:
@@ -140,7 +141,7 @@ async def refresh_token(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
-    # Optionally refresh the refresh token itself (sliding window)
+    # Optionally refresh the refresh token itself (sliding window - 14 days)
     refresh_token_expires = timedelta(days=14)
     new_refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     response.set_cookie(
@@ -293,6 +294,7 @@ async def login_mfa(
     access_token = create_access_token(
         data={"sub": user.email}, expires_delta=access_token_expires
     )
+    # Refresh token expires in 14 days (consistent with frontend expectations)
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     if response is not None:
