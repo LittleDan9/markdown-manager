@@ -61,8 +61,8 @@ server {
 
     # API backend - proxy to FastAPI
     location /api/ {
-        # API rate limiting
-        limit_req zone=api burst=10 nodelay;
+        # API rate limiting - increased burst for dictionary tab with multiple categories
+        limit_req zone=api burst=50 nodelay;
         limit_conn api_conn 5;
 
         # Additional bot blocking for API endpoints
@@ -83,6 +83,23 @@ server {
         proxy_connect_timeout 75s;
     }
 
+    # Special: /api/v1/highlight/syntax - allow very large request and burst
+    location = /api/v1/highlight/syntax {
+        limit_req zone=highlight burst=5000 nodelay;
+        limit_conn highlight_conn 1000;
+
+        proxy_pass http://127.0.0.1:8000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+        proxy_read_timeout 300s;
+        proxy_connect_timeout 75s;
+    }
     # Authentication endpoints (if you add them later)
     location ~* /api/(auth|login|register|password) {
         limit_req zone=auth burst=5 nodelay;

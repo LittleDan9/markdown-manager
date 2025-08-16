@@ -27,7 +27,7 @@ async def update_user_profile(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Update user profile."""
+    """Update user profile and settings."""
     updated_user = await crud_user.update_user(db, int(current_user.id), user_update)
     if not updated_user:
         raise HTTPException(

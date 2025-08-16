@@ -1,313 +1,192 @@
-# Quality/linting
-quality: ## Run all pre-commit hooks on all files (code quality checks)
-	@echo "$(YELLOW)🔍 Running pre-commit hooks on all files...$(NC)"
-	cd backend && poetry run pre-commit run --all-files
-	@echo "$(GREEN)✅ Quality checks complete$(NC)"
-# Markdown Manager - Makefile
-# Simple build and deployment automation
+# ────────────────────────────────────────────────────────────────────────────
+# Markdown Manager — Makefile
+# ────────────────────────────────────────────────────────────────────────────
 
-# Colors for output
-RED := \033[0;31m
-GREEN := \033[0;32m
+# Colors
+RED    := \033[0;31m
+GREEN  := \033[0;32m
 YELLOW := \033[1;33m
-BLUE := \033[0;34m
-NC := \033[0m # No Color
+BLUE   := \033[0;34m
+NC     := \033[0m
 
-# Configuration
-FRONTEND_PORT := 3000
-BACKEND_DEV_PORT := 8001
-BACKEND_PROD_PORT := 8000
+# ────────────────────────────────────────────────────────────────────────────
+# ENV DETECTION
+# ────────────────────────────────────────────────────────────────────────────
 
-# Deployment configuration
-HOSTNAME := $(shell hostname)
-BACKEND_DIR := backend
-PRODUCTION_DB_PATH := /opt/markdown-manager-api/markdown_manager.db
-ifeq ($(HOSTNAME),Danbian)
-	DEPLOY_TARGET := /var/www/littledan.com/
-	BACKEND_DEPLOY_TARGET := /opt/markdown-manager-api/
-	DEPLOY_METHOD := local
+HOST_DEV    := Danbian
+HOSTNAME    := $(shell hostname)
+
+
+
+ifeq ($(HOSTNAME),$(HOST_DEV))
+REMOTE_USER_HOST :=
+DEPLOY_BASE      := /var/www/littledan.com
+BACKEND_BASE     := /opt/markdown-manager-api/
 else
-	DEPLOY_TARGET := dlittle@10.0.1.51:/var/www/littledan.com/
-	BACKEND_DEPLOY_TARGET := dlittle@10.0.1.51:/opt/markdown-manager-api/
-	DEPLOY_METHOD := remote
+REMOTE_USER_HOST := dlittle@10.0.1.51
+DEPLOY_BASE      := /var/www/littledan.com
+BACKEND_BASE     := /opt/markdown-manager-api
 endif
 
-.PHONY: help install clean build dev dev-frontend dev-backend deploy deploy-local deploy-remote deploy-backend-local deploy-backend-remote deploy-nginx-config deploy-nginx-config-local deploy-nginx-config-remote reload-nginx reload-nginx-local reload-nginx-remote migrate migrate-create test db-backup db-restore
+ifeq ($(OS),Windows_NT)
+SHELL				 := pwsh.exe
+.SHELLFLAGS := -NoLogo -NoProfile -NonInteractive -Command wsl
 
-# Default target
-help: ## Show this help message
-	@echo "Markdown Manager - Available Commands:"
+DETECTED_OS := Windows
+COPY_CMD     := rsync -azhr --delete --no-perms --no-times --no-group --progress wsl
+SSH_CMD      := ssh
+
+else
+DETECTED_OS := $(shell uname -s)
+COPY_CMD     := rsync -azhr --delete --no-perms --no-times --no-group --progress
+SSH_CMD      := ssh
+SHELL				 := /bin/sh
+endif
+
+
+# ────────────────────────────────────────────────────────────────────────────
+# PATHS & PORTS
+# ────────────────────────────────────────────────────────────────────────────
+
+FRONTEND_DIR   := frontend
+FRONT_DIST_DIR := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,frontend/dist)
+BACKEND_DIR    := backend
+
+FRONTEND_PORT      := 3000
+BACKEND_DEV_PORT   := 8000
+BACKEND_PROD_PORT  := 8000
+
+
+# Production environment file path
+PROD_ENV_FILE := /etc/markdown-manager.env
+
+# ────────────────────────────────────────────────────────────────────────────
+# PHONY TARGETS
+# ────────────────────────────────────────────────────────────────────────────
+
+.PHONY: help quality install clean build dev dev-frontend dev-backend test status stop
+.PHONY: deploy deploy-front deploy-back deploy-nginx setup-remote-ops
+.PHONY: backup-db restore-db backup-restore-cycle
+
+# ────────────────────────────────────────────────────────────────────────────
+help: ## Show this help
+	@echo "Markdown Manager — Available Commands:"
+	@echo ""
+	@echo "$(BLUE)Quality & Linting:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^quality|install|clean|build/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Build & Development:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(install|clean|build|dev|dev-frontend|dev-backend):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "$(BLUE)Database Management:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(migrate|migrate-create|db-backup|db-restore):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"} /^dev|dev-frontend|dev-backend/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Deployment:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(deploy|deploy-local|deploy-remote|deploy-backend|deploy-frontend|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "$(BLUE)Nginx:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(reload-nginx|deploy-nginx-config):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"} /^deploy/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Utilities:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"; printf ""} /^(test|status|stop|logs):.*##/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-
-install: ## Install all dependencies (frontend + backend)
-	@echo "$(YELLOW)📦 Installing dependencies...$(NC)"
-	@echo "$(BLUE)Frontend dependencies:$(NC)"
-	cd frontend && npm install
-	@echo "$(BLUE)Backend dependencies:$(NC)"
-	cd backend && poetry lock && poetry install
-	@echo "$(GREEN)✅ All dependencies installed$(NC)"
-
-clean: ## Clean build artifacts and caches
-	@echo "$(YELLOW)🧹 Cleaning build artifacts...$(NC)"
-	rm -rf dist/
-	rm -rf frontend/dist/
-	rm -rf frontend/node_modules/.cache/
-	cd backend && poetry run python -c "import shutil; shutil.rmtree('__pycache__', ignore_errors=True)"
-	@echo "$(GREEN)✅ Clean complete$(NC)"
-
-build: clean ## Build production assets
-	@echo "$(YELLOW)🔨 Building production assets...$(NC)"
-	cd frontend && npm run build
-	@echo "$(GREEN)✅ Build complete$(NC)"
-
-dev: ## Start both frontend and backend dev servers
-	@echo "$(YELLOW)🚀 Starting development servers...$(NC)"
-	@echo "$(BLUE)Frontend: http://localhost:$(FRONTEND_PORT)$(NC)"
-	@echo "$(BLUE)Backend API: http://localhost:$(BACKEND_DEV_PORT)$(NC)"
-	@echo "$(BLUE)API Docs: http://localhost:$(BACKEND_DEV_PORT)/docs$(NC)"
-	@echo "$(YELLOW)Press Ctrl+C to stop both servers$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^test|status|stop/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
-	@$(MAKE) -j2 dev-frontend dev-backend
+	@echo "$(BLUE)Database Operations:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^backup-db|restore-db/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 
-dev-frontend: ## Start only frontend dev server
-	@echo "$(BLUE)🌐 Starting frontend dev server on port $(FRONTEND_PORT)...$(NC)"
-	cd frontend && npm run serve -- --port $(FRONTEND_PORT)
+# ────────────────────────────────────────────────────────────────────────────
+quality: ## Run pre-commit hooks
+	@echo "$(YELLOW)🔍 Running pre-commit hooks...$(NC)"
+	cd $(BACKEND_DIR) && poetry run pre-commit run --all-files
+	@echo "$(GREEN)✅ Quality checks complete$(NC)"
 
-dev-backend: ## Start only backend dev server
-	@echo "$(BLUE)⚡ Starting backend dev server on port $(BACKEND_DEV_PORT)...$(NC)"
-	cd backend && poetry run uvicorn app.main:app --reload --host 0.0.0.0 --port $(BACKEND_DEV_PORT)
+install: ## Install frontend + backend deps
+	@./scripts/install.sh $(FRONTEND_DIR) $(BACKEND_DIR)
 
-deploy: build deploy-$(DEPLOY_METHOD) ## Build and deploy to production (frontend + backend with migrations)
+clean: ## Clean build artifacts
+	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
 
-deploy-local: ## Deploy to local production server
-	@echo "$(YELLOW)🚀 Deploying locally to $(DEPLOY_TARGET)...$(NC)"
-	@echo "$(BLUE)Deploying frontend...$(NC)"
-	rsync -r --no-perms --no-times --no-group --progress frontend/dist/ $(DEPLOY_TARGET)
-	@if [ -f "$(DEPLOY_TARGET)/index.html" ]; then \
-		echo -e "$(GREEN)✅ Frontend deployment verified$(NC)"; \
-	else \
-		echo -e "$(RED)❌ Frontend deployment verification failed$(NC)"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)Deploying backend...$(NC)"
-	@$(MAKE) deploy-backend-local
-	@echo "$(BLUE)Reloading nginx configuration...$(NC)"
-	@sudo systemctl reload nginx && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(YELLOW)⚠️ Could not reload nginx (may need manual restart)$(NC)"
-	@echo "$(GREEN)🎉 Local deployment complete!$(NC)"
+build: ## Build production assets
+	@./scripts/build.sh $(FRONTEND_DIR)
 
-deploy-remote: ## Deploy to remote production server
-	@echo "$(YELLOW)🚀 Deploying remotely to $(DEPLOY_TARGET)...$(NC)"
-	@echo "$(BLUE)Deploying frontend...$(NC)"
-	rsync -r --no-perms --no-times --no-group --progress frontend/dist/ $(DEPLOY_TARGET)
-	@echo "$(BLUE)Deploying backend...$(NC)"
-	@$(MAKE) deploy-backend-remote
-	@echo "$(BLUE)Reloading nginx configuration...$(NC)"
-	@ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl reload nginx" && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(YELLOW)⚠️ Could not reload nginx (may need manual restart)$(NC)"
-	@echo "$(GREEN)🎉 Remote deployment complete!$(NC)"
+# ────────────────────────────────────────────────────────────────────────────
+dev: ## Start frontend & backend dev servers
+	@echo "$(YELLOW)🚀 Starting dev servers...$(NC)"
+	@$(MAKE) --no-print-directory -j2 dev-frontend dev-backend
 
-deploy-backend: ## Deploy backend only (auto-detects local/remote)
-	@echo "$(YELLOW)🚀 Deploying backend only ($(DEPLOY_METHOD))...$(NC)"
-	@$(MAKE) deploy-backend-$(DEPLOY_METHOD)
+dev-frontend: ## Frontend dev server
+ifeq ($(DETECTED_OS),Windows)
+	@cd $(FRONTEND_DIR) && npm run serve -- --port $(FRONTEND_PORT)
+else
+	@docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker not running$(NC)" && exit 1)
+	cd $(FRONTEND_DIR) && docker compose up --build -d frontend
+endif
 
-deploy-backend-local: ## Deploy backend locally with database migrations
-	@echo "$(YELLOW)📦 Deploying backend locally...$(NC)"
-	# Create backend directory if it doesn't exist
-	mkdir -p $(BACKEND_DEPLOY_TARGET)
-	# Backup existing database if it exists
-	@if [ -f "$(PRODUCTION_DB_PATH)" ]; then \
-		echo "$(BLUE)Backing up existing database...$(NC)"; \
-		cp $(PRODUCTION_DB_PATH) $(PRODUCTION_DB_PATH).backup.$$(date +%Y%m%d_%H%M%S); \
-	fi
-	# Deploy backend code (excluding database)
-	rsync -r --no-perms --no-times --no-group --progress \
-		--exclude='markdown_manager.db' \
-		--exclude='__pycache__' \
-		--exclude='.pytest_cache' \
-		--exclude='.venv' \
-		$(BACKEND_DIR)/ $(BACKEND_DEPLOY_TARGET)
-	# Install/sync dependencies with Poetry
-	@echo "$(BLUE)Installing/syncing dependencies...$(NC)"
-	cd $(BACKEND_DEPLOY_TARGET) && poetry install --only=main
-	# Run database migrations
-	@echo "$(BLUE)Running database migrations...$(NC)"
-	cd $(BACKEND_DEPLOY_TARGET) && poetry run alembic upgrade head
-	# Restart backend service
-	@echo "$(BLUE)Restarting backend service...$(NC)"
-	@sudo systemctl restart markdown-manager-api && echo "$(GREEN)✅ Backend service restarted$(NC)" || echo "$(YELLOW)⚠️ Could not restart backend service (may need manual restart)$(NC)"
-	@echo "$(GREEN)✅ Backend deployment with migrations complete$(NC)"
+dev-backend: ## Backend dev server
+	@docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker not running$(NC)" && exit 1)
+	cd $(BACKEND_DIR) && docker compose up --build -d backend
 
-deploy-backend-remote: ## Deploy backend remotely with database migrations
-	@echo "$(YELLOW)📦 Deploying backend remotely...$(NC)"
-	# Create backend directory if it doesn't exist
-	ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) "mkdir -p $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2)"
-	# Backup existing database if it exists
-	ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) \
-		"if [ -f '$(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2)/markdown_manager.db' ]; then \
-			echo 'Backing up existing database...'; \
-			cp $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2)/markdown_manager.db \
-			   $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2)/markdown_manager.db.backup.\$$(date +%Y%m%d_%H%M%S); \
-		fi"
-	# Deploy backend code (excluding database)
-	rsync -r --no-perms --no-times --no-group --progress \
-		--exclude='markdown_manager.db' \
-		--exclude='__pycache__' \
-		--exclude='.pytest_cache' \
-		--exclude='.venv' \
-		$(BACKEND_DIR)/ $(BACKEND_DEPLOY_TARGET)
-	# Install/sync dependencies with Poetry
-	@echo "$(BLUE)Installing/syncing dependencies...$(NC)"
-	ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) \
-		"cd $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2) && \
-		/home/dlittle/.local/bin/poetry install --only=main"
-	# Run database migrations
-	@echo "$(BLUE)Running database migrations...$(NC)"
-	ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) \
-		"cd $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f2) && \
-		/home/dlittle/.local/bin/poetry run alembic upgrade head"
-	# Restart backend service
-	@echo "$(BLUE)Restarting backend service...$(NC)"
-	@ssh $(shell echo $(BACKEND_DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl restart markdown-manager-api" && echo "$(GREEN)✅ Backend service restarted$(NC)" || echo "$(YELLOW)⚠️ Could not restart backend service (may need manual restart)$(NC)"
-	@echo "$(GREEN)✅ Backend deployment with migrations complete$(NC)"
+# ────────────────────────────────────────────────────────────────────────────
+test: ## Run backend (pytest) and frontend (Jest) tests
+	@echo "$(YELLOW)🧪 Running backend tests...$(NC)"
+	cd $(BACKEND_DIR) && poetry run pytest
+	@echo "$(YELLOW)🧪 Running frontend tests...$(NC)"
+	cd $(FRONTEND_DIR) && npm test
+	@echo "$(GREEN)✅ All tests complete$(NC)"
 
-backend-prod: ## Start backend in production mode
-	@echo "$(BLUE)🔧 Starting backend in production mode on port $(BACKEND_PROD_PORT)...$(NC)"
-	cd backend && poetry run uvicorn app.main:app --host 127.0.0.1 --port $(BACKEND_PROD_PORT)
+status: ## Check dev server status
+	@echo "$(YELLOW)📊 Dev Server Status$(NC)"
+	@echo -n " - Frontend (port $(FRONTEND_PORT)): " && \
+	(lsof -ti:$(FRONTEND_PORT) > /dev/null && echo "$(GREEN)✔" || echo "$(RED)✖")
+	@echo -n " - Backend  (port $(BACKEND_DEV_PORT)): " && \
+	(lsof -ti:$(BACKEND_DEV_PORT) > /dev/null && echo "$(GREEN)✔" || echo "$(RED)✖")
 
-test: ## Run tests
-	@echo "$(YELLOW)🧪 Running tests...$(NC)"
-	cd backend && poetry run pytest
-	@echo "$(GREEN)✅ Tests complete$(NC)"
+stop: ## Stop dev servers
+	@echo "$(YELLOW)🛑 Stopping dev servers...$(NC)"
+	@$(MAKE) --no-print-directory stop-frontend stop-backend
 
-status: ## Show development server status
-	@echo "$(YELLOW)📊 Development Server Status:$(NC)"
-	@echo "$(BLUE)Frontend (port $(FRONTEND_PORT)):$(NC)"
-	@if lsof -ti:$(FRONTEND_PORT) > /dev/null 2>&1; then \
-		echo "$(GREEN)  ✅ Running$(NC)"; \
-	else \
-		echo "$(RED)  ❌ Not running$(NC)"; \
-	fi
-	@echo "$(BLUE)Backend (port $(BACKEND_DEV_PORT)):$(NC)"
-	@if lsof -ti:$(BACKEND_DEV_PORT) > /dev/null 2>&1; then \
-		echo "$(GREEN)  ✅ Running$(NC)"; \
-	else \
-		echo "$(RED)  ❌ Not running$(NC)"; \
-	fi
+stop-frontend:
+ifeq ($(DETECTED_OS),Windows)
+	@npx kill-port $(FRONTEND_PORT)
+else
+	@docker compose stop frontend || true
+endif
 
-stop: ## Stop all development servers
-	@echo "$(YELLOW)🛑 Stopping development servers...$(NC)"
-	@pid=$$(lsof -tiTCP:$(FRONTEND_PORT) -sTCP:LISTEN) ; \
-	if [ -n "$$pid" ] ; then \
-	  echo "$(BLUE)Stopping frontend server on port $(FRONTEND_PORT)...$(NC)" ; \
-	  kill -TERM $$pid && \
-		echo "$(GREEN)  ✅ Frontend server stopped$(NC)" ; \
-	else \
-	  echo "$(YELLOW)  ℹ️  Frontend server not running$(NC)" ; \
-	fi
+stop-backend:
+ifeq ($(DETECTED_OS),Windows)
+	@docker compose stop backend || true
+else
+	@docker compose stop backend || true
+endif
 
-	@pid=$$(lsof -tiTCP:$(BACKEND_DEV_PORT) -sTCP:LISTEN) ; \
-	if [ -n "$$pid" ] ; then \
-	  echo "$(BLUE)Stopping backend server on port $(BACKEND_DEV_PORT)...$(NC)" ; \
-	  kill -TERM $$pid && \
-		echo "$(GREEN)  ✅ Backend server stopped$(NC)" ; \
-	else \
-	  echo "$(YELLOW)  ℹ️  Backend server not running$(NC)" ; \
-	fi
+# ────────────────────────────────────────────────────────────────────────────
+deploy: deploy-front deploy-back
+#deploy-nginx ## Build + full deploy
 
+deploy-front: build ## Sync frontend dist
+	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 
-# Advanced targets
-dev-debug: ## Start dev servers with debug output
-	@echo "$(YELLOW)🐛 Starting development servers in debug mode...$(NC)"
-	@$(MAKE) dev VERBOSE=1
+deploy-back: ## Sync backend + migrations + restart
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
 
-logs: ## Show recent logs (if using systemd for production)
-	@echo "$(YELLOW)📜 Recent logs:$(NC)"
-	@echo "$(BLUE)System logs for markdown-manager:$(NC)"
-	-journalctl -u markdown-manager --lines=20 --no-pager
+deploy-nginx: ## Sync nginx config + reload
+	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"
+	@$(SSH_CMD) $(REMOTE_USER_HOST) "mkdir -p /tmp/nginx-sites-available /tmp/nginx-conf-d"
+	@$(COPY_CMD) nginx/sites-available/* $(REMOTE_USER_HOST):/tmp/nginx-sites-available/
+	@$(COPY_CMD) nginx/conf.d/* $(REMOTE_USER_HOST):/tmp/nginx-conf-d/
+	@$(SSH_CMD) $(REMOTE_USER_HOST) "\
+	sudo cp /tmp/nginx-sites-available/* /etc/nginx/sites-available/ && \
+	sudo cp /tmp/nginx-conf-d/* /etc/nginx/conf.d/ && \
+	sudo nginx -t && \
+	sudo systemctl reload nginx \
+	"
 
-migrate: ## Run database migrations
-	@echo "$(YELLOW)🔄 Running database migrations...$(NC)"
-	cd backend && poetry run alembic upgrade head
-	@echo "$(GREEN)✅ Migrations complete$(NC)"
+# ────────────────────────────────────────────────────────────────────────────
+# DATABASE OPERATIONS
+# ────────────────────────────────────────────────────────────────────────────
 
-migrate-create: ## Create a new migration (usage: make migrate-create MESSAGE="description")
-	@echo "$(YELLOW)📝 Creating new migration...$(NC)"
-	@if [ -z "$(MESSAGE)" ]; then \
-		echo "$(RED)❌ Please provide a MESSAGE: make migrate-create MESSAGE='your description'$(NC)"; \
-		exit 1; \
-	fi
-	cd backend && poetry run alembic revision --autogenerate -m "$(MESSAGE)"
-	@echo "$(GREEN)✅ Migration created$(NC)"
+backup-db: ## Backup production database to JSON
+	@./scripts/backup-db.sh $(REMOTE_USER_HOST)
 
-db-backup: ## Backup the database
-	@echo "$(YELLOW)💾 Creating database backup...$(NC)"
-	@if [ -f "backend/markdown_manager.db" ]; then \
-		cp backend/markdown_manager.db backend/markdown_manager.db.backup.$$(date +%Y%m%d_%H%M%S); \
-		echo "$(GREEN)✅ Database backed up$(NC)"; \
-	else \
-		echo "$(YELLOW)⚠️  No database found to backup$(NC)"; \
-	fi
+restore-db: ## Restore database from backup file (requires BACKUP_FILE=path)
+ifndef BACKUP_FILE
+	@echo "$(RED)❌ Missing BACKUP_FILE variable. Usage: make restore-db BACKUP_FILE=backups/file.json$(NC)"
+	@exit 1
+endif
+	@./scripts/restore-db.sh $(REMOTE_USER_HOST) $(BACKUP_FILE)
 
-db-restore: ## Restore database from backup (usage: make db-restore BACKUP=filename)
-	@echo "$(YELLOW)🔄 Restoring database...$(NC)"
-	@if [ -z "$(BACKUP)" ]; then \
-		echo "$(RED)❌ Please provide a BACKUP filename: make db-restore BACKUP=markdown_manager.db.backup.20231201_120000$(NC)"; \
-		exit 1; \
-	fi
-	@if [ -f "backend/$(BACKUP)" ]; then \
-		cp backend/$(BACKUP) backend/markdown_manager.db; \
-		echo "$(GREEN)✅ Database restored from $(BACKUP)$(NC)"; \
-	else \
-		echo "$(RED)❌ Backup file backend/$(BACKUP) not found$(NC)"; \
-		exit 1; \
-	fi
-
-deploy-frontend: ## Deploy only frontend (skip backend)
-	@echo "$(YELLOW)🌐 Deploying frontend only...$(NC)"
-	cd frontend && npm run build
-	rsync -r --no-perms --no-times --no-group --progress frontend/dist/ $(DEPLOY_TARGET)
-	@echo "$(GREEN)✅ Frontend-only deployment complete$(NC)"
-
-# Nginx management targets
-reload-nginx-local: ## Reload nginx configuration locally
-	@echo "$(BLUE)Reloading nginx configuration locally...$(NC)"
-	@sudo systemctl reload nginx && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(RED)❌ Failed to reload nginx$(NC)"
-
-reload-nginx-remote: ## Reload nginx configuration on remote server
-	@echo "$(BLUE)Reloading nginx configuration on remote server...$(NC)"
-	@ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo systemctl reload nginx" && echo "$(GREEN)✅ Nginx configuration reloaded$(NC)" || echo "$(RED)❌ Failed to reload nginx$(NC)"
-
-reload-nginx: reload-nginx-$(DEPLOY_METHOD) ## Reload nginx configuration (auto-detects local/remote)
-
-# Cleanup nginx references
-cleanup-nginx: ## Remove obsolete nginx configuration
-	@echo "$(YELLOW)🧹 Cleaning up obsolete nginx configuration...$(NC)"
-	rm -f nginx/sites-available/localhost-dev
-	@echo "$(GREEN)✅ Nginx cleanup complete$(NC)"
-
-deploy-nginx-config-local: ## Deploy nginx configuration locally
-	@echo "$(BLUE)Deploying nginx configuration locally...$(NC)"
-	@sudo cp nginx/sites-available/* /etc/nginx/sites-available/ && echo "$(GREEN)✅ Nginx config deployed locally$(NC)" || echo "$(RED)❌ Failed to deploy nginx config$(NC)"
-	@$(MAKE) reload-nginx-local
-
-deploy-nginx-config-remote: ## Deploy nginx configuration to remote server
-	@echo "$(BLUE)Deploying nginx configuration to remote server...$(NC)"
-	@scp nginx/sites-available/* $(shell echo $(DEPLOY_TARGET) | cut -d: -f1):/tmp/ && \
-	ssh $(shell echo $(DEPLOY_TARGET) | cut -d: -f1) "sudo cp /tmp/littledan.com /etc/nginx/sites-available/ && sudo cp /tmp/localhost-dev /etc/nginx/sites-available/ 2>/dev/null || true" && \
-	echo "$(GREEN)✅ Nginx config deployed remotely$(NC)" || echo "$(RED)❌ Failed to deploy nginx config$(NC)"
-	@$(MAKE) reload-nginx-remote
-
-deploy-nginx-config: deploy-nginx-config-$(DEPLOY_METHOD) ## Deploy nginx configuration (auto-detects local/remote)
+backup-restore-cycle: ## Run backup then restore in sequence
+	@./scripts/backup-restore-cycle.sh $(REMOTE_USER_HOST)

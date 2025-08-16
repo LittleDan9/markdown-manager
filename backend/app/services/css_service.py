@@ -26,6 +26,8 @@ class CSSService:
         """Load local CSS files into cache."""
         css_files: Dict[str, Path] = {
             "base": self.static_dir / "pdf-base.css",
+            "pagebreaks": self.static_dir / "pdf-pagebreaks-minimal.css",
+            "mermaid": self.static_dir / "pdf-mermaid.css",
             "light": self.static_dir / "pdf-light.css",
             "dark": self.static_dir / "pdf-dark.css",
             # "prism-dark": self.static_dir / "prism-pdf-dark.css",
@@ -44,14 +46,14 @@ class CSSService:
         """Download Prism.js CSS from CDN."""
         base_url = f"https://cdnjs.cloudflare.com/ajax/libs/prism-themes/{self.prism_themes_version}"
         prism_urls: Dict[str, str] = {
-            "prism-light": f"{base_url}/prism-one-light.min.css",
-            "prism-dark": f"{base_url}/prism-one-dark.min.css",
+            "prism-light": f"{base_url}/prism-vsc-light-plus.min.css",
+            "prism-dark": f"{base_url}/prism-vsc-dark-plus.min.css",
         }
 
         async with httpx.AsyncClient() as client:
             for name, url in prism_urls.items():
                 try:
-                    response = await client.get(url)
+                    response = await client.get(url, follow_redirects=True)
                     response.raise_for_status()
                     self.css_cache[name] = response.text
                     logger.info(f"Downloaded {name} CSS from CDN")
@@ -82,6 +84,8 @@ class CSSService:
         """Get combined CSS for PDF generation."""
         css_parts: list[str] = [
             self.css_cache.get("base", ""),
+            self.css_cache.get("pagebreaks", ""),
+            self.css_cache.get("mermaid", ""),
             self.css_cache.get("dark" if is_dark_mode else "light", ""),
             self.css_cache.get("prism-dark" if is_dark_mode else "prism-light", ""),
         ]

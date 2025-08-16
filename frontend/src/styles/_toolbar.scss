@@ -1,3 +1,5 @@
+@use "variables";
+@use "mixins";
 // Category dropdown: use Bootstrap .btn-sm, caret visible (no custom caret style)
 // ─── TOOLBAR AND NAVIGATION STYLES ───
 
@@ -23,7 +25,8 @@
 }
 
 // File menu button styling - borderless like utility buttons
-#fileMenuDropdown {
+#fileMenuDropdown,
+#categoryDropdown {
   border: none !important;
   background: transparent !important;
   color: var(--bs-body-color);

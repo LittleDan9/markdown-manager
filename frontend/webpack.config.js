@@ -4,21 +4,77 @@ const MonacoWebpackPlugin = require('monaco-editor-webpack-plugin');
 const CompressionPlugin = require('compression-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
-const { RuntimeGlobals } = require('webpack');
+const { RuntimeGlobals, experiments } = require('webpack');
 const { userInfo } = require('os');
-const { split } = require('lodash');
+
 
 module.exports = {
+  cache: {
+    type: 'filesystem',
+  },
   mode: 'development',
-  entry: './src/js/index.js',
+  devtool: 'source-map',
+  entry: './src/index.js',
   output: {
-    filename: '[name].bundle.js',
-    path: path.resolve(__dirname, 'dist'),
+    filename: '[name]..[contenthash].bundle.js',
+    path: (() => {
+      const os = require('os');
+      const fs = require('fs');
+      const home = os.homedir();
+      const ramcache = path.join(home, 'ramcache');
+      const target = path.join(ramcache, 'markdown-manager', 'dist');
+      try {
+        if (fs.existsSync(ramcache)) {
+          const mmDir = path.join(ramcache, 'markdown-manager');
+          if (!fs.existsSync(mmDir)) {
+            fs.mkdirSync(mmDir, { recursive: true });
+          }
+          return target;
+        }
+      } catch (e) {
+        // fallback
+      }
+      return path.resolve(__dirname, 'dist');
+    })(),
+    clean: true,
     publicPath: '/',
-    clean:true,
   },
   module: {
     rules: [
+      {
+        test: /\.(aff|dic)$/,
+        type: 'asset/source',
+      },
+      {
+        test: /\.ico$/,
+        type: 'asset/resource',
+      },
+      // {
+      //   test: /\.worker\.js$/,
+      //   exclude: [/node_modules/],
+      //   use: {
+      //     loader: 'worker-loader',
+      //     options: {
+      //       filename: '[name].js',
+      //       chunkFilename: '[name].[contenthash].js',
+      //       esModule: true,
+      //       inline: 'no-fallback',
+      //     }
+      //   }
+      // },
+      {
+        test: /\.(js|jsx)$/,
+        exclude: [/node_modules/, /\.worker\.js$/],
+        use: {
+          loader: 'babel-loader',
+          options: {
+            presets: [
+              '@babel/preset-env',
+              '@babel/preset-react'
+            ]
+          }
+        }
+      },
       {
         test: /\.css$/,
         use: [
@@ -41,10 +97,26 @@ module.exports = {
         type: 'asset/inline', // Inline SVG as data URL
       },
       {
+        test: /\.svg$/,
+        include: path.resolve(__dirname, 'node_modules/aws-icons'),
+        type: 'asset/source', // Import SVG content as string
+      },
+      {
+        test: /\.tsx?$/,
+        use: "ts-loader",
+        exclude: /node_modules/,
+      },
+      {
         test: /\.(woff|woff2|eot|ttf|otf)$/,
         type: 'asset/resource',
       },
     ],
+  },
+  resolve: {
+    extensions: ['.js', '.jsx', '.tsx', '.ts'],
+    alias: {
+      '@': path.resolve(__dirname, 'src'),
+    },
   },
   plugins: [
     new CompressionPlugin(),
@@ -65,21 +137,81 @@ module.exports = {
           from: 'public/prism-themes',
           to: 'prism-themes',
         },
+        {
+          from: 'src/assets/favicon.ico',
+          to: 'favicon.ico',
+        },
+        // Copy hunspell dictionary files for spell checker
+        {
+          from: require.resolve('dictionary-en-us/index.aff'),
+          to: 'dictionary/index.aff',
+        },
+        {
+          from: require.resolve('dictionary-en-us/index.dic'),
+          to: 'dictionary/index.dic',
+        },
       ],
     }),
   ],
   devServer: {
-    static: {
-      directory: path.resolve(__dirname, 'dist'),
-      publicPath: '/',
+    headers: {
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'credentialless'
     },
+    static: [
+      {
+        directory: path.resolve(__dirname, 'public'),
+        publicPath: '/',
+      },
+    ],
     historyApiFallback: true,
-    open: true,
-    port: 8080
+    open: false,
+    port: 3000,
+    watchFiles: ['src/**/*', 'public/**/*'],
   },
   optimization: {
     splitChunks: {
       chunks: 'all',
+      maxInitialRequests: 20,
+      maxAsyncRequests: 20,
+      cacheGroups: {
+        // Separate Monaco Editor into its own chunk
+        monaco: {
+          test: /[\\/]node_modules[\\/]monaco-editor[\\/]/,
+          name: 'monaco-editor',
+          chunks: 'all',
+          priority: 30,
+          enforce: true,
+        },
+        // Separate Iconify icon packs into their own chunks
+        iconifyPacks: {
+          test: /[\\/]node_modules[\\/]@iconify-json[\\/]/,
+          name: 'iconify-packs',
+          chunks: 'all',
+          priority: 25,
+          enforce: true,
+        },
+        // Common vendor libraries
+        vendor: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'vendors',
+          chunks: 'all',
+          priority: 10,
+          minChunks: 1,
+        },
+      },
+    },
+    minimize: false,
+  },
+  // Performance hints for development
+  performance: {
+    hints: 'warning',
+    maxEntrypointSize: 2000000, // 2MB for development (more lenient)
+    maxAssetSize: 1000000, // 1MB per asset
+    assetFilter: function(assetFilename) {
+      // Only warn for JS and CSS files, ignore fonts/images
+      return /\.(js|css)$/.test(assetFilename);
     }
   },
 };
