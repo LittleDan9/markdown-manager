@@ -1,0 +1,29 @@
+// ─── SASS VARIABLES ───
+// Centralized variables for colors, spacing, typography, etc.
+
+// Colors
+$color-border: #e1e1e1;
+$color-border-dark: #444;
+$color-bg-light: hsl(230, 1%, 98%);
+$color-text-light: hsl(230, 8%, 24%);
+$color-bg-dark: hsl(220, 13%, 18%);
+$color-text-dark: hsl(220, 14%, 71%);
+$color-primary: #007bff;
+$color-primary-dark-hover: #66b0ff;
+$color-code-inline-bg: #f8f9fa;
+$color-code-inline-border: #e9ecef;
+$color-code-inline-text: #e83e8c;
+$color-code-inline-bg-dark: #2d3748;
+$color-code-inline-border-dark: #4a5568;
+$color-code-inline-text-dark: #f92672;
+
+// Typography
+$font-mono: "Fira Code", "Fira Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+$font-mono-alt: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, Courier, monospace;
+
+// Spacing
+$spacing-base: 1rem;
+$spacing-sm: 0.5rem;
+$spacing-xs: 0.25rem;
+$spacing-code-header-y: $spacing-xs;
+$spacing-code-header-x: $spacing-base;

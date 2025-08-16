@@ -1,0 +1,59 @@
+services:
+  frontend:
+    image: node:24
+    working_dir: /app
+    volumes:
+      - ./frontend:/app
+      - type: tmpfs
+        target: /app/node_modules/.cache
+        tmpfs:
+          size: 5368709120  # 5 GiB
+    ports:
+      - "3000:3000"
+    command: sh -c "npm install && CHOKIDAR_USEPOLLING=true npm run serve"
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+    init: true
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: markdown_manager
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./backend/postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
+    image: backend
+    tmpfs:
+      - /tmp  # for FastAPI temp files
+    working_dir: /markdown_manager
+    volumes:
+      - ./backend/app:/markdown_manager/app
+      - ./backend/migrations/:/markdown_manager/migrations/
+      - ./backend/markdown_manager.db:/markdown_manager/markdown_manager.db
+      - ./backend/alembic.ini:/markdown_manager/alembic.ini
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./backend/.env
+    environment:
+      - POETRY_VIRTUALENVS_IN_PROJECT=true
+      - DEBUG_PASSWORD_RESET_TOKEN=true
+      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
+      - ENVIRONMENT=dev
+    depends_on:
+      db:
+        condition: service_healthy

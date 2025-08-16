@@ -1,11 +1,12 @@
 // ─── MARKDOWN MANAGER STYLES ───
 // Main stylesheet using all partial files in logical order
 
+// 0. Global variables
+@use "variables";
+@use "mixins";
+
 // 1. Base styles and resets
 @use "base";
-
-// 2. Theme system
-@use "theme";
 
 // 3. Main layout and structure
 @use "layout";
@@ -17,5 +18,5 @@
 @use "code";
 @use "modals";
 
-// 5. Responsive design (should come last to override other styles)
-@use "responsive";
+// // 5. Responsive design (should come last to override other styles)
+// @use "responsive";

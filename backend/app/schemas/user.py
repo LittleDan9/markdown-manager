@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -18,16 +18,19 @@ class UserBase(BaseModel):
 class UserCreate(UserBase):
     """User creation schema."""
 
-    password: str
+    password: str = Field(..., min_length=8)
 
 
 class UserUpdate(BaseModel):
     """User update schema."""
 
+    email: Optional[EmailStr] = None
     first_name: Optional[str] = None
     last_name: Optional[str] = None
     display_name: Optional[str] = None
     bio: Optional[str] = None
+    sync_preview_scroll_enabled: Optional[bool] = None
+    autosave_enabled: Optional[bool] = None
 
 
 class UserUpdatePassword(BaseModel):
@@ -67,11 +70,19 @@ class UserResponse(UserBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     full_name: str
+    sync_preview_scroll_enabled: bool
+    autosave_enabled: bool
+    current_doc_id: Optional[int] = None
+    current_document: Optional["Document"] = None  # Should match Document schema
 
     class Config:
         """Pydantic config."""
 
         from_attributes = True
+
+
+# Import placed at the end to avoid circular import issues
+from app.schemas.document import Document
 
 
 class Token(BaseModel):

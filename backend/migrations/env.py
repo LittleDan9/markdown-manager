@@ -1,7 +1,9 @@
+import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy import engine_from_config, pool
+
+from alembic import context
 
 # Import our models
 from app.models import Base
@@ -9,6 +11,27 @@ from app.models import Base
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
 config = context.config
+
+# Set the database URL from environment variable if available
+database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./markdown_manager.db")
+
+# Check if we're using a forwarded connection (for restore operations)
+forwarded_url = os.getenv("ALEMBIC_DATABASE_URL")
+if forwarded_url:
+    database_url = forwarded_url
+
+# Convert async URL to sync for alembic
+if database_url.startswith("sqlite+aiosqlite"):
+    database_url = database_url.replace("sqlite+aiosqlite", "sqlite")
+elif database_url.startswith("postgresql+asyncpg"):
+    # Use postgresql+psycopg for alembic (sync operations) - newer psycopg3
+    database_url = database_url.replace("postgresql+asyncpg", "postgresql+psycopg")
+elif database_url.startswith("postgresql://"):
+    # Already in correct format, but ensure we use psycopg (not psycopg2)
+    # Convert to explicit psycopg format
+    database_url = database_url.replace("postgresql://", "postgresql+psycopg://")
+
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.

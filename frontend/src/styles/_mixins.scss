@@ -1,0 +1,15 @@
+// ─── SASS MIXINS ───
+
+// Dark theme wrapper: wraps styles inside [data-bs-theme="dark"] selector
+@mixin dark {
+  @at-root [data-bs-theme="dark"] & {
+    @content;
+  }
+}
+
+// Light theme wrapper (optional)
+@mixin light {
+  @at-root [data-bs-theme="light"] & {
+    @content;
+  }
+}

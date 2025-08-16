@@ -1,0 +1,108 @@
+// SpellCheckWorkerPool.js
+// Manages a pool of spell check workers for parallel chunk processing
+const DEFAULT_MAX_WORKERS = 6;
+
+class SpellCheckWorkerPool {
+  constructor(maxWorkers) {
+    this.maxWorkers = Math.min(
+      maxWorkers || navigator.hardwareConcurrency || 2,
+      DEFAULT_MAX_WORKERS
+    );
+    this.workers = [];
+    this.idleWorkers = [];
+    this.taskQueue = [];
+    this.activeTasks = 0;
+    this.results = [];
+    this.progressCallback = null;
+    this.totalChunks = 0;
+    this.completedChunks = 0;
+  }
+
+  async init() {
+    if (this.workers?.length > 0) return;
+
+    for (let i = 0; i < this.maxWorkers; i++) {
+      try {
+        const worker = new Worker(new URL('@/workers/spellCheck.worker.js', import.meta.url), {type: 'module'});
+
+        worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
+        worker.onerror = (err) => {
+          console.error(`[SpellCheckWorkerPool] Worker #${i+1} error:`, err.message, err.filename, err.lineno, err.colno, err.error);
+        };
+        this.workers.push(worker);
+        this.idleWorkers.push(worker);
+      } catch (err) {
+        console.error(`[SpellCheckWorkerPool] Failed to create worker #${i+1}:`, err);
+        if (err && err.message && err.message.includes('Failed to construct')) {
+          console.error('[SpellCheckWorkerPool] This may be due to an invalid worker script URL, CORS, or module type issues.');
+        }
+      }
+    }
+  }
+
+  terminate() {
+    this.workers.forEach(w => w.terminate());
+    this.workers = [];
+    this.idleWorkers = [];
+    this.taskQueue = [];
+    this.results = [];
+    this.activeTasks = 0;
+    this.progressCallback = null;
+    this.totalChunks = 0;
+    this.completedChunks = 0;
+  }
+
+  runSpellCheckOnChunks(chunks, customWords, progressCallback) {
+    this.results = new Array(chunks.length);
+    this.progressCallback = progressCallback;
+    this.totalChunks = chunks.length;
+    this.completedChunks = 0;
+    this.taskQueue = chunks.map((chunk, idx) => ({ chunk, idx }));
+    this.activeTasks = 0;
+    this._customWords = customWords; // Store customWords for use in _dispatchTasks
+    return new Promise((resolve, reject) => {
+      this._resolve = (...args) => { resolve(...args); };
+      this._reject = (...args) => { reject(...args); };
+      this._dispatchTasks();
+    });
+  }
+
+  _dispatchTasks() {
+    while (this.idleWorkers.length > 0 && this.taskQueue.length > 0) {
+      const worker = this.idleWorkers.pop();
+      const { chunk, idx } = this.taskQueue.shift();
+      this.activeTasks++;
+      worker._currentTaskIdx = idx;
+      worker.postMessage({
+        type: 'spellCheckChunk',
+        chunk,
+        customWords: this._customWords
+      });
+    }
+  }
+
+  _handleWorkerMessage(worker, e) {
+    if (e.data && e.data.type === 'spellCheckChunkResult') {
+      const idx = worker._currentTaskIdx;
+      this.results[idx] = e.data.issues;
+      this.completedChunks++;
+      if (this.progressCallback) {
+        this.progressCallback({
+          percentComplete: (this.completedChunks / this.totalChunks) * 100,
+          currentChunk: this.completedChunks,
+          totalChunks: this.totalChunks
+        });
+      }
+      this.activeTasks--;
+      this.idleWorkers.push(worker);
+      if (this.completedChunks === this.totalChunks) {
+        // All done
+        this._resolve([].concat(...this.results));
+      } else {
+        this._dispatchTasks();
+      }
+    }
+  }
+}
+
+export default SpellCheckWorkerPool;

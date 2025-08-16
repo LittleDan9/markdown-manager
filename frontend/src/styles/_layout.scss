@@ -1,3 +1,6 @@
+@use "variables";
+@use "mixins";
+
 // ─── MAIN LAYOUT AND CONTAINER STYLES ───
 
 // ─── CONTAINER: Fill the entire viewport ───
@@ -18,36 +21,29 @@
 
   // ─── MAIN AREA: fill everything below the header and toolbar ───
   #main {
-    // ─── FULLSCREEN MODE ───
-    &.fullscreen-mode {
-      #editorContainer {
-        display: none !important;
-      }
-      #previewContainer {
-        flex: 1 1 100% !important;
-        width: 100% !important;
-        max-width: 100vw !important;
-        min-width: 0 !important;
-        height: 100%;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-        padding: 1rem;
-        border-radius: 0.5rem;
-        #preview {
-          width: 100% !important;
-          border-radius: 0.5rem;
-          border: #ced4da 1px solid;
-          padding: 0.25rem;
-        }
-        .preview-scroll {
-          padding: 1rem;
-          border-radius: inherit;
-        }
-      }
-    }
+
     display: flex;
     flex: 1 1 auto; // share 100vh minus header and toolbar, shrink/grow if needed
     min-height: 0; // allow its children to shrink
     overflow: hidden;
+
+
+    &.split-view {
+      .editor-wrapper   { width: 40%; }
+      .renderer-wrapper { width: 70%; }
+    }
+
+    &.preview-full {
+      .editor-wrapper   { width: 0; }
+      .renderer-wrapper { width: 100%; }
+    }
+
+    // common to both states
+    .editor-wrapper,
+    .renderer-wrapper {
+      overflow: hidden;             // hide the editor as it shrinks
+      // transition: width 0.3s ease;  // smooth grow/shrink
+    }
 
     // ─── LEFT EDITOR PANE (40% width) ───
     #editorContainer {
@@ -101,6 +97,7 @@
         padding: 1rem;
         word-wrap: break-word;
         overflow-wrap: break-word;
+        -webkit-hyphens: auto;
         hyphens: auto;
 
         // Ensure content doesn't overflow horizontally

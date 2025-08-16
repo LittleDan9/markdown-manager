@@ -1,0 +1,25 @@
+// backend/.vscode/settings.json
+{
+  // Pylance scoping
+  "python.analysis.exclude": [
+    "../frontend/**"
+  ],
+  "python.analysis.autoSearchPaths": true,
+  "python.analysis.useLibraryCodeForTypes": true,
+  // Enable and configure flake8
+  "python.linting.enabled": true,
+  "python.linting.flake8Enabled": true,
+  "python.linting.flake8Path": "flake8",
+  "python.linting.flake8Args": [
+    "--max-line-length=88",
+    "--ignore=E203,W503"
+  ],
+  // Optionally point pytest cache here if you want in-RAM
+  "python.testing.pytestArgs": [
+    "-o",
+    "cache_dir=/home/dlittle/ramcache/pytest",
+    "."
+  ],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
+}

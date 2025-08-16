@@ -34,7 +34,7 @@ class LanguageInfo(BaseModel):
     mimetypes: List[str]
 
 
-@router.post("/highlight", response_model=HighlightResponse)
+@router.post("/syntax", response_model=HighlightResponse)
 async def highlight_code(request: HighlightRequest) -> HighlightResponse:
     """Highlight code using Pygments syntax highlighter."""
     try:

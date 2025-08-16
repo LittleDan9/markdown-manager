@@ -8,13 +8,14 @@ from jose import JWTError, jwt
 from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.config import settings
 from app.database import get_db
 from app.models.user import User
 
 # Password hashing
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # Token authentication
 security = HTTPBearer()
@@ -49,8 +50,12 @@ def create_access_token(
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
-    """Get user by email."""
-    result = await db.execute(select(User).where(User.email == email))
+    """Get user by email, eagerly loading current_document."""
+    result = await db.execute(
+        select(User)
+        .options(selectinload(User.current_document))
+        .where(User.email == email)
+    )
     return result.scalar_one_or_none()
 
 
@@ -83,8 +88,8 @@ async def get_current_user(
             settings.secret_key,
             algorithms=[settings.algorithm],
         )
-        email: str = payload.get("sub")
-        if email is None:
+        email = payload.get("sub")
+        if not isinstance(email, str) or not email:
             raise credentials_exception
     except JWTError:
         raise credentials_exception

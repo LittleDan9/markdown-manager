@@ -13,6 +13,8 @@ class Settings(BaseSettings):  # type: ignore[misc]
     port: int = 8000
 
     # Database settings
+    # Default to SQLite, but can be overridden by the DATABASE_URL environment variable (e.g., for Postgres)
+    # Example Postgres URL: 'postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager'
     database_url: str = "sqlite+aiosqlite:///./markdown_manager.db"
 
     # Security settings
@@ -20,11 +22,21 @@ class Settings(BaseSettings):  # type: ignore[misc]
         "your-secret-key-here-change-in-production-make-it-long-and-random"
     )
     algorithm: str = "HS256"
-    access_token_expire_minutes: int = 30 * 24 * 7  # 7 days
+    access_token_expire_minutes: int = 90  # 90 minutes
+    
+    # Cookie settings
+    secure_cookies: bool = False  # Set to True in production with HTTPS
 
     # File storage settings
     documents_directory: str = "./documents"
     max_file_size: int = 10 * 1024 * 1024  # 10MB
+
+    # SMTP settings
+    smtp_host: str = "smtp.example.com"
+    smtp_port: int = 587
+    smtp_user: str = "your_smtp_user"
+    smtp_pass: str = "your_smtp_password"
+    from_email: str = "noreply@littledan.com"
 
     class Config:
         env_file = ".env"

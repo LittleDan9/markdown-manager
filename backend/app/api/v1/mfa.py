@@ -73,7 +73,7 @@ async def verify_mfa_setup(
             detail="Invalid TOTP code",
         )
 
-    return {"message": "TOTP code verified successfully"}
+    return {"success": True, "message": "TOTP code verified successfully"}
 
 
 @router.post("/enable")
@@ -114,7 +114,7 @@ async def enable_mfa(
             detail="Failed to enable MFA",
         )
 
-    return {"message": "MFA enabled successfully"}
+    return {"success": True, "message": "MFA enabled successfully"}
 
 
 @router.post("/disable")
@@ -141,7 +141,8 @@ async def disable_mfa(
         )
 
     # Verify TOTP code or backup code
-    totp_valid = verify_totp_code(current_user.totp_secret, toggle_data.totp_code)
+
+    totp_valid = verify_totp_code(str(current_user.totp_secret), toggle_data.totp_code)
     backup_valid = False
 
     if not totp_valid and current_user.backup_codes:
@@ -195,7 +196,7 @@ async def regenerate_backup_codes(
         )
 
     # Verify TOTP code
-    if not verify_totp_code(current_user.totp_secret, verify_data.totp_code):
+    if not verify_totp_code(str(current_user.totp_secret), verify_data.totp_code):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid TOTP code",
