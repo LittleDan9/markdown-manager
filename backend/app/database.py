@@ -3,13 +3,24 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.config import settings
+from app.configs import settings
+from app.configs.environment import EnvironmentConfig
 
-# Create async engine
+# Initialize environment config
+env_config = EnvironmentConfig(settings)
+
+# Get environment-appropriate pool settings
+pool_settings = env_config.get_database_pool_settings()
+
+# Create async engine with enhanced configuration
 engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
+    settings.database_config.url,
+    echo=settings.database_config.echo,
     future=True,
+    pool_size=pool_settings["pool_size"],
+    max_overflow=pool_settings["max_overflow"],
+    pool_timeout=pool_settings["pool_timeout"],
+    pool_recycle=pool_settings["pool_recycle"],
 )
 
 # Create async session factory

@@ -4,12 +4,17 @@ import logging
 import uvicorn
 
 from app.app_factory import create_app
-from app.core.config import settings
+from app.configs import settings
+from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
 
-# Configure logging
+# Initialize environment configuration
+env_config = EnvironmentConfig(settings)
+
+# Configure logging with environment-appropriate level
 logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    level=getattr(logging, env_config.get_log_level()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
 logger = logging.getLogger(__name__)
 
@@ -38,7 +43,7 @@ class AppInitializer:
             port=settings.port,
             reload=settings.debug,
             factory=True,
-            log_level="info" if not settings.debug else "debug",
+            log_level=env_config.get_log_level().lower(),
             access_log=True,
         )
 

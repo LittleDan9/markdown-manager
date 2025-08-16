@@ -8,7 +8,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.core.config import settings
+from app.configs import settings
+from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
 from app.routers import (
     auth,
@@ -24,6 +25,9 @@ from app.routers import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Initialize environment configuration
+env_config = EnvironmentConfig(settings)
 
 
 class LoggingMiddleware(BaseHTTPMiddleware):
@@ -68,8 +72,13 @@ class AppFactory:
         @asynccontextmanager
         async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
             """Application lifespan events."""
-            # Startup: create database tables
+            # Startup: validate configuration and create database tables
             logger.info("Starting up application...")
+
+            # Validate configuration for current environment
+            if not env_config.validate_configuration():
+                logger.warning("Configuration validation failed - proceeding anyway")
+
             await create_tables()
             logger.info("Database tables created/verified")
 
@@ -85,13 +94,10 @@ class AppFactory:
         if not self.app:
             raise ValueError("App not initialized")
 
-        # CORS middleware
+        # CORS middleware with environment-specific origins
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=[
-                "http://localhost:3000",  # Frontend development
-                "https://littledan.com",  # Production domain
-            ],
+            allow_origins=env_config.get_cors_origins(),
             allow_credentials=True,
             allow_methods=["*"],
             allow_headers=["*"],
@@ -157,9 +163,11 @@ class AppFactory:
 
     def create_app(self) -> FastAPI:
         """Create and configure FastAPI application."""
-        # Create FastAPI app with lifespan
+        # Create FastAPI app with enhanced configuration
         self.app = FastAPI(
             title=settings.project_name,
+            description=settings.api_description,
+            version=settings.api_version,
             openapi_url="/openapi.json",  # Remove v1 prefix
             lifespan=self._create_lifespan(),
             debug=settings.debug,
