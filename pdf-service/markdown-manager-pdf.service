@@ -1,0 +1,18 @@
+[Unit]
+Description=Markdown Manager PDF Service (Docker)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+EnvironmentFile=/etc/markdown-manager.env
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-pdf \
+  -e PYTHONUNBUFFERED=1 \
+  -p 8001:8001 \
+  littledan9/markdown-manager-pdf:latest
+ExecStop=/usr/bin/docker stop markdown-manager-pdf
+
+[Install]
+WantedBy=multi-user.target

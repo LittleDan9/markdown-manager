@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.document import Document
 
@@ -238,6 +239,58 @@ class DocumentCRUD:
             .values(category=new_category)
         )
         await db.commit()
+
+    async def enable_sharing(
+        self, db: AsyncSession, document_id: int, user_id: int
+    ) -> Optional[str]:
+        """Enable sharing for a document and return the share token."""
+        import secrets
+
+        result = await db.execute(
+            select(Document).filter(
+                Document.id == document_id, Document.user_id == user_id
+            )
+        )
+        document = result.scalar_one_or_none()
+        if not document:
+            return None
+
+        # Generate a secure random token if not already present
+        if not document.share_token:
+            document.share_token = secrets.token_urlsafe(32)
+
+        document.is_shared = True
+        await db.commit()
+        await db.refresh(document)
+        return document.share_token
+
+    async def disable_sharing(
+        self, db: AsyncSession, document_id: int, user_id: int
+    ) -> bool:
+        """Disable sharing for a document."""
+        result = await db.execute(
+            select(Document).filter(
+                Document.id == document_id, Document.user_id == user_id
+            )
+        )
+        document = result.scalar_one_or_none()
+        if not document:
+            return False
+
+        document.is_shared = False
+        await db.commit()
+        return True
+
+    async def get_by_share_token(
+        self, db: AsyncSession, share_token: str
+    ) -> Optional[Document]:
+        """Get a document by its share token if sharing is enabled."""
+        result = await db.execute(
+            select(Document)
+            .options(selectinload(Document.owner))
+            .filter(Document.share_token == share_token, Document.is_shared.is_(True))
+        )
+        return result.scalar_one_or_none()
 
 
 # Create a singleton instance

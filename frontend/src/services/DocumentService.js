@@ -552,6 +552,66 @@ class DocumentService {
   }
 
   /**
+   * Enable sharing for a document
+   * @param {number} documentId - Document ID to share
+   * @returns {Promise<Object>} - Share response with token and URL
+   */
+  async enableDocumentSharing(documentId) {
+    const { isAuthenticated, token } = this.getAuthState();
+    if (!isAuthenticated || !token) {
+      throw new Error('Authentication required to share documents');
+    }
+
+    try {
+      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const shareResponse = await DocumentsApi.enableSharing(documentId);
+      
+      return shareResponse;
+    } catch (error) {
+      console.error('Enable sharing failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Disable sharing for a document
+   * @param {number} documentId - Document ID to stop sharing
+   * @returns {Promise<boolean>} - Success status
+   */
+  async disableDocumentSharing(documentId) {
+    const { isAuthenticated, token } = this.getAuthState();
+    if (!isAuthenticated || !token) {
+      throw new Error('Authentication required to manage document sharing');
+    }
+
+    try {
+      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      await DocumentsApi.disableSharing(documentId);
+      
+      return true;
+    } catch (error) {
+      console.error('Disable sharing failed:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get shared document by token (public access)
+   * @param {string} shareToken - Share token
+   * @returns {Promise<Object>} - Shared document data
+   */
+  async getSharedDocument(shareToken) {
+    try {
+      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      return await DocumentsApi.getSharedDocument(shareToken);
+    } catch (error) {
+      console.error('Failed to load shared document:', error);
+      notification.error('Shared document not found or sharing has been disabled');
+      throw error;
+    }
+  }
+
+  /**
    * Get save queue status (for debugging)
    */
   getSaveStatus() {

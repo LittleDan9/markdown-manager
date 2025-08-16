@@ -34,19 +34,19 @@ class DocumentInDB(DocumentBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
+    is_shared: bool = False
+    share_token: Optional[str] = None
 
     class Config:
         from_attributes = True
-        json_encoders = {
-            datetime: lambda v: _isoformat_utc(v)
-        }
+        json_encoders = {datetime: lambda v: _isoformat_utc(v)}
 
 
 def _isoformat_utc(dt: datetime) -> str:
     """Format datetime as ISO 8601 with Z (UTC)."""
     if dt.tzinfo:
-        return dt.astimezone().replace(microsecond=0).isoformat().replace('+00:00', 'Z')
-    return dt.replace(microsecond=0).isoformat() + 'Z'
+        return dt.astimezone().replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return dt.replace(microsecond=0).isoformat() + "Z"
 
 
 class Document(DocumentInDB):
@@ -69,3 +69,25 @@ class DocumentConflictError(BaseModel):
     detail: str
     conflict_type: str = "name_conflict"
     existing_document: Document
+
+
+class ShareResponse(BaseModel):
+    """Schema for share link response."""
+
+    share_token: str
+    is_shared: bool
+
+
+class SharedDocument(BaseModel):
+    """Schema for publicly shared document (limited fields)."""
+
+    id: int
+    name: str
+    content: str
+    category: str
+    updated_at: datetime
+    author_name: str
+
+    class Config:
+        from_attributes = True
+        json_encoders = {datetime: lambda v: _isoformat_utc(v)}

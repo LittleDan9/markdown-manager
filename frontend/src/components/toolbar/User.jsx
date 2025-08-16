@@ -6,7 +6,7 @@ import UserMenuLoggedOut from "./UserMenuLoggedOut";
 import { useAuth } from "../../context/AuthContext";
 
 
-function UserToolbar({ handleThemeToggle, theme }) {
+function UserToolbar({ handleThemeToggle, theme, isSharedView = false }) {
   const { showSuccess, showError } = useNotification();
   const { user, setUser } = useAuth();
 
@@ -25,7 +25,7 @@ function UserToolbar({ handleThemeToggle, theme }) {
       {user.is_active ? (
         <UserMenuLoggedIn />
       ) : (
-        <UserMenuLoggedOut />
+        <UserMenuLoggedOut isSharedView={isSharedView} />
       )}
     </Dropdown>
     </>

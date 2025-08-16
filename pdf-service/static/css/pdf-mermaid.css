@@ -1,0 +1,65 @@
+/* Mermaid PDF Print Styles
+   Intelligent page break control for diagrams to ensure optimal layout
+*/
+
+.mermaid {
+    max-width: 100%;
+    max-height: 9.5in; /* Letter page height minus margins (11in - 2*0.5in - 0.5in buffer) */
+    width: 100%;
+    display: block;
+    margin: 24px 0;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    overflow: hidden;
+    /* Ensure diagrams don't get orphaned */
+    orphans: 1;
+    widows: 1;
+}
+
+.mermaid svg {
+    max-width: 100%;
+    max-height: 9.5in;
+    width: 100%;
+    height: auto;
+    display: block;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+}
+
+/* Smart page break handling for mermaid diagrams */
+.mermaid {
+    /* Default: try to keep with previous content */
+    page-break-before: auto;
+    break-before: auto;
+    /* Always avoid breaking after a diagram within a small space */
+    page-break-after: avoid;
+    break-after: avoid-page;
+}
+
+/* If mermaid is preceded by a heading, try to keep them together */
+h1 + .mermaid,
+h2 + .mermaid,
+h3 + .mermaid,
+h4 + .mermaid,
+h5 + .mermaid,
+h6 + .mermaid {
+    page-break-before: avoid;
+    break-before: avoid-page;
+}
+
+/* Content following mermaid should have some breathing room */
+.mermaid + * {
+    page-break-before: auto;
+    break-before: auto;
+    /* Avoid orphaning the next element */
+    orphans: 2;
+    widows: 2;
+}
+
+/* Special handling for multiple consecutive diagrams */
+.mermaid + .mermaid {
+    /* Allow page breaks between consecutive diagrams if needed */
+    page-break-before: auto;
+    break-before: auto;
+    margin-top: 32px; /* Extra space between diagrams */
+}
