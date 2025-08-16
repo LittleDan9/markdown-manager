@@ -5,6 +5,7 @@ import FileImportModal from "./FileImportModal";
 import FileSaveAsModal from "./FileSaveAsModal";
 import FileOverwriteModal from "./FileOverwriteModal";
 import ConfirmModal from "../../modals/ConfirmModal";
+import ShareModal from "../../modals/ShareModal";
 import { useDocument } from "../../../context/DocumentProvider";
 import { useConfirmModal } from "../../../hooks/useConfirmModal.jsx";
 import { useNotification } from "../../NotificationProvider";
@@ -18,14 +19,18 @@ import { useTheme } from "../../../context/ThemeProvider.jsx";
 import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
 
 import { useAuth } from "../../../context/AuthContext";
+import DocumentService from "../../../services/DocumentService";
 
 export default function FileDropdown({ setDocumentTitle }) {
-  const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
+  const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const { createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF, categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content } = useDocument();
   const { showSuccess, showError } = useNotification();
   const { previewHTML } = usePreviewHTML();
+  
+  // Share modal state
+  const [showShareModal, setShowShareModal] = React.useState(false);
   // Debug: Log previewHTML value on render
   useEffect(() => {
     // console.log('[FileDropdown] previewHTML:', previewHTML);
@@ -218,6 +223,43 @@ export default function FileDropdown({ setDocumentTitle }) {
     );
   };
 
+  // Share handlers
+  const handleShare = () => {
+    if (isDefaultDoc) {
+      showError("Please save the document before sharing.");
+      return;
+    }
+    setShowShareModal(true);
+  };
+
+  const handleEnableSharing = async (documentId) => {
+    try {
+      const result = await DocumentService.enableDocumentSharing(documentId);
+      // Reload the current document to get updated sharing state
+      if (currentDocument && currentDocument.id === documentId) {
+        await loadDocument(documentId);
+      }
+      return result;
+    } catch (error) {
+      showError(`Failed to enable sharing: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const handleDisableSharing = async (documentId) => {
+    try {
+      await DocumentService.disableDocumentSharing(documentId);
+      // Reload the current document to get updated sharing state
+      if (currentDocument && currentDocument.id === documentId) {
+        await loadDocument(documentId);
+      }
+      return true;
+    } catch (error) {
+      showError(`Failed to disable sharing: ${error.message}`);
+      throw error;
+    }
+  };
+
   // Accept setCurrentCategory as a prop
   return (
     <>
@@ -247,6 +289,11 @@ export default function FileDropdown({ setDocumentTitle }) {
           <Dropdown.Item onClick={handleDelete} disabled={isDefaultDoc}>
             <i className="bi bi-trash me-2"></i>Delete
           </Dropdown.Item>
+          {isAuthenticated && (
+            <Dropdown.Item onClick={handleShare} disabled={isDefaultDoc}>
+              <i className="bi bi-share me-2"></i>Share
+            </Dropdown.Item>
+          )}
           <Dropdown.Divider />
           <Dropdown.Item onClick={handleImportWithUnsavedCheck}>
             <i className="bi bi-file-earmark-arrow-up me-2"></i>Import
@@ -385,6 +432,14 @@ export default function FileDropdown({ setDocumentTitle }) {
           onHide={() => handleAction("cancel")}
         />
       )}
+      {/* Share Modal */}
+      <ShareModal
+        show={showShareModal}
+        onHide={() => setShowShareModal(false)}
+        document={currentDocument}
+        onShare={handleEnableSharing}
+        onUnshare={handleDisableSharing}
+      />
     </>
   );
 }
