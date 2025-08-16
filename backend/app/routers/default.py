@@ -1,4 +1,4 @@
-"""Health check endpoint."""
+"""Default router for root, health, and utility endpoints."""
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -23,6 +23,12 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     services: dict[str, ServiceHealth]
+
+
+@router.get("/")
+async def root() -> dict[str, str]:
+    """Root endpoint."""
+    return {"message": "Markdown Manager API"}
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -60,3 +66,11 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
         overall_status = "degraded"
 
     return HealthResponse(status=overall_status, version="1.0.0", services=services)
+
+
+@router.get("/favicon.ico")
+async def favicon():
+    """Favicon endpoint to prevent 404s."""
+    from fastapi.responses import Response
+
+    return Response(status_code=204)
