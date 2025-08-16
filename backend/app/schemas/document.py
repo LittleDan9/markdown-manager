@@ -34,6 +34,8 @@ class DocumentInDB(DocumentBase):
     user_id: int
     created_at: datetime
     updated_at: datetime
+    is_shared: bool = False
+    share_token: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -69,3 +71,27 @@ class DocumentConflictError(BaseModel):
     detail: str
     conflict_type: str = "name_conflict"
     existing_document: Document
+
+
+class ShareResponse(BaseModel):
+    """Schema for share link response."""
+
+    share_token: str
+    share_url: str
+    is_shared: bool
+
+
+class SharedDocument(BaseModel):
+    """Schema for publicly shared document (limited fields)."""
+
+    id: int
+    name: str
+    content: str
+    category: str
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+        json_encoders = {
+            datetime: lambda v: _isoformat_utc(v)
+        }

@@ -9,7 +9,7 @@ from app.core.auth import get_current_user
 from app.crud import document as document_crud
 from app.database import get_db
 from app.models.user import User
-from app.schemas.document import Document, DocumentCreate, DocumentList, DocumentUpdate
+from app.schemas.document import Document, DocumentCreate, DocumentList, DocumentUpdate, ShareResponse, SharedDocument
 
 router = APIRouter()
 
@@ -231,6 +231,44 @@ async def delete_document(
     if not success:
         raise HTTPException(status_code=404, detail="Document not found")
     return {"message": "Document deleted successfully"}
+
+
+@router.post("/{document_id}/share", response_model=ShareResponse)
+async def enable_document_sharing(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> ShareResponse:
+    """Enable sharing for a document and return the share link."""
+    share_token = await document_crud.document.enable_sharing(
+        db=db, document_id=document_id, user_id=current_user.id
+    )
+    if not share_token:
+        raise HTTPException(status_code=404, detail="Document not found")
+    
+    # Generate share URL - in production, use the actual domain
+    share_url = f"http://localhost:3000/shared/{share_token}"
+    
+    return ShareResponse(
+        share_token=share_token,
+        share_url=share_url,
+        is_shared=True
+    )
+
+
+@router.delete("/{document_id}/share")
+async def disable_document_sharing(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict[str, str]:
+    """Disable sharing for a document."""
+    success = await document_crud.document.disable_sharing(
+        db=db, document_id=document_id, user_id=current_user.id
+    )
+    if not success:
+        raise HTTPException(status_code=404, detail="Document not found")
+    return {"message": "Document sharing disabled"}
 
 
 @router.get("/categories/", response_model=List[str])
