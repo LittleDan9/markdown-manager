@@ -6,7 +6,7 @@ import Renderer from "./Renderer";
 import LogLevelController from "./LogLevelController";
 import IconBrowser from "./IconBrowser";
 import LoadingOverlay from "./LoadingOverlay";
-import { Modal, Container, Alert, Card } from "react-bootstrap";
+import { Modal, Container, Alert, Card, Button } from "react-bootstrap";
 import { ThemeProvider } from "../context/ThemeProvider";
 import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
