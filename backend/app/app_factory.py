@@ -8,9 +8,21 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from app.api.v1.api import api_router
 from app.core.config import settings
 from app.database import create_tables
+from app.routers import (
+    auth,
+    categories,
+    custom_dictionary,
+    debug,
+    documents,
+    health,
+    mfa,
+    pdf,
+    public,
+    syntax_highlighting,
+    users,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +106,30 @@ class AppFactory:
         if not self.app:
             raise ValueError("App not initialized")
 
-        # Include API router with v1 prefix for now
-        self.app.include_router(api_router, prefix=settings.api_v1_str)
+        # Include routers without v1 prefix - flattened structure
+        self.app.include_router(
+            public.router, tags=["public"]
+        )  # Public routes (no auth required)
+        self.app.include_router(health.router, tags=["health"])
+        self.app.include_router(auth.router, prefix="/auth", tags=["auth"])
+        self.app.include_router(mfa.router, prefix="/mfa", tags=["mfa"])
+        self.app.include_router(users.router, prefix="/users", tags=["users"])
+        self.app.include_router(
+            categories.router, prefix="/categories", tags=["categories"]
+        )
+        self.app.include_router(
+            documents.router, prefix="/documents", tags=["documents"]
+        )
+        self.app.include_router(pdf.router, prefix="/pdf", tags=["pdf"])
+        self.app.include_router(debug.router, prefix="/debug", tags=["debug"])
+        self.app.include_router(
+            syntax_highlighting.router,
+            prefix="/highlight",
+            tags=["syntax-highlighting"],
+        )
+        self.app.include_router(
+            custom_dictionary.router, prefix="/dictionary", tags=["custom-dictionary"]
+        )
 
     def _setup_exception_handlers(self) -> None:
         """Set up global exception handlers."""
@@ -124,7 +158,7 @@ class AppFactory:
         # Create FastAPI app with lifespan
         self.app = FastAPI(
             title=settings.project_name,
-            openapi_url=f"{settings.api_v1_str}/openapi.json",
+            openapi_url="/openapi.json",  # Remove v1 prefix
             lifespan=self._create_lifespan(),
             debug=settings.debug,
         )
