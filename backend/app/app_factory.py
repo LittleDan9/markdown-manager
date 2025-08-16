@@ -15,9 +15,8 @@ from app.routers import (
     categories,
     custom_dictionary,
     debug,
+    default,
     documents,
-    health,
-    mfa,
     pdf,
     public,
     syntax_highlighting,
@@ -106,13 +105,16 @@ class AppFactory:
         if not self.app:
             raise ValueError("App not initialized")
 
-        # Include routers without v1 prefix - flattened structure
+        # Include routers with consolidated structure
+        self.app.include_router(
+            default.router, tags=["default"]
+        )  # Root, health, utilities
         self.app.include_router(
             public.router, tags=["public"]
         )  # Public routes (no auth required)
-        self.app.include_router(health.router, tags=["health"])
-        self.app.include_router(auth.router, prefix="/auth", tags=["auth"])
-        self.app.include_router(mfa.router, prefix="/mfa", tags=["mfa"])
+        self.app.include_router(
+            auth.router, prefix="/auth", tags=["auth"]
+        )  # Includes MFA endpoints at /auth/mfa/*
         self.app.include_router(users.router, prefix="/users", tags=["users"])
         self.app.include_router(
             categories.router, prefix="/categories", tags=["categories"]
@@ -171,12 +173,6 @@ class AppFactory:
 
         # Set up routers
         self._setup_routers()
-
-        # Add root endpoint
-        @self.app.get("/")
-        async def root() -> dict[str, str]:
-            """Root endpoint."""
-            return {"message": "Markdown Manager API"}
 
         logger.info("FastAPI application created successfully")
         return self.app
