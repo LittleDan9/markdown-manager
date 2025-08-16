@@ -17,10 +17,15 @@ export class Api {
       "Content-Type": "application/json",
       ...extraHeaders
     };
-    const token = this.getToken();
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+    
+    // Add authorization header unless noAuth is specified
+    if (!options.noAuth) {
+      const token = this.getToken();
+      if (token) {
+        headers["Authorization"] = `Bearer ${token}`;
+      }
     }
+    
     const config = {
       method,
       url,
@@ -28,8 +33,11 @@ export class Api {
       data: body,
       ...options
     };
-    // Remove data for GET requests
+    
+    // Remove data for GET requests and remove noAuth from axios config
     if (method === "GET") delete config.data;
+    delete config.noAuth;
+    
     return axios(config);
   }
 }

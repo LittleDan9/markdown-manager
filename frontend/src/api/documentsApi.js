@@ -114,6 +114,36 @@ class DocumentsApi extends Api {
     const res = await this.apiCall(`/documents/current`, "POST", { doc_id: id });
     return res.data.current_doc_id;
   }
+
+  /**
+   * Enable sharing for a document
+   * @param {number} id - Document ID
+   * @returns {Promise<Object>} - Share response with token and URL
+   */
+  async enableSharing(id) {
+    const res = await this.apiCall(`/documents/${id}/share`, "POST");
+    return res.data;
+  }
+
+  /**
+   * Disable sharing for a document
+   * @param {number} id - Document ID
+   * @returns {Promise<boolean>} - Success status
+   */
+  async disableSharing(id) {
+    await this.apiCall(`/documents/${id}/share`, "DELETE");
+    return true;
+  }
+
+  /**
+   * Get shared document by token (public access - no auth required)
+   * @param {string} shareToken - Share token
+   * @returns {Promise<Object>} - Shared document data
+   */
+  async getSharedDocument(shareToken) {
+    const res = await this.apiCall(`/shared/${shareToken}`, "GET", null, {}, { noAuth: true });
+    return res.data;
+  }
 }
 
 export default new DocumentsApi();

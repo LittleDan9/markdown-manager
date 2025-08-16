@@ -6,7 +6,17 @@ import { useTheme } from "@/context/ThemeProvider";
 import { useDocument } from "@/context/DocumentProvider";
 import { useNotification } from "@/components/NotificationProvider";
 
-function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorValue, setShowIconBrowser }) {
+function Toolbar({ 
+  fullscreenPreview, 
+  setFullscreenPreview, 
+  setContent, 
+  editorValue, 
+  setShowIconBrowser,
+  isSharedView = false,
+  sharedDocument = null,
+  sharedLoading = false,
+  sharedError = null
+}) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
   const { showWarning } = useNotification();
@@ -60,43 +70,93 @@ function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorVa
   return (
     <nav id="toolbar" className="navbar navbar-expand-lg bg-body-tertiary px-3">
       <div className="d-flex align-items-center justify-content-between w-100">
-        {/* Left side: File Menu & Document Title */}
+        {/* Left side: File Menu & Document Title or Shared Document Info */}
         <div className="d-flex align-items-center gap-3">
-          <FileDropdown setDocumentTitle={setDocumentTitle} />
-          <div className="vr opacity-50"></div>
-          <div className="d-flex align-items-center">
-            <i className="bi bi-file-earmark-text me-2 text-muted"></i>
-            <DocumentToolbar
-              documentTitle={documentTitle}
-              setDocumentTitle={setDocumentTitle}
-            />
-          </div>
+          {isSharedView ? (
+            // Shared document information
+            <div className="d-flex align-items-center">
+              {sharedLoading ? (
+                <div className="d-flex align-items-center">
+                  <div className="spinner-border spinner-border-sm me-2" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  <span className="text-muted">Loading shared document...</span>
+                </div>
+              ) : sharedDocument ? (
+                <div className="d-flex align-items-center gap-2">
+                  <i className="bi bi-file-text text-muted"></i>
+                  <span className="fw-medium">{sharedDocument.name}</span>
+                  <span className="badge bg-secondary">
+                    <i className="bi bi-eye me-1"></i>
+                    Read-only
+                  </span>
+                  <small className="text-muted">
+                    Category: {sharedDocument.category} • 
+                    Last updated: {new Date(sharedDocument.updated_at).toLocaleDateString()}
+                  </small>
+                </div>
+              ) : (
+                <div className="d-flex align-items-center text-danger">
+                  <i className="bi bi-exclamation-triangle me-2"></i>
+                  <span>Shared document not found or access revoked</span>
+                </div>
+              )}
+            </div>
+          ) : (
+            // Normal document controls
+            <>
+              <FileDropdown setDocumentTitle={setDocumentTitle} />
+              <div className="vr opacity-50"></div>
+              <div className="d-flex align-items-center">
+                <i className="bi bi-file-earmark-text me-2 text-muted"></i>
+                <DocumentToolbar
+                  documentTitle={documentTitle}
+                  setDocumentTitle={setDocumentTitle}
+                />
+              </div>
+            </>
+          )}
         </div>
         {/* Right side: Utility Controls */}
         <div className="d-flex align-items-center gap-2" id="utilityControls">
-          <button
-            id="iconBrowserBtn"
-            className="btn btn-sm btn-outline-secondary"
-            data-bs-toggle="tooltip"
-            data-bs-placement="bottom"
-            title="Browse AWS Icons for Mermaid"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowIconBrowser(true);
-            }}
-          >
-            <i className="bi bi-grid-3x3-gap"></i>
-          </button>
-          <button
-            id="searchBtn"
-            className="btn btn-sm btn-outline-secondary"
-            data-bs-toggle="tooltip"
-            data-bs-placement="bottom"
-            title="Search (Coming Soon)"
-            disabled
-          >
-            <i className="bi bi-search"></i>
-          </button>
+          {isSharedView && (
+            // Add "Go to Main App" button for shared view
+            <button
+              className="btn btn-sm btn-outline-primary"
+              onClick={() => window.location.href = '/'}
+              title="Go to main app"
+            >
+              <i className="bi bi-house me-1"></i>
+              Main App
+            </button>
+          )}
+          {!isSharedView && (
+            <button
+              id="iconBrowserBtn"
+              className="btn btn-sm btn-outline-secondary"
+              data-bs-toggle="tooltip"
+              data-bs-placement="bottom"
+              title="Browse AWS Icons for Mermaid"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowIconBrowser(true);
+              }}
+            >
+              <i className="bi bi-grid-3x3-gap"></i>
+            </button>
+          )}
+          {!isSharedView && (
+            <button
+              id="searchBtn"
+              className="btn btn-sm btn-outline-secondary"
+              data-bs-toggle="tooltip"
+              data-bs-placement="bottom"
+              title="Search (Coming Soon)"
+              disabled
+            >
+              <i className="bi bi-search"></i>
+            </button>
+          )}
           <button
             id="fullScreenBtn"
             className="btn btn-sm btn-outline-secondary"
@@ -110,7 +170,7 @@ function Toolbar({ fullscreenPreview, setFullscreenPreview, setContent, editorVa
           >
             <i className={fullscreenPreview ? "bi bi-fullscreen-exit" : "bi bi-fullscreen"}></i>
           </button>
-          {/* User Profile Dropdown (simplified for now) */}
+          {/* User Profile Dropdown (always show for login access) */}
           <UserToolbar
             handleThemeToggle={handleThemeToggle}
             theme={theme}
