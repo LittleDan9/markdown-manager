@@ -45,4 +45,57 @@ When using GitHub Copilot Chat in this repository to write or review DRY FastAPI
 13. **Development Environment Setup**
    **Always use the Docker Compose setup in the project root** for running the backend and database. Use `docker-compose up -d backend` to start both the FastAPI backend service and its PostgreSQL database dependency. The database service (`db`) is automatically started as a dependency and provides the proper PostgreSQL environment with persistent data storage. Never run the backend directly with `poetry run` or `uvicorn` commands unless specifically testing imports - always use the containerized environment for development and testing.
 
+14. **Production Database Access**
+   To connect to the production PostgreSQL database for maintenance, debugging, or data analysis:
+
+   - **SSH Tunnel Setup**: Use SSH port forwarding to securely access the remote database:
+     ```bash
+     ssh -i ~/.ssh/id_danbian -L 15432:10.0.1.51:5432 dlittle@10.0.1.51
+     ```
+
+   - **Database Connection**: Connect using the forwarded port (credentials are stored in `/etc/markdown-manager.env` on the production server):
+     ```bash
+     # Get DATABASE_URL from production server
+     ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51 "sudo grep '^DATABASE_URL=' /etc/markdown-manager.env"
+
+     # Connect via tunnel (replace credentials as needed)
+     psql "postgresql://username:password@localhost:15432/markdown_manager"
+     ```
+
+   - **Using Database Scripts**: The `scripts/db-functions.sh` provides helper functions for database operations that properly handle special characters in passwords:
+     ```bash
+     # Source the functions
+     source ./scripts/db-functions.sh
+
+     # Parse database configuration from remote server
+     parse_remote_db_env dlittle@10.0.1.51
+
+     # Setup SSH tunnel
+     setup_port_forward dlittle@10.0.1.51
+
+     # Show connection info (password hidden for security)
+     show_connection_info
+
+     # Connect to database directly
+     connect_to_db
+
+     # Or capture connection URL for scripts (never run without capturing!)
+     DB_URL=$(get_local_db_url)
+     psql "$DB_URL"
+
+     # Clean up when done
+     cleanup_port_forward
+
+     # Show all available functions
+     show_db_usage
+     ```
+
+   - **Backup/Restore**: Use the provided scripts for database operations:
+     ```bash
+     make backup-db                    # Backup production data
+     make restore-db BACKUP_FILE=path  # Restore from backup
+     ```
+
+   **Security Note**: Never commit database credentials to version control. Production credentials are stored securely in `/etc/markdown-manager.env` on the server and accessed via SSH with key-based authentication. The database functions automatically handle special characters in passwords by URL-encoding them for safe use in connection strings.
+
 > Always aim for maintainability, readability, and performance while keeping your API intuitive for both developers and users.
