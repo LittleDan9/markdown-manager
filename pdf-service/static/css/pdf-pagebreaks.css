@@ -1,0 +1,202 @@
+/* Advanced PDF Page Break Control
+   Smart page breaking rules for better PDF layout
+*/
+
+/* Global page break improvements */
+@page {
+    /* Better orphan/widow control globally */
+    orphans: 3;
+    widows: 3;
+}
+
+body {
+    /* Optimize line height for better page breaks */
+    line-height: 1.6;
+}
+
+/* Section-based page break control */
+.document-section {
+    /* Treat major sections as logical break points */
+    page-break-before: auto;
+    break-before: auto;
+    page-break-after: auto;
+    break-after: auto;
+    page-break-inside: auto;
+    break-inside: auto;
+}
+
+/* Content grouping for better breaks */
+.content-group {
+    /* Keep related content together when possible */
+    page-break-inside: avoid;
+    break-inside: avoid;
+    orphans: 3;
+    widows: 3;
+}
+
+/* Header + content grouping */
+.header-with-content {
+    /* Keep headers with their following content */
+    page-break-inside: avoid;
+    break-inside: avoid;
+    page-break-after: avoid;
+    break-after: avoid-page;
+}
+
+/* Code and diagram containers */
+.code-container,
+.diagram-container,
+.figure-container {
+    /* Avoid breaking technical content */
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin: 16px 0;
+    orphans: 4;
+    widows: 4;
+}
+
+/* Table improvements */
+.table-container {
+    page-break-inside: auto;
+    break-inside: auto;
+    margin: 16px 0;
+}
+
+.table-container table {
+    /* Allow table breaking but with constraints */
+    page-break-inside: auto;
+    break-inside: auto;
+}
+
+.table-container thead {
+    /* Keep header with at least one data row */
+    page-break-after: avoid;
+    break-after: avoid-page;
+}
+
+.table-container tbody tr:first-child {
+    /* Don't orphan the first data row from header */
+    page-break-before: avoid;
+    break-before: avoid-page;
+}
+
+.table-container tbody tr:last-child {
+    /* Don't widow the last row */
+    page-break-after: avoid;
+    break-after: avoid-page;
+}
+
+/* List improvements */
+.list-container {
+    page-break-inside: auto;
+    break-inside: auto;
+}
+
+.list-container > ul,
+.list-container > ol {
+    orphans: 3;
+    widows: 3;
+}
+
+.list-container li {
+    /* Prevent single list items from being orphaned */
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* Long list handling */
+.list-container li:has(ul),
+.list-container li:has(ol) {
+    /* Allow breaking before nested lists if needed */
+    page-break-inside: auto;
+    break-inside: auto;
+}
+
+/* Quote and callout improvements */
+.quote-container,
+.callout-container,
+.note-container {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin: 16px 0;
+    orphans: 3;
+    widows: 3;
+}
+
+/* Section breaks */
+.section-break {
+    /* Explicit section breaks for document structure */
+    page-break-before: page;
+    break-before: page;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.section-break-auto {
+    /* Soft section breaks - allow page breaks here */
+    page-break-before: auto;
+    break-before: auto;
+    margin: 32px 0;
+}
+
+/* Avoid page breaks in inappropriate places */
+.no-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    page-break-before: avoid !important;
+    break-before: avoid-page !important;
+    page-break-after: avoid !important;
+    break-after: avoid-page !important;
+}
+
+/* Force page breaks when needed */
+.force-break-before {
+    page-break-before: page !important;
+    break-before: page !important;
+}
+
+.force-break-after {
+    page-break-after: page !important;
+    break-after: page !important;
+}
+
+/* Responsive content sizing for page breaks */
+@media print {
+    /* Fine-tune content for print */
+    .responsive-content {
+        max-width: 100%;
+        overflow: visible;
+    }
+
+    /* Adjust font sizes slightly for better fitting */
+    body {
+        font-size: 11.5pt;
+        line-height: 1.5;
+    }
+
+    h1 { font-size: 2.1em; }
+    h2 { font-size: 1.7em; }
+    h3 { font-size: 1.35em; }
+
+    /* Tighten spacing slightly for better page utilization */
+    p { margin-bottom: 14px; }
+    ul, ol { margin: 14px 0; }
+    .code-block { margin: 14px 0; }
+    blockquote { margin: 18px 0; }
+}
+
+/* Debug helpers - uncomment for debugging page breaks */
+/*
+.debug-page-breaks * {
+    outline: 1px solid rgba(255, 0, 0, 0.2);
+}
+
+.debug-page-breaks .page-break-before {
+    border-top: 2px dashed red;
+}
+
+.debug-page-breaks .page-break-after {
+    border-bottom: 2px dashed red;
+}
+*/

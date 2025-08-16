@@ -1,0 +1,80 @@
+/* Light mode theme for PDF export */
+@page {
+    background: white;
+}
+
+html {
+    background: white !important;
+}
+
+body {
+    background: white !important;
+    color: #24292f !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    color: #1f2328 !important;
+}
+
+/* Code block container for light mode */
+.code-block {
+    border: 1px solid #d0d7de !important;
+}
+
+/* Code block header for light mode */
+.code-block-header {
+    background: #f6f8fa !important;
+    color: #656d76 !important;
+    border-bottom-color: #d0d7de !important;
+}
+
+.code-block-lang {
+    color: #24292f !important;
+}
+
+pre {
+    background: #f6f8fa !important;
+    color: #24292f !important;
+    border: none !important;
+}
+
+/* Inline code styling for light mode */
+code {
+    background: #f6f8fa !important;
+    color: #24292f !important;
+    border: 1px solid #d0d7de !important;
+}
+
+/* Remove styling from code inside pre blocks */
+pre code {
+    background: transparent !important;
+    border: none !important;
+    color: inherit !important;
+}
+
+th, td {
+    border-color: #d0d7de !important;
+}
+
+th {
+    background: #f6f8fa !important;
+    color: #1f2328 !important;
+}
+
+td {
+    background: white !important;
+}
+
+blockquote {
+    border-left-color: #d0d7de !important;
+    color: #656d76 !important;
+    background: #f8f9fa !important;
+}
+
+a {
+    color: #0969da !important;
+}
+
+hr {
+    background: #d0d7de !important;
+}

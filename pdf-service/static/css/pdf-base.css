@@ -1,0 +1,301 @@
+/* Base PDF styles */
+@page {
+    margin: 0.5in;
+    size: Letter;  /* Use Letter instead of A4 for consistency with PDF generation */
+    /* Orphans and widows control */
+    orphans: 3;
+    widows: 3;
+}
+
+* {
+    -webkit-print-color-adjust: exact !important;
+    color-adjust: exact !important;
+    print-color-adjust: exact !important;
+}
+
+html {
+    font-size: 12pt;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 12pt;
+    line-height: 1.6;
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    min-height: 100vh;
+}
+
+/* Main content container */
+body > * {
+    max-width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+    break-after: avoid-page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin-top: 24px;
+    margin-bottom: 16px;
+    font-weight: 600;
+    line-height: 1.3;
+    /* Ensure at least 3 lines follow a header */
+    orphans: 3;
+    widows: 3;
+}
+
+/* Major headings should ideally start on new pages or have substantial content after */
+h1 {
+    font-size: 2.2em;
+    margin-top: 0;
+    page-break-before: auto;
+    break-before: auto;
+    /* For very long documents, consider starting major sections on new pages */
+    /* page-break-before: page; */
+}
+
+h2 {
+    font-size: 1.8em;
+    /* Ensure h2 has enough space or starts new page */
+    page-break-before: auto;
+    break-before: avoid-page;
+}
+
+h3 { font-size: 1.4em; }
+h4 { font-size: 1.2em; }
+h5 { font-size: 1.1em; }
+h6 { font-size: 1em; }
+
+/* Paragraphs */
+p {
+    margin-bottom: 16px;
+    margin-top: 0;
+    /* Prevent orphaned paragraphs */
+    orphans: 2;
+    widows: 2;
+    page-break-inside: auto;
+    break-inside: auto;
+}
+
+/* Code blocks and inline code */
+pre, code {
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace;
+    font-size: 11pt;
+    border-radius: 4px;
+}
+
+/* Inline code styling */
+code {
+    padding: 2px 4px;
+    font-size: 0.9em;
+}
+
+/* Code block container */
+.code-block {
+    margin: 16px 0;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+/* Code block header styling */
+.code-block-header {
+    padding: 8px 12px;
+    font-size: 10pt;
+    font-weight: 600;
+    border-bottom-width: 1px;
+    border-bottom-style: solid;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 32px;
+    box-sizing: border-box;
+}
+
+/* Hide copy button in PDF */
+.code-block-copy-btn {
+    display: none !important;
+}
+
+/* Language label */
+.code-block-lang {
+    font-family: inherit;
+    font-size: 10pt;
+    font-weight: 600;
+    line-height: 16px;
+    min-height: 16px;
+    display: inline-block;
+}
+
+/* Ensure empty language labels maintain height */
+.code-block-lang:empty::before {
+    content: "\00a0";
+    visibility: hidden;
+}
+
+/* Pre blocks (code blocks) */
+pre {
+    padding: 16px;
+    margin: 0;
+    overflow: visible;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    border-radius: 0 0 6px 6px;
+    /* Avoid orphaned code blocks */
+    orphans: 3;
+    widows: 3;
+}
+
+/* Code blocks inside .code-block containers */
+.code-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin: 16px 0;
+    /* Ensure code blocks don't split awkwardly */
+    orphans: 4;
+    widows: 4;
+}
+
+.code-block pre {
+    border-radius: 0;
+    margin: 0;
+}
+
+/* Remove inline code styling when inside pre blocks */
+pre code {
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+    font-size: inherit !important;
+    border-radius: 0 !important;
+}
+
+/* Tables */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 16px 0;
+    page-break-inside: auto;
+    break-inside: auto;
+    font-size: 11pt;
+    /* Better table breaking rules */
+    orphans: 3;
+    widows: 3;
+}
+
+/* Table headers should stay with content */
+thead {
+    page-break-after: avoid;
+    break-after: avoid-page;
+    page-break-inside: avoid;
+    break-inside: avoid;
+}
+
+/* Prevent single table rows from being orphaned */
+tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    orphans: 2;
+    widows: 2;
+}
+
+/* Table headers should repeat on new pages if possible */
+thead tr {
+    page-break-after: avoid;
+    break-after: avoid-page;
+}
+
+th, td {
+    padding: 10px 12px;
+    text-align: left;
+    border-width: 1px;
+    border-style: solid;
+    vertical-align: top;
+}
+
+th {
+    font-weight: 600;
+}
+
+/* Lists */
+ul, ol {
+    margin: 16px 0;
+    padding-left: 24px;
+    page-break-inside: auto;
+    break-inside: auto;
+    /* Prevent orphaned list items */
+    orphans: 2;
+    widows: 2;
+}
+
+li {
+    margin: 6px 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    /* Avoid breaking individual list items */
+    orphans: 2;
+    widows: 2;
+}
+
+/* Nested lists should stay together when possible */
+li ul, li ol {
+    page-break-before: avoid;
+    break-before: avoid-page;
+}
+
+/* Blockquotes */
+blockquote {
+    padding: 12px 0 12px 20px;
+    margin: 20px 0;
+    border-left-width: 4px;
+    border-left-style: solid;
+    font-style: italic;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    /* Keep blockquotes together */
+    orphans: 3;
+    widows: 3;
+}
+
+/* Links */
+a {
+    text-decoration: underline;
+}
+
+/* Images */
+img {
+    max-width: 100%;
+    height: auto;
+}
+
+/* Horizontal rules */
+hr {
+    border: none;
+    height: 2px;
+    margin: 24px 0;
+}
+
+/* Strong and emphasis */
+strong, b {
+    font-weight: 700;
+}
+
+em, i {
+    font-style: italic;
+}
+
+/* Fix spacing issues */
+* + h1, * + h2, * + h3, * + h4, * + h5, * + h6 {
+    margin-top: 32px;
+}
+
+/* Ensure emojis render properly */
+.emoji {
+    font-family: "Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", "Android Emoji", "EmojiSymbols", sans-serif;
+}
