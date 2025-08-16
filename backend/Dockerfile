@@ -1,16 +1,15 @@
 # ==============================================================================
-# Multi-stage build: Dependencies in Python stage, Runtime with Ubuntu
+# Multi-stage build: Clean backend without Playwright
 # ==============================================================================
 
-# Stage 1: Build dependencies and virtual environment with Python 3.11
-FROM python:3.11-slim AS python-base
+# Stage 1: Build dependencies and virtual environment with Python 3.13
+FROM python:3.13-slim AS python-base
 
 # Set Poetry environment variables for the build stage
 ENV POETRY_VIRTUALENVS_CREATE=true \
     POETRY_VIRTUALENVS_IN_PROJECT=true \
     POETRY_NO_INTERACTION=1 \
-    POETRY_CACHE_DIR=/tmp/poetry_cache \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright/browsers
+    POETRY_CACHE_DIR=/tmp/poetry_cache
 
 # Install Poetry
 RUN pip install --no-cache-dir poetry
@@ -19,7 +18,7 @@ RUN pip install --no-cache-dir poetry
 WORKDIR /markdown-manager
 
 # Copy dependency files first (for better layer caching)
-COPY ./backend/pyproject.toml ./backend/poetry.lock ./
+COPY ./pyproject.toml ./poetry.lock ./
 
 # Install Python dependencies in virtual environment
 # Create venv in the same path as it will be in the final container
@@ -35,24 +34,15 @@ RUN ls -la /markdown-manager/.venv/bin/ && \
     /markdown-manager/.venv/bin/alembic --version && \
     /markdown-manager/.venv/bin/uvicorn --version
 
-# Install Playwright Chromium browser
-RUN .venv/bin/playwright install chromium
-
-# Stage 2: Ubuntu runtime with copied Python and virtual environment
-FROM ubuntu:24.04
+# Stage 2: Python runtime with copied virtual environment
+FROM python:3.13-slim
 
 # Set environment variables
-ENV DEBIAN_FRONTEND=noninteractive \
-    PLAYWRIGHT_BROWSERS_PATH=/opt/playwright/browsers \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     PYTHONPATH=/markdown-manager
 
-# Copy Python 3.13 and virtual environment from build stage
-COPY --from=python-base /usr/local /usr/local
-COPY --from=python-base /lib/x86_64-linux-gnu/libssl.so* /lib/x86_64-linux-gnu/
-COPY --from=python-base /lib/x86_64-linux-gnu/libcrypto.so* /lib/x86_64-linux-gnu/
+# Copy virtual environment from build stage
 COPY --from=python-base /markdown-manager/.venv /markdown-manager/.venv
-COPY --from=python-base /opt/playwright/browsers /opt/playwright/browsers
 
 # Install minimal runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -60,17 +50,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Playwright system dependencies for Chromium
-RUN /markdown-manager/.venv/bin/python -m playwright install-deps chromium
-
 WORKDIR /markdown-manager
 
 # Copy application files (in order of change frequency for better caching)
-COPY ./backend/alembic.ini /markdown-manager/
-COPY ./backend/migrations/env.py /markdown-manager/migrations/
-COPY ./backend/migrations/versions/ /markdown-manager/migrations/versions/
-COPY ./backend/scripts/entrypoint.sh /markdown-manager/
-COPY ./backend/app /markdown-manager/app
+COPY ./alembic.ini /markdown-manager/
+COPY ./migrations/env.py /markdown-manager/migrations/
+COPY ./migrations/versions/ /markdown-manager/migrations/versions/
+COPY ./scripts/entrypoint.sh /markdown-manager/
+COPY ./app /markdown-manager/app
 
 # Set executable permissions
 RUN chmod +x /markdown-manager/entrypoint.sh
@@ -85,7 +72,7 @@ EXPOSE 8000
 
 # Health check - use virtual environment python
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD /markdown-manager/.venv/bin/python -c "import sys,requests; r=requests.get('http://localhost:8000/api/v1/health-check', timeout=5); r.raise_for_status(); sys.exit(0)"
+  CMD /markdown-manager/.venv/bin/python -c "import sys,requests; r=requests.get('http://localhost:8000/api/v1/health', timeout=5); r.raise_for_status(); sys.exit(0)"
 
 
 ENTRYPOINT ["/markdown-manager/entrypoint.sh"]

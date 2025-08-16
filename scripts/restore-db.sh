@@ -42,7 +42,7 @@ setup_port_forward $REMOTE_USER_HOST
 LOCAL_DB_URL=$(get_local_db_url)
 
 # Set environment variable for alembic to use forwarded connection
-export ALEMBIC_DATABASE_URL="$LOCAL_DB_URL"
+export DATABASE_URL="$LOCAL_DB_URL"
 
 echo "$YELLOW📦 Installing backend dependencies...$NC"
 cd "$PROJECT_ROOT/backend" && poetry lock && poetry install --no-root && cd "$PROJECT_ROOT"

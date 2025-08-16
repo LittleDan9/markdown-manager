@@ -12,6 +12,7 @@ RestartSec=5s
 EnvironmentFile=/etc/markdown-manager.env
 ExecStart=/usr/bin/docker run --rm --name markdown-manager-api \
   -e DATABASE_URL=${DATABASE_URL} \
+  -e PDF_SERVICE_URL=${PDF_SERVICE_URL} \
   -p 8000:8000 \
   littledan9/markdown-manager:latest
 ExecStop=/usr/bin/docker stop markdown-manager-api
