@@ -9,7 +9,13 @@ from app.core.auth import get_current_user
 from app.crud import document as document_crud
 from app.database import get_db
 from app.models.user import User
-from app.schemas.document import Document, DocumentCreate, DocumentList, DocumentUpdate, ShareResponse, SharedDocument
+from app.schemas.document import (
+    Document,
+    DocumentCreate,
+    DocumentList,
+    DocumentUpdate,
+    ShareResponse,
+)
 
 router = APIRouter()
 
@@ -157,22 +163,23 @@ async def create_document(
 
     if existing_doc:
         from fastapi import HTTPException
-        from app.schemas.document import DocumentConflictError, Document as DocumentSchema
+
+        from app.schemas.document import Document as DocumentSchema
+        from app.schemas.document import DocumentConflictError
 
         # Convert to response schema
-        existing_document_schema = DocumentSchema.model_validate(existing_doc, from_attributes=True)
+        existing_document_schema = DocumentSchema.model_validate(
+            existing_doc, from_attributes=True
+        )
 
         # Create detailed error response with conflicting document
         conflict_detail = DocumentConflictError(
             detail="A document with this name and category already exists.",
             conflict_type="name_conflict",
-            existing_document=existing_document_schema
+            existing_document=existing_document_schema,
         )
 
-        raise HTTPException(
-            status_code=400,
-            detail=conflict_detail.model_dump()
-        )
+        raise HTTPException(status_code=400, detail=conflict_detail.model_dump())
 
     document = await document_crud.document.create(
         db=db,
@@ -239,21 +246,14 @@ async def enable_document_sharing(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> ShareResponse:
-    """Enable sharing for a document and return the share link."""
+    """Enable sharing for a document and return the share token."""
     share_token = await document_crud.document.enable_sharing(
         db=db, document_id=document_id, user_id=current_user.id
     )
     if not share_token:
         raise HTTPException(status_code=404, detail="Document not found")
-    
-    # Generate share URL - in production, use the actual domain
-    share_url = f"http://localhost:3000/shared/{share_token}"
-    
-    return ShareResponse(
-        share_token=share_token,
-        share_url=share_url,
-        is_shared=True
-    )
+
+    return ShareResponse(share_token=share_token, is_shared=True)
 
 
 @router.delete("/{document_id}/share")

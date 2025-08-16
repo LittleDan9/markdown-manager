@@ -12,6 +12,7 @@ import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
 import { useNotification } from "../components/NotificationProvider.jsx";
 import DocumentService from "../services/DocumentService";
+import DocumentStorageService from "../services/DocumentStorageService";
 
 import { useAuth } from "../context/AuthContext";
 import useAutoSave from "@/hooks/useAutoSave";
@@ -40,6 +41,9 @@ function App() {
 
       if (sharedMatch) {
         const shareToken = sharedMatch[1];
+        // Clear any existing document data when viewing shared document
+        DocumentStorageService.clearAllData();
+
         setIsSharedView(true);
         setFullscreenPreview(true); // Enable fullscreen preview for shared documents
         setSharedLoading(true);
@@ -66,10 +70,27 @@ function App() {
 
     // Listen for URL changes (if using pushState/popState)
     window.addEventListener('popstate', checkForSharedDocument);
-    return () => window.removeEventListener('popstate', checkForSharedDocument);
-  }, []); // Remove setContent from dependencies to prevent infinite loop
+
+    // Clean up localStorage when leaving shared view (browser close, navigation, etc.)
+    const handleBeforeUnload = () => {
+      if (isSharedView) {
+        DocumentStorageService.clearAllData();
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      window.removeEventListener('popstate', checkForSharedDocument);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, [isSharedView]); // Add isSharedView to dependencies
 
   const exitSharedView = () => {
+    // Clear any document content that may have been loaded from shared view
+    DocumentStorageService.clearAllData();
+    setContent('');
+
     setIsSharedView(false);
     setSharedDocument(null);
     setSharedError(null);
@@ -78,6 +99,9 @@ function App() {
   };
 
   const runAutoSave = useCallback(async () => {
+    // Don't autosave in shared view
+    if (isSharedView) return;
+
     try {
       // Create document with current content for auto-save
       const docWithCurrentContent = { ...currentDocument, content };
@@ -89,7 +113,7 @@ function App() {
     } catch (error) {
       console.warn("Auto-save failed:", error);
     }
-  }, [saveDocument, currentDocument, content]);
+  }, [saveDocument, currentDocument, content, isSharedView]);
 
   useAutoSave(currentDocument, content, runAutoSave, autosaveEnabled, 5000); // 5 seconds for testing
 
@@ -232,28 +256,10 @@ function App() {
                 </div>
               )}
               <div className="renderer-wrapper">
-                {isSharedView ? (
-                  // Shared document view
-                  sharedLoading ? (
-                    <div className="d-flex justify-content-center align-items-center h-100">
-                      <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading shared document...</span>
-                      </div>
-                    </div>
-                  ) : sharedDocument ? (
-                    <Container className="py-4">
-                      <Card>
-                        <Card.Body>
-                          <Renderer
-                            content={content}
-                            onRenderHTML={html => setRenderedHTML(html)}
-                            scrollToLine={null}
-                            fullscreenPreview={true}
-                          />
-                        </Card.Body>
-                      </Card>
-                    </Container>
-                  ) : (
+                {/* Use the same renderer for both normal and shared views */}
+                {(!isInitializing && !sharedLoading) ? (
+                  isSharedView && !sharedDocument ? (
+                    // Show error state for shared documents that failed to load
                     <Container className="py-4">
                       <Alert variant="danger">
                         <Alert.Heading>Unable to Load Document</Alert.Heading>
@@ -269,23 +275,24 @@ function App() {
                         </div>
                       </Alert>
                     </Container>
-                  )
-                ) : (
-                  // Normal document view - use improved auth state from main
-                  !isInitializing ? (
+                  ) : (
+                    // Standard renderer for both normal and shared views
                     <Renderer
                       content={content}
                       onRenderHTML={html => setRenderedHTML(html)}
-                      scrollToLine={syncPreviewScrollEnabled ? cursorLine : null}
-                      fullscreenPreview={fullscreenPreview}
+                      scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
+                      fullscreenPreview={isSharedView ? true : fullscreenPreview}
                     />
-                  ) : (
-                    <div className="d-flex justify-content-center align-items-center h-100">
-                      <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Initializing authentication...</span>
-                      </div>
-                    </div>
                   )
+                ) : (
+                  // Loading state
+                  <div className="d-flex justify-content-center align-items-center h-100">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">
+                        {sharedLoading ? 'Loading shared document...' : 'Initializing authentication...'}
+                      </span>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>

@@ -160,7 +160,7 @@ deploy-front: build ## Sync frontend dist
 	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 
 deploy-back: ## Sync backend + migrations + restart
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) $(BACKEND_BASE)
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) 5000
 
 deploy-nginx: ## Sync nginx config + reload
 	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"

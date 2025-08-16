@@ -8,7 +8,7 @@ import UserAPI from "../../api/userApi";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../context/AuthContext";
 
-function UserMenuLoggedOut() {
+function UserMenuLoggedOut({ isSharedView = false }) {
   const { toggleTheme } = useTheme();
   const {
     setUser,
@@ -102,10 +102,14 @@ function UserMenuLoggedOut() {
       <Dropdown.Item id="registerBtn" onClick={handleShowRegister}>
         <i className="bi bi-person-plus me-2"></i>Sign Up
       </Dropdown.Item>
-      <Dropdown.Divider />
-      <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
-        <i className="bi bi-book me-2"></i>Dictionary
-      </Dropdown.Item>
+      {!isSharedView && (
+        <>
+          <Dropdown.Divider />
+          <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
+            <i className="bi bi-book me-2"></i>Dictionary
+          </Dropdown.Item>
+        </>
+      )}
       <Dropdown.Divider />
       <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
         <ThemeToggle idPrefix="userMenu" />

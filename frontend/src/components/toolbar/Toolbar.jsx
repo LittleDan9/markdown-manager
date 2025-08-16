@@ -6,11 +6,11 @@ import { useTheme } from "@/context/ThemeProvider";
 import { useDocument } from "@/context/DocumentProvider";
 import { useNotification } from "@/components/NotificationProvider";
 
-function Toolbar({ 
-  fullscreenPreview, 
-  setFullscreenPreview, 
-  setContent, 
-  editorValue, 
+function Toolbar({
+  fullscreenPreview,
+  setFullscreenPreview,
+  setContent,
+  editorValue,
   setShowIconBrowser,
   isSharedView = false,
   sharedDocument = null,
@@ -91,7 +91,8 @@ function Toolbar({
                     Read-only
                   </span>
                   <small className="text-muted">
-                    Category: {sharedDocument.category} • 
+                    by {sharedDocument.author_name} •
+                    Category: {sharedDocument.category} •
                     Last updated: {new Date(sharedDocument.updated_at).toLocaleDateString()}
                   </small>
                 </div>
@@ -119,17 +120,6 @@ function Toolbar({
         </div>
         {/* Right side: Utility Controls */}
         <div className="d-flex align-items-center gap-2" id="utilityControls">
-          {isSharedView && (
-            // Add "Go to Main App" button for shared view
-            <button
-              className="btn btn-sm btn-outline-primary"
-              onClick={() => window.location.href = '/'}
-              title="Go to main app"
-            >
-              <i className="bi bi-house me-1"></i>
-              Main App
-            </button>
-          )}
           {!isSharedView && (
             <button
               id="iconBrowserBtn"
@@ -167,6 +157,7 @@ function Toolbar({
               e.preventDefault();
               setFullscreenPreview(prev => !prev);
             }}
+            style={{ display: isSharedView ? 'none' : 'inline-block' }}
           >
             <i className={fullscreenPreview ? "bi bi-fullscreen-exit" : "bi bi-fullscreen"}></i>
           </button>
@@ -174,6 +165,7 @@ function Toolbar({
           <UserToolbar
             handleThemeToggle={handleThemeToggle}
             theme={theme}
+            isSharedView={isSharedView}
           />
         </div>
       </div>
