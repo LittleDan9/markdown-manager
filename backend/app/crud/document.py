@@ -3,6 +3,7 @@ from typing import Any, List, Optional
 
 from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.models.document import Document
 
@@ -244,7 +245,7 @@ class DocumentCRUD:
     ) -> Optional[str]:
         """Enable sharing for a document and return the share token."""
         import secrets
-        
+
         result = await db.execute(
             select(Document).filter(
                 Document.id == document_id, Document.user_id == user_id
@@ -257,7 +258,7 @@ class DocumentCRUD:
         # Generate a secure random token if not already present
         if not document.share_token:
             document.share_token = secrets.token_urlsafe(32)
-        
+
         document.is_shared = True
         await db.commit()
         await db.refresh(document)
@@ -285,10 +286,9 @@ class DocumentCRUD:
     ) -> Optional[Document]:
         """Get a document by its share token if sharing is enabled."""
         result = await db.execute(
-            select(Document).filter(
-                Document.share_token == share_token,
-                Document.is_shared.is_(True)
-            )
+            select(Document)
+            .options(selectinload(Document.owner))
+            .filter(Document.share_token == share_token, Document.is_shared.is_(True))
         )
         return result.scalar_one_or_none()
 

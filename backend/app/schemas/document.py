@@ -39,16 +39,14 @@ class DocumentInDB(DocumentBase):
 
     class Config:
         from_attributes = True
-        json_encoders = {
-            datetime: lambda v: _isoformat_utc(v)
-        }
+        json_encoders = {datetime: lambda v: _isoformat_utc(v)}
 
 
 def _isoformat_utc(dt: datetime) -> str:
     """Format datetime as ISO 8601 with Z (UTC)."""
     if dt.tzinfo:
-        return dt.astimezone().replace(microsecond=0).isoformat().replace('+00:00', 'Z')
-    return dt.replace(microsecond=0).isoformat() + 'Z'
+        return dt.astimezone().replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    return dt.replace(microsecond=0).isoformat() + "Z"
 
 
 class Document(DocumentInDB):
@@ -77,7 +75,6 @@ class ShareResponse(BaseModel):
     """Schema for share link response."""
 
     share_token: str
-    share_url: str
     is_shared: bool
 
 
@@ -89,9 +86,8 @@ class SharedDocument(BaseModel):
     content: str
     category: str
     updated_at: datetime
+    author_name: str
 
     class Config:
         from_attributes = True
-        json_encoders = {
-            datetime: lambda v: _isoformat_utc(v)
-        }
+        json_encoders = {datetime: lambda v: _isoformat_utc(v)}

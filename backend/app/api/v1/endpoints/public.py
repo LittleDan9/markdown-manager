@@ -19,6 +19,18 @@ async def get_shared_document(
         db=db, share_token=share_token
     )
     if not document:
-        raise HTTPException(status_code=404, detail="Shared document not found or sharing disabled")
-    
-    return SharedDocument.model_validate(document, from_attributes=True)
+        raise HTTPException(
+            status_code=404, detail="Shared document not found or sharing disabled"
+        )
+
+    # Create the response with author information
+    shared_doc_data = {
+        "id": document.id,
+        "name": document.name,
+        "content": document.content,
+        "category": document.category,
+        "updated_at": document.updated_at,
+        "author_name": document.owner.full_name,
+    }
+
+    return SharedDocument.model_validate(shared_doc_data)
