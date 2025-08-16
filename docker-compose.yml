@@ -34,8 +34,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: Dockerfile.backend
+      context: ./backend
+      dockerfile: Dockerfile
     image: backend
     tmpfs:
       - /tmp  # for FastAPI temp files
@@ -53,7 +53,32 @@ services:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
+      - PDF_SERVICE_URL=http://pdf-service:8001
       - ENVIRONMENT=dev
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
     depends_on:
       db:
         condition: service_healthy
+      pdf-service:
+        condition: service_healthy
+
+  pdf-service:
+    build:
+      context: ./pdf-service
+      dockerfile: Dockerfile
+    image: pdf-service
+    ports:
+      - "8001:8001"
+    environment:
+      - PYTHONUNBUFFERED=1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
