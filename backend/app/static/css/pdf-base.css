@@ -1,7 +1,10 @@
 /* Base PDF styles */
 @page {
     margin: 0.5in;
-    size: A4;
+    size: Letter;  /* Use Letter instead of A4 for consistency with PDF generation */
+    /* Orphans and widows control */
+    orphans: 3;
+    widows: 3;
 }
 
 * {
@@ -34,15 +37,35 @@ body > * {
 /* Headers */
 h1, h2, h3, h4, h5, h6 {
     page-break-after: avoid;
-    break-after: avoid;
+    break-after: avoid-page;
+    page-break-inside: avoid;
+    break-inside: avoid;
     margin-top: 24px;
     margin-bottom: 16px;
     font-weight: 600;
     line-height: 1.3;
+    /* Ensure at least 3 lines follow a header */
+    orphans: 3;
+    widows: 3;
 }
 
-h1 { font-size: 2.2em; margin-top: 0; }
-h2 { font-size: 1.8em; }
+/* Major headings should ideally start on new pages or have substantial content after */
+h1 {
+    font-size: 2.2em;
+    margin-top: 0;
+    page-break-before: auto;
+    break-before: auto;
+    /* For very long documents, consider starting major sections on new pages */
+    /* page-break-before: page; */
+}
+
+h2 {
+    font-size: 1.8em;
+    /* Ensure h2 has enough space or starts new page */
+    page-break-before: auto;
+    break-before: avoid-page;
+}
+
 h3 { font-size: 1.4em; }
 h4 { font-size: 1.2em; }
 h5 { font-size: 1.1em; }
@@ -52,6 +75,11 @@ h6 { font-size: 1em; }
 p {
     margin-bottom: 16px;
     margin-top: 0;
+    /* Prevent orphaned paragraphs */
+    orphans: 2;
+    widows: 2;
+    page-break-inside: auto;
+    break-inside: auto;
 }
 
 /* Code blocks and inline code */
@@ -119,9 +147,21 @@ pre {
     page-break-inside: avoid;
     break-inside: avoid;
     border-radius: 0 0 6px 6px;
+    /* Avoid orphaned code blocks */
+    orphans: 3;
+    widows: 3;
 }
 
 /* Code blocks inside .code-block containers */
+.code-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    margin: 16px 0;
+    /* Ensure code blocks don't split awkwardly */
+    orphans: 4;
+    widows: 4;
+}
+
 .code-block pre {
     border-radius: 0;
     margin: 0;
@@ -141,9 +181,34 @@ table {
     border-collapse: collapse;
     width: 100%;
     margin: 16px 0;
+    page-break-inside: auto;
+    break-inside: auto;
+    font-size: 11pt;
+    /* Better table breaking rules */
+    orphans: 3;
+    widows: 3;
+}
+
+/* Table headers should stay with content */
+thead {
+    page-break-after: avoid;
+    break-after: avoid-page;
     page-break-inside: avoid;
     break-inside: avoid;
-    font-size: 11pt;
+}
+
+/* Prevent single table rows from being orphaned */
+tr {
+    page-break-inside: avoid;
+    break-inside: avoid;
+    orphans: 2;
+    widows: 2;
+}
+
+/* Table headers should repeat on new pages if possible */
+thead tr {
+    page-break-after: avoid;
+    break-after: avoid-page;
 }
 
 th, td {
@@ -162,10 +227,26 @@ th {
 ul, ol {
     margin: 16px 0;
     padding-left: 24px;
+    page-break-inside: auto;
+    break-inside: auto;
+    /* Prevent orphaned list items */
+    orphans: 2;
+    widows: 2;
 }
 
 li {
     margin: 6px 0;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    /* Avoid breaking individual list items */
+    orphans: 2;
+    widows: 2;
+}
+
+/* Nested lists should stay together when possible */
+li ul, li ol {
+    page-break-before: avoid;
+    break-before: avoid-page;
 }
 
 /* Blockquotes */
@@ -175,6 +256,11 @@ blockquote {
     border-left-width: 4px;
     border-left-style: solid;
     font-style: italic;
+    page-break-inside: avoid;
+    break-inside: avoid;
+    /* Keep blockquotes together */
+    orphans: 3;
+    widows: 3;
 }
 
 /* Links */
