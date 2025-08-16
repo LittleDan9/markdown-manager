@@ -62,8 +62,9 @@ COPY ./app /markdown-manager/app
 # Set executable permissions
 RUN chmod +x /markdown-manager/entrypoint.sh
 
-# Create non-root user for security
+# Create non-root user for security and setup directories
 RUN groupadd -r markdown && useradd -r -g markdown markdown && \
+    mkdir -p /markdown-manager/documents && \
     chown -R markdown:markdown /markdown-manager
 USER markdown
 
@@ -72,7 +73,7 @@ EXPOSE 8000
 
 # Health check - use virtual environment python
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD /markdown-manager/.venv/bin/python -c "import sys,requests; r=requests.get('http://localhost:8000/api/v1/health', timeout=5); r.raise_for_status(); sys.exit(0)"
+  CMD /markdown-manager/.venv/bin/python -c "import sys,requests; r=requests.get('http://localhost:8000/health', timeout=5); r.raise_for_status(); sys.exit(0)"
 
 
 ENTRYPOINT ["/markdown-manager/entrypoint.sh"]
