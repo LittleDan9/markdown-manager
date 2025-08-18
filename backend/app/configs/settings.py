@@ -3,7 +3,7 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field, computed_field, validator
+from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .constants import constants
@@ -87,7 +87,8 @@ class Settings(BaseSettings):
         default=constants.MAX_PAGE_SIZE, description="Maximum pagination page size"
     )
 
-    @validator("environment")
+    @field_validator("environment")
+    @classmethod
     def validate_environment(cls, v):
         """Validate environment value."""
         if v not in constants.ENVIRONMENTS:
@@ -96,7 +97,8 @@ class Settings(BaseSettings):
             )
         return v
 
-    @validator("database_url")
+    @field_validator("database_url")
+    @classmethod
     def validate_database_url(cls, v):
         """Validate database URL format."""
         if not v:
@@ -105,7 +107,8 @@ class Settings(BaseSettings):
             raise ValueError("Database URL must start with 'sqlite' or 'postgresql'")
         return v
 
-    @validator("documents_directory")
+    @field_validator("documents_directory")
+    @classmethod
     def validate_documents_directory(cls, v):
         """Ensure documents directory exists if possible."""
         try:

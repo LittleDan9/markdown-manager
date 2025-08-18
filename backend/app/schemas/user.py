@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class UserBase(BaseModel):
@@ -75,10 +75,7 @@ class UserResponse(UserBase):
     current_doc_id: Optional[int] = None
     current_document: Optional["Document"] = None  # Should match Document schema
 
-    class Config:
-        """Pydantic config."""
-
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 # Import placed at the end to avoid circular import issues

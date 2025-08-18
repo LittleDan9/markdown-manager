@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class CustomDictionaryBase(BaseModel):
@@ -20,7 +20,8 @@ class CustomDictionaryBase(BaseModel):
 class CustomDictionaryCreate(CustomDictionaryBase):
     """Schema for creating a custom dictionary entry."""
 
-    @validator("word")
+    @field_validator("word")
+    @classmethod
     def validate_word(cls, v):
         """Validate and normalize the word."""
         return v.lower().strip()
@@ -35,16 +36,13 @@ class CustomDictionaryUpdate(BaseModel):
 class CustomDictionaryResponse(CustomDictionaryBase):
     """Schema for custom dictionary response."""
 
+    model_config = ConfigDict(from_attributes=True)
+
     id: int
     user_id: int
     category_id: Optional[int] = None
     created_at: datetime
     updated_at: datetime
-
-    class Config:
-        """Pydantic config."""
-
-        from_attributes = True
 
 
 class CustomDictionaryWordsResponse(BaseModel):

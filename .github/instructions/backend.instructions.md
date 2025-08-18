@@ -13,7 +13,7 @@ When using GitHub Copilot Chat in this repository to write or review DRY FastAPI
    Use FastAPI’s dependency injection (`Depends`) to share common functionality (DB sessions, authentication, settings) rather than copying boilerplate.
 
 3. **Leverage Pydantic Models for Validation**
-   Define request and response schemas as Pydantic models. Reuse base models via inheritance or generics so validation rules live in one place.
+   Define request and response schemas as Pydantic models. Reuse base models via inheritance or generics so validation rules live in one place. All implementation should conform to Pydantic's v2 standards.
 
 4. **Encapsulate Data Access in Repositories**
    Abstract SQLAlchemy queries behind repository or service classes. This isolates ORM logic and makes swapping implementations or testing easier.

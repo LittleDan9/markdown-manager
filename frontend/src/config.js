@@ -1,6 +1,6 @@
 /**
  * Environment Configuration
- * Determines API base URL based on environment
+ * Clean Architecture: No forced contracts, simple subdomain separation
  */
 
 /**
@@ -12,6 +12,7 @@ function isDevelopment() {
   return (
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1" ||
+    window.location.hostname === "api.localhost" ||
     window.location.port === "3000" ||
     process.env.NODE_ENV === "development"
   );
@@ -19,15 +20,18 @@ function isDevelopment() {
 
 /**
  * Get the appropriate API base URL for the current environment
- * @returns {string} API base URL
+ * Clean architecture: No path injection, simple domain-based routing
+ * @returns {string} API base URL (without /api/v1 - backend serves directly)
  */
 function getApiBaseUrl() {
   if (isDevelopment()) {
     // Development: call backend directly on port 8000
-    return "http://localhost:8000/api/v1";
+    // No /api/v1 path needed - backend serves endpoints directly
+    return "http://localhost:8000";
   } else {
-    // Production: use relative path, nginx will proxy to backend
-    return "/api/v1";
+    // Production: use api subdomain
+    // Clean separation: api.littledan.com serves API directly
+    return "https://api.littledan.com";
   }
 }
 

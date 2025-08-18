@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class DocumentBase(BaseModel):
@@ -37,9 +37,12 @@ class DocumentInDB(DocumentBase):
     is_shared: bool = False
     share_token: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda v: _isoformat_utc(v)}
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format with Z suffix."""
+        return _isoformat_utc(dt)
 
 
 def _isoformat_utc(dt: datetime) -> str:
@@ -88,6 +91,9 @@ class SharedDocument(BaseModel):
     updated_at: datetime
     author_name: str
 
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda v: _isoformat_utc(v)}
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("updated_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format with Z suffix."""
+        return _isoformat_utc(dt)
