@@ -1,5 +1,5 @@
 """Login and authentication endpoints."""
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
@@ -18,7 +18,7 @@ router = APIRouter()
 
 def create_refresh_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc) + expires_delta
     to_encode.update({"exp": expire, "type": "refresh"})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
@@ -26,8 +26,8 @@ def create_refresh_token(data: dict, expires_delta: timedelta):
 @router.post("/login", response_model=LoginResponse)
 async def login(
     user_credentials: UserLogin,
+    response: Response,
     db: AsyncSession = Depends(get_db),
-    response: Response | None = None,
 ) -> Any:
     """Authenticate user and return access token (or require MFA)."""
     user = await authenticate_user(
@@ -57,16 +57,15 @@ async def login(
     # Refresh token expires in 14 days (consistent with frontend expectations)
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
-    if response is not None:
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=settings.secure_cookies,  # Environment-based setting
-            samesite="lax",
-            max_age=14 * 24 * 60 * 60,
-            path="/",
-        )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.secure_cookies,  # Environment-based setting
+        samesite="lax",
+        max_age=14 * 24 * 60 * 60,
+        path="/",
+    )
     return LoginResponse(
         mfa_required=False,
         access_token=access_token,
@@ -131,8 +130,8 @@ async def refresh_token(
 @router.post("/login-mfa", response_model=Token)
 async def login_mfa(
     mfa_credentials: LoginMFARequest,
+    response: Response,
     db: AsyncSession = Depends(get_db),
-    response: Response | None = None,
 ) -> Any:
     """Complete MFA login with TOTP code."""
     # Re-authenticate the user (verify password again for security)
@@ -171,16 +170,15 @@ async def login_mfa(
     # Refresh token expires in 14 days (consistent with frontend expectations)
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
-    if response is not None:
-        response.set_cookie(
-            key="refresh_token",
-            value=refresh_token,
-            httponly=True,
-            secure=settings.secure_cookies,  # Environment-based setting
-            samesite="lax",
-            max_age=14 * 24 * 60 * 60,
-            path="/",
-        )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=settings.secure_cookies,  # Environment-based setting
+        samesite="lax",
+        max_age=14 * 24 * 60 * 60,
+        path="/",
+    )
     return {
         "access_token": access_token,
         "token_type": "bearer",

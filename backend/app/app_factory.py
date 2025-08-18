@@ -3,21 +3,25 @@ import logging
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.configs import settings
 from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
+from app.middleware import (
+    ErrorHandlingMiddleware,
+    LoggingMiddleware,
+    MonitoringMiddleware,
+    RequestContextMiddleware,
+)
 from app.routers import (
     auth,
     categories,
     custom_dictionary,
-    debug,
     default,
     documents,
+    monitoring,
     pdf,
     public,
     syntax_highlighting,
@@ -30,41 +34,13 @@ logger = logging.getLogger(__name__)
 env_config = EnvironmentConfig(settings)
 
 
-class LoggingMiddleware(BaseHTTPMiddleware):
-    """Middleware for request/response logging."""
-
-    async def dispatch(self, request: Request, call_next):
-        """Log requests and responses."""
-        # Skip logging for health checks and static files
-        skip_paths = ["/favicon.ico", "/docs", "/openapi.json", "/redoc"]
-        if request.url.path in skip_paths:
-            return await call_next(request)
-
-        # Log request
-        logger.info(f"Request: {request.method} {request.url.path}")
-
-        try:
-            response = await call_next(request)
-            # Log response
-            logger.info(
-                f"Response: {response.status_code} for {request.method} {request.url.path}"
-            )
-            return response
-        except Exception as e:
-            logger.error(
-                f"Error processing request {request.method} {request.url.path}: {str(e)}"
-            )
-            return JSONResponse(
-                status_code=500, content={"detail": "Internal server error"}
-            )
-
-
 class AppFactory:
     """Factory class for creating FastAPI applications."""
 
     def __init__(self):
         """Initialize the app factory."""
         self.app: FastAPI | None = None
+        self.monitoring_middleware: MonitoringMiddleware | None = None
 
     def _create_lifespan(self):
         """Create lifespan context manager for startup/shutdown events."""
@@ -90,11 +66,27 @@ class AppFactory:
         return lifespan
 
     def _setup_middleware(self) -> None:
-        """Set up application middleware."""
+        """Set up application middleware in correct order."""
         if not self.app:
             raise ValueError("App not initialized")
 
-        # CORS middleware with environment-specific origins
+        # Error handling middleware (first - catches all errors)
+        self.app.add_middleware(
+            ErrorHandlingMiddleware, include_debug_info=settings.debug
+        )
+
+        # Request context middleware (early - sets up context for other middleware)
+        self.app.add_middleware(RequestContextMiddleware)
+
+        # Monitoring middleware (tracks performance)
+        self.app.add_middleware(
+            MonitoringMiddleware, enable_metrics=True, slow_request_threshold=1.0
+        )
+
+        # Logging middleware (logs with context from previous middleware)
+        self.app.add_middleware(LoggingMiddleware)
+
+        # CORS middleware (last - handles browser requests)
         self.app.add_middleware(
             CORSMiddleware,
             allow_origins=env_config.get_cors_origins(),
@@ -103,18 +95,22 @@ class AppFactory:
             allow_headers=["*"],
         )
 
-        # Custom logging middleware
-        self.app.add_middleware(LoggingMiddleware)
-
     def _setup_routers(self) -> None:
         """Set up application routers."""
         if not self.app:
             raise ValueError("App not initialized")
 
-        # Include routers with consolidated structure
+        # Include routers with consolidated structure - start with basics first
         self.app.include_router(
             default.router, tags=["default"]
         )  # Root, health, utilities
+
+        # Enable monitoring router to test middleware functionality
+        self.app.include_router(
+            monitoring.router, prefix="/monitoring", tags=["monitoring"]
+        )  # Monitoring and metrics endpoints
+
+        # Include all other routers - middleware is working properly
         self.app.include_router(
             public.router, tags=["public"]
         )  # Public routes (no auth required)
@@ -129,7 +125,7 @@ class AppFactory:
             documents.router, prefix="/documents", tags=["documents"]
         )
         self.app.include_router(pdf.router, prefix="/pdf", tags=["pdf"])
-        self.app.include_router(debug.router, prefix="/debug", tags=["debug"])
+        # Debug router removed - CSS service moved to PDF container
         self.app.include_router(
             syntax_highlighting.router,
             prefix="/highlight",
@@ -140,26 +136,16 @@ class AppFactory:
         )
 
     def _setup_exception_handlers(self) -> None:
-        """Set up global exception handlers."""
+        """Set up global exception handlers (basic ones - comprehensive handled by middleware)."""
         if not self.app:
             raise ValueError("App not initialized")
 
-        @self.app.exception_handler(HTTPException)
-        async def http_exception_handler(request: Request, exc: HTTPException):
-            """Handle HTTP exceptions."""
-            return JSONResponse(
-                status_code=exc.status_code,
-                content={"detail": exc.detail},
-            )
+        # Note: Comprehensive error handling is now done by ErrorHandlingMiddleware
+        # These are just fallback handlers for cases not caught by middleware
 
-        @self.app.exception_handler(Exception)
-        async def general_exception_handler(request: Request, exc: Exception):
-            """Handle general exceptions."""
-            logger.error(f"Unhandled exception: {str(exc)}", exc_info=True)
-            return JSONResponse(
-                status_code=500,
-                content={"detail": "Internal server error"},
-            )
+        # The ErrorHandlingMiddleware handles all exceptions comprehensively
+        # No need for additional exception handlers here
+        pass
 
     def create_app(self) -> FastAPI:
         """Create and configure FastAPI application."""

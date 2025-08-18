@@ -5,11 +5,35 @@ import uuid
 
 import pyotp
 import pytest
-from fastapi.testclient import TestClient
 
-from app.main import app
+from app.app_factory import AppFactory
+from app.database import get_db
 
-client = TestClient(app)
+
+@pytest.fixture
+def test_app(test_db):
+    """Create test app with test database."""
+    app_factory = AppFactory()
+    app = app_factory.create_app()
+
+    # Override the database dependency
+    async def get_test_db():
+        yield test_db
+
+    app.dependency_overrides[get_db] = get_test_db
+
+    yield app
+
+    # Clean up
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def client(test_app):
+    """Create test client."""
+    from fastapi.testclient import TestClient
+
+    return TestClient(test_app)
 
 
 class TOTPSimulator:
@@ -24,34 +48,34 @@ class TOTPSimulator:
         return self.totp.at(timestamp)
 
 
-def register_and_login(email, password, **extra):
+def register_and_login(client, email, password, **extra):
     # Register
     reg_data = {"email": email, "password": password}
     reg_data.update(extra)
-    reg_resp = client.post("/api/v1/auth/register", json=reg_data)
+    reg_resp = client.post("/auth/register", json=reg_data)
     # Accept either success or "already exists" error
     assert reg_resp.status_code in [200, 400]
     if reg_resp.status_code == 400:
         assert "already" in reg_resp.text.lower()
 
     # Login
-    login_resp = client.post(
-        "/api/v1/auth/login", json={"email": email, "password": password}
-    )
+    login_resp = client.post("/auth/login", json={"email": email, "password": password})
     assert login_resp.status_code == 200
     token = login_resp.json()["access_token"]
     return token
 
 
 @pytest.mark.asyncio
-async def test_mfa_totp_workflow():
+async def test_mfa_totp_workflow(client):
     email = f"mfauser-{uuid.uuid4()}@example.com"
     password = "MfaTestPassword123!"
-    token = register_and_login(email, password, first_name="MFA", last_name="User")
+    token = register_and_login(
+        client, email, password, first_name="MFA", last_name="User"
+    )
     headers = {"Authorization": f"Bearer {token}"}
 
     def setup_mfa():
-        setup_resp = client.post("/api/v1/mfa/setup", headers=headers)
+        setup_resp = client.post("/auth/mfa/setup", headers=headers)
         assert setup_resp.status_code == 200
         setup_data = setup_resp.json()
         assert "secret" in setup_data
@@ -60,20 +84,20 @@ async def test_mfa_totp_workflow():
     def verify_totp(totp):
         code = totp.get_current_code()
         verify_resp = client.post(
-            "/api/v1/mfa/verify", json={"totp_code": code}, headers=headers
+            "/auth/mfa/verify", json={"totp_code": code}, headers=headers
         )
         assert verify_resp.status_code == 200
 
     def enable_mfa(totp):
         enable_resp = client.post(
-            "/api/v1/mfa/enable",
+            "/auth/mfa/enable",
             json={"totp_code": totp.get_current_code(), "current_password": password},
             headers=headers,
         )
         assert enable_resp.status_code == 200
 
     def get_backup_codes():
-        backup_resp = client.get("/api/v1/mfa/backup-codes", headers=headers)
+        backup_resp = client.get("/auth/mfa/backup-codes", headers=headers)
         assert backup_resp.status_code == 200
         backup_data = backup_resp.json()
         assert "backup_codes" in backup_data
@@ -82,7 +106,7 @@ async def test_mfa_totp_workflow():
 
     def regenerate_backup_codes(totp):
         regen_resp = client.post(
-            "/api/v1/mfa/regenerate-backup-codes",
+            "/auth/mfa/regenerate-backup-codes",
             json={"totp_code": totp.get_current_code()},
             headers=headers,
         )
@@ -91,7 +115,7 @@ async def test_mfa_totp_workflow():
 
     def disable_mfa(totp):
         disable_resp = client.post(
-            "/api/v1/mfa/disable",
+            "/auth/mfa/disable",
             json={"totp_code": totp.get_current_code(), "current_password": password},
             headers=headers,
         )

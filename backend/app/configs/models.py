@@ -1,7 +1,7 @@
 """Database configuration models."""
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DatabaseConfig(BaseModel):
@@ -14,10 +14,7 @@ class DatabaseConfig(BaseModel):
     pool_timeout: int = Field(default=30, description="Pool timeout in seconds")
     pool_recycle: int = Field(default=3600, description="Pool recycle time in seconds")
 
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class SecurityConfig(BaseModel):
@@ -32,10 +29,7 @@ class SecurityConfig(BaseModel):
         default=False, description="Use secure cookies (HTTPS only)"
     )
 
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class SMTPConfig(BaseModel):
@@ -48,10 +42,7 @@ class SMTPConfig(BaseModel):
     from_email: str = Field(..., description="From email address")
     use_tls: bool = Field(default=True, description="Use TLS encryption")
 
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")
 
 
 class StorageConfig(BaseModel):
@@ -67,7 +58,4 @@ class StorageConfig(BaseModel):
         default={".md", ".txt", ".pdf"}, description="Allowed file extensions"
     )
 
-    class Config:
-        """Pydantic config."""
-
-        extra = "forbid"
+    model_config = ConfigDict(extra="forbid")

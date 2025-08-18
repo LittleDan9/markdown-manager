@@ -48,6 +48,7 @@ httpx = "^0.28.1"
 pytest-mock = "^3.12.0"
 faker = "^19.6.0"
 types-aiofiles = "^24.1.0.20250606"
+pytest-json-report = "^1.5.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -81,13 +82,60 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = ["-v", "--tb=short"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--cov=app",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]
 pythonpath = ["."]
 asyncio_mode = "auto"
+markers = [
+    "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
+]
 
 [tool.bandit]
 exclude_dirs = []
 skips = ["B608"]
 
 [tool.coverage.run]
-omit = ["tests/*", "docker/*"]
+source = ["app"]
+omit = [
+    "tests/*",
+    "docker/*",
+    "app/main.py",
+    "*/migrations/*",
+    "*/alembic/*",
+    "app/routers/auth_backup.py",
+    "app/configs/environment.py",
+    "app/services/pdf_processor.py",
+    "app/middleware/error_handling.py",
+]
+branch = true
+
+[tool.coverage.report]
+fail_under = 55
+show_missing = true
+skip_covered = false
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self\\.debug:",
+    "if settings\\.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]
+
+[tool.coverage.html]
+directory = "htmlcov"
+
+[tool.xenon]
+max_absolute = "B"
+max_modules = "B"
+max_average = "A"
+exclude = ["tests/*", "*/tests/*", "tests/**/*"]

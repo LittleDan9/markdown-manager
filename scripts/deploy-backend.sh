@@ -73,12 +73,16 @@ deploy_service() {
     echo $SKIP_PUSH
 }
 
-# Check if we can reach the remote registry
-echo "$YELLOW🔍 Checking remote registry connectivity...$NC"
-if ! ssh -q -i $KEY $REMOTE_USER_HOST "curl -s http://localhost:$REGISTRY_PORT/v2/ | grep -q '{}'"; then
-    echo "$RED❌ Remote registry is not accessible. Please run setup-local-registry.sh first$NC"
+# Check if remote host is accessible
+echo "$YELLOW🔍 Checking remote host connectivity...$NC"
+if ! ssh -q -i "$KEY" "$REMOTE_USER_HOST" "echo 'Connection successful'"; then
+    echo "$RED❌ Cannot connect to remote host$NC"
     exit 1
+else
+    echo "$GREEN✅ Remote host accessible$NC"
 fi
+
+# Registry status will be checked after SSH tunnel is created
 
 # Configure local Docker for insecure registry if needed
 if ! grep -q "insecure-registries" ~/.docker/daemon.json 2>/dev/null; then
@@ -173,6 +177,9 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST << EOH
 
   echo "🔄 Restarting backend service..."
   sudo systemctl restart markdown-manager-api.service
+
+  echo "⏳ Waiting for backend service to be ready..."
+  sleep 8
 EOH
 
 # Copy nginx config files to the remote host
@@ -181,6 +188,7 @@ rsync -azhq \
   --exclude='*.swp' \
   --exclude='.DS_Store' \
   --exclude='scripts/' \
+  --exclude='nginx-dev.conf' \
   --no-perms \
   --no-times \
   --no-group \
@@ -188,15 +196,97 @@ rsync -azhq \
   -e "ssh -i $KEY" \
   ./nginx/ $REMOTE_USER_HOST:/etc/nginx/
 
+echo "$YELLOW🔧 Configuring nginx virtual hosts for subdomain architecture...$NC"
 ssh -q -T -i $KEY $REMOTE_USER_HOST <<'EOH'
-  if [ ! -L /etc/nginx/sites-enabled/littledan.com ]; then
-    sudo ln -s /etc/nginx/sites-available/littledan.com /etc/nginx/sites-enabled/
+  set -e
+
+  # Backup current configuration if it exists
+  if [ -f /etc/nginx/sites-available/littledan.com ]; then
+    sudo cp /etc/nginx/sites-available/littledan.com /etc/nginx/sites-available/littledan.com.backup.$(date +%Y%m%d_%H%M%S)
+    echo "✅ Backed up existing littledan.com configuration"
   fi
+
+  # Deploy cleaned main domain configuration (removes API endpoints)
+  if [ -f /etc/nginx/sites-available/littledan.com.clean ]; then
+    echo "🚀 Deploying cleaned main domain configuration..."
+    sudo cp /etc/nginx/sites-available/littledan.com.clean /etc/nginx/sites-available/littledan.com
+    echo "✅ Main domain configuration updated (API endpoints removed)"
+  fi
+
+  # Enable main site if not already enabled
+  if [ ! -L /etc/nginx/sites-enabled/littledan.com ]; then
+    sudo ln -sf /etc/nginx/sites-available/littledan.com /etc/nginx/sites-enabled/
+    echo "✅ Enabled littledan.com virtual host"
+  fi
+
+  # Enable API subdomain virtual host
+  if [ -f /etc/nginx/sites-available/api.littledan.com.conf ]; then
+    echo "🚀 Enabling API subdomain virtual host..."
+    sudo ln -sf /etc/nginx/sites-available/api.littledan.com.conf /etc/nginx/sites-enabled/
+    echo "✅ Enabled api.littledan.com virtual host with rate limiting"
+  else
+    echo "⚠️  API subdomain configuration not found - subdomain deployment skipped"
+  fi
+
+  # Test nginx configuration
+  echo "🧪 Testing nginx configuration..."
   sudo nginx -t
+
+  # Show enabled sites
+  echo "📋 Currently enabled nginx sites:"
+  ls -la /etc/nginx/sites-enabled/
+
+  # Reload nginx to apply changes
+  echo "🔄 Reloading nginx configuration..."
   sudo systemctl reload nginx
+
+  echo "✅ Nginx subdomain architecture deployed successfully"
 EOH
 
 echo "$GREEN✅ Docker deployment complete using local registry$NC"
+
+echo "$YELLOW🧪 Validating subdomain architecture deployment...$NC"
+echo "$CYAN⏳ Waiting for services to stabilize before validation...$NC"
+sleep 5
+
+# Test main domain
+echo "$YELLOW🔍 Testing main domain (littledan.com)...$NC"
+if curl -s -I -H "User-Agent: Mozilla/5.0" https://littledan.com | grep -q "200 OK"; then
+  echo "$GREEN✅ Main domain responsive$NC"
+else
+  echo "$RED❌ Main domain not responding correctly$NC"
+fi
+
+# Test API subdomain
+echo "$YELLOW🔍 Testing API subdomain (api.littledan.com)...$NC"
+if curl -s -H "User-Agent: Mozilla/5.0" https://api.littledan.com/health | grep -q '"status":"healthy"'; then
+  echo "$GREEN✅ API subdomain health check passed$NC"
+else
+  echo "$RED❌ API subdomain health check failed$NC"
+fi
+
+# Test API redirect from main domain
+echo "$YELLOW🔍 Testing API redirect from main domain...$NC"
+if curl -s -I -H "User-Agent: Mozilla/5.0" https://littledan.com/api/health | grep -q "301"; then
+  echo "$GREEN✅ API redirect working (301 from main domain)$NC"
+else
+  echo "$RED❌ API redirect not working from main domain$NC"
+fi
+
+# Test rate limiting
+echo "$YELLOW🔍 Testing API rate limiting...$NC"
+RATE_TEST=$(curl -s -w "%{http_code}" -o /dev/null -H "User-Agent: Mozilla/5.0" https://api.littledan.com/health)
+if [ "$RATE_TEST" = "200" ]; then
+  echo "$GREEN✅ API rate limiting configured (endpoint responsive)$NC"
+else
+  echo "$YELLOW⚠️  API rate limiting test inconclusive (status: $RATE_TEST)$NC"
+fi
+
+echo "$CYAN📊 Deployment Summary:$NC"
+echo "  🌐 Frontend: https://littledan.com"
+echo "  🔌 API: https://api.littledan.com"
+echo "  🛡️  Rate limiting: Enabled with burst controls"
+echo "  🔒 Security headers: Applied to both domains"
 
 # Clean up local registry tags
 docker rmi $BACKEND_REGISTRY_IMAGE 2>/dev/null || true

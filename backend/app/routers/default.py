@@ -66,11 +66,3 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
         overall_status = "degraded"
 
     return HealthResponse(status=overall_status, version="1.0.0", services=services)
-
-
-@router.get("/favicon.ico")
-async def favicon():
-    """Favicon endpoint to prevent 404s."""
-    from fastapi.responses import Response
-
-    return Response(status_code=204)

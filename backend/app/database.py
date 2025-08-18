@@ -13,15 +13,24 @@ env_config = EnvironmentConfig(settings)
 pool_settings = env_config.get_database_pool_settings()
 
 # Create async engine with enhanced configuration
-engine = create_async_engine(
-    settings.database_config.url,
-    echo=settings.database_config.echo,
-    future=True,
-    pool_size=pool_settings["pool_size"],
-    max_overflow=pool_settings["max_overflow"],
-    pool_timeout=pool_settings["pool_timeout"],
-    pool_recycle=pool_settings["pool_recycle"],
-)
+# SQLite doesn't support pool settings, so only apply them for PostgreSQL
+if settings.database_config.url.startswith("sqlite"):
+    engine = create_async_engine(
+        settings.database_config.url,
+        echo=settings.database_config.echo,
+        future=True,
+    )
+else:
+    # PostgreSQL with pool settings
+    engine = create_async_engine(
+        settings.database_config.url,
+        echo=settings.database_config.echo,
+        future=True,
+        pool_size=pool_settings["pool_size"],
+        max_overflow=pool_settings["max_overflow"],
+        pool_timeout=pool_settings["pool_timeout"],
+        pool_recycle=pool_settings["pool_recycle"],
+    )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(

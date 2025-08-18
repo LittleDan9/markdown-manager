@@ -64,7 +64,7 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 # PHONY TARGETS
 # ────────────────────────────────────────────────────────────────────────────
 
-.PHONY: help quality install clean build dev dev-frontend dev-backend test status stop
+.PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
 .PHONY: deploy deploy-front deploy-back deploy-nginx setup-remote-ops
 .PHONY: backup-db restore-db backup-restore-cycle
 
@@ -82,7 +82,7 @@ help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} /^deploy/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Utilities:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^test|status|stop/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"} /^test|test-backend|status|stop/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Database Operations:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^backup-db|restore-db/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -120,12 +120,17 @@ dev-backend: ## Backend dev server
 	cd $(BACKEND_DIR) && docker compose up --build -d backend
 
 # ────────────────────────────────────────────────────────────────────────────
-test: ## Run backend (pytest) and frontend (Jest) tests
-	@echo "$(YELLOW)🧪 Running backend tests...$(NC)"
-	cd $(BACKEND_DIR) && poetry run pytest
+test: ## Run backend (pytest with coverage) and frontend (Jest) tests
+	@echo "$(YELLOW)🧪 Running backend tests with coverage...$(NC)"
+	cd $(BACKEND_DIR) && ./scripts/test-coverage.sh
 	@echo "$(YELLOW)🧪 Running frontend tests...$(NC)"
 	cd $(FRONTEND_DIR) && npm test
 	@echo "$(GREEN)✅ All tests complete$(NC)"
+
+test-backend: ## Run backend tests with coverage
+	@echo "$(YELLOW)🧪 Running backend tests with coverage...$(NC)"
+	cd $(BACKEND_DIR) && ./scripts/test-coverage.sh
+	@echo "$(GREEN)✅ Backend tests complete$(NC)"
 
 status: ## Check dev server status
 	@echo "$(YELLOW)📊 Dev Server Status$(NC)"
@@ -160,7 +165,7 @@ deploy-front: build ## Sync frontend dist
 	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
 
 deploy-back: ## Sync backend + migrations + restart
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(REMOTE_USER_HOST) 5000
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) pdf-service $(REMOTE_USER_HOST) 5000
 
 deploy-nginx: ## Sync nginx config + reload
 	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"
