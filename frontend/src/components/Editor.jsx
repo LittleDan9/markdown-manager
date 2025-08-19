@@ -20,8 +20,20 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   const previousValueRef = useRef(value);
   const lastProgressRef = useRef(null);
 
-  // Get the category from the current document
-  const categoryId = currentDocument?.category;
+  // Get the category ID from the current document
+  const categoryId = currentDocument?.category_id;
+  
+  // Create a ref to track current categoryId for dynamic access
+  const categoryIdRef = useRef(categoryId);
+  
+  // Update the ref whenever categoryId changes
+  useEffect(() => {
+    categoryIdRef.current = categoryId;
+  }, [categoryId]);
+  
+  // Debug: Log the document structure to understand what we have
+  console.log('Editor - currentDocument:', currentDocument);
+  console.log('Editor - categoryId:', categoryId, 'type:', typeof categoryId);
 
   /* Debounce Refs */
   // Spell Checking
@@ -69,11 +81,13 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
           }
         );
 
-        registerQuickFixActions(editor, suggestionsMap, categoryId);
+        registerQuickFixActions(editor, suggestionsMap, () => categoryIdRef.current);
         spellCheckDocument(value, 0);
       })
       .catch(console.error);
   }, []);
+
+  // No need to re-register - the quick fix actions will dynamically get the categoryId
 
 
 
