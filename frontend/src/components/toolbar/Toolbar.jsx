@@ -4,6 +4,7 @@ import DocumentToolbar from "./Document";
 import UserToolbar from "./User";
 import { useTheme } from "@/context/ThemeProvider";
 import { useDocument } from "@/context/DocumentProvider";
+import { useSharedView } from "@/context/SharedViewProvider";
 import { useNotification } from "@/components/NotificationProvider";
 
 function Toolbar({
@@ -11,14 +12,11 @@ function Toolbar({
   setFullscreenPreview,
   setContent,
   editorValue,
-  setShowIconBrowser,
-  isSharedView = false,
-  sharedDocument = null,
-  sharedLoading = false,
-  sharedError = null
+  setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error } = useDocument();
+  const { isSharedView, sharedDocument, sharedLoading, sharedError } = useSharedView();
   const { showWarning } = useNotification();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"

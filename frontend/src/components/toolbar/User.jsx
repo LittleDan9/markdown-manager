@@ -4,11 +4,13 @@ import { useNotification } from "../NotificationProvider";
 import UserMenuLoggedIn from "./UserMenuLoggedIn";
 import UserMenuLoggedOut from "./UserMenuLoggedOut";
 import { useAuth } from "../../context/AuthContext";
+import { useSharedView } from "../../context/SharedViewProvider";
 
 
-function UserToolbar({ handleThemeToggle, theme, isSharedView = false }) {
+function UserToolbar({ handleThemeToggle, theme }) {
   const { showSuccess, showError } = useNotification();
   const { user, setUser } = useAuth();
+  const { isSharedView } = useSharedView();
 
   return (
     <>

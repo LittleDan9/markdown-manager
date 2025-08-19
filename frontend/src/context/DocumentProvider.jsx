@@ -3,6 +3,7 @@ import DocumentService from '../services/DocumentService.js';
 import DocumentStorageService from '../services/DocumentStorageService.js';
 import documentsApi from '../api/documentsApi.js';
 import { useAuth } from './AuthContext';
+import { useSharedView } from './SharedViewProvider';
 import { useNotification } from '../components/NotificationProvider.jsx';
 import useChangeTracker from '../hooks/useChangeTracker';
 
@@ -10,6 +11,7 @@ const DocumentContext = createContext();
 
 export function DocumentProvider({ children }) {
   const { token, user, isAuthenticated, isInitializing } = useAuth();
+  const { isSharedView } = useSharedView();
   const notification = useNotification();
 
   // Create stable refs for notification functions to avoid dependency issues
@@ -284,7 +286,6 @@ export function DocumentProvider({ children }) {
 
       // Fall back to most recently updated document (only if authenticated OR it's a local document)
       // Skip fallback if we're in shared document view - shared documents should load explicitly
-      const isSharedView = window.location.pathname.startsWith('/shared/');
 
       if (!currentDoc && !isSharedView) {
         console.log('DocumentProvider: No current document found, falling back. isAuthenticated:', isAuthenticated);
@@ -310,7 +311,7 @@ export function DocumentProvider({ children }) {
 
     console.log('DocumentProvider: loadCurrentDocument effect triggered. Auth state changed?');
     loadCurrentDocument();
-  }, [isAuthenticated, token, isInitializing, migrationStatus]); // Remove stable functions from dependencies
+  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView]); // Add isSharedView dependency
 
   // Update categories whenever documents change
   useEffect(() => {
