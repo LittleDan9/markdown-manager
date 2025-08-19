@@ -169,6 +169,12 @@ module.exports = {
     open: false,
     port: 3000,
     watchFiles: ['src/**/*', 'public/**/*'],
+    client: {
+      overlay: {
+        errors: true,
+        warnings: false,
+      },
+    },
   },
   optimization: {
     splitChunks: {

@@ -12,6 +12,7 @@ import "./styles/main.scss";
 
 import { DocumentProvider } from "./context/DocumentProvider";
 import { AuthProvider } from "./context/AuthContext";
+import { SharedViewProvider } from "./context/SharedViewProvider";
 import { NotificationProvider } from "./components/NotificationProvider.jsx";
 import { LoggerProvider } from "./context/LoggerProvider.jsx";
 
@@ -22,9 +23,11 @@ root.render(
     <GlobalErrorBoundary>
       <NotificationProvider>
         <AuthProvider>
-          <DocumentProvider>
-            <App />
-          </DocumentProvider>
+          <SharedViewProvider>
+            <DocumentProvider>
+              <App />
+            </DocumentProvider>
+          </SharedViewProvider>
         </AuthProvider>
       </NotificationProvider>
     </GlobalErrorBoundary>
