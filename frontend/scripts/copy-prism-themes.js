@@ -4,7 +4,7 @@ const path = require('path');
 
 const THEMES = [
   'prism-vsc-dark-plus.css',
-  'prism-vsc-light-plus.css'
+  'prism-one-light.css'
 ];
 
 const srcDir = path.join(__dirname, '../node_modules/prism-themes/themes');
