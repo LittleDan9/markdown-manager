@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DocumentService from '../services/DocumentService.js';
 import DocumentStorageService from '../services/DocumentStorageService.js';
+import documentsApi from '../api/documentsApi.js';
 import { useAuth } from './AuthContext';
 import { useNotification } from '../components/NotificationProvider.jsx';
 import useChangeTracker from '../hooks/useChangeTracker';
@@ -237,7 +238,9 @@ export function DocumentProvider({ children }) {
         }
       }
 
+      console.log('DocumentProvider: Loading current document. isAuthenticated:', isAuthenticated, 'token:', !!token, 'isInitializing:', isInitializing);
       const docs = DocumentService.getAllDocuments();
+      console.log('DocumentProvider: Found', docs.length, 'documents:', docs.map(d => `${d.id}: ${d.name}`));
       setDocuments(docs);
 
       if (docs.length === 0) {
@@ -253,7 +256,6 @@ export function DocumentProvider({ children }) {
       // If authenticated, try to get current document from backend
       if (isAuthenticated && token) {
         try {
-          const { documentsApi } = await import('../api/documentsApi.js');
           const currentDocId = await documentsApi.getCurrentDocumentId();
 
           if (currentDocId) {
@@ -281,16 +283,24 @@ export function DocumentProvider({ children }) {
       }
 
       // Fall back to most recently updated document (only if authenticated OR it's a local document)
-      if (!currentDoc) {
+      // Skip fallback if we're in shared document view - shared documents should load explicitly
+      const isSharedView = window.location.pathname.startsWith('/shared/');
+
+      if (!currentDoc && !isSharedView) {
+        console.log('DocumentProvider: No current document found, falling back. isAuthenticated:', isAuthenticated);
         if (isAuthenticated) {
           currentDoc = docs[0]; // Most recently updated
-          console.log('DocumentProvider: Falling back to most recent document:', currentDoc?.id);
+          console.log('DocumentProvider: Falling back to most recent document for authenticated user:', currentDoc?.id, currentDoc?.name);
         } else {
           // For unauthenticated users, only show local documents
           const localDocs = docs.filter(doc => String(doc.id).startsWith('doc_'));
           currentDoc = localDocs[0] || DocumentService.createNewDocument();
-          console.log('DocumentProvider: Falling back to local document for guest:', currentDoc?.id);
+          console.log('DocumentProvider: Falling back to local document for guest:', currentDoc?.id, currentDoc?.name);
         }
+      } else if (!currentDoc && isSharedView) {
+        console.log('DocumentProvider: In shared view, skipping fallback. App component will handle shared document loading.');
+        // Don't set any document in shared view - App component handles it
+        return;
       }
 
       setCurrentDocument(currentDoc);
@@ -298,6 +308,7 @@ export function DocumentProvider({ children }) {
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
 
+    console.log('DocumentProvider: loadCurrentDocument effect triggered. Auth state changed?');
     loadCurrentDocument();
   }, [isAuthenticated, token, isInitializing, migrationStatus]); // Remove stable functions from dependencies
 
@@ -367,25 +378,29 @@ export function DocumentProvider({ children }) {
   }, []);
 
   const loadDocument = useCallback(async (id) => {
+    console.log('DocumentProvider: loadDocument called with id:', id);
     setLoading(true);
     try {
       const doc = DocumentService.loadDocument(id);
+      console.log('DocumentProvider: DocumentService.loadDocument returned:', doc);
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
 
         // Update current document tracking (localStorage + backend)
         await updateCurrentDocument(doc);
+        console.log('DocumentProvider: Document loaded successfully:', doc.id, doc.name);
       } else {
+        console.error('DocumentProvider: Document not found with id:', id);
         showError('Document not found');
       }
     } catch (error) {
-      console.error('Failed to load document:', error);
+      console.error('DocumentProvider: Failed to load document:', error);
       showError('Failed to load document');
     } finally {
       setLoading(false);
     }
-  }, [updateCurrentDocument]); // Add updateCurrentDocument to dependencies
+  }, [updateCurrentDocument, showSuccess, showError]); // Add updateCurrentDocument to dependencies
 
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
