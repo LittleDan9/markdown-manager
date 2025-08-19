@@ -63,7 +63,7 @@ scp -q -i $KEY /tmp/setup-registry.sh $REMOTE_USER_HOST:/tmp/
 rm /tmp/setup-registry.sh
 
 # Execute setup on remote
-ssh -q -T -i $KEY $REMOTE_USER_HOST << EOH
+ssh -q -T -i $KEY $REMOTE_USER_HOST 'bash -s' << EOH
 chmod +x /tmp/setup-registry.sh
 /tmp/setup-registry.sh $REGISTRY_PORT
 rm /tmp/setup-registry.sh

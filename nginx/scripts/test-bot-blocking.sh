@@ -33,7 +33,7 @@ required_files=(
     "/etc/nginx/conf.d/rate-limiting.conf"
     "/etc/nginx/conf.d/security.conf"
     "/etc/nginx/conf.d/main-config.conf"
-    "/etc/nginx/sites-available/littledan.com"
+    "/etc/nginx/sites-available/littledan.com.conf"
 )
 
 for file in "${required_files[@]}"; do

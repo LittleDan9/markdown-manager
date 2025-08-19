@@ -40,14 +40,14 @@ deploy_service() {
     # Check if image exists in remote registry
     echo "$YELLOW🔍 Checking if $service_name image exists in remote registry...$NC"
     local service_repo=$(echo $local_image | cut -d':' -f1 | cut -d'/' -f2)
-    local REMOTE_IMAGE_MANIFEST=$(ssh -q -i $KEY $REMOTE_USER_HOST "curl -s -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' http://localhost:$REGISTRY_PORT/v2/$service_repo/manifests/latest 2>/dev/null" || echo "")
+    local REMOTE_IMAGE_MANIFEST=$(ssh -q -T -i $KEY $REMOTE_USER_HOST "curl -s -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' http://localhost:$REGISTRY_PORT/v2/$service_repo/manifests/latest 2>/dev/null" || echo "")
 
     local SKIP_PUSH=false
     if [ -n "$REMOTE_IMAGE_MANIFEST" ] && echo "$REMOTE_IMAGE_MANIFEST" | grep -q "schemaVersion"; then
         echo "$YELLOW📦 $service_name image exists in registry, checking if it's the same...$NC"
 
         # Get the image ID from remote registry by pulling and checking
-        local REMOTE_IMAGE_ID=$(ssh -q -i $KEY $REMOTE_USER_HOST "docker pull $registry_image >/dev/null 2>&1 && docker images -q $registry_image 2>/dev/null || echo 'none'")
+        local REMOTE_IMAGE_ID=$(ssh -q -T -i $KEY $REMOTE_USER_HOST "docker pull $registry_image >/dev/null 2>&1 && docker images -q $registry_image 2>/dev/null || echo 'none'")
 
         if [ "$LOCAL_IMAGE_ID" = "$REMOTE_IMAGE_ID" ] && [ "$REMOTE_IMAGE_ID" != "none" ]; then
             echo "$GREEN✅ Remote registry already has the same $service_name image, skipping push$NC"
@@ -75,7 +75,7 @@ deploy_service() {
 
 # Check if remote host is accessible
 echo "$YELLOW🔍 Checking remote host connectivity...$NC"
-if ! ssh -q -i "$KEY" "$REMOTE_USER_HOST" "echo 'Connection successful'"; then
+if ! ssh -q -T -i "$KEY" "$REMOTE_USER_HOST" "echo 'Connection successful'"; then
     echo "$RED❌ Cannot connect to remote host$NC"
     exit 1
 else
@@ -133,7 +133,7 @@ scp -q -i $KEY $PDF_SERVICE_DIR/markdown-manager-pdf.service $REMOTE_USER_HOST:/
 # Copy and install backend systemd service file
 scp -q -i $KEY $BACKEND_DIR/markdown-manager-api.service $REMOTE_USER_HOST:/tmp/
 
-ssh -q -T -i $KEY $REMOTE_USER_HOST << EOH
+ssh -q -T -i $KEY $REMOTE_USER_HOST 'bash -s' << EOH
   set -e
 
   # Install PDF service
@@ -182,111 +182,11 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST << EOH
   sleep 8
 EOH
 
-# Copy nginx config files to the remote host
-echo "$YELLOW🚀 Syncing nginx config files to $REMOTE_USER_HOST:/etc/nginx$NC"
-rsync -azhq \
-  --exclude='*.swp' \
-  --exclude='.DS_Store' \
-  --exclude='scripts/' \
-  --exclude='nginx-dev.conf' \
-  --no-perms \
-  --no-times \
-  --no-group \
-  --progress \
-  -e "ssh -i $KEY" \
-  ./nginx/ $REMOTE_USER_HOST:/etc/nginx/
-
-echo "$YELLOW🔧 Configuring nginx virtual hosts for subdomain architecture...$NC"
-ssh -q -T -i $KEY $REMOTE_USER_HOST <<'EOH'
-  set -e
-
-  # Backup current configuration if it exists
-  if [ -f /etc/nginx/sites-available/littledan.com ]; then
-    sudo cp /etc/nginx/sites-available/littledan.com /etc/nginx/sites-available/littledan.com.backup.$(date +%Y%m%d_%H%M%S)
-    echo "✅ Backed up existing littledan.com configuration"
-  fi
-
-  # Deploy cleaned main domain configuration (removes API endpoints)
-  if [ -f /etc/nginx/sites-available/littledan.com.clean ]; then
-    echo "🚀 Deploying cleaned main domain configuration..."
-    sudo cp /etc/nginx/sites-available/littledan.com.clean /etc/nginx/sites-available/littledan.com
-    echo "✅ Main domain configuration updated (API endpoints removed)"
-  fi
-
-  # Enable main site if not already enabled
-  if [ ! -L /etc/nginx/sites-enabled/littledan.com ]; then
-    sudo ln -sf /etc/nginx/sites-available/littledan.com /etc/nginx/sites-enabled/
-    echo "✅ Enabled littledan.com virtual host"
-  fi
-
-  # Enable API subdomain virtual host
-  if [ -f /etc/nginx/sites-available/api.littledan.com.conf ]; then
-    echo "🚀 Enabling API subdomain virtual host..."
-    sudo ln -sf /etc/nginx/sites-available/api.littledan.com.conf /etc/nginx/sites-enabled/
-    echo "✅ Enabled api.littledan.com virtual host with rate limiting"
-  else
-    echo "⚠️  API subdomain configuration not found - subdomain deployment skipped"
-  fi
-
-  # Test nginx configuration
-  echo "🧪 Testing nginx configuration..."
-  sudo nginx -t
-
-  # Show enabled sites
-  echo "📋 Currently enabled nginx sites:"
-  ls -la /etc/nginx/sites-enabled/
-
-  # Reload nginx to apply changes
-  echo "🔄 Reloading nginx configuration..."
-  sudo systemctl reload nginx
-
-  echo "✅ Nginx subdomain architecture deployed successfully"
-EOH
+# Deploy nginx configurations using dedicated script
+echo "$YELLOW🚀 Deploying nginx configurations...$NC"
+./scripts/deploy-nginx.sh deploy_all $REMOTE_USER_HOST
 
 echo "$GREEN✅ Docker deployment complete using local registry$NC"
-
-echo "$YELLOW🧪 Validating subdomain architecture deployment...$NC"
-echo "$CYAN⏳ Waiting for services to stabilize before validation...$NC"
-sleep 5
-
-# Test main domain
-echo "$YELLOW🔍 Testing main domain (littledan.com)...$NC"
-if curl -s -I -H "User-Agent: Mozilla/5.0" https://littledan.com | grep -q "200 OK"; then
-  echo "$GREEN✅ Main domain responsive$NC"
-else
-  echo "$RED❌ Main domain not responding correctly$NC"
-fi
-
-# Test API subdomain
-echo "$YELLOW🔍 Testing API subdomain (api.littledan.com)...$NC"
-if curl -s -H "User-Agent: Mozilla/5.0" https://api.littledan.com/health | grep -q '"status":"healthy"'; then
-  echo "$GREEN✅ API subdomain health check passed$NC"
-else
-  echo "$RED❌ API subdomain health check failed$NC"
-fi
-
-# Test API redirect from main domain
-echo "$YELLOW🔍 Testing API redirect from main domain...$NC"
-if curl -s -I -H "User-Agent: Mozilla/5.0" https://littledan.com/api/health | grep -q "301"; then
-  echo "$GREEN✅ API redirect working (301 from main domain)$NC"
-else
-  echo "$RED❌ API redirect not working from main domain$NC"
-fi
-
-# Test rate limiting
-echo "$YELLOW🔍 Testing API rate limiting...$NC"
-RATE_TEST=$(curl -s -w "%{http_code}" -o /dev/null -H "User-Agent: Mozilla/5.0" https://api.littledan.com/health)
-if [ "$RATE_TEST" = "200" ]; then
-  echo "$GREEN✅ API rate limiting configured (endpoint responsive)$NC"
-else
-  echo "$YELLOW⚠️  API rate limiting test inconclusive (status: $RATE_TEST)$NC"
-fi
-
-echo "$CYAN📊 Deployment Summary:$NC"
-echo "  🌐 Frontend: https://littledan.com"
-echo "  🔌 API: https://api.littledan.com"
-echo "  🛡️  Rate limiting: Enabled with burst controls"
-echo "  🔒 Security headers: Applied to both domains"
 
 # Clean up local registry tags
 docker rmi $BACKEND_REGISTRY_IMAGE 2>/dev/null || true
@@ -294,4 +194,4 @@ docker rmi $PDF_REGISTRY_IMAGE 2>/dev/null || true
 
 # Show registry stats
 echo "$YELLOW📊 Remote registry stats:$NC"
-ssh -q -i $KEY $REMOTE_USER_HOST "curl -s http://localhost:$REGISTRY_PORT/v2/_catalog 2>/dev/null || echo 'Registry catalog unavailable'"
+ssh -q -T -i $KEY $REMOTE_USER_HOST "curl -s http://localhost:$REGISTRY_PORT/v2/_catalog 2>/dev/null || echo 'Registry catalog unavailable'"
