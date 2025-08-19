@@ -72,7 +72,6 @@ class DocumentsApi extends Api {
   }
 
   async deleteDocument(id) {
-    const res = await this.apiCall(`/documents/${id}`, "DELETE");
     await this.apiCall(`/documents/${id}`, "DELETE");
     return true;
   }
