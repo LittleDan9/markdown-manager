@@ -65,7 +65,7 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 # ────────────────────────────────────────────────────────────────────────────
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
-.PHONY: deploy deploy-front deploy-back deploy-nginx setup-remote-ops
+.PHONY: deploy deploy-front deploy-back deploy-nginx deploy-nginx-frontend deploy-nginx-api deploy-nginx-all setup-remote-ops
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -159,25 +159,25 @@ endif
 
 # ────────────────────────────────────────────────────────────────────────────
 deploy: deploy-front deploy-back
-#deploy-nginx ## Build + full deploy
 
-deploy-front: build ## Sync frontend dist
+deploy-front: build ## Build and deploy frontend (includes nginx config)
 	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
+	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
 
-deploy-back: ## Sync backend + migrations + restart
+deploy-back: ## Deploy backend services (includes nginx config)
 	@./scripts/deploy-backend.sh $(BACKEND_DIR) pdf-service $(REMOTE_USER_HOST) 5000
 
-deploy-nginx: ## Sync nginx config + reload
-	@echo "$(YELLOW)🔧 Deploying nginx configs$(NC)"
-	@$(SSH_CMD) $(REMOTE_USER_HOST) "mkdir -p /tmp/nginx-sites-available /tmp/nginx-conf-d"
-	@$(COPY_CMD) nginx/sites-available/* $(REMOTE_USER_HOST):/tmp/nginx-sites-available/
-	@$(COPY_CMD) nginx/conf.d/* $(REMOTE_USER_HOST):/tmp/nginx-conf-d/
-	@$(SSH_CMD) $(REMOTE_USER_HOST) "\
-	sudo cp /tmp/nginx-sites-available/* /etc/nginx/sites-available/ && \
-	sudo cp /tmp/nginx-conf-d/* /etc/nginx/conf.d/ && \
-	sudo nginx -t && \
-	sudo systemctl reload nginx \
-	"
+# Nginx-only deployment targets
+deploy-nginx-frontend: ## Deploy only frontend nginx config
+	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
+
+deploy-nginx-api: ## Deploy only API nginx config  
+	@./scripts/deploy-nginx.sh deploy_api $(REMOTE_USER_HOST)
+
+deploy-nginx-all: ## Deploy all nginx configs
+	@./scripts/deploy-nginx.sh deploy_all $(REMOTE_USER_HOST)
+
+deploy-nginx: deploy-nginx-all ## Alias for deploy-nginx-all
 
 # ────────────────────────────────────────────────────────────────────────────
 # DATABASE OPERATIONS
