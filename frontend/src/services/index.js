@@ -4,7 +4,7 @@
 // Auth services
 export * from './auth';
 
-// Document services  
+// Document services
 export * from './document';
 
 // Editor services
@@ -22,19 +22,18 @@ export * from './utils';
 // Legacy compatibility exports (can be removed later)
 export { AuthService } from './auth';
 export { DocumentService, DocumentStorageService } from './document';
-export { 
-  EditorService, 
-  CommentService, 
-  HighlightService, 
+export {
+  EditorService,
+  CommentService,
+  HighlightService,
   PerformanceOptimizer,
   SpellCheckService,
-  SpellCheckWorkerPool 
+  SpellCheckWorkerPool
 } from './editor';
 export { render, MermaidService } from './rendering';
 export { notification } from './ui';
-export { 
-  AwsIconLoader, 
-  DictionaryService, 
-  IconPackManager, 
-  ExampleAPIService 
+export {
+  AwsIconLoader,
+  DictionaryService,
+  IconPackManager
 } from './utils';
