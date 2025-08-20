@@ -96,8 +96,10 @@ window.testAutoSave(10)  // 10 seconds
 window.testManualSave()
 ```
 
-### Hot Reload
-Frontend supports hot reload - changes to React components will automatically update in the browser.
+### Hot Reload and Development Mode
+- **Frontend**: Webpack dev server provides hot module replacement (HMR) - changes to React components, CSS, and JavaScript files are automatically reflected in the browser without losing application state
+- **Backend**: FastAPI runs with auto-reload enabled - Python file changes automatically restart the server without requiring manual container restarts
+- **PDF Service**: Manual restart required for code changes
 
 ### Performance Testing
 Monitor webpack compilation times and bundle sizes in frontend logs.
@@ -133,9 +135,9 @@ docker compose exec backend alembic history
 - Backend environment variables are in `backend/.env`
 - Database credentials and connection strings configured via Docker Compose
 
-### Code Changes
-- **Frontend**: Changes trigger automatic webpack rebuild
-- **Backend**: May require container restart for some changes
+### Code Changes and Hot Reload
+- **Frontend**: Full hot reload support - changes to React components, styles, and JavaScript files automatically trigger webpack rebuild and browser refresh
+- **Backend**: Full hot reload support - FastAPI auto-reloads on Python file changes (no container restart needed)
 - **PDF Service**: Requires container restart for changes
 
 ### Debugging Steps
@@ -151,9 +153,9 @@ docker compose exec backend alembic history
 - Monitor database query performance via backend logs
 
 ### File Watching and Auto-Reload
-- Frontend: Webpack dev server provides hot reload
-- Backend: FastAPI auto-reloads on Python file changes
-- PDF Service: Manual restart required
+- **Frontend**: Webpack dev server with hot module replacement (HMR) - instant updates for React components, styles, and JavaScript without page refresh
+- **Backend**: FastAPI auto-reload on Python file changes - server automatically restarts when code is modified
+- **PDF Service**: Manual restart required for changes
 
 ## Troubleshooting
 
@@ -188,5 +190,6 @@ docker compose restart
 4. **Test with browser console functions** for frontend debugging
 5. **Use curl commands** for API testing and verification
 6. **Monitor compilation times** and bundle sizes for performance impact
-7. **Restart containers** if behavior seems inconsistent after code changes
+7. **No need to restart containers** for frontend/backend code changes due to hot reload
 8. **Access browser at** http://localhost:3000 for development testing
+9. **Both frontend and backend support hot reload** - code changes are automatically applied

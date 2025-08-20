@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
+import CommentService from '../services/CommentService';
 import MarkdownToolbar from './MarkdownToolbar';
 import { getChangedRegion, toMonacoMarkers, registerQuickFixActions, clearSpellCheckMarkers } from '@/utils';
 import { useTheme } from '@/context/ThemeProvider';
@@ -145,6 +146,22 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
           }
         );
 
+        // Add comment toggle for code blocks
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash, // Ctrl + /
+          () => {
+            CommentService.handleCommentToggle(editor);
+          }
+        );
+
+        // Expose editor for debugging
+        window.editorInstance = editor;
+        window.CommentService = CommentService;
+        window.testCommentToggle = () => {
+          console.log('Testing comment toggle...');
+          CommentService.handleCommentToggle(editor);
+        };
+
         // Add intelligent list behavior using onKeyDown event
         editor.onKeyDown((e) => {
           if (e.keyCode === monaco.KeyCode.Enter) {
@@ -213,27 +230,27 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
       // Save current cursor position before updating value
       const currentPosition = editor.getPosition();
       const currentScrollTop = editor.getScrollTop();
-      
+
       editor.setValue(value);
       lastEditorValue.current = value;
-      
+
       // Restore cursor position and scroll after setValue
       // Only restore if the position is valid for the new content
       if (currentPosition) {
         const model = editor.getModel();
         const lineCount = model.getLineCount();
         const lastLineLength = model.getLineContent(lineCount).length;
-        
+
         // Ensure position is within bounds
         const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
         const lineLength = model.getLineContent(safeLineNumber).length;
         const safeColumn = Math.min(currentPosition.column, lineLength + 1);
-        
+
         const safePosition = {
           lineNumber: safeLineNumber,
           column: safeColumn
         };
-        
+
         // Use setTimeout to ensure the position is set after Monaco finishes processing
         setTimeout(() => {
           editor.setPosition(safePosition);

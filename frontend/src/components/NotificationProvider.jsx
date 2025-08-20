@@ -68,7 +68,7 @@ export function NotificationProvider({ children }) {
               }`}></i>
               <strong className="me-auto">Notification</strong>
             </Toast.Header>
-            <Toast.Body className={toast.type === "warning" ? "text-dark" : "text-white"}>
+            <Toast.Body className={toast.type === "warning" || toast.type === "info" ? "text-dark" : "text-white"}>
               {toast.message}
             </Toast.Body>
           </Toast>
