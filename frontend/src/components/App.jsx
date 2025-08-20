@@ -59,6 +59,72 @@ function AppContent() {
     }
   }, [saveDocument, currentDocument, content, isSharedView]);
 
+  // Expose test functions globally for debugging
+  useEffect(() => {
+    window.testAutoSave = (delaySeconds = 30) => {
+      console.log(`Auto-save will trigger in ${delaySeconds} seconds. Get into the editor!`);
+      console.log('Countdown started...');
+      
+      // Show countdown
+      let remaining = delaySeconds;
+      const countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          console.log(`Auto-save in ${remaining} seconds...`);
+        } else {
+          console.log('Triggering auto-save NOW!');
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
+      
+      // Trigger auto-save after delay
+      setTimeout(async () => {
+        clearInterval(countdownInterval);
+        console.log('=== AUTO-SAVE TRIGGERED ===');
+        const editor = window.monaco?.editor?.getEditors?.()?.[0];
+        if (editor) {
+          const positionBefore = editor.getPosition();
+          console.log('Cursor position BEFORE auto-save:', positionBefore);
+          
+          try {
+            await runAutoSave();
+            
+            // Check position after a brief delay to ensure all updates complete
+            setTimeout(() => {
+              const positionAfter = editor.getPosition();
+              console.log('Cursor position AFTER auto-save:', positionAfter);
+              console.log('Position preserved:', 
+                positionBefore?.lineNumber === positionAfter?.lineNumber && 
+                positionBefore?.column === positionAfter?.column ? '✅ YES' : '❌ NO'
+              );
+            }, 100);
+          } catch (error) {
+            console.error('Auto-save failed:', error);
+          }
+        } else {
+          await runAutoSave();
+        }
+      }, delaySeconds * 1000);
+    };
+    
+    window.testManualSave = async () => {
+      try {
+        const docWithCurrentContent = { ...currentDocument, content };
+        const savedDoc = await saveDocument(docWithCurrentContent, true); // Show notifications
+        console.log('Manual test save completed for:', savedDoc?.name);
+        return savedDoc;
+      } catch (error) {
+        console.error('Manual test save failed:', error);
+        throw error;
+      }
+    };
+    
+    return () => {
+      delete window.testAutoSave;
+      delete window.testManualSave;
+    };
+  }, [runAutoSave, saveDocument, currentDocument, content]);
+
   useAutoSave(currentDocument, content, runAutoSave, autosaveEnabled, 5000); // 5 seconds for testing
 
   useEffect(() => {

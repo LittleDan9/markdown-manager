@@ -210,8 +210,36 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
     const editor = editorRef.current;
 
     if (value !== lastEditorValue.current) {
+      // Save current cursor position before updating value
+      const currentPosition = editor.getPosition();
+      const currentScrollTop = editor.getScrollTop();
+      
       editor.setValue(value);
       lastEditorValue.current = value;
+      
+      // Restore cursor position and scroll after setValue
+      // Only restore if the position is valid for the new content
+      if (currentPosition) {
+        const model = editor.getModel();
+        const lineCount = model.getLineCount();
+        const lastLineLength = model.getLineContent(lineCount).length;
+        
+        // Ensure position is within bounds
+        const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
+        const lineLength = model.getLineContent(safeLineNumber).length;
+        const safeColumn = Math.min(currentPosition.column, lineLength + 1);
+        
+        const safePosition = {
+          lineNumber: safeLineNumber,
+          column: safeColumn
+        };
+        
+        // Use setTimeout to ensure the position is set after Monaco finishes processing
+        setTimeout(() => {
+          editor.setPosition(safePosition);
+          editor.setScrollTop(currentScrollTop);
+        }, 0);
+      }
     }
 
 

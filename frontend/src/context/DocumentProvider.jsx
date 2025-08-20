@@ -420,7 +420,8 @@ export function DocumentProvider({ children }) {
 
       // Update state with saved document
       setCurrentDocument(saved);
-      if (saved.id === currentDocument.id) {
+      // Only update content if it actually changed to avoid triggering editor cursor reset
+      if (saved.id === currentDocument.id && saved.content !== content) {
         setContent(saved.content);
       }
 
