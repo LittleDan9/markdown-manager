@@ -3,14 +3,34 @@ from typing import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
-from app.core.config import settings
+from app.configs import settings
+from app.configs.environment import EnvironmentConfig
 
-# Create async engine
-engine = create_async_engine(
-    settings.database_url,
-    echo=settings.debug,
-    future=True,
-)
+# Initialize environment config
+env_config = EnvironmentConfig(settings)
+
+# Get environment-appropriate pool settings
+pool_settings = env_config.get_database_pool_settings()
+
+# Create async engine with enhanced configuration
+# SQLite doesn't support pool settings, so only apply them for PostgreSQL
+if settings.database_config.url.startswith("sqlite"):
+    engine = create_async_engine(
+        settings.database_config.url,
+        echo=settings.database_config.echo,
+        future=True,
+    )
+else:
+    # PostgreSQL with pool settings
+    engine = create_async_engine(
+        settings.database_config.url,
+        echo=settings.database_config.echo,
+        future=True,
+        pool_size=pool_settings["pool_size"],
+        max_overflow=pool_settings["max_overflow"],
+        pool_timeout=pool_settings["pool_timeout"],
+        pool_recycle=pool_settings["pool_recycle"],
+    )
 
 # Create async session factory
 AsyncSessionLocal = async_sessionmaker(

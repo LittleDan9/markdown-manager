@@ -36,7 +36,7 @@ parse_remote_db_env() {
 
     # Get DATABASE_URL from remote /etc/markdown-manager.env (requires sudo)
     local db_url
-    db_url=$(ssh -i "$KEY" "$remote_user_host" "sudo grep '^DATABASE_URL=' /etc/markdown-manager.env | cut -d'=' -f2- | tr -d '\"'" 2>/dev/null)
+    db_url=$(ssh -q -T -i "$KEY" "$remote_user_host" "sudo grep '^DATABASE_URL=' /etc/markdown-manager.env | cut -d'=' -f2- | tr -d '\"'" 2>/dev/null)
 
     if [ -z "$db_url" ]; then
         echo -e "$RED❌ Failed to get DATABASE_URL from remote host$NC"

@@ -1,5 +1,5 @@
 """Core configuration module."""
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):  # type: ignore[misc]
@@ -23,7 +23,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     )
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 90  # 90 minutes
-    
+
     # Cookie settings
     secure_cookies: bool = False  # Set to True in production with HTTPS
 
@@ -38,8 +38,7 @@ class Settings(BaseSettings):  # type: ignore[misc]
     smtp_pass: str = "your_smtp_password"
     from_email: str = "noreply@littledan.com"
 
-    class Config:
-        env_file = ".env"
+    model_config = SettingsConfigDict(env_file=".env")
 
 
 settings = Settings()

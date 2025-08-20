@@ -60,9 +60,7 @@ class Document(Base):  # type: ignore[misc]
     share_token: Mapped[str | None] = mapped_column(
         String(64), nullable=True, unique=True, index=True
     )
-    is_shared: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False
-    )
+    is_shared: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Relationship
     owner: Mapped["User"] = relationship(

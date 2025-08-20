@@ -28,7 +28,14 @@ sudo systemctl daemon-reload
 
 # Create nginx backup
 echo -e "${YELLOW}💾 Backing up current nginx config...${NC}"
-sudo cp /etc/nginx/sites-available/littledan.com /etc/nginx/sites-available/littledan.com.backup.$(date +%Y%m%d_%H%M%S)
+if [ -f /etc/nginx/sites-available/littledan.com.conf ]; then
+    sudo cp /etc/nginx/sites-available/littledan.com.conf /etc/nginx/sites-available/littledan.com.conf.backup.$(date +%Y%m%d_%H%M%S)
+    
+    # Rotate backups using dedicated script
+    sudo /home/dlittle/scripts/rotate-nginx-backups.sh
+else
+    echo -e "${YELLOW}⚠️  No existing nginx config found to backup${NC}"
+fi
 
 echo -e "${GREEN}✅ Setup complete!${NC}"
 echo -e "${BLUE}📝 Next steps:${NC}"

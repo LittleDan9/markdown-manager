@@ -52,5 +52,5 @@ repos:
         language: python
         types: [python]
         args: [
-          "--exclude", "tests/*",
+          "--exclude", "tests/*,*/tests/*,backend/tests/*",
         ]

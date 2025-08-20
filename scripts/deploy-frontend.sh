@@ -21,7 +21,7 @@ fi
 echo "$YELLOW🌐 Deploying frontend → $REMOTE_USER_HOST:$FRONTEND_BASE$NC"
 
 echo "$YELLOW🧹 Cleaning...$REMOTE_USER_HOST:$FRONTEND_BASE$NC"
-ssh -i $KEY $REMOTE_USER_HOST "rm -rf $FRONTEND_BASE/* || true"
+ssh -q -T -i $KEY $REMOTE_USER_HOST "rm -rf $FRONTEND_BASE/* || true"
 # now do the rsync + excludes
 
 echo "$YELLOW📦 Syncing files...$NC"

@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field, field_serializer
 
 
 class DocumentBase(BaseModel):
@@ -11,6 +11,9 @@ class DocumentBase(BaseModel):
     name: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., description="Markdown content")
     category: str = Field(default="General", max_length=100)
+    category_id: Optional[int] = Field(
+        None, description="Category ID for dictionary scope"
+    )
 
 
 class DocumentCreate(DocumentBase):
@@ -25,6 +28,9 @@ class DocumentUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     content: Optional[str] = Field(None, description="Markdown content")
     category: Optional[str] = Field(None, max_length=100)
+    category_id: Optional[int] = Field(
+        None, description="Category ID for dictionary scope"
+    )
 
 
 class DocumentInDB(DocumentBase):
@@ -37,9 +43,12 @@ class DocumentInDB(DocumentBase):
     is_shared: bool = False
     share_token: Optional[str] = None
 
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda v: _isoformat_utc(v)}
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("created_at", "updated_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format with Z suffix."""
+        return _isoformat_utc(dt)
 
 
 def _isoformat_utc(dt: datetime) -> str:
@@ -85,9 +94,13 @@ class SharedDocument(BaseModel):
     name: str
     content: str
     category: str
+    category_id: Optional[int] = Field(None, description="Category ID")
     updated_at: datetime
     author_name: str
 
-    class Config:
-        from_attributes = True
-        json_encoders = {datetime: lambda v: _isoformat_utc(v)}
+    model_config = ConfigDict(from_attributes=True)
+
+    @field_serializer("updated_at")
+    def serialize_datetime(self, dt: datetime) -> str:
+        """Serialize datetime to ISO format with Z suffix."""
+        return _isoformat_utc(dt)

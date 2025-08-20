@@ -10,93 +10,37 @@ import { Modal, Container, Alert, Card, Button } from "react-bootstrap";
 import { ThemeProvider } from "../context/ThemeProvider";
 import { useDocument } from "../context/DocumentProvider";
 import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
+import { useSharedView } from "../context/SharedViewProvider";
 import { useNotification } from "../components/NotificationProvider.jsx";
-import DocumentService from "../services/DocumentService";
 import DocumentStorageService from "../services/DocumentStorageService";
 
 import { useAuth } from "../context/AuthContext";
 import useAutoSave from "@/hooks/useAutoSave";
 
-function App() {
+function AppContent() {
   const { isAuthenticated, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isInitializing } = useAuth();
   const { currentDocument, saveDocument, migrationStatus } = useDocument();
   const { content, setContent } = useDocument();
+  const { isSharedView, sharedDocument, sharedLoading, sharedError } = useSharedView();
   const [renderedHTML, setRenderedHTML] = useState("");
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [showIconBrowser, setShowIconBrowser] = useState(false);
   const { showError, showSuccess } = useNotification();
 
-  // Shared document state
-  const [isSharedView, setIsSharedView] = useState(false);
-  const [sharedDocument, setSharedDocument] = useState(null);
-  const [sharedLoading, setSharedLoading] = useState(false);
-  const [sharedError, setSharedError] = useState(null);
-
-  // Check if we're in shared document view
+  // Set fullscreen preview when in shared view
   useEffect(() => {
-    const checkForSharedDocument = async () => {
-      const path = window.location.pathname;
-      const sharedMatch = path.match(/^\/shared\/([^/]+)$/);
+    if (isSharedView) {
+      setFullscreenPreview(true);
+    }
+  }, [isSharedView]);
 
-      if (sharedMatch) {
-        const shareToken = sharedMatch[1];
-        // Clear any existing document data when viewing shared document
-        DocumentStorageService.clearAllData();
-
-        setIsSharedView(true);
-        setFullscreenPreview(true); // Enable fullscreen preview for shared documents
-        setSharedLoading(true);
-
-        try {
-          const document = await DocumentService.getSharedDocument(shareToken);
-          setSharedDocument(document);
-          setContent(document.content); // Load the shared content into the editor context
-        } catch (error) {
-          setSharedError('Failed to load shared document');
-          console.error('Failed to load shared document:', error);
-        } finally {
-          setSharedLoading(false);
-        }
-      } else {
-        // Reset shared state if not on a shared URL
-        setIsSharedView(false);
-        setSharedDocument(null);
-        setSharedError(null);
-      }
-    };
-
-    checkForSharedDocument();
-
-    // Listen for URL changes (if using pushState/popState)
-    window.addEventListener('popstate', checkForSharedDocument);
-
-    // Clean up localStorage when leaving shared view (browser close, navigation, etc.)
-    const handleBeforeUnload = () => {
-      if (isSharedView) {
-        DocumentStorageService.clearAllData();
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-
-    return () => {
-      window.removeEventListener('popstate', checkForSharedDocument);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-    };
-  }, [isSharedView]); // Add isSharedView to dependencies
-
-  const exitSharedView = () => {
-    // Clear any document content that may have been loaded from shared view
-    DocumentStorageService.clearAllData();
-    setContent('');
-
-    setIsSharedView(false);
-    setSharedDocument(null);
-    setSharedError(null);
-    setFullscreenPreview(false);
-    window.history.pushState({}, '', '/');
-  };
+  // Load shared document content into editor context
+  useEffect(() => {
+    if (isSharedView && sharedDocument && sharedDocument.content !== content) {
+      setContent(sharedDocument.content);
+    }
+  }, [isSharedView, sharedDocument, content, setContent]);
 
   const runAutoSave = useCallback(async () => {
     // Don't autosave in shared view
@@ -217,111 +161,115 @@ function App() {
   }, []);
 
   return (
-    <ThemeProvider>
-      <PreviewHTMLProvider>
-        <div id="appRoot" className="app-root">
-          <div id="container">
-            <Header />
+    <>
+      <div id="appRoot" className="app-root">
+        <div id="container">
+          <Header />
 
-            <Toolbar
-              setContent={setContent}
-              editorValue={content}
-              fullscreenPreview={fullscreenPreview}
-              setFullscreenPreview={setFullscreenPreview}
-              setShowIconBrowser={setShowIconBrowser}
-              isSharedView={isSharedView}
-              sharedDocument={sharedDocument}
-              sharedLoading={sharedLoading}
-              sharedError={sharedError}
-            />
-            <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
-              {/* editor is always in the DOM, but width: 0 when closed or in shared view */}
-              {!isSharedView && (
-                <div className="editor-wrapper">
-                  {!isInitializing ? (
-                    <Editor
-                      value={content}
-                      onChange={setContent}
-                      onCursorLineChange={setCursorLine}
-                      categoryId={currentDocument?.category_id}
-                      fullscreenPreview={fullscreenPreview}
-                    />
-                  ) : (
-                    <div className="d-flex justify-content-center align-items-center h-100">
-                      <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Initializing authentication...</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              <div className="renderer-wrapper">
-                {/* Use the same renderer for both normal and shared views */}
-                {(!isInitializing && !sharedLoading) ? (
-                  isSharedView && !sharedDocument ? (
-                    // Show error state for shared documents that failed to load
-                    <Container className="py-4">
-                      <Alert variant="danger">
-                        <Alert.Heading>Unable to Load Document</Alert.Heading>
-                        <p>The shared document could not be found or sharing has been disabled.</p>
-                        <hr />
-                        <div className="d-flex justify-content-end">
-                          <Button
-                            variant="outline-danger"
-                            onClick={() => window.location.href = '/'}
-                          >
-                            Go to Main App
-                          </Button>
-                        </div>
-                      </Alert>
-                    </Container>
-                  ) : (
-                    // Standard renderer for both normal and shared views
-                    <Renderer
-                      content={content}
-                      onRenderHTML={html => setRenderedHTML(html)}
-                      scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
-                      fullscreenPreview={isSharedView ? true : fullscreenPreview}
-                    />
-                  )
+          <Toolbar
+            setContent={setContent}
+            editorValue={content}
+            fullscreenPreview={fullscreenPreview}
+            setFullscreenPreview={setFullscreenPreview}
+            setShowIconBrowser={setShowIconBrowser}
+          />
+          <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
+            {/* editor is always in the DOM, but width: 0 when closed or in shared view */}
+            {!isSharedView && (
+              <div className="editor-wrapper">
+                {!isInitializing ? (
+                  <Editor
+                    value={content}
+                    onChange={setContent}
+                    onCursorLineChange={setCursorLine}
+                    categoryId={currentDocument?.category_id}
+                    fullscreenPreview={fullscreenPreview}
+                  />
                 ) : (
-                  // Loading state
                   <div className="d-flex justify-content-center align-items-center h-100">
                     <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">
-                        {sharedLoading ? 'Loading shared document...' : 'Initializing authentication...'}
-                      </span>
+                      <span className="visually-hidden">Initializing authentication...</span>
                     </div>
                   </div>
                 )}
               </div>
+            )}
+            <div className="renderer-wrapper">
+              {/* Use the same renderer for both normal and shared views */}
+              {(!isInitializing && !sharedLoading) ? (
+                isSharedView && !sharedDocument ? (
+                  // Show error state for shared documents that failed to load
+                  <Container className="py-4">
+                    <Alert variant="danger">
+                      <Alert.Heading>Unable to Load Document</Alert.Heading>
+                      <p>The shared document could not be found or sharing has been disabled.</p>
+                      <hr />
+                      <div className="d-flex justify-content-end">
+                        <Button
+                          variant="outline-danger"
+                          onClick={() => window.location.href = '/'}
+                        >
+                          Go to Main App
+                        </Button>
+                      </div>
+                    </Alert>
+                  </Container>
+                ) : (
+                  // Standard renderer for both normal and shared views
+                  <Renderer
+                    content={content}
+                    onRenderHTML={html => setRenderedHTML(html)}
+                    scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
+                    fullscreenPreview={isSharedView ? true : fullscreenPreview}
+                  />
+                )
+              ) : (
+                // Loading state
+                <div className="d-flex justify-content-center align-items-center h-100">
+                  <div className="spinner-border text-primary" role="status">
+                    <span className="visually-hidden">
+                      {sharedLoading ? 'Loading shared document...' : 'Initializing authentication...'}
+                    </span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Icon Browser Modal */}
-        <Modal
-          show={showIconBrowser}
-          onHide={() => setShowIconBrowser(false)}
-          size="xl"
-          scrollable
-          data-bs-theme={document.documentElement.getAttribute('data-bs-theme')}
-        >
-          <Modal.Header closeButton className="border-bottom">
-            <Modal.Title>Icon Browser</Modal.Title>
-          </Modal.Header>
-          <Modal.Body style={{ minHeight: '70vh' }} className="p-0">
-            <IconBrowser />
-          </Modal.Body>
-        </Modal>
-      </PreviewHTMLProvider>
-      <LogLevelController />
+      {/* Icon Browser Modal */}
+      <Modal
+        show={showIconBrowser}
+        onHide={() => setShowIconBrowser(false)}
+        size="xl"
+        scrollable
+        data-bs-theme={document.documentElement.getAttribute('data-bs-theme')}
+      >
+        <Modal.Header closeButton className="border-bottom">
+          <Modal.Title>Icon Browser</Modal.Title>
+        </Modal.Header>
+        <Modal.Body style={{ minHeight: '70vh' }} className="p-0">
+          <IconBrowser />
+        </Modal.Body>
+      </Modal>
 
       {/* Migration Loading Overlay */}
       <LoadingOverlay
         show={migrationStatus === 'checking' || migrationStatus === 'migrating'}
         text={migrationStatus === 'checking' ? 'Checking for documents to migrate...' : 'Migrating your documents...'}
       />
+    </>
+  );
+}
+
+function App() {
+  return (
+    <ThemeProvider>
+      <PreviewHTMLProvider>
+        <AppContent />
+        <LogLevelController />
+      </PreviewHTMLProvider>
     </ThemeProvider>
   );
 }

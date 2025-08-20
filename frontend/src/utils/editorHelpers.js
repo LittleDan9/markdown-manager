@@ -180,12 +180,16 @@ export function toMonacoMarkers(
  *    - “Replace with…” suggestions
  *    - “Add to dictionary”
  */
-export function registerQuickFixActions(editor, suggestionsMapRef, categoryId = null) {
+export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId = null) {
   const disposables = [];
 
   // code action provider
   disposables.push(monaco.languages.registerCodeActionProvider('markdown', {
     provideCodeActions(model, range) {
+      // Get current categoryId dynamically
+      const categoryId = typeof getCategoryId === 'function' ? getCategoryId() : getCategoryId;
+      console.log('Quick fix actions - dynamic categoryId:', categoryId, 'type:', typeof categoryId);
+      
       const wordInfo = model.getWordAtPosition(range.getStartPosition())
       if (!wordInfo || !wordInfo.word) return { actions: [], dispose: () => { } };
       const trueRange = new monaco.Range(

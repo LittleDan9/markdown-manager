@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 
 const PRISM_THEME_ID = "prism-theme-style";
 const THEMES = {
-  dark: "prism-themes/themes/prism-vsc-dark-plus.css",
-  light: "prism-themes/themes/prism-one-light.css",
+  dark: "/prism-themes/themes/prism-vsc-dark-plus.css",
+  light: "/prism-themes/themes/prism-one-light.css",
 };
 
 // Create a context for theme

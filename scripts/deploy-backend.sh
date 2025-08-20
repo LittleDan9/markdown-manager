@@ -40,14 +40,14 @@ deploy_service() {
     # Check if image exists in remote registry
     echo "$YELLOW🔍 Checking if $service_name image exists in remote registry...$NC"
     local service_repo=$(echo $local_image | cut -d':' -f1 | cut -d'/' -f2)
-    local REMOTE_IMAGE_MANIFEST=$(ssh -q -i $KEY $REMOTE_USER_HOST "curl -s -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' http://localhost:$REGISTRY_PORT/v2/$service_repo/manifests/latest 2>/dev/null" || echo "")
+    local REMOTE_IMAGE_MANIFEST=$(ssh -q -T -i $KEY $REMOTE_USER_HOST "curl -s -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' http://localhost:$REGISTRY_PORT/v2/$service_repo/manifests/latest 2>/dev/null" || echo "")
 
     local SKIP_PUSH=false
     if [ -n "$REMOTE_IMAGE_MANIFEST" ] && echo "$REMOTE_IMAGE_MANIFEST" | grep -q "schemaVersion"; then
         echo "$YELLOW📦 $service_name image exists in registry, checking if it's the same...$NC"
 
         # Get the image ID from remote registry by pulling and checking
-        local REMOTE_IMAGE_ID=$(ssh -q -i $KEY $REMOTE_USER_HOST "docker pull $registry_image >/dev/null 2>&1 && docker images -q $registry_image 2>/dev/null || echo 'none'")
+        local REMOTE_IMAGE_ID=$(ssh -q -T -i $KEY $REMOTE_USER_HOST "docker pull $registry_image >/dev/null 2>&1 && docker images -q $registry_image 2>/dev/null || echo 'none'")
 
         if [ "$LOCAL_IMAGE_ID" = "$REMOTE_IMAGE_ID" ] && [ "$REMOTE_IMAGE_ID" != "none" ]; then
             echo "$GREEN✅ Remote registry already has the same $service_name image, skipping push$NC"
@@ -73,12 +73,16 @@ deploy_service() {
     echo $SKIP_PUSH
 }
 
-# Check if we can reach the remote registry
-echo "$YELLOW🔍 Checking remote registry connectivity...$NC"
-if ! ssh -q -i $KEY $REMOTE_USER_HOST "curl -s http://localhost:$REGISTRY_PORT/v2/ | grep -q '{}'"; then
-    echo "$RED❌ Remote registry is not accessible. Please run setup-local-registry.sh first$NC"
+# Check if remote host is accessible
+echo "$YELLOW🔍 Checking remote host connectivity...$NC"
+if ! ssh -q -T -i "$KEY" "$REMOTE_USER_HOST" "echo 'Connection successful'"; then
+    echo "$RED❌ Cannot connect to remote host$NC"
     exit 1
+else
+    echo "$GREEN✅ Remote host accessible$NC"
 fi
+
+# Registry status will be checked after SSH tunnel is created
 
 # Configure local Docker for insecure registry if needed
 if ! grep -q "insecure-registries" ~/.docker/daemon.json 2>/dev/null; then
@@ -129,7 +133,7 @@ scp -q -i $KEY $PDF_SERVICE_DIR/markdown-manager-pdf.service $REMOTE_USER_HOST:/
 # Copy and install backend systemd service file
 scp -q -i $KEY $BACKEND_DIR/markdown-manager-api.service $REMOTE_USER_HOST:/tmp/
 
-ssh -q -T -i $KEY $REMOTE_USER_HOST << EOH
+ssh -q -T -i $KEY $REMOTE_USER_HOST 'bash -s' << EOH
   set -e
 
   # Install PDF service
@@ -173,28 +177,14 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST << EOH
 
   echo "🔄 Restarting backend service..."
   sudo systemctl restart markdown-manager-api.service
+
+  echo "⏳ Waiting for backend service to be ready..."
+  sleep 8
 EOH
 
-# Copy nginx config files to the remote host
-echo "$YELLOW🚀 Syncing nginx config files to $REMOTE_USER_HOST:/etc/nginx$NC"
-rsync -azhq \
-  --exclude='*.swp' \
-  --exclude='.DS_Store' \
-  --exclude='scripts/' \
-  --no-perms \
-  --no-times \
-  --no-group \
-  --progress \
-  -e "ssh -i $KEY" \
-  ./nginx/ $REMOTE_USER_HOST:/etc/nginx/
-
-ssh -q -T -i $KEY $REMOTE_USER_HOST <<'EOH'
-  if [ ! -L /etc/nginx/sites-enabled/littledan.com ]; then
-    sudo ln -s /etc/nginx/sites-available/littledan.com /etc/nginx/sites-enabled/
-  fi
-  sudo nginx -t
-  sudo systemctl reload nginx
-EOH
+# Deploy nginx configurations using dedicated script
+echo "$YELLOW🚀 Deploying nginx configurations...$NC"
+./scripts/deploy-nginx.sh deploy_all $REMOTE_USER_HOST
 
 echo "$GREEN✅ Docker deployment complete using local registry$NC"
 
@@ -204,4 +194,4 @@ docker rmi $PDF_REGISTRY_IMAGE 2>/dev/null || true
 
 # Show registry stats
 echo "$YELLOW📊 Remote registry stats:$NC"
-ssh -q -i $KEY $REMOTE_USER_HOST "curl -s http://localhost:$REGISTRY_PORT/v2/_catalog 2>/dev/null || echo 'Registry catalog unavailable'"
+ssh -q -T -i $KEY $REMOTE_USER_HOST "curl -s http://localhost:$REGISTRY_PORT/v2/_catalog 2>/dev/null || echo 'Registry catalog unavailable'"

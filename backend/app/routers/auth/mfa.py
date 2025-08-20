@@ -1,4 +1,4 @@
-"""MFA (Multi-Factor Authentication) API routes."""
+"""MFA (Multi-Factor Authentication) endpoints."""
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -32,6 +32,9 @@ async def setup_mfa(
     secret = generate_totp_secret()
     backup_codes = generate_backup_codes()
 
+    # Get email early to avoid lazy loading issues
+    user_email = current_user.email
+
     # Store in database (not enabled yet)
     success = await crud_user.setup_mfa(
         db, int(current_user.id), secret, encode_backup_codes(backup_codes)
@@ -44,7 +47,7 @@ async def setup_mfa(
         )
 
     # Generate QR code
-    qr_code_data_url = create_qr_code_data_url(str(current_user.email), secret)
+    qr_code_data_url = create_qr_code_data_url(user_email, secret)
 
     return MFASetupResponse(
         qr_code_data_url=qr_code_data_url,
@@ -141,7 +144,6 @@ async def disable_mfa(
         )
 
     # Verify TOTP code or backup code
-
     totp_valid = verify_totp_code(str(current_user.totp_secret), toggle_data.totp_code)
     backup_valid = False
 

@@ -1,55 +1,69 @@
-"""FastAPI main application."""
-from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+"""FastAPI main application with app factory pattern."""
+import logging
 
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
 
-from app.api.v1.api import api_router
-from app.core.config import settings
+from app.app_factory import create_app
+from app.configs import settings
+from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
 
+# Initialize environment configuration
+env_config = EnvironmentConfig(settings)
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
-    """Application lifespan events."""
-    # Startup: create database tables
-    await create_tables()
-    # Note: CSS service is now handled by PDF service, not needed here
-    yield
-    # Shutdown: cleanup if needed
-
-
-app = FastAPI(
-    title=settings.project_name,
-    openapi_url=f"{settings.api_v1_str}/openapi.json",
-    lifespan=lifespan,
+# Configure logging with environment-appropriate level
+logging.basicConfig(
+    level=getattr(logging, env_config.get_log_level()),
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
 )
-
-# Set up CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "https://littledan.com",
-    ],  # In production, specify actual origins
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
-app.include_router(api_router, prefix=settings.api_v1_str)
+logger = logging.getLogger(__name__)
 
 
-@app.get("/")
-async def root() -> dict[str, str]:
-    """Root endpoint."""
-    return {"message": "Markdown Manager API"}
+class AppInitializer:
+    """Application initializer for startup sequence."""
+
+    def __init__(self):
+        """Initialize the app initializer."""
+        self.logger = logging.getLogger("app.initializer")
+
+    async def initialize_database(self) -> None:
+        """Initialize database tables."""
+        self.logger.info("Initializing database...")
+        await create_tables()
+        self.logger.info("Database initialization complete")
+
+    def start_server(self) -> None:
+        """Start the uvicorn server."""
+        self.logger.info(f"Starting server on {settings.host}:{settings.port}")
+        self.logger.info(f"Debug mode: {settings.debug}")
+
+        uvicorn.run(
+            "app.main:create_app",
+            host=settings.host,
+            port=settings.port,
+            reload=settings.debug,
+            factory=True,
+            log_level=env_config.get_log_level().lower(),
+            access_log=True,
+        )
+
+    def run(self) -> None:
+        """Run the application initialization sequence."""
+        self.logger.info("Starting application initializer")
+        # Note: Database initialization is handled in the lifespan context
+        # of the FastAPI app, so we just start the server here
+        self.start_server()
+
+
+# Create the FastAPI app using the factory
+app = create_app()
+
+
+def main() -> None:
+    """Main entry point for running the application."""
+    initializer = AppInitializer()
+    initializer.run()
 
 
 if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(
-        "app.main:app", host=settings.host, port=settings.port, reload=settings.debug
-    )
+    main()

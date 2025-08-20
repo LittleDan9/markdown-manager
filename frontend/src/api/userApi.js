@@ -169,7 +169,7 @@ class UserAPI extends Api {
   }
 
   async deleteAccount() {
-    const res = await this.apiCall(`/users/delete`, "DELETE");
+    const res = await this.apiCall(`/users/account`, "DELETE");
     return res.data;
   }
 

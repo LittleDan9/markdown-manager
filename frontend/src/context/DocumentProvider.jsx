@@ -1,7 +1,9 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import DocumentService from '../services/DocumentService.js';
 import DocumentStorageService from '../services/DocumentStorageService.js';
+import documentsApi from '../api/documentsApi.js';
 import { useAuth } from './AuthContext';
+import { useSharedView } from './SharedViewProvider';
 import { useNotification } from '../components/NotificationProvider.jsx';
 import useChangeTracker from '../hooks/useChangeTracker';
 
@@ -9,12 +11,13 @@ const DocumentContext = createContext();
 
 export function DocumentProvider({ children }) {
   const { token, user, isAuthenticated, isInitializing } = useAuth();
+  const { isSharedView } = useSharedView();
   const notification = useNotification();
 
   // Create stable refs for notification functions to avoid dependency issues
   const notificationRef = useRef();
   notificationRef.current = notification;
-  
+
   const showWarning = useCallback((msg) => notificationRef.current.showWarning(msg), []);
   const showSuccess = useCallback((msg) => notificationRef.current.showSuccess(msg), []);
   const showError = useCallback((msg) => notificationRef.current.showError(msg), []);
@@ -225,7 +228,7 @@ export function DocumentProvider({ children }) {
           console.log('DocumentProvider: Syncing with backend on mount...');
           const result = await DocumentService.syncWithBackend();
           setHasSyncedOnMount(true);
-          
+
           if (result.syncedCount > 0) {
             showSuccess(`Documents synchronized successfully. ${result.syncedCount} documents synced.`);
           }
@@ -237,7 +240,9 @@ export function DocumentProvider({ children }) {
         }
       }
 
+      console.log('DocumentProvider: Loading current document. isAuthenticated:', isAuthenticated, 'token:', !!token, 'isInitializing:', isInitializing);
       const docs = DocumentService.getAllDocuments();
+      console.log('DocumentProvider: Found', docs.length, 'documents:', docs.map(d => `${d.id}: ${d.name}`));
       setDocuments(docs);
 
       if (docs.length === 0) {
@@ -253,7 +258,6 @@ export function DocumentProvider({ children }) {
       // If authenticated, try to get current document from backend
       if (isAuthenticated && token) {
         try {
-          const { documentsApi } = await import('../api/documentsApi.js');
           const currentDocId = await documentsApi.getCurrentDocumentId();
 
           if (currentDocId) {
@@ -281,16 +285,23 @@ export function DocumentProvider({ children }) {
       }
 
       // Fall back to most recently updated document (only if authenticated OR it's a local document)
-      if (!currentDoc) {
+      // Skip fallback if we're in shared document view - shared documents should load explicitly
+
+      if (!currentDoc && !isSharedView) {
+        console.log('DocumentProvider: No current document found, falling back. isAuthenticated:', isAuthenticated);
         if (isAuthenticated) {
           currentDoc = docs[0]; // Most recently updated
-          console.log('DocumentProvider: Falling back to most recent document:', currentDoc?.id);
+          console.log('DocumentProvider: Falling back to most recent document for authenticated user:', currentDoc?.id, currentDoc?.name);
         } else {
           // For unauthenticated users, only show local documents
           const localDocs = docs.filter(doc => String(doc.id).startsWith('doc_'));
           currentDoc = localDocs[0] || DocumentService.createNewDocument();
-          console.log('DocumentProvider: Falling back to local document for guest:', currentDoc?.id);
+          console.log('DocumentProvider: Falling back to local document for guest:', currentDoc?.id, currentDoc?.name);
         }
+      } else if (!currentDoc && isSharedView) {
+        console.log('DocumentProvider: In shared view, skipping fallback. App component will handle shared document loading.');
+        // Don't set any document in shared view - App component handles it
+        return;
       }
 
       setCurrentDocument(currentDoc);
@@ -298,8 +309,9 @@ export function DocumentProvider({ children }) {
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
 
+    console.log('DocumentProvider: loadCurrentDocument effect triggered. Auth state changed?');
     loadCurrentDocument();
-  }, [isAuthenticated, token, isInitializing, migrationStatus]); // Remove stable functions from dependencies
+  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView]); // Add isSharedView dependency
 
   // Update categories whenever documents change
   useEffect(() => {
@@ -340,6 +352,23 @@ export function DocumentProvider({ children }) {
   }, [isAuthenticated, token, isInitializing]);
 
   // Document operations
+  const updateCurrentDocument = useCallback(async (document) => {
+    if (!document) return;
+
+    console.log('DocumentProvider: Updating current document tracking for:', document.name, document.id);
+
+    // Always update localStorage
+    DocumentStorageService.setCurrentDocument(document);
+
+    // Update current document ID on backend for authenticated users
+    try {
+      await DocumentService.setCurrentDocumentId(document.id);
+      console.log('DocumentProvider: Successfully updated backend current document ID:', document.id);
+    } catch (error) {
+      console.warn('DocumentProvider: Failed to update backend current document ID:', error);
+    }
+  }, []);
+
   const createDocument = useCallback(() => {
     const newDoc = DocumentService.createNewDocument();
     setCurrentDocument(newDoc);
@@ -350,28 +379,29 @@ export function DocumentProvider({ children }) {
   }, []);
 
   const loadDocument = useCallback(async (id) => {
+    console.log('DocumentProvider: loadDocument called with id:', id);
     setLoading(true);
     try {
       const doc = DocumentService.loadDocument(id);
+      console.log('DocumentProvider: DocumentService.loadDocument returned:', doc);
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
 
-        // Track current document in localStorage
-        DocumentStorageService.setCurrentDocument(doc);
-
-        // Update current document ID on backend for authenticated users
-        await DocumentService.setCurrentDocumentId(doc.id);
+        // Update current document tracking (localStorage + backend)
+        await updateCurrentDocument(doc);
+        console.log('DocumentProvider: Document loaded successfully:', doc.id, doc.name);
       } else {
+        console.error('DocumentProvider: Document not found with id:', id);
         showError('Document not found');
       }
     } catch (error) {
-      console.error('Failed to load document:', error);
+      console.error('DocumentProvider: Failed to load document:', error);
       showError('Failed to load document');
     } finally {
       setLoading(false);
     }
-  }, []); // Remove notification dependency since showError is now stable
+  }, [updateCurrentDocument, showSuccess, showError]); // Add updateCurrentDocument to dependencies
 
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
@@ -394,8 +424,8 @@ export function DocumentProvider({ children }) {
         setContent(saved.content);
       }
 
-      // Track current document in localStorage
-      DocumentStorageService.setCurrentDocument(saved);
+      // Update current document tracking (localStorage + backend)
+      await updateCurrentDocument(saved);
 
       // Refresh documents list
       const docs = DocumentService.getAllDocuments();
@@ -412,7 +442,7 @@ export function DocumentProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [content, currentDocument]); // Remove notification dependency since showError is now stable
+  }, [content, currentDocument, updateCurrentDocument]); // Add updateCurrentDocument to dependencies
 
   const deleteDocument = useCallback(async (id, showNotification = true) => {
     setLoading(true);
@@ -429,13 +459,13 @@ export function DocumentProvider({ children }) {
           const newCurrent = docs[0];
           setCurrentDocument(newCurrent);
           setContent(newCurrent.content || '');
-          // Track current document in localStorage
-          DocumentStorageService.setCurrentDocument(newCurrent);
+          // Update current document tracking (localStorage + backend)
+          await updateCurrentDocument(newCurrent);
         } else {
           const newDoc = DocumentService.createNewDocument();
           setCurrentDocument(newDoc);
           setContent('');
-          // Track current document in localStorage
+          // Track current document in localStorage (new doc has no backend ID yet)
           DocumentStorageService.setCurrentDocument(newDoc);
         }
       }
@@ -447,7 +477,7 @@ export function DocumentProvider({ children }) {
     } finally {
       setLoading(false);
     }
-  }, [currentDocument]); // Remove notification dependency since showError is now stable
+  }, [currentDocument, updateCurrentDocument]); // Add updateCurrentDocument to dependencies
 
   const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
     try {
@@ -469,14 +499,14 @@ export function DocumentProvider({ children }) {
 
       if (currentDocument.id === id) {
         setCurrentDocument(saved || updatedDoc);
-        // Track current document in localStorage
-        DocumentStorageService.setCurrentDocument(saved || updatedDoc);
+        // Update current document tracking (localStorage + backend)
+        await updateCurrentDocument(saved || updatedDoc);
       }
     } catch (error) {
       console.error('Rename failed:', error);
       showError('Rename failed: ' + error.message);
     }
-  }, [currentDocument]); // Remove notification dependency since showError is now stable
+  }, [currentDocument, updateCurrentDocument]); // Add updateCurrentDocument to dependencies
 
   // Category operations
   const addCategory = useCallback(async (category) => {
