@@ -1,6 +1,6 @@
-import { useEffect, useRef } from 'react';
-import EditorSingleton from '../services/EditorService';
-import { useTheme } from '@/context/ThemeProvider';
+import { useState, useRef, useEffect } from 'react';
+import { EditorService } from '@/services/editor';
+import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * Custom hook for Monaco editor setup and lifecycle management
@@ -19,7 +19,7 @@ export default function useMonacoEditor(containerRef, value, onChange, onCursorL
   useEffect(() => {
     if (!containerRef.current) return;
 
-    EditorSingleton
+    EditorService
       .setup(containerRef.current, value, theme)
       .then(editor => {
         editorRef.current = editor;

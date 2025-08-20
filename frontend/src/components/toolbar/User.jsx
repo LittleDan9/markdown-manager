@@ -3,8 +3,8 @@ import { Dropdown } from "react-bootstrap";
 import { useNotification } from "../NotificationProvider";
 import UserMenuLoggedIn from "./UserMenuLoggedIn";
 import UserMenuLoggedOut from "./UserMenuLoggedOut";
-import { useAuth } from "../../context/AuthContext";
-import { useSharedView } from "../../context/SharedViewProvider";
+import { useAuth } from "../../providers/AuthProvider";
+import { useSharedView } from "../../providers/SharedViewProvider";
 
 
 function UserToolbar({ handleThemeToggle, theme }) {

@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
-import { useAuth } from "@/context/AuthContext";
-import { useDocument } from "@/context/DocumentProvider";
+import { useAuth } from "@/providers/AuthProvider";
+import { useDocument } from "@/providers/DocumentProvider";
 import customDictionaryApi from "@/api/customDictionaryApi";
 import categoriesApi from "@/api/categoriesApi";
-import DictionaryService from "@/services/DictionaryService";
-import SpellCheckService from "@/services/SpellCheckService";
+import { DictionaryService } from "@/services/utils";
+import { SpellCheckService } from "@/services/editor";
 
 function DictionaryTab() {
   const { user } = useAuth();

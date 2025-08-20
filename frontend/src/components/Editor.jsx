@@ -2,7 +2,7 @@
 import React, { useRef } from 'react';
 import MarkdownToolbar from './MarkdownToolbar';
 import ProgressIndicator from './ProgressIndicator';
-import { useDocument } from '@/context/DocumentProvider';
+import { useDocument } from '@/providers/DocumentProvider';
 import useMonacoEditor from '../hooks/useMonacoEditor';
 import useSpellCheck from '../hooks/useSpellCheck';
 import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';

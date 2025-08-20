@@ -1,5 +1,5 @@
 import React from 'react';
-import { useLogger, LogLevel } from '../context/LoggerProvider.jsx';
+import { useLogger, LogLevel } from '../providers/LoggerProvider.jsx';
 
 /**
  * Development-only component for managing log levels

@@ -1,6 +1,6 @@
 
-import nspell from 'nspell';
-
+// Use dynamic import to avoid webpack bundling conflicts with web workers
+let nspell = null;
 let speller = null;
 let customWordSet = new Set();
 let affData = null;

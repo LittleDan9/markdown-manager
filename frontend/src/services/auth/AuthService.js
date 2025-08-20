@@ -3,10 +3,15 @@
  * Centralized auth logic with direct method calls instead of events
  */
 
-import UserAPI from '../api/userApi.js';
-import DocumentStorageService from './DocumentStorageService.js';
-import { notification } from './EventDispatchService.js';
-import DictionaryService from './DictionaryService.js';
+import UserAPI from '@/api/userApi.js';
+import { 
+  getLocalStorageData, 
+  setLocalStorageData, 
+  clearLocalStorageData 
+} from '@/utils/authHelpers';
+import { DocumentStorageService } from '../document';
+import { notification } from '../ui';
+import { DictionaryService } from '../utils';
 
 const defaultUser = {
   bio: "",

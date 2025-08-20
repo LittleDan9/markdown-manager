@@ -4,9 +4,9 @@
  * Uses AuthService directly instead of events
  */
 
-import DocumentStorageService from './DocumentStorageService.js';
-import { notification } from './EventDispatchService.js';
-import AuthService from './AuthService.js';
+import { DocumentStorageService } from './index';
+import { notification } from '../ui';
+import { AuthService } from '../auth';
 import { saveAs } from 'file-saver';
 
 class DocumentService {
@@ -144,7 +144,7 @@ class DocumentService {
     }
 
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
 
       // Determine if this is a create or update operation
       const isCreate = !document.id || String(document.id).startsWith('doc_');
@@ -274,7 +274,7 @@ class DocumentService {
       const { isAuthenticated, token } = this.getAuthState();
       if (isAuthenticated && token && !String(id).startsWith('doc_')) {
         try {
-          const DocumentsApi = (await import('../api/documentsApi.js')).default;
+          const DocumentsApi = (await import('@/api/documentsApi')).default;
           await DocumentsApi.deleteDocument(id);
         } catch (error) {
           console.warn('Backend delete failed:', error);
@@ -308,7 +308,7 @@ class DocumentService {
     }
 
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
       const documents = await DocumentsApi.getAllDocuments();
       return documents || [];
     } catch (error) {
@@ -380,7 +380,7 @@ class DocumentService {
     }
 
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
 
       // Get backend documents
       const backendDocs = await DocumentsApi.getAllDocuments();
@@ -449,7 +449,7 @@ class DocumentService {
     }
 
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
       await DocumentsApi.setCurrentDocumentId(id);
     } catch (error) {
       console.error('Failed to set current document ID:', error);
@@ -488,7 +488,7 @@ class DocumentService {
       const documentName = filename || 'document';
       const isDark = theme === 'dark';
 
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
       const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDark);
 
       const url = window.URL.createObjectURL(pdfBlob);
@@ -563,7 +563,7 @@ class DocumentService {
     }
 
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
       const shareResponse = await DocumentsApi.enableSharing(documentId);
       
       return shareResponse;
@@ -585,7 +585,7 @@ class DocumentService {
     }
 
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
       await DocumentsApi.disableSharing(documentId);
       
       return true;
@@ -602,7 +602,7 @@ class DocumentService {
    */
   async getSharedDocument(shareToken) {
     try {
-      const DocumentsApi = (await import('../api/documentsApi.js')).default;
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
       return await DocumentsApi.getSharedDocument(shareToken);
     } catch (error) {
       console.error('Failed to load shared document:', error);

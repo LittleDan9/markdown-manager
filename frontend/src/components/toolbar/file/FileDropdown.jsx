@@ -6,7 +6,7 @@ import FileSaveAsModal from "./FileSaveAsModal";
 import FileOverwriteModal from "./FileOverwriteModal";
 import ConfirmModal from "../../modals/ConfirmModal";
 import ShareModal from "../../modals/ShareModal";
-import { useDocument } from "../../../context/DocumentProvider";
+import { useDocument } from "../../../providers/DocumentProvider";
 import { useConfirmModal } from "../../../hooks/useConfirmModal.jsx";
 import { useNotification } from "../../NotificationProvider";
 import { useFileImportController } from "./useFileImportController";
@@ -15,11 +15,11 @@ import { useFileOverwriteController } from "./useFileOverwriteController";
 import { useFileOpenController } from "./useFileOpenController";
 import { useFileSaveController } from "./useFileSaveController";
 import { useFileExportController } from "./useFileExportController";
-import { useTheme } from "../../../context/ThemeProvider.jsx";
-import { usePreviewHTML } from "../../../context/PreviewHTMLContext";
+import { useTheme } from "../../../providers/ThemeProvider.jsx";
+import { usePreviewHTML } from "../../../providers/PreviewHTMLProvider";
 
-import { useAuth } from "../../../context/AuthContext";
-import DocumentService from "../../../services/DocumentService";
+import { useAuth } from "../../../providers/AuthProvider";
+import { DocumentService } from "@/services/document";
 
 export default function FileDropdown({ setDocumentTitle }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();

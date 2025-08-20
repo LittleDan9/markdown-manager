@@ -1,6 +1,6 @@
 import mermaid from "mermaid";
-import { logger } from "../context/LoggerProvider.jsx";
-import IconPackManager from "./IconPackManager.js";
+import { logger } from "@/providers/LoggerProvider.jsx";
+import { IconPackManager } from "../utils";
 
 // Create service-specific logger
 const serviceLogger = logger.createServiceLogger('MermaidService');

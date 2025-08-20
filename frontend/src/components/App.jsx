@@ -2,11 +2,9 @@ import React from "react";
 import Header from "./Header";
 import Toolbar from "./toolbar/Toolbar";
 import LogLevelController from "./LogLevelController";
-import { ThemeProvider } from "../context/ThemeProvider";
-import { useDocument } from "../context/DocumentProvider";
-import { PreviewHTMLProvider } from "../context/PreviewHTMLContext";
-import { useSharedView } from "../context/SharedViewProvider";
-import { useAuth } from "../context/AuthContext";
+import { useDocument } from "../providers/DocumentProvider";
+import { useSharedView } from "../providers/SharedViewProvider";
+import { useAuth } from "../providers/AuthProvider";
 import useGlobalKeyboardShortcuts from "@/hooks/useGlobalKeyboardShortcuts";
 import useAutoSaveManager from "@/hooks/useAutoSaveManager";
 import useAppUIState from "@/hooks/useAppUIState";
@@ -18,7 +16,7 @@ import EditorSection from "./sections/EditorSection";
 import RendererSection from "./sections/RendererSection";
 import AppModals from "./modals/AppModals";
 
-function AppContent() {
+function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
   const { currentDocument, saveDocument, migrationStatus } = useDocument();
   const { content, setContent } = useDocument();
@@ -91,18 +89,9 @@ function AppContent() {
         onHideIconBrowser={() => setShowIconBrowser(false)}
         migrationStatus={migrationStatus}
       />
-    </>
-  );
-}
 
-function App() {
-  return (
-    <ThemeProvider>
-      <PreviewHTMLProvider>
-        <AppContent />
-        <LogLevelController />
-      </PreviewHTMLProvider>
-    </ThemeProvider>
+      <LogLevelController />
+    </>
   );
 }
 

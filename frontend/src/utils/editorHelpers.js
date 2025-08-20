@@ -1,8 +1,8 @@
 // src/utils/editorHelpers.js
 import * as monaco from 'monaco-editor';
-import SpellCheckService from '../services/SpellCheckService';
+import { SpellCheckService } from '@/services/editor';
 import { chunkTextWithOffsets } from './chunkText'; // if you need it
-import DictionaryService from '@/services/DictionaryService';
+import { DictionaryService } from '@/services/utils';
 
 /**
  * Clear all spell check markers from the Monaco editor

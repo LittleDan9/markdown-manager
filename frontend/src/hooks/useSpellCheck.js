@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import SpellCheckService from '../services/SpellCheckService';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { SpellCheckService } from '@/services/editor';
 import { getChangedRegion, toMonacoMarkers, clearSpellCheckMarkers } from '@/utils';
 
 /**

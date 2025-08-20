@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import CommentService from '../services/CommentService';
+import { CommentService } from '@/services/editor';
 import { registerQuickFixActions } from '@/utils';
 
 /**

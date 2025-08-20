@@ -1,6 +1,6 @@
-import MarkdownIt from "markdown-it"
-import HighlightService from "./HighlightService";
-import MermaidService from "./MermaidService";
+import MarkdownIt from "markdown-it";
+import { HighlightService } from '../editor';
+import { MermaidService } from './index';
 
 const md = new MarkdownIt({
   html: true,
@@ -125,4 +125,8 @@ export function render(content) {
   return md.render(content)
 }
 
-export { md }
+// Export markdown instance as default for consistency
+export default md;
+
+// Legacy named export for backward compatibility
+export { md };

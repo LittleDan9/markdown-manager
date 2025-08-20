@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
-import { useLogger } from '../context/LoggerProvider';
-import IconPackManager from '../services/IconPackManager';
+import { useLogger } from '../providers/LoggerProvider';
+import { IconPackManager } from '@/services/utils';
 
 const ITEMS_PER_ROW = 4;
 const INITIAL_LOAD_SIZE = 24; // 6 rows

@@ -1,10 +1,10 @@
 import React, { useEffect, useState, useRef } from "react";
-import { render } from "../services/MarkdownRender";
-import { useTheme } from "../context/ThemeProvider";
-import { useDocument } from "../context/DocumentProvider";
-import HighlightService from "../services/HighlightService";
-import MermaidService from "../services/MermaidService";
-import { usePreviewHTML } from "../context/PreviewHTMLContext";
+import { render } from "@/services/rendering";
+import { useTheme } from "../providers/ThemeProvider";
+import { useDocument } from "../providers/DocumentProvider";
+import { HighlightService } from "@/services/editor";
+import { MermaidService } from "@/services/rendering";
+import { usePreviewHTML } from "../providers/PreviewHTMLProvider";
 import mermaid from "mermaid";
 
 

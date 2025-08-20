@@ -23,11 +23,14 @@ class SpellCheckWorkerPool {
 
     for (let i = 0; i < this.maxWorkers; i++) {
       try {
-        const worker = new Worker(new URL('@/workers/spellCheck.worker.js', import.meta.url), {type: 'module'});
+        // Import the worker using webpack's worker-loader syntax
+        const SpellCheckWorker = await import('../../workers/spellCheck.worker.js?worker');
+        const worker = new SpellCheckWorker.default();
 
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
         worker.onerror = (err) => {
           console.error(`[SpellCheckWorkerPool] Worker #${i+1} error:`, err.message, err.filename, err.lineno, err.colno, err.error);
+          // Don't terminate the pool completely on worker error
         };
         this.workers.push(worker);
         this.idleWorkers.push(worker);
@@ -36,7 +39,13 @@ class SpellCheckWorkerPool {
         if (err && err.message && err.message.includes('Failed to construct')) {
           console.error('[SpellCheckWorkerPool] This may be due to an invalid worker script URL, CORS, or module type issues.');
         }
+        // Continue without this worker rather than failing completely
       }
+    }
+    
+    // If no workers were created successfully, log a warning but don't fail
+    if (this.workers.length === 0) {
+      console.warn('[SpellCheckWorkerPool] No workers could be created. Spell checking will be disabled.');
     }
   }
 
@@ -105,4 +114,5 @@ class SpellCheckWorkerPool {
   }
 }
 
+// Export class (not singleton) because it's instantiated with parameters
 export default SpellCheckWorkerPool;

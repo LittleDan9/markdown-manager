@@ -3,9 +3,9 @@ import React, { useEffect, useState } from "react";
 import ConfirmModal from "../modals/ConfirmModal";
 import { useConfirmModal } from "../../hooks/useConfirmModal";
 import { Dropdown } from "react-bootstrap";
-import { useDocument } from "../../context/DocumentProvider";
+import { useDocument } from "../../providers/DocumentProvider";
 import { useNotification } from "../../components/NotificationProvider";
-import DocumentService from "../../services/DocumentService";
+import { DocumentService } from "@/services/document";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {

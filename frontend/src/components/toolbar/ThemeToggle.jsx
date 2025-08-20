@@ -1,5 +1,5 @@
 import React from "react";
-import { useTheme } from "../../context/ThemeProvider";
+import { useTheme } from "../../providers/ThemeProvider";
 
 function ThemeToggle({ idPrefix = "" }) {
   const { theme } = useTheme();

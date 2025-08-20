@@ -1,8 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import DocumentService from '../services/DocumentService.js';
-import DocumentStorageService from '../services/DocumentStorageService.js';
+import { DocumentService } from '@/services/document';
+import { DocumentStorageService } from '@/services/document';
 import documentsApi from '../api/documentsApi.js';
-import { useAuth } from './AuthContext';
+import { useAuth } from './AuthProvider';
 import { useSharedView } from './SharedViewProvider';
 import { useNotification } from '../components/NotificationProvider.jsx';
 import useChangeTracker from '../hooks/useChangeTracker';

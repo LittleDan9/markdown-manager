@@ -74,7 +74,7 @@ class AwsIconLoader {
   async getAwsServiceIcons() {
     if (this.iconPacks['architecture-service']) return this.iconPacks['architecture-service'];
     try {
-      const ctx = require.context('../../node_modules/aws-icons/icons/architecture-service', false, /\.svg$/);
+      const ctx = require.context('../../../node_modules/aws-icons/icons/architecture-service', false, /\.svg$/);
       const pack = await this.buildPack('awssvg', ctx);
       this.iconPacks['architecture-service'] = pack;
       return pack;
@@ -86,7 +86,7 @@ class AwsIconLoader {
   async getAwsGroupIcons() {
     if (this.iconPacks['architecture-group']) return this.iconPacks['architecture-group'];
     try {
-      const ctx = require.context('../../node_modules/aws-icons/icons/architecture-group', false, /\.svg$/);
+      const ctx = require.context('../../../node_modules/aws-icons/icons/architecture-group', false, /\.svg$/);
       const pack = await this.buildPack('awsgrp', ctx);
       this.iconPacks['architecture-group'] = pack;
       return pack;
@@ -98,7 +98,7 @@ class AwsIconLoader {
   async getAwsCategoryIcons() {
     if (this.iconPacks['category']) return this.iconPacks['category'];
     try {
-      const ctx = require.context('../../node_modules/aws-icons/icons/category', false, /\.svg$/);
+      const ctx = require.context('../../../node_modules/aws-icons/icons/category', false, /\.svg$/);
       const pack = await this.buildPack('awscat', ctx);
       this.iconPacks['category'] = pack;
       return pack;
@@ -110,7 +110,7 @@ class AwsIconLoader {
   async getAwsResourceIcons() {
     if (this.iconPacks['resource']) return this.iconPacks['resource'];
     try {
-      const ctx = require.context('../../node_modules/aws-icons/icons/resource', false, /\.svg$/);
+      const ctx = require.context('../../../node_modules/aws-icons/icons/resource', false, /\.svg$/);
       const pack = await this.buildPack('awsres', ctx);
       this.iconPacks['resource'] = pack;
       return pack;

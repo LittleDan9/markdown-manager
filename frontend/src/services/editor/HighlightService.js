@@ -1,7 +1,7 @@
 /**
  * Syntax highlighting service that uses the backend API for comprehensive language support
  */
-import HighlightingApi from "../api/highlightingApi";
+import HighlightingApi from "@/api/highlightingApi";
 
 class HighlightService {
   // Cache for recently highlighted blocks for fallback

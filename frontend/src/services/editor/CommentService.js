@@ -2,7 +2,9 @@
  * Service for handling code commenting in Markdown code blocks
  */
 
-import { notification } from './EventDispatchService';
+import { logger } from '@/providers/LoggerProvider.jsx';
+import { HighlightService } from './index';
+import { notification } from '../ui';
 
 // Language comment patterns
 const COMMENT_PATTERNS = {
@@ -85,7 +87,7 @@ class CommentService {
    * @param {string} language - The programming language
    * @returns {string|null} - The comment pattern or null if not supported
    */
-  static getCommentPattern(language) {
+  getCommentPattern(language) {
     if (!language) return null;
     const lang = language.toLowerCase().trim();
     return COMMENT_PATTERNS[lang] || null;
@@ -97,7 +99,7 @@ class CommentService {
    * @param {monaco.Position} position - Current cursor position
    * @returns {Object} - {inCodeBlock: boolean, language: string|null, blockStart: number|null, blockEnd: number|null}
    */
-  static isInCodeBlock(editor, position) {
+  isInCodeBlock(editor, position) {
     const model = editor.getModel();
     let inCodeBlock = false;
     let language = null;
@@ -153,7 +155,7 @@ class CommentService {
    * @param {string} commentPattern - Comment pattern for the language
    * @returns {Object} - Monaco edit operation
    */
-  static toggleLineComment(editor, lineNumber, commentPattern) {
+  toggleLineComment(editor, lineNumber, commentPattern) {
     const model = editor.getModel();
     const lineContent = model.getLineContent(lineNumber);
 
@@ -200,7 +202,7 @@ class CommentService {
    * @param {string} commentPattern - Block comment pattern with {} placeholder
    * @returns {Object} - Monaco edit operation
    */
-  static toggleBlockComment(editor, lineNumber, commentPattern) {
+  toggleBlockComment(editor, lineNumber, commentPattern) {
     const model = editor.getModel();
     const lineContent = model.getLineContent(lineNumber);
     const [start, end] = commentPattern.split('{}').map(s => s.trim());
@@ -243,7 +245,7 @@ class CommentService {
    * @param {string} commentPattern - Comment pattern for the language
    * @returns {Array} - Array of Monaco edit operations
    */
-  static toggleMultiLineComment(editor, startLine, endLine, commentPattern) {
+  toggleMultiLineComment(editor, startLine, endLine, commentPattern) {
     const edits = [];
 
     // First, check if all non-empty lines are commented
@@ -293,7 +295,7 @@ class CommentService {
    * @param {monaco.editor.IStandaloneCodeEditor} editor - Monaco editor instance
    * @returns {boolean} - True if comment was toggled, false if not applicable
    */
-  static handleCommentToggle(editor) {
+  handleCommentToggle(editor) {
     const position = editor.getPosition();
     const selection = editor.getSelection();
 
@@ -347,4 +349,5 @@ class CommentService {
   }
 }
 
-export default CommentService;
+// Export singleton instance for consistency with other services  
+export default new CommentService();

@@ -2,9 +2,9 @@
 // Combined sync, async (single worker), and parallel pool logic
 
 // import { chunkText } from './utils';
-import SpellCheckWorkerPool from '@/services/SpellCheckWorkerPool';
+import SpellCheckWorkerPool from './SpellCheckWorkerPool';
 import { chunkTextWithOffsets } from '@/utils';
-import DictionaryService from '@/services/DictionaryService';
+import { DictionaryService } from '../utils';
 
 export class SpellCheckService {
   constructor(chunkSize = 1000) {

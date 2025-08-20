@@ -2,7 +2,7 @@
  * Icon Pack Manager - Centralized service for managing all available icon packs
  * Simplified, DRY, and with correct Iconify prefixes + normalized icon data.
  */
-import { logger } from '../context/LoggerProvider.jsx';
+import { logger } from '@/providers/LoggerProvider.jsx';
 import AwsIconLoader from './AwsIconLoader.js';
 
 const serviceLogger = logger.createServiceLogger('IconPackManager');

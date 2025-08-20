@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { render } from '../services/MarkdownRender';
+import { render } from '@/services/rendering';
 
 const SharedRenderer = ({ content }) => {
   const [html, setHtml] = useState('');

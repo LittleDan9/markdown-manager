@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, ButtonGroup } from 'react-bootstrap';
-import { useTheme } from '../context/ThemeProvider';
+import { useTheme } from '../providers/ThemeProvider';
 
 const MarkdownToolbar = ({ editorRef }) => {
   const { theme } = useTheme();

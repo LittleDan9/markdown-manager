@@ -1,53 +1,56 @@
 // Performance optimization utilities for large documents
 class PerformanceOptimizer {
-  static LARGE_DOCUMENT_THRESHOLD = 100000; // 100KB - back to reasonable threshold
-  static VERY_LARGE_DOCUMENT_THRESHOLD = 500000; // 500KB - for truly large docs
-  static MASSIVE_DOCUMENT_THRESHOLD = 1000000; // 1MB - for massive docs
-  static EXTREME_DOCUMENT_THRESHOLD = 2000000; // 2MB - for extreme cases
-  static MAX_SPELL_CHECK_CHUNK = 10000; // 10KB chunks - larger for better performance
-  static SPELL_CHECK_DELAY = 1000; // 1 second delay - shorter
-  static VERY_LARGE_SPELL_CHECK_DELAY = 3000; // 3 second delay
-  static EXTREME_SPELL_CHECK_DELAY = 5000; // 5 second delay
+  constructor() {
+    // Constants as instance properties for consistency
+    this.LARGE_DOCUMENT_THRESHOLD = 100000; // 100KB - back to reasonable threshold
+    this.VERY_LARGE_DOCUMENT_THRESHOLD = 500000; // 500KB - for truly large docs
+    this.MASSIVE_DOCUMENT_THRESHOLD = 1000000; // 1MB - for massive docs
+    this.EXTREME_DOCUMENT_THRESHOLD = 2000000; // 2MB - for extreme cases
+    this.MAX_SPELL_CHECK_CHUNK = 10000; // 10KB chunks - larger for better performance
+    this.SPELL_CHECK_DELAY = 1000; // 1 second delay - shorter
+    this.VERY_LARGE_SPELL_CHECK_DELAY = 3000; // 3 second delay
+    this.EXTREME_SPELL_CHECK_DELAY = 5000; // 5 second delay
+  }
 
   /**
    * Check if document is considered large
    */
-  static isLargeDocument(content) {
+  isLargeDocument(content) {
     return content && content.length > this.LARGE_DOCUMENT_THRESHOLD;
   }
 
   /**
    * Check if document is very large and needs aggressive optimization
    */
-  static isVeryLargeDocument(content) {
+  isVeryLargeDocument(content) {
     return content && content.length > this.VERY_LARGE_DOCUMENT_THRESHOLD;
   }
 
   /**
    * Check if document is massive and needs extreme optimization
    */
-  static isMassiveDocument(content) {
+  isMassiveDocument(content) {
     return content && content.length > this.MASSIVE_DOCUMENT_THRESHOLD;
   }
 
   /**
    * Check if document is extreme size and needs maximum optimization
    */
-  static isExtremeDocument(content) {
+  isExtremeDocument(content) {
     return content && content.length > this.EXTREME_DOCUMENT_THRESHOLD;
   }
 
   /**
    * Determine if initial loading should be deferred for large documents
    */
-  static shouldDeferInitialLoad(content) {
+  shouldDeferInitialLoad(content) {
     return this.isVeryLargeDocument(content);
   }
 
   /**
    * Get the initial load strategy for documents
    */
-  static getInitialLoadStrategy(content) {
+  getInitialLoadStrategy(content) {
     if (this.isExtremeDocument(content)) {
       return {
         mode: 'extreme',
@@ -85,7 +88,7 @@ class PerformanceOptimizer {
   /**
    * Split document into chunks for progressive processing
    */
-  static chunkDocument(text, chunkSize = this.MAX_SPELL_CHECK_CHUNK) {
+  chunkDocument(text, chunkSize = this.MAX_SPELL_CHECK_CHUNK) {
     const chunks = [];
     for (let i = 0; i < text.length; i += chunkSize) {
       chunks.push({
@@ -100,7 +103,7 @@ class PerformanceOptimizer {
   /**
    * Get Monaco editor options optimized for document size
    */
-  static getOptimizedEditorOptions(content) {
+  getOptimizedEditorOptions(content) {
     const isLarge = this.isLargeDocument(content);
     const isVeryLarge = this.isVeryLargeDocument(content);
     const isMassive = this.isMassiveDocument(content);
@@ -189,7 +192,7 @@ class PerformanceOptimizer {
   /**
    * Get optimized spell check strategy for document size
    */
-  static getSpellCheckStrategy(content) {
+  getSpellCheckStrategy(content) {
     if (this.isExtremeDocument(content)) {
       return {
         enabled: false, // Disable for extreme docs (>2MB)
@@ -229,7 +232,7 @@ class PerformanceOptimizer {
   /**
    * Show user-friendly message about performance optimizations
    */
-  static getPerformanceMessage(content) {
+  getPerformanceMessage(content) {
     const size = content?.length || 0;
     const sizeKB = Math.round(size / 1024);
 
@@ -270,4 +273,5 @@ class PerformanceOptimizer {
   }
 }
 
-export default PerformanceOptimizer;
+// Export singleton instance for consistency with other services
+export default new PerformanceOptimizer();

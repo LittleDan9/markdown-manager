@@ -2,9 +2,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import FileDropdown from "./file/FileDropdown";
 import DocumentToolbar from "./Document";
 import UserToolbar from "./User";
-import { useTheme } from "@/context/ThemeProvider";
-import { useDocument } from "@/context/DocumentProvider";
-import { useSharedView } from "@/context/SharedViewProvider";
+import { useTheme } from "@/providers/ThemeProvider";
+import { useDocument } from "@/providers/DocumentProvider";
+import { useSharedView } from "@/providers/SharedViewProvider";
 import { useNotification } from "@/components/NotificationProvider";
 
 function Toolbar({
