@@ -2,6 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
+import MarkdownToolbar from './MarkdownToolbar';
 import { getChangedRegion, toMonacoMarkers, registerQuickFixActions, clearSpellCheckMarkers } from '@/utils';
 import { useTheme } from '@/context/ThemeProvider';
 import { useDocument } from '@/context/DocumentProvider';
@@ -117,6 +118,51 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
           lastEditorValue.current = newValue;
           onChange(newValue);
         });
+
+        // Add keyboard shortcuts for markdown formatting
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB,
+          () => {
+            // Trigger bold formatting
+            const toolbarButton = document.querySelector('[title="Bold (Ctrl+B)"]');
+            if (toolbarButton) toolbarButton.click();
+          }
+        );
+
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI,
+          () => {
+            // Trigger italic formatting
+            const toolbarButton = document.querySelector('[title="Italic (Ctrl+I)"]');
+            if (toolbarButton) toolbarButton.click();
+          }
+        );
+
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_DOT, // Ctrl + .
+          () => {
+            editor.trigger('', 'editor.action.quickFix', {});
+          }
+        );
+
+        // Add keyboard shortcuts for markdown formatting
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB,
+          () => {
+            // Trigger bold formatting
+            const toolbarButton = document.querySelector('[title="Bold (Ctrl+B)"]');
+            if (toolbarButton) toolbarButton.click();
+          }
+        );
+
+        editor.addCommand(
+          monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI,
+          () => {
+            // Trigger italic formatting
+            const toolbarButton = document.querySelector('[title="Italic (Ctrl+I)"]');
+            if (toolbarButton) toolbarButton.click();
+          }
+        );
 
         editor.addCommand(
           monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_DOT, // Ctrl + .
@@ -249,8 +295,9 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   }
 
   return (
-    <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative" }}>
-      <div id="editor" ref={containerRef} style={{ height: "100%", width: "100%" }} />
+    <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
+      <MarkdownToolbar editorRef={editorRef} />
+      <div id="editor" ref={containerRef} className="has-toolbar" style={{ flex: 1, width: "100%" }} />
       {progress && (
         <div
           className="alert alert-info"

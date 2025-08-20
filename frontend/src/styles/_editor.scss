@@ -3,10 +3,32 @@
 
 // ─── MONACO EDITOR STYLES ───
 
-// Monaco Editor Rounding
+// Monaco Editor Rounding - default case
 .monaco-editor,
 .monaco-editor .overflow-guard {
   border-radius: 0.5rem;
+}
+
+// When editor has a toolbar, we need to modify the border structure
+#editor.has-toolbar {
+  border-top: none !important; // Remove top border since toolbar provides it
+  border-radius: 0 0 0.5rem 0.5rem !important; // Only bottom corners rounded
+  
+  .monaco-editor,
+  .monaco-editor .overflow-guard {
+    border-radius: 0 0 0.5rem 0.5rem; // Match the container
+  }
+}
+
+// Toolbar should connect seamlessly with editor
+.markdown-toolbar {
+  border: 1px solid #ced4da;
+  border-bottom: none; // Will connect with editor border
+  border-radius: 0.5rem 0.5rem 0 0; // Only top corners rounded
+  
+  @include mixins.dark {
+    border-color: #495057;
+  }
 }
 
 // Ensure Monaco editor can shrink properly

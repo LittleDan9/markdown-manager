@@ -62,6 +62,10 @@
         border: 1px solid #ced4da;
         border-radius: 0.5rem;
         overflow: hidden; // Monaco editor will handle its own scrolling
+        
+        @include mixins.dark {
+          border-color: #495057;
+        }
       }
     }
 
@@ -87,6 +91,10 @@
         border: #ced4da 1px solid;
         padding: 0.25rem;
         box-sizing: border-box;
+        
+        @include mixins.dark {
+          border-color: #495057;
+        }
       }
 
       .preview-scroll {
