@@ -14,7 +14,7 @@ from app.core.config import settings
 from app.database import get_db
 from app.models.user import User
 
-# Password hashing
+# Password hashing - using argon2 from passlib extras
 pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
 
 # Token authentication
