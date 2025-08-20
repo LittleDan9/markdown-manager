@@ -5,6 +5,23 @@ import { chunkTextWithOffsets } from './chunkText'; // if you need it
 import DictionaryService from '@/services/DictionaryService';
 
 /**
+ * Clear all spell check markers from the Monaco editor
+ * @param {Object} editor - Monaco editor instance
+ * @param {Map} suggestionsMap - The suggestions map to clear
+ */
+export function clearSpellCheckMarkers(editor, suggestionsMap = null) {
+  if (!editor || typeof editor.getModel !== 'function') return;
+
+  const model = editor.getModel();
+  if (model) {
+    monaco.editor.setModelMarkers(model, 'spell', []);
+    if (suggestionsMap) {
+      suggestionsMap.clear();
+    }
+  }
+}
+
+/**
  * Compute the changed region between prevValue and newValue, using the editor's selection/cursor if available.
  * - If prevValue is empty, scan the whole doc.
  * - If only a small region changed, scan from a few words before the change to the end of the line.
@@ -189,7 +206,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
       // Get current categoryId dynamically
       const categoryId = typeof getCategoryId === 'function' ? getCategoryId() : getCategoryId;
       console.log('Quick fix actions - dynamic categoryId:', categoryId, 'type:', typeof categoryId);
-      
+
       const wordInfo = model.getWordAtPosition(range.getStartPosition())
       if (!wordInfo || !wordInfo.word) return { actions: [], dispose: () => { } };
       const trueRange = new monaco.Range(

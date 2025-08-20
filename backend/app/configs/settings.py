@@ -1,13 +1,12 @@
 """Enhanced settings module with modular configuration management."""
 from functools import lru_cache
-from pathlib import Path
 from typing import Optional
 
 from pydantic import Field, computed_field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from .constants import constants
-from .models import DatabaseConfig, SecurityConfig, SMTPConfig, StorageConfig
+from .models import DatabaseConfig, SecurityConfig, SMTPConfig
 
 
 class Settings(BaseSettings):
@@ -58,15 +57,6 @@ class Settings(BaseSettings):
         default=False, description="Use secure cookies (HTTPS only)"
     )
 
-    # File storage configuration
-    documents_directory: str = Field(
-        default=constants.DEFAULT_DOCUMENTS_DIR,
-        description="Documents storage directory",
-    )
-    max_file_size: int = Field(
-        default=constants.MAX_FILE_SIZE, description="Maximum file size in bytes"
-    )
-
     # SMTP configuration
     smtp_host: str = Field(default="smtp.example.com", description="SMTP server host")
     smtp_port: int = Field(
@@ -105,23 +95,6 @@ class Settings(BaseSettings):
             raise ValueError("Database URL cannot be empty")
         if not (v.startswith("sqlite") or v.startswith("postgresql")):
             raise ValueError("Database URL must start with 'sqlite' or 'postgresql'")
-        return v
-
-    @field_validator("documents_directory")
-    @classmethod
-    def validate_documents_directory(cls, v):
-        """Ensure documents directory exists if possible."""
-        try:
-            Path(v).mkdir(parents=True, exist_ok=True)
-        except PermissionError:
-            # In Docker or restricted environments, directory creation might fail
-            # Log warning but don't fail validation
-            import logging
-
-            logger = logging.getLogger(__name__)
-            logger.warning(
-                f"Cannot create documents directory {v} due to permissions. Ensure it exists at runtime."
-            )
         return v
 
     @computed_field
@@ -167,16 +140,6 @@ class Settings(BaseSettings):
             password=self.smtp_password,
             from_email=self.from_email,
             use_tls=self.smtp_use_tls,
-        )
-
-    @computed_field
-    @property
-    def storage_config(self) -> StorageConfig:
-        """Get storage configuration object."""
-        return StorageConfig(
-            documents_directory=self.documents_directory,
-            max_file_size=self.max_file_size,
-            allowed_extensions=constants.ALLOWED_FILE_EXTENSIONS,
         )
 
 

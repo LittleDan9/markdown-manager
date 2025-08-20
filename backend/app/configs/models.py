@@ -43,19 +43,3 @@ class SMTPConfig(BaseModel):
     use_tls: bool = Field(default=True, description="Use TLS encryption")
 
     model_config = ConfigDict(extra="forbid")
-
-
-class StorageConfig(BaseModel):
-    """File storage configuration model."""
-
-    documents_directory: str = Field(
-        default="./documents", description="Documents storage directory"
-    )
-    max_file_size: int = Field(
-        default=10 * 1024 * 1024, description="Maximum file size in bytes"
-    )
-    allowed_extensions: set[str] = Field(
-        default={".md", ".txt", ".pdf"}, description="Allowed file extensions"
-    )
-
-    model_config = ConfigDict(extra="forbid")

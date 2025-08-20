@@ -27,10 +27,6 @@ class Settings(BaseSettings):  # type: ignore[misc]
     # Cookie settings
     secure_cookies: bool = False  # Set to True in production with HTTPS
 
-    # File storage settings
-    documents_directory: str = "./documents"
-    max_file_size: int = 10 * 1024 * 1024  # 10MB
-
     # SMTP settings
     smtp_host: str = "smtp.example.com"
     smtp_port: int = 587

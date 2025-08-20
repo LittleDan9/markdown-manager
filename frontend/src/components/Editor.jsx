@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import EditorSingleton from "../services/EditorService";
 import SpellCheckService from '../services/SpellCheckService';
-import { getChangedRegion, toMonacoMarkers, registerQuickFixActions } from '@/utils';
+import { getChangedRegion, toMonacoMarkers, registerQuickFixActions, clearSpellCheckMarkers } from '@/utils';
 import { useTheme } from '@/context/ThemeProvider';
 import { useDocument } from '@/context/DocumentProvider';
 import { useDebouncedCallback } from '@/utils/useDebouncedCallback';
@@ -22,15 +22,15 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
 
   // Get the category ID from the current document
   const categoryId = currentDocument?.category_id;
-  
+
   // Create a ref to track current categoryId for dynamic access
   const categoryIdRef = useRef(categoryId);
-  
+
   // Update the ref whenever categoryId changes
   useEffect(() => {
     categoryIdRef.current = categoryId;
   }, [categoryId]);
-  
+
   // Debug: Log the document structure to understand what we have
   console.log('Editor - currentDocument:', currentDocument);
   console.log('Editor - categoryId:', categoryId, 'type:', typeof categoryId);
@@ -49,14 +49,58 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
     }
   }, 300); // Adjust debounce time as needed
 
+  // Window resize handling for spell check markers
+  const resizeTimeoutRef = useRef(null);
+
   // 1) Initialize spell-checker once
   useEffect(() => {
     SpellCheckService.init().catch(console.error);
   }, []);
 
-  // 2) Register Monaco quick-fix actions once
+  // 2) Window resize event handling for spell check markers
+  useEffect(() => {
+    let isResizing = false;
+    let resizeStartTimeout = null;
+
+    const handleResize = () => {
+      // Clear markers immediately on first resize event (resize start)
+      if (!isResizing) {
+        isResizing = true;
+        console.log('Window resize started - clearing spell check markers');
+        clearSpellCheckMarkers(editorRef.current, suggestionsMap.current);
+      }
+
+      // Clear existing timeout and set new one for resize end detection
+      if (resizeStartTimeout) {
+        clearTimeout(resizeStartTimeout);
+      }
+
+      resizeStartTimeout = setTimeout(() => {
+        isResizing = false;
+        // Re-run spell check after resize stops
+        if (editorRef.current && value) {
+          console.log('Window resize ended - re-running spell check');
+          spellCheckDocument(value, 0);
+        }
+      }, 500); // 500ms delay to detect resize end
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeStartTimeout) {
+        clearTimeout(resizeStartTimeout);
+      }
+    };
+  }, [value]); // Include value in deps to ensure latest value is used
+
+  // 3) Register Monaco quick-fix actions once
   useEffect(() => {
     if (!containerRef.current) return;
+
+    let editorLayoutCleanup = null;
+
     EditorSingleton
       .setup(containerRef.current, value, theme)
       .then(editor => {
@@ -82,9 +126,43 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
         );
 
         registerQuickFixActions(editor, suggestionsMap, () => categoryIdRef.current);
+
+        // Add Monaco editor layout change listener to handle editor-specific resizing
+        const layoutDisposable = editor.onDidLayoutChange(() => {
+          // Clear markers when editor layout changes (this includes container resizing)
+          console.log('Editor layout changed - clearing spell check markers');
+          clearSpellCheckMarkers(editor, suggestionsMap.current);
+
+          // Debounce spell check after layout change
+          if (resizeTimeoutRef.current) {
+            clearTimeout(resizeTimeoutRef.current);
+          }
+          resizeTimeoutRef.current = setTimeout(() => {
+            if (editor && value) {
+              console.log('Editor layout change ended - re-running spell check');
+              spellCheckDocument(value, 0);
+            }
+          }, 500);
+        });
+
+        // Store cleanup function for layout listener
+        editorLayoutCleanup = () => {
+          layoutDisposable.dispose();
+          if (resizeTimeoutRef.current) {
+            clearTimeout(resizeTimeoutRef.current);
+          }
+        };
+
         spellCheckDocument(value, 0);
       })
       .catch(console.error);
+
+    // Cleanup function for the useEffect
+    return () => {
+      if (editorLayoutCleanup) {
+        editorLayoutCleanup();
+      }
+    };
   }, []);
 
   // No need to re-register - the quick fix actions will dynamically get the categoryId
