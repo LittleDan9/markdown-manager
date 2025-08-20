@@ -15,6 +15,72 @@ export default function useAutoSave(currentDocument, content, saveCallback, enab
   const lastSavedDocumentIdRef = useRef(null);
   const isSavingRef = useRef(false);
 
+  // Expose test functions globally for debugging
+  useEffect(() => {
+    window.testAutoSave = (delaySeconds = 30) => {
+      console.log(`Auto-save will trigger in ${delaySeconds} seconds. Get into the editor!`);
+      console.log('Countdown started...');
+      
+      // Show countdown
+      let remaining = delaySeconds;
+      const countdownInterval = setInterval(() => {
+        remaining--;
+        if (remaining > 0) {
+          console.log(`Auto-save in ${remaining} seconds...`);
+        } else {
+          console.log('Triggering auto-save NOW!');
+          clearInterval(countdownInterval);
+        }
+      }, 1000);
+      
+      // Trigger auto-save after delay
+      setTimeout(async () => {
+        clearInterval(countdownInterval);
+        console.log('=== AUTO-SAVE TRIGGERED ===');
+        const editor = window.monaco?.editor?.getEditors?.()?.[0];
+        if (editor) {
+          const positionBefore = editor.getPosition();
+          console.log('Cursor position BEFORE auto-save:', positionBefore);
+          
+          try {
+            await saveCallback();
+            
+            // Check position after a brief delay to ensure all updates complete
+            setTimeout(() => {
+              const positionAfter = editor.getPosition();
+              console.log('Cursor position AFTER auto-save:', positionAfter);
+              console.log('Position preserved:', 
+                positionBefore?.lineNumber === positionAfter?.lineNumber && 
+                positionBefore?.column === positionAfter?.column ? '✅ YES' : '❌ NO'
+              );
+            }, 100);
+          } catch (error) {
+            console.error('Auto-save failed:', error);
+          }
+        } else {
+          await saveCallback();
+        }
+      }, delaySeconds * 1000);
+    };
+    
+    window.testManualSave = async () => {
+      try {
+        console.log('Manual test save triggered via useAutoSave');
+        const result = await saveCallback();
+        console.log('Manual test save completed via useAutoSave:', result?.name || 'no result');
+        return result;
+      } catch (error) {
+        console.error('Manual test save failed via useAutoSave:', error);
+        throw error;
+      }
+    };
+    
+    return () => {
+      delete window.testAutoSave;
+      delete window.testManualSave;
+    };
+  }, [saveCallback]);
+
   // Initialize refs when document changes
   useEffect(() => {
     if (currentDocument && currentDocument.id !== lastSavedDocumentIdRef.current) {
