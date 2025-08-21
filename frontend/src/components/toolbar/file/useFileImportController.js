@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useDocument } from "../../../providers/DocumentProvider";
 import { useNotification } from "../../NotificationProvider";
-import { DocumentService } from "@/services/document";
+import { DocumentService } from "@/services/core";
 
 export function useFileImportController({ setDocumentTitle, setContent }) {
   const { saveDocument, currentDocument, importMarkdownFile, loadDocument, createDocument, documents } = useDocument();

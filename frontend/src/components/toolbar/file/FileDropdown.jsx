@@ -19,7 +19,7 @@ import { useTheme } from "../../../providers/ThemeProvider.jsx";
 import { usePreviewHTML } from "../../../providers/PreviewHTMLProvider";
 
 import { useAuth } from "../../../providers/AuthProvider";
-import { DocumentService } from "@/services/document";
+import { DocumentService } from "@/services/core";
 
 export default function FileDropdown({ setDocumentTitle }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();

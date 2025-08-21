@@ -4,7 +4,7 @@
 
 import { logger } from '@/providers/LoggerProvider.jsx';
 import { HighlightService } from './index';
-import { notification } from '../ui';
+import { notification } from '../utilities';
 
 // Language comment patterns
 const COMMENT_PATTERNS = {
@@ -78,7 +78,8 @@ const COMMENT_PATTERNS = {
   toml: '# ',
   conf: '# ',
   config: '# ',
-  properties: '# '
+  properties: '# ',
+  mermaid: '%% '
 };
 
 class CommentService {
@@ -349,5 +350,5 @@ class CommentService {
   }
 }
 
-// Export singleton instance for consistency with other services  
+// Export singleton instance for consistency with other services
 export default new CommentService();

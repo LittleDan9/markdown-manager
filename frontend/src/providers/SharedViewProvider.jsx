@@ -5,8 +5,8 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { DocumentService } from '@/services/document';
-import { DocumentStorageService } from '@/services/document';
+import { DocumentService } from '@/services/core';
+import { DocumentStorageService } from '@/services/core';
 
 const SharedViewContext = createContext(null);
 

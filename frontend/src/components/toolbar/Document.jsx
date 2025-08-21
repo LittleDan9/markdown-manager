@@ -5,7 +5,7 @@ import { useConfirmModal } from "../../hooks/useConfirmModal";
 import { Dropdown } from "react-bootstrap";
 import { useDocument } from "../../providers/DocumentProvider";
 import { useNotification } from "../../components/NotificationProvider";
-import { DocumentService } from "@/services/document";
+import { DocumentService } from "@/services/core";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {

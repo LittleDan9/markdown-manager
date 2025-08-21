@@ -4,9 +4,9 @@
  * Uses AuthService directly instead of events
  */
 
-import { DocumentStorageService } from './index';
-import { notification } from '../ui';
-import { AuthService } from '../auth';
+import DocumentStorageService from './DocumentStorageService';
+import { notification } from '../utilities';
+import AuthService from './AuthService';
 import { saveAs } from 'file-saver';
 
 class DocumentService {

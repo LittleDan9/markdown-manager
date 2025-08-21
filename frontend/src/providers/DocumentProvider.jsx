@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { DocumentService } from '@/services/document';
-import { DocumentStorageService } from '@/services/document';
+import { DocumentService } from '@/services/core';
+import { DocumentStorageService } from '@/services/core';
 import documentsApi from '../api/documentsApi.js';
 import { useAuth } from './AuthProvider';
 import { useSharedView } from './SharedViewProvider';

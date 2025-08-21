@@ -1,6 +1,6 @@
 import customDictionaryApi from '@/api/customDictionaryApi';
 import categoriesApi from '@/api/categoriesApi';
-import { AuthService } from '../auth';
+import AuthService from '../core/AuthService';
 
 // DictionaryService.js
 // Manages custom dictionary words, localStorage, and backend sync for spell checking

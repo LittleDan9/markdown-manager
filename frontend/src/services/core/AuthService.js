@@ -9,9 +9,9 @@ import {
   setLocalStorageData, 
   clearLocalStorageData 
 } from '@/utils/authHelpers';
-import { DocumentStorageService } from '../document';
-import { notification } from '../ui';
-import { DictionaryService } from '../utils';
+import DocumentStorageService from './DocumentStorageService';
+import { notification } from '../utilities';
+import { DictionaryService } from '../utilities';
 
 const defaultUser = {
   bio: "",

@@ -2,7 +2,7 @@
 import * as monaco from 'monaco-editor';
 import { SpellCheckService } from '@/services/editor';
 import { chunkTextWithOffsets } from './chunkText'; // if you need it
-import { DictionaryService } from '@/services/utils';
+import { DictionaryService } from '@/services/utilities';
 
 /**
  * Clear all spell check markers from the Monaco editor

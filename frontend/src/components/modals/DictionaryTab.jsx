@@ -4,7 +4,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useDocument } from "@/providers/DocumentProvider";
 import customDictionaryApi from "@/api/customDictionaryApi";
 import categoriesApi from "@/api/categoriesApi";
-import { DictionaryService } from "@/services/utils";
+import { DictionaryService } from "@/services/utilities";
 import { SpellCheckService } from "@/services/editor";
 
 function DictionaryTab() {

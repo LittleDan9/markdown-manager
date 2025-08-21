@@ -5,7 +5,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { AuthService } from '@/services/auth';
+import AuthService from '@/services/core/AuthService';
 import LoginModal from '../components/modals/LoginModal.jsx';
 import VerifyMFAModal from '../components/modals/VerifyMFAModal.jsx';
 import PasswordResetModal from '../components/modals/PasswordResetModal.jsx';
