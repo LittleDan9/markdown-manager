@@ -4,7 +4,7 @@
 
 import { logger } from '@/providers/LoggerProvider.jsx';
 import { HighlightService } from './index';
-import { notification } from '../utilities';
+import { NotificationService } from '../utilities';
 
 // Language comment patterns
 const COMMENT_PATTERNS = {

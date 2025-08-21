@@ -10,7 +10,7 @@ import {
   clearLocalStorageData 
 } from '@/utils/authHelpers';
 import DocumentStorageService from './DocumentStorageService';
-import { notification } from '../utilities';
+import { NotificationService } from '../utilities';
 import { DictionaryService } from '../utilities';
 
 const defaultUser = {

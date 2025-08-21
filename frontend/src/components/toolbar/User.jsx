@@ -1,16 +1,16 @@
 import React from "react";
 import { Dropdown } from "react-bootstrap";
-import { useNotification } from "../NotificationProvider";
-import UserMenuLoggedIn from "./UserMenuLoggedIn";
-import UserMenuLoggedOut from "./UserMenuLoggedOut";
-import { useAuth } from "../../providers/AuthProvider";
-import { useSharedView } from "../../providers/SharedViewProvider";
+import { useNotification } from "@/components/NotificationProvider";
+import UserMenuLoggedIn from "@/components/toolbar/UserMenuLoggedIn";
+import UserMenuLoggedOut from "@/components/toolbar/UserMenuLoggedOut";
+import { useAuth } from "@/providers/AuthProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 
 
 function UserToolbar({ handleThemeToggle, theme }) {
   const { showSuccess, showError } = useNotification();
   const { user, setUser } = useAuth();
-  const { isSharedView } = useSharedView();
+  const { isSharedView } = useDocumentContext();
 
   return (
     <>

@@ -205,7 +205,6 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
     provideCodeActions(model, range) {
       // Get current categoryId dynamically
       const categoryId = typeof getCategoryId === 'function' ? getCategoryId() : getCategoryId;
-      console.log('Quick fix actions - dynamic categoryId:', categoryId, 'type:', typeof categoryId);
 
       const wordInfo = model.getWordAtPosition(range.getStartPosition())
       if (!wordInfo || !wordInfo.word) return { actions: [], dispose: () => { } };

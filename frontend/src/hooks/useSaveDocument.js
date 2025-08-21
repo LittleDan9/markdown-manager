@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { useDocument } from '../providers/DocumentProvider';
+import { useDocumentContext } from '../providers/DocumentContextProvider.jsx';
 import { useNotification } from '../components/NotificationProvider';
 import { useAuth } from '../providers/AuthProvider';
 
@@ -10,24 +10,21 @@ import { useAuth } from '../providers/AuthProvider';
  * @returns {Function} handleSave - Function to save the current document
  */
 export default function useSaveDocument() {
-  const { currentDocument, saveDocument, content } = useDocument();
+  const { currentDocument, saveDocument, content } = useDocumentContext();
   const { showSuccess, showError } = useNotification();
   const { isAuthenticated } = useAuth();
 
   const handleSave = useCallback(async () => {
     console.log('useSaveDocument: Save initiated');
-    
     // Validation checks
     if (!currentDocument) {
       showError('No document to save.');
       return null;
     }
-
     if (!saveDocument) {
       showError('Save function not available.');
       return null;
     }
-
     console.log('useSaveDocument: Save validation passed', {
       hasContent: !!content,
       hasDocument: !!currentDocument,
@@ -35,21 +32,16 @@ export default function useSaveDocument() {
       documentId: currentDocument?.id,
       contentLength: content?.length || 0
     });
-
     try {
       console.log('useSaveDocument: Starting save operation...');
-
       // Create document with current content for save
       const docWithCurrentContent = { ...currentDocument, content };
       const saved = await saveDocument(docWithCurrentContent, true); // Show notifications
-
       console.log('useSaveDocument: Save operation completed:', { saved: !!saved });
-
       if (!saved) {
         showError('Save failed - no document returned.');
         return null;
       }
-
       // Note: Success notifications are handled by DocumentService/DocumentProvider
       return saved;
     } catch (error) {
@@ -58,6 +50,5 @@ export default function useSaveDocument() {
       return null;
     }
   }, [currentDocument, saveDocument, content, isAuthenticated, showSuccess, showError]);
-
   return handleSave;
 }

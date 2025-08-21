@@ -1,10 +1,9 @@
 import React, { useEffect, useState, useCallback } from "react";
-import FileDropdown from "./file/FileDropdown";
-import DocumentToolbar from "./Document";
-import UserToolbar from "./User";
+import FileDropdown from "@/components/file/FileDropdown";
+import DocumentToolbar from "@/components/toolbar/Document";
+import UserToolbar from "@/components/toolbar/User";
 import { useTheme } from "@/providers/ThemeProvider";
-import { useDocument } from "@/providers/DocumentProvider";
-import { useSharedView } from "@/providers/SharedViewProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
 
 function Toolbar({
@@ -15,8 +14,7 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error } = useDocument();
-  const { isSharedView, sharedDocument, sharedLoading, sharedError } = useSharedView();
+  const { currentDocument, error, isSharedView, sharedDocument, sharedLoading, sharedError } = useDocumentContext();
   const { showWarning } = useNotification();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"

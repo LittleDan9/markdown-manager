@@ -5,7 +5,7 @@
  */
 
 import DocumentStorageService from './DocumentStorageService';
-import { notification } from '../utilities';
+import { NotificationService } from '../utilities';
 import AuthService from './AuthService';
 import { saveAs } from 'file-saver';
 

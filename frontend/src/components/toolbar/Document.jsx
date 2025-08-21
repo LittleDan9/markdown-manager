@@ -1,10 +1,10 @@
-import DeleteCategoryModal from "../modals/DeleteCategoryModal";
+import DeleteCategoryModal from "@/components/modals/DeleteCategoryModal";
 import React, { useEffect, useState } from "react";
-import ConfirmModal from "../modals/ConfirmModal";
-import { useConfirmModal } from "../../hooks/useConfirmModal";
+import ConfirmModal from "@/components/modals/ConfirmModal";
+import { useConfirmModal } from "@/hooks/useConfirmModal";
 import { Dropdown } from "react-bootstrap";
-import { useDocument } from "../../providers/DocumentProvider";
-import { useNotification } from "../../components/NotificationProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+import { useNotification } from "@/components/NotificationProvider";
 import { DocumentService } from "@/services/core";
 import { formatDistanceToNow } from "date-fns";
 
@@ -15,7 +15,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const notification = useNotification();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content } = useDocument();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument } = useDocumentContext();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const customCats = rawCategories
@@ -29,7 +29,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
-  const { renameDocument } = useDocument();
+  // renameDocument is now included above from useDocumentContext
   const [ lastSavedText, setLastSavedText ] = useState("");
 
   useEffect(() => {

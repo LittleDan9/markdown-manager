@@ -1,27 +1,27 @@
 
-// Use dynamic import to avoid webpack bundling conflicts with web workers
-let nspell = null;
+import nspellModule from 'nspell';
+const nspell = nspellModule.default || nspellModule;
 let speller = null;
 let customWordSet = new Set();
 let affData = null;
 let dicData = null;
 
 async function loadDictionary() {
-  if (speller) return;
-  try {
-    if (!affData) {
-      const affResponse = await fetch('/dictionary/index.aff');
-      affData = await affResponse.text();
+    if (speller) return;
+    try {
+      if (!affData) {
+        const affResponse = await fetch('/dictionary/index.aff');
+        affData = await affResponse.text();
+      }
+      if (!dicData) {
+        const dicResponse = await fetch('/dictionary/index.dic');
+        dicData = await dicResponse.text();
+      }
+      speller = nspell(affData, dicData);
+    } catch (err) {
+      console.error('[SpellCheckWorker] Error loading dictionary:', err);
+      throw err;
     }
-    if (!dicData) {
-      const dicResponse = await fetch('/dictionary/index.dic');
-      dicData = await dicResponse.text();
-    }
-    speller = nspell(affData, dicData);
-  } catch (err) {
-    console.error('[SpellCheckWorker] Error loading dictionary:', err);
-    throw err;
-  }
 }
 
 function addCustomWords(words) {
@@ -39,19 +39,19 @@ function extractMarkdownTextContent(text) {
   // Track code fence and inline code regions for skipping
   let codeFenceRegions = [];
   let inlineCodeRegions = [];
-  
+
   // Simple and robust code fence detection
   // Since chunks now respect fence boundaries, we can use simpler logic
   const lines = text.split('\n');
   let inCodeFence = false;
   let fenceStart = 0;
   let currentPos = 0;
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineStart = currentPos;
     const lineEnd = currentPos + line.length;
-    
+
     // Check if this line starts/ends a code fence
     if (/^\s*(```|~~~)/.test(line)) {
       if (!inCodeFence) {
@@ -61,38 +61,38 @@ function extractMarkdownTextContent(text) {
       } else {
         // Ending a code fence
         inCodeFence = false;
-        codeFenceRegions.push({ 
-          start: fenceStart, 
-          end: lineEnd 
+        codeFenceRegions.push({
+          start: fenceStart,
+          end: lineEnd
         });
       }
     }
-    
+
     // Move to next line (including newline character)
     currentPos = lineEnd + 1;
   }
-  
+
   // If we're still in a code fence at the end, close it
   if (inCodeFence) {
-    codeFenceRegions.push({ 
-      start: fenceStart, 
-      end: text.length 
+    codeFenceRegions.push({
+      start: fenceStart,
+      end: text.length
     });
   }
-  
+
   // Also match indented code blocks (4+ spaces at start of line)
   let indentedCodeRegex = /^(?: {4,}|\t+).*$/gm;
   let match;
   while ((match = indentedCodeRegex.exec(text)) !== null) {
     codeFenceRegions.push({ start: match.index, end: match.index + match[0].length });
   }
-  
+
   // Find inline code
   let inlineCodeRegex = /`[^`\n]*`/g;
   while ((match = inlineCodeRegex.exec(text)) !== null) {
     inlineCodeRegions.push({ start: match.index, end: match.index + match[0].length });
   }
-  
+
   return { originalText: text, codeFenceRegions, inlineCodeRegions };
 }
 
@@ -107,36 +107,40 @@ self.onmessage = async function (e) {
     addCustomWords(customWords);
     // chunk: { text, startOffset, endOffset }
     const { text, startOffset } = chunk;
-    let issues = [];
+  let issues = [];
+  const seen = new Set();
     // Get code fence and inline code regions for the chunk
     const { codeFenceRegions, inlineCodeRegions } = extractMarkdownTextContent(text);
-    
+
     const regex = /\b[A-Za-z']+\b/g;
     let match;
     while ((match = regex.exec(text)) !== null) {
       const word = match[0];
       const globalOffset = startOffset + match.index;
-      
+      const dedupKey = word + ':' + globalOffset;
+      if (seen.has(dedupKey)) continue;
+      seen.add(dedupKey);
+
       // Skip words inside code fence or inline code regions
       if (codeFenceRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
       if (inlineCodeRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
-      
+
       // Enhanced markdown token detection - skip words that are part of markdown syntax
       const upTo = text.slice(0, match.index);
       const lines = upTo.split('\n');
       const currentLine = lines[lines.length - 1];
       const lineStart = match.index - currentLine.length;
       const wordEndInLine = match.index + word.length - lineStart;
-      
+
       // Skip if word is in markdown headers, lists, or other special syntax
-      if (/^(\s*(#{1,6}\s+|---+\s*$|\*\*\*+\s*$|\*{3,}\s*$|_{3,}\s*$|>+\s+|[-*+]\s+|\d+\.\s+|\|\s*))/.test(currentLine)) {
+      if (/^(\s*(#{1,6}\s+|---+\s*$|\*\*\*+\s*$|\*{3,}\s*$|_{3,}\s*$|>+\s+|[-*+]\s+|\d+\.\s+|\|\s*))/ .test(currentLine)) {
         const tokenMatch = currentLine.match(/^(\s*(#{1,6}\s+|---+\s*$|\*\*\*+\s*$|\*{3,}\s*$|_{3,}\s*$|>+\s+|[-*+]\s+|\d+\.\s+|\|\s*))/);
         if (tokenMatch && wordEndInLine <= tokenMatch[0].length) continue;
       }
-      
+
       // Skip words that are URLs or email addresses
       if (/^https?:\/\/|^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/.test(word)) continue;
-      
+
       // Check if this word is part of an email address by looking at surrounding context
       const contextStart = Math.max(0, match.index - 50);
       const contextEnd = Math.min(text.length, match.index + word.length + 50);
@@ -147,7 +151,7 @@ self.onmessage = async function (e) {
           context.indexOf(word) < context.indexOf(emailMatch[0]) + emailMatch[0].length) {
         continue;
       }
-      
+
       // Skip words that are part of HTML tags
       const beforeWord = text.slice(Math.max(0, match.index - 10), match.index);
       const afterWord = text.slice(match.index + word.length, Math.min(text.length, match.index + word.length + 10));

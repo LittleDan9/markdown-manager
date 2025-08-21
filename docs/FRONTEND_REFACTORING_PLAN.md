@@ -1,7 +1,3 @@
----
-applyTo: 'frontend/**/*'
----
-
 # Frontend Architecture Refactoring Plan
 
 **Created:** August 20, 2025

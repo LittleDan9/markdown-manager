@@ -1,17 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
-import ThemeToggle from "./ThemeToggle";
-import { toggleTheme, useTheme } from "../../providers/ThemeProvider";
-import { useSharedView } from "../../providers/SharedViewProvider";
-import RegisterModal from "../modals/RegisterModal";
-import UserSettingsModal from "../modals/UserSettingsModal";
-import UserAPI from "../../api/userApi";
-import { useNotification } from "../NotificationProvider";
-import { useAuth } from "../../providers/AuthProvider";
+import ThemeToggle from "@/components/toolbar/ThemeToggle";
+import { toggleTheme, useTheme } from "@/providers/ThemeProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+import RegisterModal from "@/components/modals/RegisterModal";
+import UserSettingsModal from "@/components/modals/UserSettingsModal";
+import UserAPI from "@/api/userApi";
+import { useNotification } from "@/components/NotificationProvider";
+import { useAuth } from "@/providers/AuthProvider";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();
-  const { isSharedView } = useSharedView();
+  const { isSharedView } = useDocumentContext();
   const {
     setUser,
     login,

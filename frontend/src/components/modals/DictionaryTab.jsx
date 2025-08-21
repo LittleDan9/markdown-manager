@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Card, Form, Button, Alert, ListGroup, Badge, Modal, Spinner } from "react-bootstrap";
 import { useAuth } from "@/providers/AuthProvider";
-import { useDocument } from "@/providers/DocumentProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import customDictionaryApi from "@/api/customDictionaryApi";
 import categoriesApi from "@/api/categoriesApi";
 import { DictionaryService } from "@/services/utilities";
@@ -9,7 +9,7 @@ import { SpellCheckService } from "@/services/editor";
 
 function DictionaryTab() {
   const { user } = useAuth();
-  const { categories: documentCategories } = useDocument();
+  const { categories: documentCategories } = useDocumentContext();
   const [entries, setEntries] = useState([]);
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(''); // Empty string for user-level

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import useSaveDocument from './useSaveDocument';
 
 /**
@@ -15,40 +15,34 @@ import useSaveDocument from './useSaveDocument';
  */
 export default function useGlobalKeyboardShortcuts() {
   const handleSave = useSaveDocument();
+  const handleSaveRef = useRef(handleSave);
+  // Always keep ref up to date with latest handleSave
+  handleSaveRef.current = handleSave;
 
   useEffect(() => {
     const handleGlobalKeyDown = async (e) => {
       // Ctrl+S (or Cmd+S on Mac) - Save document
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
-        console.log('useGlobalKeyboardShortcuts: Ctrl+S detected - triggering save');
-        await handleSave();
+        await handleSaveRef.current();
       }
-
       // Future global shortcuts can be added here:
       /*
       if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
         e.preventDefault();
         // Handle new document
       }
-      
       if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
         e.preventDefault();
         // Handle open document
       }
       */
     };
-
-    // Attach to document for true global coverage
-    // This ensures shortcuts work even when focus is on modals, dropdowns, buttons, etc.
-    console.log('useGlobalKeyboardShortcuts: Registering global keyboard handlers');
     document.addEventListener('keydown', handleGlobalKeyDown);
-
     return () => {
-      console.log('useGlobalKeyboardShortcuts: Unregistering global keyboard handlers');
       document.removeEventListener('keydown', handleGlobalKeyDown);
     };
-  }, [handleSave]);
+  }, []); // Empty dependency array for stable registration
 
   // This hook doesn't return anything - it just sets up global event listeners
 }

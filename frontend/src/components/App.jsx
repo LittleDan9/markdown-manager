@@ -1,26 +1,21 @@
 import React from "react";
-import Header from "./Header";
-import Toolbar from "./toolbar/Toolbar";
-import LogLevelController from "./LogLevelController";
-import { useDocument } from "../providers/DocumentProvider";
-import { useSharedView } from "../providers/SharedViewProvider";
-import { useAuth } from "../providers/AuthProvider";
+import Header from "@/components/Header";
+import Toolbar from "@/components/toolbar/Toolbar";
+import LogLevelController from "@/components/LogLevelController";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+import { useAuth } from "@/providers/AuthProvider";
 import useGlobalKeyboardShortcuts from "@/hooks/useGlobalKeyboardShortcuts";
-import useAutoSaveManager from "@/hooks/useAutoSaveManager";
+import useDocumentAutoSave from "@/hooks/useDocumentAutoSave";
 import useAppUIState from "@/hooks/useAppUIState";
 import useSharedViewEffects from "@/hooks/useSharedViewEffects";
-
-// Import our new components
-import AppLayout from "./layout/AppLayout";
-import EditorSection from "./sections/EditorSection";
-import RendererSection from "./sections/RendererSection";
-import AppModals from "./modals/AppModals";
+import AppLayout from "@/components/layout/AppLayout";
+import EditorSection from "@/components/sections/EditorSection";
+import RendererSection from "@/components/sections/RendererSection";
+import AppModals from "@/components/modals/AppModals";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus } = useDocument();
-  const { content, setContent } = useDocument();
-  const { isSharedView, sharedDocument, sharedLoading, sharedError } = useSharedView();
+  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError } = useDocumentContext();
   
   // UI state management via custom hook
   const uiState = useAppUIState(isSharedView);
@@ -39,7 +34,7 @@ function App() {
   useGlobalKeyboardShortcuts();
 
   // Setup auto-save management
-  useAutoSaveManager(currentDocument, content, saveDocument, autosaveEnabled, isSharedView, 5000);
+  useDocumentAutoSave(currentDocument, content, saveDocument, autosaveEnabled, isSharedView, 5000);
 
   // Handle shared view effects
   useSharedViewEffects(isSharedView, sharedDocument, content, setContent, setFullscreenPreview);

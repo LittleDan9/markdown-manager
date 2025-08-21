@@ -89,11 +89,3 @@ export default new NotificationService();
 // Also export the class for testing purposes
 export { NotificationService };
 
-// Legacy compatibility - export the old notification object
-// This maintains compatibility with existing code during transition
-export const notification = {
-  success: (message, duration) => new NotificationService().success(message, duration),
-  error: (message, duration) => new NotificationService().error(message, duration),
-  warning: (message, duration) => new NotificationService().warning(message, duration),
-  info: (message, duration) => new NotificationService().info(message, duration),
-};

@@ -1,20 +1,24 @@
-// Editor-related hooks for easy importing
-export { default as useMonacoEditor } from './useMonacoEditor';
-export { default as useSpellCheck } from './useSpellCheck';
-export { default as useKeyboardShortcuts } from './useKeyboardShortcuts';
-export { default as useListBehavior } from './useListBehavior';
-export { default as useDebouncedCursorChange } from './useDebouncedCursorChange';
+// Hook registry: All custom hooks
 
-// App-level hooks
-export { default as useAutoSave } from './useAutoSave';
+// Core hooks
+export { default as useDebouncedCursorChange } from './useDebouncedCursorChange';
 export { default as useChangeTracker } from './useChangeTracker';
 export { default as useSaveDocument } from './useSaveDocument';
 export { default as useGlobalKeyboardShortcuts } from './useGlobalKeyboardShortcuts';
-export { default as useAutoSaveManager } from './useAutoSaveManager';
 export { default as useAppUIState } from './useAppUIState';
 export { default as useSharedViewEffects } from './useSharedViewEffects';
+export { default as useDocumentAutoSave } from './useDocumentAutoSave';
+export { default as useDocumentState } from './useDocumentState';
+export { default as useEditor } from './useEditor';
+export { default as useFileOperations } from './useFileOperations';
+export { default as usePreviewHTMLState } from './usePreviewHTMLState';
+export { default as useSharedViewState } from './useSharedViewState';
+export { default as useConfirmModal } from './useConfirmModal';
+
+// Optimization hooks
+export { default as useDocumentWorkflow } from './useDocumentWorkflow';
+export { default as usePerformanceMonitor } from './usePerformanceMonitor';
+export { default as useMemoryOptimization } from './useMemoryOptimization';
 
 // This allows importing like:
-// import { useMonacoEditor, useSpellCheck } from '@/hooks';
-// or
-// import { useMonacoEditor, useSpellCheck } from '@/hooks/editor';
+// import { useEditor, useSaveDocument, useDocumentWorkflow } from '@/hooks';

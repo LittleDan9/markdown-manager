@@ -128,7 +128,16 @@ module.exports = {
       template: './src/index.html',
     }),
     new MonacoWebpackPlugin({
-      languages: ['markdown'], //, 'javascript', 'typescript', 'json'],
+      languages: ['markdown'], // Only include markdown language initially
+      features: [
+        // Only include essential features to reduce bundle size
+        'find',
+        'folding',
+        'bracketMatching',
+        'wordHighlighter',
+        'clipboard',
+        'contextmenu'
+      ],
       publicPath: '/',
     }),
     new CopyWebpackPlugin({
@@ -179,36 +188,101 @@ module.exports = {
   optimization: {
     splitChunks: {
       chunks: 'all',
-      maxInitialRequests: 20,
-      maxAsyncRequests: 20,
+      maxInitialRequests: 30,
+      maxAsyncRequests: 30,
+      minSize: 20000,
+      maxSize: 500000, // 500KB max chunk size
       cacheGroups: {
-        // Separate Monaco Editor into its own chunk
+        // Critical vendor libraries (loaded immediately)
+        criticalVendors: {
+          test: /[\\/]node_modules[\\/](react|react-dom|react-bootstrap|bootstrap)[\\/]/,
+          name: 'critical-vendors',
+          chunks: 'initial',
+          priority: 50,
+          enforce: true,
+        },
+        // Monaco Editor - separate chunk, loaded on demand
         monaco: {
           test: /[\\/]node_modules[\\/]monaco-editor[\\/]/,
           name: 'monaco-editor',
-          chunks: 'all',
+          chunks: 'async',
+          priority: 40,
+          enforce: true,
+        },
+        // Individual Iconify icon packs - separate chunks per pack
+        iconifyLogos: {
+          test: /[\\/]node_modules[\\/]@iconify-json[\\/]logos[\\/]/,
+          name: 'iconify-logos',
+          chunks: 'async',
+          priority: 35,
+          enforce: true,
+        },
+        iconifyMaterial: {
+          test: /[\\/]node_modules[\\/]@iconify-json[\\/]material-icon-theme[\\/]/,
+          name: 'iconify-material',
+          chunks: 'async',
+          priority: 35,
+          enforce: true,
+        },
+        iconifyDevicon: {
+          test: /[\\/]node_modules[\\/]@iconify-json[\\/]devicon[\\/]/,
+          name: 'iconify-devicon',
+          chunks: 'async',
+          priority: 35,
+          enforce: true,
+        },
+        iconifyFlatColor: {
+          test: /[\\/]node_modules[\\/]@iconify-json[\\/]flat-color-icons[\\/]/,
+          name: 'iconify-flat-color',
+          chunks: 'async',
+          priority: 35,
+          enforce: true,
+        },
+        // Mermaid - large library, load on demand
+        mermaid: {
+          test: /[\\/]node_modules[\\/]mermaid[\\/]/,
+          name: 'mermaid',
+          chunks: 'async',
           priority: 30,
           enforce: true,
         },
-        // Separate Iconify icon packs into their own chunks
-        iconifyPacks: {
-          test: /[\\/]node_modules[\\/]@iconify-json[\\/]/,
-          name: 'iconify-packs',
-          chunks: 'all',
+        // Markdown processing libraries
+        markdown: {
+          test: /[\\/]node_modules[\\/](markdown-it|prismjs|highlight\.js)[\\/]/,
+          name: 'markdown-libs',
+          chunks: 'async',
           priority: 25,
           enforce: true,
         },
-        // Common vendor libraries
+        // AWS Icons
+        awsIcons: {
+          test: /[\\/]node_modules[\\/]aws-icons[\\/]/,
+          name: 'aws-icons',
+          chunks: 'async',
+          priority: 25,
+          enforce: true,
+        },
+        // Other vendor libraries
         vendor: {
           test: /[\\/]node_modules[\\/]/,
           name: 'vendors',
-          chunks: 'all',
+          chunks: 'initial',
           priority: 10,
-          minChunks: 1,
+          minChunks: 2,
+        },
+        // Application code chunks
+        common: {
+          name: 'common',
+          chunks: 'initial',
+          minChunks: 2,
+          priority: 5,
+          reuseExistingChunk: true,
         },
       },
     },
     minimize: false,
+    usedExports: true,
+    sideEffects: false,
   },
   // Performance hints for development
   performance: {
