@@ -10,6 +10,9 @@ export * from './editor';
 // Dictionary hooks - Custom dictionary management
 export * from './dictionary';
 
+// Markdown hooks - Markdown formatting and toolbar functionality
+export * from './markdown';
+
 // UI hooks - User interface state, modals, and shared UI concerns
 export * from './ui';
 
