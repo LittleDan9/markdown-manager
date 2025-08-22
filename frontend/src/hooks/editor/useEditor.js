@@ -83,20 +83,36 @@ export default function useEditor({
   // External value changes
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor) return;
+    if (!editor || value === lastEditorValue.current) return;
+
+    // Save current cursor position before updating value
+    const currentPosition = editor.getPosition();
+    const currentScrollTop = editor.getScrollTop();
+
     editor.setValue(value);
     lastEditorValue.current = value;
-    // Optionally restore cursor position if needed (pseudo-code, adapt as needed)
-    // if (currentPosition) {
-    //   const model = editor.getModel();
-    //   const lineCount = model.getLineCount();
-    //   const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
-    //   const lineLength = model.getLineContent(safeLineNumber).length;
-    //   const safeColumn = Math.min(currentPosition.column, lineLength + 1);
-    //   const safePosition = { lineNumber: safeLineNumber, column: safeColumn };
-    //   editor.setPosition(safePosition);
-    //   editor.setScrollTop(currentScrollTop);
-    // }
+
+    // Restore cursor position and scroll after setValue
+    if (currentPosition) {
+      const model = editor.getModel();
+      const lineCount = model.getLineCount();
+
+      // Ensure position is within bounds
+      const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
+      const lineLength = model.getLineContent(safeLineNumber).length;
+      const safeColumn = Math.min(currentPosition.column, lineLength + 1);
+
+      const safePosition = {
+        lineNumber: safeLineNumber,
+        column: safeColumn
+      };
+
+      // Use setTimeout to ensure the position is set after Monaco finishes processing
+      setTimeout(() => {
+        editor.setPosition(safePosition);
+        editor.setScrollTop(currentScrollTop);
+      }, 0);
+    }
   }, [value]);
 
   // SPELL CHECK
