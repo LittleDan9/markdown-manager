@@ -1,10 +1,10 @@
 import React from 'react';
 import { useMarkdownActions, useToolbarStyling } from '../hooks/markdown';
-import { TextFormattingGroup } from './editor/markdown-toolbar/TextFormattingGroup';
-import { HeadingGroup } from './editor/markdown-toolbar/HeadingGroup';
-import { ListGroup } from './editor/markdown-toolbar/ListGroup';
-import { MediaGroup } from './editor/markdown-toolbar/MediaGroup';
-import { ToolbarSeparator } from './editor/markdown-toolbar/ToolbarSeparator';
+import { TextFormattingGroup } from './markdown-toolbar/TextFormattingGroup';
+import { HeadingGroup } from './markdown-toolbar/HeadingGroup';
+import { ListGroup } from './markdown-toolbar/ListGroup';
+import { MediaGroup } from './markdown-toolbar/MediaGroup';
+import { ToolbarSeparator } from './markdown-toolbar/ToolbarSeparator';
 
 const MarkdownToolbar = ({ editorRef }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);

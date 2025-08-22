@@ -1,7 +1,7 @@
 
 import React, { useRef } from 'react';
-import MarkdownToolbar from '@/components/MarkdownToolbar';
-import ProgressIndicator from '@/components/ProgressIndicator';
+import MarkdownToolbar from './editor/MarkdownToolbar';
+import ProgressIndicator from './ProgressIndicator';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
