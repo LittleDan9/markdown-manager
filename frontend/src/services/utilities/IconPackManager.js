@@ -3,7 +3,7 @@
  * Simplified, DRY, and with correct Iconify prefixes + normalized icon data.
  */
 import { logger } from '@/providers/LoggerProvider.jsx';
-import AwsIconLoader from './AwsIconLoader.js';
+import AWSIconLoader from './AWSIconLoader.js';
 
 const serviceLogger = logger.createServiceLogger('IconPackManager');
 
@@ -220,10 +220,10 @@ class IconPackManager {
     const [
       awsSvgIcons, awsGroupIcons, awsCategoryIcons, awsResourceIcons
     ] = await Promise.all([
-      AwsIconLoader.getAwsServiceIcons(),
-      AwsIconLoader.getAwsGroupIcons(),
-      AwsIconLoader.getAwsCategoryIcons(),
-      AwsIconLoader.getAwsResourceIcons()
+      AWSIconLoader.getAwsServiceIcons(),
+      AWSIconLoader.getAwsGroupIcons(),
+      AWSIconLoader.getAwsCategoryIcons(),
+      AWSIconLoader.getAwsResourceIcons()
     ]);
 
     const register = (name, displayName, badgeColor, pack) => {

@@ -2,7 +2,7 @@
  * AWS Icon Loader - simplified and consistent normalizer
  * Returns { prefix, icons: { [key]: { body, width, height, viewBox } } }
  */
-class AwsIconLoader {
+class AWSIconLoader {
   constructor() {
     this.iconPacks = {
       'architecture-service': null,
@@ -130,4 +130,4 @@ class AwsIconLoader {
   }
 }
 
-export default new AwsIconLoader();
+export default new AWSIconLoader();
