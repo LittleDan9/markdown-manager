@@ -7,9 +7,9 @@ import FileOverwriteModal from "@/components/file/FileOverwriteModal";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 import ShareModal from "@/components/modals/ShareModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { useConfirmModal } from "@/hooks/useConfirmModal.jsx";
+import { useConfirmModal } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
-import { useFileOperations } from "@/hooks/useFileOperations";
+import { useFileOperations } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
 

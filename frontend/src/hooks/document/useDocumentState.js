@@ -3,7 +3,7 @@ import { DocumentService } from '@/services/core';
 import { DocumentStorageService } from '@/services/core';
 
 import { useEffect } from 'react';
-import documentsApi from '../api/documentsApi.js';
+import documentsApi from '@/api/documentsApi.js';
 import useChangeTracker from './useChangeTracker';
 
 export default function useDocumentState(notification, auth) {

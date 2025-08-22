@@ -2,9 +2,8 @@ import React, { createContext, useContext, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useAuth } from './AuthProvider';
 import { useNotification } from '../components/NotificationProvider.jsx';
-import useDocumentState from '../hooks/useDocumentState';
-import useSharedViewState from '../hooks/useSharedViewState';
-import usePreviewHTMLState from '../hooks/usePreviewHTMLState';
+import { useDocumentState } from '../hooks/document';
+import { useSharedViewState, usePreviewHTMLState } from '../hooks/ui';
 
 // Consolidated context for document, shared view, and preview HTML
 const DocumentContext = createContext();

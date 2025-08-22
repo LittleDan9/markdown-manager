@@ -1,24 +1,25 @@
-// Hook registry: All custom hooks
+// Hook registry: All custom hooks organized by concern
+// This file provides a central export point for all hooks while maintaining organization
 
-// Core hooks
-export { default as useDebouncedCursorChange } from './useDebouncedCursorChange';
-export { default as useChangeTracker } from './useChangeTracker';
-export { default as useSaveDocument } from './useSaveDocument';
-export { default as useGlobalKeyboardShortcuts } from './useGlobalKeyboardShortcuts';
-export { default as useAppUIState } from './useAppUIState';
-export { default as useSharedViewEffects } from './useSharedViewEffects';
-export { default as useDocumentAutoSave } from './useDocumentAutoSave';
-export { default as useDocumentState } from './useDocumentState';
-export { default as useEditor } from './useEditor';
-export { default as useFileOperations } from './useFileOperations';
-export { default as usePreviewHTMLState } from './usePreviewHTMLState';
-export { default as useSharedViewState } from './useSharedViewState';
-export { default as useConfirmModal } from './useConfirmModal';
+// Document hooks - Document state, operations, and lifecycle
+export * from './document';
 
-// Optimization hooks
-export { default as useDocumentWorkflow } from './useDocumentWorkflow';
-export { default as usePerformanceMonitor } from './usePerformanceMonitor';
-export { default as useMemoryOptimization } from './useMemoryOptimization';
+// Editor hooks - Monaco editor, cursor, and keyboard interactions  
+export * from './editor';
 
-// This allows importing like:
-// import { useEditor, useSaveDocument, useDocumentWorkflow } from '@/hooks';
+// Dictionary hooks - Custom dictionary management
+export * from './dictionary';
+
+// UI hooks - User interface state, modals, and shared UI concerns
+export * from './ui';
+
+// Performance hooks - Optimization, monitoring, and memory management
+export * from './performance';
+
+// This allows importing from specific categories:
+// import { useDocumentState, useSaveDocument } from '@/hooks/document';
+// import { useEditor, useGlobalKeyboardShortcuts } from '@/hooks/editor';
+// import { useDictionaryState } from '@/hooks/dictionary';
+// 
+// Or from the main barrel export:
+// import { useDocumentState, useEditor, useDictionaryState } from '@/hooks';

@@ -3,8 +3,7 @@ import React, { useRef } from 'react';
 import MarkdownToolbar from '@/components/MarkdownToolbar';
 import ProgressIndicator from '@/components/ProgressIndicator';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
-import useEditor from '@/hooks/useEditor';
-import useDebouncedCursorChange from '@/hooks/useDebouncedCursorChange';
+import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
 export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null);

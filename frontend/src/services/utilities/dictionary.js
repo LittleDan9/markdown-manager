@@ -525,6 +525,123 @@ class DictionaryService {
     }));
     return Array.from(backendWordsSet);
   }
+
+  /**
+   * Get formatted dictionary entries for UI display
+   * @param {string|null} categoryId - Category ID or null for user-level words
+   * @returns {Promise<Array>} - Array of formatted entries with id, word, notes, etc.
+   */
+  async getEntries(categoryId = null) {
+    const { isAuthenticated, token } = AuthService.getAuthState();
+    
+    if (!isAuthenticated || !token) {
+      // Return local entries for guest users
+      return this.getLocalEntries(categoryId);
+    }
+
+    try {
+      const data = await customDictionaryApi.getEntries(categoryId);
+      let filteredEntries = Array.isArray(data) ? data : [];
+      
+      // Additional frontend filtering as fallback
+      if (categoryId) {
+        filteredEntries = filteredEntries.filter(entry => 
+          entry.category_id === parseInt(categoryId)
+        );
+      } else {
+        filteredEntries = filteredEntries.filter(entry => 
+          entry.category_id === null
+        );
+      }
+      
+      return filteredEntries;
+    } catch (error) {
+      console.error('Failed to load dictionary entries:', error);
+      if (error.message?.includes("Not authenticated")) {
+        return this.getLocalEntries(categoryId);
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Get local entries for guest users or fallback
+   * @param {string|null} categoryId - Category ID or null for user-level words
+   * @returns {Array} - Array of local entries
+   */
+  getLocalEntries(categoryId = null) {
+    if (categoryId) {
+      const words = this.getCategoryWords(categoryId);
+      return words.map((word, index) => ({
+        id: `local-${categoryId}-${index}`,
+        word,
+        notes: null,
+        category_id: categoryId,
+        isLocal: true
+      }));
+    } else {
+      const words = this.getCustomWords();
+      return words.map((word, index) => ({
+        id: `local-user-${index}`,
+        word,
+        notes: null,
+        category_id: null,
+        isLocal: true
+      }));
+    }
+  }
+
+  /**
+   * Update word notes
+   * @param {string} entryId - Entry ID
+   * @param {string} notes - New notes
+   * @returns {Promise<Object>} - Updated entry
+   */
+  async updateWordNotes(entryId, notes) {
+    const { isAuthenticated, token } = AuthService.getAuthState();
+    
+    if (!isAuthenticated || !token) {
+      throw new Error("Authentication required to update word notes");
+    }
+
+    try {
+      const updatedEntry = await customDictionaryApi.updateWord(entryId, notes);
+      window.dispatchEvent(new CustomEvent('dictionary:wordUpdated', { 
+        detail: { entry: updatedEntry } 
+      }));
+      return updatedEntry;
+    } catch (error) {
+      console.error('Failed to update word notes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get available categories
+   * @returns {Promise<Array>} - Array of categories
+   */
+  async getCategories() {
+    try {
+      const categories = await categoriesApi.getCategories();
+      return categories;
+    } catch (error) {
+      console.error('Failed to load categories:', error);
+      return []; // Return empty array on error
+    }
+  }
+
+  /**
+   * Get word count for a specific context
+   * @param {string|null} categoryId - Category ID or null for user-level words
+   * @returns {number} - Number of words
+   */
+  getWordCount(categoryId = null) {
+    if (categoryId) {
+      return this.getCategoryWords(categoryId).length;
+    } else {
+      return this.getCustomWords().length;
+    }
+  }
 }
 
 export default new DictionaryService();

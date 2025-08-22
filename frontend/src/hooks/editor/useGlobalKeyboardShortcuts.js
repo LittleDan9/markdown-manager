@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-import useSaveDocument from './useSaveDocument';
+import { useSaveDocument } from '../document';
 
 /**
  * Custom hook for managing global (app-wide) keyboard shortcuts

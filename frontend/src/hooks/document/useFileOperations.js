@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from "react";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { useNotification } from "../components/NotificationProvider.jsx";
+import { useNotification } from "@/components/NotificationProvider.jsx";
 
 // Consolidated file operations hook
 export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, theme }) {

@@ -1,7 +1,7 @@
 import DeleteCategoryModal from "@/components/modals/DeleteCategoryModal";
 import React, { useEffect, useState } from "react";
 import ConfirmModal from "@/components/modals/ConfirmModal";
-import { useConfirmModal } from "@/hooks/useConfirmModal";
+import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";

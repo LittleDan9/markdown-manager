@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
-import { useDocumentContext } from '../providers/DocumentContextProvider.jsx';
-import { useNotification } from '../components/NotificationProvider';
-import { useAuth } from '../providers/AuthProvider';
+import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
+import { useNotification } from '@/components/NotificationProvider';
+import { useAuth } from '@/providers/AuthProvider';
 
 /**
  * Custom hook that provides a standardized save document function
