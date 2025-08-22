@@ -44,8 +44,8 @@ class ServiceLazyLoader {
       return this.loadingPromises.get('iconPack');
     }
 
-    const loadPromise = import('../services/utilities/icons.js').then(module => {
-      const service = module.iconPackManager;
+    const loadPromise = import('../services/utils').then(module => {
+      const service = module.IconPackManager;
       this.loadedServices.set('iconPack', service);
       this.loadingPromises.delete('iconPack');
       return service;
@@ -87,10 +87,10 @@ class ServiceLazyLoader {
     const preloadPromises = [
       // Don't preload mermaid unless we detect mermaid blocks
       // this.getMermaidService(),
-      
+
       // Preload icon pack manager as it's commonly used
       this.getIconPackManager(),
-      
+
       // Preload spell check for editor
       this.getSpellCheckWorkerPool()
     ];

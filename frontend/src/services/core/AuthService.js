@@ -4,13 +4,13 @@
  */
 
 import UserAPI from '@/api/userApi.js';
-import { 
-  getLocalStorageData, 
-  setLocalStorageData, 
-  clearLocalStorageData 
+import {
+  getLocalStorageData,
+  setLocalStorageData,
+  clearLocalStorageData
 } from '@/utils/authHelpers';
 import DocumentStorageService from './DocumentStorageService';
-import { NotificationService } from '../utilities';
+import NotificationService from '../utilities/notifications.js';
 import { DictionaryService } from '../utilities';
 
 const defaultUser = {
@@ -48,24 +48,24 @@ class AuthService {
    */
   async initializeAuth() {
     console.log('AuthService: Starting initialization');
-    
+
     try {
       // Always try refresh token first - this ensures we get the latest auth state
       console.log('AuthService: Attempting refresh token');
       const refreshResult = await UserAPI.refreshToken();
-      
+
       if (refreshResult && refreshResult.access_token) {
         console.log('AuthService: Refresh successful, validating user');
         this.setToken(refreshResult.access_token);
         const user = await this.fetchCurrentUser(refreshResult.access_token);
-        
+
         if (user) {
           console.log('AuthService: User validation successful', user.email);
           this.setUser(user);
           this.isAuthenticated = true;
           this.startTokenRefresh();
           localStorage.setItem('lastKnownAuthState', 'authenticated');
-          
+
           // Load profile settings
           if (user.sync_preview_scroll_enabled !== undefined) {
             localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
@@ -79,19 +79,19 @@ class AuthService {
         }
       } else {
         console.log('AuthService: Refresh failed, checking stored token');
-        
+
         // Fallback: try stored token if refresh failed
         if (this.token && this.token.trim() !== '') {
           console.log('AuthService: Validating stored token');
           const user = await this.fetchCurrentUser(this.token);
-          
+
           if (user) {
             console.log('AuthService: Stored token is valid', user.email);
             this.setUser(user);
             this.isAuthenticated = true;
             this.startTokenRefresh();
             localStorage.setItem('lastKnownAuthState', 'authenticated');
-            
+
             // Load profile settings
             if (user.sync_preview_scroll_enabled !== undefined) {
               localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
@@ -374,14 +374,14 @@ class AuthService {
       const response = await UserAPI.enableMFA(password, code);
       if (response.success) {
         this.setUser({ ...this.user, mfa_enabled: true });
-        notification.success("Two-factor authentication enabled successfully.");
+        NotificationService.success("Two-factor authentication enabled successfully.");
         const codes = await UserAPI.getBackupCodes();
         return { success: true, backup_codes: codes.backup_codes };
       }
-      notification.error("Failed to enable MFA.");
+      NotificationService.error("Failed to enable MFA.");
       return { success: false };
     } catch (err) {
-      notification.error(err.message || "Failed to enable MFA.");
+      NotificationService.error(err.message || "Failed to enable MFA.");
       return { success: false };
     }
   }
@@ -393,10 +393,10 @@ class AuthService {
     try {
       await UserAPI.disableMFA(password, code);
       this.setUser({ ...this.user, mfa_enabled: false });
-      notification.success("Two-factor authentication disabled successfully.");
+      NotificationService.success("Two-factor authentication disabled successfully.");
       return { success: true };
     } catch (error) {
-      notification.error(error.message || "Failed to disable MFA.");
+      NotificationService.error(error.message || "Failed to disable MFA.");
       return { success: false };
     }
   }

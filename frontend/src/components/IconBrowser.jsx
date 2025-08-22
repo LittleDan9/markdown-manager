@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
 import { useLogger } from '../providers/LoggerProvider';
 import { IconPackManager } from '@/services/utilities';
@@ -35,26 +35,25 @@ export default function IconBrowser() {
   const [visibleEnd, setVisibleEnd] = useState(INITIAL_LOAD_SIZE);
   const [copied, setCopied] = useState('');
 
+  // Ref to track if we're in the middle of a scroll-triggered load
+  const isScrollLoadingRef = useRef(false);
+
   // One-time load
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        log.info('Starting icon pack loading...');
         await IconPackManager.loadAllIconPacks();
-        
+
         const packs = IconPackManager.getAvailableIconPacks();
         const categories = IconPackManager.getAvailableCategories();
         const totalCount = IconPackManager.getTotalIconCount();
-        
+
         setAvailableIconPacks(packs);
         setAvailableCategories(categories);
         setTotalIconCount(totalCount);
-        
-        log.info(`Icon packs loaded successfully: ${packs.length} packs, ${categories.length} categories, ${totalCount} total icons`);
-        log.debug('Available packs:', packs);
-        log.debug('Available categories:', categories);
+
       } catch (e) {
         log.error('Failed to load icons', e);
         setError(`Failed to load icons: ${e.message}. Check console for details.`);
@@ -72,34 +71,34 @@ export default function IconBrowser() {
   // Compute filtered icons via memo (KISS — no extra effects)
   const filteredIcons = useMemo(() => {
     if (!IconPackManager.isLoaded()) {
-      log.debug('IconPackManager not loaded yet, returning empty array');
       return [];
     }
-    
-    log.debug(`Filtering icons with: searchTerm="${searchTerm}", category="${selectedCategory}", pack="${selectedIconPack}"`);
-    
+
     const list = IconPackManager.searchIcons(
       searchTerm,
       selectedCategory,
       selectedIconPack
-    ).map(icon => ({
+    );
+
+    return list.map(icon => ({
       ...icon,
       usage: IconPackManager.generateUsageExample(icon.prefix, icon.key, selectedDiagramType)
     }));
-    
-    log.debug(`Filtered ${list.length} icons`);
-    return list;
-  }, [searchTerm, selectedCategory, selectedIconPack, selectedDiagramType, log]);
+  }, [searchTerm, selectedCategory, selectedIconPack, selectedDiagramType, loading]); // Added loading dependency so it recalculates when icons finish loading
 
   // Reset visible window when filters change
   useEffect(() => {
-    setVisibleEnd(INITIAL_LOAD_SIZE);
-  }, [filteredIcons]);
+    // Only reset when we have actual user filter changes and icons are loaded
+    if (filteredIcons.length > 0 && !isScrollLoadingRef.current) {
+      setVisibleEnd(INITIAL_LOAD_SIZE);
+    }
+    // Clear the scroll loading flag
+    isScrollLoadingRef.current = false;
+  }, [searchTerm, selectedCategory, selectedIconPack, selectedDiagramType]); // Track actual filter changes, not filteredIcons
 
-  const visibleIcons = useMemo(
-    () => filteredIcons.slice(0, Math.min(visibleEnd, filteredIcons.length)),
-    [filteredIcons, visibleEnd]
-  );
+  const visibleIcons = useMemo(() => {
+    return filteredIcons.slice(0, Math.min(visibleEnd, filteredIcons.length));
+  }, [filteredIcons, visibleEnd]);
 
   // Simple “infinite” scroll that also works inside modals
   useEffect(() => {
@@ -110,6 +109,8 @@ export default function IconBrowser() {
       const sc = modalBody || document.documentElement;
       const { scrollTop, scrollHeight, clientHeight } = sc;
       if (scrollHeight - scrollTop <= clientHeight + 400 && visibleEnd < filteredIcons.length) {
+        // Mark that we're loading more to prevent reset during scroll
+        isScrollLoadingRef.current = true;
         setVisibleEnd(v => Math.min(v + LOAD_MORE_SIZE, filteredIcons.length));
       }
     };

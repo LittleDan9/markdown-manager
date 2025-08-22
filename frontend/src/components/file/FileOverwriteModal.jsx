@@ -1,9 +1,6 @@
 import React from "react";
+import ConfirmModal from "@/components/modals/ConfirmModal";
 
-// ...existing code...
-
-function FileOverwriteModal(props) {
-  // ...existing code...
+export default function FileOverwriteModal(props) {
+  return <ConfirmModal {...props} />;
 }
-
-export default FileOverwriteModal;

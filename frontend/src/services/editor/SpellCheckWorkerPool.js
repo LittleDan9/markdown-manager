@@ -28,6 +28,10 @@ class SpellCheckWorkerPool {
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
         worker.onerror = (err) => {
           console.error(`[SpellCheckWorkerPool] Worker #${i+1} error:`, err.message, err.filename, err.lineno, err.colno, err.error);
+          // If this is a network error due to stale bundles, suggest refresh
+          if (err.message && err.message.includes('Failed to execute \'importScripts\'')) {
+            console.warn('[SpellCheckWorkerPool] Worker failed due to stale bundle. Consider refreshing the page.');
+          }
         };
         this.workers.push(worker);
         this.idleWorkers.push(worker);
@@ -39,7 +43,7 @@ class SpellCheckWorkerPool {
         // Continue without this worker rather than failing completely
       }
     }
-    
+
     // If no workers were created successfully, log a warning but don't fail
     if (this.workers.length === 0) {
       console.warn('[SpellCheckWorkerPool] No workers could be created. Spell checking will be disabled.');

@@ -18,7 +18,7 @@ export default function useDocumentWorkflow() {
   const editor = useEditor();
   const fileOps = useFileOperations();
   const autoSave = useDocumentAutoSave();
-  const notification = useNotification();
+  const { showSuccess, showError } = useNotification();
 
   // Document state
   const documentState = useMemo(() => ({
@@ -62,15 +62,15 @@ export default function useDocumentWorkflow() {
     saveDocument: document.saveDocument,
     deleteDocument: document.deleteDocument,
     renameDocument: document.renameDocument,
-    
+
     // Content operations
     setContent: document.setContent,
-    
+
     // Category operations
     addCategory: document.addCategory,
     deleteCategory: document.deleteCategory,
     renameCategory: document.renameCategory,
-    
+
     // Editor operations
     setupEditor: editor.setupEditor,
     setTheme: editor.setTheme,
@@ -78,17 +78,17 @@ export default function useDocumentWorkflow() {
     insertText: editor.insertText,
     goToLine: editor.goToLine,
     find: editor.find,
-    
+
     // File operations
     exportMarkdown: fileOps.exportMarkdown,
     exportPDF: fileOps.exportPDF,
     importFile: fileOps.importFile,
-    
+
     // Auto-save operations
     saveNow: autoSave.saveNow,
     enableAutoSave: autoSave.enableAutoSave,
     disableAutoSave: autoSave.disableAutoSave,
-    
+
     // Sync operations
     syncWithBackend: document.syncWithBackend
   }), [
@@ -121,12 +121,12 @@ export default function useDocumentWorkflow() {
     try {
       await actions.saveNow();
       if (showNotification) {
-        notification.showSuccess('Document saved successfully');
+        showSuccess('Document saved successfully');
       }
     } catch (error) {
-      notification.showError(`Save failed: ${error.message}`);
+      showError(`Save failed: ${error.message}`);
     }
-  }, [actions.saveNow, notification]);
+  }, [actions.saveNow, showSuccess, showError]);
 
   const createAndSetup = useCallback(async () => {
     const newDoc = actions.createDocument();
@@ -143,32 +143,32 @@ export default function useDocumentWorkflow() {
         await actions.setupEditor(editor.instance, documentState.current.content);
       }
     } catch (error) {
-      notification.showError(`Failed to load document: ${error.message}`);
+      showError(`Failed to load document: ${error.message}`);
     }
-  }, [actions.loadDocument, actions.setupEditor, editor.instance, documentState.current, notification]);
+  }, [actions.loadDocument, actions.setupEditor, editor.instance, documentState.current, showError]);
 
   const exportWithFeedback = useCallback(async (format = 'markdown', filename = null) => {
     try {
       if (format === 'markdown') {
         await actions.exportMarkdown(documentState.content, filename);
-        notification.showSuccess('Markdown exported successfully');
+        showSuccess('Markdown exported successfully');
       } else if (format === 'pdf') {
         await actions.exportPDF(documentState.content, filename);
-        notification.showSuccess('PDF exported successfully');
+        showSuccess('PDF exported successfully');
       }
     } catch (error) {
-      notification.showError(`Export failed: ${error.message}`);
+      showError(`Export failed: ${error.message}`);
     }
-  }, [actions.exportMarkdown, actions.exportPDF, documentState.content, notification]);
+  }, [actions.exportMarkdown, actions.exportPDF, documentState.content, showSuccess, showError]);
 
   return {
     // State
     document: documentState,
     editor: editorState,
-    
+
     // Actions
     actions,
-    
+
     // Convenience methods
     saveAndNotify,
     createAndSetup,

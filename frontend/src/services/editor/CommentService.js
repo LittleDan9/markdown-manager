@@ -4,7 +4,7 @@
 
 import { logger } from '@/providers/LoggerProvider.jsx';
 import { HighlightService } from './index';
-import { NotificationService } from '../utilities';
+import NotificationService from '../utilities/notifications.js';
 
 // Language comment patterns
 const COMMENT_PATTERNS = {
@@ -310,7 +310,7 @@ class CommentService {
       console.log('Comment toggle: Not in a code block or no language specified');
 
       // Show a brief notification to the user
-      notification.info('Comment toggle only works inside code blocks with a specified language');
+      NotificationService.info('Comment toggle only works inside code blocks with a specified language');
       return false;
     }
 
@@ -318,7 +318,7 @@ class CommentService {
     if (!commentPattern) {
       // Language doesn't support comments
       console.log(`Comment toggle: Language '${language}' doesn't support comments`);
-      notification.warning(`Comments are not supported for ${language} code blocks`);
+      NotificationService.warning(`Comments are not supported for ${language} code blocks`);
       return false;
     }
 

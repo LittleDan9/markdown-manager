@@ -5,7 +5,7 @@
  */
 
 import DocumentStorageService from './DocumentStorageService';
-import { NotificationService } from '../utilities';
+import NotificationService from '../utilities/notifications.js';
 import AuthService from './AuthService';
 import { saveAs } from 'file-saver';
 
@@ -79,14 +79,14 @@ class DocumentService {
             const finalDoc = this._updateLocalStorageWithBackendData(localSavedDoc, backendSavedDoc);
 
             if (showNotification) {
-              notification.success('Document saved successfully');
+              NotificationService.success('Document saved successfully');
             }
 
             return finalDoc;
           }
 
           if (showNotification) {
-            notification.success('Document saved successfully');
+            NotificationService.success('Document saved successfully');
           }
 
           return backendSavedDoc || localSavedDoc;
@@ -99,11 +99,11 @@ class DocumentService {
             this._queueRetry(localSavedDoc, saveKey);
 
             if (showNotification) {
-              notification.warning('Document saved locally. Will sync when connection is restored.');
+              NotificationService.warning('Document saved locally. Will sync when connection is restored.');
             }
           } else {
             if (showNotification) {
-              notification.error(`Save to server failed: ${backendError.message}`);
+              NotificationService.error(`Save to server failed: ${backendError.message}`);
             }
           }
 
@@ -112,7 +112,7 @@ class DocumentService {
       } else {
         // Not authenticated - only local save
         if (showNotification) {
-          notification.success('Document saved successfully');
+          NotificationService.success('Document saved successfully');
         }
       }
 
@@ -121,7 +121,7 @@ class DocumentService {
       console.error('Document save failed:', error);
 
       if (showNotification) {
-        notification.error(`Failed to save document: ${error.message}`);
+        NotificationService.error(`Failed to save document: ${error.message}`);
       }
 
       throw error;
@@ -267,7 +267,7 @@ class DocumentService {
       }
 
       if (showNotification) {
-        notification.success(`Document '${deletedDoc.name}' deleted`);
+        NotificationService.success(`Document '${deletedDoc.name}' deleted`);
       }
 
       // Step 2: Delete from backend if authenticated and document exists on backend
@@ -285,7 +285,7 @@ class DocumentService {
       return deletedDoc;
     } catch (error) {
       if (showNotification) {
-        notification.error(`Failed to delete document: ${error.message}`);
+        NotificationService.error(`Failed to delete document: ${error.message}`);
       }
       throw error;
     }
@@ -469,10 +469,10 @@ class DocumentService {
       const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
       saveAs(blob, fileName);
 
-      notification.success(`Document exported as ${fileName}`);
+      NotificationService.success(`Document exported as ${fileName}`);
     } catch (error) {
       console.error('Markdown export failed:', error);
-      notification.error('Failed to export document');
+      NotificationService.error('Failed to export document');
       throw error;
     }
   }
@@ -500,10 +500,10 @@ class DocumentService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
 
-      notification.success(`Document exported as ${link.download}`);
+      NotificationService.success(`Document exported as ${link.download}`);
     } catch (error) {
       console.error('PDF export failed:', error);
-      notification.error('PDF export failed');
+      NotificationService.error('PDF export failed');
       throw error;
     }
   }
@@ -565,7 +565,7 @@ class DocumentService {
     try {
       const DocumentsApi = (await import('@/api/documentsApi')).default;
       const shareResponse = await DocumentsApi.enableSharing(documentId);
-      
+
       return shareResponse;
     } catch (error) {
       console.error('Enable sharing failed:', error);
@@ -587,7 +587,7 @@ class DocumentService {
     try {
       const DocumentsApi = (await import('@/api/documentsApi')).default;
       await DocumentsApi.disableSharing(documentId);
-      
+
       return true;
     } catch (error) {
       console.error('Disable sharing failed:', error);
@@ -606,7 +606,7 @@ class DocumentService {
       return await DocumentsApi.getSharedDocument(shareToken);
     } catch (error) {
       console.error('Failed to load shared document:', error);
-      notification.error('Shared document not found or sharing has been disabled');
+      NotificationService.error('Shared document not found or sharing has been disabled');
       throw error;
     }
   }
