@@ -1,24 +1,12 @@
 import { useCallback } from 'react';
+import { useCodeFenceDetection } from './useCodeFenceDetection';
 
 /**
- * Custom hook for markdown insertion logic
- * Handles code fence detection and markdown text manipulation
+ * Custom hook for text formatting (bold, italic, code, links, etc.)
+ * Handles complex selection logic and formatting toggle
  */
-export function useMarkdownInsertion(editorRef) {
-  const isInCodeFence = useCallback((editor, position) => {
-    const model = editor.getModel();
-    let inCodeFence = false;
-
-    // Check from start of document to current position
-    for (let i = 1; i <= position.lineNumber; i++) {
-      const lineContent = model.getLineContent(i);
-      if (lineContent.trim().startsWith('```')) {
-        inCodeFence = !inCodeFence;
-      }
-    }
-
-    return inCodeFence;
-  }, []);
+export function useTextFormatting(editorRef) {
+  const { isInCodeFence } = useCodeFenceDetection();
 
   const insertMarkdown = useCallback((before, after = '', placeholder = '') => {
     if (!editorRef.current) return;
@@ -158,147 +146,5 @@ export function useMarkdownInsertion(editorRef) {
     editor.focus();
   }, [editorRef, isInCodeFence]);
 
-  const insertHeading = useCallback((level) => {
-    if (!editorRef.current) return;
-
-    const editor = editorRef.current;
-    const position = editor.getPosition();
-    const model = editor.getModel();
-
-    // Check if we're in a code fence
-    if (isInCodeFence(editor, position)) {
-      return;
-    }
-
-    const lineContent = model.getLineContent(position.lineNumber);
-    const headingMarks = '#'.repeat(level);
-
-    // If line is empty or doesn't start with #, add heading
-    if (!lineContent.trim() || !lineContent.trim().startsWith('#')) {
-      const newText = lineContent.trim() ? `${headingMarks} ${lineContent.trim()}` : `${headingMarks} Heading ${level}`;
-
-      editor.executeEdits('markdown-toolbar', [
-        {
-          range: {
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: lineContent.length + 1
-          },
-          text: newText
-        }
-      ]);
-
-      // Select the heading text (excluding the # marks)
-      editor.setSelection({
-        startLineNumber: position.lineNumber,
-        startColumn: headingMarks.length + 2,
-        endLineNumber: position.lineNumber,
-        endColumn: newText.length + 1
-      });
-    }
-
-    editor.focus();
-  }, [editorRef, isInCodeFence]);
-
-  const insertList = useCallback((ordered = false) => {
-    if (!editorRef.current) return;
-
-    const editor = editorRef.current;
-    const position = editor.getPosition();
-    const model = editor.getModel();
-
-    // Check if we're in a code fence
-    if (isInCodeFence(editor, position)) {
-      return;
-    }
-
-    const lineContent = model.getLineContent(position.lineNumber);
-    const listMarker = ordered ? '1. ' : '- ';
-
-    if (lineContent.trim() === '') {
-      // Empty line - add list item
-      editor.executeEdits('markdown-toolbar', [
-        {
-          range: {
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: lineContent.length + 1
-          },
-          text: `${listMarker}List item`
-        }
-      ]);
-
-      // Select "List item" text
-      editor.setSelection({
-        startLineNumber: position.lineNumber,
-        startColumn: listMarker.length + 1,
-        endLineNumber: position.lineNumber,
-        endColumn: listMarker.length + 10
-      });
-    } else {
-      // Add list marker to existing text
-      const newText = `${listMarker}${lineContent.trim()}`;
-      editor.executeEdits('markdown-toolbar', [
-        {
-          range: {
-            startLineNumber: position.lineNumber,
-            startColumn: 1,
-            endLineNumber: position.lineNumber,
-            endColumn: lineContent.length + 1
-          },
-          text: newText
-        }
-      ]);
-    }
-
-    editor.focus();
-  }, [editorRef, isInCodeFence]);
-
-  const insertHorizontalRule = useCallback(() => {
-    if (!editorRef.current) return;
-
-    const editor = editorRef.current;
-    const position = editor.getPosition();
-    const model = editor.getModel();
-
-    // Check if we're in a code fence
-    if (isInCodeFence(editor, position)) {
-      return;
-    }
-
-    const lineContent = model.getLineContent(position.lineNumber);
-
-    // If current line is not empty, add a new line before the HR
-    const hrText = lineContent.trim() === '' ? '---' : '\n---';
-
-    editor.executeEdits('markdown-toolbar', [
-      {
-        range: {
-          startLineNumber: position.lineNumber,
-          startColumn: lineContent.length + 1,
-          endLineNumber: position.lineNumber,
-          endColumn: lineContent.length + 1
-        },
-        text: hrText
-      }
-    ]);
-
-    // Position cursor after the HR
-    const newLineNumber = lineContent.trim() === '' ? position.lineNumber : position.lineNumber + 1;
-    editor.setPosition({
-      lineNumber: newLineNumber + 1,
-      column: 1
-    });
-
-    editor.focus();
-  }, [editorRef, isInCodeFence]);
-
-  return {
-    insertMarkdown,
-    insertHeading,
-    insertList,
-    insertHorizontalRule
-  };
+  return { insertMarkdown };
 }
