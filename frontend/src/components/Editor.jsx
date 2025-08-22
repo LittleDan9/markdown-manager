@@ -9,8 +9,8 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null);
   const { currentDocument } = useDocumentContext();
 
-  // Get the category ID from the current document
-  const categoryId = currentDocument?.category_id;
+  // Get the category from the current document (string name, not ID)
+  const categoryId = currentDocument?.category;
 
   // Create a ref to track current categoryId for dynamic access
   const categoryIdRef = useRef(categoryId);

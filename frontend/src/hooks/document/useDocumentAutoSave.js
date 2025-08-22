@@ -21,24 +21,46 @@ export default function useDocumentAutoSave(
 ) {
   const timeoutRef = useRef();
   const isSavingRef = useRef(false);
+  const lastSavedContentRef = useRef('');
 
   // Unified auto-save callback
   const runAutoSave = useCallback(async () => {
     if (isSharedView) return;
     if (!autosaveEnabled) return;
     if (!currentDocument) return;
+
+    // Check if content has actually changed since last save
+    if (content === lastSavedContentRef.current) {
+      console.log('Auto-save skipped: no content changes detected');
+      return;
+    }
+
     try {
+      console.log('Auto-save triggered: content has changed');
       const docWithCurrentContent = { ...currentDocument, content };
       await saveDocument(docWithCurrentContent, false); // No notifications for auto-save
+      lastSavedContentRef.current = content; // Update last saved content
     } catch (error) {
+      console.error('Auto-save failed:', error);
       // Optionally handle/log error
     }
   }, [currentDocument, content, saveDocument, autosaveEnabled, isSharedView]);
+
+  // Update last saved content when currentDocument changes (manual save, load, etc.)
+  useEffect(() => {
+    if (currentDocument && currentDocument.content !== undefined) {
+      lastSavedContentRef.current = currentDocument.content;
+    }
+  }, [currentDocument]);
 
   // Debounced auto-save effect
   useEffect(() => {
     if (!autosaveEnabled || isSharedView) return;
     if (!currentDocument) return;
+
+    // Only trigger auto-save if content has actually changed
+    if (content === lastSavedContentRef.current) return;
+
     clearTimeout(timeoutRef.current);
     timeoutRef.current = setTimeout(runAutoSave, delay);
     return () => clearTimeout(timeoutRef.current);

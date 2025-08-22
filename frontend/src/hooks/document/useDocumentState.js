@@ -331,13 +331,26 @@ export default function useDocumentState(notification, auth) {
     if (!category || !category.trim()) {
       return DocumentService.getCategories();
     }
+
+    // First, create the category on the backend if authenticated
+    if (isAuthenticated && token) {
+      try {
+        const documentsApi = (await import('@/api/documentsApi')).default;
+        await documentsApi.addCategory(category.trim());
+      } catch (error) {
+        console.error('Failed to create category on backend:', error);
+        // Still continue to update the document locally
+      }
+    }
+
+    // Update the current document to use the new category
     const updatedDoc = { ...currentDocument, category: category.trim() };
     const saved = await saveDocument(updatedDoc, false);
     if (saved) {
       DocumentStorageService.setCurrentDocument(saved);
     }
     return DocumentService.getCategories();
-  }, [currentDocument, saveDocument]);
+  }, [currentDocument, saveDocument, isAuthenticated, token]);
 
   const deleteCategory = useCallback(async (name, options = {}) => {
     if (name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {

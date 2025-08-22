@@ -15,7 +15,7 @@ import AppModals from "@/components/modals/AppModals";
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
   const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError } = useDocumentContext();
-  
+
   // UI state management via custom hook
   const uiState = useAppUIState(isSharedView);
   const {
@@ -28,12 +28,12 @@ function App() {
     setFullscreenPreview,
     setShowIconBrowser,
   } = uiState;
-  
+
   // Setup global keyboard shortcuts (Ctrl+S, etc.)
   useGlobalKeyboardShortcuts();
 
-  // Setup auto-save management
-  useDocumentAutoSave(currentDocument, content, saveDocument, autosaveEnabled, isSharedView, 5000);
+  // Setup auto-save management (30 seconds delay, only when content changes)
+  useDocumentAutoSave(currentDocument, content, saveDocument, autosaveEnabled, isSharedView, 30000);
 
   // Handle shared view effects
   useSharedViewEffects(isSharedView, sharedDocument, content, setContent, setFullscreenPreview);

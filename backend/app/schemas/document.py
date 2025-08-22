@@ -10,10 +10,7 @@ class DocumentBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=255)
     content: str = Field(..., description="Markdown content")
-    category: str = Field(default="General", max_length=100)
-    category_id: Optional[int] = Field(
-        None, description="Category ID for dictionary scope"
-    )
+    category_id: int = Field(..., description="Category ID (required)")
 
 
 class DocumentCreate(DocumentBase):
@@ -27,7 +24,6 @@ class DocumentUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=255)
     content: Optional[str] = Field(None, description="Markdown content")
-    category: Optional[str] = Field(None, max_length=100)
     category_id: Optional[int] = Field(
         None, description="Category ID for dictionary scope"
     )
@@ -42,6 +38,7 @@ class DocumentInDB(DocumentBase):
     updated_at: datetime
     is_shared: bool = False
     share_token: Optional[str] = None
+    category: Optional[str] = None  # This will be populated by the CRUD layer
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -93,8 +90,8 @@ class SharedDocument(BaseModel):
     id: int
     name: str
     content: str
-    category: str
-    category_id: Optional[int] = Field(None, description="Category ID")
+    category: Optional[str] = None  # Will be populated by CRUD layer
+    category_id: int = Field(..., description="Category ID")
     updated_at: datetime
     author_name: str
 

@@ -10,7 +10,7 @@ import { DictionaryService } from '@/services/utilities';
 export function useDictionaryState() {
   const { user, isAuthenticated } = useAuth();
   const { categories: documentCategories } = useDocumentContext();
-  
+
   // Core state
   const [entries, setEntries] = useState([]);
   const [categories, setCategories] = useState([]);
@@ -30,20 +30,36 @@ export function useDictionaryState() {
   // Load categories
   const loadCategories = useCallback(async () => {
     try {
-      console.log('Loading categories...');
       const categoriesData = await DictionaryService.getCategories();
-      console.log('Categories loaded:', categoriesData);
-      setCategories(categoriesData);
+
+      // If backend returns empty categories, use fallback categories that match document categories
+      if (!categoriesData || categoriesData.length === 0) {
+        console.log('No categories found in backend, using document fallback categories');
+        // Don't use hardcoded IDs as they are user-specific and will vary
+        // Use null IDs for fallback categories to avoid conflicts
+        const fallbackCategories = [
+          { id: null, name: 'General' },
+          { id: null, name: 'Drafts' }
+        ];
+        setCategories(fallbackCategories);
+      } else {
+        setCategories(categoriesData);
+      }
     } catch (error) {
       console.error('Failed to load categories:', error);
-      // Don't throw - categories are optional
+      // Use fallback categories without hardcoded IDs
+      const fallbackCategories = [
+        { id: null, name: 'General' },
+        { id: null, name: 'Drafts' }
+      ];
+      setCategories(fallbackCategories);
     }
-  }, []);
+  }, [isAuthenticated]);
 
   // Load dictionary entries
   const loadEntries = useCallback(async () => {
     console.log('loadEntries called with selectedCategory:', selectedCategory);
-    
+
     // Update local word count first
     await updateLocalWordCount();
 
@@ -95,15 +111,22 @@ export function useDictionaryState() {
       loadCategories();
     } else {
       // For unauthenticated users, use the actual document categories
-      const formattedCategories = documentCategories
+      let categoriesToUse = documentCategories;
+
+      // Fallback if documentCategories is empty or undefined
+      if (!categoriesToUse || categoriesToUse.length === 0) {
+        setCategories([]);
+        return;
+      }
+
+      const formattedCategories = categoriesToUse
         .map(categoryName => ({
           id: categoryName,
           name: categoryName
         }));
-      console.log('Using document categories for dictionary:', formattedCategories);
       setCategories(formattedCategories);
     }
-  }, [isAuthenticated, documentCategories, loadCategories]);
+  }, [isAuthenticated, documentCategories]);
 
   // Handle authentication state changes for syncing
   useEffect(() => {
@@ -111,13 +134,13 @@ export function useDictionaryState() {
       // Auto-sync when user logs in
       syncWithBackend().catch(console.error);
     }
-  }, [isAuthenticated, syncWithBackend]);
+  }, [isAuthenticated]); // Removed syncWithBackend from dependency array
 
   // Load entries when component mounts or category changes
   useEffect(() => {
     updateLocalWordCount();
     loadEntries().catch(console.error);
-  }, [user, isAuthenticated, selectedCategory, updateLocalWordCount, loadEntries]);
+  }, [user, isAuthenticated, selectedCategory]); // Removed updateLocalWordCount, loadEntries from dependency array
 
   // Listen for dictionary update events
   useEffect(() => {
@@ -146,7 +169,7 @@ export function useDictionaryState() {
     loading,
     syncing,
     isAuthenticated,
-    
+
     // Actions
     setSelectedCategory: handleCategoryChange,
     loadEntries,

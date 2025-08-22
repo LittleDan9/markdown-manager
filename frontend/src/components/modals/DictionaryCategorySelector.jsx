@@ -3,14 +3,19 @@ import { Form } from 'react-bootstrap';
 
 /**
  * Category selector component for dictionary scope selection
+ * Matches the original functionality from main branch
  */
-export function DictionaryCategorySelector({ 
-  categories, 
-  selectedCategory, 
-  onCategoryChange, 
-  loading 
+export function DictionaryCategorySelector({
+  categories,
+  selectedCategory,
+  onCategoryChange,
+  loading,
+  isAuthenticated
 }) {
-  if (categories.length === 0) return null;
+  // Show when categories are available
+  if (!categories || categories.length === 0) {
+    return null;
+  }
 
   return (
     <div className="mb-3">
@@ -18,7 +23,10 @@ export function DictionaryCategorySelector({
         <Form.Label>Dictionary Scope</Form.Label>
         <Form.Select
           value={selectedCategory}
-          onChange={(e) => onCategoryChange(e.target.value)}
+          onChange={(e) => {
+            console.log('Category changed from', selectedCategory, 'to', e.target.value);
+            onCategoryChange(e.target.value);
+          }}
           disabled={loading}
         >
           <option value="">Personal Dictionary (All Documents)</option>
@@ -29,9 +37,9 @@ export function DictionaryCategorySelector({
           ))}
         </Form.Select>
         <Form.Text className="text-muted">
-          {selectedCategory 
-            ? `Words added here will only apply to ${categories.find(c => c.id === selectedCategory)?.name || 'this'} category documents.`
-            : 'Words added here will apply to all documents regardless of category.'
+          {isAuthenticated
+            ? "Choose whether to manage your personal dictionary or a category-specific dictionary."
+            : "Category selection available after login. Currently showing demo categories."
           }
         </Form.Text>
       </Form.Group>

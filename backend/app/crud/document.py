@@ -108,22 +108,44 @@ class DocumentCRUD:
         return int(exec_result.rowcount)
 
     async def get(self, db: AsyncSession, id: int) -> Optional[Document]:
-        """Get a document by ID."""
-        result = await db.execute(select(Document).filter(Document.id == id))
-        return result.scalar_one_or_none()
+        """Get a document by ID with category name."""
+        from app.models.category import Category
+
+        result = await db.execute(
+            select(Document, Category.name.label('category_name'))
+            .join(Category, Document.category_id == Category.id)
+            .filter(Document.id == id)
+        )
+        row = result.first()
+        if row:
+            document = row.Document
+            # Add category name to the document object
+            document.category = row.category_name
+            return document
+        return None
 
     async def get_by_user(
         self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
     ) -> List[Document]:
-        """Get all documents for a user."""
+        """Get all documents for a user with category names."""
+        from app.models.category import Category
+
         result = await db.execute(
-            select(Document)
+            select(Document, Category.name.label('category_name'))
+            .join(Category, Document.category_id == Category.id)
             .filter(Document.user_id == user_id)
             .order_by(Document.updated_at.desc())
             .offset(skip)
             .limit(limit)
         )
-        return list(result.scalars().all())
+
+        documents = []
+        for row in result:
+            document = row.Document
+            # Add category name to the document object
+            document.category = row.category_name
+            documents.append(document)
+        return documents
 
     async def get_by_user_and_category(
         self,
@@ -133,15 +155,25 @@ class DocumentCRUD:
         skip: int = 0,
         limit: int = 100,
     ) -> List[Document]:
-        """Get documents for a user filtered by category."""
+        """Get documents for a user filtered by category name."""
+        from app.models.category import Category
+
         result = await db.execute(
-            select(Document)
-            .filter(Document.user_id == user_id, Document.category == category)
+            select(Document, Category.name.label('category_name'))
+            .join(Category, Document.category_id == Category.id)
+            .filter(Document.user_id == user_id, Category.name == category)
             .order_by(Document.updated_at.desc())
             .offset(skip)
             .limit(limit)
         )
-        return list(result.scalars().all())
+
+        documents = []
+        for row in result:
+            document = row.Document
+            # Add category name to the document object
+            document.category = row.category_name
+            documents.append(document)
+        return documents
 
     async def create(
         self,
@@ -149,15 +181,32 @@ class DocumentCRUD:
         user_id: int,
         name: str,
         content: str,
-        category: str = "General",
+        category_id: int,
     ) -> Document:
-        """Create a new document."""
+        """Create a new document with a category_id."""
+        # Validate that the category exists and belongs to the user
+        from app.models.category import Category
+
+        result = await db.execute(
+            select(Category).filter(
+                Category.id == category_id,
+                Category.user_id == user_id
+            )
+        )
+        category_obj = result.scalar_one_or_none()
+        if not category_obj:
+            raise ValueError(f"Category with ID {category_id} not found for user")
+
         document = Document(
-            name=name, content=content, category=category, user_id=user_id
+            name=name,
+            content=content,
+            category_id=category_id,
+            user_id=user_id
         )
         db.add(document)
         await db.commit()
         await db.refresh(document)
+        return document
         return document
 
     async def update(
@@ -167,7 +216,7 @@ class DocumentCRUD:
         user_id: int,
         name: Optional[str] = None,
         content: Optional[str] = None,
-        category: Optional[str] = None,
+        category_id: Optional[int] = None,
     ) -> Optional[Document]:
         """Update a document if it belongs to the user. Sets updated_at to current UTC time."""
         from datetime import datetime, timezone
@@ -185,8 +234,20 @@ class DocumentCRUD:
             document.name = name
         if content is not None:
             document.content = content
-        if category is not None:
-            document.category = category
+        if category_id is not None:
+            # Validate that the category exists and belongs to the user
+            from app.models.category import Category
+            result = await db.execute(
+                select(Category).filter(
+                    Category.id == category_id,
+                    Category.user_id == user_id
+                )
+            )
+            category_obj = result.scalar_one_or_none()
+            if not category_obj:
+                raise ValueError(f"Category with ID {category_id} not found for user")
+
+            document.category_id = category_id
 
         # Always set updated_at to current UTC time
         document.updated_at = datetime.now(timezone.utc)
@@ -212,11 +273,11 @@ class DocumentCRUD:
 
     async def get_categories_by_user(self, db: AsyncSession, user_id: int) -> List[str]:
         """Get all categories used by a user's documents."""
-        result = await db.execute(
-            select(Document.category).filter(Document.user_id == user_id).distinct()
-        )
-        categories = result.scalars().all()
-        return list(categories)
+        from app.crud.category import get_user_categories
+
+        # Get categories from the categories table for this user
+        categories = await get_user_categories(db, user_id)
+        return [cat.name for cat in categories]
 
     async def delete_documents_in_category_for_user(
         self, db: AsyncSession, user_id: int, category: str
@@ -285,12 +346,21 @@ class DocumentCRUD:
         self, db: AsyncSession, share_token: str
     ) -> Optional[Document]:
         """Get a document by its share token if sharing is enabled."""
+        from app.models.category import Category
+
         result = await db.execute(
-            select(Document)
+            select(Document, Category.name.label('category_name'))
+            .join(Category, Document.category_id == Category.id)
             .options(selectinload(Document.owner))
             .filter(Document.share_token == share_token, Document.is_shared.is_(True))
         )
-        return result.scalar_one_or_none()
+        row = result.first()
+        if row:
+            document = row.Document
+            # Add category name to the document object
+            document.category = row.category_name
+            return document
+        return None
 
 
 # Create a singleton instance

@@ -8,11 +8,11 @@ export function useDictionaryUI() {
   // Form state
   const [newWord, setNewWord] = useState('');
   const [newWordNotes, setNewWordNotes] = useState('');
-  
+
   // Modal and edit state
   const [deleteConfirm, setDeleteConfirm] = useState(null);
   const [editingEntry, setEditingEntry] = useState(null);
-  
+
   // Notification state
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -45,7 +45,7 @@ export function useDictionaryUI() {
   const handleFormSubmit = useCallback((e, onSubmit) => {
     e.preventDefault();
     clearNotifications();
-    
+
     if (onSubmit) {
       onSubmit(newWord, newWordNotes)
         .then((result) => {
@@ -69,17 +69,11 @@ export function useDictionaryUI() {
     setEditingEntry(null);
   }, []);
 
-  const saveEdit = useCallback(async (onUpdate) => {
-    if (!editingEntry || !onUpdate) return;
-
-    try {
-      const updatedEntry = await onUpdate(editingEntry, editingEntry.tempNotes);
-      setEditingEntry(null);
-      return updatedEntry;
-    } catch (err) {
-      // Error handling is done in the operation hook
-    }
-  }, [editingEntry]);
+  const saveEdit = useCallback((entry, notes) => {
+    setEditingEntry(null);
+    // Return the values to be used by the parent component
+    return { entry, notes };
+  }, []);
 
   const updateEditNotes = useCallback((notes) => {
     if (editingEntry) {

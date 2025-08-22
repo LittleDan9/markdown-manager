@@ -156,7 +156,7 @@ async def create_document(
         select(Document).filter(
             Document.user_id == current_user.id,
             Document.name == document_data.name,
-            Document.category == document_data.category,
+            Document.category_id == document_data.category_id,
         )
     )
     existing_doc = existing_result.scalar_one_or_none()
@@ -186,7 +186,7 @@ async def create_document(
         user_id=current_user.id,
         name=document_data.name,
         content=document_data.content,
-        category=document_data.category,
+        category_id=document_data.category_id,
     )
     return document
 
@@ -218,7 +218,7 @@ async def update_document(
         user_id=current_user.id,
         name=document_data.name,
         content=document_data.content,
-        category=document_data.category,
+        category_id=document_data.category_id,
     )
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
