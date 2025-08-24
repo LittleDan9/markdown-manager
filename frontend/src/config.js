@@ -13,8 +13,8 @@ function isDevelopment() {
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1" ||
     window.location.hostname === "api.localhost" ||
-    window.location.port === "3000" ||
-    process.env.NODE_ENV === "development"
+    window.location.port === "3000"
+    // Removed process.env.NODE_ENV check as it's unreliable in static builds
   );
 }
 
