@@ -124,21 +124,22 @@ class ProductionIconInstaller {
 
     for (const filePath of svgFiles) {
       const iconKey = path.basename(filePath, '.svg');
-      const svgContent = fs.readFileSync(filePath, 'utf-8');
+      const svg = fs.readFileSync(filePath, 'utf-8');
 
-      // Extract viewBox and dimensions from SVG
-      const viewBoxMatch = svgContent.match(/viewBox="([^"]+)"/);
-      const widthMatch = svgContent.match(/width="([^"]+)"/);
-      const heightMatch = svgContent.match(/height="([^"]+)"/);
+      const vbMatch = svg.match(/viewBox\s*=\s*"([^"]+)"/i);
+      if (!vbMatch) continue; // skip malformed
+      // x y w h
+      const [x = 0, y = 0, w = 24, h = 24] = vbMatch[1].split(/\s+/).map(Number);
 
-      // Extract body content (everything inside <svg> tags)
-      const bodyMatch = svgContent.match(/<svg[^>]*>(.*?)<\/svg>/s);
+      // Inner content
+      const bodyMatch = svg.match(/<svg[^>]*>([\s\S]*?)<\/svg>/i);
+      const body = (bodyMatch ? bodyMatch[1] : svg).trim();
 
       icons[iconKey] = {
-        body: bodyMatch ? bodyMatch[1].trim() : svgContent,
-        viewBox: viewBoxMatch ? viewBoxMatch[1] : '0 0 24 24',
-        width: widthMatch ? parseInt(widthMatch[1]) || 24 : 24,
-        height: heightMatch ? parseInt(heightMatch[1]) || 24 : 24
+        body,                         // raw inner markup (keep <defs> if present)
+        viewBox: `${x} ${y} ${w} ${h}`,
+        width: w,                     // MUST mirror viewBox width
+        height: h                     // MUST mirror viewBox height
       };
     }
 
@@ -196,19 +197,16 @@ class ProductionIconInstaller {
       const icons = {};
 
       for (const [iconKey, iconData] of Object.entries(iconsData.icons || {})) {
-        // Generate search terms from icon key and pack info
-        const searchTerms = [
-          iconKey.replace(/[-_]/g, ' '),
-          packName.replace(/[-_]/g, ' '),
-          iconsData.info?.name || packName,
-          'icon'
-        ].join(' ').toLowerCase();
+        const left = Number(iconData.left ?? 0);
+        const top = Number(iconData.top ?? 0);
+        const w = Number(iconData.width ?? iconsData.width ?? 24);
+        const h = Number(iconData.height ?? iconsData.height ?? 24);
 
         icons[iconKey] = {
-          body: iconData.body,
-          viewBox: `0 0 ${iconData.width || iconsData.width || 24} ${iconData.height || iconsData.height || 24}`,
-          width: iconData.width || iconsData.width || 24,
-          height: iconData.height || iconsData.height || 24
+          body: iconData.body, // includes <path>/<g> etc.
+          viewBox: `${left} ${top} ${w} ${h}`,
+          width: w,
+          height: h
         };
       }
 
