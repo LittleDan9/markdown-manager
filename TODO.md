@@ -2,6 +2,35 @@
 
 Here are some additional storage features you might consider for the modular storage system:
 
+## Development Infrastructure TODOs
+
+### Database Configuration Standardization
+**Priority: Medium** - Fix alembic.ini and env.py configuration inconsistencies
+
+**Issue**: Currently `backend/alembic.ini` defaults to SQLite but the application uses PostgreSQL in Docker environment. This causes confusion and potential migration issues.
+
+**Required Changes**:
+1. **Update `backend/alembic.ini`**: Change default `sqlalchemy.url` from SQLite to PostgreSQL:
+   ```ini
+   sqlalchemy.url = postgresql+psycopg://postgres:postgres@db:5432/markdown_manager
+   ```
+
+2. **Update test configuration**: Create test fixtures that define SQLite database for unit tests when needed:
+   - Add test-specific database URL override in test configuration
+   - Ensure tests can run isolated with SQLite in-memory database
+   - Update `backend/tests/conftest.py` to handle database switching
+
+3. **Environment handling**: Ensure `backend/migrations/env.py` properly handles both development (PostgreSQL) and test (SQLite) environments
+
+**Context**: The `.env` file already contains the correct PostgreSQL URL (`postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager`), and `env.py` already converts async URLs to sync ones for Alembic. Just need to align the default configuration.
+
+**Files to modify**:
+- `backend/alembic.ini`
+- `backend/tests/conftest.py`
+- Potentially test fixtures that need SQLite override
+
+---
+
 ## Document Versioning/History
 
 Store previous versions of documents for undo/restore functionality.

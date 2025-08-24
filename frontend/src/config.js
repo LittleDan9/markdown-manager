@@ -24,15 +24,21 @@ function isDevelopment() {
  * @returns {string} API base URL (without /api/v1 - backend serves directly)
  */
 function getApiBaseUrl() {
-  if (isDevelopment()) {
-    // Development: call backend directly on port 8000
-    // No /api/v1 path needed - backend serves endpoints directly
-    return "http://localhost:8000";
+  const isDev = isDevelopment();
+  let baseUrl;
+
+  if (isDev) {
+    // Development: Use nginx routing via api.localhost
+    // When accessing via http://localhost:80, API is at http://api.localhost:80
+    baseUrl = "http://api.localhost";
   } else {
     // Production: use api subdomain
     // Clean separation: api.littledan.com serves API directly
-    return "https://api.littledan.com";
+    baseUrl = "https://api.littledan.com";
   }
+
+  console.log('Config: isDevelopment =', isDev, ', apiBaseUrl =', baseUrl);
+  return baseUrl;
 }
 
 /**
