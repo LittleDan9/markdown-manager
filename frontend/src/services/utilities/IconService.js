@@ -78,6 +78,34 @@ class IconService {
   }
 
   /**
+   * Get available categories filtered by selected pack
+   */
+  getAvailableCategoriesForPack(packName) {
+    if (packName === 'all') {
+      return this.getAvailableCategories();
+    }
+    
+    const pack = this.iconPacks.find(p => p.name === packName);
+    if (!pack) {
+      return ['all'];
+    }
+    
+    const categories = new Set(['all']);
+    
+    // Add the pack's main category
+    if (pack.category) {
+      categories.add(pack.category);
+    }
+    
+    // Add any additional categories from the pack
+    if (pack.categories) {
+      pack.categories.forEach(cat => categories.add(cat));
+    }
+    
+    return Array.from(categories).sort();
+  }
+
+  /**
    * Get total icon count
    */
   getTotalIconCount() {

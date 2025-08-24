@@ -31,19 +31,22 @@ class IconService:
         """Search icons with pagination and filtering."""
         query = select(IconMetadata).options(selectinload(IconMetadata.pack))
 
+        # Apply pack and category filters - need to join only once
+        join_needed = search_request.pack != "all" or search_request.category != "all"
+        if join_needed:
+            query = query.join(IconPack)
+            
+            if search_request.pack != "all":
+                query = query.where(IconPack.name == search_request.pack)
+                
+            if search_request.category != "all":
+                query = query.where(IconPack.category == search_request.category)
+
         # Apply search filter
         if search_request.q:
             query = query.where(
                 IconMetadata.search_terms.ilike(f"%{search_request.q}%")
             )
-
-        # Apply pack filter
-        if search_request.pack != "all":
-            query = query.join(IconPack).where(IconPack.name == search_request.pack)
-
-        # Apply category filter
-        if search_request.category != "all":
-            query = query.join(IconPack).where(IconPack.category == search_request.category)
 
         # Order by popularity (access_count) and then by key
         query = query.order_by(desc(IconMetadata.access_count), IconMetadata.key)
