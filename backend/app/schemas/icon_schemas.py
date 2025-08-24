@@ -1,0 +1,196 @@
+"""Icon schemas for API requests and responses."""
+from datetime import datetime
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class IconPackBase(BaseModel):
+    """Base icon pack schema."""
+
+    name: str = Field(..., description="Unique identifier like 'awssvg', 'logos'")
+    display_name: str = Field(..., description="Human readable name like 'AWS Services'")
+    category: str = Field(..., description="Grouping like 'aws', 'iconify'")
+    description: Optional[str] = Field(None, description="Description of the icon pack")
+
+
+class IconPackCreate(IconPackBase):
+    """Icon pack creation schema."""
+
+    icon_count: int = Field(0, ge=0, description="Number of icons in this pack")
+
+
+class IconPackResponse(IconPackBase):
+    """Icon pack response schema."""
+
+    id: int
+    icon_count: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IconMetadataBase(BaseModel):
+    """Base icon metadata schema."""
+
+    key: str = Field(..., description="Icon identifier within pack")
+    search_terms: str = Field(..., description="Space-separated search terms")
+    icon_data: Optional[Dict[str, Any]] = Field(None, description="JSONB data for icon")
+    file_path: Optional[str] = Field(None, description="File path for SVG files")
+
+
+class IconMetadataCreate(IconMetadataBase):
+    """Icon metadata creation schema."""
+
+    pack_id: int = Field(..., description="ID of the icon pack")
+    full_key: str = Field(..., description="Computed pack.name:key")
+
+
+class IconMetadataResponse(IconMetadataBase):
+    """Icon metadata response schema."""
+
+    id: int
+    pack_id: int
+    full_key: str
+    access_count: int
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    pack: Optional[IconPackResponse] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class IconSearchRequest(BaseModel):
+    """Icon search request schema."""
+
+    q: str = Field("", description="Search term")
+    pack: str = Field("all", description="Filter by pack name")
+    category: str = Field("all", description="Filter by category")
+    page: int = Field(0, ge=0, description="Page number for pagination")
+    size: int = Field(24, ge=1, le=100, description="Number of results per page")
+
+
+class IconSearchResponse(BaseModel):
+    """Icon search response schema with pagination."""
+
+    icons: List[IconMetadataResponse]
+    total: int = Field(..., description="Total number of matching icons")
+    page: int = Field(..., description="Current page number")
+    size: int = Field(..., description="Number of results per page")
+    pages: int = Field(..., description="Total number of pages")
+    has_next: bool = Field(..., description="Whether there are more pages")
+    has_prev: bool = Field(..., description="Whether there are previous pages")
+
+
+class IconBatchRequest(BaseModel):
+    """Batch icon request schema."""
+
+    icon_keys: List[str] = Field(..., description="List of full icon keys (pack:key)")
+    include_svg: bool = Field(False, description="Whether to include SVG content")
+
+
+class IconBatchResponse(BaseModel):
+    """Batch icon response schema."""
+
+    icons: List[IconMetadataResponse]
+    not_found: List[str] = Field(description="Keys that were not found")
+
+
+class IconSVGResponse(BaseModel):
+    """Icon SVG content response schema."""
+
+    content: str = Field(..., description="SVG content as string")
+    content_type: str = Field(default="image/svg+xml", description="MIME type")
+    cache_control: str = Field(default="public, max-age=3600", description="Cache headers")
+
+
+class IconPackListResponse(BaseModel):
+    """Icon pack list response schema."""
+
+    packs: List[IconPackResponse]
+    total: int = Field(..., description="Total number of packs")
+
+
+class IconUsageTrackingRequest(BaseModel):
+    """Icon usage tracking request schema."""
+
+    pack: str = Field(..., description="Pack name")
+    key: str = Field(..., description="Icon key")
+    user_id: Optional[int] = Field(None, description="User ID if authenticated")
+
+
+class IconPackInstallRequest(BaseModel):
+    """Icon pack installation request schema."""
+
+    pack_data: Dict[str, Any] = Field(..., description="Raw data from icon package")
+    mapping_config: Dict[str, str] = Field(..., description="Data mapping configuration")
+    package_type: str = Field("json", description="Package type: 'json', 'svg_files', or 'mixed'")
+
+
+class IconPackUpdateRequest(BaseModel):
+    """Icon pack update request schema."""
+
+    pack_data: Dict[str, Any] = Field(..., description="Raw data from icon package")
+    mapping_config: Dict[str, str] = Field(..., description="Data mapping configuration")
+    package_type: str = Field("json", description="Package type: 'json', 'svg_files', or 'mixed'")
+
+
+class IconPackDeleteResponse(BaseModel):
+    """Icon pack deletion response schema."""
+
+    success: bool = Field(..., description="Whether the deletion was successful")
+    message: str = Field(..., description="Status message")
+
+
+class IconPackStatisticsResponse(BaseModel):
+    """Icon pack statistics response schema."""
+
+    total_packs: int = Field(..., description="Total number of icon packs")
+    total_icons: int = Field(..., description="Total number of icons")
+    pack_breakdown: Dict[str, int] = Field(..., description="Breakdown by category")
+    popular_icons: List[Dict[str, Any]] = Field(..., description="Most popular icons")
+
+
+class MappingConfigExample(BaseModel):
+    """Example mapping configuration schemas for different package types."""
+
+    json_package: Dict[str, str] = Field(
+        default={
+            "name": "info.name",
+            "display_name": "info.displayName",
+            "category": "static:iconify",
+            "description": "info.description",
+            "icons_data": "icons",
+            "width": "width",
+            "height": "height",
+            "svg": "body"
+        },
+        description="Example mapping for JSON-based packages like Iconify"
+    )
+
+    svg_files_package: Dict[str, str] = Field(
+        default={
+            "name": "static:aws-icons",
+            "display_name": "static:AWS Service Icons",
+            "category": "static:aws",
+            "description": "static:Official AWS service icons",
+            "files_path": "files",
+            "base_path": "/path/to/svg/files",
+            "file_path": "path",
+            "key": "name"
+        },
+        description="Example mapping for SVG file-based packages like AWS icons"
+    )
+
+    mixed_package: Dict[str, str] = Field(
+        default={
+            "name": "package.name",
+            "display_name": "package.displayName",
+            "category": "package.category",
+            "json_icons_data": "icons",
+            "files_path": "svg_files",
+            "base_path": "/path/to/files"
+        },
+        description="Example mapping for mixed packages with both JSON and files"
+    )

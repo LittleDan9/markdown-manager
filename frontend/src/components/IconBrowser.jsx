@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
 import { useLogger } from '../providers/LoggerProvider';
-import { IconPackManager } from '@/services/utilities';
+import { IconService } from '@/services/utilities';
 
 const ITEMS_PER_ROW = 4;
 const INITIAL_LOAD_SIZE = 24; // 6 rows
@@ -34,57 +34,212 @@ export default function IconBrowser() {
   const [error, setError] = useState(null);
   const [visibleEnd, setVisibleEnd] = useState(INITIAL_LOAD_SIZE);
   const [copied, setCopied] = useState('');
+  
+  // Add error resilience state
+  const [errorCount, setErrorCount] = useState(0);
+  const [lastErrorTime, setLastErrorTime] = useState(0);
+  const [isRetryDisabled, setIsRetryDisabled] = useState(false);
+  const [retryCountdown, setRetryCountdown] = useState(0);
 
   // Ref to track if we're in the middle of a scroll-triggered load
   const isScrollLoadingRef = useRef(false);
 
-  // One-time load
+  // Update retry countdown timer
   useEffect(() => {
-    (async () => {
+    if (!isRetryDisabled) return;
+    
+    const interval = setInterval(() => {
+      const now = Date.now();
+      const elapsed = now - lastErrorTime;
+      const minRetryDelay = Math.min(5000 * Math.pow(2, errorCount), 30000);
+      const remaining = Math.max(0, minRetryDelay - elapsed);
+      
+      if (remaining <= 0) {
+        setIsRetryDisabled(false);
+        setRetryCountdown(0);
+      } else {
+        setRetryCountdown(Math.ceil(remaining / 1000));
+      }
+    }, 1000);
+    
+    return () => clearInterval(interval);
+  }, [isRetryDisabled, lastErrorTime, errorCount]);
+
+  // Retry function for error handling with exponential backoff
+  const retryLoading = useCallback(async () => {
+    const now = Date.now();
+    
+    // Prevent rapid retries - use exponential backoff
+    const minRetryDelay = Math.min(5000 * Math.pow(2, errorCount), 30000); // Max 30 seconds
+    if (now - lastErrorTime < minRetryDelay) {
+      setIsRetryDisabled(true);
+      setTimeout(() => setIsRetryDisabled(false), minRetryDelay - (now - lastErrorTime));
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError(null);
+      setIsRetryDisabled(false);
+      
+      await IconService.loadAllIconPacks();
+
+      const packs = IconService.getAvailableIconPacks();
+      const categories = IconService.getAvailableCategories();
+      const totalCount = IconService.getTotalIconCount();
+
+      setAvailableIconPacks(packs);
+      setAvailableCategories(categories);
+      setTotalIconCount(totalCount);
+      
+      // Reset error count on success
+      setErrorCount(0);
+      setLastErrorTime(0);
+
+    } catch (e) {
+      log.error('Failed to load icons', e);
+      setError(`Failed to load icons: ${e.message}. Check console for details.`);
+      
+      // Track error for backoff
+      setErrorCount(prev => prev + 1);
+      setLastErrorTime(now);
+    } finally {
+      setLoading(false);
+    }
+  }, [log, errorCount, lastErrorTime]);
+
+  // Update categories when icon pack changes
+  useEffect(() => {
+    if (IconService.isLoaded()) {
+      const newCategories = IconService.getAvailableCategoriesForPack(selectedIconPack);
+      setAvailableCategories(newCategories);
+      
+      // Reset category to 'all' if current category is not available in the new pack
+      if (selectedCategory !== 'all' && !newCategories.includes(selectedCategory)) {
+        setSelectedCategory('all');
+      }
+      
+      // Reset error state when user changes pack - give them a fresh chance
+      if (errorCount > 0) {
+        setErrorCount(0);
+        setLastErrorTime(0);
+      }
+    }
+  }, [selectedIconPack, selectedCategory, errorCount]);
+
+  // One-time load with its own error handling
+  useEffect(() => {
+    const initialLoad = async () => {
       try {
         setLoading(true);
         setError(null);
-        await IconPackManager.loadAllIconPacks();
+        
+        await IconService.loadAllIconPacks();
 
-        const packs = IconPackManager.getAvailableIconPacks();
-        const categories = IconPackManager.getAvailableCategories();
-        const totalCount = IconPackManager.getTotalIconCount();
+        const packs = IconService.getAvailableIconPacks();
+        const categories = IconService.getAvailableCategories();
+        const totalCount = IconService.getTotalIconCount();
 
         setAvailableIconPacks(packs);
         setAvailableCategories(categories);
         setTotalIconCount(totalCount);
-
+        
       } catch (e) {
-        log.error('Failed to load icons', e);
+        log.error('Failed to load icons on initial load', e);
         setError(`Failed to load icons: ${e.message}. Check console for details.`);
+        setErrorCount(1);
+        setLastErrorTime(Date.now());
       } finally {
         setLoading(false);
       }
-    })();
-  }, []); // Remove log dependency to prevent infinite loop
+    };
+    
+    initialLoad();
+  }, []); // No dependencies to prevent loops
 
   // Persist diagram type
   useEffect(() => {
     localStorage.setItem('iconBrowser_diagramType', selectedDiagramType);
   }, [selectedDiagramType]);
 
-  // Compute filtered icons via memo (KISS — no extra effects)
-  const filteredIcons = useMemo(() => {
-    if (!IconPackManager.isLoaded()) {
-      return [];
-    }
+  // Compute filtered icons via memo with async handling
+  const [filteredIcons, setFilteredIcons] = useState([]);
+  const [searchLoading, setSearchLoading] = useState(false);
 
-    const list = IconPackManager.searchIcons(
-      searchTerm,
-      selectedCategory,
-      selectedIconPack
-    );
+  // Handle search when filters change or when service becomes loaded
+  useEffect(() => {
+    const searchIcons = async () => {
+      // Early return if service not loaded
+      if (!IconService.isLoaded()) {
+        setFilteredIcons([]);
+        return;
+      }
 
-    return list.map(icon => ({
-      ...icon,
-      usage: IconPackManager.generateUsageExample(icon.prefix, icon.key, selectedDiagramType)
-    }));
-  }, [searchTerm, selectedCategory, selectedIconPack, selectedDiagramType, loading]); // Added loading dependency so it recalculates when icons finish loading
+      // Skip search if we're in an error state with high error count
+      if (errorCount >= 3) {
+        setFilteredIcons([]);
+        return;
+      }
+
+      try {
+        setSearchLoading(true);
+        setError(null); // Clear any previous errors only when we can actually search
+
+        const list = await IconService.searchIcons(
+          searchTerm,
+          selectedCategory,
+          selectedIconPack
+        );
+
+        const iconsWithUsage = list.map(icon => ({
+          ...icon,
+          usage: IconService.generateUsageExample(icon.prefix, icon.key, selectedDiagramType)
+        }));
+
+        setFilteredIcons(iconsWithUsage);
+        
+        // Reset error count on successful search
+        setErrorCount(0);
+        setLastErrorTime(0);
+        
+      } catch (error) {
+        console.error('Search failed:', error);
+        log.error('[IconBrowser] Search failed:', error);
+        setFilteredIcons([]);
+
+        // Increment error count
+        const newErrorCount = errorCount + 1;
+        setErrorCount(newErrorCount);
+        setLastErrorTime(Date.now());
+
+        // Set user-friendly error message
+        let errorMessage = 'Failed to search icons. ';
+        if (error.response?.status === 422) {
+          errorMessage += 'Invalid search parameters.';
+        } else if (error.response?.status >= 500) {
+          errorMessage += 'Server error. ';
+          if (newErrorCount >= 3) {
+            errorMessage += 'Multiple failures detected - search disabled temporarily.';
+          } else {
+            errorMessage += 'Please try again.';
+          }
+        } else if (error.code === 'NETWORK_ERROR' || !error.response) {
+          errorMessage += 'Network connection issue. Check your connection.';
+        } else {
+          errorMessage += error.message || 'Unknown error occurred.';
+        }
+        setError(errorMessage);
+      } finally {
+        setSearchLoading(false);
+      }
+    };
+
+    // Add delay and abort controller to prevent rapid re-searches
+    const timeoutId = setTimeout(searchIcons, 150);
+    return () => clearTimeout(timeoutId);
+  }, [searchTerm, selectedCategory, selectedIconPack, selectedDiagramType, log]); // Removed 'loading' and 'errorCount' to prevent loops
+
+  // Remove the separate initial search effect since it's handled above
 
   // Reset visible window when filters change
   useEffect(() => {
@@ -171,9 +326,33 @@ export default function IconBrowser() {
         <Alert variant="danger">
           <Alert.Heading>Error Loading Icons</Alert.Heading>
           <p>{error}</p>
-          <Button variant="outline-danger" onClick={() => window.location.reload()}>
-            Retry
-          </Button>
+          <div className="d-flex gap-2">
+            <Button 
+              variant="outline-danger" 
+              onClick={retryLoading}
+              disabled={isRetryDisabled}
+            >
+              {isRetryDisabled ? 'Please wait...' : 'Retry'}
+            </Button>
+            {errorCount >= 3 && (
+              <Button 
+                variant="outline-secondary" 
+                onClick={() => {
+                  setErrorCount(0);
+                  setLastErrorTime(0);
+                  setError(null);
+                }}
+              >
+                Clear Error State
+              </Button>
+            )}
+          </div>
+          {errorCount > 0 && (
+            <small className="text-muted mt-2 d-block">
+              Error attempts: {errorCount}/3 
+              {retryCountdown > 0 && ` • Next retry available in ${retryCountdown}s`}
+            </small>
+          )}
         </Alert>
       </Container>
     );
@@ -193,12 +372,12 @@ export default function IconBrowser() {
             </div>
             <div className="text-end" style={{ maxWidth: '50%' }}>
               <div className="d-flex flex-wrap justify-content-end gap-2">
-                <Badge bg="primary">{totalIconCount} Total Icons</Badge>
-                {IconPackManager.getBadgeInfo().map(b => (
+                {/* <Badge bg="primary">{totalIconCount} Total Icons</Badge>
+                {IconService.getBadgeInfo().map(b => (
                   <Badge key={b.name} bg={b.badgeColor} style={{ fontSize: '0.75rem' }}>
                     {(b.displayName.length > 15 ? `${b.displayName.slice(0, 12)}…` : b.displayName)}: {b.iconCount}
                   </Badge>
-                ))}
+                ))} */}
               </div>
             </div>
           </div>
@@ -318,7 +497,7 @@ export default function IconBrowser() {
                         </h6>
                         <div className="mb-1">
                           <Badge
-                            bg={IconPackManager.getPackBadgeColor(icon.pack)}
+                            bg={IconService.getPackBadgeColor(icon.pack)}
                             className="me-1"
                             style={{ fontSize: '0.7rem' }}
                           >
@@ -377,8 +556,18 @@ export default function IconBrowser() {
             ))}
           </Row>
 
+          {/* Search loading overlay */}
+          {searchLoading && (
+            <div className="text-center py-4">
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Searching icons...</span>
+              </div>
+              <p className="mt-2 text-muted">Searching icons…</p>
+            </div>
+          )}
+
           {/* Loading hint */}
-          {visibleIcons.length < filteredIcons.length && (
+          {!searchLoading && visibleIcons.length < filteredIcons.length && (
             <div className="text-center py-4">
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading more icons...</span>
@@ -387,7 +576,7 @@ export default function IconBrowser() {
             </div>
           )}
 
-          {visibleIcons.length === 0 && !loading && (
+          {!searchLoading && visibleIcons.length === 0 && !loading && (
             <Alert variant="warning" className="text-center">
               <h5>No icons found</h5>
               <p>Try adjusting your search term, icon pack, or category filter.</p>

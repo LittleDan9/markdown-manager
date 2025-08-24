@@ -1,6 +1,6 @@
 import mermaid from "mermaid";
 import { logger } from "@/providers/LoggerProvider.jsx";
-import { IconPackManager } from "../utilities";
+import { IconService } from "../utilities";
 
 // Create service-specific logger
 const serviceLogger = logger.createServiceLogger('MermaidService');
@@ -72,27 +72,87 @@ class MermaidService {
    */
   async registerIconPacks() {
     try {
-      // Load all icon packs using the centralized manager
-      await IconPackManager.loadAllIconPacks();
+      // Load all icon packs using the API-based IconService
+      await IconService.loadAllIconPacks();
 
       const iconPacks = [];
 
-      // Convert IconPackManager data to Mermaid format
-      for (const [packName, packMetadata] of IconPackManager.getIconPacks()) {
-        const packData = {
-          name: packMetadata.name,
-          icons: packMetadata.icons
-        };
+      // Get icon packs from the API-based IconService
+      const apiIconPacks = IconService.getAvailableIconPacks();
 
-        iconPacks.push(packData);
-        serviceLogger.info(`Registered icon pack: ${packMetadata.displayName} (${packMetadata.iconCount} icons)`);
+      // Convert API-based icon pack data to Mermaid format (matching old structure)
+      for (const packInfo of apiIconPacks) {
+        if (packInfo.name === 'all') continue; // Skip the 'all' option
+
+        try {
+          // Fetch all icons in this pack with pagination (API limits to 100 per request)
+          const allIcons = [];
+          let page = 0;
+          const pageSize = 100;
+          let hasMore = true;
+
+          while (hasMore) {
+            const icons = await IconService.searchIcons('', 'all', packInfo.name, page, pageSize);
+            allIcons.push(...icons);
+
+            // Check if we got fewer icons than requested (indicates last page)
+            if (icons.length < pageSize) {
+              hasMore = false;
+            } else {
+              page++;
+            }
+
+            // Safety check to prevent infinite loops
+            if (page > 50) { // Max 5000 icons per pack
+              serviceLogger.warn(`Stopping pagination for pack ${packInfo.name} after 50 pages`);
+              break;
+            }
+          }
+
+          if (allIcons.length === 0) {
+            serviceLogger.warn(`No icons found for pack: ${packInfo.name}`);
+            continue;
+          }
+
+          // Transform to the nested structure that Mermaid expects (like old AWSIconLoader)
+          const iconMap = {};
+          allIcons.forEach(icon => {
+            if (icon.iconData && icon.iconData.body && icon.key && typeof icon.key === 'string') {
+              iconMap[icon.key] = {
+                body: icon.iconData.body,
+                width: icon.iconData.width || 24,
+                height: icon.iconData.height || 24,
+                viewBox: icon.iconData.viewBox || '0 0 24 24'
+              };
+            }
+          });
+
+          if (Object.keys(iconMap).length > 0) {
+            // Create the nested structure that matches the old AWSIconLoader format
+            const packData = {
+              name: packInfo.name,
+              icons: {
+                prefix: packInfo.name,
+                icons: iconMap
+              }
+            };
+
+            iconPacks.push(packData);
+            serviceLogger.debug(`Registered icon pack: ${packInfo.displayName} (${Object.keys(iconMap).length} icons)`);
+          } else {
+            serviceLogger.warn(`No valid icons found for pack: ${packInfo.name}`);
+          }
+        } catch (error) {
+          serviceLogger.warn(`Failed to load icons for pack ${packInfo.name}:`, error);
+          continue;
+        }
       }
 
       // Register all available icon packs with Mermaid
       if (iconPacks.length > 0) {
-        serviceLogger.info(`About to register ${iconPacks.length} icon packs with Mermaid`);
+        const totalIcons = iconPacks.reduce((sum, pack) => sum + Object.keys(pack.icons.icons).length, 0);
+        serviceLogger.info(`Registered ${iconPacks.length} icon packs with ${totalIcons} total icons: ${iconPacks.map(p => p.name).join(', ')}`);
         mermaid.registerIconPacks(iconPacks);
-        serviceLogger.info(`Icon packs registered successfully: ${iconPacks.map(p => p.name).join(', ')}`);
       } else {
         serviceLogger.warn('No icon packs available - only default Mermaid icons will work');
       }
