@@ -1,43 +1,41 @@
 
 import React, { useRef } from 'react';
-import MarkdownToolbar from './MarkdownToolbar';
+import MarkdownToolbar from './editor/MarkdownToolbar';
 import ProgressIndicator from './ProgressIndicator';
-import { useDocument } from '@/providers/DocumentProvider';
-import useMonacoEditor from '../hooks/useMonacoEditor';
-import useSpellCheck from '../hooks/useSpellCheck';
-import useKeyboardShortcuts from '../hooks/useKeyboardShortcuts';
-import useListBehavior from '../hooks/useListBehavior';
-import useDebouncedCursorChange from '../hooks/useDebouncedCursorChange';
+import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
+import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
 export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null);
-  const { currentDocument } = useDocument();
+  const { currentDocument } = useDocumentContext();
 
-  // Get the category ID from the current document
-  const categoryId = currentDocument?.category_id;
+  // Get the category from the current document (string name, not ID)
+  const categoryId = currentDocument?.category;
 
   // Create a ref to track current categoryId for dynamic access
   const categoryIdRef = useRef(categoryId);
   categoryIdRef.current = categoryId;
 
   // Debug: Log the document structure to understand what we have
-  console.log('Editor - currentDocument:', currentDocument);
-  console.log('Editor - categoryId:', categoryId, 'type:', typeof categoryId);
 
   // Debounced cursor line change handler
   const debouncedLineChange = useDebouncedCursorChange(onCursorLineChange, 300);
 
-  // Setup Monaco editor with debounced cursor change handling
-  const editor = useMonacoEditor(containerRef, value, onChange, debouncedLineChange);
 
-  // Setup spell checking
-  const { progress, suggestionsMap } = useSpellCheck(editor, value, categoryId);
+  // Use consolidated editor hook
+  const { editor, spellCheck } = useEditor({
+    containerRef,
+    value,
+    onChange,
+    onCursorLineChange: debouncedLineChange,
+    enableSpellCheck: true,
+    enableKeyboardShortcuts: true,
+    enableListBehavior: true,
+    categoryId,
+    getCategoryId: () => categoryIdRef.current
+  });
 
-  // Setup keyboard shortcuts (including spell check quick fixes)
-  useKeyboardShortcuts(editor, suggestionsMap, () => categoryIdRef.current);
-
-  // Setup intelligent list behavior
-  useListBehavior(editor);
+  const progress = spellCheck?.progress;
 
   return (
     <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>

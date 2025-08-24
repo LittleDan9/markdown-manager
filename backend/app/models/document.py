@@ -28,9 +28,6 @@ class Document(Base):  # type: ignore[misc]
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     content: Mapped[str] = mapped_column(Text, nullable=False, default="")
-    category: Mapped[str] = mapped_column(
-        String(100), default="General", nullable=False, index=True
-    )
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
@@ -48,11 +45,11 @@ class Document(Base):  # type: ignore[misc]
         Integer, ForeignKey("users.id"), nullable=False, index=True
     )
 
-    # Foreign key to category (optional)
-    category_id: Mapped[int | None] = mapped_column(
+    # Foreign key to category (required)
+    category_id: Mapped[int] = mapped_column(
         Integer,
-        ForeignKey("categories.id", ondelete="SET NULL"),
-        nullable=True,
+        ForeignKey("categories.id", ondelete="RESTRICT"),
+        nullable=False,
         index=True,
     )
 
@@ -80,5 +77,5 @@ class Document(Base):  # type: ignore[misc]
     def __repr__(self) -> str:
         return (
             f"<Document(id={self.id}, name='{self.name}', "
-            f"category='{self.category}')>"
+            f"category_id={self.category_id})>"
         )

@@ -21,6 +21,7 @@ from app.routers import (
     custom_dictionary,
     default,
     documents,
+    icons,
     monitoring,
     pdf,
     public,
@@ -106,6 +107,9 @@ def setup_routers(app: FastAPI) -> None:
         auth.router, prefix="/auth", tags=["auth"]
     )  # Includes MFA endpoints at /auth/mfa/*
     app.include_router(users.router, prefix="/users", tags=["users"])
+    app.include_router(
+        icons.router  # Icon service endpoints - tags already defined in router
+    )
     app.include_router(
         categories.router, prefix="/categories", tags=["categories"]
     )

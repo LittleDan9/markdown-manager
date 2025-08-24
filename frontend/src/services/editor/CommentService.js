@@ -4,7 +4,7 @@
 
 import { logger } from '@/providers/LoggerProvider.jsx';
 import { HighlightService } from './index';
-import { notification } from '../ui';
+import NotificationService from '../utilities/notifications.js';
 
 // Language comment patterns
 const COMMENT_PATTERNS = {
@@ -78,7 +78,8 @@ const COMMENT_PATTERNS = {
   toml: '# ',
   conf: '# ',
   config: '# ',
-  properties: '# '
+  properties: '# ',
+  mermaid: '%% '
 };
 
 class CommentService {
@@ -309,7 +310,7 @@ class CommentService {
       console.log('Comment toggle: Not in a code block or no language specified');
 
       // Show a brief notification to the user
-      notification.info('Comment toggle only works inside code blocks with a specified language');
+      NotificationService.info('Comment toggle only works inside code blocks with a specified language');
       return false;
     }
 
@@ -317,7 +318,7 @@ class CommentService {
     if (!commentPattern) {
       // Language doesn't support comments
       console.log(`Comment toggle: Language '${language}' doesn't support comments`);
-      notification.warning(`Comments are not supported for ${language} code blocks`);
+      NotificationService.warning(`Comments are not supported for ${language} code blocks`);
       return false;
     }
 
@@ -349,5 +350,5 @@ class CommentService {
   }
 }
 
-// Export singleton instance for consistency with other services  
+// Export singleton instance for consistency with other services
 export default new CommentService();

@@ -58,6 +58,14 @@ build-backend = "poetry.core.masonry.api"
 [tool.black]
 line-length = 88
 target-version = ['py312']
+extend-exclude = '''
+(
+  # Documentation files with long API examples
+  .*docs\.py
+  | .*documentation\.py  
+  | .*api_docs\.py
+)
+'''
 
 [tool.isort]
 profile = "black"

@@ -1,11 +1,11 @@
-import DeleteCategoryModal from "../modals/DeleteCategoryModal";
+import DeleteCategoryModal from "@/components/modals/DeleteCategoryModal";
 import React, { useEffect, useState } from "react";
-import ConfirmModal from "../modals/ConfirmModal";
-import { useConfirmModal } from "../../hooks/useConfirmModal";
+import ConfirmModal from "@/components/modals/ConfirmModal";
+import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown } from "react-bootstrap";
-import { useDocument } from "../../providers/DocumentProvider";
-import { useNotification } from "../../components/NotificationProvider";
-import { DocumentService } from "@/services/document";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+import { useNotification } from "@/components/NotificationProvider";
+import { DocumentService } from "@/services/core";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
@@ -14,8 +14,8 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
-  const notification = useNotification();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content } = useDocument();
+  const { showError } = useNotification();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument } = useDocumentContext();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const customCats = rawCategories
@@ -29,7 +29,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
-  const { renameDocument } = useDocument();
+  // renameDocument is now included above from useDocumentContext
   const [ lastSavedText, setLastSavedText ] = useState("");
 
   useEffect(() => {
@@ -46,7 +46,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
       const saved = await saveDocument(updatedDoc);
       // The saveDocument in DocumentProvider will handle current document tracking
     } catch (err) {
-      notification.showError("Failed to update document category.");
+      showError("Failed to update document category.");
     }
   };
 
@@ -112,7 +112,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         setDocumentTitle(newTitle);
       } catch (error) {
         console.error('Failed to update document title:', error);
-        notification.showError('Failed to update document title');
+        showError('Failed to update document title');
         // Reset title input to original value on error
         setTitleInput(currentDocument.name || "Untitled Document");
       }
@@ -145,11 +145,11 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
 
   const handleAddCategory = async (category) => {
     if (!category) return;
-    
+
     // Call addCategory which will update the current document with the new category
     const updatedCats = await addCategory(category);
     setCategories(updatedCats);
-    
+
     // The current document has been updated with the new category, so sync the UI
     setCurrentCategory(category);
     setNewCategory("");
@@ -356,7 +356,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         loading={deleteLoading}
       onDelete={async ({ migrateTo, deleteDocs }) => {
           if (!deleteTargetCategory) {
-            notification.showError("No category selected to delete.");
+            showError("No category selected to delete.");
             setShowDeleteModal(false);
             return;
           }
@@ -370,7 +370,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
             createDocument();
             setShowDeleteModal(false);
           } catch (err) {
-            notification.showError("Failed to delete category");
+            showError("Failed to delete category");
           } finally {
             setDeleteLoading(false);
           }

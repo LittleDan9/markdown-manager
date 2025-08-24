@@ -9,9 +9,7 @@ import { NotificationProvider } from '../components/NotificationProvider.jsx';
 
 // Application Providers
 import { AuthProvider } from './AuthProvider';
-import { SharedViewProvider } from './SharedViewProvider';
-import { DocumentProvider } from './DocumentProvider';
-import { PreviewHTMLProvider } from './PreviewHTMLProvider';
+import { DocumentContextProvider } from './DocumentContextProvider.jsx';
 
 /**
  * AppProviders - Centralized provider composition for the entire application
@@ -32,13 +30,9 @@ function AppProviders({ children }) {
         <ThemeProvider>
           <NotificationProvider>
             <AuthProvider>
-              <SharedViewProvider>
-                <DocumentProvider>
-                  <PreviewHTMLProvider>
-                    {children}
-                  </PreviewHTMLProvider>
-                </DocumentProvider>
-              </SharedViewProvider>
+              <DocumentContextProvider>
+                {children}
+              </DocumentContextProvider>
             </AuthProvider>
           </NotificationProvider>
         </ThemeProvider>

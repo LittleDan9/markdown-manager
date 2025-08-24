@@ -1,20 +1,28 @@
-// Editor-related hooks for easy importing
-export { default as useMonacoEditor } from './useMonacoEditor';
-export { default as useSpellCheck } from './useSpellCheck';
-export { default as useKeyboardShortcuts } from './useKeyboardShortcuts';
-export { default as useListBehavior } from './useListBehavior';
-export { default as useDebouncedCursorChange } from './useDebouncedCursorChange';
+// Hook registry: All custom hooks organized by concern
+// This file provides a central export point for all hooks while maintaining organization
 
-// App-level hooks
-export { default as useAutoSave } from './useAutoSave';
-export { default as useChangeTracker } from './useChangeTracker';
-export { default as useSaveDocument } from './useSaveDocument';
-export { default as useGlobalKeyboardShortcuts } from './useGlobalKeyboardShortcuts';
-export { default as useAutoSaveManager } from './useAutoSaveManager';
-export { default as useAppUIState } from './useAppUIState';
-export { default as useSharedViewEffects } from './useSharedViewEffects';
+// Document hooks - Document state, operations, and lifecycle
+export * from './document';
 
-// This allows importing like:
-// import { useMonacoEditor, useSpellCheck } from '@/hooks';
-// or
-// import { useMonacoEditor, useSpellCheck } from '@/hooks/editor';
+// Editor hooks - Monaco editor, cursor, and keyboard interactions  
+export * from './editor';
+
+// Dictionary hooks - Custom dictionary management
+export * from './dictionary';
+
+// Markdown hooks - Markdown formatting and toolbar functionality
+export * from './markdown';
+
+// UI hooks - User interface state, modals, and shared UI concerns
+export * from './ui';
+
+// Performance hooks - Optimization, monitoring, and memory management
+export * from './performance';
+
+// This allows importing from specific categories:
+// import { useDocumentState, useSaveDocument } from '@/hooks/document';
+// import { useEditor, useGlobalKeyboardShortcuts } from '@/hooks/editor';
+// import { useDictionaryState } from '@/hooks/dictionary';
+// 
+// Or from the main barrel export:
+// import { useDocumentState, useEditor, useDictionaryState } from '@/hooks';

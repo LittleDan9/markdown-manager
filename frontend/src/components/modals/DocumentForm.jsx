@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Dropdown, Form, Button } from "react-bootstrap";
-import { useDocument } from "../../providers/DocumentProvider";
+import { useDocumentContext } from "../../providers/DocumentContextProvider.jsx";
 
 function DocumentForm({
   defaultName = "",
@@ -13,7 +13,7 @@ function DocumentForm({
   categoryError,
   setCategoryError,
 }) {
-  const { addCategory, categories: contextCategories } = useDocument();
+  const { addCategory, categories: contextCategories } = useDocumentContext();
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   const handleAddCategory = async (e) => {

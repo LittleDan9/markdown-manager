@@ -5,8 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud import user as crud_user
+from app.crud import category as crud_category
 from app.database import get_db
 from app.schemas.user import UserCreate, UserResponse
+from app.schemas.category import CategoryCreate
 
 router = APIRouter()
 
@@ -24,4 +26,11 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) ->
 
     # Create new user
     user = await crud_user.create_user(db, user_data)
+
+    # Create default categories for the new user
+    default_categories = ["General", "Drafts"]
+    for category_name in default_categories:
+        category_data = CategoryCreate(name=category_name)
+        await crud_category.create_category(db, category_data, user.id)
+
     return user

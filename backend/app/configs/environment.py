@@ -32,6 +32,10 @@ class EnvironmentConfig:
             return [
                 "http://localhost:3000",  # Frontend development
                 "http://127.0.0.1:3000",
+                "http://localhost:80",    # Docker Compose nginx
+                "http://localhost",       # Docker Compose nginx (default port)
+                "http://127.0.0.1:80",
+                "http://127.0.0.1",
                 "http://localhost:8080",  # Alternative dev ports
                 "http://127.0.0.1:8080",
             ]

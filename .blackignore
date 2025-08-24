@@ -1,0 +1,9 @@
+# Black code formatter ignore patterns
+# Documentation files with long API examples and descriptions
+**/docs.py
+**/documentation.py
+**/api_docs.py
+
+# Generated OpenAPI schema files
+**/openapi.json
+**/swagger.json

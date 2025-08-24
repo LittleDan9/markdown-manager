@@ -1,19 +1,19 @@
 import React, { useEffect, useState, useRef } from "react";
 import { render } from "@/services/rendering";
-import { useTheme } from "../providers/ThemeProvider";
-import { useDocument } from "../providers/DocumentProvider";
+import { useTheme } from "@/providers/ThemeProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { HighlightService } from "@/services/editor";
 import { MermaidService } from "@/services/rendering";
-import { usePreviewHTML } from "../providers/PreviewHTMLProvider";
+// import { usePreviewHTML } from "@/providers/PreviewHTMLProvider";
 import mermaid from "mermaid";
 
 
 function Renderer({ content, scrollToLine, fullscreenPreview }) {
   const { theme } = useTheme();
-  const { highlightedBlocks, setHighlightedBlocks } = useDocument();
+  const { highlightedBlocks, setHighlightedBlocks } = useDocumentContext();
   const [html, setHtml] = useState("");
   const previewScrollRef = useRef(null);
-  const { previewHTML, setPreviewHTML } = usePreviewHTML();
+  const { previewHTML, setPreviewHTML } = useDocumentContext();
   const mermaidRendering = useRef(false);
 
 

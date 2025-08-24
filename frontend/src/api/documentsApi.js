@@ -58,16 +58,53 @@ class DocumentsApi extends Api {
     return res.data;
   }
 
-  async createDocument({ name, content, category }) {
-    const res = await this.apiCall(`/documents/`, "POST", { name, content, category });
+  async createDocument({ name, content, category, category_id }) {
+    // If category_id is provided, use it; otherwise try to resolve category name to ID
+    let finalCategoryId = category_id;
+
+    if (!finalCategoryId && category) {
+      // Try to get category ID from category name using CategoriesAPI
+      try {
+        const categoriesApi = (await import('./categoriesApi')).default;
+        const categories = await categoriesApi.getCategories();
+        const categoryObj = categories.find(cat => cat.name === category);
+        finalCategoryId = categoryObj?.id;
+      } catch (error) {
+        console.warn('Could not resolve category name to ID:', error);
+      }
+    }
+
+    const requestData = { name, content };
+    if (finalCategoryId) {
+      requestData.category_id = finalCategoryId;
+    }
+
+    const res = await this.apiCall(`/documents/`, "POST", requestData);
     return res.data;
   }
 
-  async updateDocument(id, { name, content, category }) {
-    const res = await this.apiCall(
-      `/documents/${id}`,
-      "PUT",
-      { name, content, category } );
+  async updateDocument(id, { name, content, category, category_id }) {
+    // If category_id is provided, use it; otherwise try to resolve category name to ID
+    let finalCategoryId = category_id;
+
+    if (!finalCategoryId && category) {
+      // Try to get category ID from category name using CategoriesAPI
+      try {
+        const categoriesApi = (await import('./categoriesApi')).default;
+        const categories = await categoriesApi.getCategories();
+        const categoryObj = categories.find(cat => cat.name === category);
+        finalCategoryId = categoryObj?.id;
+      } catch (error) {
+        console.warn('Could not resolve category name to ID:', error);
+      }
+    }
+
+    const requestData = {};
+    if (name !== undefined) requestData.name = name;
+    if (content !== undefined) requestData.content = content;
+    if (finalCategoryId) requestData.category_id = finalCategoryId;
+
+    const res = await this.apiCall(`/documents/${id}`, "PUT", requestData);
     return res.data;
   }
 
@@ -77,30 +114,55 @@ class DocumentsApi extends Api {
   }
 
   async getCategories() {
-    const res = await this.apiCall(`/documents/categories/`);
-    const cats = res.data;
-    return Array.isArray(cats) && cats.length ? cats : ["General"];
+    // Use the proper Categories API instead of document-based categories
+    try {
+      const categoriesApi = (await import('./categoriesApi')).default;
+      const categories = await categoriesApi.getCategories();
+      return categories.length ? categories : [{ id: null, name: "General" }];
+    } catch (error) {
+      console.warn('Could not fetch categories, using fallback:', error);
+      return [{ id: null, name: "General" }];
+    }
   }
 
   async addCategory(category) {
-    // Backend expects { category: string } in body
-    const res = await this.apiCall(`/documents/categories/`, "POST", { category });
-    return res.data;
+    // Use the proper Categories API
+    try {
+      const categoriesApi = (await import('./categoriesApi')).default;
+      const newCategory = await categoriesApi.createCategory(category);
+      return newCategory;
+    } catch (error) {
+      console.error('Failed to create category:', error);
+      throw error;
+    }
   }
 
   /**
-   * Delete a category. If migrateTo is provided, documents are moved to that category.
-   * If deleteDocs is true, all documents in the category are deleted.
-   * Returns updated categories.
+   * Delete a category using the proper Categories API
+   * Note: The new API doesn't support migration - documents with this category
+   * will need to be handled by the backend's foreign key constraints
    */
-  async deleteCategory(name, { migrateTo = null, deleteDocs = false } = {}) {
-    let url = `/documents/categories/${encodeURIComponent(name)}`;
-    const params = [];
-    if (deleteDocs) params.push("delete_docs=true");
-    if (migrateTo) params.push(`migrate_to=${encodeURIComponent(migrateTo)}`);
-    if (params.length) url += `?${params.join("&")}`;
-    const res = await this.apiCall(url, "DELETE");
-    return res.data;
+  async deleteCategory(categoryName, options = {}) {
+    try {
+      const categoriesApi = (await import('./categoriesApi')).default;
+
+      // First, find the category by name to get its ID
+      const categories = await categoriesApi.getCategories();
+      const category = categories.find(cat => cat.name === categoryName);
+
+      if (!category) {
+        throw new Error(`Category "${categoryName}" not found`);
+      }
+
+      // Delete using the Categories API
+      await categoriesApi.deleteCategory(category.id);
+
+      // Return updated categories
+      return await categoriesApi.getCategories();
+    } catch (error) {
+      console.error('Failed to delete category:', error);
+      throw error;
+    }
   }
 
   async getCurrentDocumentId() {
