@@ -22,24 +22,3 @@ router.include_router(packs.router)
 router.include_router(search.router)
 router.include_router(cache.router)
 router.include_router(statistics.router)
-
-
-# Health check endpoint for the icon service
-@router.get(
-    "/health",
-    summary="Icon service health check",
-    description="Check if the icon service is running and responsive.",
-    tags=["Icon Health"]
-)
-async def icon_health_check():
-    """Health check endpoint for icon service."""
-    return {
-        "status": "healthy",
-        "service": "icon-api",
-        "modules": [
-            "packs",
-            "search",
-            "cache",
-            "statistics"
-        ]
-    }

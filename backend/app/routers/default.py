@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.services.pdf_service_client import pdf_service_client
+from app.services.icon_service import IconService
 
 router = APIRouter()
 
@@ -61,6 +62,22 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
             overall_status = "degraded"
     except Exception as e:
         services["pdf_service"] = ServiceHealth(
+            status="unhealthy", details=f"Health check failed: {str(e)}"
+        )
+        overall_status = "degraded"
+
+    # Check icon service health
+    try:
+        icon_service = IconService(db)
+        icon_health = await icon_service.health_check()
+        services["icon_service"] = ServiceHealth(
+            status=icon_health["status"],
+            details=icon_health["details"]
+        )
+        if icon_health["status"] != "healthy":
+            overall_status = "degraded"
+    except Exception as e:
+        services["icon_service"] = ServiceHealth(
             status="unhealthy", details=f"Health check failed: {str(e)}"
         )
         overall_status = "degraded"

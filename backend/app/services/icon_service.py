@@ -348,3 +348,25 @@ class IconService:
             "pack_breakdown": pack_breakdown,
             "popular_icons": popular_icons,
         }
+
+    async def health_check(self) -> Dict[str, Any]:
+        """Check icon service health."""
+        try:
+            # Check database connectivity by counting packs
+            result = await self.db.execute(select(func.count(IconPack.id)))
+            pack_count = result.scalar() or 0
+            
+            # Check cache connectivity
+            cache_healthy = self.cache is not None
+            
+            return {
+                "status": "healthy",
+                "details": f"{pack_count} icon packs available",
+                "cache_status": "healthy" if cache_healthy else "unavailable"
+            }
+        except Exception as e:
+            return {
+                "status": "unhealthy",
+                "details": f"Service check failed: {str(e)}",
+                "cache_status": "unknown"
+            }
