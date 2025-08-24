@@ -33,6 +33,7 @@ class ProductionIconInstaller {
         method: options.method || 'GET',
         headers: {
           'Content-Type': 'application/json',
+          'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           ...options.headers
         },
         timeout: 300000 // 5 minutes
@@ -241,8 +242,8 @@ class ProductionIconInstaller {
     console.log('Clearing existing icon packs...');
 
     try {
-      const data = await this.apiRequest('/packs');
-      const existingPacks = data.packs || [];
+      const data = await this.apiRequest('/packs/');
+      const existingPacks = data || [];
 
       for (const pack of existingPacks) {
         console.log(`Deleting pack: ${pack.name}`);
@@ -263,7 +264,7 @@ class ProductionIconInstaller {
     console.log(`Installing pack: ${packData.name} (${Object.keys(packData.icons).length} icons)`);
 
     try {
-      const response = await this.apiRequest('/packs', {
+      const response = await this.apiRequest('/packs/', {
         method: 'POST',
         body: JSON.stringify({
           pack_data: packData,
@@ -300,7 +301,7 @@ class ProductionIconInstaller {
     try {
       // Test API connectivity
       console.log('Testing API connectivity...');
-      await this.apiRequest('/packs');
+      await this.apiRequest('/packs/');
       console.log('✅ API connected successfully');
 
       // Clear existing data
@@ -355,8 +356,8 @@ class ProductionIconInstaller {
     console.log('\n🔍 Verifying installation...');
 
     try {
-      const data = await this.apiRequest('/packs');
-      const packs = data.packs || [];
+      const data = await this.apiRequest('/packs/');
+      const packs = data || [];
 
       console.log('Installed packs:');
       for (const pack of packs) {
@@ -364,10 +365,10 @@ class ProductionIconInstaller {
       }
 
       // Test search
-      const searchData1 = await this.apiRequest('/search?q=aws&size=5');
+      const searchData1 = await this.apiRequest('/search/?q=aws&size=5');
       console.log(`\nSearch test (AWS): found ${searchData1.total} icons`);
 
-      const searchData2 = await this.apiRequest('/search?q=logo&size=5');
+      const searchData2 = await this.apiRequest('/search/?q=logo&size=5');
       console.log(`Search test (logo): found ${searchData2.total} icons`);
 
       return packs;
