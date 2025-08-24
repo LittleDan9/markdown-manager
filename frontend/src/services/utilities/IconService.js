@@ -26,12 +26,13 @@ class IconService {
       const data = await iconsApi.getIconPacks();
       // console.log('IconService: Received data:', data);
 
-      this.iconPacks = data.packs;
-      this.totalIconCount = data.packs.reduce((sum, pack) => sum + pack.icon_count, 0);
+      // API returns an array directly, not wrapped in a 'packs' property
+      this.iconPacks = Array.isArray(data) ? data : [];
+      this.totalIconCount = this.iconPacks.reduce((sum, pack) => sum + pack.icon_count, 0);
 
       // Extract categories from packs
       this.categories = new Set(['all']);
-      data.packs.forEach(pack => {
+      this.iconPacks.forEach(pack => {
         if (pack.categories) {
           pack.categories.forEach(cat => this.categories.add(cat));
         }
