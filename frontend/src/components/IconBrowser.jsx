@@ -34,7 +34,7 @@ export default function IconBrowser() {
   const [error, setError] = useState(null);
   const [visibleEnd, setVisibleEnd] = useState(INITIAL_LOAD_SIZE);
   const [copied, setCopied] = useState('');
-  
+
   // Add error resilience state
   const [errorCount, setErrorCount] = useState(0);
   const [lastErrorTime, setLastErrorTime] = useState(0);
@@ -47,13 +47,13 @@ export default function IconBrowser() {
   // Update retry countdown timer
   useEffect(() => {
     if (!isRetryDisabled) return;
-    
+
     const interval = setInterval(() => {
       const now = Date.now();
       const elapsed = now - lastErrorTime;
       const minRetryDelay = Math.min(5000 * Math.pow(2, errorCount), 30000);
       const remaining = Math.max(0, minRetryDelay - elapsed);
-      
+
       if (remaining <= 0) {
         setIsRetryDisabled(false);
         setRetryCountdown(0);
@@ -61,14 +61,14 @@ export default function IconBrowser() {
         setRetryCountdown(Math.ceil(remaining / 1000));
       }
     }, 1000);
-    
+
     return () => clearInterval(interval);
   }, [isRetryDisabled, lastErrorTime, errorCount]);
 
   // Retry function for error handling with exponential backoff
   const retryLoading = useCallback(async () => {
     const now = Date.now();
-    
+
     // Prevent rapid retries - use exponential backoff
     const minRetryDelay = Math.min(5000 * Math.pow(2, errorCount), 30000); // Max 30 seconds
     if (now - lastErrorTime < minRetryDelay) {
@@ -81,7 +81,7 @@ export default function IconBrowser() {
       setLoading(true);
       setError(null);
       setIsRetryDisabled(false);
-      
+
       await IconService.loadAllIconPacks();
 
       const packs = IconService.getAvailableIconPacks();
@@ -91,7 +91,7 @@ export default function IconBrowser() {
       setAvailableIconPacks(packs);
       setAvailableCategories(categories);
       setTotalIconCount(totalCount);
-      
+
       // Reset error count on success
       setErrorCount(0);
       setLastErrorTime(0);
@@ -99,7 +99,7 @@ export default function IconBrowser() {
     } catch (e) {
       log.error('Failed to load icons', e);
       setError(`Failed to load icons: ${e.message}. Check console for details.`);
-      
+
       // Track error for backoff
       setErrorCount(prev => prev + 1);
       setLastErrorTime(now);
@@ -113,12 +113,12 @@ export default function IconBrowser() {
     if (IconService.isLoaded()) {
       const newCategories = IconService.getAvailableCategoriesForPack(selectedIconPack);
       setAvailableCategories(newCategories);
-      
+
       // Reset category to 'all' if current category is not available in the new pack
       if (selectedCategory !== 'all' && !newCategories.includes(selectedCategory)) {
         setSelectedCategory('all');
       }
-      
+
       // Reset error state when user changes pack - give them a fresh chance
       if (errorCount > 0) {
         setErrorCount(0);
@@ -127,23 +127,36 @@ export default function IconBrowser() {
     }
   }, [selectedIconPack, selectedCategory, errorCount]);
 
-  // One-time load with its own error handling
+  // One-time load with its own error handling - now lazy and efficient
   useEffect(() => {
     const initialLoad = async () => {
       try {
         setLoading(true);
         setError(null);
-        
-        await IconService.loadAllIconPacks();
 
-        const packs = IconService.getAvailableIconPacks();
-        const categories = IconService.getAvailableCategories();
-        const totalCount = IconService.getTotalIconCount();
+        // Check if IconService is already loaded to avoid redundant API calls
+        if (IconService.isLoaded()) {
+          // Use already loaded data
+          const packs = IconService.getAvailableIconPacks();
+          const categories = IconService.getAvailableCategories();
+          const totalCount = IconService.getTotalIconCount();
 
-        setAvailableIconPacks(packs);
-        setAvailableCategories(categories);
-        setTotalIconCount(totalCount);
-        
+          setAvailableIconPacks(packs);
+          setAvailableCategories(categories);
+          setTotalIconCount(totalCount);
+        } else {
+          // Load icon packs only if not already loaded
+          await IconService.loadAllIconPacks();
+
+          const packs = IconService.getAvailableIconPacks();
+          const categories = IconService.getAvailableCategories();
+          const totalCount = IconService.getTotalIconCount();
+
+          setAvailableIconPacks(packs);
+          setAvailableCategories(categories);
+          setTotalIconCount(totalCount);
+        }
+
       } catch (e) {
         log.error('Failed to load icons on initial load', e);
         setError(`Failed to load icons: ${e.message}. Check console for details.`);
@@ -153,7 +166,7 @@ export default function IconBrowser() {
         setLoading(false);
       }
     };
-    
+
     initialLoad();
   }, []); // No dependencies to prevent loops
 
@@ -197,11 +210,11 @@ export default function IconBrowser() {
         }));
 
         setFilteredIcons(iconsWithUsage);
-        
+
         // Reset error count on successful search
         setErrorCount(0);
         setLastErrorTime(0);
-        
+
       } catch (error) {
         console.error('Search failed:', error);
         log.error('[IconBrowser] Search failed:', error);
@@ -327,16 +340,16 @@ export default function IconBrowser() {
           <Alert.Heading>Error Loading Icons</Alert.Heading>
           <p>{error}</p>
           <div className="d-flex gap-2">
-            <Button 
-              variant="outline-danger" 
+            <Button
+              variant="outline-danger"
               onClick={retryLoading}
               disabled={isRetryDisabled}
             >
               {isRetryDisabled ? 'Please wait...' : 'Retry'}
             </Button>
             {errorCount >= 3 && (
-              <Button 
-                variant="outline-secondary" 
+              <Button
+                variant="outline-secondary"
                 onClick={() => {
                   setErrorCount(0);
                   setLastErrorTime(0);
@@ -349,7 +362,7 @@ export default function IconBrowser() {
           </div>
           {errorCount > 0 && (
             <small className="text-muted mt-2 d-block">
-              Error attempts: {errorCount}/3 
+              Error attempts: {errorCount}/3
               {retryCountdown > 0 && ` • Next retry available in ${retryCountdown}s`}
             </small>
           )}

@@ -14,21 +14,21 @@ const ComponentLoader = ({ text = "Loading..." }) => (
 );
 
 // Lazy-loaded components
-export const LazyIconBrowser = lazy(() => 
+export const LazyIconBrowser = lazy(() =>
   import('./IconBrowser.jsx').then(module => ({
     default: module.default
   }))
 );
 
-export const LazySettingsModal = lazy(() => 
-  import('./modals/SettingsModal.jsx')
+export const LazySettingsModal = lazy(() =>
+  import('./modals/UserSettingsModal.jsx')
 );
 
-export const LazyBackupCodesSection = lazy(() => 
+export const LazyBackupCodesSection = lazy(() =>
   import('./modals/BackupCodesSection.jsx')
 );
 
-export const LazyLogLevelController = lazy(() => 
+export const LazyLogLevelController = lazy(() =>
   import('./LogLevelController.jsx')
 );
 
@@ -39,7 +39,7 @@ export const withLazyLoading = (LazyComponent, loadingText) => {
       <LazyComponent {...props} />
     </Suspense>
   );
-  
+
   WrappedComponent.displayName = `Lazy(${LazyComponent.displayName || LazyComponent.name})`;
   return WrappedComponent;
 };

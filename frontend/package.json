@@ -11,7 +11,7 @@
     "build:dev:incremental": "npx webpack --mode=development --watch",
     "build:analyze": "npx webpack --mode=production --analyze",
     "debug": "npx webpack serve --mode=development --devtool=source-map",
-    "serve": "npx webpack serve --mode=development --watch --devtool=source-map --open",
+    "serve": "npx webpack serve --mode=development --devtool=source-map --open",
     "serve:prod": "npx webpack serve --mode=production",
     "predeploy": "echo \"🚀 Starting deployment process...\"",
     "postdeploy": "echo \"✅ Deployment process completed!\""

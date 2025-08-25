@@ -9,7 +9,6 @@ class MermaidService {
   constructor() {
     this.theme = null;
     this.diagramCache = new Map();
-    this.iconsRegistered = false;
   }
 
   /**
@@ -32,12 +31,6 @@ class MermaidService {
 
   async init(theme) {
     try {
-      // Register icon packs if not already done
-      if (!this.iconsRegistered) {
-        await this.registerIconPacks();
-        this.iconsRegistered = true;
-      }
-
       await mermaid.initialize({
         startOnLoad: false,
         theme: theme === 'dark' ? 'dark' : 'default',
@@ -68,97 +61,127 @@ class MermaidService {
   }
 
   /**
-   * Register icon packs for architecture diagrams
+   * Extract icon references from Mermaid diagram source
+   * @param {string} diagramSource - The Mermaid diagram source code
+   * @returns {Array} - Array of icon references like [{ pack: 'aws-icons', icon: 'EC2' }]
    */
-  async registerIconPacks() {
-    try {
-      // Load all icon packs using the API-based IconService
-      await IconService.loadAllIconPacks();
+  extractIconReferences(diagramSource) {
+    const iconReferences = [];
 
-      const iconPacks = [];
+    // Pattern to match icon references in architecture diagrams
+    // Examples: icon:aws-icons:EC2, icon(aws-icons:S3), service(aws-icons:RDS), etc.
+    const iconPatterns = [
+      /icon\s*:\s*([^:\s\]]+)\s*:\s*([^)\s,\]]+)/gi,  // icon:pack:iconname (in brackets like [icon:pack:name])
+      /icon\s*\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/gi,  // icon(pack:iconname)
+      /service\s+\w+\s*\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/gi, // service name(pack:iconname) for architecture diagrams
+      /\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/g, // Generic (pack:iconname) pattern
+    ];
 
-      // Get icon packs from the API-based IconService
-      const apiIconPacks = IconService.getAvailableIconPacks();
+    iconPatterns.forEach(pattern => {
+      let match;
+      while ((match = pattern.exec(diagramSource)) !== null) {
+        const pack = match[1].trim();
+        const icon = match[2].trim();
 
-      // Convert API-based icon pack data to Mermaid format (matching old structure)
-      for (const packInfo of apiIconPacks) {
-        if (packInfo.name === 'all') continue; // Skip the 'all' option
+        // Skip if it doesn't look like an icon pack reference
+        if (pack.length === 0 || icon.length === 0) continue;
 
-        try {
-          // Fetch all icons in this pack with pagination (API limits to 100 per request)
-          const allIcons = [];
-          let page = 0;
-          const pageSize = 100;
-          let hasMore = true;
-
-          while (hasMore) {
-            const icons = await IconService.searchIcons('', 'all', packInfo.name, page, pageSize);
-            allIcons.push(...icons);
-
-            // Check if we got fewer icons than requested (indicates last page)
-            if (icons.length < pageSize) {
-              hasMore = false;
-            } else {
-              page++;
-            }
-
-            // Safety check to prevent infinite loops
-            if (page > 50) { // Max 5000 icons per pack
-              serviceLogger.warn(`Stopping pagination for pack ${packInfo.name} after 50 pages`);
-              break;
-            }
-          }
-
-          if (allIcons.length === 0) {
-            serviceLogger.warn(`No icons found for pack: ${packInfo.name}`);
-            continue;
-          }
-
-          // Transform to the nested structure that Mermaid expects (like old AWSIconLoader)
-          const iconMap = {};
-          allIcons.forEach(icon => {
-            if (icon.iconData && icon.iconData.body && icon.key && typeof icon.key === 'string') {
-              iconMap[icon.key] = {
-                body: icon.iconData.body,
-                width: icon.iconData.width || 24,
-                height: icon.iconData.height || 24,
-                viewBox: icon.iconData.viewBox || '0 0 24 24'
-              };
-            }
-          });
-
-          if (Object.keys(iconMap).length > 0) {
-            // Create the nested structure that matches the old AWSIconLoader format
-            const packData = {
-              name: packInfo.name,
-              icons: {
-                prefix: packInfo.name,
-                icons: iconMap
-              }
-            };
-
-            iconPacks.push(packData);
-            serviceLogger.debug(`Registered icon pack: ${packInfo.displayName} (${Object.keys(iconMap).length} icons)`);
-          } else {
-            serviceLogger.warn(`No valid icons found for pack: ${packInfo.name}`);
-          }
-        } catch (error) {
-          serviceLogger.warn(`Failed to load icons for pack ${packInfo.name}:`, error);
-          continue;
+        // Avoid duplicates
+        if (!iconReferences.some(ref => ref.pack === pack && ref.icon === icon)) {
+          iconReferences.push({ pack, icon });
         }
       }
+    });
 
-      // Register all available icon packs with Mermaid
+    this.debug(`Extracted ${iconReferences.length} icon references:`, iconReferences);
+    return iconReferences;
+  }
+
+  /**
+   * Load specific icons needed for a diagram
+   * @param {Array} iconReferences - Array of icon references
+   * @returns {Array} - Array of icon pack data formatted for Mermaid
+   */
+  async loadSpecificIcons(iconReferences) {
+    if (iconReferences.length === 0) {
+      return [];
+    }
+
+    const iconPacks = [];
+    const packGroups = {};
+
+    // Group icons by pack
+    iconReferences.forEach(ref => {
+      if (!packGroups[ref.pack]) {
+        packGroups[ref.pack] = [];
+      }
+      packGroups[ref.pack].push(ref.icon);
+    });
+
+    // Load icons for each pack
+    for (const [packName, iconNames] of Object.entries(packGroups)) {
+      try {
+        const iconMap = {};
+
+        // Load each icon individually
+        for (const iconName of iconNames) {
+          try {
+            // Search for the specific icon in the specific pack
+            const icons = await IconService.searchIcons(iconName, 'all', packName, 0, 1);
+
+            if (icons.length > 0) {
+              const icon = icons[0];
+              if (icon.iconData && icon.iconData.body && icon.key) {
+                iconMap[icon.key] = {
+                  body: icon.iconData.body,
+                  width: icon.iconData.width || 24,
+                  height: icon.iconData.height || 24,
+                  viewBox: icon.iconData.viewBox || '0 0 24 24'
+                };
+              }
+            } else {
+              serviceLogger.warn(`Icon not found: ${packName}:${iconName}`);
+            }
+          } catch (error) {
+            serviceLogger.warn(`Failed to load icon ${packName}:${iconName}:`, error);
+          }
+        }
+
+        if (Object.keys(iconMap).length > 0) {
+          const packData = {
+            name: packName,
+            icons: {
+              prefix: packName,
+              icons: iconMap
+            }
+          };
+
+          iconPacks.push(packData);
+          serviceLogger.debug(`Loaded ${Object.keys(iconMap).length} icons for pack: ${packName}`);
+        }
+      } catch (error) {
+        serviceLogger.warn(`Failed to load icons for pack ${packName}:`, error);
+      }
+    }
+
+    return iconPacks;
+  }
+
+  /**
+   * Register specific icon packs with Mermaid (only the icons that are needed)
+   * @param {Array} iconPacks - Array of icon pack data
+   */
+  async registerSpecificIconPacks(iconPacks) {
+    try {
       if (iconPacks.length > 0) {
         const totalIcons = iconPacks.reduce((sum, pack) => sum + Object.keys(pack.icons.icons).length, 0);
-        serviceLogger.info(`Registered ${iconPacks.length} icon packs with ${totalIcons} total icons: ${iconPacks.map(p => p.name).join(', ')}`);
+        serviceLogger.info(`Registering ${iconPacks.length} icon packs with ${totalIcons} specific icons: ${iconPacks.map(p => p.name).join(', ')}`);
         mermaid.registerIconPacks(iconPacks);
       } else {
-        serviceLogger.warn('No icon packs available - only default Mermaid icons will work');
+        serviceLogger.debug('No specific icons to register - using default Mermaid icons only');
       }
     } catch (error) {
-      serviceLogger.warn('Failed to register icon packs:', error);
-      // Continue without icon packs - basic architecture diagrams will still work
+      serviceLogger.warn('Failed to register specific icon packs:', error);
     }
   }
 
@@ -271,6 +294,8 @@ class MermaidService {
     const mermaidBlocks = tempDiv.querySelectorAll(".mermaid[data-mermaid-source][data-processed='false']");
     if (mermaidBlocks.length === 0) return tempDiv.innerHTML;
 
+    // We now load specific icons per diagram instead of loading all icons upfront
+
     for (const block of mermaidBlocks) {
       const encodedSource = block.dataset.mermaidSource?.trim() || "";
       const diagramSource = decodeURIComponent(encodedSource);
@@ -295,6 +320,16 @@ class MermaidService {
       }
 
       try {
+        // Extract icon references from the diagram source
+        const iconReferences = this.extractIconReferences(diagramSource);
+
+        // Load only the specific icons that are referenced
+        if (iconReferences.length > 0) {
+          this.debug(`Loading ${iconReferences.length} specific icons for diagram`);
+          const specificIconPacks = await this.loadSpecificIcons(iconReferences);
+          await this.registerSpecificIconPacks(specificIconPacks);
+        }
+
         const { svg } = await mermaid.render(
           `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           diagramSource,
