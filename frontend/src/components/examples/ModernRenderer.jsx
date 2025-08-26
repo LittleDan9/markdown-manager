@@ -18,11 +18,10 @@ import { useMermaid } from "@/services/rendering";
  * - No manual ref management for rendering state
  * - Optimized Mermaid diagram rendering
  */
-function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, showLoadingOverlay, loadingMessage }) {
+function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender }) {
   const { theme } = useTheme();
   const { highlightedBlocks, setHighlightedBlocks, previewHTML, setPreviewHTML } = useDocumentContext();
   const [html, setHtml] = useState("");
-  const [isRendering, setIsRendering] = useState(false);
   const previewScrollRef = useRef(null);
   const hasCalledFirstRender = useRef(false);
 
@@ -30,6 +29,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   const {
     renderDiagrams,
     updateTheme,
+    isLoading: isMermaidLoading,
     currentTheme: mermaidTheme
   } = useMermaid(theme);
 
@@ -42,10 +42,6 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
   // Render Markdown to HTML (same as before)
   useEffect(() => {
-    setIsRendering(true);
-    // Reset the first render flag when content changes
-    hasCalledFirstRender.current = false;
-
     let htmlString = render(content);
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlString;
@@ -93,17 +89,14 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
         htmlString = tempDiv.innerHTML;
         setHtml(htmlString);
-        // isRendering will be handled by Mermaid effect
       }).catch(error => {
         console.error("Syntax highlighting failed:", error);
         htmlString = tempDiv.innerHTML;
         setHtml(htmlString);
-        // isRendering will be handled by Mermaid effect
       });
     } else {
       htmlString = tempDiv.innerHTML;
       setHtml(htmlString);
-      // isRendering will be handled by Mermaid effect
     }
   }, [content, highlightedBlocks]);
 
@@ -112,7 +105,6 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     if (!html) return;
 
     const processMermaidDiagrams = async () => {
-      // Don't set isRendering here as it's already set by the markdown effect
       if (html.includes("data-mermaid-source")) {
         try {
           const updatedHtml = await renderDiagrams(html, theme);
@@ -124,8 +116,6 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       } else {
         setPreviewHTML(html);
       }
-      // Always set rendering to false when done (whether Mermaid or not)
-      setIsRendering(false);
     };
 
     processMermaidDiagrams();
@@ -143,43 +133,26 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
   // Call onFirstRender when ready
   useEffect(() => {
-    console.log("onFirstRender check:", {
-      hasCallback: !!onFirstRender,
-      isRendering,
-      hasPreviewHTML: !!previewHTML,
-      hasCalledBefore: hasCalledFirstRender.current
-    });
-
-    if (onFirstRender && !isRendering && previewHTML && !hasCalledFirstRender.current) {
-      console.log("Calling onFirstRender");
+    if (onFirstRender && !isMermaidLoading && previewHTML && !hasCalledFirstRender.current) {
       hasCalledFirstRender.current = true;
       onFirstRender();
     }
-  }, [onFirstRender, isRendering, previewHTML]);
+  }, [onFirstRender, isMermaidLoading, previewHTML]);
 
   return (
     <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>
-      <div id="preview" className="position-relative">
+      <div id="preview">
+        {/* Optional loading indicator for Mermaid diagrams */}
+        {isMermaidLoading && (
+          <div className="mermaid-loading-indicator">
+            <small className="text-muted">Rendering diagrams...</small>
+          </div>
+        )}
         <div
           className="preview-scroll"
           ref={previewScrollRef}
           dangerouslySetInnerHTML={{ __html: previewHTML }}
         />
-        {showLoadingOverlay && (
-          <div
-            className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-body bg-opacity-90"
-            style={{ zIndex: 10, borderRadius: '0.5rem' }}
-          >
-            <div className="text-center">
-              <div className="spinner-border text-primary mb-3" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <div>
-                <small className="text-muted">{loadingMessage || "Loading..."}</small>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
