@@ -20,17 +20,23 @@ class MermaidIconLoader {
     // Pattern to match icon references in architecture diagrams
     // Examples: icon:aws-icons:EC2, icon(aws-icons:S3), service(aws-icons:RDS), etc.
     const iconPatterns = [
+      /icon\s*:\s*"([^:"]+):([^"]+)"/gi,  // icon: "pack:iconname" (quoted - for flowchart syntax)
       /icon\s*:\s*([^:\s\]]+)\s*:\s*([^)\s,\]]+)/gi,  // icon:pack:iconname (in brackets like [icon:pack:name])
       /icon\s*\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/gi,  // icon(pack:iconname)
       /service\s+\w+\s*\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/gi, // service name(pack:iconname) for architecture diagrams
-      /\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/g, // Generic (pack:iconname) pattern
+      /group\s+\w+\s*\(\s*([^:\s]+)\s*:\s*([^)\s,]+)\s*\)/gi, // group name(pack:iconname) for architecture diagrams
+      /\(\s*([^:\s"]+)\s*:\s*([^)\s,"]+)\s*\)/g, // Generic (pack:iconname) pattern (excluding quoted patterns)
     ];
 
     iconPatterns.forEach(pattern => {
       let match;
       while ((match = pattern.exec(diagramSource)) !== null) {
-        const pack = match[1].trim();
-        const icon = match[2].trim();
+        let pack = match[1].trim();
+        let icon = match[2].trim();
+
+        // Clean up any surrounding quotes
+        pack = pack.replace(/^["']|["']$/g, '');
+        icon = icon.replace(/^["']|["']$/g, '');
 
         // Skip if it doesn't look like an icon pack reference
         if (pack.length === 0 || icon.length === 0) continue;
