@@ -6,14 +6,14 @@ import Editor from '../Editor';
  * EditorSection - Wrapper component for the editor area
  * Handles editor rendering with loading states and conditional visibility
  */
-function EditorSection({ 
-  isSharedView, 
-  isInitializing, 
-  content, 
-  onContentChange, 
-  onCursorLineChange, 
-  currentDocument, 
-  fullscreenPreview 
+function EditorSection({
+  isSharedView,
+  isInitializing,
+  content,
+  onContentChange,
+  onCursorLineChange,
+  currentDocument,
+  fullscreenPreview
 }) {
   // Don't render editor in shared view
   if (isSharedView) {
@@ -31,9 +31,16 @@ function EditorSection({
           fullscreenPreview={fullscreenPreview}
         />
       ) : (
-        <div className="d-flex justify-content-center align-items-center h-100">
-          <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">Initializing authentication...</span>
+        <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
+          <div className="editor-loading-container">
+            <div className="text-center">
+              <div className="spinner-border text-primary mb-3" role="status">
+                <span className="visually-hidden">Initializing authentication...</span>
+              </div>
+              <div>
+                <small className="text-muted">Loading editor...</small>
+              </div>
+            </div>
           </div>
         </div>
       )}
