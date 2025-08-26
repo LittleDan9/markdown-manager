@@ -39,7 +39,7 @@ export class IconsApi extends Api {
     });
 
     const response = await this.apiCall(
-      `/icons/search?${queryParams}`,
+      `/icons/search/?${queryParams}`,
       'GET',
       null,
       {},

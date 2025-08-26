@@ -23,8 +23,9 @@ class SpellCheckWorkerPool {
 
     for (let i = 0; i < this.maxWorkers; i++) {
       try {
-        // Use Webpack 5+ native worker import
-        const worker = new Worker(new URL('../../workers/spellCheck.worker.js', import.meta.url));
+        // Use worker-loader import pattern
+        const SpellCheckWorker = require('../../workers/spellCheck.worker.js').default;
+        const worker = new SpellCheckWorker();
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
         worker.onerror = (err) => {
           console.error(`[SpellCheckWorkerPool] Worker #${i+1} error:`, err.message, err.filename, err.lineno, err.colno, err.error);
@@ -83,10 +84,13 @@ class SpellCheckWorkerPool {
       const { chunk, idx } = this.taskQueue.shift();
       this.activeTasks++;
       worker._currentTaskIdx = idx;
+      const requestId = `task_${idx}_${Date.now()}`;
+      worker._currentRequestId = requestId;
       worker.postMessage({
         type: 'spellCheckChunk',
         chunk,
-        customWords: this._customWords
+        customWords: this._customWords,
+        requestId
       });
     }
   }
@@ -107,6 +111,18 @@ class SpellCheckWorkerPool {
       this.idleWorkers.push(worker);
       if (this.completedChunks === this.totalChunks) {
         // All done
+        this._resolve([].concat(...this.results));
+      } else {
+        this._dispatchTasks();
+      }
+    } else if (e.data && e.data.type === 'spellCheckChunkError') {
+      console.error('[SpellCheckWorkerPool] Worker task error:', e.data.error);
+      const idx = worker._currentTaskIdx;
+      this.results[idx] = []; // Empty results for failed chunk
+      this.completedChunks++;
+      this.activeTasks--;
+      this.idleWorkers.push(worker);
+      if (this.completedChunks === this.totalChunks) {
         this._resolve([].concat(...this.results));
       } else {
         this._dispatchTasks();

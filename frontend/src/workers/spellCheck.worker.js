@@ -10,11 +10,20 @@ async function loadDictionary() {
     if (speller) return;
     try {
       if (!affData) {
-        const affResponse = await fetch('/dictionary/index.aff');
+        // Use self.location to get the correct base URL in worker context
+        const baseUrl = self.location.origin;
+        const affResponse = await fetch(`${baseUrl}/dictionary/index.aff`);
+        if (!affResponse.ok) {
+          throw new Error(`Failed to load .aff file: ${affResponse.status} ${affResponse.statusText}`);
+        }
         affData = await affResponse.text();
       }
       if (!dicData) {
-        const dicResponse = await fetch('/dictionary/index.dic');
+        const baseUrl = self.location.origin;
+        const dicResponse = await fetch(`${baseUrl}/dictionary/index.dic`);
+        if (!dicResponse.ok) {
+          throw new Error(`Failed to load .dic file: ${dicResponse.status} ${dicResponse.statusText}`);
+        }
         dicData = await dicResponse.text();
       }
       speller = nspell(affData, dicData);
@@ -97,18 +106,21 @@ function extractMarkdownTextContent(text) {
 }
 
 self.onmessage = async function (e) {
+  let requestId;
   try {
-    if (e.data.type !== 'spellCheckChunk'){
-      console.warn('[SpellCheckWorker unknown message type');
+    const { requestId: rid, type, chunk, customWords } = e.data || {};
+    requestId = rid;
+
+    if (type !== 'spellCheckChunk'){
+      console.warn('[SpellCheckWorker] Unknown message type:', type);
       return;
     }
-    const { chunk, customWords, requestId } = e.data;
     await loadDictionary();
     addCustomWords(customWords);
     // chunk: { text, startOffset, endOffset }
     const { text, startOffset } = chunk;
-  let issues = [];
-  const seen = new Set();
+    let issues = [];
+    const seen = new Set();
     // Get code fence and inline code regions for the chunk
     const { codeFenceRegions, inlineCodeRegions } = extractMarkdownTextContent(text);
 
@@ -147,7 +159,7 @@ self.onmessage = async function (e) {
       const context = text.slice(contextStart, contextEnd);
       const emailRegex = /\b[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}\b/;
       const emailMatch = context.match(emailRegex);
-      if (emailMatch && context.indexOf(word) >= context.indexOf(emailMatch[0]) && 
+      if (emailMatch && context.indexOf(word) >= context.indexOf(emailMatch[0]) &&
           context.indexOf(word) < context.indexOf(emailMatch[0]) + emailMatch[0].length) {
         continue;
       }
@@ -173,6 +185,10 @@ self.onmessage = async function (e) {
     self.postMessage({ type: 'spellCheckChunkResult', requestId, issues });
   } catch (err) {
     console.error('[SpellCheckWorker] Error:', err);
-    self.postMessage({ type: 'spellCheckChunkError', requestId, error: err.message });
+    self.postMessage({
+      type: 'spellCheckChunkError',
+      requestId: requestId || 'unknown',
+      error: err.message
+    });
   }
 };

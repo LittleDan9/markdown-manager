@@ -1,17 +1,17 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Modal } from 'react-bootstrap';
-import IconBrowser from '../IconBrowser';
+import { IconBrowser } from '../LazyComponents'; // Use lazy-loaded version
 import LoadingOverlay from '../LoadingOverlay';
 
 /**
  * AppModals - Component that manages all app-level modals
  * Centralizes modal management for the main application
  */
-function AppModals({ 
-  showIconBrowser, 
-  onHideIconBrowser, 
-  migrationStatus 
+function AppModals({
+  showIconBrowser,
+  onHideIconBrowser,
+  migrationStatus
 }) {
   return (
     <>
@@ -27,7 +27,8 @@ function AppModals({
           <Modal.Title>Icon Browser</Modal.Title>
         </Modal.Header>
         <Modal.Body style={{ minHeight: '70vh' }} className="p-0">
-          <IconBrowser />
+          {/* Only render IconBrowser when modal is actually shown */}
+          {showIconBrowser && <IconBrowser />}
         </Modal.Body>
       </Modal>
 

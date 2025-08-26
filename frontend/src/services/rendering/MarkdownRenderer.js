@@ -1,6 +1,6 @@
 import MarkdownIt from "markdown-it";
 import { HighlightService } from '../editor';
-import { MermaidService } from './index';
+import { Mermaid } from './index';
 
 const md = new MarkdownIt({
   html: true,
@@ -27,7 +27,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
   const encodedSource = encodeURIComponent(diagramSource);
   const lineAttr = getLineAttr(tokens, idx);
   if (info.toLowerCase() === "mermaid") {
-    const mermaidDiagram = MermaidService.diagramCache.get(diagramSource);
+    const mermaidDiagram = Mermaid.cache.get(diagramSource);
     if (mermaidDiagram) {
       return `<div
         class="mermaid"

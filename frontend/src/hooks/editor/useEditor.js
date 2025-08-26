@@ -121,7 +121,7 @@ export default function useEditor({
     SpellCheckService.init().catch(console.error);
   }, [enableSpellCheck]);
 
-  // Window resize for spell check
+  // Window resize for spell check - reduced delay for better responsiveness
   useEffect(() => {
     if (!enableSpellCheck || !editorRef.current) return;
     let isResizing = false;
@@ -137,7 +137,7 @@ export default function useEditor({
         if (editorRef.current && lastEditorValue.current) {
           spellCheckDocument(lastEditorValue.current, 0);
         }
-      }, 500);
+      }, 300); // Reduced from 500ms to 300ms
     };
     window.addEventListener('resize', handleResize);
     return () => {
@@ -146,7 +146,7 @@ export default function useEditor({
     };
   }, [enableSpellCheck]);
 
-  // Editor layout change for spell check
+  // Editor layout change for spell check - reduced delay for better responsiveness
   useEffect(() => {
     if (!enableSpellCheck || !editorRef.current) return;
     const editor = editorRef.current;
@@ -157,7 +157,7 @@ export default function useEditor({
         if (editor && lastEditorValue.current) {
           spellCheckDocument(lastEditorValue.current, 0);
         }
-      }, 500);
+      }, 300); // Reduced from 500ms to 300ms
     });
     return () => {
       layoutDisposable.dispose();
@@ -165,7 +165,7 @@ export default function useEditor({
     };
   }, [enableSpellCheck]);
 
-  // Main spell check logic
+  // Main spell check logic - optimized for immediate initial check and faster user response
   useEffect(() => {
     if (!enableSpellCheck || !editorRef.current || !lastEditorValue.current) return;
     if (lastEditorValue.current !== previousValueRef.current) {
@@ -178,22 +178,22 @@ export default function useEditor({
           spellCheckDocument(regionText, startOffset);
         }
       };
-      const now = Date.now();
-      if (now - lastSpellCheckTime.current > 30000) {
-        runAndHandleSpellCheck();
-      } else {
-        debounceTimeout.current = setTimeout(runAndHandleSpellCheck, 5000);
-      }
+
+      // Reduce debounce delay for better responsiveness (was 5000ms, now 2000ms)
+      debounceTimeout.current = setTimeout(runAndHandleSpellCheck, 2000);
     }
     return () => {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
     };
   }, [enableSpellCheck, lastEditorValue.current, categoryId]);
 
-  // Initial spell check when editor is ready
+  // Initial spell check when editor is ready - trigger immediately
   useEffect(() => {
     if (enableSpellCheck && editorRef.current && lastEditorValue.current) {
-      spellCheckDocument(lastEditorValue.current, 0);
+      // Don't wait - start spell check immediately when editor loads
+      setTimeout(() => {
+        spellCheckDocument(lastEditorValue.current, 0);
+      }, 100); // Small delay to ensure editor is fully initialized
     }
   }, [enableSpellCheck, editorRef.current]);
 
