@@ -164,17 +164,9 @@ module.exports = {
     ...(isDevelopment ? [new ReactRefreshWebpackPlugin({
       overlay: false, // Disable error overlay since we have our own
     })] : []),
-    ...(isProduction ? [new CopyWebpackPlugin({
+    new CopyWebpackPlugin({
       patterns: [
-        {
-          from: 'public/prism-themes',
-          to: 'prism-themes',
-        },
-        {
-          from: 'src/assets/favicon.ico',
-          to: 'favicon.ico',
-        },
-        // Copy hunspell dictionary files for spell checker
+        // Copy hunspell dictionary files for spell checker (needed in all modes)
         {
           from: require.resolve('dictionary-en-us/index.aff'),
           to: 'dictionary/index.aff',
@@ -183,8 +175,19 @@ module.exports = {
           from: require.resolve('dictionary-en-us/index.dic'),
           to: 'dictionary/index.dic',
         },
+        // Production-only assets
+        ...(isProduction ? [
+          {
+            from: 'public/prism-themes',
+            to: 'prism-themes',
+          },
+          {
+            from: 'src/assets/favicon.ico',
+            to: 'favicon.ico',
+          },
+        ] : []),
       ],
-    })] : []),
+    }),
   ].filter(Boolean),
   // Development server (only for development)
   ...(isDevelopment && {

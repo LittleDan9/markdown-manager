@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Container, Alert, Button } from 'react-bootstrap';
 import Renderer from '../Renderer';
@@ -7,7 +7,9 @@ import Renderer from '../Renderer';
  * RendererSection - Wrapper component for the renderer area
  * Handles renderer with error states and shared view logic
  */
-function RendererSection({ 
+
+// ...existing code...
+function RendererSection({
   content,
   onRenderHTML,
   isSharedView,
@@ -18,17 +20,37 @@ function RendererSection({
   cursorLine,
   fullscreenPreview
 }) {
+  const [hasRendered, setHasRendered] = useState(false);
+
+  // Reset hasRendered if loading starts again or content changes significantly
+  React.useEffect(() => {
+    if (isInitializing || sharedLoading) {
+      setHasRendered(false);
+    }
+  }, [isInitializing, sharedLoading]);
+
+  // Handle empty content case - consider it "rendered"
+  React.useEffect(() => {
+    if (!content.trim() && !isInitializing && !sharedLoading && !hasRendered) {
+      setHasRendered(true);
+    }
+  }, [content, isInitializing, sharedLoading, hasRendered]);
+
+  const handleFirstRender = useCallback(() => {
+    setHasRendered(true);
+  }, []);
+
+  const showSpinner = isInitializing || sharedLoading || !hasRendered;
+
   return (
     <div className="renderer-wrapper">
-      {isInitializing ? (
-        // Show loading spinner while initializing
+      {showSpinner ? (
         <div className="d-flex justify-content-center align-items-center h-100">
           <div className="spinner-border text-primary" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
         </div>
       ) : isSharedView && !sharedDocument && !sharedLoading ? (
-        // Show error state for shared documents that failed to load
         <Container className="py-4">
           <Alert variant="danger">
             <Alert.Heading>Unable to Load Document</Alert.Heading>
@@ -45,12 +67,12 @@ function RendererSection({
           </Alert>
         </Container>
       ) : (
-        // Standard renderer for both normal and shared views
         <Renderer
           content={content}
           onRenderHTML={onRenderHTML}
           scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
           fullscreenPreview={isSharedView ? true : fullscreenPreview}
+          onFirstRender={handleFirstRender}
         />
       )}
     </div>
