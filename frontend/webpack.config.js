@@ -28,7 +28,7 @@ module.exports = {
   // 4) Change prod devtool to false, faster sourcemaps for dev
   devtool: isProduction ? false : 'eval',
   experiments: {
-    lazyCompilation: isDevelopment,
+    lazyCompilation: false, // Disable lazy compilation to prevent connection errors
     cacheUnaffected: true,
   },
   entry: './src/index.js',
@@ -163,6 +163,7 @@ module.exports = {
     })] : []),
     ...(isDevelopment ? [new ReactRefreshWebpackPlugin({
       overlay: false, // Disable error overlay since we have our own
+      exclude: [/node_modules/, /\.worker\.js$/], // Exclude workers and node_modules
     })] : []),
     new CopyWebpackPlugin({
       patterns: [
