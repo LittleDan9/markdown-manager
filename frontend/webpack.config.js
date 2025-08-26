@@ -23,7 +23,7 @@ module.exports = {
     memoryCacheUnaffected: true, // Use memory cache for unaffected modules
   } : false, // Disable cache for production builds
   mode: isProduction ? 'production' : 'development',
-  devtool: isProduction ? 'source-map' : 'eval-cheap-module-source-map',
+  devtool: isProduction ? false : 'eval-cheap-module-source-map',
   entry: './src/index.js',
   output: {
     filename: '[name]..[contenthash].bundle.js',

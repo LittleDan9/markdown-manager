@@ -5,7 +5,7 @@ import Renderer from '../Renderer';
 
 /**
  * RendererSection - Wrapper component for the renderer area
- * Handles renderer with loading states, error states, and shared view logic
+ * Handles renderer with error states and shared view logic
  */
 function RendererSection({ 
   content,
@@ -20,47 +20,42 @@ function RendererSection({
 }) {
   return (
     <div className="renderer-wrapper">
-      {(!isInitializing && !sharedLoading) ? (
-        isSharedView && !sharedDocument ? (
-          // Show error state for shared documents that failed to load
-          <Container className="py-4">
-            <Alert variant="danger">
-              <Alert.Heading>Unable to Load Document</Alert.Heading>
-              <p>The shared document could not be found or sharing has been disabled.</p>
-              <hr />
-              <div className="d-flex justify-content-end">
-                <Button
-                  variant="outline-danger"
-                  onClick={() => window.location.href = '/'}
-                >
-                  Go to Main App
-                </Button>
-              </div>
-            </Alert>
-          </Container>
-        ) : (
-          // Standard renderer for both normal and shared views
-          <Renderer
-            content={content}
-            onRenderHTML={onRenderHTML}
-            scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
-            fullscreenPreview={isSharedView ? true : fullscreenPreview}
-          />
-        )
-      ) : (
-        // Loading state
+      {isInitializing ? (
+        // Show loading spinner while initializing
         <div className="d-flex justify-content-center align-items-center h-100">
           <div className="spinner-border text-primary" role="status">
-            <span className="visually-hidden">
-              {sharedLoading ? 'Loading shared document...' : 'Initializing authentication...'}
-            </span>
+            <span className="visually-hidden">Loading...</span>
           </div>
         </div>
+      ) : isSharedView && !sharedDocument && !sharedLoading ? (
+        // Show error state for shared documents that failed to load
+        <Container className="py-4">
+          <Alert variant="danger">
+            <Alert.Heading>Unable to Load Document</Alert.Heading>
+            <p>The shared document could not be found or sharing has been disabled.</p>
+            <hr />
+            <div className="d-flex justify-content-end">
+              <Button
+                variant="outline-danger"
+                onClick={() => window.location.href = '/'}
+              >
+                Go to Main App
+              </Button>
+            </div>
+          </Alert>
+        </Container>
+      ) : (
+        // Standard renderer for both normal and shared views
+        <Renderer
+          content={content}
+          onRenderHTML={onRenderHTML}
+          scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
+          fullscreenPreview={isSharedView ? true : fullscreenPreview}
+        />
       )}
     </div>
   );
 }
-
 RendererSection.propTypes = {
   content: PropTypes.string.isRequired,
   onRenderHTML: PropTypes.func.isRequired,

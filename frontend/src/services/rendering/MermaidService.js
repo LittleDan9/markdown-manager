@@ -294,18 +294,37 @@ class MermaidService {
     const mermaidBlocks = tempDiv.querySelectorAll(".mermaid[data-mermaid-source][data-processed='false']");
     if (mermaidBlocks.length === 0) return tempDiv.innerHTML;
 
-    // We now load specific icons per diagram instead of loading all icons upfront
-
+    // STEP 1: Extract ALL icon references from ALL diagrams first
+    const allIconReferences = [];
+    const diagramSources = [];
+    
     for (const block of mermaidBlocks) {
       const encodedSource = block.dataset.mermaidSource?.trim() || "";
       const diagramSource = decodeURIComponent(encodedSource);
-
-      this.debug("Processing Mermaid block:");
-      this.debug("- Encoded source:", encodedSource);
-      this.debug("- Decoded source:", diagramSource);
-
+      
       if (!diagramSource) continue;
+      
+      diagramSources.push({ block, diagramSource });
+      
+      // Extract icon references from this diagram
+      const iconReferences = this.extractIconReferences(diagramSource);
+      allIconReferences.push(...iconReferences);
+    }
 
+    // STEP 2: Load ALL unique icons ONCE before any rendering
+    if (allIconReferences.length > 0) {
+      // Remove duplicates
+      const uniqueIconReferences = allIconReferences.filter((ref, index, self) => 
+        index === self.findIndex(r => r.pack === ref.pack && r.icon === ref.icon)
+      );
+      
+      this.debug(`Loading ${uniqueIconReferences.length} unique icons for all diagrams`);
+      const specificIconPacks = await this.loadSpecificIcons(uniqueIconReferences);
+      await this.registerSpecificIconPacks(specificIconPacks);
+    }
+
+    // STEP 3: Now render all diagrams (icons are already loaded)
+    for (const { block, diagramSource } of diagramSources) {
       const validationError = this.validateDiagramSource(diagramSource);
       if (validationError) {
         this.showError(block, validationError);
@@ -320,16 +339,6 @@ class MermaidService {
       }
 
       try {
-        // Extract icon references from the diagram source
-        const iconReferences = this.extractIconReferences(diagramSource);
-
-        // Load only the specific icons that are referenced
-        if (iconReferences.length > 0) {
-          this.debug(`Loading ${iconReferences.length} specific icons for diagram`);
-          const specificIconPacks = await this.loadSpecificIcons(iconReferences);
-          await this.registerSpecificIconPacks(specificIconPacks);
-        }
-
         const { svg } = await mermaid.render(
           `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           diagramSource,
@@ -338,7 +347,6 @@ class MermaidService {
         this.debug("Mermaid render result:");
         this.debug("- SVG length:", svg.length);
         this.debug("- SVG preview:", svg.substring(0, 200) + "...");
-        this.debug("- Full SVG content:", svg); // Add full SVG debug
 
         // Check if Mermaid returned an error in the SVG
         if (this.containsMermaidError(svg)) {

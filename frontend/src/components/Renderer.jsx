@@ -92,25 +92,31 @@ function Renderer({ content, scrollToLine, fullscreenPreview }) {
   }, [scrollToLine, html]);
   // Process any new mermaid diagrams when html changes
   useEffect(() => {
+    if (mermaidRendering.current) return; // Skip if already rendering
 
-    if (mermaidRendering.current ) return; // Skip if already rendering
-
-    if( html && html.includes("data-mermaid-source") ){
+    if (html && html.includes("data-mermaid-source")) {
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = html;
-      if( theme !== MermaidService.getTheme() ){
+      
+      if (theme !== MermaidService.getTheme()) {
         // Process Mermaid diagrams
         const allBlocks = tempDiv.querySelectorAll("[data-mermaid-source]");
         allBlocks.forEach(block => {
           block.setAttribute("data-processed", "false");
         });
       }
+      
       const unprocessedBlocks = tempDiv.querySelectorAll("[data-mermaid-source][data-processed='false']");
       if (unprocessedBlocks.length > 0) {
         mermaidRendering.current = true;
+        
         MermaidService.render(tempDiv.innerHTML, theme).then((updatedHtml) => {
           mermaidRendering.current = false;
           setPreviewHTML(updatedHtml);
+        }).catch((error) => {
+          console.error("Mermaid rendering failed:", error);
+          mermaidRendering.current = false;
+          setPreviewHTML(tempDiv.innerHTML); // Show without mermaid rendering
         });
       } else {
         setPreviewHTML(tempDiv.innerHTML);
