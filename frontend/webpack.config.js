@@ -5,6 +5,8 @@ const CompressionPlugin = require('compression-webpack-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { RuntimeGlobals, experiments } = require('webpack');
+const { EsbuildPlugin } = require('esbuild-loader');
+const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
 
 // Determine if we're in production mode
 const isProduction = process.env.NODE_ENV === 'production' || process.argv.includes('--mode=production');
@@ -13,20 +15,27 @@ const isDevelopment = !isProduction;
 console.log(`🔧 Webpack building in ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'} mode`);
 
 module.exports = {
+  // 1) Enable filesystem cache for ALL modes (including production)
   cache: isDevelopment ? {
+    type: 'memory', // Use memory cache for development to avoid permission issues
+  } : {
     type: 'filesystem',
     buildDependencies: {
       config: [__filename], // Invalidate cache when webpack config changes
     },
-    // More aggressive caching for development
-    maxMemoryGenerations: 1, // Keep only one generation in memory
-    memoryCacheUnaffected: true, // Use memory cache for unaffected modules
-  } : false, // Disable cache for production builds
+  },
   mode: isProduction ? 'production' : 'development',
-  devtool: isProduction ? false : 'eval-cheap-module-source-map',
+  // 4) Change prod devtool to false, faster sourcemaps for dev
+  devtool: isProduction ? false : 'eval',
+  experiments: {
+    lazyCompilation: isDevelopment,
+    cacheUnaffected: true,
+  },
   entry: './src/index.js',
   output: {
     filename: '[name]..[contenthash].bundle.js',
+    chunkFilename: '[name].[contenthash].chunk.js',
+    assetModuleFilename: '[name].[contenthash][ext]',
     path: (() => {
       const os = require('os');
       const fs = require('fs');
@@ -59,36 +68,33 @@ module.exports = {
         test: /\.ico$/,
         type: 'asset/resource',
       },
-      // {
-      //   test: /\.worker\.js$/,
-      //   exclude: [/node_modules/],
-      //   use: {
-      //     loader: 'worker-loader',
-      //     options: {
-      //       filename: '[name].js',
-      //       chunkFilename: '[name].[contenthash].js',
-      //       esModule: true,
-      //       inline: 'no-fallback',
-      //     }
-      //   }
-      // },
       {
-        test: /\.(js|jsx)$/,
-        exclude: [/node_modules/, /\.worker\.js$/],
+        test: /\.worker\.js$/,
+        exclude: [/node_modules/],
         use: {
-          loader: 'babel-loader',
+          loader: 'worker-loader',
           options: {
-            presets: [
-              '@babel/preset-env',
-              '@babel/preset-react'
-            ]
+            filename: '[name].[contenthash].worker.js',
+            chunkFilename: '[name].[contenthash].worker.js',
+            publicPath: '/',
+            esModule: true,
+            inline: 'no-fallback', // This prevents blob URLs and creates actual files
           }
+        }
+      },
+      {
+        test: /\.[jt]sx?$/,
+        exclude: /node_modules/,
+        loader: 'esbuild-loader',
+        options: {
+          loader: 'tsx',          // handles .ts/.tsx/.js/.jsx correctly by extension
+          target: 'es2019',       // modern target = less work
         }
       },
       {
         test: /\.css$/,
         use: [
-          MiniCssExtractPlugin.loader,
+          isDevelopment ? 'style-loader' : MiniCssExtractPlugin.loader,
           'css-loader'
         ],
       },
@@ -96,7 +102,7 @@ module.exports = {
         test: /\.scss$/,
         include: path.resolve(__dirname, 'src/styles'),
         use: [
-          MiniCssExtractPlugin.loader,
+          isDevelopment ? 'style-loader' : MiniCssExtractPlugin.loader,
           'css-loader',
           'sass-loader'
         ]
@@ -110,11 +116,6 @@ module.exports = {
         test: /\.svg$/,
         include: path.resolve(__dirname, 'node_modules/aws-icons'),
         type: 'asset/source', // Import SVG content as string
-      },
-      {
-        test: /\.tsx?$/,
-        use: "ts-loader",
-        exclude: /node_modules/,
       },
       {
         test: /\.(woff|woff2|eot|ttf|otf)$/,
@@ -141,15 +142,15 @@ module.exports = {
     // This prevents them from being bundled in the main chunks
   },
   plugins: [
-    new CompressionPlugin(),
-    new MiniCssExtractPlugin({
+    ...(isProduction ? [new CompressionPlugin()] : []),
+    ...(isProduction ? [new MiniCssExtractPlugin({
       filename: '[name].[contenthash].css',
       chunkFilename: '[id].[contenthash].css',
-    }),
+    })] : []),
     new HtmlWebpackPlugin({
       template: './src/index.html',
     }),
-    new MonacoWebpackPlugin({
+    ...(isProduction ? [new MonacoWebpackPlugin({
       languages: ['markdown'], // Only include markdown language
       features: [
         // Minimal features to reduce bundle size significantly
@@ -159,8 +160,11 @@ module.exports = {
       ],
       publicPath: '/',
       globalAPI: false, // Don't expose global monaco API
-    }),
-    new CopyWebpackPlugin({
+    })] : []),
+    ...(isDevelopment ? [new ReactRefreshWebpackPlugin({
+      overlay: false, // Disable error overlay since we have our own
+    })] : []),
+    ...(isProduction ? [new CopyWebpackPlugin({
       patterns: [
         {
           from: 'public/prism-themes',
@@ -180,8 +184,8 @@ module.exports = {
           to: 'dictionary/index.dic',
         },
       ],
-    }),
-  ],
+    })] : []),
+  ].filter(Boolean),
   // Development server (only for development)
   ...(isDevelopment && {
     devServer: {
@@ -207,6 +211,7 @@ module.exports = {
         options: {
           usePolling: false, // Use native file watching (faster)
           ignoreInitial: true,
+          ignored: /node_modules/,
         },
       },
       client: {
@@ -274,6 +279,13 @@ module.exports = {
         },
       },
     },
+    minimizer: [
+      new EsbuildPlugin({
+        target: 'es2019',
+        css: true,
+        legalComments: 'none',
+      }),
+    ],
     minimize: true,
     usedExports: true,
     sideEffects: false,

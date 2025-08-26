@@ -23,8 +23,9 @@ class SpellCheckWorkerPool {
 
     for (let i = 0; i < this.maxWorkers; i++) {
       try {
-        // Use Webpack 5+ native worker import
-        const worker = new Worker(new URL('../../workers/spellCheck.worker.js', import.meta.url));
+        // Use worker-loader import pattern
+        const SpellCheckWorker = require('../../workers/spellCheck.worker.js').default;
+        const worker = new SpellCheckWorker();
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
         worker.onerror = (err) => {
           console.error(`[SpellCheckWorkerPool] Worker #${i+1} error:`, err.message, err.filename, err.lineno, err.colno, err.error);

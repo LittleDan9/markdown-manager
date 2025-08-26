@@ -48,4 +48,27 @@ When using GitHub Copilot Chat in this repository to write or review React + Rea
 14. **User Feedback is Important**
     Use the `frontend/src/components/NotificationProvider` module to provide user feedback. This includes notifications, alerts, successes, and any other user-facing messages. Ensure that all feedback is clear, concise, and actionable. Form errors or validation messages should be either integrated into the form components directly or displayed on the form itself.
 
+15. **Development Environment & Debugging**
+    The frontend runs on [http://localhost:3000](http://localhost:3000) with React + Webpack HMR for hot reload. Use browser console testing functions for development:
+    ```javascript
+    window.testAutoSave()           // Test auto-save functionality
+    window.testAutoSave(10)         // Test with custom delay
+    window.testManualSave()         // Test manual save
+    ```
+
+16. **Docker Development Workflow**
+    Frontend runs in Docker container `markdown-manager-frontend-1`. For debugging:
+    ```bash
+    docker compose logs frontend --follow    # Monitor frontend logs
+    docker compose restart frontend         # Restart frontend container
+    docker compose up --build frontend      # Rebuild and start
+    ```
+
+17. **Debugging Best Practices**
+    - Always check `docker compose ps` first to verify container status
+    - Use direct port access (localhost:3000) instead of nginx for debugging
+    - Monitor webpack build times and response times
+    - Check browser console for errors and use the built-in test functions
+    - Hot reload handles most code changes automatically
+
 
