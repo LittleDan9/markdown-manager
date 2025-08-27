@@ -7,7 +7,7 @@ import FileOverwriteModal from "@/components/file/FileOverwriteModal";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 import ShareModal from "@/components/modals/ShareModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { useConfirmModal } from "@/hooks/ui";
+import { useConfirmModal, useFileModal } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
@@ -22,6 +22,7 @@ function FileDropdown({ setDocumentTitle }) {
     categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
   } = useDocumentContext();
   const { showSuccess, showError } = useNotification();
+  const { showFileModal, openFileModal } = useFileModal();
 
   // Share modal state
   const [showShareModal, setShowShareModal] = React.useState(false);
@@ -122,7 +123,7 @@ function FileDropdown({ setDocumentTitle }) {
           <Dropdown.Item onClick={handleNew}>
             <i className="bi bi-file-plus me-2"></i>New
           </Dropdown.Item>
-          <Dropdown.Item onClick={fileOps.openOpenModal}>
+          <Dropdown.Item onClick={() => openFileModal('local')}>
             <i className="bi bi-folder2-open me-2"></i>Open
           </Dropdown.Item>
           <Dropdown.Item onClick={handleClose} disabled={isDefaultDoc && !hasUnsavedChanges}>
@@ -191,10 +192,10 @@ function FileDropdown({ setDocumentTitle }) {
         onChange={fileOps.handleFileChange}
       />
 
-      {fileOps.showOpenModal && (
+      {showFileModal && (
         <FileOpenModal
-          show={fileOps.showOpenModal}
-          onHide={() => fileOps.setShowOpenModal(false)}
+          show={showFileModal}
+          onHide={() => {}} // Modal will handle its own closing via the hook
           categories={categories}
           documents={documents}
           onOpen={fileOps.handleOpenFile}

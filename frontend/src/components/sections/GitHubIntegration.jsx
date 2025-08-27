@@ -1,14 +1,24 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, List, message, Modal, Space, Tag, Typography } from 'antd';
-import { GithubOutlined, LinkOutlined, DisconnectOutlined } from '@ant-design/icons';
+import {
+  Card,
+  Button,
+  ListGroup,
+  Badge,
+  Row,
+  Col,
+  Image,
+  Spinner,
+  Alert
+} from 'react-bootstrap';
+import { useNotification } from '../NotificationProvider';
 import { api } from '../../services/api';
-
-const { Title, Text } = Typography;
 
 const GitHubIntegration = () => {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [repositories, setRepositories] = useState([]);
+
+  const { showSuccess, showError } = useNotification();
 
   // Load GitHub accounts on component mount
   useEffect(() => {
@@ -22,7 +32,7 @@ const GitHubIntegration = () => {
       setAccounts(response.data);
     } catch (error) {
       console.error('Failed to load GitHub accounts:', error);
-      message.error('Failed to load GitHub accounts');
+      showError('Failed to load GitHub accounts');
     } finally {
       setLoading(false);
     }
@@ -48,13 +58,13 @@ const GitHubIntegration = () => {
           setLoading(false);
           // Refresh accounts after OAuth
           loadAccounts();
-          message.success('GitHub account connected successfully!');
+          showSuccess('GitHub account connected successfully!');
         }
       }, 1000);
 
     } catch (error) {
       console.error('Failed to initiate GitHub OAuth:', error);
-      message.error('Failed to connect to GitHub');
+      showError('Failed to connect to GitHub');
       setLoading(false);
     }
   };
@@ -62,11 +72,11 @@ const GitHubIntegration = () => {
   const disconnectAccount = async (accountId) => {
     try {
       await api.delete(`/api/github/accounts/${accountId}`);
-      message.success('GitHub account disconnected');
+      showSuccess('GitHub account disconnected');
       loadAccounts();
     } catch (error) {
       console.error('Failed to disconnect GitHub account:', error);
-      message.error('Failed to disconnect GitHub account');
+      showError('Failed to disconnect GitHub account');
     }
   };
 
@@ -77,7 +87,7 @@ const GitHubIntegration = () => {
       setRepositories(response.data);
     } catch (error) {
       console.error('Failed to load repositories:', error);
-      message.error('Failed to load repositories');
+      showError('Failed to load repositories');
     } finally {
       setLoading(false);
     }
@@ -87,124 +97,147 @@ const GitHubIntegration = () => {
     try {
       setLoading(true);
       await api.post(`/api/github/repositories/sync?account_id=${accountId}`);
-      message.success('Repositories synced successfully');
+      showSuccess('Repositories synced successfully');
       loadRepositories(accountId);
     } catch (error) {
       console.error('Failed to sync repositories:', error);
-      message.error('Failed to sync repositories');
+      showError('Failed to sync repositories');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{ padding: '24px' }}>
-      <Title level={2}>
-        <GithubOutlined /> GitHub Integration
-      </Title>
+    <div className="p-4">
+      <h2 className="mb-4">
+        <i className="bi bi-github me-2"></i>
+        GitHub Integration
+      </h2>
 
-      <Card
-        title="Connected Accounts"
-        extra={
+      <Card className="mb-4">
+        <Card.Header className="d-flex justify-content-between align-items-center">
+          <Card.Title className="mb-0">Connected Accounts</Card.Title>
           <Button
-            type="primary"
-            icon={<LinkOutlined />}
+            variant="primary"
             onClick={connectGitHub}
-            loading={loading}
+            disabled={loading}
           >
-            Connect GitHub Account
-          </Button>
-        }
-        style={{ marginBottom: '24px' }}
-      >
-        {accounts.length === 0 ? (
-          <Text type="secondary">
-            No GitHub accounts connected. Click "Connect GitHub Account" to get started.
-          </Text>
-        ) : (
-          <List
-            dataSource={accounts}
-            renderItem={(account) => (
-              <List.Item
-                actions={[
-                  <Button
-                    onClick={() => loadRepositories(account.id)}
-                    size="small"
-                  >
-                    View Repositories
-                  </Button>,
-                  <Button
-                    onClick={() => syncRepositories(account.id)}
-                    size="small"
-                    type="dashed"
-                  >
-                    Sync Repos
-                  </Button>,
-                  <Button
-                    danger
-                    size="small"
-                    icon={<DisconnectOutlined />}
-                    onClick={() => disconnectAccount(account.id)}
-                  >
-                    Disconnect
-                  </Button>
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={
-                    account.avatar_url ? (
-                      <img
-                        src={account.avatar_url}
-                        alt={account.username}
-                        style={{ width: 40, height: 40, borderRadius: '50%' }}
-                      />
-                    ) : (
-                      <GithubOutlined style={{ fontSize: '24px' }} />
-                    )
-                  }
-                  title={
-                    <Space>
-                      <Text strong>{account.display_name || account.username}</Text>
-                      <Tag color="blue">@{account.username}</Tag>
-                      {account.is_active ? (
-                        <Tag color="green">Active</Tag>
-                      ) : (
-                        <Tag color="red">Inactive</Tag>
-                      )}
-                    </Space>
-                  }
-                  description={account.email}
-                />
-              </List.Item>
+            {loading ? (
+              <>
+                <Spinner animation="border" size="sm" className="me-2" />
+                Connecting...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-link-45deg me-2"></i>
+                Connect GitHub Account
+              </>
             )}
-          />
-        )}
+          </Button>
+        </Card.Header>
+        <Card.Body>
+          {accounts.length === 0 ? (
+            <Alert variant="info">
+              <Alert.Heading>No GitHub accounts connected</Alert.Heading>
+              <p>Click "Connect GitHub Account" to get started with GitHub integration.</p>
+            </Alert>
+          ) : (
+            <ListGroup variant="flush">
+              {accounts.map((account) => (
+                <ListGroup.Item key={account.id}>
+                  <Row className="align-items-center">
+                    <Col xs="auto">
+                      {account.avatar_url ? (
+                        <Image
+                          src={account.avatar_url}
+                          alt={account.username}
+                          width={40}
+                          height={40}
+                          roundedCircle
+                        />
+                      ) : (
+                        <i className="bi bi-github" style={{ fontSize: '24px' }}></i>
+                      )}
+                    </Col>
+                    <Col>
+                      <div className="d-flex align-items-center gap-2 mb-1">
+                        <strong>{account.display_name || account.username}</strong>
+                        <Badge bg="primary">@{account.username}</Badge>
+                        <Badge bg={account.is_active ? 'success' : 'danger'}>
+                          {account.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <small className="text-muted">{account.email}</small>
+                    </Col>
+                    <Col xs="auto">
+                      <div className="d-flex gap-2">
+                        <Button
+                          variant="outline-primary"
+                          size="sm"
+                          onClick={() => loadRepositories(account.id)}
+                        >
+                          View Repositories
+                        </Button>
+                        <Button
+                          variant="outline-secondary"
+                          size="sm"
+                          onClick={() => syncRepositories(account.id)}
+                        >
+                          Sync Repos
+                        </Button>
+                        <Button
+                          variant="outline-danger"
+                          size="sm"
+                          onClick={() => disconnectAccount(account.id)}
+                        >
+                          <i className="bi bi-x-circle me-1"></i>
+                          Disconnect
+                        </Button>
+                      </div>
+                    </Col>
+                  </Row>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          )}
+        </Card.Body>
       </Card>
 
       {repositories.length > 0 && (
-        <Card title="Repositories" style={{ marginBottom: '24px' }}>
-          <List
-            dataSource={repositories}
-            renderItem={(repo) => (
-              <List.Item
-                actions={[
-                  <Button size="small">Browse Files</Button>,
-                  <Button size="small" type="primary">Import Files</Button>
-                ]}
-              >
-                <List.Item.Meta
-                  title={
-                    <Space>
-                      <Text strong>{repo.repo_name}</Text>
-                      {repo.is_private && <Tag color="orange">Private</Tag>}
-                      <Tag color="blue">{repo.default_branch}</Tag>
-                    </Space>
-                  }
-                  description={repo.description || 'No description'}
-                />
-              </List.Item>
-            )}
-          />
+        <Card>
+          <Card.Header>
+            <Card.Title className="mb-0">Repositories</Card.Title>
+          </Card.Header>
+          <Card.Body>
+            <ListGroup variant="flush">
+              {repositories.map((repo) => (
+                <ListGroup.Item key={repo.id}>
+                  <Row className="align-items-center">
+                    <Col>
+                      <div className="d-flex align-items-center gap-2 mb-1">
+                        <strong>{repo.repo_name}</strong>
+                        {repo.is_private && <Badge bg="warning">Private</Badge>}
+                        <Badge bg="info">{repo.default_branch}</Badge>
+                      </div>
+                      <small className="text-muted">
+                        {repo.description || 'No description'}
+                      </small>
+                    </Col>
+                    <Col xs="auto">
+                      <div className="d-flex gap-2">
+                        <Button variant="outline-primary" size="sm">
+                          Browse Files
+                        </Button>
+                        <Button variant="primary" size="sm">
+                          Import Files
+                        </Button>
+                      </div>
+                    </Col>
+                  </Row>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          </Card.Body>
         </Card>
       )}
     </div>

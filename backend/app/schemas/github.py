@@ -96,6 +96,31 @@ class GitHubRepository(GitHubRepositoryBase):
         from_attributes = True
 
 
+class GitHubRepositoryResponse(BaseModel):
+    """Schema for repository list API responses - frontend-friendly format."""
+
+    id: int
+    github_repo_id: int
+    name: str = Field(..., description="Repository name")
+    full_name: str = Field(..., description="Full repository name (owner/repo)")
+    description: Optional[str] = Field(None, description="Repository description")
+    private: bool = Field(False, description="Whether repository is private")
+    default_branch: str = Field("main", description="Default branch")
+
+    @classmethod
+    def from_repo(cls, repo: 'GitHubRepository') -> 'GitHubRepositoryResponse':
+        """Create response from repository model."""
+        return cls(
+            id=repo.id,
+            github_repo_id=repo.github_repo_id,
+            name=repo.repo_name,
+            full_name=repo.repo_full_name,
+            description=repo.description,
+            private=repo.is_private,
+            default_branch=repo.default_branch
+        )
+
+
 class GitHubFileInfo(BaseModel):
     """Schema for GitHub file information."""
 
@@ -146,3 +171,72 @@ class GitHubBranchInfo(BaseModel):
     name: str = Field(..., description="Branch name")
     commit_sha: str = Field(..., description="Latest commit SHA")
     is_default: bool = Field(False, description="Whether this is the default branch")
+
+
+# Phase 2: Commit Workflow Schemas
+class GitHubCommitRequest(BaseModel):
+    """Schema for committing changes to GitHub."""
+
+    commit_message: str = Field(..., min_length=1, max_length=1000, description="Commit message")
+    branch: Optional[str] = Field(None, description="Target branch (defaults to document's current branch)")
+    create_new_branch: bool = Field(False, description="Whether to create a new branch")
+    new_branch_name: Optional[str] = Field(None, min_length=1, max_length=100, description="New branch name if creating")
+    force_commit: bool = Field(False, description="Override conflict detection")
+
+
+class GitHubCommitResponse(BaseModel):
+    """Schema for commit response."""
+
+    success: bool = Field(..., description="Whether commit succeeded")
+    commit_sha: str = Field(..., description="SHA of the new commit")
+    commit_url: str = Field(..., description="URL to view the commit on GitHub")
+    branch: str = Field(..., description="Branch where commit was made")
+    message: str = Field(..., description="Success message")
+
+
+class GitHubStatusResponse(BaseModel):
+    """Schema for document GitHub status."""
+
+    is_github_document: bool = Field(..., description="Whether document is linked to GitHub")
+    sync_status: str = Field(..., description="Current sync status")
+    has_local_changes: bool = Field(False, description="Whether there are uncommitted local changes")
+    has_remote_changes: bool = Field(False, description="Whether there are unpulled remote changes")
+    github_repository: Optional[str] = Field(None, description="Repository full name")
+    github_branch: Optional[str] = Field(None, description="Current branch")
+    github_file_path: Optional[str] = Field(None, description="File path in repository")
+    last_sync: Optional[datetime] = Field(None, description="Last sync timestamp")
+    status_info: dict = Field(default_factory=dict, description="UI display information")
+    remote_content: Optional[str] = Field(None, description="Remote content if conflicts exist")
+
+
+class GitHubPullRequest(BaseModel):
+    """Schema for pulling remote changes."""
+
+    force_overwrite: bool = Field(False, description="Overwrite local changes without creating backup")
+
+
+class GitHubPullResponse(BaseModel):
+    """Schema for pull response."""
+
+    success: bool = Field(..., description="Whether pull succeeded")
+    had_conflicts: bool = Field(..., description="Whether conflicts were detected")
+    changes_pulled: bool = Field(..., description="Whether any changes were pulled")
+    message: str = Field(..., description="Operation message")
+    backup_created: bool = Field(False, description="Whether a backup was created")
+
+
+class GitHubSyncHistoryEntry(BaseModel):
+    """Schema for sync history entry."""
+
+    id: int
+    operation: str = Field(..., description="Type of operation (pull, push, etc.)")
+    status: str = Field(..., description="Operation status")
+    commit_sha: Optional[str] = Field(None, description="Related commit SHA")
+    branch_name: str = Field(..., description="Branch name")
+    message: Optional[str] = Field(None, description="Operation message")
+    error_details: Optional[str] = Field(None, description="Error details if failed")
+    files_changed: int = Field(default=0, description="Number of files changed")
+    created_at: datetime = Field(..., description="When operation occurred")
+
+    class Config:
+        from_attributes = True

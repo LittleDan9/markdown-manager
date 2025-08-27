@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Dict, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 

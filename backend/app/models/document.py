@@ -65,9 +65,12 @@ class Document(Base):  # type: ignore[misc]
         Integer, ForeignKey("github_repositories.id"), nullable=True, index=True
     )
     github_file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    github_branch: Mapped[str | None] = mapped_column(String(100), nullable=True)
     github_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    local_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
     github_sync_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_github_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    github_commit_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Relationship
     owner: Mapped["User"] = relationship(
@@ -97,3 +100,50 @@ class Document(Base):  # type: ignore[misc]
             f"<Document(id={self.id}, name='{self.name}', "
             f"category_id={self.category_id})>"
         )
+
+    @property
+    def github_status_info(self) -> dict:
+        """Get GitHub status information for UI display."""
+        if not self.github_repository_id:
+            return {
+                "type": "local",
+                "message": "Local document",
+                "icon": "📄",
+                "color": "secondary"
+            }
+
+        status_map = {
+            "synced": {
+                "type": "synced",
+                "icon": "🟢",
+                "message": "In sync with GitHub",
+                "color": "success"
+            },
+            "local_changes": {
+                "type": "draft",
+                "icon": "🔵",
+                "message": "Draft changes ready to commit",
+                "color": "primary"
+            },
+            "remote_changes": {
+                "type": "behind",
+                "icon": "🟡",
+                "message": "Updates available from GitHub",
+                "color": "warning"
+            },
+            "conflict": {
+                "type": "conflict",
+                "icon": "🔴",
+                "message": "Conflicts need resolution",
+                "color": "danger"
+            }
+        }
+
+        default_status = {
+            "type": "unknown",
+            "icon": "⚪",
+            "message": "Unknown status",
+            "color": "secondary"
+        }
+
+        return status_map.get(self.github_sync_status or "unknown", default_status)

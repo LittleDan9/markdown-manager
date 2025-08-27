@@ -260,3 +260,155 @@ class GitHubService:
             return True
         except HTTPException:
             return False
+
+    def generate_content_hash(self, content: str) -> str:
+        """Generate SHA-256 hash of content for comparison."""
+        import hashlib
+        return hashlib.sha256(content.encode('utf-8')).hexdigest()
+
+    async def commit_file(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        file_path: str,
+        content: str,
+        message: str,
+        branch: str,
+        sha: Optional[str] = None,
+        create_branch: bool = False,
+        base_branch: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """Commit file changes to GitHub repository."""
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Authorization": f"Bearer {access_token}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+
+            # Create new branch if requested
+            if create_branch and base_branch:
+                await self._create_branch(client, headers, owner, repo, branch, base_branch)
+
+            # Prepare commit data
+            encoded_content = base64.b64encode(content.encode('utf-8')).decode('ascii')
+
+            commit_data = {
+                "message": message,
+                "content": encoded_content,
+                "branch": branch
+            }
+
+            # Include SHA for updates (not for new files)
+            if sha:
+                commit_data["sha"] = sha
+
+            url = f"https://api.github.com/repos/{owner}/{repo}/contents/{file_path}"
+
+            response = await client.put(url, json=commit_data, headers=headers)
+
+            if response.status_code not in (200, 201):
+                content_type = response.headers.get("content-type", "")
+                if content_type.startswith("application/json"):
+                    error_data = response.json()
+                else:
+                    error_data = {"message": response.text}
+
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to commit file: {error_data.get('message', 'Unknown error')}"
+                )
+
+            return response.json()
+
+    async def _create_branch(
+        self,
+        client: httpx.AsyncClient,
+        headers: Dict[str, str],
+        owner: str,
+        repo: str,
+        new_branch: str,
+        base_branch: str
+    ) -> None:
+        """Create a new branch from base branch."""
+        # Get base branch SHA
+        base_url = f"https://api.github.com/repos/{owner}/{repo}/git/refs/heads/{base_branch}"
+        response = await client.get(base_url, headers=headers)
+
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to get base branch {base_branch}"
+            )
+
+        base_data = response.json()
+        base_sha = base_data["object"]["sha"]
+
+        # Create new branch
+        create_data = {
+            "ref": f"refs/heads/{new_branch}",
+            "sha": base_sha
+        }
+
+        create_url = f"https://api.github.com/repos/{owner}/{repo}/git/refs"
+        response = await client.post(create_url, json=create_data, headers=headers)
+
+        if response.status_code != 201:
+            content_type = response.headers.get("content-type", "")
+            if content_type.startswith("application/json"):
+                error_data = response.json()
+            else:
+                error_data = {"message": response.text}
+
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Failed to create branch {new_branch}: {error_data.get('message', 'Unknown error')}"
+            )
+
+    async def get_branches(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str
+    ) -> List[Dict[str, Any]]:
+        """Get all branches for a repository."""
+        return await self.get_repository_branches(access_token, owner, repo)
+
+    async def check_file_status(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        file_path: str,
+        branch: str,
+        local_sha: str
+    ) -> Dict[str, Any]:
+        """Check if file has been updated on GitHub since last sync."""
+        try:
+            current_content, current_sha = await self.get_file_content(
+                access_token, owner, repo, file_path, branch
+            )
+
+            # Generate hash of current remote content
+            remote_content_hash = self.generate_content_hash(current_content)
+            local_content_hash = local_sha
+
+            return {
+                "exists": True,
+                "remote_sha": current_sha,
+                "remote_content": current_content,
+                "remote_content_hash": remote_content_hash,
+                "has_remote_changes": remote_content_hash != local_content_hash,
+                "content": current_content
+            }
+        except HTTPException as e:
+            if e.status_code == 404:
+                return {
+                    "exists": False,
+                    "remote_sha": None,
+                    "remote_content": "",
+                    "remote_content_hash": "",
+                    "has_remote_changes": False,
+                    "content": ""
+                }
+            raise

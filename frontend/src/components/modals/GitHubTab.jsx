@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, ListGroup, Alert, Badge, Spinner, Accordion } from 'react-bootstrap';
 import gitHubApi from '../../api/gitHubApi';
 import ConfirmModal from './ConfirmModal';
+import { useFileModal } from '../../hooks/ui';
 
-function GitHubTab() {
+function GitHubTab({ onCloseSettings }) {
   const [accounts, setAccounts] = useState([]);
   const [accountRepositories, setAccountRepositories] = useState({}); // Store repos by account ID
   const [loading, setLoading] = useState(false);
@@ -11,6 +12,7 @@ function GitHubTab() {
   const [success, setSuccess] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState(null);
+  const { openGitHubTab } = useFileModal();
 
   // Load GitHub accounts on component mount
   useEffect(() => {
@@ -360,13 +362,13 @@ This ensures a clean session without cached GitHub authentication.`;
                                 }`}
                               >
                                 <div>
-                                  <div className="fw-semibold">{repo.repo_name}</div>
+                                  <div className="fw-semibold">{repo.name}</div>
                                   <div className="small text-muted">
                                     {repo.description || 'No description available'}
                                   </div>
                                 </div>
                                 <div className="d-flex align-items-center">
-                                  {repo.is_private && (
+                                  {repo.private && (
                                     <Badge bg="warning" text="dark" className="me-2">
                                       <i className="bi bi-lock me-1"></i>
                                       Private
@@ -376,7 +378,14 @@ This ensures a clean session without cached GitHub authentication.`;
                                     <i className="bi bi-git me-1"></i>
                                     {repo.default_branch}
                                   </Badge>
-                                  <Button variant="outline-primary" size="sm">
+                                  <Button
+                                    variant="outline-primary"
+                                    size="sm"
+                                    onClick={() => {
+                                      onCloseSettings?.(); // Close settings modal
+                                      openGitHubTab(repo); // Open file modal to GitHub tab with this repository
+                                    }}
+                                  >
                                     <i className="bi bi-folder-open me-1"></i>
                                     Browse
                                   </Button>

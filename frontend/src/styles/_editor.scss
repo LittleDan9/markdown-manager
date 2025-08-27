@@ -12,11 +12,31 @@
 // When editor has a toolbar, we need to modify the border structure
 #editor.has-toolbar {
   border-top: none !important; // Remove top border since toolbar provides it
-  border-radius: 0 0 0.5rem 0.5rem !important; // Only bottom corners rounded
+  border-radius: 0 0 0.5rem 0.5rem !important; // Bottom corners rounded
+
+  // Monaco container takes up most of the space
+  .monaco-container {
+    border: none !important;
+    border-radius: 0 !important; // No radius for Monaco itself
+    flex: 1 1 auto;
+    min-height: 0; // Allow Monaco to shrink properly
+  }
 
   .monaco-editor,
   .monaco-editor .overflow-guard {
-    border-radius: 0 0 0.5rem 0.5rem; // Match the container
+    border-radius: 0; // Remove all border radius for Monaco editor
+  }
+
+  // If no GitHub status bar is present (guest users), Monaco should have bottom corners
+  &.no-github-status {
+    .monaco-container {
+      border-radius: 0 0 0.5rem 0.5rem !important;
+    }
+
+    .monaco-editor,
+    .monaco-editor .overflow-guard {
+      border-radius: 0 0 0.5rem 0.5rem;
+    }
   }
 }
 
@@ -28,6 +48,46 @@
 
   @include mixins.dark {
     border-color: #495057;
+  }
+}
+
+// GitHub Status Bar - inside the editor border at the bottom
+.github-status-bar {
+  // Use Bootstrap's semantic background and border colors
+  background-color: var(--bs-secondary-bg);
+  border-color: #ced4da;
+  color: var(--bs-body-color);
+
+  // Only top border since it's inside the editor container
+  border-top: 1px solid #ced4da;
+  border-bottom: none;
+  border-left: none;
+  border-right: none;
+
+  // Bottom corners should match the editor container
+  border-radius: 0 0 0.5rem 0.5rem;
+
+  // Add subtle shadow to separate from editor content
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+  // Ensure proper theming
+  @include mixins.dark {
+    background-color: var(--bs-dark);
+    border-color: #495057;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+
+  // Smooth transition for theme changes
+  transition: background-color 0.15s ease-in-out, border-color 0.15s ease-in-out;
+
+  // Ensure buttons in the status bar have proper spacing
+  .btn-group .btn {
+    --bs-btn-border-radius: 0.25rem;
+  }
+
+  // Make sure small text is readable in both themes
+  .text-muted {
+    opacity: 0.7;
   }
 }
 

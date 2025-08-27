@@ -2,7 +2,7 @@
 import secrets
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status, BackgroundTasks
+from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
 from fastapi.responses import HTMLResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,8 +14,16 @@ from app.schemas.github import (
     GitHubFileInfo,
     GitHubImportRequest,
     GitHubRepository,
+    GitHubRepositoryResponse,
+    GitHubCommitRequest,
+    GitHubCommitResponse,
+    GitHubStatusResponse,
+    GitHubPullRequest,
+    GitHubPullResponse,
+    GitHubSyncHistoryEntry,
 )
 from app.services.github_service import GitHubService
+from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter(tags=["github"])
 github_service = GitHubService()
@@ -312,23 +320,32 @@ async def disconnect_github_account(
 
 @router.get("/repositories")
 async def list_repositories(
-    account_id: int = Query(..., description="GitHub account ID"),
+    account_id: int = Query(None, description="GitHub account ID (optional - returns all if not specified)"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> List[GitHubRepository]:
-    """List repositories for a GitHub account."""
+) -> List[GitHubRepositoryResponse]:
+    """List repositories for a GitHub account or all accounts."""
     from app.crud.github_crud import GitHubCRUD
     github_crud = GitHubCRUD()
 
-    account = await github_crud.get_account(db, account_id)
-    if not account or account.user_id != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="GitHub account not found"
-        )
+    if account_id:
+        # Get repositories for specific account
+        account = await github_crud.get_account(db, account_id)
+        if not account or account.user_id != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="GitHub account not found"
+            )
+        repositories = await github_crud.get_account_repositories(db, account_id)
+    else:
+        # Get repositories for all user's GitHub accounts
+        accounts = await github_crud.get_user_accounts(db, current_user.id)
+        repositories = []
+        for account in accounts:
+            account_repos = await github_crud.get_account_repositories(db, account.id)
+            repositories.extend(account_repos)
 
-    repositories = await github_crud.get_account_repositories(db, account_id)
-    return [GitHubRepository.model_validate(repo) for repo in repositories]
+    return [GitHubRepositoryResponse.from_repo(repo) for repo in repositories]
 
 
 @router.post("/repositories/sync")
@@ -432,6 +449,53 @@ async def browse_repository_files(
     return files
 
 
+@router.get("/repositories/{repo_id}/contents")
+async def get_repository_contents(
+    repo_id: int,
+    path: str = Query("", description="Directory path to browse"),
+    branch: str = Query("main", description="Branch to browse"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[dict]:
+    """Get repository contents at a specific path - supports all file types."""
+    from app.crud.github_crud import GitHubCRUD
+    github_crud = GitHubCRUD()
+
+    repo = await github_crud.get_repository(db, repo_id)
+    if not repo or repo.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found"
+        )
+
+    # Get repository contents from GitHub API
+    try:
+        contents = await github_service.get_repository_contents(
+            repo.account.access_token,
+            repo.repo_owner,
+            repo.repo_name,
+            path,
+            branch
+        )
+
+        # Return simplified structure for browsing
+        return [
+            {
+                "name": item["name"],
+                "path": item["path"],
+                "type": item["type"],  # "file" or "dir"
+                "size": item.get("size", 0),
+                "download_url": item.get("download_url")
+            }
+            for item in contents
+        ]
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get repository contents: {str(e)}"
+        )
+
+
 @router.post("/import")
 async def import_file_from_github(
     import_request: GitHubImportRequest,
@@ -476,3 +540,305 @@ async def import_file_from_github(
         "document_id": document.id,
         "document_name": document.name
     }
+
+
+# Phase 2: Commit Workflow Endpoints
+
+@router.post("/documents/{document_id}/commit", response_model=GitHubCommitResponse)
+async def commit_document_to_github(
+    document_id: int,
+    commit_request: GitHubCommitRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> GitHubCommitResponse:
+    """Commit local document changes to GitHub."""
+    from app.crud.document import DocumentCRUD
+    from datetime import datetime
+
+    document_crud = DocumentCRUD()
+    github_crud = GitHubCRUD()
+
+    # Get document and verify ownership
+    document = await document_crud.get(db, document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    # Verify it's a GitHub document
+    if not document.github_repository_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Document is not linked to GitHub"
+        )
+
+    # Get repository and account
+    repository = await github_crud.get_repository(db, document.github_repository_id)
+    if not repository:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="GitHub repository not found"
+        )
+
+    account = repository.account
+    if not account or account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied to GitHub repository"
+        )
+
+    # Determine target branch
+    target_branch = commit_request.branch or document.github_branch or repository.default_branch
+    create_new_branch = commit_request.create_new_branch and bool(commit_request.new_branch_name)
+
+    if create_new_branch and commit_request.new_branch_name:
+        target_branch = commit_request.new_branch_name
+
+    # Check for conflicts if not forcing
+    if not commit_request.force_commit:
+        file_status = await github_service.check_file_status(
+            account.access_token,
+            repository.repo_owner,
+            repository.repo_name,
+            document.github_file_path or "",
+            target_branch,
+            document.local_sha or ""
+        )
+
+        if file_status["has_remote_changes"]:
+            # Generate current content hash
+            current_local_hash = github_service.generate_content_hash(document.content)
+
+            # Check if local has changes too (conflict)
+            if current_local_hash != document.local_sha:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Conflicts detected. Remote and local changes exist. Use force_commit=true to override."
+                )
+            else:
+                # Only remote changes, update local first
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Remote changes detected. Pull changes first or use force_commit=true to override."
+                )
+
+    try:
+        # Commit to GitHub
+        commit_result = await github_service.commit_file(
+            access_token=account.access_token,
+            owner=repository.repo_owner,
+            repo=repository.repo_name,
+            file_path=document.github_file_path or "",
+            content=document.content,
+            message=commit_request.commit_message,
+            branch=target_branch,
+            sha=document.github_sha if not create_new_branch else None,
+            create_branch=create_new_branch,
+            base_branch=document.github_branch or repository.default_branch if create_new_branch else None
+        )
+
+        # Update document metadata
+        new_content_hash = github_service.generate_content_hash(document.content)
+
+        document.github_sha = commit_result["content"]["sha"]
+        document.local_sha = new_content_hash
+        document.github_sync_status = "synced"
+        document.last_github_sync_at = datetime.utcnow()
+        document.github_commit_message = commit_request.commit_message
+
+        # Update branch if creating new one
+        if create_new_branch:
+            document.github_branch = target_branch
+
+        await db.commit()
+        await db.refresh(document)
+
+        # Log sync operation
+        await github_crud.create_sync_history(db, {
+            "repository_id": repository.id,
+            "document_id": document.id,
+            "operation": "commit",
+            "status": "success",
+            "commit_sha": commit_result["content"]["sha"],
+            "branch_name": target_branch,
+            "message": commit_request.commit_message,
+            "files_changed": 1
+        })
+
+        return GitHubCommitResponse(
+            success=True,
+            commit_sha=commit_result["content"]["sha"],
+            commit_url=commit_result["commit"]["html_url"],
+            branch=target_branch,
+            message="Changes committed successfully to GitHub"
+        )
+
+    except Exception as e:
+        # Revert document status on failure
+        await db.rollback()
+
+        # Log failed operation
+        await github_crud.create_sync_history(db, {
+            "repository_id": repository.id,
+            "document_id": document.id,
+            "operation": "commit",
+            "status": "error",
+            "branch_name": target_branch,
+            "message": commit_request.commit_message,
+            "error_details": str(e),
+            "files_changed": 0
+        })
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to commit to GitHub: {str(e)}"
+        )
+
+
+@router.get("/documents/{document_id}/status", response_model=GitHubStatusResponse)
+async def get_document_github_status(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> GitHubStatusResponse:
+    """Get GitHub sync status for a document."""
+    from app.crud.document import DocumentCRUD
+
+    document_crud = DocumentCRUD()
+    github_crud = GitHubCRUD()
+
+    # Get document and verify ownership
+    document = await document_crud.get(db, document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    if not document.github_repository_id:
+        return GitHubStatusResponse(
+            is_github_document=False,
+            sync_status="local",
+            has_local_changes=False,
+            has_remote_changes=False,
+            github_repository=None,
+            github_branch=None,
+            github_file_path=None,
+            last_sync=None,
+            status_info=document.github_status_info,
+            remote_content=None
+        )
+
+    # Generate current content hash
+    current_content_hash = github_service.generate_content_hash(document.content)
+    has_local_changes = current_content_hash != (document.local_sha or "")
+
+    # Check remote status if linked to GitHub
+    has_remote_changes = False
+    remote_content = None
+    repository = None
+
+    try:
+        repository = await github_crud.get_repository(db, document.github_repository_id)
+        if repository and repository.account.user_id == current_user.id:
+            file_status = await github_service.check_file_status(
+                repository.account.access_token,
+                repository.repo_owner,
+                repository.repo_name,
+                document.github_file_path or "",
+                document.github_branch or repository.default_branch,
+                document.local_sha or ""
+            )
+            has_remote_changes = file_status["has_remote_changes"]
+            remote_content = file_status["content"] if has_remote_changes else None
+    except Exception:
+        # If we can't check remote status, assume no changes
+        pass
+
+    # Determine overall status
+    if has_local_changes and has_remote_changes:
+        sync_status = "conflict"
+    elif has_local_changes:
+        sync_status = "local_changes"
+    elif has_remote_changes:
+        sync_status = "remote_changes"
+    else:
+        sync_status = "synced"
+
+    # Update document sync status if it changed
+    if document.github_sync_status != sync_status:
+        document.github_sync_status = sync_status
+        await db.commit()
+
+    return GitHubStatusResponse(
+        is_github_document=True,
+        sync_status=sync_status,
+        has_local_changes=has_local_changes,
+        has_remote_changes=has_remote_changes,
+        github_repository=repository.repo_full_name if repository else None,
+        github_branch=document.github_branch,
+        github_file_path=document.github_file_path,
+        last_sync=document.last_github_sync_at,
+        status_info=document.github_status_info,
+        remote_content=remote_content
+    )
+
+
+@router.get("/documents/{document_id}/sync-history", response_model=List[GitHubSyncHistoryEntry])
+async def get_document_sync_history(
+    document_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> List[GitHubSyncHistoryEntry]:
+    """Get sync history for a document."""
+    from app.crud.document import DocumentCRUD
+
+    document_crud = DocumentCRUD()
+    github_crud = GitHubCRUD()
+
+    # Get document and verify ownership
+    document = await document_crud.get(db, document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    if not document.github_repository_id:
+        return []
+
+    history = await github_crud.get_document_sync_history(db, document_id, limit)
+    return [GitHubSyncHistoryEntry.model_validate(entry) for entry in history]
+
+
+@router.get("/repositories/{repo_id}/branches")
+async def get_repository_branches(
+    repo_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+) -> List[dict]:
+    """Get branches for a repository."""
+    github_crud = GitHubCRUD()
+
+    repo = await github_crud.get_repository(db, repo_id)
+    if not repo or repo.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found"
+        )
+
+    # Get branches from GitHub API
+    branches = await github_service.get_branches(
+        repo.account.access_token, repo.repo_owner, repo.repo_name
+    )
+
+    return [
+        {
+            "name": branch["name"],
+            "commit_sha": branch["commit"]["sha"],
+            "is_default": branch["name"] == repo.default_branch
+        }
+        for branch in branches
+    ]

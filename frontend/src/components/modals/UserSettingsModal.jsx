@@ -8,7 +8,7 @@ import GitHubTab from "./GitHubTab";
 import userApi from "../../api/userApi";
 import { useAuth } from "../../providers/AuthProvider";
 
-function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false }) {
+function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false, onOpenFileModal }) {
   const { user, setUser } = useAuth();
   const [form, setForm] = useState({
     profileFirstName: user.first_name || "",
@@ -169,7 +169,7 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
             </Tab.Pane>
             {!guestMode && (
               <Tab.Pane eventKey="github">
-                <GitHubTab />
+                <GitHubTab onCloseSettings={onHide} />
               </Tab.Pane>
             )}
           </Tab.Content>
