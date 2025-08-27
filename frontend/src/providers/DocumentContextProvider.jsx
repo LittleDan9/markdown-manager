@@ -19,9 +19,9 @@ export function DocumentContextProvider({ children }) {
   // Use modular hooks for state and logic
   const notification = useNotification();
   const auth = useAuth();
-  const documentState = useDocumentState(notification, auth);
   const sharedViewState = useSharedViewState();
   const previewHTMLState = usePreviewHTMLState();
+  const documentState = useDocumentState(notification, auth, previewHTMLState.setPreviewHTML);
 
   const value = useMemo(() => ({
     ...documentState,
