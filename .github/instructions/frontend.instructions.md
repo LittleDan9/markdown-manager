@@ -1,74 +1,69 @@
+# AI Agent Frontend Guidelines
+applyTo: "frontend/**/*"
+
 ---
-applyTo: 'frontend/**/*'
----
 
-# React-Bootstrap Senior Engineer Guidelines
+# React + React-Bootstrap
 
-When using GitHub Copilot Chat in this repository to write or review React + React-Bootstrap code, always follow these rules:
+When writing or reviewing frontend code in this repository, AI agents must follow these rules:
 
-1. **Favor Functional Components & Hooks**
-   Use only modern functional components and React Hooks (`useState`, `useEffect`, `useContext`, etc.)—no class components.
+1. **Modern React Only**
+   - Functional components + Hooks (`useState`, `useEffect`, `useContext`).
+   - No class components.
 
-2. **Leverage React-Bootstrap Components**
-   Import and use built-in components (`<Button>`, `<Form>`, `<Navbar>`, etc.) rather than manually applying CSS classes.
+2. **React-Bootstrap First**
+   - Use `<Button>`, `<Form>`, `<Navbar>`, etc.
+   - Prefer props/variants over raw classes.
 
-3. **Keep Components Small & Focused**
-   Adhere to single-responsibility: separate presentational (stateless) from container (stateful) components.
+3. **Component Design**
+   - Keep components small and single-responsibility.
+   - Split presentational vs. container components.
 
-4. **Use Props & Variants for Styling**
-   Customize UI via component props (e.g. `<Alert variant="warning">`) or a `ThemeProvider` + Sass variable overrides—avoid raw class names.
+4. **State Management**
+   - Use Context, Redux, or Zustand for shared state.
+   - Avoid deep prop drilling.
 
-5. **Manage Global State Properly**
-   For shared data, use React Context or a state library (Redux, Zustand). Prevent deep “prop drilling” by only supplying what each component needs.
+5. **Side Effects**
+   - Place data fetching/subscriptions in `useEffect`.
+   - Always declare full dependency arrays.
 
-6. **Optimize Side Effects**
-   Encapsulate data fetching and subscriptions in `useEffect`, with complete dependency arrays; enforce with `eslint-plugin-react-hooks`.
+6. **Performance**
+   - Memoize components (`React.memo`).
+   - Use `useCallback` and `useMemo` for expensive computations.
 
-7. **Prevent Unnecessary Renders**
-   Memoize pure components with `React.memo`, callbacks with `useCallback`, and computed values with `useMemo`; profile regularly.
+7. **Code Splitting**
+   - Use `React.lazy` + `<Suspense>` for heavy modules/routes.
 
-8. **Code-Split & Lazy-Load**
-   Use `React.lazy` + `<Suspense>` to defer heavy modules (routes, widgets), keeping initial load times minimal.
+8. **Accessibility**
+   - Ensure proper ARIA roles, alt text, keyboard support.
+   - Validate with `axe-core`.
 
-9. **Ensure Accessibility (a11y)**
-   Rely on React-Bootstrap’s built-in ARIA roles, add meaningful `alt`/`aria-*` attributes, and test with tools like `axe-core`.
+9. **Quality & Testing**
+   - Use TypeScript or PropTypes.
+   - Configure ESLint (hooks + a11y).
+   - Write Jest + RTL tests.
 
-10. **Enforce Quality with Type-Checking & Testing**
-    Adopt TypeScript or PropTypes, configure ESLint (hooks + a11y plugins), and write behavior-driven tests with Jest + React Testing Library.
+10. **API Integration**
+    - Use `frontend/src/api` helpers for all API calls.
 
-11. **Understand API Integration**
-    All API calls should be made using the frontend/src/api helper libraries. This ensures consistency and maintainability across the codebase.
+11. **Document Storage**
+    - Use `frontend/src/storage/DocumentManager` for storage.
+    - Guest → localStorage; registered user → sync to backend.
 
-12. **Management of Document Storage**
-    Use the `frontend/src/storage/DocumentManager` module for all document storage operations. This module provides a consistent interface for managing documents, ensuring that all storage operations are handled uniformly across the application. The system is now modular with separate services for local storage, sync, and event handling.
+12. **User Feedback**
+    - Use `NotificationProvider` for alerts, errors, successes.
 
-13. **Localstorage vs Backend Storage**
-    Everything a user does can be stored in localstorage, but the data should be synchronized regularly and before logout. If the user is a guest, their information should be stored in localstorage. Once they register and login, their data should be migrated to the backend. If a user logs out the UI should be reset to default state and all localstorage data should be cleared.
+13. **Development**
+    - App runs at `http://localhost:3000` with HMR.
+    - Test with `window.testAutoSave()` / `window.testManualSave()`.
 
-14. **User Feedback is Important**
-    Use the `frontend/src/components/NotificationProvider` module to provide user feedback. This includes notifications, alerts, successes, and any other user-facing messages. Ensure that all feedback is clear, concise, and actionable. Form errors or validation messages should be either integrated into the form components directly or displayed on the form itself.
+14. **Docker Workflow**
+    - Use container `markdown-manager-frontend-1`.
+    - `docker compose logs frontend`, `docker compose restart frontend`.
 
-15. **Development Environment & Debugging**
-    The frontend runs on [http://localhost:3000](http://localhost:3000) with React + Webpack HMR for hot reload. Use browser console testing functions for development:
-    ```javascript
-    window.testAutoSave()           // Test auto-save functionality
-    window.testAutoSave(10)         // Test with custom delay
-    window.testManualSave()         // Test manual save
-    ```
+15. **Debugging**
+    - Run `docker compose ps` first.
+    - Use direct ports (localhost:3000).
+    - Check console errors, rely on hot reload.
 
-16. **Docker Development Workflow**
-    Frontend runs in Docker container `markdown-manager-frontend-1`. For debugging:
-    ```bash
-    docker compose logs frontend --follow    # Monitor frontend logs
-    docker compose restart frontend         # Restart frontend container
-    docker compose up --build frontend      # Rebuild and start
-    ```
-
-17. **Debugging Best Practices**
-    - Always check `docker compose ps` first to verify container status
-    - Use direct port access (localhost:3000) instead of nginx for debugging
-    - Monitor webpack build times and response times
-    - Check browser console for errors and use the built-in test functions
-    - Hot reload handles most code changes automatically
-
-
+> AI Agents must enforce small, accessible, and performant UI components that align with React-Bootstrap conventions.
