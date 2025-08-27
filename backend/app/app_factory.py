@@ -21,6 +21,7 @@ from app.routers import (
     custom_dictionary,
     default,
     documents,
+    github,
     icons,
     monitoring,
     pdf,
@@ -125,6 +126,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         custom_dictionary.router, prefix="/dictionary", tags=["custom-dictionary"]
+    )
+    app.include_router(
+        github.router, prefix="/github", tags=["github"]
     )
 
 

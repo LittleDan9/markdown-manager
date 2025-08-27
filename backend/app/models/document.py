@@ -13,6 +13,7 @@ from app.models.base import Base
 if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.user import User
+    from app.models.github_models import GitHubRepository, GitHubSyncHistory
 
 
 from sqlalchemy import UniqueConstraint
@@ -59,6 +60,15 @@ class Document(Base):  # type: ignore[misc]
     )
     is_shared: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
+    # GitHub integration fields
+    github_repository_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("github_repositories.id"), nullable=True, index=True
+    )
+    github_file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    github_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    github_sync_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    last_github_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
     # Relationship
     owner: Mapped["User"] = relationship(
         "User", back_populates="documents", foreign_keys=[user_id]
@@ -72,6 +82,14 @@ class Document(Base):  # type: ignore[misc]
         back_populates="current_document",
         primaryjoin="Document.id==User.current_doc_id",
         viewonly=True,
+    )
+
+    # GitHub integration relationships
+    github_repository: Mapped["GitHubRepository | None"] = relationship(
+        "GitHubRepository", back_populates="documents"
+    )
+    github_sync_history: Mapped[list["GitHubSyncHistory"]] = relationship(
+        "GitHubSyncHistory", back_populates="document"
     )
 
     def __repr__(self) -> str:

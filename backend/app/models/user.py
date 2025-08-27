@@ -11,6 +11,7 @@ from .base import BaseModel
 
 if TYPE_CHECKING:
     from .document import Document
+    from .github_models import GitHubAccount
 
 
 class User(BaseModel):
@@ -73,6 +74,11 @@ class User(BaseModel):
     # Categories relationship
     categories = relationship(
         "Category", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    # GitHub integration relationships
+    github_accounts = relationship(
+        "GitHubAccount", back_populates="user", cascade="all, delete-orphan"
     )
 
     @property

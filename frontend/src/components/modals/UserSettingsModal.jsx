@@ -4,6 +4,7 @@ import ProfileInfoTab from "./ProfileInfoTab";
 import SecurityTab from "./SecurityTab";
 import MFATab from "./MFATab";
 import DictionaryTab from "./DictionaryTab";
+import GitHubTab from "./GitHubTab";
 import userApi from "../../api/userApi";
 import { useAuth } from "../../providers/AuthProvider";
 
@@ -126,6 +127,13 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
                 <i className="bi bi-book me-1"></i>Dictionary
               </Nav.Link>
             </Nav.Item>
+            {!guestMode && (
+              <Nav.Item>
+                <Nav.Link eventKey="github">
+                  <i className="bi bi-github me-1"></i>GitHub
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
           <Tab.Content id="profileTabContent">
             {!guestMode && (
@@ -159,6 +167,11 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
             <Tab.Pane eventKey="dictionary">
               <DictionaryTab />
             </Tab.Pane>
+            {!guestMode && (
+              <Tab.Pane eventKey="github">
+                <GitHubTab />
+              </Tab.Pane>
+            )}
           </Tab.Content>
         </Tab.Container>
       </Modal.Body>

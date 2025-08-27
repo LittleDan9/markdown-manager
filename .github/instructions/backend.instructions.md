@@ -95,6 +95,8 @@ When using GitHub Copilot Chat in this repository to write or review DRY FastAPI
      make backup-db                    # Backup production data
      make restore-db BACKUP_FILE=path  # Restore from backup
      ```
+15. API Endpoints
+    New API endpoints should be implemented at the root of the app not `/api/...` The API lives in a different location directive/
 
    **Security Note**: Never commit database credentials to version control. Production credentials are stored securely in `/etc/markdown-manager.env` on the server and accessed via SSH with key-based authentication. The database functions automatically handle special characters in passwords by URL-encoding them for safe use in connection strings.
 

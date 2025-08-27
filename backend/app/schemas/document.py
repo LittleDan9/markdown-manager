@@ -40,11 +40,20 @@ class DocumentInDB(DocumentBase):
     share_token: Optional[str] = None
     category: Optional[str] = None  # This will be populated by the CRUD layer
 
+    # GitHub integration fields
+    github_repository_id: Optional[int] = None
+    github_file_path: Optional[str] = None
+    github_sha: Optional[str] = None
+    github_sync_status: Optional[str] = None
+    last_github_sync_at: Optional[datetime] = None
+
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("created_at", "updated_at")
-    def serialize_datetime(self, dt: datetime) -> str:
+    @field_serializer("created_at", "updated_at", "last_github_sync_at")
+    def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
         """Serialize datetime to ISO format with Z suffix."""
+        if dt is None:
+            return None
         return _isoformat_utc(dt)
 
 

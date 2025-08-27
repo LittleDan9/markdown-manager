@@ -34,6 +34,11 @@ function UserMenuLoggedIn() {
     setShowSettingsModal(true);
   };
 
+  const handleGitHub = () => {
+    setActiveTab("github");
+    setShowSettingsModal(true);
+  };
+
   const handleLogout = () => {
     logout().then(() => {
       showSuccess("You have been logged out.");
@@ -60,6 +65,9 @@ function UserMenuLoggedIn() {
         )}
         <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
           <i className="bi bi-book me-2"></i>Dictionary
+        </Dropdown.Item>
+        <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
+          <i className="bi bi-github me-2"></i>GitHub
         </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>

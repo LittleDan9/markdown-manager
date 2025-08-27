@@ -1,5 +1,19 @@
 """API schemas."""
 from .document import Document, DocumentCreate, DocumentList, DocumentUpdate
+from .github import (
+    GitHubAccount,
+    GitHubAccountCreate,
+    GitHubAccountUpdate,
+    GitHubBranchInfo,
+    GitHubFileInfo,
+    GitHubImportRequest,
+    GitHubOAuthCallback,
+    GitHubRepository,
+    GitHubRepositoryCreate,
+    GitHubRepositoryUpdate,
+    GitHubSyncRequest,
+    GitHubSyncResponse,
+)
 from .icon_schemas import (
     IconBatchRequest,
     IconBatchResponse,
@@ -34,6 +48,18 @@ __all__ = [
     "DocumentCreate",
     "DocumentList",
     "DocumentUpdate",
+    "GitHubAccount",
+    "GitHubAccountCreate",
+    "GitHubAccountUpdate",
+    "GitHubBranchInfo",
+    "GitHubFileInfo",
+    "GitHubImportRequest",
+    "GitHubOAuthCallback",
+    "GitHubRepository",
+    "GitHubRepositoryCreate",
+    "GitHubRepositoryUpdate",
+    "GitHubSyncRequest",
+    "GitHubSyncResponse",
     "IconBatchRequest",
     "IconBatchResponse",
     "IconMetadataCreate",
