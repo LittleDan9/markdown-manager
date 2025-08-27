@@ -98,4 +98,66 @@ When using GitHub Copilot Chat in this repository to write or review DRY FastAPI
 
    **Security Note**: Never commit database credentials to version control. Production credentials are stored securely in `/etc/markdown-manager.env` on the server and accessed via SSH with key-based authentication. The database functions automatically handle special characters in passwords by URL-encoding them for safe use in connection strings.
 
+   ## ⚙️ Backend Development
+
+### API Testing
+```bash
+curl -X POST http://localhost:8000/auth/register   -H "Content-Type: application/json"   -d '{"email": "test@example.com", "password": "test123"}'
+
+curl -H "Authorization: Bearer <token>" http://localhost:8000/documents/
+```
+
+### Database
+```bash
+docker compose exec db psql -U postgres -d markdown_manager
+docker compose exec backend alembic upgrade head
+docker compose exec backend alembic history
+```
+
+---
+
+## 📌 Common Tasks
+
+- Backend env vars → `backend/.env`
+- Code changes → Auto-reload for frontend/backend, restart needed for PDF service
+- Debug flow:
+  1. `docker compose ps`
+  2. `docker compose logs <service>`
+  3. Test endpoints
+  4. Browser console check
+  5. Verify DB connectivity
+  6. Do not tail or follow logs
+
+---
+
+## 🧩 Troubleshooting
+
+### Frequent Issues
+1. Port conflicts (3000, 8000, 8001, 5432, 80)
+2. Container crashes → check logs
+3. DB connection failures → ensure healthy DB
+4. Node version mismatches → check compatibility
+5. CORS issues → bypass nginx
+6. Use psql to query the database in development directly against the docker instance
+7. Postgres will use a pager, so always pipe to cat.
+
+### Resets
+```bash
+docker compose down -v   # full reset (removes data)
+docker compose restart   # soft reset
+```
+
+---
+
+## ✅ Best Practices for AI Agents & Contributors
+
+1. Always run `docker compose ps` first
+2. Use direct ports for debugging
+3. Check logs immediately after issues
+4. Use browser console test functions
+5. Use `curl` for API verification  - Always include a valid user agent
+6. Rely on hot reload for most code changes
+
+---
+
 > Always aim for maintainability, readability, and performance while keeping your API intuitive for both developers and users.
