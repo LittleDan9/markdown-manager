@@ -16,75 +16,52 @@ function RendererSection({
   sharedDocument,
   sharedLoading,
   isInitializing,
+  documentLoading,
   syncPreviewScrollEnabled,
   cursorLine,
   fullscreenPreview
 }) {
   const [hasRendered, setHasRendered] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
-  const [lastContentHash, setLastContentHash] = useState("");
 
-  // Reset hasRendered if loading starts again or content changes significantly
+  // Reset hasRendered only when starting a document operation (not content changes)
   React.useEffect(() => {
-    if (isInitializing || sharedLoading) {
+    if (isInitializing || sharedLoading || documentLoading) {
       setHasRendered(false);
       if (isInitializing) {
         setLoadingMessage("Initializing...");
       } else if (sharedLoading) {
         setLoadingMessage("Loading shared document...");
+      } else if (documentLoading) {
+        setLoadingMessage("Loading document...");
       }
     }
-  }, [isInitializing, sharedLoading]);
+  }, [isInitializing, sharedLoading, documentLoading]);
 
-  // Reset rendering state when content changes
+  // Handle empty content case - consider it "rendered" immediately
   React.useEffect(() => {
-    if (content.trim()) {
-      // Create a simple hash of the content to detect real changes
-      const contentHash = content.trim().slice(0, 100) + content.length;
-
-      if (contentHash !== lastContentHash) {
-        setLastContentHash(contentHash);
-        setHasRendered(false);
-
-        const hasMermaidDiagrams = content.includes("```mermaid");
-        if (hasMermaidDiagrams) {
-          setLoadingMessage("Rendering diagrams...");
-        } else {
-          setLoadingMessage("Rendering content...");
-        }
-      }
-    } else if (content === "" && lastContentHash !== "") {
-      // Content was cleared
-      setLastContentHash("");
-      setHasRendered(true); // Empty content is "rendered"
-    }
-  }, [content, lastContentHash]);
-
-  // Update loading message based on content type (only when not rendered yet)
-  React.useEffect(() => {
-    if (!hasRendered && content.trim()) {
-      const hasMermaidDiagrams = content.includes("```mermaid");
-      if (hasMermaidDiagrams) {
-        setLoadingMessage("Rendering diagrams...");
-      } else {
-        setLoadingMessage("Rendering content...");
-      }
-    }
-  }, [content, hasRendered]);
-
-  // Handle empty content case - consider it "rendered"
-  React.useEffect(() => {
-    if (!content.trim() && !isInitializing && !sharedLoading && !hasRendered) {
+    console.log("RendererSection: Empty content check", {
+      content: content.length,
+      contentTrimmed: content.trim().length,
+      isInitializing,
+      sharedLoading,
+      documentLoading,
+      hasRendered
+    });
+    
+    if (!content.trim() && !isInitializing && !sharedLoading && !documentLoading) {
+      console.log("RendererSection: Setting hasRendered=true for empty content");
       setHasRendered(true);
     }
-  }, [content, isInitializing, sharedLoading, hasRendered]);
+  }, [content, isInitializing, sharedLoading, documentLoading]);
 
     const handleFirstRender = useCallback(() => {
     console.log("handleFirstRender called - setting hasRendered to true");
     setHasRendered(true);
   }, []);
 
-  const showSpinner = isInitializing || sharedLoading || !hasRendered;
+  // Only show spinner for document operations, not content changes
+  const showSpinner = (isInitializing || sharedLoading || documentLoading) && !hasRendered;
 
   return (
     <div className="renderer-wrapper position-relative">
@@ -125,6 +102,7 @@ RendererSection.propTypes = {
   sharedDocument: PropTypes.object,
   sharedLoading: PropTypes.bool.isRequired,
   isInitializing: PropTypes.bool.isRequired,
+  documentLoading: PropTypes.bool.isRequired,
   syncPreviewScrollEnabled: PropTypes.bool.isRequired,
   cursorLine: PropTypes.number.isRequired,
   fullscreenPreview: PropTypes.bool.isRequired,

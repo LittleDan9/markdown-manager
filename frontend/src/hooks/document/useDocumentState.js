@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import documentsApi from '@/api/documentsApi.js';
 import useChangeTracker from './useChangeTracker';
 
-export default function useDocumentState(notification, auth) {
+export default function useDocumentState(notification, auth, setPreviewHTML) {
   const { isAuthenticated, token, user, isInitializing } = auth;
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
@@ -137,6 +137,11 @@ export default function useDocumentState(notification, auth) {
         const newDoc = DocumentService.createNewDocument();
         setCurrentDocument(newDoc);
         setContent('');
+        // Clear preview HTML and highlighted blocks when clearing state
+        if (setPreviewHTML) {
+          setPreviewHTML('');
+        }
+        setHighlightedBlocks({});
         DocumentStorageService.setCurrentDocument(newDoc);
         showWarning('Session expired. For security, all data has been cleared.');
         return;
@@ -161,6 +166,11 @@ export default function useDocumentState(notification, auth) {
         const newDoc = DocumentService.createNewDocument();
         setCurrentDocument(newDoc);
         setContent('');
+        // Clear preview HTML and highlighted blocks for new document
+        if (setPreviewHTML) {
+          setPreviewHTML('');
+        }
+        setHighlightedBlocks({});
         DocumentStorageService.setCurrentDocument(newDoc);
         return;
       }
@@ -188,6 +198,11 @@ export default function useDocumentState(notification, auth) {
       }
       setCurrentDocument(currentDoc);
       setContent(currentDoc.content || '');
+      // Clear preview HTML and highlighted blocks when loading initial document
+      if (setPreviewHTML) {
+        setPreviewHTML('');
+      }
+      setHighlightedBlocks({});
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
     loadCurrentDocument();
@@ -234,8 +249,21 @@ export default function useDocumentState(notification, auth) {
     const newDoc = DocumentService.createNewDocument();
     setCurrentDocument(newDoc);
     setContent('');
+    // Clear the preview HTML when creating a new document
+    if (setPreviewHTML) {
+      setPreviewHTML('');
+    }
+    // Clear syntax highlighting cache for new document
+    setHighlightedBlocks({});
     DocumentStorageService.setCurrentDocument(newDoc);
-  }, []);
+    
+    // Clear current document on backend if authenticated
+    if (isAuthenticated && token) {
+      documentsApi.setCurrentDocumentId(null).catch(err => {
+        console.warn('Failed to clear current document on backend:', err);
+      });
+    }
+  }, [setPreviewHTML, isAuthenticated, token]);
 
   const loadDocument = useCallback(async (id) => {
     setLoading(true);
@@ -244,6 +272,11 @@ export default function useDocumentState(notification, auth) {
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
+        // Clear preview HTML and highlighted blocks when loading a different document
+        if (setPreviewHTML) {
+          setPreviewHTML('');
+        }
+        setHighlightedBlocks({});
         await updateCurrentDocument(doc);
       } else {
         showError('Document not found');
@@ -253,7 +286,7 @@ export default function useDocumentState(notification, auth) {
     } finally {
       setLoading(false);
     }
-  }, [updateCurrentDocument]);
+  }, [updateCurrentDocument, setPreviewHTML]);
 
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
@@ -287,17 +320,25 @@ export default function useDocumentState(notification, auth) {
       await DocumentService.deleteDocument(id, showNotification);
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
+      
+      // If we deleted the current document, clear the current state
+      // but don't automatically switch to another document - let the caller decide
       if (currentDocument.id === id) {
-        if (docs.length > 0) {
-          const newCurrent = docs[0];
-          setCurrentDocument(newCurrent);
-          setContent(newCurrent.content || '');
-          await updateCurrentDocument(newCurrent);
-        } else {
-          const newDoc = DocumentService.createNewDocument();
-          setCurrentDocument(newDoc);
-          setContent('');
-          DocumentStorageService.setCurrentDocument(newDoc);
+        // Clear current document state
+        setCurrentDocument({ id: null, name: 'Untitled Document', category: 'General', content: '' });
+        setContent('');
+        // Clear preview HTML and highlighted blocks when deleting current document
+        if (setPreviewHTML) {
+          setPreviewHTML('');
+        }
+        setHighlightedBlocks({});
+        
+        // Clear current document from storage and backend
+        DocumentStorageService.setCurrentDocument({ id: null, name: 'Untitled Document', category: 'General', content: '' });
+        if (isAuthenticated && token) {
+          documentsApi.setCurrentDocumentId(null).catch(err => {
+            console.warn('Failed to clear current document on backend:', err);
+          });
         }
       }
     } catch (error) {
@@ -307,7 +348,7 @@ export default function useDocumentState(notification, auth) {
     } finally {
       setLoading(false);
     }
-  }, [currentDocument, updateCurrentDocument]);
+  }, [currentDocument, updateCurrentDocument, setPreviewHTML, isAuthenticated, token]);
 
   const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
     try {

@@ -14,7 +14,7 @@ import AppModals from "@/components/modals/AppModals";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading } = useDocumentContext();
 
   // UI state management via custom hook
   const uiState = useAppUIState(isSharedView);
@@ -70,6 +70,7 @@ function App() {
             sharedDocument={sharedDocument}
             sharedLoading={sharedLoading}
             isInitializing={isInitializing}
+            documentLoading={loading}
             syncPreviewScrollEnabled={syncPreviewScrollEnabled}
             cursorLine={cursorLine}
             fullscreenPreview={fullscreenPreview}
