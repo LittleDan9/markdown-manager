@@ -60,13 +60,13 @@ async def sync_repositories_background(
                     await github_crud.create_repository(db, repo_info)
 
             await db.commit()
-            
+
             # Update the account's last_sync timestamp
             from datetime import datetime
             await github_crud.update_account(db, account_id, {
                 "last_sync": datetime.utcnow()  # Use naive UTC datetime
             })
-            
+
             print(f"Successfully synced {len(github_repos)} repositories for account {account_id}")
 
     except Exception as sync_error:
@@ -266,7 +266,7 @@ async def list_github_accounts(
     github_crud = GitHubCRUD()
 
     accounts = await github_crud.get_user_accounts(db, current_user.id)
-    
+
     # Add repository count to each account
     enhanced_accounts = []
     for account in accounts:
@@ -285,7 +285,7 @@ async def list_github_accounts(
             "repository_count": len(account.repositories) if account.repositories else 0
         }
         enhanced_accounts.append(GitHubAccount(**account_dict))
-    
+
     return enhanced_accounts
 
 
@@ -462,7 +462,7 @@ async def import_file_from_github(
 
     # Create document
     document_name = import_request.document_name or import_request.file_path.split("/")[-1]
-    
+
     document = await document_crud.create(
         db=db,
         user_id=current_user.id,
