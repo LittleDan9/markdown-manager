@@ -128,7 +128,8 @@ class GitHubFileInfo(BaseModel):
     name: str = Field(..., description="File name")
     sha: str = Field(..., description="File SHA")
     size: int = Field(..., description="File size in bytes")
-    download_url: str = Field(..., description="Direct download URL")
+    type: str = Field(..., description="File type (file or dir)")
+    download_url: Optional[str] = Field(None, description="Direct download URL (None for directories)")
     content: Optional[str] = Field(None, description="File content (if retrieved)")
 
 

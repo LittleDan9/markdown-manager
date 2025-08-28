@@ -22,8 +22,6 @@ from app.routers import (
     default,
     documents,
     github,
-    github_sync,
-    github_pr,
     icons,
     monitoring,
     pdf,
@@ -131,12 +129,6 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         github.router, prefix="/github", tags=["github"]
-    )
-    app.include_router(
-        github_sync.router, prefix="/github", tags=["github-sync"]
-    )
-    app.include_router(
-        github_pr.router, prefix="/github", tags=["github-pr"]
     )
 
 
