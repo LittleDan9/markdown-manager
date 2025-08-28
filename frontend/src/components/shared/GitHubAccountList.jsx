@@ -107,12 +107,17 @@ const GitHubAccountList = ({
   };
 
   const filterRepositories = (repositories) => {
-    if (!searchTerm.trim()) return repositories;
+    let filteredRepos = repositories;
 
-    return repositories.filter(repo =>
-      repo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (repo.description && repo.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    if (searchTerm.trim()) {
+      filteredRepos = repositories.filter(repo =>
+        repo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (repo.description && repo.description.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+
+    // Sort alphabetically by repository name
+    return filteredRepos.sort((a, b) => a.name.toLowerCase().localeCompare(b.name.toLowerCase()));
   };
 
   if (loading && accounts.length === 0) {

@@ -1,0 +1,4 @@
+"""Documents module router."""
+from .router import router
+
+__all__ = ["router"]
