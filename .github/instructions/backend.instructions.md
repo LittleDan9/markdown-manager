@@ -48,7 +48,10 @@ When writing or reviewing backend code in this repository, AI agents must follow
 
 11. **Development**
     - Always run backend via Docker Compose (`docker-compose up -d backend`).
+    - Python virtual environment is located on container at `/markdown-manager/.venv`
     - Never run raw `uvicorn` except for import testing.
+    - Access backend through docker nginx instance at api.localhost:80
+    - Uvicorn is set to watch files and hot reload, no need to restart container.
 
 12. **Production DB Access**
     - Use SSH tunnels for connections (see `scripts/db-functions.sh`).
@@ -56,10 +59,12 @@ When writing or reviewing backend code in this repository, AI agents must follow
 
 13. **API Endpoints**
     - New endpoints must be implemented at root (not `/api/...`).
+    - Endpoints should never require a trailing `/`
 
 14. **Debugging / Troubleshooting**
     - Run `docker compose ps` and `docker compose logs <service>`.
     - Frequent issues: port conflicts, crashes, CORS, DB connection failures.
+    - Postgresql can be piped to cat `| cat` to avoid pagers.
 
 15. **Best Practices**
     - Verify APIs with `curl` (include user agent).
