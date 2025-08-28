@@ -22,7 +22,7 @@ async def _validate_document_and_repository(
 ) -> tuple:
     """Validate document and repository access."""
     from app.crud.document import DocumentCRUD
-    
+
     document_crud = DocumentCRUD()
     github_crud = GitHubCRUD()
 
@@ -67,10 +67,10 @@ def _determine_target_branch(
     """Determine the target branch for the commit."""
     target_branch = commit_request.branch or document.github_branch or repository.default_branch
     create_new_branch = commit_request.create_new_branch and bool(commit_request.new_branch_name)
-    
+
     if create_new_branch and commit_request.new_branch_name:
         target_branch = commit_request.new_branch_name
-    
+
     return target_branch
 
 
@@ -133,7 +133,7 @@ async def _perform_commit(
         branch=target_branch,
         sha=document.github_sha
     )
-    
+
     return commit_result
 
 

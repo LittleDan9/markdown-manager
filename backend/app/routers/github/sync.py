@@ -106,9 +106,9 @@ async def _validate_github_document(
 ):
     """Validate document exists and is linked to GitHub."""
     from app.crud.document import DocumentCRUD
-    
+
     document_crud = DocumentCRUD()
-    
+
     # Get document and verify ownership
     document = await document_crud.get(db, document_id)
     if not document or document.user_id != current_user.id:
@@ -122,7 +122,7 @@ async def _validate_github_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Document is not linked to GitHub"
         )
-    
+
     return document
 
 
@@ -176,7 +176,7 @@ async def _check_remote_changes(
     except Exception:
         # Repository access error
         pass
-    
+
     return has_remote_changes, remote_content, repository
 
 
