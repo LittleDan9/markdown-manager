@@ -7,6 +7,7 @@ from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import settings
+from app.configs.environment import environment_config
 from app.core.auth import authenticate_user, create_access_token
 from app.core.mfa import verify_backup_code, verify_totp_code
 from app.crud import user as crud_user
@@ -144,6 +145,7 @@ async def login(
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
+        domain=environment_config.get_cookie_domain(),
     )
 
     # Start background task to sync GitHub repositories
@@ -207,6 +209,7 @@ async def refresh_token(
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
+        domain=environment_config.get_cookie_domain(),
     )
 
     # Start background task to sync GitHub repositories (respects 1-hour limit)
@@ -275,6 +278,7 @@ async def login_mfa(
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
+        domain=environment_config.get_cookie_domain(),
     )
 
     # Start background task to sync GitHub repositories
@@ -293,5 +297,5 @@ async def login_mfa(
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie("refresh_token", path="/", domain=environment_config.get_cookie_domain())
     return {"message": "Logged out"}

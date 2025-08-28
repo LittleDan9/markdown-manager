@@ -50,6 +50,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
         <div ref={containerRef} className="monaco-container" style={{ flex: 1, width: "100%" }} />
         <GitHubStatusBar
           documentId={currentDocument?.id}
+          document={currentDocument}
           onStatusChange={(status) => {
             // Optional: handle status changes globally
             console.log('GitHub status updated:', status);

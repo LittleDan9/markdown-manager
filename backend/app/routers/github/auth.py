@@ -1,7 +1,8 @@
 """GitHub OAuth authentication endpoints."""
 import secrets
+from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Query, BackgroundTasks
-from fastapi.responses import HTMLResponse
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -97,7 +98,7 @@ async def oauth_callback_page(
     state: str = Query(None),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
-) -> HTMLResponse:
+) -> RedirectResponse:
     """Handle GitHub OAuth callback and process the connection."""
     try:
         # Extract user ID from state
@@ -163,94 +164,14 @@ async def oauth_callback_page(
             AsyncSessionLocal
         )
 
-        # Success HTML
-        html_content = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>GitHub Connected</title>
-            <style>
-                body {
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background-color: #f5f5f5;
-                }
-                .container {
-                    max-width: 400px;
-                    margin: 0 auto;
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    text-align: center;
-                }
-                .success { color: #28a745; }
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>✓ GitHub Connected</h2>
-                <p class="success">Your GitHub account has been connected successfully!</p>
-                <p>This window will close automatically.</p>
-            </div>
-
-            <script>
-                setTimeout(() => {
-                    window.close();
-                }, 2000);
-            </script>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=html_content)
+        # Redirect to success page
+        return RedirectResponse(url="/static/html/github/oauth-success.html")
 
     except Exception as e:
-        # Error HTML
-        error_html = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>GitHub Connection Error</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    display: flex;
-                    justify-content: center;
-                    align-items: center;
-                    height: 100vh;
-                    margin: 0;
-                    background-color: #f5f5f5;
-                }}
-                .container {{
-                    max-width: 400px;
-                    margin: 0 auto;
-                    background: white;
-                    padding: 30px;
-                    border-radius: 8px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                    text-align: center;
-                }}
-                .error {{ color: #dc3545; }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>✗ Connection Failed</h2>
-                <p class="error">Failed to connect your GitHub account.</p>
-                <p>Error: {str(e)}</p>
-                <p>Please try again or contact support.</p>
-            </div>
-
-            <script>
-                setTimeout(() => {{
-                    window.close();
-                }}, 5000);
-            </script>
-        </body>
-        </html>
-        """
-        return HTMLResponse(content=error_html, status_code=400)
+        # Redirect to error page with error message as query parameter
+        error_message = str(e)
+        error_params = urlencode({"error": error_message})
+        return RedirectResponse(
+            url=f"/static/html/github/oauth-error.html?{error_params}",
+            status_code=400
+        )

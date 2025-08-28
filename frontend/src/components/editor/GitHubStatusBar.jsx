@@ -17,7 +17,7 @@ import GitHubPullModal from '../modals/GitHubPullModal';
 import GitHubConflictModal from '../modals/GitHubConflictModal';
 import GitHubPRModal from '../modals/GitHubPRModal';
 
-const GitHubStatusBar = ({ documentId, onStatusChange }) => {
+const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
   // Always call ALL hooks - never do conditional returns
   const { isAuthenticated } = useAuth();
   const [status, setStatus] = useState(null);
@@ -65,11 +65,32 @@ const GitHubStatusBar = ({ documentId, onStatusChange }) => {
       setStatus(localStatus);
       setLoading(false);
       onStatusChange?.(localStatus);
+    } else if (!document?.github_repository_id) {
+      // For backend documents that are NOT linked to GitHub, set local status
+      const localStatus = {
+        is_github_document: false,
+        sync_status: "local",
+        has_local_changes: false,
+        has_remote_changes: false,
+        github_repository: null,
+        github_branch: null,
+        github_file_path: null,
+        last_sync: null,
+        status_info: {
+          type: "local",
+          message: "Local document",
+          icon: "📄",
+          color: "secondary"
+        }
+      };
+      setStatus(localStatus);
+      setLoading(false);
+      onStatusChange?.(localStatus);
     } else {
-      // For backend documents, check GitHub status
+      // For backend documents that ARE linked to GitHub, check GitHub status
       checkStatus();
     }
-  }, [documentId, isAuthenticated]);
+  }, [documentId, document?.github_repository_id, isAuthenticated]);
 
   const checkStatus = async () => {
     if (!documentId) return;

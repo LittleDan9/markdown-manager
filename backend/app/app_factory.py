@@ -1,10 +1,12 @@
 """FastAPI Application Factory."""
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.configs import settings
 from app.configs.environment import EnvironmentConfig
@@ -149,6 +151,10 @@ def create_app() -> FastAPI:
 
     # Set up routers
     setup_routers(app)
+
+    # Mount static files
+    static_dir = Path(__file__).parent / "static"
+    app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
     logger.info("FastAPI application created successfully")
     return app
