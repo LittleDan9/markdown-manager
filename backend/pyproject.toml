@@ -118,7 +118,7 @@ omit = [
     "app/main.py",
     "*/migrations/*",
     "*/alembic/*",
-    "app/routers/auth_backup.py",
+
     "app/configs/environment.py",
     "app/services/pdf_processor.py",
     "app/middleware/error_handling.py",
