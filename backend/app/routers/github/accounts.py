@@ -13,7 +13,7 @@ from app.crud.github_crud import GitHubCRUD
 router = APIRouter()
 
 
-@router.get("/", response_model=List[GitHubAccount])
+@router.get("", response_model=List[GitHubAccount])
 async def list_github_accounts(
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

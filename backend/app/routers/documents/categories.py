@@ -13,7 +13,7 @@ from .docs import CATEGORIES_DOCS
 router = APIRouter()
 
 
-@router.get("/categories/", response_model=List[str], **CATEGORIES_DOCS["list"])
+@router.get("/categories", response_model=List[str], **CATEGORIES_DOCS["list"])
 async def get_categories(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
@@ -25,7 +25,7 @@ async def get_categories(
     return categories
 
 
-@router.post("/categories/", response_model=List[str], **CATEGORIES_DOCS["create"])
+@router.post("/categories", response_model=List[str], **CATEGORIES_DOCS["create"])
 async def add_category(
     category: str = Body(..., embed=True, description="Category name to add"),
     db: AsyncSession = Depends(get_db),

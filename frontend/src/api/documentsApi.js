@@ -45,7 +45,7 @@ class DocumentsApi extends Api {
   }
 
   async getAllDocuments(category = null) {
-    let endpoint = "/documents/";
+    let endpoint = "/documents";
     if (category && category !== "All") {
       endpoint += `?category=${encodeURIComponent(category)}`;
     }
@@ -79,7 +79,7 @@ class DocumentsApi extends Api {
       requestData.category_id = finalCategoryId;
     }
 
-    const res = await this.apiCall(`/documents/`, "POST", requestData);
+    const res = await this.apiCall(`/documents`, "POST", requestData);
     return res.data;
   }
 

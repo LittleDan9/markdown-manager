@@ -63,29 +63,29 @@ class GitHubAPI extends Api {
 
   async getRepositoryFiles(repoId, path = '') {
     const params = path ? `?path=${encodeURIComponent(path)}` : '';
-    const response = await this.apiCall(`/github/repositories/${repoId}/files${params}`, 'GET');
+    const response = await this.apiCall(`/github/files/${repoId}/browse${params}`, 'GET');
     return response.data;
   }
 
   // File import - updated for Phase 1
   async importFile(importData) {
-    const response = await this.apiCall('/github/import', 'POST', importData);
+    const response = await this.apiCall('/github/sync/import', 'POST', importData);
     return response.data;
   }
 
   // Phase 2: Commit Operations
   async commitDocument(documentId, commitData) {
-    const response = await this.apiCall(`/github/documents/${documentId}/commit`, 'POST', commitData);
+    const response = await this.apiCall(`/github/commits/documents/${documentId}`, 'POST', commitData);
     return response.data;
   }
 
   async getDocumentStatus(documentId) {
-    const response = await this.apiCall(`/github/documents/${documentId}/status`, 'GET');
+    const response = await this.apiCall(`/github/sync/documents/${documentId}/status`, 'GET');
     return response.data;
   }
 
   async getDocumentSyncHistory(documentId, limit = 10) {
-    const response = await this.apiCall(`/github/documents/${documentId}/sync-history?limit=${limit}`, 'GET');
+    const response = await this.apiCall(`/github/sync/documents/${documentId}/sync-history?limit=${limit}`, 'GET');
     return response.data;
   }
 
@@ -97,12 +97,12 @@ class GitHubAPI extends Api {
 
   // Phase 3: Advanced Sync Operations
   async pullChanges(documentId, pullData) {
-    const response = await this.apiCall(`/github/documents/${documentId}/pull`, 'POST', pullData);
+    const response = await this.apiCall(`/github/sync/documents/${documentId}/pull`, 'POST', pullData);
     return response.data;
   }
 
   async resolveConflicts(documentId, resolutionData) {
-    const response = await this.apiCall(`/github/documents/${documentId}/resolve-conflicts`, 'POST', resolutionData);
+    const response = await this.apiCall(`/github/sync/documents/${documentId}/resolve-conflicts`, 'POST', resolutionData);
     return response.data;
   }
 

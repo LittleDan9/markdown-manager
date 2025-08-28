@@ -15,7 +15,7 @@ router = APIRouter()
 github_service = GitHubService()
 
 
-@router.get("/", response_model=List[GitHubRepositoryResponse])
+@router.get("", response_model=List[GitHubRepositoryResponse])
 async def list_repositories(
     account_id: int = Query(None, description="GitHub account ID (optional - returns all if not specified)"),
     current_user: User = Depends(get_current_user),
@@ -136,3 +136,34 @@ async def get_repository_branches(
         }
         for branch in branches
     ]
+
+
+@router.get("/{repo_id}/contents")
+async def get_repository_contents(
+    repo_id: int,
+    path: str = Query("", description="Directory path to browse"),
+    branch: str = Query("main", description="Branch to browse"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[dict]:
+    """Get repository contents at a specific path - supports all file types."""
+    github_crud = GitHubCRUD()
+
+    repo = await github_crud.get_repository(db, repo_id)
+    if not repo or repo.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found"
+        )
+
+    # Get repository contents from GitHub API
+    try:
+        contents = await github_service.get_repository_contents(
+            repo.account.access_token, repo.repo_owner, repo.repo_name, path, ref=branch
+        )
+        return contents
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Failed to fetch repository contents: {str(e)}"
+        )

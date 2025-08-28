@@ -228,6 +228,17 @@ export default function GitHubFileBrowser({
     return item.type === 'file' && item.name.toLowerCase().match(/\.(md|markdown)$/);
   };
 
+  const sortPathContents = (contents) => {
+    return [...contents].sort((a, b) => {
+      // First, separate directories and files
+      if (a.type === 'dir' && b.type === 'file') return -1;
+      if (a.type === 'file' && b.type === 'dir') return 1;
+      
+      // Then sort alphabetically by name within each type
+      return a.name.toLowerCase().localeCompare(b.name.toLowerCase());
+    });
+  };
+
   return (
     <Modal show={show} onHide={onHide} size="lg">
       <Modal.Header closeButton>
@@ -336,7 +347,7 @@ export default function GitHubFileBrowser({
                 )}
 
                 <ListGroup variant="flush">
-                  {pathContents.map((item) => (
+                  {sortPathContents(pathContents).map((item) => (
                     <ListGroup.Item
                       key={item.path}
                       action={item.type === 'dir' || isMarkdownFile(item)}
