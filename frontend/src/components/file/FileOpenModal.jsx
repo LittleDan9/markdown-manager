@@ -3,11 +3,14 @@ import { Modal, Button, Form, Tabs, Tab } from "react-bootstrap";
 import ConfirmModal from "@/components/modals/ConfirmModal";
 import { useNotification } from "@/components/NotificationProvider";
 import { useAuth } from "@/providers/AuthProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useFileModal } from "@/hooks/ui";
 import GitHubFileBrowser from "./GitHubFileBrowser";
 import GitHubAccountList from "../shared/GitHubAccountList";
 
-export default function FileOpenModal({ show, onHide, categories, documents, onOpen, setContent, deleteDocument }) {
+export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument }) {
+  const { documents, categories, addDocumentToState } = useDocumentContext();
+
   // Always ensure 'General' is present
   const safeCategories = categories?.includes("General") ? categories : ["General", ...(categories?.filter(c => c !== "General") || [])];
   const [selectedCategory, setSelectedCategory] = useState(safeCategories[0] || "General");
@@ -50,10 +53,21 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
     return doc.updated_at || doc.created_at || null;
   }
 
-  const handleGitHubImport = (importedDocument) => {
+  const handleGitHubImport = async (importedDocument) => {
     setShowGitHubBrowser(false);
-    onOpen(importedDocument);
-    if (setContent) setContent(importedDocument.content);
+
+    try {
+      // Use the centralized function to add the document to state and storage
+      await addDocumentToState(importedDocument);
+
+      // Now open the document - it should be available in the documents list
+      onOpen(importedDocument);
+      if (setContent) setContent(importedDocument.content);
+    } catch (error) {
+      console.error('Failed to process GitHub import:', error);
+      showError('Document imported but failed to load. Please refresh the page.');
+    }
+
     handleHide();
   };
 

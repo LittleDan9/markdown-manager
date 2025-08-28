@@ -13,6 +13,9 @@ import {
 import { useNotification } from '../NotificationProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import gitHubApi from '../../api/gitHubApi';
+import GitHubPullModal from '../modals/GitHubPullModal';
+import GitHubConflictModal from '../modals/GitHubConflictModal';
+import GitHubPRModal from '../modals/GitHubPRModal';
 
 const GitHubStatusBar = ({ documentId, onStatusChange }) => {
   // Always call ALL hooks - never do conditional returns
@@ -24,10 +27,46 @@ const GitHubStatusBar = ({ documentId, onStatusChange }) => {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [syncHistory, setSyncHistory] = useState([]);
 
+  // Phase 3: New modal states
+  const [pullModalVisible, setPullModalVisible] = useState(false);
+  const [conflictModalVisible, setConflictModalVisible] = useState(false);
+  const [conflictData, setConflictData] = useState(null);
+  const [prModalVisible, setPRModalVisible] = useState(false);
+  const [currentRepository, setCurrentRepository] = useState(null);
+
   const { showSuccess, showError, showInfo } = useNotification();
 
   useEffect(() => {
-    if (documentId && isAuthenticated) {
+    if (!isAuthenticated) {
+      setStatus(null);
+      setLoading(false);
+      onStatusChange?.(null);
+      return;
+    }
+
+    if (!documentId || String(documentId).startsWith('doc_')) {
+      // For new/local documents, set local status immediately
+      const localStatus = {
+        is_github_document: false,
+        sync_status: "local",
+        has_local_changes: false,
+        has_remote_changes: false,
+        github_repository: null,
+        github_branch: null,
+        github_file_path: null,
+        last_sync: null,
+        status_info: {
+          type: "local",
+          message: "Local document",
+          icon: "📄",
+          color: "secondary"
+        }
+      };
+      setStatus(localStatus);
+      setLoading(false);
+      onStatusChange?.(localStatus);
+    } else {
+      // For backend documents, check GitHub status
       checkStatus();
     }
   }, [documentId, isAuthenticated]);
@@ -90,6 +129,55 @@ const GitHubStatusBar = ({ documentId, onStatusChange }) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Phase 3: New handlers
+  const handlePullSuccess = async (result) => {
+    showSuccess('Changes pulled successfully from GitHub');
+    await checkStatus(); // Refresh status
+    setPullModalVisible(false);
+  };
+
+  const handleConflictDetected = (conflictData) => {
+    setConflictData(conflictData);
+    setPullModalVisible(false);
+    setConflictModalVisible(true);
+  };
+
+  const handleConflictResolution = async (result) => {
+    showSuccess('Conflicts resolved successfully');
+    await checkStatus(); // Refresh status
+    setConflictModalVisible(false);
+    setConflictData(null);
+  };
+
+  const handleCreatePR = async () => {
+    if (!status?.github_repository) {
+      showError('No repository information available');
+      return;
+    }
+
+    try {
+      // Get repository details
+      const repositories = await gitHubApi.getRepositories();
+      const repo = repositories.find(r => r.full_name === status.github_repository);
+
+      if (repo) {
+        setCurrentRepository(repo);
+        setPRModalVisible(true);
+      } else {
+        showError('Repository not found');
+      }
+    } catch (error) {
+      console.error('Failed to load repository details:', error);
+      showError('Failed to load repository information');
+    }
+  };
+
+  const handlePRCreated = (prData) => {
+    showSuccess(`Pull request #${prData.number} created successfully`);
+    setPRModalVisible(false);
+    setCurrentRepository(null);
   };
 
   const getStatusIcon = () => {
@@ -204,7 +292,7 @@ const GitHubStatusBar = ({ documentId, onStatusChange }) => {
                 >
                   <Button
                     variant="outline-primary"
-                    onClick={() => showInfo('Pull functionality coming soon')}
+                    onClick={() => setPullModalVisible(true)}
                     disabled={loading}
                   >
                     <i className="bi bi-cloud-download me-1"></i>
@@ -220,10 +308,26 @@ const GitHubStatusBar = ({ documentId, onStatusChange }) => {
                 >
                   <Button
                     variant="danger"
-                    onClick={() => showInfo('Conflict resolution coming soon')}
+                    onClick={() => setConflictModalVisible(true)}
                   >
                     <i className="bi bi-exclamation-triangle me-1"></i>
                     Resolve
+                  </Button>
+                </OverlayTrigger>
+              )}
+
+              {status.sync_status === 'synced' && (
+                <OverlayTrigger
+                  placement="top"
+                  overlay={<Tooltip>Create pull request</Tooltip>}
+                >
+                  <Button
+                    variant="outline-success"
+                    onClick={handleCreatePR}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-git me-1"></i>
+                    PR
                   </Button>
                 </OverlayTrigger>
               )}
@@ -396,6 +500,37 @@ const GitHubStatusBar = ({ documentId, onStatusChange }) => {
           </Button>
         </Modal.Footer>
       </Modal>
+
+      {/* Phase 3: New Modals */}
+      <GitHubPullModal
+        show={pullModalVisible}
+        onHide={() => setPullModalVisible(false)}
+        document={status}
+        onPullSuccess={handlePullSuccess}
+        onConflictDetected={handleConflictDetected}
+      />
+
+      <GitHubConflictModal
+        show={conflictModalVisible}
+        onHide={() => {
+          setConflictModalVisible(false);
+          setConflictData(null);
+        }}
+        document={status}
+        conflictData={conflictData}
+        onResolutionSuccess={handleConflictResolution}
+      />
+
+      <GitHubPRModal
+        show={prModalVisible}
+        onHide={() => {
+          setPRModalVisible(false);
+          setCurrentRepository(null);
+        }}
+        repository={currentRepository}
+        headBranch={status?.github_branch || 'main'}
+        onPRCreated={handlePRCreated}
+      />
     </>
   );
 };

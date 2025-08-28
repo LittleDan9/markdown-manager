@@ -362,6 +362,26 @@ class DocumentCRUD:
             return document
         return None
 
+    async def get_by_github_metadata(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        file_path: str,
+        branch: str
+    ) -> Optional[Document]:
+        """Get a document by its GitHub metadata (repository, file path, and branch)."""
+        result = await db.execute(
+            select(Document)
+            .filter(
+                Document.user_id == user_id,
+                Document.github_repository_id == repository_id,
+                Document.github_file_path == file_path,
+                Document.github_branch == branch
+            )
+        )
+        return result.scalar_one_or_none()
+
 
 # Create a singleton instance
 document = DocumentCRUD()

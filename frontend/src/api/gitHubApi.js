@@ -94,6 +94,33 @@ class GitHubAPI extends Api {
     const response = await this.apiCall(`/github/repositories/${repoId}/branches`, 'GET');
     return response.data;
   }
+
+  // Phase 3: Advanced Sync Operations
+  async pullChanges(documentId, pullData) {
+    const response = await this.apiCall(`/github/documents/${documentId}/pull`, 'POST', pullData);
+    return response.data;
+  }
+
+  async resolveConflicts(documentId, resolutionData) {
+    const response = await this.apiCall(`/github/documents/${documentId}/resolve-conflicts`, 'POST', resolutionData);
+    return response.data;
+  }
+
+  // Pull Request Operations
+  async createPullRequest(repositoryId, prData) {
+    const response = await this.apiCall(`/github/repositories/${repositoryId}/pull-requests`, 'POST', prData);
+    return response.data;
+  }
+
+  async getPullRequests(repositoryId, state = 'open') {
+    const response = await this.apiCall(`/github/repositories/${repositoryId}/pull-requests?state=${state}`, 'GET');
+    return response.data;
+  }
+
+  async getRepositoryContributors(repositoryId) {
+    const response = await this.apiCall(`/github/repositories/${repositoryId}/contributors`, 'GET');
+    return response.data;
+  }
 }
 
 export default new GitHubAPI();

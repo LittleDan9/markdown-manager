@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Alert, Spinner, ListGroup, Breadcrumb, Form } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
 import gitHubApi from '../../api/gitHubApi';
+import documentsApi from '../../api/documentsApi';
 
 export default function GitHubFileBrowser({
   show,
@@ -123,7 +124,7 @@ export default function GitHubFileBrowser({
         repository_id: selectedRepo.id,
         file_path: file.path,
         branch: selectedBranch,
-        name: file.name.replace(/\.(md|markdown)$/i, '') // Remove extension for document name
+        document_name: file.name.replace(/\.(md|markdown)$/i, '') // Remove extension for document name
       };
 
       const result = await gitHubApi.importFile(importData);
@@ -136,6 +137,40 @@ export default function GitHubFileBrowser({
       showError('Failed to import file from GitHub');
     } finally {
       setImporting(false);
+    }
+  };
+
+  const openFile = async (file) => {
+    if (!file.document_id) {
+      showError('Document ID not found');
+      return;
+    }
+
+    setImporting(true);
+    try {
+      // Use the standard document API instead of GitHub-specific API
+      const result = await documentsApi.getDocument(file.document_id);
+
+      showSuccess(`Opened "${file.name}"`);
+      onFileImported?.(result); // The documentsApi returns the document directly
+      onHide();
+    } catch (error) {
+      console.error('Failed to open document:', error);
+      showError('Failed to open document');
+    } finally {
+      setImporting(false);
+    }
+  };
+
+  const handleFileAction = (item) => {
+    if (item.type === 'dir') {
+      navigateToPath(item.path);
+    } else if (isMarkdownFile(item)) {
+      if (item.is_imported) {
+        openFile(item);
+      } else {
+        importFile(item);
+      }
     }
   };
 
@@ -305,13 +340,7 @@ export default function GitHubFileBrowser({
                     <ListGroup.Item
                       key={item.path}
                       action={item.type === 'dir' || isMarkdownFile(item)}
-                      onClick={() => {
-                        if (item.type === 'dir') {
-                          navigateToPath(item.path);
-                        } else if (isMarkdownFile(item)) {
-                          importFile(item);
-                        }
-                      }}
+                      onClick={() => handleFileAction(item)}
                       className="d-flex justify-content-between align-items-center"
                       style={{
                         cursor: item.type === 'dir' || isMarkdownFile(item) ? 'pointer' : 'default',
@@ -323,7 +352,12 @@ export default function GitHubFileBrowser({
                           {getFileIcon(item)}
                         </span>
                         <div>
-                          <div>{item.name}</div>
+                          <div className="d-flex align-items-center">
+                            {item.name}
+                            {item.is_imported && (
+                              <span className="badge bg-success ms-2 small">Imported</span>
+                            )}
+                          </div>
                           {item.type === 'file' && !isMarkdownFile(item) && (
                             <small className="text-muted">Not a markdown file</small>
                           )}
@@ -341,7 +375,7 @@ export default function GitHubFileBrowser({
 
                       {isMarkdownFile(item) && (
                         <Button
-                          variant="outline-primary"
+                          variant={item.is_imported ? "outline-success" : "outline-primary"}
                           size="sm"
                           disabled={importing}
                         >
@@ -349,8 +383,8 @@ export default function GitHubFileBrowser({
                             <Spinner animation="border" size="sm" />
                           ) : (
                             <>
-                              <i className="bi bi-download me-1"></i>
-                              Import
+                              <i className={`bi ${item.is_imported ? 'bi-folder-open' : 'bi-download'} me-1`}></i>
+                              {item.is_imported ? 'Open' : 'Import'}
                             </>
                           )}
                         </Button>

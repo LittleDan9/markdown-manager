@@ -196,8 +196,6 @@ function FileDropdown({ setDocumentTitle }) {
         <FileOpenModal
           show={showFileModal}
           onHide={() => {}} // Modal will handle its own closing via the hook
-          categories={categories}
-          documents={documents}
           onOpen={fileOps.handleOpenFile}
           deleteDocument={deleteDocument}
         />

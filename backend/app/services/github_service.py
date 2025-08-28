@@ -153,13 +153,14 @@ class GitHubService:
         """Get file content and SHA."""
         async with httpx.AsyncClient() as client:
             url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+            params = {"ref": ref} if ref else {}
             response = await client.get(
                 url,
                 headers={
                     "Authorization": f"Bearer {access_token}",
                     "Accept": "application/vnd.github.v3+json"
                 },
-                params={"ref": ref} if ref != "main" else {}
+                params=params
             )
 
             if response.status_code == 404:

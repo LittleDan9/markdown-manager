@@ -161,8 +161,12 @@ class GitHubImportRequest(BaseModel):
 
     repository_id: int = Field(..., description="GitHub repository ID")
     file_path: str = Field(..., description="File path to import")
-    category_id: int = Field(..., description="Target category ID")
-    document_name: Optional[str] = Field(None, description="Custom document name")
+    category_id: Optional[int] = Field(default=None, description="Target category ID (defaults to General)")
+    document_name: Optional[str] = Field(default=None, description="Custom document name")
+    branch: Optional[str] = Field(default=None, description="Branch name (optional)")
+
+    class Config:
+        extra = "ignore"  # Ignore extra fields like 'name' if sent
 
 
 class GitHubBranchInfo(BaseModel):
@@ -240,3 +244,53 @@ class GitHubSyncHistoryEntry(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Phase 3: Advanced Features Schemas
+class GitHubConflictResolution(BaseModel):
+    """Schema for resolving merge conflicts."""
+
+    resolved_content: str = Field(..., min_length=1, description="User-resolved content")
+
+
+class GitHubConflictResponse(BaseModel):
+    """Schema for conflict resolution response."""
+
+    success: bool = Field(..., description="Whether resolution succeeded")
+    message: str = Field(..., description="Operation message")
+    ready_to_commit: bool = Field(..., description="Whether document is ready to commit")
+
+
+class GitHubPRCreateRequest(BaseModel):
+    """Schema for creating a pull request."""
+
+    title: str = Field(..., min_length=1, max_length=255, description="Pull request title")
+    body: str = Field("", description="Pull request description")
+    head_branch: str = Field(..., min_length=1, description="Source branch")
+    base_branch: str = Field("main", description="Target branch")
+
+
+class GitHubPRResponse(BaseModel):
+    """Schema for pull request creation response."""
+
+    number: int = Field(..., description="Pull request number")
+    title: str = Field(..., description="Pull request title")
+    body: str = Field(..., description="Pull request body")
+    state: str = Field(..., description="Pull request state")
+    html_url: str = Field(..., description="URL to view pull request")
+    head_branch: str = Field(..., description="Source branch")
+    base_branch: str = Field(..., description="Target branch")
+    created_at: str = Field(..., description="Creation timestamp")
+
+
+class GitHubPRListResponse(BaseModel):
+    """Schema for pull request list response."""
+
+    number: int = Field(..., description="Pull request number")
+    title: str = Field(..., description="Pull request title")
+    state: str = Field(..., description="Pull request state")
+    html_url: str = Field(..., description="URL to view pull request")
+    created_at: str = Field(..., description="Creation timestamp")
+    updated_at: str = Field(..., description="Last update timestamp")
+    user_login: str = Field(..., description="Author username")
+    user_avatar: str = Field(..., description="Author avatar URL")

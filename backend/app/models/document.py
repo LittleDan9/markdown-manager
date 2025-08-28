@@ -67,7 +67,7 @@ class Document(Base):  # type: ignore[misc]
     github_file_path: Mapped[str | None] = mapped_column(String(512), nullable=True)
     github_branch: Mapped[str | None] = mapped_column(String(100), nullable=True)
     github_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
-    local_sha: Mapped[str | None] = mapped_column(String(40), nullable=True)
+    local_sha: Mapped[str | None] = mapped_column(String(64), nullable=True)  # SHA-256 hash
     github_sync_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_github_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     github_commit_message: Mapped[str | None] = mapped_column(Text, nullable=True)

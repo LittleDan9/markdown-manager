@@ -1,5 +1,6 @@
 """GitHub integration API routes."""
 import secrets
+from datetime import datetime
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status, BackgroundTasks
@@ -9,6 +10,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import User
+from app.routers.document import get_document_response
+from app.schemas.document import Document
 from app.schemas.github import (
     GitHubAccount,
     GitHubFileInfo,
@@ -20,7 +23,10 @@ from app.schemas.github import (
     GitHubStatusResponse,
     GitHubPullRequest,
     GitHubPullResponse,
-    GitHubSyncHistoryEntry,
+    GitHubSyncRequest,
+    GitHubSyncResponse,
+    GitHubConflictResponse,
+    GitHubSyncHistoryEntry
 )
 from app.services.github_service import GitHubService
 from app.crud.github_crud import GitHubCRUD
@@ -459,6 +465,7 @@ async def get_repository_contents(
 ) -> List[dict]:
     """Get repository contents at a specific path - supports all file types."""
     from app.crud.github_crud import GitHubCRUD
+
     github_crud = GitHubCRUD()
 
     repo = await github_crud.get_repository(db, repo_id)
@@ -478,14 +485,31 @@ async def get_repository_contents(
             branch
         )
 
-        # Return simplified structure for browsing
+        # Get all imported documents for this repository and branch
+        # to check which files are already imported
+        from sqlalchemy import select
+        from app.models.document import Document
+
+        result = await db.execute(
+            select(Document.github_file_path, Document.id)
+            .filter(
+                Document.user_id == current_user.id,
+                Document.github_repository_id == repo_id,
+                Document.github_branch == branch
+            )
+        )
+        imported_files = {file_path: doc_id for file_path, doc_id in result.fetchall()}
+
+        # Return enhanced structure with import status
         return [
             {
                 "name": item["name"],
                 "path": item["path"],
                 "type": item["type"],  # "file" or "dir"
                 "size": item.get("size", 0),
-                "download_url": item.get("download_url")
+                "download_url": item.get("download_url"),
+                "is_imported": item["path"] in imported_files,
+                "document_id": imported_files.get(item["path"]) if item["path"] in imported_files else None
             }
             for item in contents
         ]
@@ -496,15 +520,85 @@ async def get_repository_contents(
         )
 
 
-@router.post("/import")
+@router.get("/check-document-exists")
+async def check_document_exists(
+    repository_id: int = Query(..., description="GitHub repository ID"),
+    file_path: str = Query(..., description="File path to check"),
+    branch: str = Query(default="main", description="Branch name"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Check if a document already exists for the given GitHub file."""
+    from app.crud.document import DocumentCRUD
+    from app.crud.github_crud import GitHubCRUD
+
+    document_crud = DocumentCRUD()
+    github_crud = GitHubCRUD()
+
+    # Verify repository access
+    repo = await github_crud.get_repository(db, repository_id)
+    if not repo or repo.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found"
+        )
+
+    # Check if document exists
+    existing_doc = await document_crud.get_by_github_metadata(
+        db=db,
+        user_id=current_user.id,
+        repository_id=repository_id,
+        file_path=file_path,
+        branch=branch
+    )
+
+    if existing_doc:
+        return {
+            "exists": True,
+            "document_id": existing_doc.id,
+            "document_name": existing_doc.name,
+            "github_metadata": {
+                "repository_id": existing_doc.github_repository_id,
+                "file_path": existing_doc.github_file_path,
+                "branch": existing_doc.github_branch,
+                "sync_status": existing_doc.github_sync_status
+            }
+        }
+    else:
+        return {"exists": False}
+
+
+async def _get_document_response(
+    db: AsyncSession,
+    document_id: int,
+    current_user: User
+) -> Document:
+    """Shared function to get document details with consistent response format."""
+    from app.crud.document import DocumentCRUD
+
+    document_crud = DocumentCRUD()
+    document = await document_crud.get(db, document_id)
+
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Document not found"
+        )
+
+    return document
+
+
+@router.post("/import", response_model=Document)
 async def import_file_from_github(
     import_request: GitHubImportRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> Document:
     """Import a markdown file from GitHub."""
     from app.crud.github_crud import GitHubCRUD
     from app.crud.document import DocumentCRUD
+    from app.crud.category import get_category_by_name, create_category
+    from app.schemas.category import CategoryCreate
 
     github_crud = GitHubCRUD()
     document_crud = DocumentCRUD()
@@ -517,29 +611,58 @@ async def import_file_from_github(
         )
 
     # Get file content from GitHub
+    branch = import_request.branch or repo.default_branch or "main"
     content, sha = await github_service.get_file_content(
         repo.account.access_token,
         repo.repo_owner,
         repo.repo_name,
-        import_request.file_path
+        import_request.file_path,
+        ref=branch
     )
+
+    # Ensure we have a valid category_id - create repo/branch category if needed
+    category_id = import_request.category_id
+    if not category_id:
+        # Create category based on repo name and branch: "repo-name/branch"
+        category_name = f"{repo.repo_name}/{branch}"
+        general_category = await get_category_by_name(db, category_name, current_user.id)
+        if not general_category:
+            # Create the repo/branch category if it doesn't exist
+            general_category = await create_category(
+                db, CategoryCreate(name=category_name), current_user.id
+            )
+        category_id = general_category.id
 
     # Create document
     document_name = import_request.document_name or import_request.file_path.split("/")[-1]
+
+    # Remove file extension from document name if present
+    if document_name.endswith('.md'):
+        document_name = document_name[:-3]
 
     document = await document_crud.create(
         db=db,
         user_id=current_user.id,
         name=document_name,
         content=content,
-        category_id=import_request.category_id,
+        category_id=category_id,
     )
 
-    return {
-        "message": "File imported successfully",
-        "document_id": document.id,
-        "document_name": document.name
-    }
+    # Set GitHub metadata for Phase 3 sync functionality
+    document.github_repository_id = import_request.repository_id
+    document.github_file_path = import_request.file_path
+    document.github_branch = import_request.branch or repo.default_branch or "main"
+    document.github_sha = sha
+    # Use content hash for local comparison, not GitHub SHA
+    document.local_sha = github_service.generate_content_hash(content)
+    document.github_sync_status = "synced"
+    document.last_github_sync_at = datetime.utcnow()
+
+    await db.commit()
+    await db.refresh(document)
+
+    # Use shared function to return consistent document format
+    return await get_document_response(db, document.id, current_user)
 
 
 # Phase 2: Commit Workflow Endpoints
@@ -732,6 +855,14 @@ async def get_document_github_status(
 
     # Generate current content hash
     current_content_hash = github_service.generate_content_hash(document.content)
+
+    # Fix legacy documents where local_sha was set to GitHub SHA instead of content hash
+    # GitHub SHAs are 40 chars, content hashes are 64 chars
+    if document.local_sha and len(document.local_sha) == 40:
+        # This is likely a GitHub SHA, recalculate as content hash
+        document.local_sha = current_content_hash
+        await db.commit()
+
     has_local_changes = current_content_hash != (document.local_sha or "")
 
     # Check remote status if linked to GitHub

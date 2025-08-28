@@ -256,7 +256,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     // Clear syntax highlighting cache for new document
     setHighlightedBlocks({});
     DocumentStorageService.setCurrentDocument(newDoc);
-    
+
     // Clear current document on backend if authenticated
     if (isAuthenticated && token) {
       documentsApi.setCurrentDocumentId(null).catch(err => {
@@ -320,7 +320,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
       await DocumentService.deleteDocument(id, showNotification);
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
-      
+
       // If we deleted the current document, clear the current state
       // but don't automatically switch to another document - let the caller decide
       if (currentDocument.id === id) {
@@ -332,7 +332,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
           setPreviewHTML('');
         }
         setHighlightedBlocks({});
-        
+
         // Clear current document from storage and backend
         DocumentStorageService.setCurrentDocument({ id: null, name: 'Untitled Document', category: 'General', content: '' });
         if (isAuthenticated && token) {
@@ -477,6 +477,31 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     return DocumentService.importMarkdownFile(file);
   }, []);
 
+  /**
+   * Add a document to the local state and storage
+   * Useful for adding documents that were created externally (e.g., GitHub imports)
+   */
+  const addDocumentToState = useCallback(async (document) => {
+    try {
+      // Add to local documents state (avoid duplicates)
+      setDocuments(prevDocs => {
+        const exists = prevDocs.some(doc => doc.id === document.id);
+        if (exists) {
+          return prevDocs;
+        }
+        return [...prevDocs, document];
+      });
+
+      // Also save to localStorage so DocumentService can find it
+      DocumentStorageService.saveDocument(document);
+
+      return document;
+    } catch (error) {
+      console.error('Failed to add document to state:', error);
+      throw error;
+    }
+  }, [setDocuments]);
+
   // --- CHANGE TRACKING ---
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
 
@@ -486,7 +511,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     categories, setCategories, loading, setLoading, error, setError, highlightedBlocks, setHighlightedBlocks,
     showWarning, showSuccess, showError,
     createDocument, loadDocument, saveDocument, deleteDocument, renameDocument,
-    addCategory, deleteCategory, renameCategory, syncWithBackend,
+    addCategory, deleteCategory, renameCategory, syncWithBackend, addDocumentToState,
     exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges
   };
 }
