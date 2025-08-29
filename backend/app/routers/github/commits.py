@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas.github import GitHubCommitRequest, GitHubCommitResponse
 from app.services.github_service import GitHubService
+from app.services.github_cache_service import github_cache_service
 from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter()
@@ -85,14 +86,26 @@ async def _check_for_conflicts(
         return
 
     try:
-        # Get current file content from GitHub
-        _, remote_sha = await github_service.get_file_content(
-            account.access_token,
-            repository.repo_owner,
-            repository.repo_name,
+        # Get current file content from GitHub with caching
+        async def fetch_remote_file():
+            content, sha = await github_service.get_file_content(
+                account.access_token,
+                repository.repo_owner,
+                repository.repo_name,
+                document.github_file_path or "",
+                ref=document.github_branch or "main"
+            )
+            return {"content": content, "sha": sha}
+
+        cached_result = await github_cache_service.get_or_fetch_file_content(
+            document.github_repository_id,
             document.github_file_path or "",
-            ref=document.github_branch or "main"
+            document.github_branch or "main",
+            fetch_remote_file,
+            force_refresh=False
         )
+        
+        remote_sha = cached_result["sha"]
 
         # Check if remote file has changed since last sync
         if remote_sha != document.github_sha:
@@ -152,6 +165,13 @@ async def _update_document_metadata(
     # Update branch if it changed
     if target_branch != document.github_branch:
         document.github_branch = target_branch
+
+    # Invalidate cache for this file since it was updated
+    await github_cache_service.invalidate_file_cache(
+        document.github_repository_id,
+        document.github_file_path,
+        target_branch
+    )
 
     await db.commit()
 

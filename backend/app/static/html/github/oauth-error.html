@@ -85,6 +85,32 @@
         const errorMessage = urlParams.get('error') || 'Unknown error occurred';
         document.getElementById('error-detail').textContent = errorMessage;
 
+        // Send error message to parent window
+        if (window.opener) {
+            // Try multiple origins since we might be in development
+            const origins = [
+                'http://localhost:80',           // Nginx frontend
+                'http://localhost',              // Nginx frontend (no port)
+                'http://localhost:3000',         // Development frontend
+                window.location.origin,          // Current origin (api.localhost:80)
+                window.location.origin.replace('api.', '')  // Remove api. prefix
+            ];
+            
+            const message = {
+                type: 'GITHUB_AUTH_ERROR',
+                error: errorMessage
+            };
+            
+            origins.forEach(origin => {
+                try {
+                    console.log('Sending error message to origin:', origin);
+                    window.opener.postMessage(message, origin);
+                } catch (error) {
+                    console.error('Failed to post message to origin:', origin, error);
+                }
+            });
+        }
+
         setTimeout(() => {
             window.close();
         }, 5000);

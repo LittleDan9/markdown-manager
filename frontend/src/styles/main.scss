@@ -8,15 +8,16 @@
 // 1. Base styles and resets
 @use "base";
 
-// 3. Main layout and structure
+// 2. Main layout and structure
 @use "layout";
 
-// 4. Component-specific styles
+// 3. Component-specific styles
 @use "toolbar";
 @use "editor";
 @use "preview";
 @use "code";
 @use "modals";
+@use "github";
 
-// // 5. Responsive design (should come last to override other styles)
+// // 4. Responsive design (should come last to override other styles)
 // @use "responsive";

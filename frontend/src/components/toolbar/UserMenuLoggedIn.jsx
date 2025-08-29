@@ -5,12 +5,14 @@ import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../providers/AuthProvider";
 import UserSettingsModal from "../modals/UserSettingsModal";
+import GitHubModal from "../github/modals/GitHubModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
   const { user, setUser, logout } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
 
@@ -35,8 +37,7 @@ function UserMenuLoggedIn() {
   };
 
   const handleGitHub = () => {
-    setActiveTab("github");
-    setShowSettingsModal(true);
+    setShowGitHubModal(true);
   };
 
   const handleLogout = () => {
@@ -84,6 +85,10 @@ function UserMenuLoggedIn() {
         defaultActiveKey={activeTab}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+      />
+      <GitHubModal
+        show={showGitHubModal}
+        onHide={() => setShowGitHubModal(false)}
       />
     </>
   );

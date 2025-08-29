@@ -20,6 +20,7 @@ from app.schemas.github import (
     GitHubConflictResponse
 )
 from app.services.github_service import GitHubService
+from app.services.github_cache_service import github_cache_service
 from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter()
@@ -47,15 +48,30 @@ async def import_file_from_github(
             detail="Repository not found"
         )
 
-    # Get file content from GitHub
+    # Get file content from GitHub with caching
     branch = import_request.branch or repo.default_branch or "main"
-    content, sha = await github_service.get_file_content(
-        repo.account.access_token,
-        repo.repo_owner,
-        repo.repo_name,
+    
+    async def fetch_file_content():
+        content, sha = await github_service.get_file_content(
+            repo.account.access_token,
+            repo.repo_owner,
+            repo.repo_name,
+            import_request.file_path,
+            ref=branch
+        )
+        return {"content": content, "sha": sha}
+
+    # Use cache for file content
+    cached_result = await github_cache_service.get_or_fetch_file_content(
+        import_request.repository_id,
         import_request.file_path,
-        ref=branch
+        branch,
+        fetch_file_content,
+        force_refresh=False
     )
+    
+    content = cached_result["content"]
+    sha = cached_result["sha"]
 
     # Ensure we have a valid category_id - create repo/branch category if needed
     category_id = import_request.category_id
@@ -159,15 +175,29 @@ async def _check_remote_changes(
     try:
         repository = await github_crud.get_repository(db, document.github_repository_id)
         if repository and repository.account:
-            # Get current file content from GitHub
+            # Get current file content from GitHub with caching
             try:
-                remote_content, remote_sha = await github_service.get_file_content(
-                    repository.account.access_token,
-                    repository.repo_owner,
-                    repository.repo_name,
+                async def fetch_remote_content():
+                    content, sha = await github_service.get_file_content(
+                        repository.account.access_token,
+                        repository.repo_owner,
+                        repository.repo_name,
+                        document.github_file_path or "",
+                        ref=document.github_branch or "main"
+                    )
+                    return {"content": content, "sha": sha}
+
+                cached_result = await github_cache_service.get_or_fetch_file_content(
+                    document.github_repository_id,
                     document.github_file_path or "",
-                    ref=document.github_branch or "main"
+                    document.github_branch or "main",
+                    fetch_remote_content,
+                    force_refresh=False
                 )
+                
+                remote_content = cached_result["content"]
+                remote_sha = cached_result["sha"]
+                
                 # Check if remote content differs from what we have locally
                 has_remote_changes = remote_sha != document.github_sha
             except Exception:

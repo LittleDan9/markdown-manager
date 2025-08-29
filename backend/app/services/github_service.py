@@ -7,6 +7,9 @@ from typing import Any, Dict, List, Optional, Tuple
 import httpx
 from fastapi import HTTPException, status
 
+from app.services.github_cache_service import github_cache_service
+from app.core.github_security import github_security
+
 
 class GitHubService:
     """Service for GitHub OAuth and API operations."""
@@ -31,11 +34,24 @@ class GitHubService:
             "state": state,
             "allow_signup": "true",
             # Add a timestamp to force fresh authorization
-            "t": str(int(time.time()))
+            "t": str(int(time.time())),
+            # Force account selection by adding login parameter
+            "login": ""  # Empty login forces account selection
         }
 
         query_string = "&".join([f"{k}={v}" for k, v in params.items()])
         return f"{base_url}?{query_string}"
+
+    def get_logout_url(self) -> str:
+        """Get GitHub logout URL to clear existing session."""
+        return "https://github.com/logout"
+
+    def get_authorization_url_with_logout(self, state: str) -> Dict[str, str]:
+        """Get both logout and authorization URLs for account switching."""
+        return {
+            "logout_url": self.get_logout_url(),
+            "authorization_url": self.get_authorization_url(state)
+        }
 
     async def exchange_code_for_token(self, code: str, state: str) -> Dict[str, Any]:
         """Exchange OAuth code for access token."""
@@ -108,6 +124,35 @@ class GitHubService:
 
             return response.json()
 
+    async def get_user_repositories_cached(
+        self,
+        access_token: str,
+        account_id: int,
+        force_refresh: bool = False,
+        page: int = 1,
+        per_page: int = 30
+    ) -> List[Dict[str, Any]]:
+        """Get user's repositories with caching."""
+        
+        async def fetch_repositories():
+            return await self.get_user_repositories(access_token, page, per_page)
+
+        try:
+            repositories = await github_cache_service.get_or_fetch_repositories(
+                account_id=account_id,
+                fetch_func=fetch_repositories,
+                force_refresh=force_refresh
+            )
+            
+            # Sanitize the data for security
+            return [github_security.sanitize_github_data(repo) for repo in repositories]
+            
+        except Exception as e:
+            # If cache fails, fall back to direct API call
+            print(f"Cache failed, falling back to direct API: {e}")
+            repositories = await fetch_repositories()
+            return [github_security.sanitize_github_data(repo) for repo in repositories]
+
     async def get_repository_contents(
         self,
         access_token: str,
@@ -141,6 +186,39 @@ class GitHubService:
 
             data = response.json()
             return data if isinstance(data, list) else [data]
+
+    async def get_repository_contents_cached(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        repo_id: int,
+        path: str = "",
+        ref: str = "main",
+        force_refresh: bool = False
+    ) -> List[Dict[str, Any]]:
+        """Get repository contents with caching."""
+        
+        async def fetch_contents():
+            return await self.get_repository_contents(access_token, owner, repo, path, ref)
+
+        try:
+            contents = await github_cache_service.get_or_fetch_file_list(
+                repo_id=repo_id,
+                path=path,
+                branch=ref,
+                fetch_func=fetch_contents,
+                force_refresh=force_refresh
+            )
+            
+            # Sanitize the data for security
+            return [github_security.sanitize_github_data(item) for item in contents]
+            
+        except Exception as e:
+            # If cache fails, fall back to direct API call
+            print(f"Cache failed, falling back to direct API: {e}")
+            contents = await fetch_contents()
+            return [github_security.sanitize_github_data(item) for item in contents]
 
     async def get_file_content(
         self,

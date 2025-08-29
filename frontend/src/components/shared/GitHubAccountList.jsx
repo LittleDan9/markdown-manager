@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, ListGroup, Alert, Badge, Spinner, Accordion, Form } from 'react-bootstrap';
 import gitHubApi from '../../api/gitHubApi';
+import ConfirmModal from '../modals/ConfirmModal';
 
 const GitHubAccountList = ({
   accounts: passedAccounts,
   onBrowseRepository,
+  onDeleteAccount,
   compact = false
 }) => {
   const [accounts, setAccounts] = useState(passedAccounts || []);
@@ -12,6 +14,8 @@ const GitHubAccountList = ({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [accountToDelete, setAccountToDelete] = useState(null);
 
   // Load GitHub accounts on component mount if not passed as props
   useEffect(() => {
@@ -79,19 +83,56 @@ const GitHubAccountList = ({
 
   const loadRepositories = async (accountId) => {
     try {
-      setError('');
+      setLoading(true);
       const repos = await gitHubApi.getRepositories(accountId);
       setAccountRepositories(prev => ({
         ...prev,
-        [accountId]: repos || []
+        [accountId]: repos
       }));
     } catch (error) {
       console.error('Failed to load repositories:', error);
       setError('Failed to load repositories. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const formatLastSync = (lastSync) => {
+  const handleDeleteClick = (accountId, accountName) => {
+    setAccountToDelete({ id: accountId, name: accountName });
+    setShowConfirmModal(true);
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!accountToDelete) return;
+
+    try {
+      await gitHubApi.disconnectAccount(accountToDelete.id);
+      
+      // Update local state
+      setAccounts(accounts.filter(acc => acc.id !== accountToDelete.id));
+      
+      // Remove repositories for this account
+      const newRepos = { ...accountRepositories };
+      delete newRepos[accountToDelete.id];
+      setAccountRepositories(newRepos);
+      
+      // Call parent callback if provided
+      if (onDeleteAccount) {
+        onDeleteAccount(accountToDelete.id);
+      }
+    } catch (error) {
+      console.error('Failed to delete account:', error);
+      setError('Failed to disconnect account. Please try again.');
+    } finally {
+      setShowConfirmModal(false);
+      setAccountToDelete(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setShowConfirmModal(false);
+    setAccountToDelete(null);
+  };  const formatLastSync = (lastSync) => {
     if (!lastSync) return 'Never';
     const date = new Date(lastSync);
     const now = new Date();
@@ -273,6 +314,34 @@ const GitHubAccountList = ({
           </Button>
         </div>
       )}
+
+      <ConfirmModal
+        show={showConfirmModal}
+        onHide={handleCancelDelete}
+        onAction={(action) => {
+          if (action === 'confirm') {
+            handleDeleteAccount();
+          } else {
+            handleCancelDelete();
+          }
+        }}
+        title="Disconnect GitHub Account"
+        message={`Are you sure you want to disconnect ${accountToDelete?.name}? This will remove all synced repositories and cannot be undone.`}
+        icon={<i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>}
+        buttons={[
+          {
+            text: 'Cancel',
+            variant: 'secondary',
+            action: 'cancel'
+          },
+          {
+            text: 'Disconnect',
+            variant: 'danger',
+            action: 'confirm',
+            icon: 'bi-trash'
+          }
+        ]}
+      />
     </div>
   );
 };

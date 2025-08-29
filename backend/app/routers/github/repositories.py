@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas.github import GitHubRepository, GitHubRepositoryResponse
 from app.services.github_service import GitHubService
+from app.services.github_cache_service import github_cache_service
 from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter()
@@ -123,10 +124,24 @@ async def get_repository_branches(
             detail="Repository not found"
         )
 
-    # Get branches from GitHub API
-    branches = await github_service.get_branches(
-        repo.account.access_token, repo.repo_owner, repo.repo_name
+    # Use cache for branches
+    async def fetch_branches():
+        return await github_service.get_branches(
+            repo.account.access_token, repo.repo_owner, repo.repo_name
+        )
+
+    cache_key = github_cache_service.generate_cache_key(
+        "github_branches", repo_id
     )
+    cached_branches = await github_cache_service.get_cached(cache_key)
+    
+    if cached_branches is None:
+        branches = await fetch_branches()
+        await github_cache_service.set_cached(
+            cache_key, branches, github_cache_service.cache_ttl['branches']
+        )
+    else:
+        branches = cached_branches
 
     return [
         {
@@ -156,10 +171,15 @@ async def get_repository_contents(
             detail="Repository not found"
         )
 
-    # Get repository contents from GitHub API
-    try:
-        contents = await github_service.get_repository_contents(
+    # Use cache for file listings
+    async def fetch_contents():
+        return await github_service.get_repository_contents(
             repo.account.access_token, repo.repo_owner, repo.repo_name, path, ref=branch
+        )
+
+    try:
+        contents = await github_cache_service.get_or_fetch_file_list(
+            repo_id, path, branch, fetch_contents, force_refresh=False
         )
         return contents
     except Exception as e:

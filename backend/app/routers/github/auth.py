@@ -92,6 +92,23 @@ async def get_auth_url(current_user: User = Depends(get_current_user)) -> dict:
     }
 
 
+@router.get("/url-with-logout")
+async def get_auth_url_with_logout(current_user: User = Depends(get_current_user)) -> dict:
+    """Generate GitHub OAuth authorization URL with logout option for account switching."""
+    # Generate a random state for CSRF protection and include user ID
+    random_state = secrets.token_urlsafe(24)
+    # Encode user ID in the state (in production, use proper encryption)
+    state = f"{current_user.id}:{random_state}"
+
+    urls = github_service.get_authorization_url_with_logout(state)
+
+    return {
+        "authorization_url": urls["authorization_url"],
+        "logout_url": urls["logout_url"],
+        "state": state
+    }
+
+
 @router.get("/callback")
 async def oauth_callback_page(
     code: str = Query(...),
