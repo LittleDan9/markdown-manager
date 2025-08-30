@@ -70,7 +70,7 @@ export default function GitHubAccountsTab() {
             </Card.Header>
             <Card.Body>
               {accounts.length > 0 ? (
-                <GitHubAccountList 
+                <GitHubAccountList
                   accounts={accounts}
                   loading={loading}
                   onDeleteAccount={handleAccountDisconnected}
@@ -78,7 +78,13 @@ export default function GitHubAccountsTab() {
               ) : (
                 <Alert variant="info" className="mb-0">
                   <i className="bi bi-info-circle me-2"></i>
-                  No GitHub accounts connected. Connect your first account below.
+                  <strong>No GitHub accounts connected.</strong>
+                  <br />
+                  Connect your first account below to unlock:
+                  <ul className="mb-0 mt-2">
+                    <li><strong>Repositories</strong> - Browse and manage your GitHub repositories</li>
+                    <li><strong>Cache & Synchronization</strong> - Performance monitoring and sync controls</li>
+                  </ul>
                 </Alert>
               )}
             </Card.Body>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Alert, Badge, Row, Col, Table, Modal } from "react-bootstrap";
 import gitHubApi from "../../../api/gitHubApi";
 import { useNotification } from "../../NotificationProvider";
+import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
 
 export default function GitHubSyncPanel() {
   const [cacheStats, setCacheStats] = useState(null);
@@ -9,14 +10,22 @@ export default function GitHubSyncPanel() {
   const [loading, setLoading] = useState(false);
   const [showForceSync, setShowForceSync] = useState(false);
   const { showSuccess, showError } = useNotification();
+  const { accounts, loading: accountsLoading } = useGitHubAccounts();
 
   useEffect(() => {
-    loadStats();
-    const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
-  }, []);
+    // Only load stats if user has GitHub accounts
+    if (!accountsLoading && accounts.length > 0) {
+      loadStats();
+      const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
+      return () => clearInterval(interval);
+    }
+  }, [accounts, accountsLoading]);
 
   const loadStats = async () => {
+    if (accounts.length === 0) {
+      return; // Don't load stats if no accounts
+    }
+
     try {
       const [cache, sync] = await Promise.all([
         gitHubApi.getCacheStats(),
@@ -30,6 +39,11 @@ export default function GitHubSyncPanel() {
   };
 
   const handleClearCache = async () => {
+    if (accounts.length === 0) {
+      showError("No GitHub accounts connected");
+      return;
+    }
+
     setLoading(true);
     try {
       await gitHubApi.clearCache();
@@ -43,6 +57,11 @@ export default function GitHubSyncPanel() {
   };
 
   const handleToggleSync = async () => {
+    if (accounts.length === 0) {
+      showError("No GitHub accounts connected");
+      return;
+    }
+
     setLoading(true);
     try {
       if (syncStatus?.running) {
@@ -61,6 +80,11 @@ export default function GitHubSyncPanel() {
   };
 
   const handleForceSync = async () => {
+    if (accounts.length === 0) {
+      showError("No GitHub accounts connected");
+      return;
+    }
+
     setLoading(true);
     try {
       const result = await gitHubApi.forceSyncAll();

@@ -3,6 +3,7 @@ import { Card, Row, Col, Alert, Badge, Spinner, Button, Table } from 'react-boot
 import { GitHubSyncPanel } from '../index';
 import gitHubApi from '../../../api/gitHubApi';
 import { useNotification } from '../../NotificationProvider';
+import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
 
 export default function GitHubCachePanel() {
   const [cacheStats, setCacheStats] = useState(null);
@@ -10,14 +11,26 @@ export default function GitHubCachePanel() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { showSuccess, showError } = useNotification();
+  const { accounts, loading: accountsLoading } = useGitHubAccounts();
 
   useEffect(() => {
-    console.log('GitHubPerformancePanel mounted, starting to fetch metrics...');
-    
+    console.log('GitHubPerformancePanel mounted, checking GitHub accounts...');
+
     const fetchMetrics = async () => {
       try {
         setLoading(true);
-        console.log('Calling getCacheStats()...');
+
+        // Only fetch metrics if user has GitHub accounts
+        if (accounts.length === 0) {
+          console.log('No GitHub accounts found, skipping cache stats fetch');
+          setCacheStats(null);
+          setSyncStatus(null);
+          setError(null);
+          setLoading(false);
+          return;
+        }
+
+        console.log('GitHub accounts found, calling getCacheStats()...');
         const [cacheData, syncData] = await Promise.all([
           gitHubApi.getCacheStats(),
           gitHubApi.getSyncStatus()
@@ -35,14 +48,29 @@ export default function GitHubCachePanel() {
       }
     };
 
-    fetchMetrics();
-    
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
-  }, []);
+    // Wait for accounts to load before fetching metrics
+    if (!accountsLoading) {
+      fetchMetrics();
+    }
+
+    // Refresh every 30 seconds only if accounts exist
+    let interval;
+    if (!accountsLoading && accounts.length > 0) {
+      interval = setInterval(fetchMetrics, 30000);
+    }
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
+  }, [accounts, accountsLoading]); // Dependencies: accounts and accountsLoading
 
   const handleClearCache = async () => {
+    if (accounts.length === 0) {
+      showError("No GitHub accounts connected");
+      return;
+    }
+
     try {
       setLoading(true);
       await gitHubApi.clearCache();
@@ -62,6 +90,11 @@ export default function GitHubCachePanel() {
   };
 
   const handleRefreshMetrics = async () => {
+    if (accounts.length === 0) {
+      showError("No GitHub accounts connected");
+      return;
+    }
+
     try {
       setLoading(true);
       const [cacheData, syncData] = await Promise.all([
@@ -93,7 +126,7 @@ export default function GitHubCachePanel() {
 
   const getSyncStatusBadge = () => {
     if (!syncStatus) return { variant: 'secondary', text: 'Unknown' };
-    return syncStatus.running 
+    return syncStatus.running
       ? { variant: 'success', text: 'Running' }
       : { variant: 'secondary', text: 'Stopped' };
   };
@@ -116,7 +149,7 @@ export default function GitHubCachePanel() {
                   {error}
                 </Alert>
               )}
-              
+
               {/* Performance Metrics Table */}
               {cacheStats ? (
                 <Table size="sm">
