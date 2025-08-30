@@ -167,20 +167,38 @@ class IconService {
       // console.log('IconService: API returned:', data);
 
       // Transform backend response to match frontend expectations
-      const transformedIcons = data.icons.map(icon => ({
-        key: icon.key,
-        prefix: icon.pack.name,
-        pack: icon.pack.name,
-        packDisplayName: icon.pack.display_name,
-        category: icon.pack.category,
-        fullName: `${icon.pack.name}:${icon.key}`,
-        iconData: {
-          body: icon.icon_data?.body || icon.icon_data,
-          viewBox: icon.icon_data?.viewBox || '0 0 24 24',
-          width: icon.icon_data?.width || 24,
-          height: icon.icon_data?.height || 24
+      const transformedIcons = data.icons.map(icon => {
+        // Extract width/height from viewBox to ensure consistency
+        let width = 24;
+        let height = 24;
+        let viewBox = icon.icon_data?.viewBox || '0 0 24 24';
+
+        // Parse viewBox to get correct dimensions
+        const viewBoxMatch = viewBox.match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+        if (viewBoxMatch) {
+          width = parseFloat(viewBoxMatch[3]);
+          height = parseFloat(viewBoxMatch[4]);
+        } else {
+          // Fallback to provided width/height if viewBox parsing fails
+          width = icon.icon_data?.width || 24;
+          height = icon.icon_data?.height || 24;
         }
-      }));
+
+        return {
+          key: icon.key,
+          prefix: icon.pack.name,
+          pack: icon.pack.name,
+          packDisplayName: icon.pack.display_name,
+          category: icon.pack.category,
+          fullName: `${icon.pack.name}:${icon.key}`,
+          iconData: {
+            body: icon.icon_data?.body || icon.icon_data,
+            viewBox: viewBox,
+            width: width,
+            height: height
+          }
+        };
+      });
 
       // console.log('IconService: Transformed icons:', transformedIcons.length);
 

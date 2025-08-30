@@ -48,7 +48,6 @@ class MermaidIconLoader {
       }
     });
 
-    serviceLogger.debug(`Extracted ${iconReferences.length} icon references:`, iconReferences);
     return iconReferences;
   }
 
@@ -70,7 +69,6 @@ class MermaidIconLoader {
       index === self.findIndex(r => r.pack === ref.pack && r.icon === ref.icon)
     );
 
-    serviceLogger.debug(`Extracted ${uniqueIconReferences.length} unique icons from ${diagramSources.length} diagrams`);
     return uniqueIconReferences;
   }
 
@@ -103,18 +101,45 @@ class MermaidIconLoader {
         // Load each icon individually
         for (const iconName of iconNames) {
           try {
-            // Search for the specific icon in the specific pack
-            const icons = await IconService.searchIcons(iconName, 'all', packName, 0, 1);
-
-            if (icons.length > 0) {
-              const icon = icons[0];
+            // First try to search for exact match in the specific pack
+            let icons = await IconService.searchIcons(iconName, 'all', packName, 0, 10);
+            
+            // Filter for exact key match first
+            let exactMatch = icons.find(icon => icon.key === iconName);
+            
+            if (!exactMatch && icons.length > 0) {
+              // If no exact match, fall back to first result
+              exactMatch = icons[0];
+              serviceLogger.warn(`No exact match for ${packName}:${iconName}, using ${exactMatch.key} instead`);
+            }
+            
+            if (exactMatch) {
+              const icon = exactMatch;
               if (icon.iconData && icon.iconData.body && icon.key) {
+                // Extract width/height from viewBox to ensure consistency
+                let width = 24;
+                let height = 24;
+                let viewBox = icon.iconData.viewBox || '0 0 24 24';
+
+                // Parse viewBox to get correct dimensions
+                const viewBoxMatch = viewBox.match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
+                if (viewBoxMatch) {
+                  width = parseFloat(viewBoxMatch[3]);
+                  height = parseFloat(viewBoxMatch[4]);
+                } else {
+                  // Fallback to provided width/height if viewBox parsing fails
+                  width = icon.iconData.width || 24;
+                  height = icon.iconData.height || 24;
+                }
+
                 iconMap[icon.key] = {
                   body: icon.iconData.body,
-                  width: icon.iconData.width || 24,
-                  height: icon.iconData.height || 24,
-                  viewBox: icon.iconData.viewBox || '0 0 24 24'
+                  width: width,
+                  height: height,
+                  viewBox: viewBox
                 };
+              } else {
+                serviceLogger.warn(`Icon ${packName}:${iconName} missing required data (body: ${!!icon.iconData?.body}, key: ${!!icon.key})`);
               }
             } else {
               serviceLogger.warn(`Icon not found: ${packName}:${iconName}`);
@@ -134,7 +159,6 @@ class MermaidIconLoader {
           };
 
           iconPacks.push(packData);
-          serviceLogger.debug(`Loaded ${Object.keys(iconMap).length} icons for pack: ${packName}`);
         }
       } catch (error) {
         serviceLogger.warn(`Failed to load icons for pack ${packName}:`, error);
@@ -154,12 +178,20 @@ class MermaidIconLoader {
       if (iconPacks.length > 0) {
         const totalIcons = iconPacks.reduce((sum, pack) => sum + Object.keys(pack.icons.icons).length, 0);
         serviceLogger.info(`Registering ${iconPacks.length} icon packs with ${totalIcons} specific icons: ${iconPacks.map(p => p.name).join(', ')}`);
-        mermaidRegisterFunction(iconPacks);
+        
+        if (typeof mermaidRegisterFunction === 'function') {
+          // Try the standard format first
+          mermaidRegisterFunction(iconPacks);
+          serviceLogger.info('✅ Icon packs registered with standard format');
+          
+        } else {
+          serviceLogger.error('❌ mermaidRegisterFunction is not a function or not available');
+        }
       } else {
-        serviceLogger.debug('No specific icons to register - using default Mermaid icons only');
+        serviceLogger.info('No specific icons to register - using default Mermaid icons only');
       }
     } catch (error) {
-      serviceLogger.warn('Failed to register specific icon packs:', error);
+      serviceLogger.error('Failed to register specific icon packs:', error);
     }
   }
 
@@ -176,7 +208,6 @@ class MermaidIconLoader {
       return [];
     }
 
-    serviceLogger.debug(`Loading ${allIconReferences.length} unique icons for all diagrams`);
     const specificIconPacks = await this.loadSpecificIcons(allIconReferences);
     await this.registerSpecificIconPacks(specificIconPacks, mermaidRegisterFunction);
 
