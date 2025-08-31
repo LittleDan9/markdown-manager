@@ -10,6 +10,9 @@ export * from './editor';
 // Dictionary hooks - Custom dictionary management
 export * from './dictionary';
 
+// GitHub hooks - GitHub integration, OAuth, and repository management
+export * from './github';
+
 // Markdown hooks - Markdown formatting and toolbar functionality
 export * from './markdown';
 
@@ -23,6 +26,7 @@ export * from './performance';
 // import { useDocumentState, useSaveDocument } from '@/hooks/document';
 // import { useEditor, useGlobalKeyboardShortcuts } from '@/hooks/editor';
 // import { useDictionaryState } from '@/hooks/dictionary';
+// import { useGitHubOAuth, useGitHubAccounts } from '@/hooks/github';
 // 
 // Or from the main barrel export:
-// import { useDocumentState, useEditor, useDictionaryState } from '@/hooks';
+// import { useDocumentState, useEditor, useDictionaryState, useGitHubOAuth } from '@/hooks';

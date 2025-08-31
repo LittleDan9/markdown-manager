@@ -182,13 +182,13 @@ async def oauth_callback_page(
         )
 
         # Redirect to success page
-        return RedirectResponse(url="/static/html/github/oauth-success.html")
+        return RedirectResponse(url="/api/static/html/github/oauth-success.html")
 
     except Exception as e:
         # Redirect to error page with error message as query parameter
         error_message = str(e)
         error_params = urlencode({"error": error_message})
         return RedirectResponse(
-            url=f"/static/html/github/oauth-error.html?{error_params}",
+            url=f"/api/static/html/github/oauth-error.html?{error_params}",
             status_code=400
         )

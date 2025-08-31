@@ -92,7 +92,7 @@
                 'http://localhost:80',           // Nginx frontend
                 'http://localhost',              // Nginx frontend (no port)
                 'http://localhost:3000',         // Development frontend
-                window.location.origin,          // Current origin (api.localhost:80)
+                window.location.origin,          // Current origin
                 window.location.origin.replace('api.', '')  // Remove api. prefix
             ];
             
@@ -103,17 +103,27 @@
             
             origins.forEach(origin => {
                 try {
-                    console.log('Sending error message to origin:', origin);
                     window.opener.postMessage(message, origin);
                 } catch (error) {
-                    console.error('Failed to post message to origin:', origin, error);
+                    // Silently continue to next origin
                 }
             });
+        } else {
+            // If no opener, redirect to the main app with an error parameter
+            const mainAppUrl = new URL(window.location.origin);
+            mainAppUrl.searchParams.set('github_oauth', 'error');
+            mainAppUrl.searchParams.set('github_error', errorMessage);
+            
+            setTimeout(() => {
+                window.location.href = mainAppUrl.toString();
+            }, 1000);
         }
 
         setTimeout(() => {
-            window.close();
-        }, 5000);
+            if (window.opener) {
+                window.close();
+            }
+        }, 2000);
     </script>
 </body>
 </html>

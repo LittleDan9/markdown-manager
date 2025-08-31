@@ -1,12 +1,10 @@
-import React from "react";
+import React, { useEffect } from "react";
 import Header from "@/components/Header";
 import Toolbar from "@/components/toolbar/Toolbar";
 import LogLevelController from "@/components/LogLevelController";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
-import { useGlobalKeyboardShortcuts } from "@/hooks/editor";
-import { useDocumentAutoSave } from "@/hooks/document";
-import { useAppUIState, useSharedViewEffects } from "@/hooks/ui";
+import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useAppUIState, useSharedViewEffects, useGitHubOAuth } from "@/hooks";
 import AppLayout from "@/components/layout/AppLayout";
 import EditorSection from "@/components/sections/EditorSection";
 import RendererSection from "@/components/sections/RendererSection";
@@ -15,6 +13,9 @@ import AppModals from "@/components/modals/AppModals";
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
   const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading } = useDocumentContext();
+
+  // Handle GitHub OAuth results from URL parameters (fallback for popup failures)
+  useGitHubOAuth();
 
   // UI state management via custom hook
   const uiState = useAppUIState(isSharedView);
