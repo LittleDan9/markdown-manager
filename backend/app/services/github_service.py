@@ -162,8 +162,14 @@ class GitHubService:
         ref: str = "main"
     ) -> List[Dict[str, Any]]:
         """Get repository contents at specified path."""
+        # Normalize path - GitHub API expects empty string for root, not "/"
+        normalized_path = path.strip('/')
+        
         async with httpx.AsyncClient() as client:
-            url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+            url = f"https://api.github.com/repos/{owner}/{repo}/contents"
+            if normalized_path:
+                url += f"/{normalized_path}"
+                
             response = await client.get(
                 url,
                 headers={

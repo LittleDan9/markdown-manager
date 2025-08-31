@@ -11,9 +11,9 @@ import {
   getParentPath,
   getTableVariant,
   getTableHeaderClass,
-  getTypeBadgeClass,
   getEmptyState
-} from '../../../utils/githubUtils';
+} from '../../../utils/fileBrowserUtils';
+import { getTypeBadgeClass } from '../../../utils/githubUtils';
 
 export default function GitHubFileList({ 
   fileTree = [], 

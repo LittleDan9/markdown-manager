@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Row, Col, Alert } from 'react-bootstrap';
+import { Modal, Alert } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import gitHubApi from '../../../api/gitHubApi';
-import { isMarkdownFile } from '../../../utils/githubUtils';
+import { isMarkdownFile } from '../../../utils/fileBrowserUtils';
+import UnifiedFileBrowser from '../../shared/FileBrowser/UnifiedFileBrowser';
+import { GitHubProvider } from '../../../services/FileBrowserProviders';
 import GitHubBrowserHeader from './GitHubBrowserHeader';
-import GitHubFileTree from './GitHubFileTree';
-import GitHubFileList from './GitHubFileList';
-import GitHubBrowserActions from './GitHubBrowserActions';
 
 export default function GitHubRepositoryBrowser({ 
   show, 
@@ -16,26 +15,29 @@ export default function GitHubRepositoryBrowser({
 }) {
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState('');
-  const [fileTree, setFileTree] = useState([]);
-  const [currentPath, setCurrentPath] = useState('');
-  const [currentFileList, setCurrentFileList] = useState([]);
+  const [provider, setProvider] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
-  const [fileContent, setFileContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const { showError } = useNotification();
+  const [importing, setImporting] = useState(false);
+  const { showError, showSuccess } = useNotification();
 
   // Reset state when modal opens/closes or repository changes
   useEffect(() => {
     if (show && repository) {
       loadBranches();
       setSelectedFile(null);
-      setFileContent('');
-      setCurrentPath('');
-      setCurrentFileList([]);
       setError(null);
     }
   }, [show, repository]);
+
+  // Create GitHub provider when branch is selected
+  useEffect(() => {
+    if (selectedBranch && repository) {
+      const githubProvider = new GitHubProvider(repository, selectedBranch);
+      setProvider(githubProvider);
+    }
+  }, [selectedBranch, repository]);
 
   // Load repository branches
   const loadBranches = async () => {
@@ -57,115 +59,32 @@ export default function GitHubRepositoryBrowser({
     }
   };
 
-  // Load file tree when branch changes
-  useEffect(() => {
-    if (selectedBranch && repository) {
-      loadFileTree();
-    }
-  }, [selectedBranch, repository]);
-
-  const loadFileTree = async () => {
-    try {
-      setLoading(true);
-      const contents = await gitHubApi.getRepositoryContents(
-        repository.id, 
-        '', // root path
-        selectedBranch
-      );
-      setFileTree(contents);
-      setCurrentFileList(contents); // Initialize file list with root contents
-    } catch (err) {
-      setError('Failed to load repository contents');
-      showError('Failed to load repository contents');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleFileSelect = async (file) => {
+  const handleFileSelect = (file) => {
     setSelectedFile(file);
-    
-    // If it's a directory clicked in the tree, update the file list to show its contents
-    if (file.type === 'dir') {
-      try {
-        setLoading(true);
-        const contents = await gitHubApi.getRepositoryContents(
-          repository.id,
-          file.path,
-          selectedBranch
-        );
-        setCurrentFileList(contents);
-        setCurrentPath(file.path);
-      } catch (err) {
-        setError('Failed to load folder contents');
-        showError('Failed to load folder contents');
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // For files, just update selection - don't load content until import
-      setFileContent('');
-    }
   };
 
-  // Separate handler for file list navigation (directories only)
-  const handleFileListNavigate = async (file) => {
-    if (file.type === 'dir') {
-      try {
-        setLoading(true);
-        const contents = await gitHubApi.getRepositoryContents(
-          repository.id,
-          file.path,
-          selectedBranch
-        );
-        setCurrentFileList(contents);
-        setCurrentPath(file.path);
-        // Also update selection to sync with tree
-        setSelectedFile(file);
-      } catch (err) {
-        setError('Failed to load folder contents');
-        showError('Failed to load folder contents');
-      } finally {
-        setLoading(false);
-      }
-    } else {
-      // For files, just update selection - don't load content until import
-      setSelectedFile(file);
-      setFileContent('');
+  const handleFileImport = async (file) => {
+    if (!file || file.type !== 'file' || !isMarkdownFile(file.name)) {
+      return;
     }
-  };
 
-  // Navigate to a specific path in the file list
-  const handleNavigateToPath = async (path) => {
     try {
-      setLoading(true);
-      const contents = await gitHubApi.getRepositoryContents(
-        repository.id,
-        path,
-        selectedBranch
-      );
-      setCurrentFileList(contents);
-      setCurrentPath(path);
+      setImporting(true);
       
-      // Create a virtual folder object to sync with tree selection
-      if (path) {
-        const folderParts = path.split('/');
-        const folderName = folderParts[folderParts.length - 1];
-        const virtualFolder = {
-          name: folderName,
-          path: path,
-          type: 'dir'
-        };
-        setSelectedFile(virtualFolder);
-      } else {
-        // If navigating to root, clear selection
-        setSelectedFile(null);
-      }
+      await gitHubApi.importFile({
+        repository_id: repository.id,
+        file_path: file.path,
+        branch: selectedBranch,
+        file_name: file.name
+      });
+
+      showSuccess(`Successfully imported ${file.name}`);
+      onHide();
     } catch (err) {
-      setError('Failed to load folder contents');
-      showError('Failed to load folder contents');
+      console.error('Import failed:', err);
+      showError('Failed to import file. Please try again.');
     } finally {
-      setLoading(false);
+      setImporting(false);
     }
   };
 
@@ -207,39 +126,81 @@ export default function GitHubRepositoryBrowser({
           loading={loading}
         />
 
-        <div className="d-flex">
-          <div className="border-end" style={{ width: '30%' }}>
-            <GitHubFileTree
-              fileTree={fileTree}
-              selectedFile={selectedFile}
-              onFileSelect={handleFileSelect}
-              loading={loading}
-              repository={repository}
-              branch={selectedBranch}
-            />
+        {provider ? (
+          <UnifiedFileBrowser
+            dataProvider={provider}
+            onFileSelect={handleFileSelect}
+            onFileOpen={handleFileImport}
+            config={{
+              allowMultiSelect: false,
+              showPreview: true,
+              showActions: false,
+              defaultView: 'tree',
+              filters: {
+                fileTypes: ['.md', '.markdown', '.txt'],
+                sources: ['github']
+              }
+            }}
+            showHeader={false}
+            showActions={false}
+            className="github-browser-content"
+          />
+        ) : (
+          <div className="d-flex justify-content-center align-items-center p-4">
+            <span className="text-muted">Select a branch to browse files</span>
           </div>
-          
-          <div style={{ width: '70%' }}>
-            <GitHubFileList
-              fileTree={currentFileList}
-              selectedFile={selectedFile}
-              onFileSelect={handleFileListNavigate}
-              onNavigateToPath={handleNavigateToPath}
-              loading={loading}
-              currentPath={currentPath}
-            />
-          </div>
-        </div>
+        )}
       </Modal.Body>
 
       <Modal.Footer>
-        <GitHubBrowserActions
-          repository={repository}
-          selectedFile={selectedFile}
-          selectedBranch={selectedBranch}
-          canImport={canImportFile()}
-          onClose={onHide}
-        />
+        <div className="d-flex justify-content-between align-items-center w-100">
+          <div className="text-muted small">
+            {selectedFile ? (
+              <>
+                <i className="bi bi-file-earmark me-1"></i>
+                {selectedFile.path}
+                {canImportFile() && (
+                  <span className="text-success ms-2">
+                    <i className="bi bi-check-circle me-1"></i>
+                    Ready to import
+                  </span>
+                )}
+              </>
+            ) : (
+              'No file selected'
+            )}
+          </div>
+          
+          <div>
+            <button 
+              type="button"
+              className="btn btn-secondary me-2" 
+              onClick={onHide}
+              disabled={importing}
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={() => handleFileImport(selectedFile)}
+              disabled={!canImportFile() || importing}
+            >
+              {importing ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Importing...
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-download me-2"></i>
+                  Import File
+                </>
+              )}
+            </button>
+          </div>
+        </div>
       </Modal.Footer>
     </Modal>
   );

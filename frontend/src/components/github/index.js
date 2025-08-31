@@ -24,5 +24,3 @@ export { default as GitHubRepositoryBrowser } from './browser/GitHubRepositoryBr
 export { default as GitHubBrowserHeader } from './browser/GitHubBrowserHeader';
 export { default as GitHubFileTree } from './browser/GitHubFileTree';
 export { default as GitHubFileList } from './browser/GitHubFileList';
-export { default as GitHubFilePreview } from './browser/GitHubFilePreview';
-export { default as GitHubBrowserActions } from './browser/GitHubBrowserActions';

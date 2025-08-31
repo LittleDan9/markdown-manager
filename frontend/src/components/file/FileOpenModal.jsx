@@ -7,6 +7,12 @@ import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useFileModal } from "@/hooks/ui";
 import GitHubFileBrowser from "./GitHubFileBrowser";
 import GitHubAccountList from "../shared/GitHubAccountList";
+// Import the new components for Phase 1
+import UnifiedFileBrowser from "../shared/FileBrowser/UnifiedFileBrowser";
+import { LocalDocumentsProvider } from "../../services/FileBrowserProviders";
+
+// Feature flag for using unified browser (Phase 1)
+const USE_UNIFIED_BROWSER = true;
 
 export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument }) {
   const { documents, categories, addDocumentToState } = useDocumentContext();
@@ -19,6 +25,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
   const [docToDelete, setDocToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showGitHubBrowser, setShowGitHubBrowser] = useState(false);
+  const [localDocumentsProvider, setLocalDocumentsProvider] = useState(null);
   const { showSuccess, showError } = useNotification();
   const { isAuthenticated } = useAuth();
   const { activeTab, selectedRepository, closeFileModal } = useFileModal();
@@ -26,6 +33,14 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
   // Sync the activeTab from the global state
   const [localActiveTab, setLocalActiveTab] = useState(activeTab || "local");
   const [autoOpenRepository, setAutoOpenRepository] = useState(selectedRepository);
+
+  // Create local documents provider when documents change
+  useEffect(() => {
+    if (USE_UNIFIED_BROWSER && documents && categories) {
+      const provider = new LocalDocumentsProvider({ documents, categories });
+      setLocalDocumentsProvider(provider);
+    }
+  }, [documents, categories]);
 
   useEffect(() => {
     if (activeTab) {
@@ -92,6 +107,102 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
     }
   };
 
+  const handleLocalFileOpen = (file) => {
+    const doc = documents?.find((d) => d.id === file.documentId);
+    if (doc) {
+      onOpen(doc);
+      if (setContent) setContent(doc.content);
+      handleHide();
+    }
+  };
+
+  const renderLocalDocumentsTab = () => {
+    if (USE_UNIFIED_BROWSER && localDocumentsProvider) {
+      return (
+        <UnifiedFileBrowser
+          dataProvider={localDocumentsProvider}
+          onFileSelect={() => {}} // We handle selection internally
+          onFileOpen={handleLocalFileOpen}
+          config={{
+            allowMultiSelect: false,
+            showPreview: false,
+            showActions: false,
+            defaultView: 'list',
+            filters: {
+              sources: ['local']
+            }
+          }}
+          showHeader={false}
+          showActions={false}
+        />
+      );
+    }
+
+    // Fallback to original implementation
+    return (
+      <>
+        <Form.Group className="mb-3">
+          <Form.Label>Category</Form.Label>
+          <Form.Select
+            value={selectedCategory}
+            onChange={(e) => {
+              setSelectedCategory(e.target.value);
+              setSelectedDocId(null);
+            }}
+          >
+            {safeCategories.map((cat) => (
+              <option key={cat} value={cat}>
+                {cat}
+              </option>
+            ))}
+          </Form.Select>
+        </Form.Group>
+        <div className="list-group" style={{ maxHeight: "50vh", overflowY: "auto" }}>
+          {filteredDocs.length === 0 && (
+            <div className="text-muted">No documents in this category.</div>
+          )}
+          {filteredDocs.map((doc) => (
+            <div
+              key={doc.id}
+              className="list-group-item d-flex align-items-center justify-content-between mb-2 border rounded shadow-sm"
+              style={{ padding: "1rem" }}
+            >
+              <div className="flex-grow-1">
+                <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{doc.name}</div>
+                <div className="text-muted" style={{ fontSize: "0.9rem" }}>
+                  Last saved: {getLastSaved(doc) ? new Date(getLastSaved(doc)).toLocaleString() : "Unknown"}
+                </div>
+              </div>
+              <div className="d-flex align-items-center gap-2 ms-3">
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    setSelectedCategory(doc.category); // Sync category to opened doc
+                    onOpen(doc);
+                    if (setContent) setContent(doc.content);
+                  }}
+                >
+                  <i className="bi bi-folder2-open me-1"></i>Open
+                </Button>
+                <Button
+                  variant="danger"
+                  size="sm"
+                  onClick={() => {
+                    setDocToDelete(doc);
+                    setShowConfirm(true);
+                  }}
+                >
+                  <i className="bi bi-trash me-1"></i>Delete
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      </>
+    );
+  };
+
   return (
     <>
       <Modal show={show && !showConfirm && !showGitHubBrowser} onHide={handleHide} centered dialogClassName="open-file-modal-scroll">
@@ -111,64 +222,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
                 My Documents
               </span>
             }>
-              <Form.Group className="mb-3">
-                <Form.Label>Category</Form.Label>
-                <Form.Select
-                  value={selectedCategory}
-                  onChange={(e) => {
-                    setSelectedCategory(e.target.value);
-                    setSelectedDocId(null);
-                  }}
-                >
-                  {safeCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      {cat}
-                    </option>
-                  ))}
-                </Form.Select>
-              </Form.Group>
-              <div className="list-group" style={{ maxHeight: "50vh", overflowY: "auto" }}>
-                {filteredDocs.length === 0 && (
-                  <div className="text-muted">No documents in this category.</div>
-                )}
-                {filteredDocs.map((doc) => (
-                  <div
-                    key={doc.id}
-                    className="list-group-item d-flex align-items-center justify-content-between mb-2 border rounded shadow-sm"
-                    style={{ padding: "1rem" }}
-                  >
-                    <div className="flex-grow-1">
-                      <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{doc.name}</div>
-                      <div className="text-muted" style={{ fontSize: "0.9rem" }}>
-                        Last saved: {getLastSaved(doc) ? new Date(getLastSaved(doc)).toLocaleString() : "Unknown"}
-                      </div>
-                    </div>
-                    <div className="d-flex align-items-center gap-2 ms-3">
-                      <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedCategory(doc.category); // Sync category to opened doc
-                          onOpen(doc);
-                          if (setContent) setContent(doc.content);
-                        }}
-                      >
-                        <i className="bi bi-folder2-open me-1"></i>Open
-                      </Button>
-                      <Button
-                        variant="danger"
-                        size="sm"
-                        onClick={() => {
-                          setDocToDelete(doc);
-                          setShowConfirm(true);
-                        }}
-                      >
-                        <i className="bi bi-trash me-1"></i>Delete
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              {renderLocalDocumentsTab()}
             </Tab>
 
             {isAuthenticated && (

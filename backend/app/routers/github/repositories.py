@@ -187,3 +187,46 @@ async def get_repository_contents(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Failed to fetch repository contents: {str(e)}"
         )
+
+
+@router.get("/{repo_id}/file")
+async def get_file_content(
+    repo_id: int,
+    file_path: str = Query(..., description="File path to get content for"),
+    branch: str = Query("main", description="Branch to get file from"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    """Get file content from a GitHub repository."""
+    github_crud = GitHubCRUD()
+
+    repo = await github_crud.get_repository(db, repo_id)
+    if not repo or repo.account.user_id != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found"
+        )
+
+    try:
+        content, sha = await github_service.get_file_content(
+            repo.account.access_token,
+            repo.repo_owner,
+            repo.repo_name,
+            file_path,
+            ref=branch
+        )
+        
+        return {
+            "content": content,
+            "sha": sha,
+            "path": file_path,
+            "branch": branch
+        }
+    except HTTPException:
+        # Re-raise HTTP exceptions from the service
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to fetch file content: {str(e)}"
+        )

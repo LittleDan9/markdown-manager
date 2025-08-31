@@ -10,7 +10,7 @@
  * @returns {string} Bootstrap icon class name
  */
 export const getFileIcon = (item, isExpanded = false) => {
-  if (item.type === 'dir') {
+  if (item.type === 'dir' || item.type === 'folder') {
     return isExpanded ? 'folder2-open' : 'folder2';
   }
   
@@ -250,7 +250,7 @@ export const getFileIcon = (item, isExpanded = false) => {
  * @returns {string} CSS color class
  */
 export const getFileIconColor = (item, isExpanded = false, isSelected = false) => {
-  if (item.type === 'dir') {
+  if (item.type === 'dir' || item.type === 'folder') {
     if (isSelected) {
       return ''; // Let selection styling handle color
     }

@@ -3,7 +3,7 @@ import { Spinner, Card, Row, Col } from 'react-bootstrap';
 import { useTheme } from '../../../providers/ThemeProvider';
 import gitHubApi from '../../../api/gitHubApi';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
-import { sortRepositoryItems, getEmptyState } from '../../../utils/githubUtils';
+import { sortRepositoryItems, getEmptyState } from '../../../utils/fileBrowserUtils';
 
 export default function GitHubFileTree({
   fileTree = [],
