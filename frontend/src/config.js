@@ -12,7 +12,6 @@ function isDevelopment() {
   return (
     window.location.hostname === "localhost" ||
     window.location.hostname === "127.0.0.1" ||
-    window.location.hostname === "api.localhost" ||
     window.location.port === "3000"
     // Removed process.env.NODE_ENV check as it's unreliable in static builds
   );
@@ -20,21 +19,19 @@ function isDevelopment() {
 
 /**
  * Get the appropriate API base URL for the current environment
- * Clean architecture: No path injection, simple domain-based routing
- * @returns {string} API base URL (without /api/v1 - backend serves directly)
+ * Same-domain architecture: API served from /api path
+ * @returns {string} API base URL (with /api prefix)
  */
 function getApiBaseUrl() {
   const isDev = isDevelopment();
   let baseUrl;
 
   if (isDev) {
-    // Development: Use nginx routing via api.localhost
-    // When accessing via http://localhost:80, API is at http://api.localhost:80
-    baseUrl = "http://api.localhost";
+    // Development: Use same domain with /api path
+    baseUrl = "http://localhost/api";
   } else {
-    // Production: use api subdomain
-    // Clean separation: api.littledan.com serves API directly
-    baseUrl = "https://api.littledan.com";
+    // Production: Use same domain with /api path
+    baseUrl = "https://littledan.com/api";
   }
 
   console.log('Config: isDevelopment =', isDev, ', apiBaseUrl =', baseUrl);
