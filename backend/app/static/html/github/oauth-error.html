@@ -95,12 +95,12 @@
                 window.location.origin,          // Current origin
                 window.location.origin.replace('api.', '')  // Remove api. prefix
             ];
-            
+
             const message = {
                 type: 'GITHUB_AUTH_ERROR',
                 error: errorMessage
             };
-            
+
             origins.forEach(origin => {
                 try {
                     window.opener.postMessage(message, origin);
@@ -113,10 +113,10 @@
             const mainAppUrl = new URL(window.location.origin);
             mainAppUrl.searchParams.set('github_oauth', 'error');
             mainAppUrl.searchParams.set('github_error', errorMessage);
-            
+
             setTimeout(() => {
                 window.location.href = mainAppUrl.toString();
-            }, 1000);
+            }, 3000);
         }
 
         setTimeout(() => {

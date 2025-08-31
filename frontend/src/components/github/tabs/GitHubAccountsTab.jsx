@@ -29,7 +29,6 @@ export default function GitHubAccountsTab() {
   };
 
   const handleAccountConnected = () => {
-    showSuccess('GitHub account connected successfully!');
     loadAccounts();
   };
 

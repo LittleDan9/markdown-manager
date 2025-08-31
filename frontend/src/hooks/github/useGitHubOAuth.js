@@ -6,24 +6,39 @@ import { useNotification } from '@/components/NotificationProvider';
  * This provides a fallback mechanism when popup-based OAuth fails
  * and the OAuth success/error pages redirect to the main app with parameters
  */
-export function useGitHubOAuth() {
-  const { showSuccess, showError } = useNotification();
+export const useGitHubOAuth = () => {
+    const { showSuccess, showError } = useNotification();
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const githubOAuth = urlParams.get('github_oauth');
-    
-    if (githubOAuth === 'success') {
-      showSuccess('GitHub account connected successfully!');
-      
-      // Clean up URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-    } else if (githubOAuth === 'error') {
-      const errorMessage = urlParams.get('github_error') || 'GitHub authentication failed';
-      showError(`GitHub authentication failed: ${errorMessage}`);
-      
-      // Clean up URL parameters
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
-  }, [showSuccess, showError]);
-}
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        
+        if (urlParams.has('github_oauth')) {
+            const status = urlParams.get('github_oauth');
+            
+            // Only handle URL parameters if we're NOT in a popup scenario
+            // (i.e., this is a fallback redirect from a tab-based OAuth)
+            const isPopupScenario = window.opener !== null;
+            
+            if (!isPopupScenario) {
+                if (status === 'success') {
+                    showSuccess('GitHub account connected successfully!');
+                } else if (status === 'error') {
+                    const error = urlParams.get('error');
+                    const errorDescription = urlParams.get('error_description');
+                    const message = errorDescription ? 
+                        `GitHub connection failed: ${errorDescription}` : 
+                        'GitHub connection failed';
+                    
+                    showError(message);
+                }
+            }
+            
+            // Always clean up URL parameters
+            const newUrl = new URL(window.location);
+            newUrl.searchParams.delete('github_oauth');
+            newUrl.searchParams.delete('error');
+            newUrl.searchParams.delete('error_description');
+            window.history.replaceState({}, document.title, newUrl);
+        }
+    }, [showSuccess, showError]);
+};

@@ -111,13 +111,40 @@ async def get_auth_url_with_logout(current_user: User = Depends(get_current_user
 
 @router.get("/callback")
 async def oauth_callback_page(
-    code: str = Query(...),
+    code: str = Query(None),
     state: str = Query(None),
+    error: str = Query(None),
+    error_description: str = Query(None),
+    error_uri: str = Query(None),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     db: AsyncSession = Depends(get_db),
 ) -> RedirectResponse:
     """Handle GitHub OAuth callback and process the connection."""
     try:
+        # Check if this is an error response from GitHub
+        if error:
+            error_message = error_description or error or "GitHub OAuth authorization was denied"
+            error_params = urlencode({
+                "error": error,
+                "error_description": error_description or "",
+                "error_uri": error_uri or ""
+            })
+            return RedirectResponse(
+                url=f"/api/static/html/github/oauth-error.html?{error_params}",
+                status_code=302
+            )
+
+        # Check if we have the required code parameter
+        if not code:
+            error_params = urlencode({
+                "error": "missing_code",
+                "error_description": "Authorization code is required but not provided"
+            })
+            return RedirectResponse(
+                url=f"/api/static/html/github/oauth-error.html?{error_params}",
+                status_code=302
+            )
+
         # Extract user ID from state
         if not state or ':' not in state:
             raise ValueError("Invalid state parameter")

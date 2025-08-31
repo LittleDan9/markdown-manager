@@ -77,9 +77,9 @@
                 window.location.origin,          // Current origin
                 window.location.origin.replace('api.', '')  // Remove api. prefix
             ];
-            
+
             const message = { type: 'GITHUB_AUTH_SUCCESS' };
-            
+
             origins.forEach(origin => {
                 try {
                     window.opener.postMessage(message, origin);
@@ -87,7 +87,7 @@
                     // Silently continue to next origin
                 }
             });
-            
+
             // Also try sending to '*' as a fallback
             try {
                 window.opener.postMessage(message, '*');
@@ -98,10 +98,10 @@
             // If no opener, redirect to the main app with a success parameter
             const mainAppUrl = new URL(window.location.origin);
             mainAppUrl.searchParams.set('github_oauth', 'success');
-            
+
             setTimeout(() => {
                 window.location.href = mainAppUrl.toString();
-            }, 1000);
+            }, 3000);
         }
 
         setTimeout(() => {

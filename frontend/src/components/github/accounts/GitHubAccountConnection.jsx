@@ -11,16 +11,16 @@ export default function GitHubAccountConnection({ onSuccess }) {
   const openAuthWindow = (authUrl) => {
     // Open GitHub OAuth in new window
     const popup = window.open(authUrl, 'githubAuth', 'width=600,height=600,scrollbars=yes,resizable=yes');
-    
+
     // Check if popup was blocked
     if (!popup || popup.closed) {
       setError('Popup was blocked. Please allow popups for this site and try again.');
       return;
     }
-    
+
     // Listen for auth completion
     window.addEventListener('message', handleAuthMessage);
-    
+
     // Monitor popup status
     let checkCount = 0;
     const checkClosed = setInterval(() => {
@@ -35,7 +35,7 @@ export default function GitHubAccountConnection({ onSuccess }) {
         // Error checking popup status
       }
     }, 1000);
-    
+
     // Cleanup after 5 minutes
     setTimeout(() => {
       if (!popup.closed) {
@@ -58,15 +58,15 @@ export default function GitHubAccountConnection({ onSuccess }) {
       'https://www.littledan.com',
       'https://littledan.com'
     ];
-    
+
     if (!allowedOrigins.includes(event.origin)) {
       // Proceeding anyway for debugging
     }
-    
+
     if (event.data.type === 'GITHUB_AUTH_SUCCESS') {
       window.removeEventListener('message', handleAuthMessage);
       setConnecting(false);
-      showSuccess('GitHub account connected successfully!');
+      // showSuccess('GitHub account connected successfully!');
       if (onSuccess) {
         onSuccess();
       }
@@ -103,20 +103,20 @@ export default function GitHubAccountConnection({ onSuccess }) {
           {error}
         </Alert>
       )}
-      
+
       <Card>
         <Card.Body className="text-center">
           <div className="mb-3">
             <i className="bi bi-github fs-1 text-primary"></i>
           </div>
-          
+
           <Card.Title>Connect Your GitHub Account</Card.Title>
           <Card.Text className="text-muted mb-4">
             Connect your GitHub account to import repositories, sync documents, and collaborate on projects.
           </Card.Text>
-          
-          <Button 
-            variant="primary" 
+
+          <Button
+            variant="primary"
             size="lg"
             onClick={handleConnect}
             disabled={connecting}
@@ -134,7 +134,7 @@ export default function GitHubAccountConnection({ onSuccess }) {
               </>
             )}
           </Button>
-          
+
           <div className="small text-muted">
             <p className="mb-0">
               This will allow access to your repositories and profile information.
