@@ -142,6 +142,8 @@ class CustomDictionary(BaseModel):
 
 ### Migration Script
 
+Should maintain NOT NULL constraint on folder_path. Migration should create column as NULL, migrated existing category name `/<category_name>` based on document's category id, and then after data migrations it should alter the table to make the column NOT NULL.
+
 **File**: `backend/migrations/versions/add_folder_path_to_documents.py`
 
 ```python

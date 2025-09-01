@@ -38,7 +38,7 @@ class Settings(BaseSettings):
 
     # Database configuration
     database_url: str = Field(
-        default="sqlite+aiosqlite:///./markdown_manager.db",
+        default="postgresql+asyncpg://postgres:postgres@localhost:5432/markdown_manager",
         description="Database connection URL",
     )
     database_echo: bool = Field(default=False, description="Enable SQL query logging")
@@ -75,6 +75,22 @@ class Settings(BaseSettings):
     )
     max_page_size: int = Field(
         default=constants.MAX_PAGE_SIZE, description="Maximum pagination page size"
+    )
+
+    # PDF Service configuration
+    pdf_service_url: str = Field(
+        default="http://pdf-service:8001", description="PDF service URL"
+    )
+
+    # GitHub OAuth configuration
+    github_client_id: Optional[str] = Field(
+        default=None, description="GitHub OAuth client ID"
+    )
+    github_client_secret: Optional[str] = Field(
+        default=None, description="GitHub OAuth client secret"
+    )
+    github_redirect_uri: Optional[str] = Field(
+        default=None, description="GitHub OAuth redirect URI"
     )
 
     @field_validator("environment")

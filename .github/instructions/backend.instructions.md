@@ -45,10 +45,13 @@ When writing or reviewing backend code in this repository, AI agents must follow
 10. **Testing**
     - Use pytest with fixtures + factories.
     - Mock external calls, ensure test isolation.
+    -
 
 11. **Development**
+    - All Python Command on local machine should use poetry run.
+    - Database is hosted using docker compose as service `db`.
     - Always run backend via Docker Compose (`docker-compose up -d backend`).
-    - Python virtual environment is located on container at `/markdown-manager/.venv`
+    - Backend Container's Python virtual environment is located on container at `/markdown-manager/.venv`
     - Never run raw `uvicorn` except for import testing.
     - Access backend through docker nginx instance at api.localhost:80
     - Uvicorn is set to watch files and hot reload, no need to restart container.

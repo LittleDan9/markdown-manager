@@ -8,8 +8,9 @@ from sqlalchemy.orm import sessionmaker
 
 # Set test database URL before importing app modules
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["ALEMBIC_USE_SQLITE"] = "true"
 
-from app.core.config import settings
+from app.configs import settings
 from app.models import Base  # Import the Base for table creation
 from app.models.user import User
 
