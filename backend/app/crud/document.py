@@ -382,6 +382,77 @@ class DocumentCRUD:
         )
         return result.scalar_one_or_none()
 
+    async def get_documents_by_folder_path(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        folder_path: str,
+        include_subfolders: bool = False
+    ) -> List[Document]:
+        """Get documents in a specific folder path."""
+        query = select(Document).where(Document.user_id == user_id)
+
+        if include_subfolders:
+            # Get all documents in folder and subfolders
+            search_pattern = f"{folder_path.rstrip('/')}/%"
+            query = query.where(Document.folder_path.like(search_pattern))
+        else:
+            # Get documents only in exact folder
+            query = query.where(Document.folder_path == folder_path)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_folder_structure(self, db: AsyncSession, user_id: int) -> dict:
+        """Build folder tree structure for UI."""
+        # Get all unique folder paths for user
+        query = select(Document.folder_path).where(
+            Document.user_id == user_id
+        ).distinct()
+
+        result = await db.execute(query)
+        paths = result.scalars().all()
+
+        # Build hierarchical structure
+        tree = {}
+        for path in paths:
+            parts = [p for p in path.split('/') if p]
+            current = tree
+            for part in parts:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+
+        return tree
+
+    async def move_document_to_folder(
+        self,
+        db: AsyncSession,
+        document_id: int,
+        new_folder_path: str,
+        user_id: int
+    ) -> Optional[Document]:
+        """Move document to a different folder."""
+        # Normalize the folder path
+        new_folder_path = Document.normalize_folder_path(new_folder_path)
+
+        # Get and update document
+        query = select(Document).where(
+            Document.id == document_id,
+            Document.user_id == user_id
+        )
+        result = await db.execute(query)
+        document = result.scalar_one_or_none()
+
+        if not document:
+            return None
+
+        document.folder_path = new_folder_path
+        await db.commit()
+        await db.refresh(document)
+
+        return document
+
 
 # Create a singleton instance
 document = DocumentCRUD()
