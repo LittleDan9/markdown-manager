@@ -3,8 +3,7 @@ from __future__ import annotations
 """Icon models for icon service."""
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -79,8 +78,8 @@ class IconMetadata(BaseModel):
         comment="Space-separated search terms for full-text search"
     )
     icon_data: Mapped[Optional[dict]] = mapped_column(
-        JSONB, nullable=True,
-        comment="JSONB for Iconify data or SVG metadata"
+        JSON, nullable=True,
+        comment="JSON for Iconify data or SVG metadata"
     )
     file_path: Mapped[Optional[str]] = mapped_column(
         String(500), nullable=True,
