@@ -425,6 +425,105 @@ class DocumentCRUD:
 
         return tree
 
+    async def search_documents(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        query: str,
+        folder_path: Optional[str] = None
+    ) -> List[Document]:
+        """Search documents by content/name with optional folder filtering."""
+        from sqlalchemy import or_
+
+        search_query = select(Document).where(Document.user_id == user_id)
+
+        # Add text search
+        search_query = search_query.where(
+            or_(
+                Document.name.ilike(f"%{query}%"),
+                Document.content.ilike(f"%{query}%")
+            )
+        )
+
+        # Add folder filtering if specified
+        if folder_path:
+            search_query = search_query.where(
+                Document.folder_path.like(f"{folder_path.rstrip('/')}%")
+            )
+
+        result = await db.execute(search_query)
+        return list(result.scalars().all())
+
+    async def get_folder_stats(self, db: AsyncSession, user_id: int) -> dict:
+        """Get statistics about folder usage."""
+        from sqlalchemy import func
+
+        # Get document count per folder
+        query = select(
+            Document.folder_path,
+            func.count(Document.id).label('document_count')
+        ).where(
+            Document.user_id == user_id
+        ).group_by(Document.folder_path)
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        # Convert to dict properly
+        folder_stats = {row.folder_path: row.document_count for row in rows}
+
+        return {
+            "folder_counts": folder_stats,
+            "total_folders": len(folder_stats),
+            "total_documents": sum(folder_stats.values())
+        }
+
+    async def create_document_in_folder(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        name: str,
+        content: str,
+        folder_path: str,
+        github_data: Optional[dict] = None
+    ) -> Document:
+        """Create a new document in specified folder."""
+        # Normalize folder path
+        folder_path = Document.normalize_folder_path(folder_path)
+
+        # Check for duplicate names in folder
+        existing = await db.execute(
+            select(Document).where(
+                Document.user_id == user_id,
+                Document.folder_path == folder_path,
+                Document.name == name
+            )
+        )
+
+        if existing.scalar_one_or_none():
+            raise ValueError(f"Document '{name}' already exists in folder '{folder_path}'")
+
+        # Create document
+        document = Document(
+            name=name,
+            content=content,
+            folder_path=folder_path,
+            user_id=user_id
+        )
+
+        # Add GitHub data if provided
+        if github_data:
+            document.github_repository_id = github_data.get('repository_id')
+            document.github_file_path = github_data.get('file_path')
+            document.github_branch = github_data.get('branch')
+            document.github_sha = github_data.get('sha')
+
+        db.add(document)
+        await db.commit()
+        await db.refresh(document)
+
+        return document
+
     async def move_document_to_folder(
         self,
         db: AsyncSession,
