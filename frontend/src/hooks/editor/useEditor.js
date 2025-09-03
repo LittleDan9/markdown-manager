@@ -77,7 +77,8 @@ export default function useEditor({
   // Theme changes
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.applyTheme(theme);
+      // Apply theme using EditorService instead of editor instance directly
+      EditorService.applyTheme(theme);
     }
   }, [theme]);
 
@@ -198,11 +199,12 @@ export default function useEditor({
     }
   }, [enableSpellCheck, editorRef.current]);
 
-  const spellCheckDocument = async (text, startOffset) => {
+  const spellCheckDocument = async (text, startOffset, forceProgress = false) => {
     if (!enableSpellCheck || !text || text.length === 0) return;
     if (startOffset > 0 && text.length < 10) return;
     const isLarge = text.length > 100;
-    const progressCb = isLarge ? (processObj) => {
+    const shouldShowProgress = isLarge || forceProgress;
+    const progressCb = shouldShowProgress ? (processObj) => {
       lastProgressRef.current = processObj;
       setProgress(processObj);
     } : () => {};
@@ -429,7 +431,9 @@ export default function useEditor({
     spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined,
     runSpellCheck: () => {
       if (editorRef.current && lastEditorValue.current) {
-        spellCheckDocument(lastEditorValue.current, 0);
+        // Show initial progress
+        setProgress({ percentComplete: 0 });
+        spellCheckDocument(lastEditorValue.current, 0, true); // Force progress for manual spell check
       }
     }
   };

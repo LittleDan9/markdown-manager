@@ -9,7 +9,7 @@ import {
   ToolbarSeparator
 } from './markdown-toolbar';
 
-const MarkdownToolbar = ({ editorRef, onSpellCheck }) => {
+const MarkdownToolbar = ({ editorRef, onSpellCheck, spellCheckProgress }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
 
@@ -57,6 +57,7 @@ const MarkdownToolbar = ({ editorRef, onSpellCheck }) => {
         onSpellCheck={onSpellCheck}
         buttonVariant={buttonVariant}
         buttonStyle={styles.button}
+        progress={spellCheckProgress}
       />
     </div>
   );
