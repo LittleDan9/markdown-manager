@@ -1,12 +1,12 @@
 import React, { useState } from "react";
 import { Modal, Nav, Tab, Card, Alert } from "react-bootstrap";
 import ProfileInfoTab from "./ProfileInfoTab";
-import SecurityTab from "./SecurityTab";
-import MFATab from "./MFATab";
-import DictionaryTab from "./DictionaryTab";
+import SecurityTab from "../../security/modals/SecurityTab";
+import MFATab from "../../security/modals/MFATab";
+import DictionaryTab from "../../dictionary/modals/DictionaryTab";
 
-import userApi from "../../api/userApi";
-import { useAuth } from "../../providers/AuthProvider";
+import userApi from "../../../api/userApi";
+import { useAuth } from "../../../providers/AuthProvider";
 
 function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false, onOpenFileModal }) {
   const { user, setUser } = useAuth();

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Accordion, Button, Form, Alert, ProgressBar, Spinner } from "react-bootstrap";
-import { useNotification } from "../NotificationProvider";
+import { useNotification } from "../../NotificationProvider";
 
 function PasswordResetModal({ show, onHide, onReset, devMode }) {
   const [step, setStep] = useState(1);

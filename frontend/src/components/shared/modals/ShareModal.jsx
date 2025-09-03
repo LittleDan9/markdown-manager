@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, InputGroup, Alert, Spinner } from 'react-bootstrap';
-import { useNotification } from '../NotificationProvider';
+import { useNotification } from '../../NotificationProvider';
 
 const ShareModal = ({ show, onHide, document, onShare, onUnshare }) => {
   const [isLoading, setIsLoading] = useState(false);

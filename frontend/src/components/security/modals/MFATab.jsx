@@ -3,9 +3,9 @@ import { Alert } from "react-bootstrap";
 import MFAModal from "./MFAModal";
 import BackupCodesSection from "./BackupCodesSection";
 import DisableMFASection from "./DisableMFASection";
-import userApi from "../../api/userApi";
-import { useAuth } from "../../providers/AuthProvider";
-import { useNotification } from "../NotificationProvider";
+import userApi from "../../../api/userApi";
+import { useAuth } from "../../../providers/AuthProvider";
+import { useNotification } from "../../NotificationProvider";
 
 function MFATab({ setActiveTab }) {
   const [showMFAModal, setShowMFAModal] = useState(false);

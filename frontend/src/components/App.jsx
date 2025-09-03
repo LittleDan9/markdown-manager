@@ -8,7 +8,7 @@ import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useAppUIState, useShar
 import AppLayout from "@/components/layout/AppLayout";
 import EditorSection from "@/components/sections/EditorSection";
 import RendererSection from "@/components/sections/RendererSection";
-import AppModals from "@/components/modals/AppModals";
+import AppModals from "@/components/shared/modals/AppModals";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();

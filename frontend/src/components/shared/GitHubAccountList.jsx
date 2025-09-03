@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, ListGroup, Alert, Badge, Spinner, Accordion, Form } from 'react-bootstrap';
 import gitHubApi from '../../api/gitHubApi';
-import ConfirmModal from '../modals/ConfirmModal';
+import ConfirmModal from '../shared/modals/ConfirmModal';
 
 const GitHubAccountList = ({
   accounts: passedAccounts,

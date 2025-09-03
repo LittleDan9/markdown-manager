@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Tabs, Tab } from "react-bootstrap";
-import ConfirmModal from "@/components/modals/ConfirmModal";
+import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useNotification } from "@/components/NotificationProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";

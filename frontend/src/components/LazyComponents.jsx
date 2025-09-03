@@ -21,11 +21,11 @@ export const LazyIconBrowser = lazy(() =>
 );
 
 export const LazySettingsModal = lazy(() =>
-  import('./modals/UserSettingsModal.jsx')
+  import('./user/modals/UserSettingsModal.jsx')
 );
 
 export const LazyBackupCodesSection = lazy(() =>
-  import('./modals/BackupCodesSection.jsx')
+  import('./security/modals/BackupCodesSection.jsx')
 );
 
 export const LazyLogLevelController = lazy(() =>

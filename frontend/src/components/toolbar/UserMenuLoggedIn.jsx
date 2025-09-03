@@ -4,7 +4,7 @@ import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../providers/AuthProvider";
-import UserSettingsModal from "../modals/UserSettingsModal";
+import UserSettingsModal from "../user/modals/UserSettingsModal";
 import GitHubModal from "../github/modals/GitHubModal";
 import { useTheme } from "../../providers/ThemeProvider";
 

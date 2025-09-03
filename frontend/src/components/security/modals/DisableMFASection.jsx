@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
-import userApi from "../../api/userApi";
-import { AuthProvider, useAuth } from "../../providers/AuthProvider";
-import { useNotification } from "../NotificationProvider";
+import userApi from "../../../api/userApi";
+import { useAuth } from "../../../providers/AuthProvider";
+import { useNotification } from "../../NotificationProvider";
 
 function DisableMFASection({ setActiveTab }) {
   const { user, setUser, disableMFA } = useAuth();

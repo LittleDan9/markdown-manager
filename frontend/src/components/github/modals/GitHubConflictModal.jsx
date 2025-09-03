@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Modal, Button, Alert, Tabs, Tab, Form, Spinner } from "react-bootstrap";
-import gitHubApi from "../../api/gitHubApi";
-import { useNotification } from "../NotificationProvider";
+import gitHubApi from "../../../api/gitHubApi";
+import { useNotification } from "../../NotificationProvider";
 
 export default function GitHubConflictModal({
   show,

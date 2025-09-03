@@ -6,9 +6,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import AuthService from '@/services/core/AuthService';
-import LoginModal from '../components/modals/LoginModal.jsx';
-import VerifyMFAModal from '../components/modals/VerifyMFAModal.jsx';
-import PasswordResetModal from '../components/modals/PasswordResetModal.jsx';
+import LoginModal from '../components/auth/modals/LoginModal.jsx';
+import VerifyMFAModal from '../components/security/modals/VerifyMFAModal.jsx';
+import PasswordResetModal from '../components/auth/modals/PasswordResetModal.jsx';
 import LogoutProgressModal from '../components/LogoutProgressModal.jsx';
 import UserAPI from '../api/userApi.js';
 

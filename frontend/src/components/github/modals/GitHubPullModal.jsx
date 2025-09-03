@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Modal, Button, Alert, Spinner, Form } from "react-bootstrap";
-import gitHubApi from "../../api/gitHubApi";
-import { useNotification } from "../NotificationProvider";
+import gitHubApi from "../../../api/gitHubApi";
+import { useNotification } from "../../NotificationProvider";
 
 export default function GitHubPullModal({
   show,

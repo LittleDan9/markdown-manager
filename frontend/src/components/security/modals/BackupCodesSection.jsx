@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
-import userApi from "../../api/userApi";
+import userApi from "../../../api/userApi";
 
 function BackupCodesSection() {
   const [showRegenerate, setShowRegenerate] = useState(false);

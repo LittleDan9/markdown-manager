@@ -13,11 +13,13 @@ When writing or reviewing frontend code in this repository, AI agents must follo
 
 2. **React-Bootstrap First**
    - Use `<Button>`, `<Form>`, `<Navbar>`, etc.
+   - import and use `Bootstrap-React` components.
    - Prefer props/variants over raw classes.
 
 3. **Component Design**
    - Keep components small and single-responsibility.
    - Split presentational vs. container components.
+   - Ensure files are created in the correct functional domain folder.
 
 4. **State Management**
    - Use Context, Redux, or Zustand for shared state.
@@ -54,11 +56,13 @@ When writing or reviewing frontend code in this repository, AI agents must follo
     - Use `NotificationProvider` for alerts, errors, successes.
 
 13. **Development**
+    - Default navigation should should be to Nginx hosted on docker compose container http://localhost/.
     - App runs at `http://localhost:3000` with HMR.
-    - Test with `window.testAutoSave()` / `window.testManualSave()`.
+    - You can create a test user account if necessary.
 
 14. **Docker Workflow**
     - Use container `markdown-manager-frontend-1`.
+    - The container is configured for hot reloading in WebPack Development mode, no need to regularly restart to load changes.
     - `docker compose logs frontend`, `docker compose restart frontend`.
 
 15. **Debugging**

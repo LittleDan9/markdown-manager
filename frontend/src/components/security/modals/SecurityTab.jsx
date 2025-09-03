@@ -1,9 +1,9 @@
 import React, { useState } from "react";
 import { Form, Card, Button, Alert } from "react-bootstrap";
 import MFAModal from "./MFAModal";
-import userApi from "../../api/userApi";
-import { useAuth } from "../../providers/AuthProvider";
-import { useNotification } from "../NotificationProvider";
+import userApi from "../../../api/userApi";
+import { useAuth } from "../../../providers/AuthProvider";
+import { useNotification } from "../../NotificationProvider";
 
 function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubmit, setActiveTab }) {
   const { user , setUser, enableMFA} = useAuth();

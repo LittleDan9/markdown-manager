@@ -1,8 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import { Modal } from 'react-bootstrap';
-import { IconBrowser } from '../LazyComponents'; // Use lazy-loaded version
-import LoadingOverlay from '../LoadingOverlay';
+import { IconBrowser } from '../../LazyComponents'; // Use lazy-loaded version
+import LoadingOverlay from '../../LoadingOverlay';
 
 /**
  * AppModals - Component that manages all app-level modals

@@ -13,9 +13,9 @@ import {
 import { useNotification } from '../NotificationProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import gitHubApi from '../../api/gitHubApi';
-import GitHubPullModal from '../modals/GitHubPullModal';
-import GitHubConflictModal from '../modals/GitHubConflictModal';
-import GitHubPRModal from '../modals/GitHubPRModal';
+import GitHubPullModal from '../github/modals/GitHubPullModal';
+import GitHubConflictModal from '../github/modals/GitHubConflictModal';
+import GitHubPRModal from '../github/modals/GitHubPRModal';
 
 const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
   // Always call ALL hooks - never do conditional returns

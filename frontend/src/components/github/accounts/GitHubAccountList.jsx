@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Card, Badge, Row, Col } from 'react-bootstrap';
 import { formatLastSync } from '../../../utils/githubUtils';
 import gitHubApi from '../../../api/gitHubApi';
-import ConfirmModal from '../../modals/ConfirmModal';
+import ConfirmModal from '../../shared/modals/ConfirmModal';
 
 /**
  * GitHub Account List Component
