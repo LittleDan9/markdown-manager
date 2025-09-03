@@ -5,60 +5,61 @@ import { DictionaryService } from '@/services/utilities';
 
 /**
  * Custom hook for managing dictionary state and operations
- * Handles entries, categories, word counts, and category selection
+ * Updated to support folder-path based dictionaries
  */
 export function useDictionaryState() {
   const { user, isAuthenticated } = useAuth();
-  const { categories: documentCategories } = useDocumentContext();
+  const { currentDocument, documents } = useDocumentContext();
 
   // Core state
   const [entries, setEntries] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [selectedCategory, setSelectedCategory] = useState('');
+  const [availableScopes, setAvailableScopes] = useState([]);
+  const [selectedScope, setSelectedScope] = useState(null);
   const [localWordCount, setLocalWordCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
 
+  // Get current dictionary scope based on active document
+  const getCurrentScope = useCallback(() => {
+    return DictionaryService.getDictionaryScope(currentDocument);
+  }, [currentDocument]);
+
   // Update local word count
   const updateLocalWordCount = useCallback(async () => {
-    console.log('updateLocalWordCount called with selectedCategory:', selectedCategory);
-    const wordCount = DictionaryService.getWordCount(selectedCategory || null);
+    const scope = selectedScope || getCurrentScope();
+    console.log('updateLocalWordCount called with scope:', scope);
+    
+    let wordCount = 0;
+    if (scope?.folderPath) {
+      wordCount = DictionaryService.getWordCount(scope.folderPath);
+    } else if (scope?.categoryId) {
+      // Backward compatibility
+      wordCount = DictionaryService.getWordCount(null, scope.categoryId);
+    } else {
+      // User-level dictionary
+      wordCount = DictionaryService.getWordCount();
+    }
+    
     console.log('updateLocalWordCount: words found:', wordCount);
     setLocalWordCount(wordCount);
-  }, [selectedCategory]);
+  }, [selectedScope, currentDocument]);
 
-  // Load categories
-  const loadCategories = useCallback(async () => {
-    try {
-      const categoriesData = await DictionaryService.getCategories();
-
-      // If backend returns empty categories, use fallback categories that match document categories
-      if (!categoriesData || categoriesData.length === 0) {
-        console.log('No categories found in backend, using document fallback categories');
-        // Don't use hardcoded IDs as they are user-specific and will vary
-        // Use null IDs for fallback categories to avoid conflicts
-        const fallbackCategories = [
-          { id: null, name: 'General' },
-          { id: null, name: 'Drafts' }
-        ];
-        setCategories(fallbackCategories);
-      } else {
-        setCategories(categoriesData);
-      }
-    } catch (error) {
-      console.error('Failed to load categories:', error);
-      // Use fallback categories without hardcoded IDs
-      const fallbackCategories = [
-        { id: null, name: 'General' },
-        { id: null, name: 'Drafts' }
-      ];
-      setCategories(fallbackCategories);
+  // Load available scopes
+  const loadAvailableScopes = useCallback(() => {
+    const scopes = DictionaryService.getAvailableScopes(documents || []);
+    setAvailableScopes(scopes);
+    
+    // Auto-select current document's scope if not manually selected
+    if (!selectedScope) {
+      const currentScope = getCurrentScope();
+      setSelectedScope(currentScope);
     }
-  }, [isAuthenticated]);
+  }, [documents, selectedScope, getCurrentScope]);
 
   // Load dictionary entries
   const loadEntries = useCallback(async () => {
-    console.log('loadEntries called with selectedCategory:', selectedCategory);
+    const scope = selectedScope || getCurrentScope();
+    console.log('loadEntries called with scope:', scope);
 
     // Update local word count first
     await updateLocalWordCount();
@@ -66,8 +67,16 @@ export function useDictionaryState() {
     setLoading(true);
 
     try {
-      const categoryId = selectedCategory || null;
-      const entries = await DictionaryService.getEntries(categoryId);
+      let entries;
+      if (scope?.folderPath) {
+        entries = await DictionaryService.getEntries(scope.folderPath);
+      } else if (scope?.categoryId) {
+        // Backward compatibility
+        entries = await DictionaryService.getEntries(null, scope.categoryId);
+      } else {
+        // User-level entries
+        entries = await DictionaryService.getEntries();
+      }
       setEntries(entries);
     } catch (err) {
       console.error('Failed to load dictionary entries:', err);
@@ -81,7 +90,7 @@ export function useDictionaryState() {
     } finally {
       setLoading(false);
     }
-  }, [selectedCategory, updateLocalWordCount]);
+  }, [selectedScope, currentDocument, updateLocalWordCount]);
 
   // Sync with backend
   const syncWithBackend = useCallback(async () => {
@@ -90,7 +99,7 @@ export function useDictionaryState() {
     try {
       await DictionaryService.syncAfterLogin();
       await loadEntries(); // Reload entries to show any new words
-      return "Dictionary synced with server. All categories updated.";
+      return "Dictionary synced with server. All scopes updated.";
     } catch (err) {
       throw new Error(err.message || "Failed to sync dictionary");
     } finally {
@@ -99,34 +108,16 @@ export function useDictionaryState() {
     }
   }, [loadEntries]);
 
-  // Handle category selection change
-  const handleCategoryChange = useCallback((categoryId) => {
-    console.log('Category changed from', selectedCategory, 'to', categoryId);
-    setSelectedCategory(categoryId);
-  }, [selectedCategory]);
+  // Handle scope selection change
+  const handleScopeChange = useCallback((scope) => {
+    console.log('Scope changed from', selectedScope, 'to', scope);
+    setSelectedScope(scope);
+  }, [selectedScope]);
 
-  // Load categories on mount and when authentication changes
+  // Load available scopes when documents change
   useEffect(() => {
-    if (isAuthenticated) {
-      loadCategories();
-    } else {
-      // For unauthenticated users, use the actual document categories
-      let categoriesToUse = documentCategories;
-
-      // Fallback if documentCategories is empty or undefined
-      if (!categoriesToUse || categoriesToUse.length === 0) {
-        setCategories([]);
-        return;
-      }
-
-      const formattedCategories = categoriesToUse
-        .map(categoryName => ({
-          id: categoryName,
-          name: categoryName
-        }));
-      setCategories(formattedCategories);
-    }
-  }, [isAuthenticated, documentCategories]);
+    loadAvailableScopes();
+  }, [loadAvailableScopes]);
 
   // Handle authentication state changes for syncing
   useEffect(() => {
@@ -134,13 +125,13 @@ export function useDictionaryState() {
       // Auto-sync when user logs in
       syncWithBackend().catch(console.error);
     }
-  }, [isAuthenticated]); // Removed syncWithBackend from dependency array
+  }, [isAuthenticated]);
 
-  // Load entries when component mounts or category changes
+  // Load entries when component mounts or scope changes
   useEffect(() => {
     updateLocalWordCount();
     loadEntries().catch(console.error);
-  }, [user, isAuthenticated, selectedCategory]); // Removed updateLocalWordCount, loadEntries from dependency array
+  }, [user, isAuthenticated, selectedScope, currentDocument]);
 
   // Listen for dictionary update events
   useEffect(() => {
@@ -151,27 +142,34 @@ export function useDictionaryState() {
 
     window.addEventListener('dictionary:updated', handler);
     window.addEventListener('dictionary:categoryUpdated', handler);
+    window.addEventListener('dictionary:folderUpdated', handler);
     window.addEventListener('dictionary:wordUpdated', handler);
+    window.addEventListener('dictionary:folderWordAdded', handler);
+    window.addEventListener('dictionary:folderWordRemoved', handler);
 
     return () => {
       window.removeEventListener('dictionary:updated', handler);
       window.removeEventListener('dictionary:categoryUpdated', handler);
+      window.removeEventListener('dictionary:folderUpdated', handler);
       window.removeEventListener('dictionary:wordUpdated', handler);
+      window.removeEventListener('dictionary:folderWordAdded', handler);
+      window.removeEventListener('dictionary:folderWordRemoved', handler);
     };
   }, [updateLocalWordCount, loadEntries]);
 
   return {
     // State
     entries,
-    categories,
-    selectedCategory,
+    availableScopes,
+    selectedScope,
     localWordCount,
     loading,
     syncing,
     isAuthenticated,
+    currentScope: getCurrentScope(),
 
     // Actions
-    setSelectedCategory: handleCategoryChange,
+    setSelectedScope: handleScopeChange,
     loadEntries,
     syncWithBackend,
     updateLocalWordCount

@@ -16,6 +16,7 @@ import { getChangedRegion, toMonacoMarkers, clearSpellCheckMarkers, registerQuic
  *   - enableListBehavior: boolean
  *   - categoryId: for spell check context
  *   - getCategoryId: function for keyboard shortcut context
+ *   - getFolderPath: function for folder-based dictionary context
  * @returns {Object} { editor, spellCheck: { progress, suggestionsMap } }
  */
 export default function useEditor({
@@ -27,7 +28,8 @@ export default function useEditor({
   enableKeyboardShortcuts = true,
   enableListBehavior = true,
   categoryId,
-  getCategoryId
+  getCategoryId,
+  getFolderPath
 }) {
   const { theme } = useTheme();
   const editorRef = useRef(null);
@@ -206,7 +208,7 @@ export default function useEditor({
       setProgress(processObj);
     } : () => {};
     try {
-      const issues = await SpellCheckService.scan(text, progressCb, categoryId);
+      const issues = await SpellCheckService.scan(text, progressCb, categoryId, typeof getFolderPath === 'function' ? getFolderPath() : null);
       if (editorRef.current) {
         suggestionsMap.current = toMonacoMarkers(
           editorRef.current,
@@ -261,7 +263,7 @@ export default function useEditor({
     );
     // Register quick fix actions
   // IMPORTANT: getCategoryId should be memoized in the parent with useCallback to avoid repeated registration
-  registerQuickFixActions(editor, suggestionsMap, getCategoryId);
+  registerQuickFixActions(editor, suggestionsMap, getCategoryId, getFolderPath);
     window.CommentService = CommentService;
     window.testCommentToggle = () => {
       CommentService.handleCommentToggle(editor);

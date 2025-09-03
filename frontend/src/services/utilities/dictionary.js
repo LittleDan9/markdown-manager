@@ -10,20 +10,110 @@ class DictionaryService {
   constructor() {
     this.CUSTOM_WORDS_KEY = 'customDictionary';
     this.CATEGORY_WORDS_KEY = 'categoryCustomDictionary';
+    this.FOLDER_WORDS_KEY = 'folderCustomDictionary';
     this.customWords = new Set();
     this.categoryWords = new Map(); // Map<categoryId, Set<word>>
+    this.folderWords = new Map(); // Map<folderPath, Set<word>>
     this.loadCustomWordsFromStorage();
     this.loadCategoryWordsFromStorage();
+    this.loadFolderWordsFromStorage();
   }
 
   /**
-   * Clear local dictionary data (called during logout)
+   * Get dictionary scope for the current context
+   * @param {Object} currentDocument - Current document object with folder_path and source info
+   * @returns {Object} - Dictionary scope information
    */
-  clearLocal() {
-    this.customWords.clear();
-    this.categoryWords.clear();
-    localStorage.removeItem(this.CUSTOM_WORDS_KEY);
-    localStorage.removeItem(this.CATEGORY_WORDS_KEY);
+  getDictionaryScope(currentDocument = null) {
+    if (!currentDocument) {
+      return { type: 'user', folderPath: null, displayName: 'Personal Dictionary' };
+    }
+
+    // Check if document is from GitHub
+    if (currentDocument.source === 'github' || currentDocument.repository_id) {
+      const repoName = currentDocument.repository_name || 'Unknown Repository';
+      const folderPath = `/github/${repoName}`;
+      return {
+        type: 'github',
+        folderPath,
+        displayName: `${repoName} Repository Dictionary`,
+        repository: currentDocument.repository_name
+      };
+    }
+
+    // For local documents, check folder depth
+    const folderPath = currentDocument.folder_path || '/';
+    const pathParts = folderPath.split('/').filter(part => part.length > 0);
+
+    if (pathParts.length === 0) {
+      // Root level documents
+      return { type: 'user', folderPath: null, displayName: 'Personal Dictionary' };
+    } else if (pathParts.length === 1) {
+      // One level deep - use root folder dictionary
+      const rootFolder = pathParts[0];
+      return {
+        type: 'folder',
+        folderPath: `/${rootFolder}`,
+        displayName: `${rootFolder} Folder Dictionary`,
+        folder: rootFolder
+      };
+    } else {
+      // Multiple levels deep - use the root folder dictionary
+      const rootFolder = pathParts[0];
+      return {
+        type: 'folder',
+        folderPath: `/${rootFolder}`,
+        displayName: `${rootFolder} Folder Dictionary`,
+        folder: rootFolder
+      };
+    }
+  }
+
+  /**
+   * Get available dictionary scopes for the user
+   * @param {Array} documents - User's documents
+   * @returns {Array} - Available dictionary scopes
+   */
+  getAvailableScopes(documents = []) {
+    const scopes = [
+      { type: 'user', folderPath: null, displayName: 'Personal Dictionary (All Documents)' }
+    ];
+
+    const uniqueFolders = new Set();
+    const uniqueRepos = new Set();
+
+    documents.forEach(doc => {
+      if (doc.source === 'github' || doc.repository_id) {
+        const repoName = doc.repository_name || 'Unknown Repository';
+        if (!uniqueRepos.has(repoName)) {
+          uniqueRepos.add(repoName);
+          scopes.push({
+            type: 'github',
+            folderPath: `/github/${repoName}`,
+            displayName: `${repoName} Repository Dictionary`,
+            repository: repoName
+          });
+        }
+      } else {
+        const folderPath = doc.folder_path || '/';
+        const pathParts = folderPath.split('/').filter(part => part.length > 0);
+        
+        if (pathParts.length > 0) {
+          const rootFolder = pathParts[0];
+          if (!uniqueFolders.has(rootFolder)) {
+            uniqueFolders.add(rootFolder);
+            scopes.push({
+              type: 'folder',
+              folderPath: `/${rootFolder}`,
+              displayName: `${rootFolder} Folder Dictionary`,
+              folder: rootFolder
+            });
+          }
+        }
+      }
+    });
+
+    return scopes;
   }
 
   /**
@@ -248,10 +338,14 @@ class DictionaryService {
    * Add word to both local storage and backend
    * @param {string} word - Word to add
    * @param {string} [notes] - Optional notes
-   * @param {string} [categoryId] - Optional category ID for category-level dictionary
+   * @param {string} [folderPath] - Optional folder path for folder-level dictionary
+   * @param {string} [categoryId] - Optional category ID for backward compatibility
    */
-  async addWord(word, notes = null, categoryId = null) {
-    if (categoryId) {
+  async addWord(word, notes = null, folderPath = null, categoryId = null) {
+    // Handle local storage first
+    if (folderPath) {
+      this.addFolderWord(folderPath, word);
+    } else if (categoryId) {
       this.addCategoryWord(categoryId, word);
     } else {
       this.addCustomWord(word);
@@ -264,7 +358,7 @@ class DictionaryService {
     }
 
     try {
-      await customDictionaryApi.addWord(word, notes, categoryId);
+      await customDictionaryApi.addWord(word, notes, folderPath, categoryId);
     } catch (error) {
       console.error('Failed to add word to backend:', error);
       throw error;
@@ -274,10 +368,14 @@ class DictionaryService {
   /**
    * Remove word from both local storage and backend
    * @param {string} word - Word to remove
-   * @param {string} [categoryId] - Optional category ID for category-level dictionary
+   * @param {string} [folderPath] - Optional folder path for folder-level dictionary
+   * @param {string} [categoryId] - Optional category ID for backward compatibility
    */
-  async removeWord(word, categoryId = null) {
-    if (categoryId) {
+  async removeWord(word, folderPath = null, categoryId = null) {
+    // Handle local storage first
+    if (folderPath) {
+      this.removeFolderWord(folderPath, word);
+    } else if (categoryId) {
       this.removeCategoryWord(categoryId, word);
     } else {
       this.removeCustomWord(word);
@@ -290,7 +388,7 @@ class DictionaryService {
     }
 
     try {
-      await customDictionaryApi.deleteWordByText(word, categoryId);
+      await customDictionaryApi.deleteWordByText(word, folderPath, categoryId);
     } catch (error) {
       console.error('Failed to remove word from backend:', error);
       throw error;
@@ -300,19 +398,161 @@ class DictionaryService {
   /**
    * Alias for removeWord to match expected API
    * @param {string} word - Word to delete
-   * @param {string} [categoryId] - Optional category ID
+   * @param {string} [folderPath] - Optional folder path
+   * @param {string} [categoryId] - Optional category ID for backward compatibility
    */
-  async deleteWord(word, categoryId = null) {
-    return this.removeWord(word, categoryId);
+  async deleteWord(word, folderPath = null, categoryId = null) {
+    return this.removeWord(word, folderPath, categoryId);
+  }
+
+    /**
+   * Clear local dictionary data (called during logout)
+   */
+  clearLocal() {
+    this.customWords.clear();
+    this.categoryWords.clear();
+    this.folderWords.clear();
+    localStorage.removeItem(this.CUSTOM_WORDS_KEY);
+    localStorage.removeItem(this.CATEGORY_WORDS_KEY);
+    localStorage.removeItem(this.FOLDER_WORDS_KEY);
+  }
+
+  // ===================
+  // FOLDER-BASED METHODS
+  // ===================
+
+  /**
+   * Add a word to the folder-specific custom dictionary
+   * @param {string} folderPath - The folder path (e.g., '/Work' or '/github/my-repo')
+   * @param {string} word - The word to add
+   */
+  addFolderWord(folderPath, word) {
+    const normalizedWord = word.toLowerCase().trim();
+    const normalizedPath = this.normalizeFolderPath(folderPath);
+    
+    if (normalizedWord && normalizedPath) {
+      if (!this.folderWords.has(normalizedPath)) {
+        this.folderWords.set(normalizedPath, new Set());
+      }
+      this.folderWords.get(normalizedPath).add(normalizedWord);
+      this.saveFolderWordsToStorage();
+      window.dispatchEvent(new CustomEvent('dictionary:folderWordAdded', {
+        detail: { folderPath: normalizedPath, word: normalizedWord }
+      }));
+    }
   }
 
   /**
-   * Clear local dictionary (for logout)
+   * Remove a word from the folder-specific custom dictionary
+   * @param {string} folderPath - The folder path
+   * @param {string} word - The word to remove
    */
-  clearLocal() {
-    this.setCustomWords([]);
-    this.setCategoryWords(new Map());
-    console.log('Local custom dictionary cleared');
+  removeFolderWord(folderPath, word) {
+    const normalizedWord = word.toLowerCase().trim();
+    const normalizedPath = this.normalizeFolderPath(folderPath);
+    
+    if (this.folderWords.has(normalizedPath)) {
+      this.folderWords.get(normalizedPath).delete(normalizedWord);
+      if (this.folderWords.get(normalizedPath).size === 0) {
+        this.folderWords.delete(normalizedPath);
+      }
+      this.saveFolderWordsToStorage();
+      window.dispatchEvent(new CustomEvent('dictionary:folderWordRemoved', {
+        detail: { folderPath: normalizedPath, word: normalizedWord }
+      }));
+    }
+  }
+
+  /**
+   * Get words for a specific folder path
+   * @param {string} folderPath - The folder path
+   * @returns {string[]}
+   */
+  getFolderWords(folderPath) {
+    const normalizedPath = this.normalizeFolderPath(folderPath);
+    if (!this.folderWords.has(normalizedPath)) {
+      return [];
+    }
+    return Array.from(this.folderWords.get(normalizedPath));
+  }
+
+  /**
+   * Check if a word is in a folder's custom dictionary
+   * @param {string} folderPath - The folder path
+   * @param {string} word - The word to check
+   * @returns {boolean}
+   */
+  isFolderWord(folderPath, word) {
+    const normalizedPath = this.normalizeFolderPath(folderPath);
+    if (!this.folderWords.has(normalizedPath)) {
+      return false;
+    }
+    return this.folderWords.get(normalizedPath).has(word.toLowerCase());
+  }
+
+  /**
+   * Normalize folder path to ensure consistency
+   * @param {string} folderPath - The folder path to normalize
+   * @returns {string} - Normalized folder path
+   */
+  normalizeFolderPath(folderPath) {
+    if (!folderPath || folderPath === '/') {
+      return null; // User-level dictionary
+    }
+    // Ensure it starts with / and doesn't end with / (unless it's just /)
+    let normalized = folderPath.startsWith('/') ? folderPath : `/${folderPath}`;
+    if (normalized.length > 1 && normalized.endsWith('/')) {
+      normalized = normalized.slice(0, -1);
+    }
+    return normalized;
+  }
+
+  /**
+   * Load folder words from localStorage
+   */
+  loadFolderWordsFromStorage() {
+    try {
+      const stored = localStorage.getItem(this.FOLDER_WORDS_KEY);
+      if (stored) {
+        const data = JSON.parse(stored);
+        this.folderWords = new Map();
+        for (const [folderPath, words] of Object.entries(data)) {
+          this.folderWords.set(folderPath, new Set(words));
+        }
+      }
+    } catch (err) {
+      console.error('Error loading folder words from storage:', err);
+    }
+  }
+
+  /**
+   * Save folder words to localStorage
+   */
+  saveFolderWordsToStorage() {
+    try {
+      const data = {};
+      for (const [folderPath, wordsSet] of this.folderWords.entries()) {
+        data[folderPath] = Array.from(wordsSet);
+      }
+      localStorage.setItem(this.FOLDER_WORDS_KEY, JSON.stringify(data));
+    } catch (err) {
+      console.error('Error saving folder words to storage:', err);
+    }
+  }
+
+  /**
+   * Set folder words (used when loading from backend)
+   * @param {Map<string, string[]>} folderWordsMap - Map of folder path to words array
+   */
+  setFolderWords(folderWordsMap) {
+    this.folderWords = new Map();
+    for (const [folderPath, words] of folderWordsMap.entries()) {
+      this.folderWords.set(folderPath, new Set(words.map(word => word.toLowerCase())));
+    }
+    this.saveFolderWordsToStorage();
+    window.dispatchEvent(new CustomEvent('dictionary:folderUpdated', {
+      detail: { folderWords: this.folderWords }
+    }));
   }
 
   /**
@@ -380,19 +620,27 @@ class DictionaryService {
 
   /**
    * Get all applicable custom words for spell checking
-   * Combines user-level words with category-specific words
-   * @param {string} [categoryId] - Current document's category ID
+   * Combines user-level words with folder-specific words or category-specific words
+   * @param {string} [folderPath] - Current document's folder path
+   * @param {string} [categoryId] - Current document's category ID (for backward compatibility)
    * @returns {string[]}
    */
-  getAllApplicableWords(categoryId = null) {
+  getAllApplicableWords(folderPath = null, categoryId = null) {
     const userWords = this.getCustomWords();
-    if (!categoryId) {
-      return userWords;
+    
+    if (folderPath) {
+      const normalizedPath = this.normalizeFolderPath(folderPath);
+      const folderWords = this.getFolderWords(normalizedPath);
+      // Combine and deduplicate
+      return [...new Set([...userWords, ...folderWords])];
+    } else if (categoryId) {
+      // Backward compatibility with category-based dictionaries
+      const categoryWords = this.getCategoryWords(categoryId);
+      // Combine and deduplicate
+      return [...new Set([...userWords, ...categoryWords])];
     }
-
-    const categoryWords = this.getCategoryWords(categoryId);
-    // Combine and deduplicate
-    return [...new Set([...userWords, ...categoryWords])];
+    
+    return userWords;
   }
 
   /**
@@ -528,29 +776,37 @@ class DictionaryService {
 
   /**
    * Get formatted dictionary entries for UI display
-   * @param {string|null} categoryId - Category ID or null for user-level words
+   * @param {string|null} folderPath - Folder path or null for user-level words
+   * @param {string|null} categoryId - Category ID for backward compatibility
    * @returns {Promise<Array>} - Array of formatted entries with id, word, notes, etc.
    */
-  async getEntries(categoryId = null) {
+  async getEntries(folderPath = null, categoryId = null) {
     const { isAuthenticated, token } = AuthService.getAuthState();
     
     if (!isAuthenticated || !token) {
       // Return local entries for guest users
-      return this.getLocalEntries(categoryId);
+      return this.getLocalEntries(folderPath, categoryId);
     }
 
     try {
-      const data = await customDictionaryApi.getEntries(categoryId);
+      const data = await customDictionaryApi.getEntries(folderPath, categoryId);
       let filteredEntries = Array.isArray(data) ? data : [];
       
       // Additional frontend filtering as fallback
-      if (categoryId) {
+      if (folderPath) {
+        const normalizedPath = this.normalizeFolderPath(folderPath);
+        filteredEntries = filteredEntries.filter(entry => 
+          entry.folder_path === normalizedPath
+        );
+      } else if (categoryId) {
+        // Backward compatibility
         filteredEntries = filteredEntries.filter(entry => 
           entry.category_id === parseInt(categoryId)
         );
       } else {
+        // User-level entries
         filteredEntries = filteredEntries.filter(entry => 
-          entry.category_id === null
+          entry.category_id === null && entry.folder_path === null
         );
       }
       
@@ -558,7 +814,7 @@ class DictionaryService {
     } catch (error) {
       console.error('Failed to load dictionary entries:', error);
       if (error.message?.includes("Not authenticated")) {
-        return this.getLocalEntries(categoryId);
+        return this.getLocalEntries(folderPath, categoryId);
       }
       throw error;
     }
@@ -566,26 +822,42 @@ class DictionaryService {
 
   /**
    * Get local entries for guest users or fallback
-   * @param {string|null} categoryId - Category ID or null for user-level words
+   * @param {string|null} folderPath - Folder path or null for user-level words
+   * @param {string|null} categoryId - Category ID for backward compatibility
    * @returns {Array} - Array of local entries
    */
-  getLocalEntries(categoryId = null) {
-    if (categoryId) {
+  getLocalEntries(folderPath = null, categoryId = null) {
+    if (folderPath) {
+      const normalizedPath = this.normalizeFolderPath(folderPath);
+      const words = this.getFolderWords(normalizedPath);
+      return words.map((word, index) => ({
+        id: `local-folder-${normalizedPath}-${index}`,
+        word,
+        notes: null,
+        folder_path: normalizedPath,
+        category_id: null,
+        isLocal: true
+      }));
+    } else if (categoryId) {
+      // Backward compatibility
       const words = this.getCategoryWords(categoryId);
       return words.map((word, index) => ({
         id: `local-${categoryId}-${index}`,
         word,
         notes: null,
         category_id: categoryId,
+        folder_path: null,
         isLocal: true
       }));
     } else {
+      // User-level words
       const words = this.getCustomWords();
       return words.map((word, index) => ({
         id: `local-user-${index}`,
         word,
         notes: null,
         category_id: null,
+        folder_path: null,
         isLocal: true
       }));
     }
@@ -632,13 +904,19 @@ class DictionaryService {
 
   /**
    * Get word count for a specific context
-   * @param {string|null} categoryId - Category ID or null for user-level words
+   * @param {string|null} folderPath - Folder path or null for user-level words
+   * @param {string|null} categoryId - Category ID for backward compatibility
    * @returns {number} - Number of words
    */
-  getWordCount(categoryId = null) {
-    if (categoryId) {
+  getWordCount(folderPath = null, categoryId = null) {
+    if (folderPath) {
+      const normalizedPath = this.normalizeFolderPath(folderPath);
+      return this.getFolderWords(normalizedPath).length;
+    } else if (categoryId) {
+      // Backward compatibility
       return this.getCategoryWords(categoryId).length;
     } else {
+      // User-level words
       return this.getCustomWords().length;
     }
   }

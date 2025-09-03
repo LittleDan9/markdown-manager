@@ -2,7 +2,7 @@ import React from "react";
 import { Card, Alert, Button, Badge, Modal, Spinner, Form } from "react-bootstrap";
 import { SpellCheckService } from "@/services/editor";
 import { useDictionaryState, useDictionaryOperations, useDictionaryUI } from "@/hooks";
-import { DictionaryCategorySelector } from "./DictionaryCategorySelector";
+import { DictionaryScopeSelector } from "./DictionaryScopeSelector";
 import { DictionaryAddWordForm } from "./DictionaryAddWordForm";
 import { DictionaryWordList } from "./DictionaryWordList";
 
@@ -10,13 +10,14 @@ function DictionaryTab() {
   // State management hooks
   const {
     entries,
-    categories,
-    selectedCategory,
+    availableScopes,
+    selectedScope,
+    currentScope,
     localWordCount,
     loading,
     syncing,
     isAuthenticated,
-    setSelectedCategory,
+    setSelectedScope,
     loadEntries,
     syncWithBackend,
     updateLocalWordCount
@@ -51,8 +52,7 @@ function DictionaryTab() {
     deleteWord,
     updateWordNotes
   } = useDictionaryOperations({
-    selectedCategory,
-    categories,
+    selectedScope,
     onSuccess: showSuccess,
     onError: showError,
     onEntriesChange: async () => {
@@ -79,12 +79,16 @@ function DictionaryTab() {
   };
 
   // Handle local word deletion for unauthenticated users
-  const handleLocalWordDelete = async (entry, categoryId) => {
+  const handleLocalWordDelete = async (entry) => {
     try {
       const { DictionaryService } = await import('@/services/utilities');
+      const scope = selectedScope || currentScope;
 
-      if (categoryId) {
-        DictionaryService.removeCategoryWord(categoryId, entry.word);
+      if (scope?.folderPath) {
+        DictionaryService.removeFolderWord(scope.folderPath, entry.word);
+      } else if (scope?.categoryId) {
+        // Backward compatibility
+        DictionaryService.removeCategoryWord(scope.categoryId, entry.word);
       } else {
         DictionaryService.removeCustomWord(entry.word);
       }
@@ -92,15 +96,32 @@ function DictionaryTab() {
       await updateLocalWordCount();
       await loadEntries();
 
-      const scopeText = categoryId
-        ? ` from ${categories.find(c => c.id === categoryId)?.name || 'category'} dictionary`
-        : ' from personal dictionary';
-      showSuccess(`Removed "${entry.word}"${scopeText}`);
+      const scopeText = scope?.displayName || 'personal dictionary';
+      showSuccess(`Removed "${entry.word}" from ${scopeText}`);
     } catch (error) {
       console.error('Error deleting local word:', error);
       showError('Failed to remove word from local dictionary');
     }
   };
+
+  // Get display information for current scope
+  const getDisplayInfo = () => {
+    const scope = selectedScope || currentScope;
+    const count = entries.length || localWordCount;
+    
+    return {
+      scope,
+      count,
+      title: scope?.displayName || 'Personal Dictionary',
+      description: scope?.type === 'folder' 
+        ? `Manage custom words for documents in the "${scope.folder}" folder. These words won't be flagged as misspelled in documents within this folder.`
+        : scope?.type === 'github'
+        ? `Manage custom words for the "${scope.repository}" repository. These words won't be flagged as misspelled in documents from this repository.`
+        : "Manage your personal spell check dictionary. Words added here will not be flagged as misspelled in any document."
+    };
+  };
+
+  const displayInfo = getDisplayInfo();
 
   return (
     <Card className="mt-3">
@@ -109,24 +130,20 @@ function DictionaryTab() {
           <i className="bi bi-book me-2"></i>Custom Dictionary
           <Badge bg="secondary" className="ms-2">
             {isAuthenticated
-              ? `${entries.length} words`
-              : selectedCategory
-                ? `${localWordCount} category words`
-                : `${localWordCount} personal words`
+              ? `${displayInfo.count} words`
+              : `${localWordCount} words`
             }
           </Badge>
-          {selectedCategory && (
+          {displayInfo.scope && displayInfo.scope.type !== 'user' && (
             <Badge bg="info" className="ms-2">
-              {categories.find(c => c.id === selectedCategory)?.name || 'Category'}
+              {displayInfo.scope.type === 'folder' ? '📁' : '🐙'} {displayInfo.scope.folder || displayInfo.scope.repository}
             </Badge>
           )}
         </Card.Title>
 
         <Card.Text className="text-muted">
           {isAuthenticated
-            ? selectedCategory
-              ? `Manage custom words for the ${categories.find(c => c.id === selectedCategory)?.name || 'selected'} category. These words won't be flagged as misspelled in documents of this category.`
-              : "Manage your personal spell check dictionary. Words added here will not be flagged as misspelled in any document."
+            ? displayInfo.description
             : "Your custom words are stored locally. Log in to sync them across devices."
           }
         </Card.Text>
@@ -140,10 +157,11 @@ function DictionaryTab() {
           </Alert>
         )}
 
-        <DictionaryCategorySelector
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onCategoryChange={setSelectedCategory}
+        <DictionaryScopeSelector
+          availableScopes={availableScopes}
+          selectedScope={selectedScope}
+          currentScope={currentScope}
+          onScopeChange={setSelectedScope}
           loading={isLoading}
           isAuthenticated={isAuthenticated}
         />
@@ -190,8 +208,7 @@ function DictionaryTab() {
           onDeleteWord={confirmDelete}
           loading={isLoading}
           isAuthenticated={isAuthenticated}
-          categories={categories}
-          selectedCategory={selectedCategory}
+          selectedScope={selectedScope || currentScope}
           localWordCount={localWordCount}
           onLocalWordDelete={handleLocalWordDelete}
         />

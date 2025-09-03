@@ -62,12 +62,28 @@ async def get_category_dictionary_words(
 
 
 async def get_user_level_dictionary_words(db: AsyncSession, user_id: int) -> list[str]:
-    """Get user-level custom words (not category-specific)."""
+    """Get user-level custom words (not category-specific or folder-specific)."""
     result = await db.execute(
         select(CustomDictionary.word)
         .where(
             CustomDictionary.user_id == user_id,
             CustomDictionary.category_id.is_(None),
+            CustomDictionary.folder_path.is_(None),
+        )
+        .order_by(CustomDictionary.word)
+    )
+    return list(result.scalars().all())
+
+
+async def get_folder_dictionary_words(
+    db: AsyncSession, user_id: int, folder_path: str
+) -> list[str]:
+    """Get custom words for a specific folder path."""
+    result = await db.execute(
+        select(CustomDictionary.word)
+        .where(
+            CustomDictionary.user_id == user_id,
+            CustomDictionary.folder_path == folder_path,
         )
         .order_by(CustomDictionary.word)
     )
@@ -87,18 +103,24 @@ async def get_dictionary_word_by_id(
 
 
 async def get_dictionary_word_by_word(
-    db: AsyncSession, word: str, user_id: int, category_id: Optional[int] = None
+    db: AsyncSession, word: str, user_id: int, category_id: Optional[int] = None, folder_path: Optional[str] = None
 ) -> Optional[CustomDictionary]:
-    """Get a custom dictionary word by word text, user, and optional category."""
+    """Get a custom dictionary word by word text, user, and optional category or folder path."""
     query = select(CustomDictionary).where(
         CustomDictionary.word == word.lower(),
         CustomDictionary.user_id == user_id,
     )
 
-    if category_id is not None:
+    if folder_path is not None:
+        query = query.where(CustomDictionary.folder_path == folder_path)
+    elif category_id is not None:
         query = query.where(CustomDictionary.category_id == category_id)
     else:
-        query = query.where(CustomDictionary.category_id.is_(None))
+        # User-level dictionary (no category or folder)
+        query = query.where(
+            CustomDictionary.category_id.is_(None),
+            CustomDictionary.folder_path.is_(None)
+        )
 
     result = await db.execute(query)
     return result.scalar_one_or_none()
@@ -115,6 +137,7 @@ async def create_dictionary_word(
         word=word_data.word,  # Already normalized by validator
         notes=word_data.notes,
         category_id=word_data.category_id,
+        folder_path=word_data.folder_path,
     )
     db.add(db_word)
     await db.commit()
@@ -164,18 +187,24 @@ async def delete_dictionary_word(db: AsyncSession, word_id: int, user_id: int) -
 
 
 async def delete_dictionary_word_by_word(
-    db: AsyncSession, word: str, user_id: int, category_id: Optional[int] = None
+    db: AsyncSession, word: str, user_id: int, category_id: Optional[int] = None, folder_path: Optional[str] = None
 ) -> bool:
-    """Delete a custom dictionary word by word text, user, and optional category."""
+    """Delete a custom dictionary word by word text, user, and optional category or folder path."""
     query = select(CustomDictionary).where(
         CustomDictionary.word == word.lower(),
         CustomDictionary.user_id == user_id,
     )
 
-    if category_id is not None:
+    if folder_path is not None:
+        query = query.where(CustomDictionary.folder_path == folder_path)
+    elif category_id is not None:
         query = query.where(CustomDictionary.category_id == category_id)
     else:
-        query = query.where(CustomDictionary.category_id.is_(None))
+        # User-level dictionary (no category or folder)
+        query = query.where(
+            CustomDictionary.category_id.is_(None),
+            CustomDictionary.folder_path.is_(None)
+        )
 
     result = await db.execute(query)
     db_word = result.scalar_one_or_none()
@@ -188,22 +217,28 @@ async def delete_dictionary_word_by_word(
 
 
 async def bulk_create_dictionary_words(
-    db: AsyncSession, words: list[str], user_id: int, category_id: Optional[int] = None
+    db: AsyncSession, words: list[str], user_id: int, category_id: Optional[int] = None, folder_path: Optional[str] = None
 ) -> list[CustomDictionary]:
     """Bulk create custom dictionary words."""
     # Normalize words and filter out duplicates
     normalized_words = list(set(word.lower().strip() for word in words if word.strip()))
 
-    # Check for existing words in the same scope (user-level or category-level)
+    # Check for existing words in the same scope (user-level, category-level, or folder-level)
     query = select(CustomDictionary.word).where(
         CustomDictionary.user_id == user_id,
         CustomDictionary.word.in_(normalized_words),
     )
 
-    if category_id is not None:
+    if folder_path is not None:
+        query = query.where(CustomDictionary.folder_path == folder_path)
+    elif category_id is not None:
         query = query.where(CustomDictionary.category_id == category_id)
     else:
-        query = query.where(CustomDictionary.category_id.is_(None))
+        # User-level dictionary (no category or folder)
+        query = query.where(
+            CustomDictionary.category_id.is_(None),
+            CustomDictionary.folder_path.is_(None)
+        )
 
     result = await db.execute(query)
     existing_words = set(result.scalars().all())
@@ -215,7 +250,7 @@ async def bulk_create_dictionary_words(
         return []
 
     db_words = [
-        CustomDictionary(user_id=user_id, word=word, category_id=category_id)
+        CustomDictionary(user_id=user_id, word=word, category_id=category_id, folder_path=folder_path)
         for word in new_words
     ]
     db.add_all(db_words)

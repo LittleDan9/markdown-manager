@@ -3,6 +3,7 @@ import { ListGroup, Button, Form, Badge, Alert, Spinner } from 'react-bootstrap'
 
 /**
  * Word list entry component with inline editing
+ * Updated to support folder-path based dictionaries
  */
 function DictionaryWordEntry({
   entry,
@@ -14,9 +15,25 @@ function DictionaryWordEntry({
   onUpdateNotes,
   onDelete,
   loading,
-  categories,
+  selectedScope,
   isAuthenticated
 }) {
+  const getScopeDisplay = () => {
+    if (entry.folder_path) {
+      const parts = entry.folder_path.split('/').filter(p => p);
+      if (entry.folder_path.startsWith('/github/')) {
+        return `🐙 ${parts[1] || 'GitHub'}`;
+      } else {
+        return `📁 ${parts[0] || 'Folder'}`;
+      }
+    } else if (entry.category_id) {
+      // Backward compatibility
+      return `📂 Category ${entry.category_id}`;
+    } else {
+      return '👤 Personal Dictionary';
+    }
+  };
+
   return (
     <ListGroup.Item className="d-flex justify-content-between align-items-start">
       <div className="flex-grow-1">
@@ -29,14 +46,7 @@ function DictionaryWordEntry({
         {isAuthenticated && (
           <small className="text-muted d-block">
             Added: {new Date(entry.created_at).toLocaleDateString()}
-            {entry.category_id && (
-              <span className="ms-2">
-                • Category: {categories.find(c => c.id === entry.category_id)?.name || 'Unknown'}
-              </span>
-            )}
-            {!entry.category_id && (
-              <span className="ms-2">• Personal Dictionary</span>
-            )}
+            <span className="ms-2">• {getScopeDisplay()}</span>
           </small>
         )}
 
@@ -99,7 +109,7 @@ function DictionaryWordEntry({
 }
 
 /**
- * Dictionary word list component with comprehensive authentication and category handling
+ * Dictionary word list component with comprehensive authentication and scope handling
  */
 export function DictionaryWordList({
   entries,
@@ -111,8 +121,7 @@ export function DictionaryWordList({
   onDeleteWord,
   loading,
   isAuthenticated,
-  categories,
-  selectedCategory,
+  selectedScope,
   localWordCount,
   onLocalWordDelete
 }) {
@@ -126,6 +135,23 @@ export function DictionaryWordList({
     );
   }
 
+  const getScopeDisplayText = () => {
+    if (!selectedScope) return 'personal dictionary';
+    
+    switch (selectedScope.type) {
+      case 'user':
+        return 'personal dictionary';
+      case 'folder':
+        const folderName = selectedScope.folder_path?.split('/').filter(p => p)[0] || 'folder';
+        return `${folderName} folder dictionary`;
+      case 'repository':
+        const repoName = selectedScope.folder_path?.split('/').filter(p => p)[1] || 'repository';
+        return `${repoName} repository dictionary`;
+      default:
+        return 'dictionary';
+    }
+  };
+
   // Handle unauthenticated users with local storage
   if (!isAuthenticated) {
     return (
@@ -133,16 +159,16 @@ export function DictionaryWordList({
         <Alert variant="info">
           <i className="bi bi-info-circle me-2"></i>
           You're using a local dictionary. Log in to sync your words across devices.
-          {selectedCategory && (
+          {selectedScope && (
             <div className="mt-2">
-              <strong>Category:</strong> {categories.find(c => c.id === selectedCategory)?.name || 'Selected Category'}
+              <strong>Scope:</strong> {getScopeDisplayText()}
             </div>
           )}
         </Alert>
         {entries.length === 0 ? (
           <Alert variant="secondary">
-            {selectedCategory
-              ? `No custom words in the ${categories.find(c => c.id === selectedCategory)?.name || 'selected'} category yet.`
+            {selectedScope
+              ? `No custom words in the ${getScopeDisplayText()} yet.`
               : "No custom words yet."
             } Add words above or use "Add to Dictionary" in the editor.
           </Alert>
@@ -155,7 +181,7 @@ export function DictionaryWordList({
                   <Button
                     variant="outline-danger"
                     size="sm"
-                    onClick={() => onLocalWordDelete && onLocalWordDelete(entry, selectedCategory)}
+                    onClick={() => onLocalWordDelete && onLocalWordDelete(entry, selectedScope)}
                     title="Remove word"
                   >
                     <i className="bi bi-trash"></i>
@@ -173,8 +199,8 @@ export function DictionaryWordList({
   if (!Array.isArray(entries) || entries.length === 0) {
     return (
       <Alert variant="info">
-        {selectedCategory
-          ? `No custom words in the ${categories.find(c => c.id === selectedCategory)?.name || 'selected'} category dictionary yet. Add words above or use "Add to Dictionary" in the editor when working with documents in this category.`
+        {selectedScope
+          ? `No custom words in your ${getScopeDisplayText()} yet. Add words above or use "Add to Dictionary" in the editor when working with documents in this scope.`
           : "No custom words in your personal dictionary yet. Add words above or use \"Add to Dictionary\" in the editor."
         }
       </Alert>
@@ -196,7 +222,7 @@ export function DictionaryWordList({
             onUpdateNotes={onUpdateEditNotes}
             onDelete={onDeleteWord}
             loading={loading}
-            categories={categories}
+            selectedScope={selectedScope}
             isAuthenticated={isAuthenticated}
           />
         ))}

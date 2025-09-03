@@ -1,7 +1,7 @@
 // src/utils/editorHelpers.js
 import * as monaco from 'monaco-editor';
 import { SpellCheckService } from '@/services/editor';
-import { chunkTextWithOffsets } from './chunkText'; // if you need it
+import { chunkTextWithOffsets } from './chunkText'; // if you need it for progressive chunking
 import { DictionaryService } from '@/services/utilities';
 
 /**
@@ -197,14 +197,15 @@ export function toMonacoMarkers(
  *    - “Replace with…” suggestions
  *    - “Add to dictionary”
  */
-export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId = null) {
+export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId = null, getFolderPath = null) {
   const disposables = [];
 
   // code action provider
   disposables.push(monaco.languages.registerCodeActionProvider('markdown', {
     provideCodeActions(model, range) {
-      // Get current categoryId dynamically
+      // Get current categoryId and folderPath dynamically
       const categoryId = typeof getCategoryId === 'function' ? getCategoryId() : getCategoryId;
+      const folderPath = typeof getFolderPath === 'function' ? getFolderPath() : getFolderPath;
 
       const wordInfo = model.getWordAtPosition(range.getStartPosition())
       if (!wordInfo || !wordInfo.word) return { actions: [], dispose: () => { } };
@@ -325,7 +326,9 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
 
       // Run a full document scan to update all markers for the new dictionary word
       const fullText = model.getValue();
-      SpellCheckService.scan(fullText, () => {}, categoryId).then(issues => {
+      // Get current folder path for this document
+      const currentFolderPath = typeof getFolderPath === 'function' ? getFolderPath() : null;
+      SpellCheckService.scan(fullText, () => {}, categoryId, currentFolderPath).then(issues => {
         toMonacoMarkers({ getModel: () => model }, issues, 0);
       });
     });
@@ -354,7 +357,9 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
 
         // Run a full document scan to update all markers for the new dictionary word
         const fullText = model.getValue();
-        SpellCheckService.scan(fullText, () => {}, categoryId).then(issues => {
+        // Get current folder path for this document
+        const currentFolderPath = typeof getFolderPath === 'function' ? getFolderPath() : null;
+        SpellCheckService.scan(fullText, () => {}, categoryId, currentFolderPath).then(issues => {
           toMonacoMarkers({ getModel: () => model }, issues, 0);
         });
       } catch (error) {
@@ -386,7 +391,9 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
 
       // Run a full document scan to update all markers for the new dictionary word
       const fullText = model.getValue();
-      SpellCheckService.scan(fullText, () => {}, categoryId).then(issues => {
+      // Get current folder path for this document
+      const currentFolderPath = typeof getFolderPath === 'function' ? getFolderPath() : null;
+      SpellCheckService.scan(fullText, () => {}, categoryId, currentFolderPath).then(issues => {
         toMonacoMarkers({ getModel: () => model }, issues, 0);
       });
     });
@@ -401,7 +408,9 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
       const lineContent = model.getLineContent(lineNumber);
       const regionText = lineContent.slice(range.startColumn - 1);
       const startOffset = model.getOffsetAt({ lineNumber, column: 0 });
-      SpellCheckService.scan(lineContent, () => {}, categoryId).then(issues => {
+      // Get current folder path for this document
+      const currentFolderPath = typeof getFolderPath === 'function' ? getFolderPath() : null;
+      SpellCheckService.scan(lineContent, () => {}, categoryId, currentFolderPath).then(issues => {
         toMonacoMarkers({ getModel: () => model }, issues, startOffset);
       });
     });

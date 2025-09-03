@@ -19,6 +19,10 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   const categoryIdRef = useRef(categoryId);
   categoryIdRef.current = categoryId;
 
+  // Create a ref to track current folder path for dynamic access
+  const folderPathRef = useRef(currentDocument?.folder_path);
+  folderPathRef.current = currentDocument?.folder_path;
+
   // Debug: Log the document structure to understand what we have
 
   // Debounced cursor line change handler
@@ -35,7 +39,8 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
     enableKeyboardShortcuts: true,
     enableListBehavior: true,
     categoryId,
-    getCategoryId: () => categoryIdRef.current
+    getCategoryId: () => categoryIdRef.current,
+    getFolderPath: () => folderPathRef.current
   });
 
   const progress = spellCheck?.progress;
