@@ -2,7 +2,7 @@
 import * as monaco from 'monaco-editor';
 import { SpellCheckService } from '@/services/editor';
 import { chunkTextWithOffsets } from './chunkText'; // if you need it for progressive chunking
-import { DictionaryService } from '@/services/utilities';
+import DictionaryService from '@/services/dictionary';
 
 /**
  * Clear all spell check markers from the Monaco editor
@@ -11,6 +11,12 @@ import { DictionaryService } from '@/services/utilities';
  */
 export function clearSpellCheckMarkers(editor, suggestionsMap = null) {
   if (!editor || typeof editor.getModel !== 'function') return;
+  
+  // Guard against Monaco not being loaded
+  if (!monaco || !monaco.editor) {
+    console.warn('Monaco editor not fully loaded, skipping marker clearing');
+    return;
+  }
 
   const model = editor.getModel();
   if (model) {
@@ -120,7 +126,18 @@ export function toMonacoMarkers(
   startOffset,
   prevSuggestionsMap = new Map()
 ) {
+  // Guard against Monaco not being loaded
+  if (!monaco || !monaco.editor) {
+    console.warn('Monaco editor not fully loaded, skipping marker creation');
+    return new Map();
+  }
+
   const model = editor.getModel();
+  if (!model) {
+    console.warn('Editor model not available, skipping marker creation');
+    return new Map();
+  }
+
   const oldMarkers = monaco.editor.getModelMarkers({ resource: model.uri })
     .filter(m => m.owner === 'spell');
   const newMarkers = [];
@@ -198,6 +215,12 @@ export function toMonacoMarkers(
  *    - “Add to dictionary”
  */
 export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId = null, getFolderPath = null) {
+  // Guard against Monaco not being loaded
+  if (!monaco || !monaco.languages || !monaco.editor) {
+    console.warn('Monaco editor not fully loaded, skipping quick fix registration');
+    return () => {}; // Return empty cleanup function
+  }
+
   const disposables = [];
 
   // code action provider
@@ -261,9 +284,31 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
         }
       }));
 
-      // add "Add to dictionary" options - both user and category if applicable
-      if (categoryId) {
-        // Add to category dictionary
+      // add "Add to dictionary" options - both user and folder if applicable
+      if (folderPath) {
+        // Add to folder dictionary
+        actions.push({
+          title: `Add "${wordInfo.word}" to Folder Dictionary`,
+          kind: 'quickfix',
+          command: {
+            id: 'spell.addToFolderDictionary',
+            title: 'Add to folder dictionary',
+            arguments: [key, range, editor, suggestionsMapRef, folderPath]
+          }
+        });
+
+        // Add to user dictionary (global)
+        actions.push({
+          title: `Add "${wordInfo.word}" to User Dictionary`,
+          kind: 'quickfix',
+          command: {
+            id: 'spell.addToUserDictionary',
+            title: 'Add to user dictionary',
+            arguments: [key, range, editor, suggestionsMapRef, null]
+          }
+        });
+      } else if (categoryId) {
+        // Backward compatibility: Add to category dictionary
         actions.push({
           title: `Add "${wordInfo.word}" to Category Dictionary`,
           kind: 'quickfix',
@@ -285,7 +330,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
           }
         });
       } else {
-        // Only user dictionary option when no category
+        // Only user dictionary option when no folder or category
         actions.push({
           title: `Add "${wordInfo.word}" to User Dictionary`,
           kind: 'quickfix',
@@ -336,6 +381,41 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
   }
 
 
+  // Register folder dictionary command
+  if (!monaco.editor._spellAddToFolderDictionaryRegistered) {
+    monaco.editor.registerCommand('spell.addToFolderDictionary', async (accessor, ...args) => {
+      const [key, range, editorInstance, suggestionsMapRefArg, folderPath] = args;
+      if (!editorInstance || typeof editorInstance.getModel !== 'function' || !suggestionsMapRefArg) {
+        console.error('spell.addToFolderDictionary: Invalid editor instance passed:', editorInstance);
+        return;
+      }
+
+      const model = editorInstance.getModel();
+      const wordInfo = model.getWordAtPosition(range.getStartPosition())
+      if (!wordInfo || !wordInfo.word) return;
+
+      try {
+        // Add word to folder dictionary (both local storage and backend)
+        await DictionaryService.addWord(wordInfo.word, null, folderPath, null);
+
+        suggestionsMapRefArg.current.delete(key);
+
+        // Run a full document scan to update all markers for the new dictionary word
+        const fullText = model.getValue();
+        // Get current folder path for this document
+        const currentFolderPath = typeof getFolderPath === 'function' ? getFolderPath() : folderPath;
+        SpellCheckService.scan(fullText, () => {}, null, currentFolderPath).then(issues => {
+          toMonacoMarkers({ getModel: () => model }, issues, 0);
+        });
+      } catch (error) {
+        console.error('Failed to add word to folder dictionary:', error);
+        // Still remove from suggestions map even if backend call fails
+        suggestionsMapRefArg.current.delete(key);
+      }
+    });
+    monaco.editor._spellAddToFolderDictionaryRegistered = true;
+  }
+
   // Register category dictionary command
   if (!monaco.editor._spellAddToCategoryDictionaryRegistered) {
     monaco.editor.registerCommand('spell.addToCategoryDictionary', async (accessor, ...args) => {
@@ -351,7 +431,7 @@ export function registerQuickFixActions(editor, suggestionsMapRef, getCategoryId
 
       try {
         // Add word to category dictionary (both local storage and backend)
-        await DictionaryService.addWord(wordInfo.word, null, categoryId);
+        await DictionaryService.addWord(wordInfo.word, null, null, categoryId);
 
         suggestionsMapRefArg.current.delete(key);
 

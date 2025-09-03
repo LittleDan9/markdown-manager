@@ -11,7 +11,7 @@ import {
 } from '@/utils/authHelpers';
 import DocumentStorageService from './DocumentStorageService';
 import NotificationService from '../utilities/notifications.js';
-import { DictionaryService } from '../utilities';
+import DictionaryService from '../dictionary';
 
 const defaultUser = {
   bio: "",

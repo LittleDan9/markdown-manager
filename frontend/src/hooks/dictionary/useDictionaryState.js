@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
-import { DictionaryService } from '@/services/utilities';
+import DictionaryService from '@/services/dictionary';
 
 /**
  * Custom hook for managing dictionary state and operations

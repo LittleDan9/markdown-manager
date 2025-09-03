@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { DictionaryService } from '@/services/utilities';
+import DictionaryService from '@/services/dictionary';
 
 /**
  * Custom hook for dictionary CRUD operations

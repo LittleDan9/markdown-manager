@@ -4,7 +4,7 @@
 // import { chunkText } from './utils';
 import SpellCheckWorkerPool from './SpellCheckWorkerPool';
 import { chunkTextWithOffsets } from '@/utils';
-import { DictionaryService } from '../utilities';
+import DictionaryService from '../dictionary';
 
 export class SpellCheckService {
   constructor(chunkSize = 1000) {
