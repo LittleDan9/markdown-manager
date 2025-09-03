@@ -3,6 +3,7 @@ import { Modal, Button, Alert, Spinner, ListGroup, Breadcrumb, Form } from 'reac
 import { useNotification } from '../NotificationProvider';
 import gitHubApi from '../../api/gitHubApi';
 import documentsApi from '../../api/documentsApi';
+import { isMarkdownFile } from '../../utils/fileBrowserUtils';
 
 export default function GitHubFileBrowser({
   show,
@@ -222,10 +223,6 @@ export default function GitHubFileBrowser({
     } else {
       return '📎';
     }
-  };
-
-  const isMarkdownFile = (item) => {
-    return item.type === 'file' && item.name.toLowerCase().match(/\.(md|markdown)$/);
   };
 
   const sortPathContents = (contents) => {

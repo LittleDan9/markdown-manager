@@ -19,7 +19,7 @@ export default function GitHubTab({
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [loading, setLoading] = useState(false);
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
   const { returnCallback, closeFileModal } = useFileModal();
 
   // Auto-select repository if provided via global state
@@ -67,23 +67,55 @@ export default function GitHubTab({
 
   const handleGitHubFileOpen = async (file) => {
     console.log('Opening GitHub file:', file);
-    // GitHub files need to be imported first
-    if (!file.isImported) {
-      showError('File must be imported before opening. Use the import action.');
-      return;
-    }
     
-    // If the file has been imported, it should have a documentId
-    if (file.documentId) {
-      const doc = documents?.find((d) => d.id === file.documentId);
-      if (doc) {
-        onFileOpen(doc);
+    try {
+      setLoading(true);
+      
+      // Check if file is already imported and has a documentId
+      if (file.isImported && file.documentId) {
+        const doc = documents?.find((d) => d.id === file.documentId);
+        if (doc) {
+          onFileOpen(doc);
+          onModalHide();
+          return;
+        }
+      }
+      
+      // File needs to be imported first - do it automatically
+      console.log('Importing GitHub file automatically...');
+      
+      const importResponse = await gitHubApi.importDocument({
+        repository_id: selectedGitHubRepo.id,
+        file_path: file.githubPath || file.path,
+        branch: selectedBranch,
+        category: 'GitHub Import'
+      });
+      
+      console.log('Import response:', importResponse);
+      
+      // Handle different possible response formats
+      let importedDoc = null;
+      if (importResponse.document) {
+        importedDoc = importResponse.document;
+      } else if (importResponse.data?.document) {
+        importedDoc = importResponse.data.document;
+      } else if (importResponse.id) {
+        importedDoc = importResponse;
+      }
+      
+      if (importedDoc) {
+        console.log('Successfully imported document:', importedDoc);
+        onFileOpen(importedDoc);
         onModalHide();
       } else {
-        showError('Imported document not found in local documents.');
+        showError('Failed to import file. Invalid response format.');
       }
-    } else {
-      showError('GitHub file not properly imported.');
+      
+    } catch (err) {
+      console.error('Import and open failed:', err);
+      showError('Failed to import and open file. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -144,7 +176,7 @@ export default function GitHubTab({
                 breadcrumbType="github"
                 breadcrumbData={{ repository: selectedGitHubRepo }}
                 config={{
-                  showActions: false,
+                  showActions: true,
                   showBreadcrumb: true,
                   showTreeBreadcrumb: false
                 }}

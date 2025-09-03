@@ -64,19 +64,18 @@ export default function GitHubRepositoryBrowser({
   };
 
   const handleFileImport = async (file) => {
-    if (!file || file.type !== 'file' || !isMarkdownFile(file.name)) {
+    if (!file || file.type !== 'file' || !isMarkdownFile(file)) {
       return;
     }
 
     try {
       setImporting(true);
       
-      await gitHubApi.importFile({
-        repository_id: repository.id,
-        file_path: file.path,
-        branch: selectedBranch,
-        file_name: file.name
-      });
+      await gitHubApi.importDocument(
+        repository.id,
+        file.path,
+        selectedBranch
+      );
 
       showSuccess(`Successfully imported ${file.name}`);
       onHide();
@@ -91,7 +90,7 @@ export default function GitHubRepositoryBrowser({
   const canImportFile = () => {
     return selectedFile && 
            selectedFile.type === 'file' && 
-           isMarkdownFile(selectedFile.name);
+           isMarkdownFile(selectedFile);
   };
 
   if (!repository) return null;

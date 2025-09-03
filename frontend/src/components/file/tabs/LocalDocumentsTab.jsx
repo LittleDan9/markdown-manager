@@ -75,7 +75,7 @@ export default function LocalDocumentsTab({
         dataProvider={localDocumentsProvider}
         onFileOpen={handleFileOpen}
         config={{
-          showActions: false,
+          showActions: true,
           showBreadcrumb: true,
           showTreeBreadcrumb: false
         }}

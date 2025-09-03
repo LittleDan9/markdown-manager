@@ -19,13 +19,20 @@ export default function BreadcrumbBar({
         <Breadcrumb className="mb-0">
           <Breadcrumb.Item active>
             <i className="bi bi-house-door me-1"></i>
-            Root
+            {repository?.name || repository?.repo_name || 'Repository'}
           </Breadcrumb.Item>
         </Breadcrumb>
       );
     }
 
-    const pathParts = currentPath.split('/').filter(part => part);
+    // For GitHub paths, we need to strip out the provider-specific parts
+    // e.g., "/GitHub/markdown-manager/main/src/components" should show "src > components"
+    let pathParts = currentPath.split('/').filter(part => part);
+    
+    // Remove GitHub provider path artifacts (GitHub, repo name, branch)
+    if (pathParts.length >= 3 && pathParts[0] === 'GitHub') {
+      pathParts = pathParts.slice(3); // Remove "GitHub", repo name, and branch
+    }
     
     return (
       <Breadcrumb className="mb-0">
@@ -34,18 +41,22 @@ export default function BreadcrumbBar({
           style={{ cursor: 'pointer' }}
         >
           <i className="bi bi-house-door me-1"></i>
-          Root
+          {repository?.name || repository?.repo_name || 'Repository'}
         </Breadcrumb.Item>
         
         {pathParts.map((part, index) => {
           const isLast = index === pathParts.length - 1;
-          const fullPath = pathParts.slice(0, index + 1).join('/');
+          // Reconstruct the full GitHub path for navigation
+          const currentPathParts = currentPath.split('/').filter(p => p);
+          const githubRootParts = currentPathParts.slice(0, 3); // GitHub/repo/branch
+          const fileParts = pathParts.slice(0, index + 1);
+          const fullPath = [...githubRootParts, ...fileParts].join('/');
           
           return (
             <Breadcrumb.Item
               key={fullPath}
               active={isLast}
-              onClick={() => !isLast && onPathChange && onPathChange(fullPath)}
+              onClick={() => !isLast && onPathChange && onPathChange('/' + fullPath)}
               style={{ cursor: !isLast ? 'pointer' : 'default' }}
             >
               {part}

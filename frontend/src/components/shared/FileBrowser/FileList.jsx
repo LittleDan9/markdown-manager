@@ -157,6 +157,9 @@ export default function FileList({
       // Use the item's path directly - it should already be in the correct format
       const newPath = item.path;
       onPathChange(newPath);
+    } else if (item.type === 'file' && onFileOpen) {
+      // For files, double-click opens the file
+      onFileOpen(item);
     }
   };
 
@@ -181,7 +184,7 @@ export default function FileList({
     let badgeColor = 'secondary';
     let icon = 'file-earmark';
     
-    if (isMarkdownFile(item.name)) {
+    if (isMarkdownFile(item)) {
       badgeColor = 'success';
       icon = 'file-text';
     } else if (['js', 'jsx', 'ts', 'tsx'].includes(extension)) {
@@ -285,8 +288,14 @@ export default function FileList({
                     {formatFileSize(item.size)}
                   </td>
                   <td className="text-end">
-                    {item.type === 'file' && item.name && isMarkdownFile(item.name) && (
-                      <i className="bi bi-file-richtext text-success" title="Markdown file"></i>
+                    {item.type === 'file' && item.name && isMarkdownFile(item) && (
+                      <div className="d-flex align-items-center justify-content-end">
+                        <i className="bi bi-file-richtext text-success me-1" title="Markdown file - Double-click to open"></i>
+                        <i className="bi bi-box-arrow-in-right text-success opacity-75" title="Double-click to open"></i>
+                      </div>
+                    )}
+                    {item.type === 'file' && item.name && !isMarkdownFile(item) && (
+                      <i className="bi bi-file-earmark text-muted opacity-50" title="File (not openable)"></i>
                     )}
                     {isFolder && (
                       <i className="bi bi-chevron-right text-muted opacity-50"></i>

@@ -3,7 +3,6 @@ import { Container, Row, Col } from 'react-bootstrap';
 import FileTree from './FileTree';
 import FileList from './FileList';
 import FilePreview from './FilePreview';
-import FileBrowserHeader from './FileBrowserHeader';
 import FileBrowserActions from './FileBrowserActions';
 import BreadcrumbBar from './BreadcrumbBar';
 
@@ -85,14 +84,14 @@ export default function UnifiedFileBrowser({
     console.log('UnifiedFileBrowser handlePathChange called with:', newPath);
     setCurrentPath(newPath);
     setSelectedFile(null);
-    
+
     // Ensure the corresponding folder and all its parents are expanded in the tree
     if (newPath && newPath !== '/') {
       const newExpanded = new Set(expandedFolders);
-      
+
       // Add root path
       newExpanded.add('/');
-      
+
       // Add all parent paths step by step
       const pathParts = newPath.split('/').filter(p => p);
       let buildPath = '';
@@ -100,13 +99,13 @@ export default function UnifiedFileBrowser({
         buildPath += '/' + part;
         newExpanded.add(buildPath);
       });
-      
+
       // Also add the current path itself (target folder)
       newExpanded.add(newPath);
-      
+
       setExpandedFolders(newExpanded);
     }
-    
+
     // Scroll to the navigated folder after a short delay
     setTimeout(() => {
       if (fileTreeRef.current && fileTreeRef.current.scrollToFolder) {
@@ -117,6 +116,23 @@ export default function UnifiedFileBrowser({
 
   const handleFileSelect = (file) => {
     setSelectedFile(file);
+
+    // If a file is selected (not a folder), navigate to its parent directory
+    if (file && file.type === 'file') {
+      const filePath = file.path;
+      if (filePath) {
+        // Get the parent directory path
+        const pathParts = filePath.split('/');
+        pathParts.pop(); // Remove the filename
+        const parentPath = pathParts.join('/') || '/';
+
+        // Only navigate if we're not already in the parent directory
+        if (parentPath !== currentPath) {
+          setCurrentPath(parentPath);
+        }
+      }
+    }
+
     if (onFileSelect) {
       onFileSelect(file);
     }
@@ -132,10 +148,10 @@ export default function UnifiedFileBrowser({
     // Expand the folder in the tree without navigating to it
     setExpandedFolders(prev => {
       const newSet = new Set(prev);
-      
+
       // Add the folder itself
       newSet.add(folderPath);
-      
+
       // Also ensure all parent folders are expanded
       const pathParts = folderPath.split('/').filter(p => p);
       let currentPath = '';
@@ -143,13 +159,13 @@ export default function UnifiedFileBrowser({
         currentPath += '/' + part;
         newSet.add(currentPath);
       });
-      
+
       // Make sure root is expanded
       newSet.add('/');
-      
+
       return newSet;
     });
-    
+
     // Scroll to the expanded folder after a short delay
     setTimeout(() => {
       if (fileTreeRef.current && fileTreeRef.current.scrollToFolder) {
@@ -166,7 +182,7 @@ export default function UnifiedFileBrowser({
       newExpanded.delete(folderPath);
     }
     setExpandedFolders(newExpanded);
-    
+
     // Also update current path when expanding folders
     if (isExpanded) {
       setCurrentPath(folderPath);
@@ -180,32 +196,37 @@ export default function UnifiedFileBrowser({
   };
 
   return (
-    <div className={`unified-file-browser ${loading ? 'loading' : ''} ${finalConfig.allowMultiSelect ? 'file-browser-multi-select' : ''}`}>
-        {finalConfig.showActions && (
-          <FileBrowserHeader
-            currentPath={currentPath}
-            onPathChange={handlePathChange}
-            selectedFiles={selectedFiles}
-            config={finalConfig}
-          />
-        )}
-
+    <div className={`unified-file-browser ${loading ? 'loading' : ''} ${finalConfig.allowMultiSelect ? 'file-browser-multi-select' : ''}`} style={{ 
+      height: '100%', 
+      maxHeight: '100%',
+      display: 'flex', 
+      flexDirection: 'column',
+      overflow: 'hidden'
+    }}>
         {/* Full-width Breadcrumb Bar */}
         {finalConfig.showBreadcrumb && (
-          <BreadcrumbBar
-            currentPath={currentPath}
-            onPathChange={handlePathChange}
-            breadcrumbType={breadcrumbType}
-            repository={breadcrumbData.repository}
-            categories={breadcrumbData.categories}
-            documents={breadcrumbData.documents}
-            currentFiles={currentFiles}
-          />
+          <div style={{ flexShrink: 0 }}>
+            <BreadcrumbBar
+              currentPath={currentPath}
+              onPathChange={handlePathChange}
+              breadcrumbType={breadcrumbType}
+              repository={breadcrumbData.repository}
+              categories={breadcrumbData.categories}
+              documents={breadcrumbData.documents}
+              currentFiles={currentFiles}
+            />
+          </div>
         )}
-      
-      <div className="d-flex flex-grow-1 overflow-hidden position-relative">
+
+      <div className="d-flex flex-grow-1 overflow-hidden position-relative" style={{ minHeight: 0, flex: '1 1 0' }}>
         {/* Tree Navigation */}
-        <div className="flex-shrink-0" style={{ width: '300px' }}>
+        <div className="flex-shrink-0 border-end" style={{
+          width: '300px',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden'
+        }}>
           <FileTree
             ref={fileTreeRef}
             treeData={treeData}
@@ -223,7 +244,13 @@ export default function UnifiedFileBrowser({
         </div>
 
         {/* File List */}
-        <div className="flex-grow-1 border-start">
+        <div className="flex-grow-1" style={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          overflow: 'hidden',
+          minWidth: 0
+        }}>
           <FileList
             files={currentFiles}
             currentPath={currentPath}
@@ -240,7 +267,13 @@ export default function UnifiedFileBrowser({
 
         {/* Preview Pane */}
         {finalConfig.showPreview && (
-          <div className="flex-shrink-0 border-start" style={{ width: '350px' }}>
+          <div className="flex-shrink-0 border-start" style={{ 
+            width: '350px',
+            height: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}>
             <FilePreview
               file={selectedFile}
               dataProvider={dataProvider}
@@ -250,9 +283,9 @@ export default function UnifiedFileBrowser({
         )}
 
         {/* Bottom Gradient */}
-        <div className="bottom-gradient position-absolute bottom-0 start-0 end-0" 
-             style={{ 
-               height: '20px', 
+        <div className="bottom-gradient position-absolute bottom-0 start-0 end-0"
+             style={{
+               height: '20px',
                background: 'linear-gradient(to top, rgba(var(--bs-body-bg-rgb), 0.9), transparent)',
                pointerEvents: 'none',
                zIndex: 1
@@ -261,13 +294,15 @@ export default function UnifiedFileBrowser({
       </div>
 
       {finalConfig.showActions && (
-        <FileBrowserActions
-          selectedFile={selectedFile}
-          selectedFiles={selectedFiles}
-          onFileOpen={handleFileOpen}
-          onMultiSelect={handleMultiSelect}
-          config={finalConfig}
-        />
+        <div style={{ flexShrink: 0, borderTop: '1px solid var(--bs-border-color)' }}>
+          <FileBrowserActions
+            selectedFile={selectedFile}
+            selectedFiles={selectedFiles}
+            onFileOpen={handleFileOpen}
+            onMultiSelect={handleMultiSelect}
+            config={finalConfig}
+          />
+        </div>
       )}
     </div>
   );

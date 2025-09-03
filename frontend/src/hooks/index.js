@@ -11,7 +11,7 @@ export * from './editor';
 export * from './dictionary';
 
 // GitHub hooks - GitHub integration, OAuth, and repository management
-export * from './github';
+export { useGitHubOAuth, useGitHubAccounts, useGitHubRepositories } from './github';
 
 // Markdown hooks - Markdown formatting and toolbar functionality
 export * from './markdown';

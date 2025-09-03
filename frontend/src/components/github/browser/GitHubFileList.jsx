@@ -191,7 +191,7 @@ export default function GitHubFileList({
                     {formatFileSize(item.size)}
                   </td>
                   <td className="text-end">
-                    {item.type === 'file' && isMarkdownFile(item.name) && (
+                    {item.type === 'file' && isMarkdownFile(item) && (
                       <i className="bi bi-file-richtext text-success" title="Markdown file"></i>
                     )}
                     {isFolder && (

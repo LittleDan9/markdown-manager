@@ -65,11 +65,27 @@ export const formatFileSize = (size) => {
 
 /**
  * Check if a file is a markdown file
- * @param {string} filename - Name of the file
+ * @param {string|Object} fileInput - Name of the file or file object with source property
  * @returns {boolean} True if it's a markdown file
  */
-export const isMarkdownFile = (filename) => {
-  return /\.(md|markdown)$/i.test(filename);
+export const isMarkdownFile = (fileInput) => {
+  // If it's a file object with source property
+  if (typeof fileInput === 'object' && fileInput !== null) {
+    // Local documents are always markdown files
+    if (fileInput.source === 'local') {
+      return true;
+    }
+    // For other sources, check the filename
+    const filename = fileInput.name || fileInput.filename || '';
+    return /\.(md|markdown)$/i.test(filename);
+  }
+  
+  // If it's just a filename string, check the extension
+  if (typeof fileInput === 'string') {
+    return /\.(md|markdown)$/i.test(fileInput);
+  }
+  
+  return false;
 };
 
 /**

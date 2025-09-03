@@ -43,10 +43,6 @@ export default function FilePreview({
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
   };
 
-  const isMarkdownFile = (filename) => {
-    return filename && (filename.toLowerCase().endsWith('.md') || filename.toLowerCase().endsWith('.markdown'));
-  };
-
   const renderFileInfo = () => {
     if (!file) return null;
 
