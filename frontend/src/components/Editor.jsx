@@ -30,7 +30,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
 
 
   // Use consolidated editor hook
-  const { editor, spellCheck } = useEditor({
+  const { editor, spellCheck, runSpellCheck } = useEditor({
     containerRef,
     value,
     onChange,
@@ -50,7 +50,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
 
   return (
     <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
-      <MarkdownToolbar editorRef={{ current: editor }} />
+      <MarkdownToolbar editorRef={{ current: editor }} onSpellCheck={runSpellCheck} />
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
         <div ref={containerRef} className="monaco-container" style={{ flex: 1, width: "100%" }} />
         <GitHubStatusBar

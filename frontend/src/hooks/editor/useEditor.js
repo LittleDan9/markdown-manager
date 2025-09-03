@@ -426,6 +426,11 @@ export default function useEditor({
 
   return {
     editor: editorRef.current,
-    spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined
+    spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined,
+    runSpellCheck: () => {
+      if (editorRef.current && lastEditorValue.current) {
+        spellCheckDocument(lastEditorValue.current, 0);
+      }
+    }
   };
 }
