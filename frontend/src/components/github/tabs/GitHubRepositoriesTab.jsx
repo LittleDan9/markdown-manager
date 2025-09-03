@@ -4,8 +4,9 @@ import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
 import gitHubApi from '../../../api/gitHubApi';
 import { sortRepositories } from '../../../utils/githubUtils';
+import useFileModal from '../../../hooks/ui/useFileModal';
 
-export default function GitHubRepositoriesTab() {
+export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
   const [accounts, setAccounts] = useState([]);
   const [selectedAccount, setSelectedAccount] = useState('');
   const [repositories, setRepositories] = useState([]);
@@ -13,6 +14,7 @@ export default function GitHubRepositoriesTab() {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
   const { showSuccess, showError } = useNotification();
+  const { openGitHubTab } = useFileModal();
 
   useEffect(() => {
     loadAccounts();
@@ -155,6 +157,7 @@ export default function GitHubRepositoriesTab() {
               <GitHubRepositoryList 
                 repositories={filteredRepositories}
                 accountId={selectedAccount}
+                onRepositoryBrowse={onRepositoryBrowse}
               />
             )}
           </Card.Body>

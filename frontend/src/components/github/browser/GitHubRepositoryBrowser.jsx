@@ -102,7 +102,8 @@ export default function GitHubRepositoryBrowser({
       onHide={onHide} 
       size="xl" 
       className="github-repository-browser"
-      dialogClassName="modal-90w"
+      dialogClassName="open-file-modal-scroll"
+      style={{ '--bs-modal-width': '90vw' }}
     >
       <Modal.Header closeButton>
         <Modal.Title>
@@ -111,7 +112,14 @@ export default function GitHubRepositoryBrowser({
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body className="p-0">
+      <Modal.Body style={{ 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column',
+        flex: 1,
+        minHeight: 0,
+        padding: 0
+      }}>
         {error && (
           <Alert variant="danger" className="m-3 mb-0">
             {error}
@@ -127,24 +135,32 @@ export default function GitHubRepositoryBrowser({
         />
 
         {provider ? (
-          <UnifiedFileBrowser
-            dataProvider={provider}
-            onFileSelect={handleFileSelect}
-            onFileOpen={handleFileImport}
-            config={{
-              allowMultiSelect: false,
-              showPreview: true,
-              showActions: false,
-              defaultView: 'tree',
-              filters: {
-                fileTypes: ['.md', '.markdown', '.txt'],
-                sources: ['github']
-              }
-            }}
-            showHeader={false}
-            showActions={false}
-            className="github-browser-content"
-          />
+          <div style={{ 
+            flex: 1, 
+            display: 'flex', 
+            flexDirection: 'column',
+            minHeight: 0,
+            padding: '1rem'
+          }}>
+            <UnifiedFileBrowser
+              dataProvider={provider}
+              onFileSelect={handleFileSelect}
+              onFileOpen={handleFileImport}
+              config={{
+                allowMultiSelect: false,
+                showPreview: true,
+                showActions: false,
+                defaultView: 'tree',
+                filters: {
+                  fileTypes: ['.md', '.markdown', '.txt'],
+                  sources: ['github']
+                }
+              }}
+              showHeader={false}
+              showActions={false}
+              className="github-browser-content"
+            />
+          </div>
         ) : (
           <div className="d-flex justify-content-center align-items-center p-4">
             <span className="text-muted">Select a branch to browse files</span>

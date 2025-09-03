@@ -1,5 +1,5 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
@@ -15,6 +15,17 @@ function UserMenuLoggedIn() {
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
+
+  // Set up return callback for FileOpen Modal → GitHub Modal navigation
+  useEffect(() => {
+    window.gitHubModalReturnCallback = () => {
+      setShowGitHubModal(true);
+    };
+    
+    return () => {
+      delete window.gitHubModalReturnCallback;
+    };
+  }, []);
 
   const handleProfile = () => {
     setActiveTab("profile-info");

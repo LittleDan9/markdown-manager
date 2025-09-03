@@ -3,14 +3,14 @@
  * Abstracted from GitHub file tree for universal use with existing styling
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
 import { sortRepositoryItems } from '../../../utils/fileBrowserUtils';
 // Import existing GitHub styles for consistency
 import '../../../styles/_github.scss';
 
-export default function FileTree({
+export default forwardRef(function FileTree({
   treeData,
   currentPath,
   selectedFile,
@@ -22,9 +22,11 @@ export default function FileTree({
   loading,
   config,
   dataProvider
-}) {
+}, ref) {
   const [folderContents, setFolderContents] = useState(new Map());
   const [loadingFolders, setLoadingFolders] = useState(new Set());
+  const treeContainerRef = useRef(null);
+  const nodeRefs = useRef(new Map());
 
   // Auto-load root contents when tree mounts
   useEffect(() => {
@@ -32,6 +34,33 @@ export default function FileTree({
       loadFolderContents('/');
     }
   }, [dataProvider, treeData]);
+
+  // Load folder contents when folders are expanded
+  useEffect(() => {
+    // Load contents for newly expanded folders
+    expandedFolders.forEach(folderPath => {
+      if (folderPath !== '/' && !folderContents.has(folderPath) && !loadingFolders.has(folderPath)) {
+        loadFolderContents(folderPath);
+      }
+    });
+  }, [expandedFolders]);
+
+  // Scroll to a specific folder in the tree
+  const scrollToFolder = (folderPath) => {
+    const nodeElement = nodeRefs.current.get(folderPath);
+    if (nodeElement && treeContainerRef.current) {
+      nodeElement.scrollIntoView({
+        behavior: 'smooth',
+        block: 'center',
+        inline: 'nearest'
+      });
+    }
+  };
+
+  // Expose scrollToFolder function to parent components
+  useImperativeHandle(ref, () => ({
+    scrollToFolder
+  }));
 
   // Load folder contents when expanded
   const loadFolderContents = async (folderPath) => {
@@ -73,6 +102,8 @@ export default function FileTree({
     if (item.type === 'folder' || item.type === 'dir') {
       onPathChange(item.path);
       handleFolderToggle(item);
+      // Scroll to the folder after a short delay to allow expansion
+      setTimeout(() => scrollToFolder(item.path), 100);
     }
   };
 
@@ -104,6 +135,11 @@ export default function FileTree({
     return (
       <div key={node.id || node.path}>
         <div
+          ref={(el) => {
+            if (el && node.path) {
+              nodeRefs.current.set(node.path, el);
+            }
+          }}
           className={`tree-item ${isSelected ? 'selected' : ''}`}
           style={{ paddingLeft: `${paddingLeft}px` }}
           onClick={() => handleItemClick(node)}
@@ -139,15 +175,19 @@ export default function FileTree({
   const treeWithContents = buildTreeWithContents(treeData);
 
   return (
-    <div className="github-file-tree">
-      <div className="tree-header p-2 border-bottom">
+    <div className="github-file-tree" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div className="tree-header p-2 border-bottom" style={{ flexShrink: 0 }}>
         <small className="text-muted">
           <i className="bi bi-folder me-1"></i>
           Files and folders
         </small>
       </div>
       
-      <div className="tree-content overflow-auto" style={{ maxHeight: '400px' }}>
+      <div 
+        ref={treeContainerRef}
+        className="tree-content overflow-auto" 
+        style={{ flex: 1, minHeight: 0 }}
+      >
         {loading ? (
           <div className="d-flex justify-content-center align-items-center p-4">
             <Spinner animation="border" size="sm" role="status">
@@ -160,4 +200,4 @@ export default function FileTree({
       </div>
     </div>
   );
-}
+});

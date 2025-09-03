@@ -552,6 +552,73 @@ class DocumentCRUD:
 
         return document
 
+    async def get_github_document(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        file_path: str,
+        branch: str
+    ) -> Optional[Document]:
+        """Get a specific GitHub document by repository metadata."""
+        query = select(Document).where(
+            Document.user_id == user_id,
+            Document.github_repository_id == repository_id,
+            Document.github_file_path == file_path,
+            Document.github_branch == branch
+        )
+
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_github_documents_by_repo_branch(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        branch: str
+    ) -> List[Document]:
+        """Get all documents for a specific repository/branch."""
+        query = select(Document).where(
+            Document.user_id == user_id,
+            Document.github_repository_id == repository_id,
+            Document.github_branch == branch
+        )
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_github_folders_for_user(self, db: AsyncSession, user_id: int) -> List[str]:
+        """Get all GitHub folder paths for a user."""
+        query = select(Document.folder_path).where(
+            Document.user_id == user_id,
+            Document.github_repository_id.isnot(None),
+            Document.folder_path.like('/GitHub/%')
+        ).distinct()
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def cleanup_orphaned_github_documents(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        branch: str,
+        current_file_paths: List[str]
+    ) -> int:
+        """Remove documents that no longer exist in the GitHub repository."""
+        stmt = delete(Document).where(
+            Document.user_id == user_id,
+            Document.github_repository_id == repository_id,
+            Document.github_branch == branch,
+            Document.github_file_path.notin_(current_file_paths)
+        )
+
+        result = await db.execute(stmt)
+        await db.commit()
+        return result.rowcount
+
 
 # Create a singleton instance
 document = DocumentCRUD()

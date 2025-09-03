@@ -137,7 +137,7 @@ export default function FilePreview({
   return (
     <div className="file-browser-preview">
       {/* Header */}
-      <div className="preview-header p-2 border-bottom">
+      <div className="preview-header p-2">
         <small className="text-muted">
           <i className="bi bi-eye me-1"></i>
           Preview

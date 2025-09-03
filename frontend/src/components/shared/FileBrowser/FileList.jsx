@@ -20,6 +20,7 @@ export default function FileList({
   onFileSelect,
   onFileOpen,
   onPathChange,
+  onFolderExpand,
   onMultiSelect,
   config
 }) {
@@ -38,46 +39,125 @@ export default function FileList({
 
     const pathParts = currentPath.split('/').filter(p => p);
     
-    return (
-      <div className="d-flex align-items-center">
-        <button
-          className="btn btn-link p-0 text-decoration-none text-primary d-flex align-items-center"
-          onClick={() => onPathChange && onPathChange('/')}
-          style={{ fontSize: '0.875rem', border: 'none' }}
-        >
-          <i className="bi bi-house-door me-1"></i>
-          <small>Root</small>
-        </button>
-        
-        {pathParts.map((part, index) => {
-          const isLast = index === pathParts.length - 1;
-          const partPath = '/' + pathParts.slice(0, index + 1).join('/');
+    // Check if this is a GitHub path or local documents path
+    const isGitHub = pathParts.includes('GitHub') || pathParts.length > 2;
+    
+    if (isGitHub) {
+      // GitHub-specific breadcrumb logic (existing logic)
+      let filteredParts = pathParts.filter(part => part !== 'GitHub');
+      
+      let repoName = '';
+      let folderParts = [];
+      
+      if (filteredParts.length > 0) {
+        repoName = filteredParts[0]; // First part is repository name
+        if (filteredParts.length > 2) {
+          // Skip branch name (second part) and show folders (third part onwards)
+          folderParts = filteredParts.slice(2);
+        }
+      }
+      
+      return (
+        <div className="d-flex align-items-center">
+          <button
+            className="btn btn-link p-0 text-decoration-none text-primary d-flex align-items-center"
+            onClick={() => onPathChange && onPathChange('/')}
+            style={{ fontSize: '0.875rem', border: 'none' }}
+          >
+            <i className="bi bi-folder me-1"></i>
+            <small>{repoName || 'Repository'}</small>
+          </button>
           
-          return (
-            <React.Fragment key={index}>
-              <span className="text-muted mx-1">/</span>
-              {isLast ? (
-                <span className="text-muted">
-                  <small>{part}</small>
-                </span>
-              ) : (
-                <button
-                  className="btn btn-link p-0 text-decoration-none text-primary"
-                  onClick={() => onPathChange && onPathChange(partPath)}
-                  style={{ fontSize: '0.875rem' }}
-                >
-                  <small>{part}</small>
-                </button>
-              )}
-            </React.Fragment>
-          );
-        })}
-      </div>
-    );
+          {folderParts.map((part, index) => {
+            const isLast = index === folderParts.length - 1;
+            // Reconstruct the original path including all parts for navigation
+            const repoIndex = pathParts.indexOf(repoName);
+            const branchName = pathParts[repoIndex + 1]; // Branch is after repo name
+            const folderPath = pathParts.slice(0, repoIndex + 2 + index + 1); // Include repo, branch, and folders up to this point
+            const partPath = '/' + folderPath.join('/');
+            
+            return (
+              <React.Fragment key={index}>
+                <span className="text-muted mx-1">/</span>
+                {isLast ? (
+                  <span className="text-muted">
+                    <small>{part}</small>
+                  </span>
+                ) : (
+                  <button
+                    className="btn btn-link p-0 text-decoration-none text-primary"
+                    onClick={() => onPathChange && onPathChange(partPath)}
+                    style={{ fontSize: '0.875rem', border: 'none' }}
+                  >
+                    <small>{part}</small>
+                  </button>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      );
+    } else {
+      // Local documents breadcrumb logic (simpler structure)
+      return (
+        <div className="d-flex align-items-center">
+          <button
+            className="btn btn-link p-0 text-decoration-none text-primary d-flex align-items-center"
+            onClick={() => onPathChange && onPathChange('/')}
+            style={{ fontSize: '0.875rem', border: 'none' }}
+          >
+            <i className="bi bi-house-door me-1"></i>
+            <small>My Documents</small>
+          </button>
+          
+          {pathParts.map((part, index) => {
+            const isLast = index === pathParts.length - 1;
+            const partPath = '/' + pathParts.slice(0, index + 1).join('/');
+            
+            return (
+              <React.Fragment key={index}>
+                <span className="text-muted mx-1">/</span>
+                {isLast ? (
+                  <span className="text-muted">
+                    <small>{part}</small>
+                  </span>
+                ) : (
+                  <button
+                    className="btn btn-link p-0 text-decoration-none text-primary"
+                    onClick={() => onPathChange && onPathChange(partPath)}
+                    style={{ fontSize: '0.875rem', border: 'none' }}
+                  >
+                    <small>{part}</small>
+                  </button>
+                )}
+              </React.Fragment>
+            );
+          })}
+        </div>
+      );
+    }
   };
 
   const handleItemClick = (item) => {
     onFileSelect(item);
+    
+    // If it's a folder, expand it in the tree (but don't navigate to it)
+    const isFolder = item.type === 'folder' || item.type === 'dir';
+    if (isFolder && onFolderExpand) {
+      // Use the item's path directly - it should already be in the correct format
+      const folderPath = item.path;
+      onFolderExpand(folderPath);
+    }
+  };
+
+  const handleItemDoubleClick = (item) => {
+    const isFolder = item.type === 'folder' || item.type === 'dir';
+    if (isFolder && onPathChange) {
+      // For folders, double-click navigates to the folder
+      // Use the item's path directly - it should already be in the correct format
+      const newPath = item.path;
+      onPathChange(newPath);
+    }
   };
 
   const isSelected = (file) => {
@@ -135,26 +215,28 @@ export default function FileList({
   };
 
   return (
-    <div className={`github-file-list ${theme}`}>
-      {/* Header */}
-      <div className="tree-header p-2 border-bottom">
-        <div className="d-flex justify-content-between align-items-center">
-          <div>
-            {renderBreadcrumb()}
-          </div>
-          <div>
-            <small className="text-muted">
-              <i className="bi bi-list me-1"></i>
-              {sortedItems.length} items
-            </small>
+    <div className={`github-file-list ${theme}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Header - only show if tree breadcrumb is enabled */}
+      {config.showTreeBreadcrumb && (
+        <div className="tree-header p-2 border-bottom" style={{ flexShrink: 0 }}>
+          <div className="d-flex justify-content-between align-items-center">
+            <div>
+              {renderBreadcrumb()}
+            </div>
+            <div>
+              <small className="text-muted">
+                <i className="bi bi-list me-1"></i>
+                {sortedItems.length} items
+              </small>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* File List */}
-      <div className="table-container overflow-auto" style={{ maxHeight: '400px' }}>
+      <div className="table-container overflow-auto" style={{ flex: 1, minHeight: 0 }}>
         <Table className="mb-0" variant={getTableVariant(theme)}>
-          <thead className={getTableHeaderClass(theme)}>
+          <thead className="tree-header">
             <tr>
               <th style={{ width: '50%' }}>Name</th>
               <th style={{ width: '20%' }}>Type</th>
@@ -172,6 +254,7 @@ export default function FileList({
                   key={item.id || item.path || index}
                   className={`table-row-hover ${isItemSelected ? 'table-primary' : (theme === 'dark' ? 'table-dark' : '')}`}
                   onClick={() => handleItemClick(item)}
+                  onDoubleClick={() => handleItemDoubleClick(item)}
                   style={{ 
                     cursor: 'pointer',
                     transition: 'background-color 0.15s ease-in-out'

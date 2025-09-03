@@ -166,6 +166,99 @@ class GitHubAPI extends Api {
     const res = await this.apiCall("/github/cache/sync/force-all", "POST");
     return res.data;
   }
+
+  // Enhanced folder structure methods (Phase 4)
+  async importRepositoryFiles(repositoryId, importData) {
+    const res = await this.apiCall(`/github/import/repositories/${repositoryId}/import`, "POST", importData);
+    return res.data;
+  }
+
+  async syncRepositoryStructure(repositoryId, syncData) {
+    const res = await this.apiCall(`/github/import/repositories/${repositoryId}/sync`, "POST", syncData);
+    return res.data;
+  }
+
+  async getGitHubFolders() {
+    const res = await this.apiCall("/github/import/folders", "GET");
+    return res.data;
+  }
+
+  async getRepositoryTree(repositoryId, branch = 'main') {
+    const params = new URLSearchParams({ branch });
+    const res = await this.apiCall(`/github/import/repositories/${repositoryId}/tree?${params}`, "GET");
+    return res.data;
+  }
+
+  // Convenience methods for folder-based operations
+  async importRepositoryFile(repositoryId, filePath, branch = 'main') {
+    return this.importRepositoryFiles(repositoryId, {
+      branch,
+      file_paths: [filePath],
+      overwrite_existing: false
+    });
+  }
+
+  async importEntireRepository(repositoryId, branch = 'main', overwriteExisting = false) {
+    return this.importRepositoryFiles(repositoryId, {
+      branch,
+      file_paths: null, // Import all files
+      overwrite_existing: overwriteExisting
+    });
+  }
+
+  async syncRepository(repositoryId, branch = 'main', cleanupOrphaned = true) {
+    return this.syncRepositoryStructure(repositoryId, {
+      branch,
+      cleanup_orphaned: cleanupOrphaned
+    });
+  }
+
+  // File content retrieval for GitHub provider
+  async getFileContent(repositoryId, filePath, branch = 'main') {
+    const params = new URLSearchParams({ 
+      path: filePath, 
+      branch 
+    });
+    const res = await this.apiCall(`/github/repositories/${repositoryId}/contents?${params}`, "GET");
+    
+    // Handle both array response (when backend returns list) and single object response
+    console.log('GitHub API getFileContent response:', res.data);
+    
+    let fileData = res.data;
+    
+    // Handle array response (backend returns array)
+    if (Array.isArray(res.data)) {
+      if (res.data.length === 0) {
+        throw new Error(`No file found for ${filePath}`);
+      }
+      // Take the first item (should be the requested file)
+      fileData = res.data[0];
+      console.log('Extracted file data from array:', fileData);
+    }
+    
+    // Validate that we have file data
+    if (!fileData) {
+      throw new Error(`No file data returned for ${filePath}`);
+    }
+    
+    // If no content field, this might be a directory or error
+    if (!fileData.content) {
+      throw new Error(`File content not available for ${filePath}. This might be a directory.`);
+    }
+    
+    // If this is a file response with content, return decoded content
+    if (fileData.content && fileData.encoding === 'base64') {
+      return {
+        content: atob(fileData.content), // Decode base64 content
+        sha: fileData.sha,
+        size: fileData.size,
+        name: fileData.name,
+        path: fileData.path
+      };
+    }
+    
+    return res.data;
+  }
 }
 
 // Export singleton instance

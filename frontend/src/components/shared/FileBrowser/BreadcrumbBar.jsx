@@ -1,0 +1,150 @@
+import React from 'react';
+import { Breadcrumb } from 'react-bootstrap';
+import { useTheme } from '../../../providers/ThemeProvider';
+
+export default function BreadcrumbBar({ 
+  currentPath = '/', 
+  onPathChange,
+  breadcrumbType = 'github', // 'github' or 'local'
+  repository = null,
+  categories = [],
+  documents = [],
+  currentFiles = [] // Add current files for item count
+}) {
+  const { theme } = useTheme();
+
+  const renderGitHubBreadcrumb = () => {
+    if (!currentPath) {
+      return (
+        <Breadcrumb className="mb-0">
+          <Breadcrumb.Item active>
+            <i className="bi bi-house-door me-1"></i>
+            Root
+          </Breadcrumb.Item>
+        </Breadcrumb>
+      );
+    }
+
+    const pathParts = currentPath.split('/').filter(part => part);
+    
+    return (
+      <Breadcrumb className="mb-0">
+        <Breadcrumb.Item 
+          onClick={() => onPathChange && onPathChange('')}
+          style={{ cursor: 'pointer' }}
+        >
+          <i className="bi bi-house-door me-1"></i>
+          Root
+        </Breadcrumb.Item>
+        
+        {pathParts.map((part, index) => {
+          const isLast = index === pathParts.length - 1;
+          const fullPath = pathParts.slice(0, index + 1).join('/');
+          
+          return (
+            <Breadcrumb.Item
+              key={fullPath}
+              active={isLast}
+              onClick={() => !isLast && onPathChange && onPathChange(fullPath)}
+              style={{ cursor: !isLast ? 'pointer' : 'default' }}
+            >
+              {part}
+            </Breadcrumb.Item>
+          );
+        })}
+      </Breadcrumb>
+    );
+  };
+
+  const renderLocalBreadcrumb = () => {
+    if (!currentPath || currentPath === '/') {
+      return (
+        <Breadcrumb className="mb-0">
+          <Breadcrumb.Item active>
+            <i className="bi bi-house-door me-1"></i>
+            All Documents
+          </Breadcrumb.Item>
+        </Breadcrumb>
+      );
+    }
+
+    // For local documents, currentPath might be a category name
+    const pathParts = currentPath.split('/').filter(part => part);
+    
+    return (
+      <Breadcrumb className="mb-0">
+        <Breadcrumb.Item 
+          onClick={() => onPathChange && onPathChange('/')}
+          style={{ cursor: 'pointer' }}
+        >
+          <i className="bi bi-house-door me-1"></i>
+          All Documents
+        </Breadcrumb.Item>
+        
+        {pathParts.map((part, index) => {
+          const isLast = index === pathParts.length - 1;
+          const fullPath = '/' + pathParts.slice(0, index + 1).join('/');
+          
+          return (
+            <Breadcrumb.Item
+              key={fullPath}
+              active={isLast}
+              onClick={() => !isLast && onPathChange && onPathChange(fullPath)}
+              style={{ cursor: !isLast ? 'pointer' : 'default' }}
+            >
+              {part}
+            </Breadcrumb.Item>
+          );
+        })}
+      </Breadcrumb>
+    );
+  };
+
+  const getItemCount = () => {
+    if (breadcrumbType === 'github') {
+      // Show count of current files in the directory
+      const fileCount = currentFiles.filter(file => file.type === 'file').length;
+      const folderCount = currentFiles.filter(file => file.type === 'dir' || file.type === 'folder').length;
+      
+      if (fileCount === 0 && folderCount === 0) {
+        return 'Empty folder';
+      }
+      
+      const parts = [];
+      if (folderCount > 0) parts.push(`${folderCount} folder${folderCount !== 1 ? 's' : ''}`);
+      if (fileCount > 0) parts.push(`${fileCount} file${fileCount !== 1 ? 's' : ''}`);
+      
+      return parts.join(', ');
+    } else {
+      // Local documents
+      if (!currentPath || currentPath === '/') {
+        return `${documents?.length || 0} documents`;
+      } else {
+        // Filter documents by current category/path
+        const categoryDocs = documents?.filter(doc => 
+          doc.category === currentPath.replace('/', '') || 
+          doc.path?.startsWith(currentPath)
+        ) || [];
+        return `${categoryDocs.length} documents`;
+      }
+    }
+  };
+
+  return (
+    <div className={`breadcrumb-bar ${theme}`}>
+      <div className="p-2">
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            {breadcrumbType === 'github' ? renderGitHubBreadcrumb() : renderLocalBreadcrumb()}
+          </div>
+          <div>
+            <small className="text-muted">
+              <i className="bi bi-list me-1"></i>
+              {getItemCount()}
+            </small>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

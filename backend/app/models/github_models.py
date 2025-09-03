@@ -105,6 +105,26 @@ class GitHubRepository(BaseModel):
         "GitHubSyncHistory", back_populates="repository", cascade="all, delete-orphan"
     )
 
+    # Computed properties for folder path generation
+    @property
+    def folder_name(self) -> str:
+        """Get sanitized folder name for this repository."""
+        return f"{self.repo_owner}-{self.repo_name}".replace('/', '-').replace(' ', '-')
+
+    def get_branch_folder_path(self, branch: str = "main") -> str:
+        """Get the root folder path for a branch of this repository."""
+        return f"/GitHub/{self.folder_name}/{branch}"
+
+    def get_file_folder_path(self, file_path: str, branch: str = "main") -> str:
+        """Get the folder path for a specific file in this repository."""
+        # Extract directory from file path
+        parts = file_path.split('/')
+        if len(parts) > 1:
+            dir_path = '/'.join(parts[:-1])
+            return f"/GitHub/{self.folder_name}/{branch}/{dir_path}"
+        else:
+            return f"/GitHub/{self.folder_name}/{branch}"
+
 
 class GitHubSyncHistory(BaseModel):
     """History of GitHub sync operations."""

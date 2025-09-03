@@ -2,13 +2,22 @@ import React, { useState } from 'react';
 import { Card, Badge, Button, Row, Col } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryBrowser } from '../index';
+import useFileModal from '../../../hooks/ui/useFileModal';
 
-export default function GitHubRepositoryList({ repositories, accountId }) {
+export default function GitHubRepositoryList({ repositories, accountId, onRepositoryBrowse }) {
   const [showBrowser, setShowBrowser] = useState(false);
   const [selectedRepository, setSelectedRepository] = useState(null);
   const { showSuccess, showError } = useNotification();
+  const { openGitHubTab } = useFileModal();
 
   const handleBrowseRepository = (repo) => {
+    // Check if there's a callback to open FileOpen Modal instead
+    if (onRepositoryBrowse) {
+      onRepositoryBrowse(repo);
+      return;
+    }
+    
+    // Fallback to the original separate modal behavior
     setSelectedRepository(repo);
     setShowBrowser(true);
   };

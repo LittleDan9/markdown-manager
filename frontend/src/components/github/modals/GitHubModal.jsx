@@ -2,10 +2,12 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Nav, Tab } from 'react-bootstrap';
 import { GitHubAccountsTab, GitHubRepositoriesTab, GitHubCacheSyncTab } from '../index';
 import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
+import useFileModal from '../../../hooks/ui/useFileModal';
 
 export default function GitHubModal({ show, onHide }) {
   const [activeTab, setActiveTab] = useState('accounts');
   const { accounts, loading: accountsLoading } = useGitHubAccounts();
+  const { openGitHubTab } = useFileModal();
 
   // Reset to accounts tab if current tab becomes unavailable
   useEffect(() => {
@@ -15,6 +17,24 @@ export default function GitHubModal({ show, onHide }) {
       }
     }
   }, [accounts, accountsLoading, activeTab]);
+
+  const handleRepositoryBrowse = (repository) => {
+    // Close the GitHub System Modal and open FileOpen Modal to GitHub tab
+    // with a callback to reopen this modal when FileOpen Modal closes
+    const returnCallback = () => {
+      // Small delay to ensure proper modal transition
+      setTimeout(() => {
+        // We need to trigger showing this modal again
+        // This will be handled by the parent component that opens GitHubModal
+        if (window.gitHubModalReturnCallback) {
+          window.gitHubModalReturnCallback();
+        }
+      }, 100);
+    };
+    
+    onHide();
+    openGitHubTab(repository, returnCallback);
+  };
 
   const hasAccounts = !accountsLoading && accounts.length > 0;
 
@@ -59,7 +79,7 @@ export default function GitHubModal({ show, onHide }) {
             </Tab.Pane>
             {hasAccounts && (
               <Tab.Pane eventKey="repositories">
-                <GitHubRepositoriesTab />
+                <GitHubRepositoriesTab onRepositoryBrowse={handleRepositoryBrowse} />
               </Tab.Pane>
             )}
             {hasAccounts && (

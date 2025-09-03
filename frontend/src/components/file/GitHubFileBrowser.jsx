@@ -240,7 +240,13 @@ export default function GitHubFileBrowser({
   };
 
   return (
-    <Modal show={show} onHide={onHide} size="lg">
+    <Modal 
+      show={show} 
+      onHide={onHide} 
+      size="xl" 
+      dialogClassName="open-file-modal-scroll"
+      style={{ '--bs-modal-width': '90vw' }}
+    >
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="bi bi-github me-2"></i>
@@ -248,172 +254,182 @@ export default function GitHubFileBrowser({
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body style={{ minHeight: '500px' }}>
-        {!selectedRepo ? (
-          // Repository selection
-          <div>
-            <h6 className="mb-3">Select a Repository</h6>
-            {loading ? (
-              <div className="text-center py-4">
-                <Spinner animation="border" />
-                <div className="mt-2">Loading repositories...</div>
-              </div>
-            ) : repositories.length === 0 ? (
-              <Alert variant="info">
-                <i className="bi bi-info-circle me-2"></i>
-                No repositories found. Make sure you have GitHub repositories accessible with your account.
-              </Alert>
-            ) : (
-              <ListGroup>
-                {repositories.map((repo) => (
-                  <ListGroup.Item
-                    key={repo.id}
-                    action
-                    onClick={() => selectRepository(repo)}
-                    className="d-flex justify-content-between align-items-center"
-                  >
-                    <div>
-                      <div className="fw-semibold">
-                        <i className={`bi ${repo.private ? 'bi-lock' : 'bi-unlock'} me-2`}></i>
-                        {repo.name}
-                      </div>
-                      <small className="text-muted">{repo.full_name}</small>
-                      {repo.description && (
-                        <div className="small text-muted mt-1">{repo.description}</div>
-                      )}
-                    </div>
-                    <i className="bi bi-chevron-right"></i>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
-            )}
-          </div>
-        ) : (
-          // File browser
-          <div>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <Button
-                variant="outline-secondary"
-                size="sm"
-                onClick={() => {
-                  if (initialRepository) {
-                    // If we started with a specific repository, close the modal
-                    onHide();
-                  } else {
-                    // Otherwise, go back to repository selection
-                    setSelectedRepo(null);
-                    loadRepositories();
-                  }
-                }}
-              >
-                <i className="bi bi-arrow-left me-1"></i>
-                {initialRepository ? 'Close' : 'Back to Repositories'}
-              </Button>
-
-              {branches.length > 1 && (
-                <Form.Select
-                  size="sm"
-                  style={{ width: 'auto' }}
-                  value={selectedBranch}
-                  onChange={(e) => onBranchChange(e.target.value)}
-                >
-                  {branches.map((branch) => (
-                    <option key={branch.name} value={branch.name}>
-                      {branch.name} {branch.is_default ? '(default)' : ''}
-                    </option>
-                  ))}
-                </Form.Select>
-              )}
-            </div>
-
-            {renderBreadcrumb()}
-
-            {loading ? (
-              <div className="text-center py-4">
-                <Spinner animation="border" />
-                <div className="mt-2">Loading contents...</div>
-              </div>
-            ) : (
-              <div>
-                {currentPath && (
-                  <ListGroup.Item
-                    action
-                    onClick={navigateUp}
-                    className="border-0 ps-0 text-muted"
-                  >
-                    <i className="bi bi-arrow-up me-2"></i>
-                    .. (up)
-                  </ListGroup.Item>
-                )}
-
-                <ListGroup variant="flush">
-                  {sortPathContents(pathContents).map((item) => (
-                    <ListGroup.Item
-                      key={item.path}
-                      action={item.type === 'dir' || isMarkdownFile(item)}
-                      onClick={() => handleFileAction(item)}
-                      className="d-flex justify-content-between align-items-center"
-                      style={{
-                        cursor: item.type === 'dir' || isMarkdownFile(item) ? 'pointer' : 'default',
-                        opacity: !isMarkdownFile(item) && item.type === 'file' ? 0.6 : 1
-                      }}
-                    >
-                      <div className="d-flex align-items-center">
-                        <span className="me-3" style={{ fontSize: '1.2em' }}>
-                          {getFileIcon(item)}
-                        </span>
+      <Modal.Body style={{ minHeight: '0', maxHeight: 'none', overflow: 'hidden' }}>
+        <div style={{ 
+          height: '100%', 
+          display: 'flex', 
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0
+        }}>
+          {!selectedRepo ? (
+            // Repository selection
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <h6 className="mb-3">Select a Repository</h6>
+              {loading ? (
+                <div className="text-center py-4">
+                  <Spinner animation="border" />
+                  <div className="mt-2">Loading repositories...</div>
+                </div>
+              ) : repositories.length === 0 ? (
+                <Alert variant="info">
+                  <i className="bi bi-info-circle me-2"></i>
+                  No repositories found. Make sure you have GitHub repositories accessible with your account.
+                </Alert>
+              ) : (
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  <ListGroup>
+                    {repositories.map((repo) => (
+                      <ListGroup.Item
+                        key={repo.id}
+                        action
+                        onClick={() => selectRepository(repo)}
+                        className="d-flex justify-content-between align-items-center"
+                      >
                         <div>
-                          <div className="d-flex align-items-center">
-                            {item.name}
-                            {item.is_imported && (
-                              <span className="badge bg-success ms-2 small">Imported</span>
-                            )}
+                          <div className="fw-semibold">
+                            <i className={`bi ${repo.private ? 'bi-lock' : 'bi-unlock'} me-2`}></i>
+                            {repo.name}
                           </div>
-                          {item.type === 'file' && !isMarkdownFile(item) && (
-                            <small className="text-muted">Not a markdown file</small>
-                          )}
-                          {item.type === 'file' && item.size && (
-                            <small className="text-muted ms-2">
-                              {(item.size / 1024).toFixed(1)} KB
-                            </small>
+                          <small className="text-muted">{repo.full_name}</small>
+                          {repo.description && (
+                            <div className="small text-muted mt-1">{repo.description}</div>
                           )}
                         </div>
-                      </div>
-
-                      {item.type === 'dir' && (
                         <i className="bi bi-chevron-right"></i>
-                      )}
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+                </div>
+              )}
+            </div>
+          ) : (
+            // File browser
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => {
+                    if (initialRepository) {
+                      // If we started with a specific repository, close the modal
+                      onHide();
+                    } else {
+                      // Otherwise, go back to repository selection
+                      setSelectedRepo(null);
+                      loadRepositories();
+                    }
+                  }}
+                >
+                  <i className="bi bi-arrow-left me-1"></i>
+                  {initialRepository ? 'Close' : 'Back to Repositories'}
+                </Button>
 
-                      {isMarkdownFile(item) && (
-                        <Button
-                          variant={item.is_imported ? "outline-success" : "outline-primary"}
-                          size="sm"
-                          disabled={importing}
-                        >
-                          {importing ? (
-                            <Spinner animation="border" size="sm" />
-                          ) : (
-                            <>
-                              <i className={`bi ${item.is_imported ? 'bi-folder-open' : 'bi-download'} me-1`}></i>
-                              {item.is_imported ? 'Open' : 'Import'}
-                            </>
-                          )}
-                        </Button>
-                      )}
-                    </ListGroup.Item>
-                  ))}
-                </ListGroup>
-
-                {pathContents.length === 0 && (
-                  <div className="text-center py-4 text-muted">
-                    <i className="bi bi-folder2-open" style={{ fontSize: '2rem' }}></i>
-                    <div className="mt-2">This folder is empty</div>
-                  </div>
+                {branches.length > 1 && (
+                  <Form.Select
+                    size="sm"
+                    style={{ width: 'auto' }}
+                    value={selectedBranch}
+                    onChange={(e) => onBranchChange(e.target.value)}
+                  >
+                    {branches.map((branch) => (
+                      <option key={branch.name} value={branch.name}>
+                        {branch.name} {branch.is_default ? '(default)' : ''}
+                      </option>
+                    ))}
+                  </Form.Select>
                 )}
               </div>
-            )}
-          </div>
-        )}
+
+              {renderBreadcrumb()}
+
+              {loading ? (
+                <div className="text-center py-4">
+                  <Spinner animation="border" />
+                  <div className="mt-2">Loading contents...</div>
+                </div>
+              ) : (
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                  {currentPath && (
+                    <ListGroup.Item
+                      action
+                      onClick={navigateUp}
+                      className="border-0 ps-0 text-muted"
+                    >
+                      <i className="bi bi-arrow-up me-2"></i>
+                      .. (up)
+                    </ListGroup.Item>
+                  )}
+
+                  <ListGroup variant="flush">
+                    {sortPathContents(pathContents).map((item) => (
+                      <ListGroup.Item
+                        key={item.path}
+                        action={item.type === 'dir' || isMarkdownFile(item)}
+                        onClick={() => handleFileAction(item)}
+                        className="d-flex justify-content-between align-items-center"
+                        style={{
+                          cursor: item.type === 'dir' || isMarkdownFile(item) ? 'pointer' : 'default',
+                          opacity: !isMarkdownFile(item) && item.type === 'file' ? 0.6 : 1
+                        }}
+                      >
+                        <div className="d-flex align-items-center">
+                          <span className="me-3" style={{ fontSize: '1.2em' }}>
+                            {getFileIcon(item)}
+                          </span>
+                          <div>
+                            <div className="d-flex align-items-center">
+                              {item.name}
+                              {item.is_imported && (
+                                <span className="badge bg-success ms-2 small">Imported</span>
+                              )}
+                            </div>
+                            {item.type === 'file' && !isMarkdownFile(item) && (
+                              <small className="text-muted">Not a markdown file</small>
+                            )}
+                            {item.type === 'file' && item.size && (
+                              <small className="text-muted ms-2">
+                                {(item.size / 1024).toFixed(1)} KB
+                              </small>
+                            )}
+                          </div>
+                        </div>
+
+                        {item.type === 'dir' && (
+                          <i className="bi bi-chevron-right"></i>
+                        )}
+
+                        {isMarkdownFile(item) && (
+                          <Button
+                            variant={item.is_imported ? "outline-success" : "outline-primary"}
+                            size="sm"
+                            disabled={importing}
+                          >
+                            {importing ? (
+                              <Spinner animation="border" size="sm" />
+                            ) : (
+                              <>
+                                <i className={`bi ${item.is_imported ? 'bi-folder-open' : 'bi-download'} me-1`}></i>
+                                {item.is_imported ? 'Open' : 'Import'}
+                              </>
+                            )}
+                          </Button>
+                        )}
+                      </ListGroup.Item>
+                    ))}
+                  </ListGroup>
+
+                  {pathContents.length === 0 && (
+                    <div className="text-center py-4 text-muted">
+                      <i className="bi bi-folder2-open" style={{ fontSize: '2rem' }}></i>
+                      <div className="mt-2">This folder is empty</div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </Modal.Body>
 
       <Modal.Footer>
