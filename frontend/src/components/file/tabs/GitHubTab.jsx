@@ -131,13 +131,7 @@ export default function GitHubTab({
           compact={true}
         />
       ) : (
-        <div style={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          flex: 1,
-          minHeight: 0
-        }}>
+        <div className="file-browser-container">
           {/* Repository header with integrated back button and branch selection */}
           <GitHubBrowserHeader
             repository={selectedGitHubRepo}
@@ -162,26 +156,18 @@ export default function GitHubTab({
           
           {/* File browser */}
           {gitHubProvider && !loading && (
-            <div style={{ 
-              flex: 1, 
-              display: 'flex', 
-              flexDirection: 'column',
-              minHeight: 0,
-              marginTop: '1rem'
-            }}>
-              <UnifiedFileBrowser
-                dataProvider={gitHubProvider}
-                onFileOpen={handleGitHubFileOpen}
-                showPreview={true}
-                breadcrumbType="github"
-                breadcrumbData={{ repository: selectedGitHubRepo }}
-                config={{
-                  showActions: true,
-                  showBreadcrumb: true,
-                  showTreeBreadcrumb: false
-                }}
-              />
-            </div>
+            <UnifiedFileBrowser
+              dataProvider={gitHubProvider}
+              onFileOpen={handleGitHubFileOpen}
+              showPreview={true}
+              breadcrumbType="github"
+              breadcrumbData={{ repository: selectedGitHubRepo }}
+              config={{
+                showActions: true,
+                showBreadcrumb: true,
+                showTreeBreadcrumb: false
+              }}
+            />
           )}
 
           {/* Loading indicator */}

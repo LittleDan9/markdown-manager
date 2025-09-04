@@ -175,8 +175,8 @@ export default forwardRef(function FileTree({
   const treeWithContents = buildTreeWithContents(treeData);
 
   return (
-    <div className="github-file-tree" style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div className="tree-header p-2 border-bottom" style={{ flexShrink: 0 }}>
+    <div className="file-browser-tree">
+      <div className="tree-header p-2 border-bottom">
         <small className="text-muted">
           <i className="bi bi-folder me-1"></i>
           Files and folders
@@ -185,8 +185,7 @@ export default forwardRef(function FileTree({
       
       <div 
         ref={treeContainerRef}
-        className="tree-content overflow-auto" 
-        style={{ flex: 1, minHeight: 0 }}
+        className="tree-content"
       >
         {loading ? (
           <div className="d-flex justify-content-center align-items-center p-4">

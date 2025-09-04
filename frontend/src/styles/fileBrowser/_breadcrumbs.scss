@@ -1,0 +1,96 @@
+// File Browser Breadcrumb Styles
+// Navigation breadcrumbs and header styling
+
+.unified-file-browser {
+  // Breadcrumb Bar styling - Tri-gradient to match the three file browser panels
+  .breadcrumb-bar {
+    background: linear-gradient(90deg,
+      var(--bs-light) 0%,           // Left panel start (tree area)
+      var(--bs-secondary-bg) 30%,   // Transition to middle
+      var(--bs-secondary-bg) 70%,   // Middle panel (list area)
+      var(--bs-light) 100%          // Right panel end (preview area)
+    ) !important;
+    border: 1px solid var(--bs-border-color); // Restore border for separation
+    height: fit-content; // Constrain to content height
+    min-height: auto;
+    margin: 0; // Remove any default margins
+    padding: 0; // Remove any default padding
+
+    // Custom content wrapper with minimal padding
+    .breadcrumb-content {
+      padding: 0.125rem 0.5rem; // Even more minimal padding for tighter spacing
+      height: fit-content;
+      min-height: auto;
+      margin: 0; // Ensure no margins
+    }
+
+    // Constrain the flex container
+    .d-flex {
+      height: fit-content;
+      min-height: auto;
+      align-items: center; // Ensure proper alignment
+    }
+
+    &.dark {
+      background: linear-gradient(90deg,
+        var(--bs-dark) 0%,              // Left panel start (tree area)
+        var(--bs-secondary-bg) 30%,     // Transition to middle
+        var(--bs-secondary-bg) 70%,     // Middle panel (list area)
+        var(--bs-dark) 100%             // Right panel end (preview area)
+      ) !important;
+      border-color: var(--bs-border-color-translucent) !important;
+
+      .breadcrumb-item {
+        color: var(--bs-light);
+
+        &.active {
+          color: var(--bs-secondary);
+        }
+
+        a, span[role="button"] {
+          color: var(--bs-info);
+        }
+      }
+    }
+
+    .breadcrumb {
+      background: none;
+      padding: 0;
+      margin: 0;
+      height: fit-content; // Constrain breadcrumb height
+      min-height: auto;
+    }
+  }
+}
+
+// Standalone File Browser Header (for non-unified usage)
+.file-browser-header {
+  background: linear-gradient(135deg, var(--bs-light), var(--bs-secondary-bg));
+  border: 1px solid var(--bs-border-color);
+
+  [data-bs-theme="dark"] & {
+    background: linear-gradient(135deg, var(--bs-dark), var(--bs-secondary-bg));
+  }
+
+  .breadcrumb {
+    margin: 0;
+    background: none;
+    border: none;
+
+    .breadcrumb-item {
+      &.active {
+        color: var(--bs-body-color);
+      }
+
+      a {
+        color: var(--bs-primary);
+        text-decoration: none;
+
+        &:hover {
+          color: var(--bs-primary-text-emphasis);
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}

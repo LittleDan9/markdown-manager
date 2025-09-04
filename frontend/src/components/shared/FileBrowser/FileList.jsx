@@ -218,10 +218,10 @@ export default function FileList({
   };
 
   return (
-    <div className={`github-file-list ${theme}`} style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="file-browser-list">
       {/* Header - only show if tree breadcrumb is enabled */}
       {config.showTreeBreadcrumb && (
-        <div className="tree-header p-2 border-bottom" style={{ flexShrink: 0 }}>
+        <div className="tree-header p-2 border-bottom">
           <div className="d-flex justify-content-between align-items-center">
             <div>
               {renderBreadcrumb()}
@@ -237,17 +237,33 @@ export default function FileList({
       )}
 
       {/* File List */}
-      <div className="table-container overflow-auto" style={{ flex: 1, minHeight: 0 }}>
-        <Table className="mb-0" variant={getTableVariant(theme)}>
-          <thead className="tree-header">
-            <tr>
-              <th style={{ width: '50%' }}>Name</th>
-              <th style={{ width: '20%' }}>Type</th>
-              <th style={{ width: '20%' }}>Size</th>
-              <th style={{ width: '10%' }}></th>
-            </tr>
-          </thead>
-          <tbody>
+      <div className="table-container">
+        {/* Fixed Header */}
+        <div className="table-header-fixed">
+          <Table className="mb-0" variant={getTableVariant(theme)}>
+            <thead className="tree-header">
+              <tr>
+                <th className="col-name">Name</th>
+                <th className="col-type">Type</th>
+                <th className="col-size">Size</th>
+                <th className="col-actions"></th>
+              </tr>
+            </thead>
+          </Table>
+        </div>
+        
+        {/* Scrollable Body */}
+        <div className="table-body-scroll">
+          <Table className="mb-0" variant={getTableVariant(theme)}>
+            <thead className="tree-header">
+              <tr>
+                <th className="col-name">Name</th>
+                <th className="col-type">Type</th>
+                <th className="col-size">Size</th>
+                <th className="col-actions"></th>
+              </tr>
+            </thead>
+            <tbody>
             {sortedItems.map((item, index) => {
               const isItemSelected = isSelected(item);
               const isFolder = item.type === 'folder' || item.type === 'dir';
@@ -315,6 +331,7 @@ export default function FileList({
             )}
           </tbody>
         </Table>
+        </div>
       </div>
     </div>
   );

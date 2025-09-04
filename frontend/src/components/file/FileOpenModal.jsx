@@ -66,11 +66,11 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
 
   return (
     <>
-      <Modal 
-        show={show && !showConfirm} 
-        onHide={handleHide} 
-        centered 
-        size="xl" 
+      <Modal
+        show={show && !showConfirm}
+        onHide={handleHide}
+        centered
+        size="xl"
         dialogClassName="open-file-modal-scroll"
         style={{ '--bs-modal-width': '90vw' }}
       >
@@ -81,58 +81,59 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
           </Modal.Title>
         </Modal.Header>
 
-        <Modal.Body style={{ 
-          height: '100%', 
-          display: 'flex', 
+                <Modal.Body style={{
+          height: '100%',
+          display: 'flex',
           flexDirection: 'column',
           flex: 1,
           minHeight: 0
         }}>
-          <Tabs
-            activeKey={localActiveTab}
-            onSelect={(k) => setLocalActiveTab(k)}
-            className="mb-3"
-            id="open-document-tabs"
-          >
-            <Tab eventKey="local" title={
-              <span>
-                <i className="bi bi-folder me-2"></i>
-                My Documents
-              </span>
-            }>
-              <LocalDocumentsTab
-                documents={documents}
-                categories={categories}
-                onFileOpen={handleFileOpen}
-                onDocumentDelete={handleDocumentDelete}
-                onModalHide={handleHide}
-              />
-            </Tab>
-
-            {isAuthenticated && (
-              <Tab eventKey="github" title={
+          <div className="file-open-modal-container">
+            <Tabs
+              activeKey={localActiveTab}
+              onSelect={(k) => setLocalActiveTab(k)}
+              id="open-document-tabs"
+            >
+              <Tab eventKey="local" title={
                 <span>
-                  <i className="bi bi-github me-2"></i>
-                  GitHub
+                  <i className="bi bi-folder me-2"></i>
+                  My Documents
                 </span>
               }>
-                <GitHubTab
-                  isAuthenticated={isAuthenticated}
+                <LocalDocumentsTab
                   documents={documents}
+                  categories={categories}
                   onFileOpen={handleFileOpen}
+                  onDocumentDelete={handleDocumentDelete}
                   onModalHide={handleHide}
-                  selectedRepository={selectedRepository}
                 />
               </Tab>
-            )}
-          </Tabs>
+
+              {isAuthenticated && (
+                <Tab eventKey="github" title={
+                  <span>
+                    <i className="bi bi-github me-2"></i>
+                    GitHub
+                  </span>
+                }>
+                  <GitHubTab
+                    isAuthenticated={isAuthenticated}
+                    documents={documents}
+                    onFileOpen={handleFileOpen}
+                    onModalHide={handleHide}
+                    selectedRepository={selectedRepository}
+                  />
+                </Tab>
+              )}
+            </Tabs>
+          </div>
         </Modal.Body>
 
-        <Modal.Footer>
+        {/* <Modal.Footer>
           <Button variant="secondary" onClick={handleHide}>
             Cancel
           </Button>
-        </Modal.Footer>
+        </Modal.Footer> */}
       </Modal>
 
       <ConfirmModal

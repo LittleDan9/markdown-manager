@@ -1,0 +1,15 @@
+// File Browser Actions Styles
+// Action buttons and controls
+
+.file-browser-actions {
+  border-top: 1px solid var(--bs-border-color);
+  background-color: var(--bs-body-bg);
+
+  .btn {
+    transition: all 0.2s ease;
+
+    &:hover {
+      transform: translateY(-1px);
+    }
+  }
+}

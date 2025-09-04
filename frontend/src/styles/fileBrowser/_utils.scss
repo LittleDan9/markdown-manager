@@ -1,0 +1,46 @@
+// File Browser Utility Styles
+// Multi-select, source indicators, and utility classes
+
+// Multi-select support
+.file-browser-multi-select {
+  .tree-item,
+  .table tbody tr {
+    &.multi-selected {
+      background: linear-gradient(135deg, var(--bs-success-bg-subtle), var(--bs-info-bg-subtle));
+      color: var(--bs-success-text-emphasis);
+
+      [data-bs-theme="dark"] & {
+        background: linear-gradient(135deg, var(--bs-success-bg-subtle), var(--bs-info-bg-subtle));
+      }
+    }
+  }
+
+  // Selection counter
+  .selection-counter {
+    background-color: var(--bs-primary);
+    color: var(--bs-primary-text-emphasis);
+    border-radius: var(--bs-border-radius-pill);
+    font-size: 0.875rem;
+    font-weight: 600;
+  }
+}
+
+// Source indicators
+.file-source-indicator {
+  &.source-local {
+    color: var(--bs-success);
+  }
+
+  &.source-github {
+    color: var(--bs-info);
+  }
+}
+
+// Utility classes
+.text-purple {
+  color: #6f42c1 !important;
+
+  [data-bs-theme="dark"] & {
+    color: #a855f7 !important;
+  }
+}

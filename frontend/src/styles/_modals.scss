@@ -532,33 +532,6 @@ body .custom-modal-content {
     display: flex;
     flex-direction: column;
     padding: 1rem; // Standard padding
-
-      // Make the unified file browser fill the space
-  .unified-file-browser {
-    flex: 1 !important;
-    min-height: 0; // Important for flex children to shrink
-    overflow: hidden;
-    display: flex !important;
-    flex-direction: column !important;
-    height: 100% !important; // Force full height
-
-    // Ensure modal file browser preview doesn't inherit main app preview styles
-    .file-browser-preview {
-      border: 1px solid var(--bs-border-color) !important;
-      
-      .preview-scroll {
-        border: none !important;
-        border-radius: 0 !important;
-        padding: 0.75rem !important;
-      }
-    }
-  }
-
-  // Additional specificity to ensure the wrapper div gets proper height
-  .unified-file-browser > div {
-    flex: 1 !important;
-    min-height: 0 !important;
-  }
   }
 }
 

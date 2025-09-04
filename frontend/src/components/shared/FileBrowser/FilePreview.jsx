@@ -144,7 +144,7 @@ export default function FilePreview({
       {renderFileInfo()}
 
       {/* Content */}
-      <div className="preview-content overflow-auto" style={{ maxHeight: '300px' }}>
+      <div className="preview-content">
         {renderFileContent()}
       </div>
     </div>

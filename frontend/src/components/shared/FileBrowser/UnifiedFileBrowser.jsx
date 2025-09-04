@@ -196,16 +196,10 @@ export default function UnifiedFileBrowser({
   };
 
   return (
-    <div className={`unified-file-browser ${loading ? 'loading' : ''} ${finalConfig.allowMultiSelect ? 'file-browser-multi-select' : ''}`} style={{ 
-      height: '100%', 
-      maxHeight: '100%',
-      display: 'flex', 
-      flexDirection: 'column',
-      overflow: 'hidden'
-    }}>
+    <div className={`unified-file-browser ${loading ? 'loading' : ''} ${finalConfig.allowMultiSelect ? 'file-browser-multi-select' : ''}`}>
         {/* Full-width Breadcrumb Bar */}
         {finalConfig.showBreadcrumb && (
-          <div style={{ flexShrink: 0 }}>
+          <div className="breadcrumb-section">
             <BreadcrumbBar
               currentPath={currentPath}
               onPathChange={handlePathChange}
@@ -218,15 +212,9 @@ export default function UnifiedFileBrowser({
           </div>
         )}
 
-      <div className="d-flex flex-grow-1 overflow-hidden position-relative" style={{ minHeight: 0, flex: '1 1 0' }}>
+      <div className="file-browser-content">
         {/* Tree Navigation */}
-        <div className="flex-shrink-0 border-end" style={{
-          width: '300px',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          overflow: 'hidden'
-        }}>
+        <div className="file-browser-tree-panel">
           <FileTree
             ref={fileTreeRef}
             treeData={treeData}
@@ -244,13 +232,7 @@ export default function UnifiedFileBrowser({
         </div>
 
         {/* File List */}
-        <div className="flex-grow-1" style={{ 
-          height: '100%', 
-          display: 'flex', 
-          flexDirection: 'column',
-          overflow: 'hidden',
-          minWidth: 0
-        }}>
+        <div className="file-browser-list-panel">
           <FileList
             files={currentFiles}
             currentPath={currentPath}
@@ -267,13 +249,7 @@ export default function UnifiedFileBrowser({
 
         {/* Preview Pane */}
         {finalConfig.showPreview && (
-          <div className="flex-shrink-0 border-start" style={{ 
-            width: '350px',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}>
+          <div className="file-browser-preview-panel">
             <FilePreview
               file={selectedFile}
               dataProvider={dataProvider}
@@ -283,18 +259,11 @@ export default function UnifiedFileBrowser({
         )}
 
         {/* Bottom Gradient */}
-        <div className="bottom-gradient position-absolute bottom-0 start-0 end-0"
-             style={{
-               height: '20px',
-               background: 'linear-gradient(to top, rgba(var(--bs-body-bg-rgb), 0.9), transparent)',
-               pointerEvents: 'none',
-               zIndex: 1
-             }}>
-        </div>
+        <div className="bottom-gradient"></div>
       </div>
 
       {finalConfig.showActions && (
-        <div style={{ flexShrink: 0, borderTop: '1px solid var(--bs-border-color)' }}>
+        <div className="file-browser-actions-section">
           <FileBrowserActions
             selectedFile={selectedFile}
             selectedFiles={selectedFiles}

@@ -43,15 +43,9 @@ export default function LocalDocumentsTab({
   }
 
   return (
-    <div style={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      flex: 1,
-      minHeight: 0
-    }}>
+    <div className="file-browser-container">
       {/* Local Documents Header for visual consistency */}
-      <Card className="mb-3 border-0 shadow-sm">
+      <Card className="mb-3 border-0 shadow-sm header-card">
         <Card.Body className="p-3">
           <div className="d-flex align-items-center justify-content-between">
             <div className="d-flex align-items-center">
