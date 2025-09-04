@@ -175,17 +175,17 @@ export default forwardRef(function FileTree({
   const treeWithContents = buildTreeWithContents(treeData);
 
   return (
-    <div className="file-browser-tree">
+    <div className="file-browser-tree d-flex flex-column">
       <div className="tree-header p-2 border-bottom">
         <small className="text-muted">
           <i className="bi bi-folder me-1"></i>
           Files and folders
         </small>
       </div>
-      
+
       <div 
         ref={treeContainerRef}
-        className="tree-content"
+        className="tree-content flex-grow-1 overflow-auto"
       >
         {loading ? (
           <div className="d-flex justify-content-center align-items-center p-4">

@@ -218,8 +218,7 @@ export default function FileList({
   };
 
   return (
-    <div className="file-browser-list">
-      {/* Header - only show if tree breadcrumb is enabled */}
+    <div className="file-browser-list d-flex flex-column">
       {config.showTreeBreadcrumb && (
         <div className="tree-header p-2 border-bottom">
           <div className="d-flex justify-content-between align-items-center">
@@ -236,9 +235,7 @@ export default function FileList({
         </div>
       )}
 
-      {/* File List */}
-      <div className="table-container">
-        {/* Fixed Header */}
+      <div className="table-container flex-grow-1 overflow-auto">
         <div className="table-header-fixed">
           <Table className="mb-0" variant={getTableVariant(theme)}>
             <thead className="tree-header">
@@ -251,8 +248,7 @@ export default function FileList({
             </thead>
           </Table>
         </div>
-        
-        {/* Scrollable Body */}
+
         <div className="table-body-scroll">
           <Table className="mb-0" variant={getTableVariant(theme)}>
             <thead className="tree-header">
@@ -264,73 +260,73 @@ export default function FileList({
               </tr>
             </thead>
             <tbody>
-            {sortedItems.map((item, index) => {
-              const isItemSelected = isSelected(item);
-              const isFolder = item.type === 'folder' || item.type === 'dir';
-              
-              return (
-                <tr
-                  key={item.id || item.path || index}
-                  className={`table-row-hover ${isItemSelected ? 'table-primary' : (theme === 'dark' ? 'table-dark' : '')}`}
-                  onClick={() => handleItemClick(item)}
-                  onDoubleClick={() => handleItemDoubleClick(item)}
-                  style={{ 
-                    cursor: 'pointer',
-                    transition: 'background-color 0.15s ease-in-out'
-                  }}
-                  onMouseEnter={(e) => {
-                    if (!isItemSelected) {
-                      e.currentTarget.style.backgroundColor = getHoverBackgroundColor(theme, isItemSelected);
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (!isItemSelected) {
-                      e.currentTarget.style.backgroundColor = '';
-                    }
-                  }}
-                >
-                  <td>
-                    <div className="d-flex align-items-center">
-                      <i className={`bi bi-${getFileIcon(item, false)} me-2 ${
-                        getFileIconColor(item, false, isItemSelected)
-                      }`}></i>
-                      <span>{item.name}</span>
-                    </div>
-                  </td>
-                  <td>
-                    {getTypeBadge(item)}
-                  </td>
-                  <td className="text-muted">
-                    {formatFileSize(item.size)}
-                  </td>
-                  <td className="text-end">
-                    {item.type === 'file' && item.name && isMarkdownFile(item) && (
-                      <div className="d-flex align-items-center justify-content-end">
-                        <i className="bi bi-file-richtext text-success me-1" title="Markdown file - Double-click to open"></i>
-                        <i className="bi bi-box-arrow-in-right text-success opacity-75" title="Double-click to open"></i>
+              {sortedItems.map((item, index) => {
+                const isItemSelected = isSelected(item);
+                const isFolder = item.type === 'folder' || item.type === 'dir';
+
+                return (
+                  <tr
+                    key={item.id || item.path || index}
+                    className={`table-row-hover ${isItemSelected ? 'table-primary' : (theme === 'dark' ? 'table-dark' : '')}`}
+                    onClick={() => handleItemClick(item)}
+                    onDoubleClick={() => handleItemDoubleClick(item)}
+                    style={{ 
+                      cursor: 'pointer',
+                      transition: 'background-color 0.15s ease-in-out'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isItemSelected) {
+                        e.currentTarget.style.backgroundColor = getHoverBackgroundColor(theme, isItemSelected);
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isItemSelected) {
+                        e.currentTarget.style.backgroundColor = '';
+                      }
+                    }}
+                  >
+                    <td>
+                      <div className="d-flex align-items-center">
+                        <i className={`bi bi-${getFileIcon(item, false)} me-2 ${
+                          getFileIconColor(item, false, isItemSelected)
+                        }`}></i>
+                        <span>{item.name}</span>
                       </div>
-                    )}
-                    {item.type === 'file' && item.name && !isMarkdownFile(item) && (
-                      <i className="bi bi-file-earmark text-muted opacity-50" title="File (not openable)"></i>
-                    )}
-                    {isFolder && (
-                      <i className="bi bi-chevron-right text-muted opacity-50"></i>
-                    )}
+                    </td>
+                    <td>
+                      {getTypeBadge(item)}
+                    </td>
+                    <td className="text-muted">
+                      {formatFileSize(item.size)}
+                    </td>
+                    <td className="text-end">
+                      {item.type === 'file' && item.name && isMarkdownFile(item) && (
+                        <div className="d-flex align-items-center justify-content-end">
+                          <i className="bi bi-file-richtext text-success me-1" title="Markdown file - Double-click to open"></i>
+                          <i className="bi bi-box-arrow-in-right text-success opacity-75" title="Double-click to open"></i>
+                        </div>
+                      )}
+                      {item.type === 'file' && item.name && !isMarkdownFile(item) && (
+                        <i className="bi bi-file-earmark text-muted opacity-50" title="File (not openable)"></i>
+                      )}
+                      {isFolder && (
+                        <i className="bi bi-chevron-right text-muted opacity-50"></i>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+
+              {sortedItems.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="text-center text-muted py-4">
+                    <i className={`${getEmptyState('list').icon} display-6 d-block mb-2 opacity-50`}></i>
+                    <small>{getEmptyState('list').message}</small>
                   </td>
                 </tr>
-              );
-            })}
-            
-            {sortedItems.length === 0 && (
-              <tr>
-                <td colSpan="4" className="text-center text-muted py-4">
-                  <i className={`${getEmptyState('list').icon} display-6 d-block mb-2 opacity-50`}></i>
-                  <small>{getEmptyState('list').message}</small>
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </Table>
+              )}
+            </tbody>
+          </Table>
         </div>
       </div>
     </div>

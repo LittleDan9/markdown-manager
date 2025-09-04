@@ -16,18 +16,6 @@
     pointer-events: none;
   }
 
-  // Breadcrumb section (fixed height)
-  .breadcrumb-section {
-    flex-shrink: 0;
-    height: auto !important; // Force auto height
-    min-height: 0 !important; // Force minimal height
-    max-height: fit-content !important; // Force fit-content
-    margin: 0; // Remove any default margins
-    padding: 0; // Remove any default padding
-    display: block; // Ensure block display (not flex)
-    overflow: visible; // Ensure no overflow issues
-  }
-
   // Main content area (flexible height)
   .file-browser-content {
     flex: 1;
@@ -85,12 +73,6 @@
       pointer-events: none;
       z-index: 1;
     }
-  }
-
-  // Actions section (fixed height)
-  .file-browser-actions-section {
-    flex-shrink: 0;
-    border-top: 1px solid var(--bs-border-color);
   }
 
   // Dark theme support for gradient

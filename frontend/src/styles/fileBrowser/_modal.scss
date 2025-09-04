@@ -80,7 +80,7 @@
       .breadcrumb-section {
         flex-shrink: 0;
         height: auto !important; // Force auto height
-        min-height: 0 !important; // Force minimal height  
+        min-height: 0 !important; // Force minimal height
         max-height: fit-content !important; // Force fit-content
         margin: 0; // Remove all margins for seamless connection
         padding: 0; // Remove all padding
@@ -95,7 +95,7 @@
         overflow: hidden;
         margin: 0; // Remove all margins
         padding: 0; // Remove all padding
-        
+
         // All three panels should be exactly the same height
         .file-browser-tree-panel,
         .file-browser-list-panel,
@@ -103,19 +103,13 @@
           height: 100%; // Ensure all panels fill the full height
         }
       }
-
-      // Actions should be fixed height
-      .file-browser-actions-section {
-        flex-shrink: 0;
-        margin-top: 0.25rem; // Minimal top margin
-      }
     }
   }
 
   // Ensure modal file browser preview doesn't inherit main app preview styles
   .unified-file-browser .file-browser-preview {
     border: 1px solid var(--bs-border-color) !important;
-    
+
     .preview-scroll {
       border: none !important;
       border-radius: 0 !important;

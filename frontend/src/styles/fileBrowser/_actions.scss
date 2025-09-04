@@ -13,3 +13,9 @@
     }
   }
 }
+
+// Actions section (fixed height)
+.file-browser-actions-section {
+  height: 48px !important;
+  border-top: 1px solid var(--bs-border-color);
+}

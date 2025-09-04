@@ -27,6 +27,10 @@
 }
 
 .modal-footer {
+  height: auto !important;
+  padding: 0.5rem 1rem !important; // Adjust padding to ensure proper spacing
+  min-height: unset !important; // Remove any minimum height constraints
+
   border-top: 1px solid #dee2e6;
   border-bottom-left-radius: 0.5rem;
   border-bottom-right-radius: 0.5rem;
