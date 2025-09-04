@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Card, Badge, Button, Row, Col } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
-import { GitHubRepositoryBrowser } from '../index';
 import useFileModal from '../../../hooks/ui/useFileModal';
 
 export default function GitHubRepositoryList({ repositories, accountId, onRepositoryBrowse }) {
@@ -16,7 +15,7 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
       onRepositoryBrowse(repo);
       return;
     }
-    
+
     // Fallback to the original separate modal behavior
     setSelectedRepository(repo);
     setShowBrowser(true);
@@ -115,7 +114,7 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
           </Col>
         ))}
       </Row>
-      
+
       {/* Repository Browser Modal */}
       <GitHubRepositoryBrowser
         show={showBrowser}

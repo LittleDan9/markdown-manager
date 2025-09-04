@@ -73,24 +73,16 @@ export default function BreadcrumbBar({
         <Breadcrumb className="mb-0">
           <Breadcrumb.Item active>
             <i className="bi bi-house-door me-1"></i>
-            All Documents
           </Breadcrumb.Item>
         </Breadcrumb>
       );
     }
 
-    // For local documents, currentPath might be a category name
+    // Use natural path structure - no special handling needed
     const pathParts = currentPath.split('/').filter(part => part);
 
     return (
       <Breadcrumb className="mb-0">
-        <Breadcrumb.Item
-          onClick={() => onPathChange && onPathChange('/')}
-          style={{ cursor: 'pointer' }}
-        >
-          <i className="bi bi-house-door me-1"></i>
-          All Documents
-        </Breadcrumb.Item>
 
         {pathParts.map((part, index) => {
           const isLast = index === pathParts.length - 1;
@@ -98,11 +90,12 @@ export default function BreadcrumbBar({
 
           return (
             <Breadcrumb.Item
-              key={fullPath}
+              key={index}
               active={isLast}
               onClick={() => !isLast && onPathChange && onPathChange(fullPath)}
               style={{ cursor: !isLast ? 'pointer' : 'default' }}
             >
+              {index === 0 && <i className="bi bi-house me-1"></i>}
               {part}
             </Breadcrumb.Item>
           );

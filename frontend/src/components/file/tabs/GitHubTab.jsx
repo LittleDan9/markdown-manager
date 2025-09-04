@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from "react";
 import GitHubAccountList from "../../shared/GitHubAccountList";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
-import GitHubBrowserHeader from "../../github/browser/GitHubBrowserHeader";
 import { GitHubProvider } from "../../../services/FileBrowserProviders";
 import { useNotification } from "../../NotificationProvider";
 import useFileModal from "../../../hooks/ui/useFileModal";
@@ -40,14 +39,14 @@ export default function GitHubTab({
       setLoading(true);
       const branchData = await gitHubApi.getRepositoryBranches(repository.id);
       setBranches(branchData);
-      
+
       // Set default branch
       const defaultBranch = branchData.find(b => b.name === repository.default_branch) || branchData[0];
       const branch = defaultBranch ? defaultBranch.name : 'main';
       setSelectedBranch(branch);
-      
+
       // Create provider with the selected branch
-      const provider = new GitHubProvider(repository, branch);
+      const provider = new GitHubProvider(repository, branch, { filters: { fileTypes: [] } });
       setGitHubProvider(provider);
     } catch (err) {
       showError('Failed to load repository branches');
@@ -60,17 +59,17 @@ export default function GitHubTab({
   const handleBranchChange = (newBranch) => {
     setSelectedBranch(newBranch);
     if (selectedGitHubRepo) {
-      const provider = new GitHubProvider(selectedGitHubRepo, newBranch);
+      const provider = new GitHubProvider(selectedGitHubRepo, newBranch, { filters: { fileTypes: [] } });
       setGitHubProvider(provider);
     }
   };
 
   const handleGitHubFileOpen = async (file) => {
     console.log('Opening GitHub file:', file);
-    
+
     try {
       setLoading(true);
-      
+
       // Check if file is already imported and has a documentId
       if (file.isImported && file.documentId) {
         const doc = documents?.find((d) => d.id === file.documentId);
@@ -80,19 +79,19 @@ export default function GitHubTab({
           return;
         }
       }
-      
+
       // File needs to be imported first - do it automatically
       console.log('Importing GitHub file automatically...');
-      
+
       const importResponse = await gitHubApi.importDocument({
         repository_id: selectedGitHubRepo.id,
         file_path: file.githubPath || file.path,
         branch: selectedBranch,
         category: 'GitHub Import'
       });
-      
+
       console.log('Import response:', importResponse);
-      
+
       // Handle different possible response formats
       let importedDoc = null;
       if (importResponse.document) {
@@ -102,7 +101,7 @@ export default function GitHubTab({
       } else if (importResponse.id) {
         importedDoc = importResponse;
       }
-      
+
       if (importedDoc) {
         console.log('Successfully imported document:', importedDoc);
         onFileOpen(importedDoc);
@@ -110,7 +109,7 @@ export default function GitHubTab({
       } else {
         showError('Failed to import file. Invalid response format.');
       }
-      
+
     } catch (err) {
       console.error('Import and open failed:', err);
       showError('Failed to import and open file. Please try again.');
@@ -153,7 +152,7 @@ export default function GitHubTab({
             loading={loading}
             showReturnButton={!!returnCallback}
           />
-          
+
           {/* File browser */}
           {gitHubProvider && !loading && (
             <UnifiedFileBrowser

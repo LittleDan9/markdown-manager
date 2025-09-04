@@ -2,9 +2,9 @@ import React from 'react';
 import { Table, Badge, Spinner } from 'react-bootstrap';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
-import { 
-  sortRepositoryItems, 
-  formatFileSize, 
+import {
+  sortRepositoryItems,
+  formatFileSize,
   isMarkdownFile,
   getHoverBackgroundColor,
   getTableVariant,
@@ -28,27 +28,27 @@ export default function FileList({
   const sortedItems = sortRepositoryItems(files);
 
   const renderBreadcrumb = () => {
-    if (!currentPath || currentPath === '/') {
+    if (!currentPath || currentPath === '/' || currentPath === '/Documents') {
       return (
         <div className="d-flex align-items-center">
           <i className="bi bi-house-door me-1"></i>
-          <small>Root</small>
+          <small>Documents</small>
         </div>
       );
     }
 
     const pathParts = currentPath.split('/').filter(p => p);
-    
+
     // Check if this is a GitHub path or local documents path
     const isGitHub = pathParts.includes('GitHub') || pathParts.length > 2;
-    
+
     if (isGitHub) {
       // GitHub-specific breadcrumb logic (existing logic)
       let filteredParts = pathParts.filter(part => part !== 'GitHub');
-      
+
       let repoName = '';
       let folderParts = [];
-      
+
       if (filteredParts.length > 0) {
         repoName = filteredParts[0]; // First part is repository name
         if (filteredParts.length > 2) {
@@ -56,7 +56,7 @@ export default function FileList({
           folderParts = filteredParts.slice(2);
         }
       }
-      
+
       return (
         <div className="d-flex align-items-center">
           <button
@@ -67,7 +67,7 @@ export default function FileList({
             <i className="bi bi-folder me-1"></i>
             <small>{repoName || 'Repository'}</small>
           </button>
-          
+
           {folderParts.map((part, index) => {
             const isLast = index === folderParts.length - 1;
             // Reconstruct the original path including all parts for navigation
@@ -75,7 +75,7 @@ export default function FileList({
             const branchName = pathParts[repoIndex + 1]; // Branch is after repo name
             const folderPath = pathParts.slice(0, repoIndex + 2 + index + 1); // Include repo, branch, and folders up to this point
             const partPath = '/' + folderPath.join('/');
-            
+
             return (
               <React.Fragment key={index}>
                 <span className="text-muted mx-1">/</span>
@@ -98,22 +98,22 @@ export default function FileList({
         </div>
       );
     } else {
-      // Local documents breadcrumb logic (simpler structure)
+      // Local documents breadcrumb logic (with Documents root folder)
       return (
         <div className="d-flex align-items-center">
           <button
             className="btn btn-link p-0 text-decoration-none text-primary d-flex align-items-center"
-            onClick={() => onPathChange && onPathChange('/')}
+            onClick={() => onPathChange && onPathChange('/Documents')}
             style={{ fontSize: '0.875rem', border: 'none' }}
           >
             <i className="bi bi-house-door me-1"></i>
-            <small>My Documents</small>
+            <small>Documents</small>
           </button>
-          
+
           {pathParts.map((part, index) => {
             const isLast = index === pathParts.length - 1;
             const partPath = '/' + pathParts.slice(0, index + 1).join('/');
-            
+
             return (
               <React.Fragment key={index}>
                 <span className="text-muted mx-1">/</span>
@@ -140,7 +140,7 @@ export default function FileList({
 
   const handleItemClick = (item) => {
     onFileSelect(item);
-    
+
     // If it's a folder, expand it in the tree (but don't navigate to it)
     const isFolder = item.type === 'folder' || item.type === 'dir';
     if (isFolder && onFolderExpand) {
@@ -169,7 +169,7 @@ export default function FileList({
 
   const getTypeBadge = (item) => {
     const isFolder = item.type === 'folder' || item.type === 'dir';
-    
+
     if (isFolder) {
       return (
         <Badge bg="info" pill className="text-white" style={{ fontSize: '0.75em' }}>
@@ -183,7 +183,7 @@ export default function FileList({
     const extension = item.name.split('.').pop().toLowerCase();
     let badgeColor = 'secondary';
     let icon = 'file-earmark';
-    
+
     if (isMarkdownFile(item)) {
       badgeColor = 'success';
       icon = 'file-text';
@@ -205,10 +205,10 @@ export default function FileList({
     }
 
     return (
-      <Badge 
-        bg={badgeColor} 
-        pill 
-        className={badgeColor === 'light' ? 'text-dark' : 'text-white'} 
+      <Badge
+        bg={badgeColor}
+        pill
+        className={badgeColor === 'light' ? 'text-dark' : 'text-white'}
         style={{ fontSize: '0.75em' }}
       >
         <i className={`bi bi-${icon} me-1`}></i>
@@ -238,6 +238,12 @@ export default function FileList({
       <div className="table-container flex-grow-1 overflow-auto">
         <div className="table-header-fixed">
           <Table className="mb-0" variant={getTableVariant(theme)}>
+            <colgroup>
+              <col className="col-name" />
+              <col className="col-type" />
+              <col className="col-size" />
+              <col className="col-actions" />
+            </colgroup>
             <thead className="tree-header">
               <tr>
                 <th className="col-name">Name</th>
@@ -251,14 +257,12 @@ export default function FileList({
 
         <div className="table-body-scroll">
           <Table className="mb-0" variant={getTableVariant(theme)}>
-            <thead className="tree-header">
-              <tr>
-                <th className="col-name">Name</th>
-                <th className="col-type">Type</th>
-                <th className="col-size">Size</th>
-                <th className="col-actions"></th>
-              </tr>
-            </thead>
+            <colgroup>
+              <col className="col-name" />
+              <col className="col-type" />
+              <col className="col-size" />
+              <col className="col-actions" />
+            </colgroup>
             <tbody>
               {sortedItems.map((item, index) => {
                 const isItemSelected = isSelected(item);
@@ -270,7 +274,7 @@ export default function FileList({
                     className={`table-row-hover ${isItemSelected ? 'table-primary' : (theme === 'dark' ? 'table-dark' : '')}`}
                     onClick={() => handleItemClick(item)}
                     onDoubleClick={() => handleItemDoubleClick(item)}
-                    style={{ 
+                    style={{
                       cursor: 'pointer',
                       transition: 'background-color 0.15s ease-in-out'
                     }}

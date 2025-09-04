@@ -11,8 +11,8 @@ import gitHubApi from '../../api/gitHubApi.js';
  * GitHub provider - provides folder-aware repository browsing
  */
 export class GitHubProvider extends BaseFileBrowserProvider {
-  constructor(repository, branch = 'main') {
-    super();
+  constructor(repository, branch = 'main', config = {}) {
+    super(config);
     this.repository = repository;
     this.branch = branch;
     this.treeCache = new Map();
@@ -88,7 +88,7 @@ export class GitHubProvider extends BaseFileBrowserProvider {
         
         // Convert to file nodes
         return GitHubTreeConverter.convertGitHubContentsToFileNodes(contents)
-          .filter(item => item.type === NODE_TYPES.FOLDER || item.name.endsWith('.md'))
+          .filter(item => item.type === NODE_TYPES.FOLDER || this.shouldIncludeFile(item.name))
           .map(item => ({
             ...item,
             path: `${this.rootPath}/${githubPath}${githubPath ? '/' : ''}${item.name}`,
@@ -110,7 +110,7 @@ export class GitHubProvider extends BaseFileBrowserProvider {
         
         // Convert to file nodes
         return GitHubTreeConverter.convertGitHubContentsToFileNodes(contents)
-          .filter(item => item.type === NODE_TYPES.FOLDER || item.name.endsWith('.md'))
+          .filter(item => item.type === NODE_TYPES.FOLDER || this.shouldIncludeFile(item.name))
           .map(item => ({
             ...item,
             path: `${this.rootPath}/${githubPath}${githubPath ? '/' : ''}${item.name}`,
@@ -231,7 +231,7 @@ export class GitHubProvider extends BaseFileBrowserProvider {
 
     // Convert flat tree items to file nodes
     const fileNodes = flatTree
-      .filter(item => item.type === 'dir' || (item.type === 'file' && item.name.endsWith('.md')))
+      .filter(item => item.type === 'dir' || (item.type === 'file' && this.shouldIncludeFile(item.name)))
       .map(item => ({
         id: item.sha || `${item.type}-${item.path}`,
         name: item.name,

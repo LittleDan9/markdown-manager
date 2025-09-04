@@ -18,9 +18,3 @@ export { default as GitHubAccountList } from './accounts/GitHubAccountList';
 
 // Repository Components
 export { default as GitHubRepositoryList } from './repositories/GitHubRepositoryList';
-
-// Browser Components
-export { default as GitHubRepositoryBrowser } from './browser/GitHubRepositoryBrowser';
-export { default as GitHubBrowserHeader } from './browser/GitHubBrowserHeader';
-export { default as GitHubFileTree } from './browser/GitHubFileTree';
-export { default as GitHubFileList } from './browser/GitHubFileList';

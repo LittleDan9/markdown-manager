@@ -11,13 +11,18 @@ export default function LocalDocumentsTab({
   onModalHide
 }) {
   const [localDocumentsProvider, setLocalDocumentsProvider] = useState(null);
+  const [initialPath, setInitialPath] = useState('/');
 
   // Create local documents provider when documents change
   useEffect(() => {
     if (documents && categories) {
       console.log('Creating LocalDocumentsProvider with:', { documents: documents?.length, categories: categories?.length });
-      const provider = new LocalDocumentsProvider({ documents, categories });
+      const provider = new LocalDocumentsProvider({ documents, categories }, { filters: { fileTypes: [] } });
       setLocalDocumentsProvider(provider);
+      // Set the initial path based on provider's default
+      const defaultPath = provider.getDefaultPath ? provider.getDefaultPath() : '/';
+      console.log('LocalDocumentsTab setting initial path to:', defaultPath);
+      setInitialPath(defaultPath);
     }
   }, [documents, categories]);
 
@@ -53,7 +58,7 @@ export default function LocalDocumentsTab({
               <div>
                 <h6 className="mb-0 fw-semibold">My Documents</h6>
                 <small className="text-muted">
-                  {documents?.length || 0} document{documents?.length !== 1 ? 's' : ''} 
+                  {documents?.length || 0} document{documents?.length !== 1 ? 's' : ''}
                   {categories?.length ? ` across ${categories.length} categor${categories.length !== 1 ? 'ies' : 'y'}` : ''}
                 </small>
               </div>
@@ -68,15 +73,16 @@ export default function LocalDocumentsTab({
       <UnifiedFileBrowser
         dataProvider={localDocumentsProvider}
         onFileOpen={handleFileOpen}
+        initialPath={initialPath}
         config={{
           showActions: true,
           showBreadcrumb: true,
           showTreeBreadcrumb: false
         }}
         breadcrumbType="local"
-        breadcrumbData={{ 
+        breadcrumbData={{
           categories: categories,
-          documents: documents 
+          documents: documents
         }}
       />
     </div>

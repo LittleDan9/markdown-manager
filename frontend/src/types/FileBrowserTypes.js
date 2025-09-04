@@ -42,7 +42,7 @@ export const DEFAULT_CONFIG = {
   showActions: true,
   defaultView: 'tree',
   filters: {
-    fileTypes: ['.md', '.markdown', '.txt'],
+    fileTypes: [], // Empty array means show all file types
     sources: ['local', 'github']
   }
 };
@@ -70,3 +70,19 @@ export const NODE_TYPES = {
   FILE: 'file',
   FOLDER: 'folder'
 };
+
+/**
+ * Utility function to check if a file should be included based on filter configuration
+ * @param {string} fileName - The name of the file to check
+ * @param {string[]} allowedTypes - Array of allowed file extensions (e.g., ['.md', '.txt'])
+ * @returns {boolean} - True if file should be included
+ */
+export function shouldIncludeFile(fileName, allowedTypes = []) {
+  // If no filters specified, include all files
+  if (!allowedTypes || allowedTypes.length === 0) {
+    return true;
+  }
+  
+  // Check if file extension matches any allowed type
+  return allowedTypes.some(ext => fileName.toLowerCase().endsWith(ext.toLowerCase()));
+}

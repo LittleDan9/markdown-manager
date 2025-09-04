@@ -75,34 +75,6 @@
         min-height: 0;
         overflow: hidden;
       }
-
-      // Breadcrumb should be fixed height with no spacing
-      .breadcrumb-section {
-        flex-shrink: 0;
-        height: auto !important; // Force auto height
-        min-height: 0 !important; // Force minimal height
-        max-height: fit-content !important; // Force fit-content
-        margin: 0; // Remove all margins for seamless connection
-        padding: 0; // Remove all padding
-        display: block; // Ensure block display
-        overflow: visible; // Ensure no overflow issues
-      }
-
-      // Main content area should fill remaining space perfectly
-      .file-browser-content {
-        flex: 1;
-        min-height: 0;
-        overflow: hidden;
-        margin: 0; // Remove all margins
-        padding: 0; // Remove all padding
-
-        // All three panels should be exactly the same height
-        .file-browser-tree-panel,
-        .file-browser-list-panel,
-        .file-browser-preview-panel {
-          height: 100%; // Ensure all panels fill the full height
-        }
-      }
     }
   }
 

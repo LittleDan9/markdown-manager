@@ -2,10 +2,25 @@
  * Base provider interface for file browser data sources
  */
 
+import { shouldIncludeFile } from '../../types/FileBrowserTypes.js';
+
 /**
  * Base provider interface for file browser data sources
  */
 export class BaseFileBrowserProvider {
+  constructor(config = {}) {
+    this.config = config;
+  }
+
+  /**
+   * Check if a file should be included based on the current configuration
+   * @param {string} fileName - Name of the file to check
+   * @returns {boolean} - True if file should be included
+   */
+  shouldIncludeFile(fileName) {
+    const allowedTypes = this.config?.filters?.fileTypes || [];
+    return shouldIncludeFile(fileName, allowedTypes);
+  }
   /**
    * Get the tree structure for the data source
    * @returns {Promise<FileTreeNode[]>}

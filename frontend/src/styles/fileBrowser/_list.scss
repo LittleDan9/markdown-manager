@@ -15,7 +15,7 @@
   .table-container thead.tree-header {
     background: var(--bs-secondary-bg) !important;
     border-bottom: 1px solid var(--bs-border-color);
-    
+
     th {
       background: var(--bs-secondary-bg) !important;
       border: none !important;
@@ -26,10 +26,10 @@
       color: var(--bs-body-color);
       vertical-align: middle;
     }
-    
+
     [data-bs-theme="dark"] & {
       background: var(--bs-secondary-bg) !important;
-      
+
       th {
         background: var(--bs-secondary-bg) !important;
         color: var(--bs-body-color);
@@ -42,15 +42,15 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    
+
     // Fixed header - doesn't scroll
     .table-header-fixed {
       flex-shrink: 0;
       overflow: hidden;
-      
+
       table {
         margin-bottom: 0;
-        
+
         thead th {
           background: var(--bs-secondary-bg) !important;
           border: none !important;
@@ -64,16 +64,16 @@
         }
       }
     }
-    
+
     // Scrollable body - only tbody scrolls
     .table-body-scroll {
       flex: 1;
       overflow-y: auto;
       overflow-x: hidden;
-      
+
       table {
         margin-bottom: 0;
-        
+
         // Hide the thead in the scrollable section
         thead {
           display: none;
@@ -89,27 +89,29 @@
     table-layout: fixed; // Ensure consistent column widths
 
     // Column width definitions - applied to both fixed header and scrollable body
+    .col-name,
     th.col-name, 
     td.col-name {
       width: 50%;
     }
 
+    .col-type,
     th.col-type,
     td.col-type {
       width: 20%;
     }
 
+    .col-size,
     th.col-size,
     td.col-size {
       width: 20%;
     }
 
+    .col-actions,
     th.col-actions,
     td.col-actions {
       width: 10%;
-    }
-
-    tbody tr {
+    }    tbody tr {
       cursor: pointer;
       transition: background-color 0.15s ease;
 
