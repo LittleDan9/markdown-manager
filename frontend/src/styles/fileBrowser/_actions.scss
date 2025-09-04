@@ -4,6 +4,10 @@
 .file-browser-actions {
   border-top: 1px solid var(--bs-border-color);
   background-color: var(--bs-body-bg);
+  width: 100%; // Ensure full width
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 
   .btn {
     transition: all 0.2s ease;
@@ -16,6 +20,23 @@
 
 // Actions section (fixed height)
 .file-browser-actions-section {
+  flex-shrink: 0; // Prevent actions from shrinking
   height: 48px !important;
+  min-height: 48px; // Ensure minimum height
+  max-height: 48px; // Prevent expansion
   border-top: 1px solid var(--bs-border-color);
+  background-color: var(--bs-body-bg);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  width: 100%; // Ensure full width
+  
+  // Ensure the actions component takes full width
+  .file-browser-actions {
+    width: 100%;
+    margin: 0;
+    padding: 0.5rem 1rem; // Better padding for consistent spacing
+    border: none; // Remove duplicate border
+    background: transparent; // Use parent background
+  }
 }

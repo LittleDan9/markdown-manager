@@ -50,7 +50,7 @@ export default function FileBrowserActions({
   };
 
   return (
-    <div className="file-browser-actions p-2 d-flex align-items-center justify-content-between">
+    <div className="file-browser-actions d-flex align-items-center justify-content-between">
       <div className="flex-grow-1">
         {selectedFile ? (
           <small className="text-muted">

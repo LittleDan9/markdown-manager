@@ -28,9 +28,16 @@
     pointer-events: none;
   }
 
+  // Breadcrumb should be fixed height
+  .breadcrumb-section {
+    flex-shrink: 0; // Prevent breadcrumb from shrinking
+    height: auto;
+    min-height: 0;
+  }
+
   // Main content area (flexible height)
   .file-browser-content {
-    flex: 1;
+    flex: 1; // Take remaining space after breadcrumb and actions
     display: flex;
     overflow: hidden;
     position: relative;
