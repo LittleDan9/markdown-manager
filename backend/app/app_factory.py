@@ -141,7 +141,8 @@ def create_app() -> FastAPI:
         title=settings.project_name,
         description=settings.api_description,
         version=settings.api_version,
-        openapi_url="/openapi.json",  # Remove v1 prefix
+        openapi_url="/openapi.json",  # Keep relative path
+        root_path="/api",  # Set root path for proper URL generation behind proxy
         lifespan=_create_lifespan(),
         debug=settings.debug,
     )
