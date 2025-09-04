@@ -262,7 +262,7 @@ export default function UnifiedFileBrowser({
         <div className="bottom-gradient"></div>
       </div>
 
-      {finalConfig.showActions && (
+      {/* {finalConfig.showActions && (
         <div className="file-browser-actions-section">
           <FileBrowserActions
             selectedFile={selectedFile}
@@ -272,7 +272,7 @@ export default function UnifiedFileBrowser({
             config={finalConfig}
           />
         </div>
-      )}
+      )} */}
     </div>
   );
 }
