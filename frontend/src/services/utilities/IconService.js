@@ -1,7 +1,5 @@
 /**
- * Backend-based I      // console.log('IconService: Starting to load icon packs...');
-      const data = await iconApi.getIconPacks();
-      // console.log('IconService: Received data:', data); Service
+ * Backend-based Icon Service
  * Replaces the local package-based IconPackManager with API calls to the backend icon service
  */
 
@@ -15,6 +13,19 @@ class IconService {
     this.totalIconCount = 0;
     this.cache = new Map(); // Simple client-side cache for search results
     this.cacheTimeout = 60000; // 1 minute cache timeout
+  }
+
+  /**
+   * Get icon packs metadata without loading all icons
+   */
+  async getIconPacks() {
+    try {
+      const data = await iconsApi.getIconPacks();
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error('Failed to load icon packs:', error);
+      throw error;
+    }
   }
 
   /**
@@ -156,12 +167,13 @@ class IconService {
 
     try {
       // console.log('IconService: Making API call...');
+      
       const data = await iconsApi.searchIcons({
         q: searchTerm,
         pack: pack,
         category: category,
         page: page,
-        size: size
+        size: Math.min(size, 100) // Backend caps at 100
       });
 
       // console.log('IconService: API returned:', data);
@@ -202,13 +214,23 @@ class IconService {
 
       // console.log('IconService: Transformed icons:', transformedIcons.length);
 
+      const result = {
+        icons: transformedIcons,
+        total: data.total,
+        page: data.page,
+        size: data.size,
+        pages: data.pages,
+        has_next: data.has_next,
+        has_prev: data.has_prev
+      };
+
       // Cache the result
       this.cache.set(cacheKey, {
-        data: transformedIcons,
+        data: result,
         timestamp: Date.now()
       });
 
-      return transformedIcons;
+      return result;
     } catch (error) {
       console.error('IconService: Search failed:', error);
       throw error;

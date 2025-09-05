@@ -1,5 +1,6 @@
 """Icon pack installer service with flexible data mapping."""
 import os
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
@@ -142,51 +143,107 @@ class IconPackInstaller:
         package_type: str
     ) -> List[Dict[str, Any]]:
         """Extract icons data based on package type and mapping config."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Extracting icons data with package_type='{package_type}'")
+        logger.info(f"Mapping config: {mapping_config}")
 
         if package_type == "json":
-            return self._extract_json_icons(pack_data, mapping_config)
+            result = self._extract_json_icons(pack_data, mapping_config)
         elif package_type == "svg_files":
-            return self._extract_svg_file_icons(pack_data, mapping_config)
+            result = self._extract_svg_file_icons(pack_data, mapping_config)
         elif package_type == "mixed":
-            return self._extract_mixed_icons(pack_data, mapping_config)
+            result = self._extract_mixed_icons(pack_data, mapping_config)
         else:
             raise ValueError(f"Unsupported package type: {package_type}")
+            
+        logger.info(f"Extracted {len(result)} icons")
+        return result
 
     def _extract_json_icons(self, pack_data: Dict[str, Any], mapping_config: Dict[str, str]) -> List[Dict[str, Any]]:
         """Extract icons from JSON-based packages (like Iconify)."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         icons_path = mapping_config.get("icons_data", "icons")
         icons_data = self._get_nested_value(pack_data, icons_path)
-
-        if not icons_data:
+        
+        logger.info(f"Extracting JSON icons from path '{icons_path}'")
+        logger.info(f"Icons data type: {type(icons_data)}")
+        
+        if icons_data:
+            logger.info(f"Found {len(icons_data)} icons")
+        else:
+            logger.warning("No icons data found")
             return []
 
         icons = []
-        for key, icon_data in icons_data.items():
-            icon_info = {
-                "key": key,
-                "search_terms": self._generate_search_terms(key, mapping_config.get("search_terms")),
-                "icon_data": icon_data,
-                "file_path": None
-            }
+        
+        # Handle both dictionary and list formats
+        if isinstance(icons_data, dict):
+            # Dictionary format: {icon_name: {svg: "...", width: 24, height: 24}}
+            for icon_key, icon_data in icons_data.items():
+                logger.debug(f"Processing icon: {icon_key}")
+                icon_info = {
+                    "key": icon_key,
+                    "search_terms": self._generate_search_terms(icon_key, mapping_config.get("search_terms")),
+                    "icon_data": icon_data,
+                    "file_path": None
+                }
 
-            # Extract additional metadata if specified
-            if "width" in mapping_config:
-                icon_info["width"] = self._get_nested_value(icon_data, mapping_config["width"])
-            if "height" in mapping_config:
-                icon_info["height"] = self._get_nested_value(icon_data, mapping_config["height"])
-            if "svg" in mapping_config:
-                icon_info["svg"] = self._get_nested_value(icon_data, mapping_config["svg"])
+                # Extract additional metadata if specified
+                if "width" in mapping_config:
+                    icon_info["width"] = self._get_nested_value(icon_data, mapping_config["width"])
+                if "height" in mapping_config:
+                    icon_info["height"] = self._get_nested_value(icon_data, mapping_config["height"])
+                if "body" in mapping_config:
+                    icon_info["body"] = self._get_nested_value(icon_data, mapping_config["body"])
 
-            icons.append(icon_info)
+                icons.append(icon_info)
+        
+        elif isinstance(icons_data, list):
+            # List format: [{key: "name", ...}, ...]
+            for icon_item in icons_data:
+                if not isinstance(icon_item, dict):
+                    logger.warning(f"Skipping non-dict icon item: {icon_item}")
+                    continue
+                    
+                key = icon_item.get("key")
+                if not key:
+                    logger.warning(f"Skipping icon without key: {icon_item}")
+                    continue
+                    
+                icon_info = {
+                    "key": key,
+                    "search_terms": icon_item.get("search_terms", ""),
+                    "icon_data": icon_item.get("icon_data", {}),
+                    "file_path": None
+                }
 
+                icons.append(icon_info)
+        
+        else:
+            logger.error(f"Unexpected icons_data type: {type(icons_data)}")
+            return []
+
+        logger.info(f"Successfully extracted {len(icons)} icons")
         return icons
 
     def _extract_svg_file_icons(self, pack_data: Dict[str, Any], mapping_config: Dict[str, str]) -> List[Dict[str, Any]]:
         """Extract icons from SVG file-based packages (like AWS icons)."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
         files_path = mapping_config.get("files_path", "files")
         base_path = mapping_config.get("base_path", "")
-
+        
+        logger.info(f"Extracting SVG file icons with files_path='{files_path}', base_path='{base_path}'")
+        logger.info(f"Pack data keys: {list(pack_data.keys())}")
+        
         files_list = self._get_nested_value(pack_data, files_path) or []
+        files_length = len(files_list) if hasattr(files_list, '__len__') else 'N/A'
+        logger.info(f"Files list type: {type(files_list)}, length: {files_length}")
 
         icons = []
         for file_info in files_list:
@@ -194,10 +251,10 @@ class IconPackInstaller:
                 file_path = file_info
                 key = Path(file_path).stem
             else:
-                file_path = self._get_nested_value(file_info, mapping_config.get("file_path", "path"))
-                key = self._get_nested_value(file_info, mapping_config.get("key", "name"))
+                file_path = self._get_nested_value(file_info, mapping_config.get("file_path", "file_path"))
+                key = self._get_nested_value(file_info, mapping_config.get("key", "key"))
                 if not key:
-                    key = Path(file_path).stem
+                    key = Path(file_path).stem if file_path else "unknown"
 
             if file_path and file_path.endswith('.svg'):
                 full_path = os.path.join(base_path, file_path) if base_path else file_path
@@ -206,17 +263,30 @@ class IconPackInstaller:
                     "key": key,
                     "search_terms": self._generate_search_terms(key, mapping_config.get("search_terms")),
                     "icon_data": {},
-                    "file_path": full_path
+                    "file_path": None  # We'll store content, not file paths
                 }
 
-                # Try to load SVG content if file exists
+                # Read and store SVG content directly
                 if os.path.exists(full_path):
                     try:
                         with open(full_path, 'r', encoding='utf-8') as f:
                             svg_content = f.read()
-                            icon_info["icon_data"]["svg"] = svg_content
-                    except Exception:
-                        pass  # File will be loaded on demand
+                            # Extract viewBox and dimensions from SVG
+                            viewbox_match = re.search(r'viewBox\s*=\s*["\']([^"\']+)["\']', svg_content)
+                            width_match = re.search(r'width\s*=\s*["\']([^"\']+)["\']', svg_content)
+                            height_match = re.search(r'height\s*=\s*["\']([^"\']+)["\']', svg_content)
+                            
+                            # Store complete SVG and metadata
+                            icon_info["icon_data"] = {
+                                "svg": svg_content,
+                                "viewBox": viewbox_match.group(1) if viewbox_match else "0 0 24 24",
+                                "width": width_match.group(1) if width_match else "24",
+                                "height": height_match.group(1) if height_match else "24"
+                            }
+                            logger.debug(f"Loaded SVG content for {key}: {len(svg_content)} chars")
+                    except Exception as e:
+                        logger.warning(f"Failed to read SVG file {full_path}: {e}")
+                        continue  # Skip this icon if we can't read the file
 
                 icons.append(icon_info)
 
@@ -240,10 +310,29 @@ class IconPackInstaller:
 
     async def _install_icons(self, pack_id: int, icons_data: List[Dict[str, Any]], pack_name: str) -> int:
         """Install icons into the database."""
+        import logging
+        logger = logging.getLogger(__name__)
+        
+        logger.info(f"Installing icons for pack '{pack_name}' (pack_id={pack_id})")
+        logger.info(f"Icons data length: {len(icons_data)}")
+        
+        if not icons_data:
+            logger.warning("No icons data provided for installation")
+            return 0
+            
+        # Log first few icons for debugging
+        for i, icon_info in enumerate(icons_data[:3]):
+            logger.info(f"Icon {i}: {icon_info}")
+        
         icon_count = 0
 
         for icon_info in icons_data:
+            if 'key' not in icon_info:
+                logger.warning(f"Skipping icon without 'key': {icon_info}")
+                continue
+                
             full_key = f"{pack_name}:{icon_info['key']}"
+            logger.debug(f"Creating icon: {full_key}")
 
             icon = IconMetadata(
                 pack_id=pack_id,
@@ -258,6 +347,7 @@ class IconPackInstaller:
             self.db.add(icon)
             icon_count += 1
 
+        logger.info(f"Successfully created {icon_count} icons for pack '{pack_name}'")
         return icon_count
 
     async def _get_existing_pack(self, pack_name: str) -> Optional[IconPack]:

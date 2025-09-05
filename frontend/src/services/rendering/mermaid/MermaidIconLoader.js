@@ -102,7 +102,8 @@ class MermaidIconLoader {
         for (const iconName of iconNames) {
           try {
             // First try to search for exact match in the specific pack
-            let icons = await IconService.searchIcons(iconName, 'all', packName, 0, 10);
+            let response = await IconService.searchIcons(iconName, 'all', packName, 0, 10);
+            let icons = response.icons || [];
             
             // Filter for exact key match first
             let exactMatch = icons.find(icon => icon.key === iconName);

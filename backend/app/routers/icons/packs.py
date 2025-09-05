@@ -1,13 +1,14 @@
 """
-Icon Pack Management Router - Handles pack CRUD operations
+Icon Pack Management Router - Handles pack CRUD operations (Standardized Iconify format only)
 """
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from ...database import get_db
-from ...services.icon_service import IconService
+from ...services.standardized_icon_installer import StandardizedIconPackInstaller
 from ...schemas.icon_schemas import IconPackResponse, IconPackInstallRequest, IconPackDeleteResponse
+from ...services.icon_service import IconService
 from .docs import ICON_PACKS_DOCS
 
 router = APIRouter(prefix="/packs", tags=["Icon Packs"])
@@ -16,6 +17,11 @@ router = APIRouter(prefix="/packs", tags=["Icon Packs"])
 async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
     """Dependency to get IconService instance."""
     return IconService(db)
+
+
+async def get_standardized_installer(db: AsyncSession = Depends(get_db)) -> StandardizedIconPackInstaller:
+    """Dependency to get StandardizedIconPackInstaller instance."""
+    return StandardizedIconPackInstaller(db)
 
 
 @router.get(
@@ -36,15 +42,11 @@ async def get_icon_packs(icon_service: IconService = Depends(get_icon_service)):
 )
 async def install_icon_pack(
     pack_request: IconPackInstallRequest,
-    icon_service: IconService = Depends(get_icon_service)
+    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
-    """Install a new icon pack with flexible data mapping."""
+    """Install a new icon pack in standardized Iconify format."""
     try:
-        return await icon_service.install_icon_pack(
-            pack_data=pack_request.pack_data,
-            mapping_config=pack_request.mapping_config,
-            package_type=pack_request.package_type
-        )
+        return await installer.install_pack(pack_request.pack_data)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -60,16 +62,11 @@ async def install_icon_pack(
 async def update_icon_pack(
     pack_name: str,
     pack_request: IconPackInstallRequest,
-    icon_service: IconService = Depends(get_icon_service)
+    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
-    """Update an existing icon pack with new data or configuration."""
+    """Update an existing icon pack with new data in standardized Iconify format."""
     try:
-        return await icon_service.update_icon_pack(
-            pack_name=pack_name,
-            pack_data=pack_request.pack_data,
-            mapping_config=pack_request.mapping_config,
-            package_type=pack_request.package_type
-        )
+        return await installer.update_pack(pack_name, pack_request.pack_data)
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

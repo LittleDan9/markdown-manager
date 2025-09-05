@@ -107,3 +107,5 @@ backend/postgres-data
 
 backend/*.crt
 backend/htmlcov
+
+gallery/
