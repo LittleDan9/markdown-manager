@@ -242,15 +242,14 @@ export default function IconBrowser() {
         </div>
       );
     }
+    
+    // Create complete SVG with proper styling support
     const viewBox = iconData.viewBox || '0 0 24 24';
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="${viewBox}" class="border rounded bg-body-secondary" style="padding: 4px;">${iconData.body}</svg>`;
+    
     return (
-      <svg
-        width="48"
-        height="48"
-        viewBox={viewBox}
-        className="border rounded bg-body-secondary"
-        style={{ padding: 4 }}
-        dangerouslySetInnerHTML={{ __html: iconData.body }}
+      <div 
+        dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     );
   }, []);

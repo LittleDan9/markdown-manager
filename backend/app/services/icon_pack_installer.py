@@ -47,8 +47,7 @@ class IconPackInstaller:
             name=pack_info["name"],
             display_name=pack_info["display_name"],
             category=pack_info["category"],
-            description=pack_info.get("description"),
-            icon_count=0
+            description=pack_info.get("description")
         )
 
         self.db.add(icon_pack)
@@ -58,8 +57,7 @@ class IconPackInstaller:
         icons_data = self._extract_icons_data(pack_data, mapping_config, package_type)
         icon_count = await self._install_icons(icon_pack.id, icons_data, pack_info["name"])
 
-        # Update icon count
-        icon_pack.icon_count = icon_count
+        # Note: icon_count is now computed automatically via hybrid_property
         await self.db.commit()
 
         return IconPackResponse.model_validate(icon_pack)

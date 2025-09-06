@@ -6,6 +6,7 @@ import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../providers/AuthProvider";
 import UserSettingsModal from "../user/modals/UserSettingsModal";
 import GitHubModal from "../github/modals/GitHubModal";
+import IconManagementModal from "../icons/modals/IconManagementModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
@@ -13,6 +14,7 @@ function UserMenuLoggedIn() {
   const { user, setUser, logout } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
+  const [showIconModal, setShowIconModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
 
@@ -51,6 +53,10 @@ function UserMenuLoggedIn() {
     setShowGitHubModal(true);
   };
 
+  const handleIconManagement = () => {
+    setShowIconModal(true);
+  };
+
   const handleLogout = () => {
     logout().then(() => {
       showSuccess("You have been logged out.");
@@ -81,6 +87,9 @@ function UserMenuLoggedIn() {
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
           <i className="bi bi-github me-2"></i>GitHub
         </Dropdown.Item>
+        <Dropdown.Item id="iconManagementBtn" onClick={handleIconManagement}>
+          <i className="bi bi-images me-2"></i>Icon Management
+        </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
           <ThemeToggle idPrefix="userMenu"/>
@@ -100,6 +109,10 @@ function UserMenuLoggedIn() {
       <GitHubModal
         show={showGitHubModal}
         onHide={() => setShowGitHubModal(false)}
+      />
+      <IconManagementModal
+        show={showIconModal}
+        onHide={() => setShowIconModal(false)}
       />
     </>
   );

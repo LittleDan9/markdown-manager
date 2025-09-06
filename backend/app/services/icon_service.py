@@ -137,9 +137,10 @@ class IconService:
                 body = icon.icon_data["body"]
                 width = icon.icon_data.get("width", 24)
                 height = icon.icon_data.get("height", 24)
+                viewBox = icon.icon_data.get("viewBox", f"0 0 {width} {height}")
                 svg_content = (
                     f'<svg xmlns="http://www.w3.org/2000/svg" '
-                    f'width="{width}" height="{height}" viewBox="0 0 {width} {height}">'
+                    f'width="{width}" height="{height}" viewBox="{viewBox}">'
                     f'{body}</svg>'
                 )
         elif icon.file_path and os.path.exists(icon.file_path):
@@ -153,12 +154,38 @@ class IconService:
         return svg_content
 
     async def get_icon_packs(self) -> List[IconPackResponse]:
-        """Get all icon packs."""
-        query = select(IconPack).order_by(IconPack.category, IconPack.display_name)
+        """Get all icon packs with computed icon counts."""
+        from sqlalchemy import func
+        
+        query = (
+            select(
+                IconPack,
+                func.coalesce(func.count(IconMetadata.id), 0).label('icon_count')
+            )
+            .outerjoin(IconMetadata, IconPack.id == IconMetadata.pack_id)
+            .group_by(IconPack.id)
+            .order_by(IconPack.category, IconPack.display_name)
+        )
+        
         result = await self.db.execute(query)
-        packs = result.scalars().all()
+        rows = result.all()
 
-        return [IconPackResponse.model_validate(pack) for pack in packs]
+        pack_responses = []
+        for pack, computed_count in rows:
+            # Create response manually to include computed count
+            pack_data = {
+                "id": pack.id,
+                "name": pack.name,
+                "display_name": pack.display_name,
+                "category": pack.category,
+                "description": pack.description,
+                "icon_count": computed_count,
+                "created_at": pack.created_at,
+                "updated_at": pack.updated_at
+            }
+            pack_responses.append(IconPackResponse.model_validate(pack_data))
+
+        return pack_responses
 
     async def track_usage(self, pack_name: str, key: str, user_id: Optional[int] = None) -> None:
         """Track icon usage by incrementing access count."""
@@ -244,6 +271,81 @@ class IconService:
             return True
 
         return False
+
+    async def add_icon_to_pack(
+        self,
+        pack_id: int,
+        icon_name: str,
+        icon_data: Dict[str, Any]
+    ) -> IconMetadataResponse:
+        """Add a single icon to an existing pack.
+        
+        Args:
+            pack_id: ID of the existing pack
+            icon_name: Name/key of the icon
+            icon_data: Icon data with body, width, height, viewBox
+            
+        Returns:
+            IconMetadataResponse: The created icon metadata
+            
+        Raises:
+            ValueError: If pack doesn't exist or icon already exists
+        """
+        # Check if pack exists
+        pack_query = select(IconPack).where(IconPack.id == pack_id)
+        pack_result = await self.db.execute(pack_query)
+        pack = pack_result.scalar_one_or_none()
+        
+        if not pack:
+            raise ValueError(f"Pack with ID {pack_id} not found")
+        
+        # Check if icon already exists in this pack
+        existing_query = select(IconMetadata).where(
+            and_(IconMetadata.pack_id == pack_id, IconMetadata.key == icon_name)
+        )
+        existing_result = await self.db.execute(existing_query)
+        existing_icon = existing_result.scalar_one_or_none()
+        
+        if existing_icon:
+            raise ValueError(f"Icon '{icon_name}' already exists in pack '{pack.name}'")
+        
+        # Create new icon metadata
+        full_key = f"{pack.name}:{icon_name}"
+        search_terms = f"{pack.name} {icon_name} {icon_name.replace('-', ' ')}"
+        
+        icon_metadata = IconMetadata(
+            pack_id=pack_id,
+            key=icon_name,
+            full_key=full_key,
+            search_terms=search_terms,
+            icon_data=icon_data
+        )
+        
+        self.db.add(icon_metadata)
+        await self.db.commit()
+        await self.db.refresh(icon_metadata)
+        
+        # Update pack's updated_at timestamp
+        pack.updated_at = func.now()
+        await self.db.commit()
+        
+        # Invalidate cache for the pack
+        self.cache.invalidate_pack(pack.name)
+        
+        # Return the created icon metadata as response (without pack relationship to avoid greenlet issues)
+        return IconMetadataResponse(
+            id=icon_metadata.id,
+            key=icon_metadata.key,
+            search_terms=icon_metadata.search_terms,
+            icon_data=icon_metadata.icon_data,
+            file_path=icon_metadata.file_path,
+            pack_id=icon_metadata.pack_id,
+            full_key=icon_metadata.full_key,
+            access_count=icon_metadata.access_count,
+            created_at=icon_metadata.created_at,
+            updated_at=icon_metadata.updated_at,
+            pack=None  # Exclude pack relationship to avoid async issues
+        )
 
     def get_cache_statistics(self) -> Dict[str, Any]:
         """Get cache statistics."""

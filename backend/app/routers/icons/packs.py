@@ -31,8 +31,52 @@ async def get_standardized_installer(db: AsyncSession = Depends(get_db)) -> Stan
 )
 async def get_icon_packs(icon_service: IconService = Depends(get_icon_service)):
     """Get all available icon packs."""
-    packs = await icon_service.get_icon_packs()
-    return packs
+    try:
+        packs = await icon_service.get_icon_packs()
+        return packs
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get icon packs: {str(e)}"
+        )
+
+
+@router.get(
+    "/categories",
+    summary="Get all unique categories from icon packs",
+    description="Retrieve a sorted list of all unique categories used by icon packs."
+)
+async def get_icon_categories(icon_service: IconService = Depends(get_icon_service)):
+    """Get all unique categories from existing icon packs."""
+    try:
+        packs = await icon_service.get_icon_packs()
+        categories = sorted(list(set(pack.category for pack in packs if pack.category)))
+        
+        return {"categories": categories}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get icon categories: {str(e)}"
+        )
+
+
+@router.get(
+    "/names",
+    summary="Get all unique pack names from icon packs",
+    description="Retrieve a sorted list of all unique pack names."
+)
+async def get_icon_pack_names(icon_service: IconService = Depends(get_icon_service)):
+    """Get all unique pack names from existing icon packs."""
+    try:
+        packs = await icon_service.get_icon_packs()
+        pack_names = sorted(list(set(pack.name for pack in packs if pack.name)))
+        
+        return {"pack_names": pack_names}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get pack names: {str(e)}"
+        )
 
 
 @router.post(

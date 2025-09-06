@@ -1,4 +1,18 @@
-"""Standardized icon pack installer service - Iconify format only."""
+"""Standardized icon pack install        # Create new icon pack
+        icon_pack = IconPack(
+            name=pack_info["name"],
+            display_name=pack_info["display_name"],
+            category=pack_info["category"],
+            description=pack_info.get("description", "")
+        )
+
+        self.db.add(icon_pack)
+        await self.db.flush()  # Get the ID
+
+        # Install icons in standardized format
+        icon_count = await self._install_icons(icon_pack.id, pack_request.icons, pack_info["name"])
+
+        # Note: icon_count is now computed automatically via hybrid_propertyify format only."""
 from typing import Dict
 
 from sqlalchemy import select
@@ -79,8 +93,7 @@ class StandardizedIconPackInstaller:
         # Install new icons
         icon_count = await self._install_icons(existing_pack.id, pack_request.icons, pack_name)
 
-        # Update icon count
-        existing_pack.icon_count = icon_count
+        # Note: icon_count is now computed automatically via hybrid_property
         await self.db.commit()
 
         return IconPackResponse.model_validate(existing_pack)

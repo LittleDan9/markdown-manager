@@ -18,9 +18,13 @@ export class Api {
     // console.log('API Call:', { method, url, body }); // Commented out to reduce noise
 
     const headers = {
-      "Content-Type": "application/json",
       ...extraHeaders
     };
+
+    // Don't set Content-Type for FormData - let browser set it with boundary
+    if (!options.isFormData) {
+      headers["Content-Type"] = "application/json";
+    }
 
     // Add authorization header unless noAuth is specified
     if (!options.noAuth) {
@@ -35,13 +39,11 @@ export class Api {
       url,
       headers,
       data: body,
-      timeout: 40000, // 40 second timeout
-      ...options
+      timeout: options.timeout || 40000, // Use custom timeout or default 40 seconds
     };
 
-    // Remove data for GET requests and remove noAuth from axios config
+    // Remove data for GET requests
     if (method === "GET") delete config.data;
-    delete config.noAuth;
 
     try {
       const response = await axios(config);

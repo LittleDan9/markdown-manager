@@ -190,6 +190,60 @@ export class IconsApi extends Api {
     const response = await this.apiCall('/icons/mapping-examples', 'GET', null, {}, { noAuth: true });
     return response.data;
   }
+
+  /**
+   * Upload a single icon to a pack
+   */
+  async uploadSingleIcon(iconData) {
+    const formData = new FormData();
+    formData.append('svg_file', iconData.svgFile);
+    formData.append('icon_name', iconData.iconName);
+    formData.append('pack_name', iconData.packName);
+    formData.append('category', iconData.category);
+    if (iconData.description) {
+      formData.append('description', iconData.description);
+    }
+
+    const response = await this.apiCall(
+      '/icons/upload/icon',
+      'POST',
+      formData,
+      {},
+      { 
+        isFormData: true,
+        timeout: 30000 // 30 second timeout for file uploads
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get unique categories from existing icon packs
+   */
+  async getIconCategories() {
+    try {
+      const response = await this.apiCall('/icons/packs/categories', 'GET', null, {}, { noAuth: true });
+      return response.data.categories;
+    } catch (error) {
+      console.error('Failed to load icon categories:', error);
+      // If backend is down, throw the error - don't fallback to hardcoded values
+      throw error;
+    }
+  }
+
+  /**
+   * Get unique pack names from existing icon packs
+   */
+  async getIconPackNames() {
+    try {
+      const response = await this.apiCall('/icons/packs/names', 'GET', null, {}, { noAuth: true });
+      return response.data.pack_names;
+    } catch (error) {
+      console.error('Failed to load icon pack names:', error);
+      // If backend is down, throw the error - don't fallback to hardcoded values
+      throw error;
+    }
+  }
 }
 
 // Create singleton instance

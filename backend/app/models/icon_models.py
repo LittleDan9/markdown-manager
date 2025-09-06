@@ -4,7 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 
 from .base import BaseModel
 
@@ -35,10 +35,6 @@ class IconPack(BaseModel):
     description: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True,
         comment="Description of the icon pack"
-    )
-    icon_count: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False,
-        comment="Number of icons in this pack"
     )
 
     # Relationships

@@ -12,7 +12,7 @@ Maintains compatibility with existing API while providing better code organizati
 
 from fastapi import APIRouter
 
-from . import packs, search, cache, statistics
+from . import packs, search, cache, statistics, upload
 
 # Create main icon router (no tags to avoid duplication)
 router = APIRouter(prefix="/icons")
@@ -22,3 +22,4 @@ router.include_router(packs.router)
 router.include_router(search.router)
 router.include_router(cache.router)
 router.include_router(statistics.router)
+router.include_router(upload.router)
