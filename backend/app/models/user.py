@@ -52,6 +52,7 @@ class User(BaseModel):
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationship to documents
     documents: Mapped[list["Document"]] = relationship(

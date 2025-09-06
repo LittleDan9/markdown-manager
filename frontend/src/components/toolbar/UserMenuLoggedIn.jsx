@@ -57,6 +57,11 @@ function UserMenuLoggedIn() {
     setShowIconModal(true);
   };
 
+  const handleAdmin = () => {
+    // Placeholder for future admin functionality
+    showSuccess("Admin panel coming soon!");
+  };
+
   const handleLogout = () => {
     logout().then(() => {
       showSuccess("You have been logged out.");
@@ -87,9 +92,17 @@ function UserMenuLoggedIn() {
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
           <i className="bi bi-github me-2"></i>GitHub
         </Dropdown.Item>
-        <Dropdown.Item id="iconManagementBtn" onClick={handleIconManagement}>
-          <i className="bi bi-images me-2"></i>Icon Management
-        </Dropdown.Item>
+        {user.is_admin && (
+          <Dropdown.Item id="iconManagementBtn" onClick={handleIconManagement}>
+            <i className="bi bi-images me-2"></i>Icon Management
+          </Dropdown.Item>
+        )}
+        {user.is_admin && (
+          <Dropdown.Item id="adminBtn" onClick={handleAdmin}>
+            <i className="bi bi-shield-fill-check text-danger me-2"></i>
+            <span className="text-danger">Admin</span>
+          </Dropdown.Item>
+        )}
         <Dropdown.Divider />
         <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
           <ThemeToggle idPrefix="userMenu"/>

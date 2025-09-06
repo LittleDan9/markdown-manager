@@ -12,6 +12,8 @@ from ...services.standardized_icon_installer import StandardizedIconPackInstalle
 from ...services.icon_service import IconService
 from ...schemas.icon_schemas import IconMetadataResponse
 from ...schemas.icon_schemas import IconPackResponse, StandardizedIconPackRequest
+from ...core.auth import get_admin_user
+from ...models.user import User
 
 router = APIRouter(prefix="/upload", tags=["Icon Upload"])
 
@@ -152,6 +154,7 @@ async def upload_single_icon(
     pack_name: str = Form(..., description="Pack name to add icon to"),
     category: str = Form(default="other", description="Pack category"),
     description: Optional[str] = Form(default=None, description="Pack description"),
+    current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service),
     installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):

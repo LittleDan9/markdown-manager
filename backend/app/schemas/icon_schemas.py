@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 class IconPackBase(BaseModel):
@@ -24,11 +24,41 @@ class IconPackResponse(IconPackBase):
     """Icon pack response schema."""
 
     id: int
-    icon_count: int
+    icon_count: int = Field(default=0, description="Number of icons in this pack")
     created_at: datetime
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+    @model_validator(mode='before')
+    @classmethod
+    def compute_icon_count(cls, data):
+        """Compute icon_count from the icons relationship if available."""
+        if isinstance(data, dict):
+            # If it's already a dict with icon_count, use it
+            if 'icon_count' in data:
+                return data
+            # If it's a dict without icon_count, set default
+            data['icon_count'] = 0
+            return data
+        
+        # If it's a SQLAlchemy model object
+        if hasattr(data, 'icons') and data.icons is not None:
+            # Create a dict from the model and add computed icon_count
+            result = {}
+            for field in ['id', 'name', 'display_name', 'category', 'description', 'created_at', 'updated_at']:
+                if hasattr(data, field):
+                    result[field] = getattr(data, field)
+            result['icon_count'] = len(data.icons)
+            return result
+        
+        # Fallback: convert to dict and add default icon_count
+        if hasattr(data, '__dict__'):
+            result = {k: v for k, v in data.__dict__.items() if not k.startswith('_')}
+            result['icon_count'] = 0
+            return result
+        
+        return data
 
 
 class IconMetadataBase(BaseModel):

@@ -6,6 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from ...database import get_db
 from ...services.icon_service import IconService
+from ...core.auth import get_admin_user
+from ...models.user import User
 
 router = APIRouter(prefix="/cache", tags=["Icon Cache"])
 
@@ -43,7 +45,10 @@ async def get_cache_stats(icon_service: IconService = Depends(get_icon_service))
     summary="Warm cache with popular icons",
     description="Pre-load the cache with the most popular icons for improved performance."
 )
-async def warm_cache(icon_service: IconService = Depends(get_icon_service)):
+async def warm_cache(
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
     """Pre-load the cache with the most popular icons for improved performance."""
     try:
         # For now, return success message
@@ -63,7 +68,10 @@ async def warm_cache(icon_service: IconService = Depends(get_icon_service)):
     summary="Clear all cache entries",
     description="Clear all cached icon data to free memory or force fresh data loading."
 )
-async def clear_cache(icon_service: IconService = Depends(get_icon_service)):
+async def clear_cache(
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
     """Clear all cached icon data to free memory or force fresh data loading."""
     try:
         # For now, return success message since cache interface may vary

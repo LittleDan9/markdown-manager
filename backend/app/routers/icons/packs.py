@@ -9,6 +9,8 @@ from ...database import get_db
 from ...services.standardized_icon_installer import StandardizedIconPackInstaller
 from ...schemas.icon_schemas import IconPackResponse, IconPackInstallRequest, IconPackDeleteResponse
 from ...services.icon_service import IconService
+from ...core.auth import get_admin_user
+from ...models.user import User
 from .docs import ICON_PACKS_DOCS
 
 router = APIRouter(prefix="/packs", tags=["Icon Packs"])
@@ -29,7 +31,9 @@ async def get_standardized_installer(db: AsyncSession = Depends(get_db)) -> Stan
     response_model=List[IconPackResponse],
     **ICON_PACKS_DOCS["get"]
 )
-async def get_icon_packs(icon_service: IconService = Depends(get_icon_service)):
+async def get_icon_packs(
+    icon_service: IconService = Depends(get_icon_service)
+):
     """Get all available icon packs."""
     try:
         packs = await icon_service.get_icon_packs()
@@ -46,7 +50,9 @@ async def get_icon_packs(icon_service: IconService = Depends(get_icon_service)):
     summary="Get all unique categories from icon packs",
     description="Retrieve a sorted list of all unique categories used by icon packs."
 )
-async def get_icon_categories(icon_service: IconService = Depends(get_icon_service)):
+async def get_icon_categories(
+    icon_service: IconService = Depends(get_icon_service)
+):
     """Get all unique categories from existing icon packs."""
     try:
         packs = await icon_service.get_icon_packs()
@@ -65,7 +71,9 @@ async def get_icon_categories(icon_service: IconService = Depends(get_icon_servi
     summary="Get all unique pack names from icon packs",
     description="Retrieve a sorted list of all unique pack names."
 )
-async def get_icon_pack_names(icon_service: IconService = Depends(get_icon_service)):
+async def get_icon_pack_names(
+    icon_service: IconService = Depends(get_icon_service)
+):
     """Get all unique pack names from existing icon packs."""
     try:
         packs = await icon_service.get_icon_packs()
@@ -86,6 +94,7 @@ async def get_icon_pack_names(icon_service: IconService = Depends(get_icon_servi
 )
 async def install_icon_pack(
     pack_request: IconPackInstallRequest,
+    current_user: User = Depends(get_admin_user),
     installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
     """Install a new icon pack in standardized Iconify format."""
@@ -106,6 +115,7 @@ async def install_icon_pack(
 async def update_icon_pack(
     pack_name: str,
     pack_request: IconPackInstallRequest,
+    current_user: User = Depends(get_admin_user),
     installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
     """Update an existing icon pack with new data in standardized Iconify format."""
@@ -127,6 +137,7 @@ async def update_icon_pack(
 )
 async def delete_icon_pack(
     pack_name: str,
+    current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service)
 ):
     """Permanently delete an icon pack and all its associated icons."""

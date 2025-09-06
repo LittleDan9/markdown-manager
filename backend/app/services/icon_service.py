@@ -29,46 +29,39 @@ class IconService:
         search_request: IconSearchRequest
     ) -> IconSearchResponse:
         """Search icons with pagination and filtering."""
-        query = select(IconMetadata).options(selectinload(IconMetadata.pack))
-
-        # Apply pack and category filters - need to join only once
-        join_needed = search_request.pack != "all" or search_request.category != "all"
-        if join_needed:
-            query = query.join(IconPack)
-            
-            if search_request.pack != "all":
-                query = query.where(IconPack.name == search_request.pack)
-                
-            if search_request.category != "all":
-                query = query.where(IconPack.category == search_request.category)
-
-        # Apply search filter
+        # Base query with pack relationship and icons for count computation
+        query = select(IconMetadata).options(
+            selectinload(IconMetadata.pack).selectinload(IconPack.icons)
+        )
+        
+        # Apply filters
         if search_request.q:
-            query = query.where(
-                IconMetadata.search_terms.ilike(f"%{search_request.q}%")
-            )
-
+            query = query.where(IconMetadata.search_terms.ilike(f"%{search_request.q}%"))
+        
+        if search_request.pack != "all":
+            query = query.join(IconPack).where(IconPack.name == search_request.pack)
+        
+        if search_request.category != "all":
+            query = query.join(IconPack).where(IconPack.category == search_request.category)
+        
         # Order by popularity (access_count) and then by key
         query = query.order_by(desc(IconMetadata.access_count), IconMetadata.key)
-
+        
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
-        total_result = await self.db.execute(count_query)
-        total = total_result.scalar() or 0
-
-        # Apply pagination
+        total = await self.db.scalar(count_query) or 0
+        
+        # Apply pagination and execute
         offset = search_request.page * search_request.size
         query = query.offset(offset).limit(search_request.size)
-
-        # Execute query
         result = await self.db.execute(query)
         icons = result.scalars().all()
-
+        
         # Calculate pagination info
-        pages = (total + search_request.size - 1) // search_request.size
+        pages = (total + search_request.size - 1) // search_request.size  # Ceiling division
         has_next = search_request.page < pages - 1
         has_prev = search_request.page > 0
-
+        
         return IconSearchResponse(
             icons=[IconMetadataResponse.model_validate(icon) for icon in icons],
             total=total,
@@ -76,7 +69,7 @@ class IconService:
             size=search_request.size,
             pages=pages,
             has_next=has_next,
-            has_prev=has_prev,
+            has_prev=has_prev
         )
 
     async def get_icon_metadata(self, pack_name: str, key: str) -> Optional[IconMetadataResponse]:
@@ -154,38 +147,16 @@ class IconService:
         return svg_content
 
     async def get_icon_packs(self) -> List[IconPackResponse]:
-        """Get all icon packs with computed icon counts."""
-        from sqlalchemy import func
-        
+        """Get all icon packs with automatic icon count computation."""
         query = (
-            select(
-                IconPack,
-                func.coalesce(func.count(IconMetadata.id), 0).label('icon_count')
-            )
-            .outerjoin(IconMetadata, IconPack.id == IconMetadata.pack_id)
-            .group_by(IconPack.id)
+            select(IconPack)
+            .options(selectinload(IconPack.icons))
             .order_by(IconPack.category, IconPack.display_name)
         )
-        
         result = await self.db.execute(query)
-        rows = result.all()
+        packs = result.scalars().all()
 
-        pack_responses = []
-        for pack, computed_count in rows:
-            # Create response manually to include computed count
-            pack_data = {
-                "id": pack.id,
-                "name": pack.name,
-                "display_name": pack.display_name,
-                "category": pack.category,
-                "description": pack.description,
-                "icon_count": computed_count,
-                "created_at": pack.created_at,
-                "updated_at": pack.updated_at
-            }
-            pack_responses.append(IconPackResponse.model_validate(pack_data))
-
-        return pack_responses
+        return [IconPackResponse.model_validate(pack) for pack in packs]
 
     async def track_usage(self, pack_name: str, key: str, user_id: Optional[int] = None) -> None:
         """Track icon usage by incrementing access count."""
