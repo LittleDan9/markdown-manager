@@ -55,12 +55,14 @@ class IconPackInstaller:
 
         # Extract and install icons
         icons_data = self._extract_icons_data(pack_data, mapping_config, package_type)
-        icon_count = await self._install_icons(icon_pack.id, icons_data, pack_info["name"])
+        await self._install_icons(icon_pack.id, icons_data, pack_info["name"])
 
         # Note: icon_count is now computed automatically via hybrid_property
         await self.db.commit()
 
-        return IconPackResponse.model_validate(icon_pack)
+        # Query the pack fresh from database to get proper response with relationships
+        fresh_pack = await self._get_existing_pack(pack_info["name"])
+        return IconPackResponse.model_validate(fresh_pack)
 
     async def update_pack(
         self,
@@ -95,13 +97,14 @@ class IconPackInstaller:
 
         # Extract and install new icons
         icons_data = self._extract_icons_data(pack_data, mapping_config, package_type)
-        icon_count = await self._install_icons(existing_pack.id, icons_data, pack_name)
+        await self._install_icons(existing_pack.id, icons_data, pack_name)
 
-        # Update icon count
-        existing_pack.icon_count = icon_count
+        # Note: icon_count is now computed automatically from relationship
         await self.db.commit()
 
-        return IconPackResponse.model_validate(existing_pack)
+        # Query the pack fresh from database to get proper response with relationships
+        fresh_pack = await self._get_existing_pack(pack_name)
+        return IconPackResponse.model_validate(fresh_pack)
 
     def _extract_pack_info(self, pack_data: Dict[str, Any], mapping_config: Dict[str, str]) -> Dict[str, Any]:
         """Extract pack information using mapping configuration.
