@@ -14,7 +14,7 @@ export class IconsApi extends Api {
    * Get all icon packs
    */
   async getIconPacks() {
-    const response = await this.apiCall('/icons/packs/', 'GET', null, {}, { noAuth: true });
+    const response = await this.apiCall('/icons/packs', 'GET', null, {}, { noAuth: true });
     return response.data;
   }
 
@@ -39,7 +39,7 @@ export class IconsApi extends Api {
     });
 
     const response = await this.apiCall(
-      `/icons/search/?${queryParams}`,
+      `/icons/search?${queryParams}`,
       'GET',
       null,
       {},
@@ -151,7 +151,7 @@ export class IconsApi extends Api {
    */
   async installIconPack(packData, mappingConfig, packageType = 'json') {
     const response = await this.apiCall(
-      '/icons/packs/',
+      '/icons/packs',
       'POST',
       {
         pack_data: packData,
