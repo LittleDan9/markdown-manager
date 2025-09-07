@@ -20,6 +20,23 @@ class IconPackCreate(IconPackBase):
     icon_count: int = Field(0, ge=0, description="Number of icons in this pack")
 
 
+class IconPackMetadataUpdate(BaseModel):
+    """Schema for updating only icon pack metadata without affecting icons."""
+
+    name: Optional[str] = Field(None, description="Unique identifier like 'awssvg', 'logos'")
+    display_name: Optional[str] = Field(None, description="Human readable name like 'AWS Services'")
+    category: Optional[str] = Field(None, description="Grouping like 'aws', 'iconify'")
+    description: Optional[str] = Field(None, description="Description of the icon pack")
+
+
+class IconMetadataUpdate(BaseModel):
+    """Schema for updating individual icon metadata."""
+
+    key: Optional[str] = Field(None, description="Icon key/identifier")
+    search_terms: Optional[str] = Field(None, description="Searchable keywords")
+    category: Optional[str] = Field(None, description="Icon category")
+
+
 class IconPackResponse(IconPackBase):
     """Icon pack response schema."""
 
@@ -172,6 +189,8 @@ class StandardizedIconPackRequest(BaseModel):
     
     info: Dict[str, Any] = Field(..., description="Pack metadata")
     icons: Dict[str, IconifyIconData] = Field(..., description="Icon data in Iconify format")
+    width: Optional[int] = Field(24, description="Pack-level default width")
+    height: Optional[int] = Field(24, description="Pack-level default height")
     
     @field_validator('info')
     @classmethod

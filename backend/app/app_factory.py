@@ -25,6 +25,7 @@ from app.routers import (
     documents,
     github,
     icons,
+    iconify_router,
     monitoring,
     pdf,
     public,
@@ -112,6 +113,9 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(
         icons.router  # Icon service endpoints - tags already defined in router
+    )
+    app.include_router(
+        iconify_router.router  # Iconify browser endpoints
     )
     app.include_router(
         categories.router, prefix="/categories", tags=["categories"]

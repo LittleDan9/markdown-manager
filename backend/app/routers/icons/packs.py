@@ -7,7 +7,12 @@ from typing import List
 
 from ...database import get_db
 from ...services.standardized_icon_installer import StandardizedIconPackInstaller
-from ...schemas.icon_schemas import IconPackResponse, IconPackInstallRequest, IconPackDeleteResponse
+from ...schemas.icon_schemas import (
+    IconPackResponse,
+    IconPackInstallRequest,
+    IconPackDeleteResponse,
+    IconPackMetadataUpdate
+)
 from ...services.icon_service import IconService
 from ...core.auth import get_admin_user
 from ...models.user import User
@@ -127,6 +132,32 @@ async def update_icon_pack(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to update icon pack: {str(e)}"
+        )
+
+
+@router.patch(
+    "/{pack_name}",
+    response_model=IconPackResponse,
+    summary="Update icon pack metadata",
+    description="Update metadata (name, display_name, category, description) without affecting icons"
+)
+async def update_icon_pack_metadata(
+    pack_name: str,
+    metadata: IconPackMetadataUpdate,
+    current_user: User = Depends(get_admin_user),
+    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
+):
+    """Update only the metadata of an existing icon pack without touching icons."""
+    try:
+        # Convert to dict and exclude None values
+        metadata_dict = {k: v for k, v in metadata.model_dump().items() if v is not None}
+        return await installer.update_pack_metadata(pack_name, metadata_dict)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update icon pack metadata: {str(e)}"
         )
 
 

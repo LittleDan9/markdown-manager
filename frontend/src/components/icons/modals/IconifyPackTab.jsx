@@ -157,6 +157,9 @@ export default function IconifyPackTab({
 
       // Create the pack data in the expected format
       const customPackData = {
+        // Preserve pack-level dimensions for proper viewBox calculation
+        width: packData.width,
+        height: packData.height,
         icons,
         info: {
           ...info,
@@ -202,6 +205,19 @@ export default function IconifyPackTab({
         {error && <Alert variant="danger">{error}</Alert>}
         {success && <Alert variant="success">{success}</Alert>}
 
+        <Alert variant="info" className="mb-3">
+          <Alert.Heading as="h6">
+            <i className="bi bi-info-circle me-2"></i>
+            Iconify API URL Formats
+          </Alert.Heading>
+          <small>
+            <strong>Direct JSON (Recommended):</strong> <code>https://api.iconify.design/PREFIX.json?icons=icon1,icon2,icon3</code><br/>
+            <strong>Collection API (Limited):</strong> <code>https://api.iconify.design/collection?prefix=PREFIX&info=1</code><br/>
+            <strong>Find Icon Packs:</strong> Browse <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener">icon-sets.iconify.design</a> or <a href="https://iconify.design/icon-sets/" target="_blank" rel="noopener">iconify.design/icon-sets</a><br/>
+            <strong>Get Icon Names:</strong> Use the Iconify website to find specific icon names for your pack.
+          </small>
+        </Alert>
+
         <Form>
           <div className="row">
             <div className="col-md-6">
@@ -211,13 +227,14 @@ export default function IconifyPackTab({
                   type="url"
                   value={iconifyForm.packUrl}
                   onChange={(e) => handleIconifyFormChange('packUrl', e.target.value)}
-                  placeholder="https://api.iconify.design/collection?prefix=fa6-solid&info=1"
+                  placeholder="https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user,search,check,times,arrow-left,arrow-right,arrow-up"
                   disabled={loading}
                 />
                 <Form.Text className="text-muted">
-                  Enter URL to an Iconify collection. Examples:<br/>
-                  • Collection API: https://api.iconify.design/collection?prefix=fa6-solid&info=1<br/>
-                  • Direct JSON: https://api.iconify.design/mdi.json (fallback)
+                  <strong>URL Format Examples:</strong><br/>
+                  • <strong>Direct JSON:</strong> https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user<br/>
+                  • <strong>Collection API:</strong> https://api.iconify.design/collection?prefix=heroicons&info=1<br/>
+                  • <strong>Find more packs:</strong> <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener">Browse Iconify Icon Sets</a>
                 </Form.Text>
               </Form.Group>
 
@@ -346,7 +363,7 @@ export default function IconifyPackTab({
 
               <Card className="mb-3">
                 <Card.Header>
-                  <h6 className="mb-0">Popular Iconify Collections</h6>
+                  <h6 className="mb-0">Quick-Fill Popular Collections</h6>
                 </Card.Header>
                 <Card.Body>
                   <div className="row">
@@ -356,7 +373,7 @@ export default function IconifyPackTab({
                         size="sm"
                         className="me-2 mb-2"
                         onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/collection?prefix=mdi&info=1');
+                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/mdi.json?icons=home,heart,star,account,magnify,check,close,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,pencil,delete,content-save,content-copy,download,upload,settings,information,alert,check-circle,calendar,clock,email,phone,map-marker,camera,image,video,music,file,folder,text-box,format-bold,format-italic,format-underline,link,view-list,table,chart-line,view-dashboard,menu,view-grid,filter,sort-ascending,refresh,sync,lock,lock-open,eye,eye-off,share,thumb-up,heart-outline,bookmark,tag,flag,bell,message,chat,reply,send,printer,qrcode,wifi,bluetooth,battery,signal,volume-high,brightness-6,zoom-in,fullscreen,window-minimize,window-maximize,close,cancel,check-bold,block-helper');
                           handleIconifyFormChange('packName', 'material-design-icons');
                         }}
                       >
@@ -367,7 +384,7 @@ export default function IconifyPackTab({
                         size="sm"
                         className="me-2 mb-2"
                         onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/collection?prefix=fa6-solid&info=1');
+                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user,search,check,times,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,edit,trash,save,copy,download,upload,home,settings,info,warning,error,success,calendar,clock,mail,phone,map,location,camera,image,video,music,file,folder,document,text,bold,italic,underline,link,list,table,chart,graph,dashboard,menu,grid,filter,sort,refresh,sync,lock,unlock,eye,hide,share,like,favorite,bookmark,tag,flag,bell,notification,message,chat,comment,reply,send,receive,print,scan,barcode,qr-code,wifi,bluetooth,battery,signal,volume,brightness,contrast,zoom,fullscreen,minimize,maximize,close,cancel,confirm,approve,deny,block,allow,play,pause,stop,forward,backward,repeat,shuffle,previous,next,first,last,skip,record,microphone,speaker,headphones');
                           handleIconifyFormChange('packName', 'font-awesome-solid');
                         }}
                       >
@@ -378,7 +395,7 @@ export default function IconifyPackTab({
                         size="sm"
                         className="me-2 mb-2"
                         onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/collection?prefix=heroicons&info=1');
+                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/heroicons.json?icons=home,heart,star,user,magnifying-glass,check,x-mark,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,pencil,trash,bookmark,tag,bell,chat-bubble-left,envelope,phone,map-pin,camera,photo,video,musical-note,document,folder,cog-6-tooth,information-circle,exclamation-triangle,check-circle,calendar,clock,wifi,lock-closed,eye,eye-slash,share,heart-outline');
                           handleIconifyFormChange('packName', 'heroicons');
                         }}
                       >
@@ -389,7 +406,7 @@ export default function IconifyPackTab({
                         size="sm"
                         className="me-2 mb-2"
                         onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/collection?prefix=lucide&info=1');
+                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/lucide.json?icons=home,heart,star,user,search,check,x,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,edit,trash-2,save,copy,download,upload,settings,info,alert-triangle,check-circle,calendar,clock,mail,phone,map-pin,camera,image,video,music,file,folder,type,bold,italic,underline,link,list,table,bar-chart,menu,grid,filter,refresh,lock,unlock,eye,eye-off,share,thumbs-up,bookmark,tag,flag,bell,message-circle');
                           handleIconifyFormChange('packName', 'lucide');
                         }}
                       >
@@ -398,7 +415,8 @@ export default function IconifyPackTab({
                     </div>
                   </div>
                   <small className="text-muted">
-                    Click to auto-fill URL and pack name
+                    <strong>Quick-fill buttons above use optimized direct JSON URLs.</strong><br/>
+                    Visit <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener">icon-sets.iconify.design</a> to find more icon packs and their prefix names.
                   </small>
                 </Card.Body>
               </Card>

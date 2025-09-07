@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Tab, Nav } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import UploadIconTab from './UploadIconTab';
-import IconifyPackTab from './IconifyPackTab';
 import IconPacksTab from './IconPacksTab';
 import DeletePackTab from './DeletePackTab';
+import IconifyBrowser from '../IconifyBrowser';
+import InstalledIconsTab from './InstalledIconsTab';
 
 export default function IconManagementModal({ show, onHide }) {
   const [activeTab, setActiveTab] = useState('packs');
@@ -12,11 +13,13 @@ export default function IconManagementModal({ show, onHide }) {
   const [categories, setCategories] = useState([]);
   const [packNames, setPackNames] = useState([]); // Original backend pack names for comparison
   const [dropdownPackNames, setDropdownPackNames] = useState([]); // Pack names shown in dropdown
+  const [loading, setLoading] = useState(false);
 
   // Load existing packs and categories on mount
   useEffect(() => {
     if (show) {
-      loadAllData();
+      setLoading(true);
+      loadAllData().finally(() => setLoading(false));
     }
   }, [show]);
 
@@ -98,13 +101,19 @@ export default function IconManagementModal({ show, onHide }) {
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
+              <Nav.Link eventKey="installed">
+                <i className="bi bi-grid-3x3-gap me-2"></i>
+                Installed Icons
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
               <Nav.Link eventKey="upload">
                 <i className="bi bi-upload me-2"></i>
                 Upload Icon
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
-              <Nav.Link eventKey="iconify">
+              <Nav.Link eventKey="browser">
                 <svg 
                   className="me-2" 
                   width="20" 
@@ -121,7 +130,7 @@ export default function IconManagementModal({ show, onHide }) {
                   <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M24 25v16"/>
                   <circle cx="24" cy="23" r="4" fill="currentColor"/>
                 </svg>
-                Iconify Pack
+                Iconify Browser
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
@@ -135,7 +144,12 @@ export default function IconManagementModal({ show, onHide }) {
           <Tab.Content style={{ minHeight: '400px' }}>
             {/* Packs Tab */}
             <Tab.Pane eventKey="packs">
-              <IconPacksTab iconPacks={iconPacks} />
+              <IconPacksTab iconPacks={iconPacks} onReloadData={loadAllData} loading={loading} />
+            </Tab.Pane>
+
+            {/* Installed Icons Tab */}
+            <Tab.Pane eventKey="installed">
+              <InstalledIconsTab iconPacks={iconPacks} onReloadData={loadAllData} packsLoading={loading} />
             </Tab.Pane>
 
             {/* Upload Tab */}
@@ -150,13 +164,9 @@ export default function IconManagementModal({ show, onHide }) {
               />
             </Tab.Pane>
 
-            {/* Iconify Pack Tab */}
-            <Tab.Pane eventKey="iconify">
-              <IconifyPackTab
-                categories={categories}
-                onAddCategory={handleAddCategory}
-                onReloadData={loadAllData}
-              />
+            {/* Iconify Browser Tab */}
+            <Tab.Pane eventKey="browser">
+              <IconifyBrowser onReloadData={loadAllData} />
             </Tab.Pane>
 
             {/* Delete Pack Tab */}

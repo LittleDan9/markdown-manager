@@ -77,6 +77,20 @@ export class IconsApi extends Api {
   }
 
   /**
+   * Get icon metadata by ID
+   */
+  async getIconById(iconId) {
+    const response = await this.apiCall(
+      `/icons/${iconId}`,
+      'GET',
+      null,
+      {},
+      { noAuth: true }
+    );
+    return response.data;
+  }
+
+  /**
    * Batch get icons by full keys
    */
   async batchGetIcons(iconKeys) {
@@ -165,6 +179,19 @@ export class IconsApi extends Api {
   }
 
   /**
+   * Update only icon pack metadata (name, display_name, category, description)
+   * without affecting the icons themselves
+   */
+  async updateIconPackMetadata(packName, metadata) {
+    const response = await this.apiCall(
+      `/icons/packs/${encodeURIComponent(packName)}`,
+      'PATCH',
+      metadata
+    );
+    return response.data;
+  }
+
+  /**
    * Delete icon pack
    */
   async deleteIconPack(packName) {
@@ -243,6 +270,29 @@ export class IconsApi extends Api {
       // If backend is down, throw the error - don't fallback to hardcoded values
       throw error;
     }
+  }
+
+  /**
+   * Update metadata for a specific icon
+   */
+  async updateIconMetadata(iconId, metadata) {
+    const response = await this.apiCall(
+      `/icons/search/${iconId}`,
+      'PATCH',
+      metadata
+    );
+    return response.data;
+  }
+
+  /**
+   * Delete a specific icon
+   */
+  async deleteIcon(iconId) {
+    const response = await this.apiCall(
+      `/icons/search/${iconId}`,
+      'DELETE'
+    );
+    return response.data;
   }
 }
 

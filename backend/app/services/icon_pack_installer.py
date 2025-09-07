@@ -183,17 +183,21 @@ class IconPackInstaller:
         
         # Handle both dictionary and list formats
         if isinstance(icons_data, dict):
-            # Dictionary format: {icon_name: {svg: "...", width: 24, height: 24}}
+            # Dictionary format: {icon_name: {body: "...", width: 24, height: 24}}
             for icon_key, icon_data in icons_data.items():
                 logger.debug(f"Processing icon: {icon_key}")
+                
+                # Process Iconify-style data to create proper icon structure
+                processed_icon_data = self._process_iconify_icon_data(icon_data, pack_data)
+                
                 icon_info = {
                     "key": icon_key,
                     "search_terms": self._generate_search_terms(icon_key, mapping_config.get("search_terms")),
-                    "icon_data": icon_data,
+                    "icon_data": processed_icon_data,
                     "file_path": None
                 }
 
-                # Extract additional metadata if specified
+                # Extract additional metadata if specified (for non-Iconify formats)
                 if "width" in mapping_config:
                     icon_info["width"] = self._get_nested_value(icon_data, mapping_config["width"])
                 if "height" in mapping_config:
@@ -372,6 +376,32 @@ class IconPackInstaller:
                 return None
 
         return current
+
+    def _process_iconify_icon_data(self, icon_data: Dict[str, Any], pack_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Process Iconify icon data to create proper icon structure with viewBox."""
+        # Extract dimensions, with fallbacks to pack-level defaults
+        left = int(icon_data.get("left", 0))
+        top = int(icon_data.get("top", 0))
+        width = int(icon_data.get("width", pack_data.get("width", 24)))
+        height = int(icon_data.get("height", pack_data.get("height", 24)))
+        
+        # Construct viewBox from dimensions
+        view_box = f"{left} {top} {width} {height}"
+        
+        # Create processed icon data with proper structure
+        processed_data = {
+            "body": icon_data.get("body", ""),
+            "viewBox": view_box,
+            "width": width,
+            "height": height
+        }
+        
+        # Preserve any additional fields that might be useful
+        for key, value in icon_data.items():
+            if key not in ["body", "left", "top", "width", "height"]:
+                processed_data[key] = value
+                
+        return processed_data
 
     def _generate_search_terms(self, key: str, search_config: Optional[str] = None) -> str:
         """Generate search terms for an icon."""

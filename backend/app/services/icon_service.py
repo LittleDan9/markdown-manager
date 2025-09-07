@@ -99,6 +99,54 @@ class IconService:
             return metadata
         return None
 
+    async def get_icon_by_id(self, icon_id: int) -> Optional[IconMetadataResponse]:
+        """Get icon metadata by ID."""
+        query = (
+            select(IconMetadata)
+            .options(selectinload(IconMetadata.pack))
+            .where(IconMetadata.id == icon_id)
+        )
+
+        result = await self.db.execute(query)
+        icon = result.scalar_one_or_none()
+
+        if icon:
+            # Access the pack within the async context to avoid greenlet issues
+            pack_data = None
+            if icon.pack:
+                # Get icon count for the pack in a separate query to avoid relationship access issues
+                icon_count_query = select(func.count(IconMetadata.id)).where(IconMetadata.pack_id == icon.pack.id)
+                icon_count_result = await self.db.execute(icon_count_query)
+                icon_count = icon_count_result.scalar() or 0
+                
+                # Manually construct pack data to avoid Pydantic model validation issues
+                pack_data = IconPackResponse(
+                    id=icon.pack.id,
+                    name=icon.pack.name,
+                    display_name=icon.pack.display_name,
+                    category=icon.pack.category,
+                    description=icon.pack.description,
+                    icon_count=icon_count,
+                    created_at=icon.pack.created_at,
+                    updated_at=icon.pack.updated_at
+                )
+            
+            # Manually construct the response to avoid Pydantic relationship access issues
+            return IconMetadataResponse(
+                id=icon.id,
+                key=icon.key,
+                search_terms=icon.search_terms,
+                icon_data=icon.icon_data,
+                file_path=icon.file_path,
+                pack_id=icon.pack_id,
+                full_key=icon.full_key,
+                access_count=icon.access_count,
+                created_at=icon.created_at,
+                updated_at=icon.updated_at,
+                pack=pack_data
+            )
+        return None
+
     async def get_icon_svg(self, pack_name: str, key: str) -> Optional[str]:
         """Get SVG content for an icon."""
         full_key = f"{pack_name}:{key}"
@@ -443,3 +491,100 @@ class IconService:
                 "details": f"Service check failed: {str(e)}",
                 "cache_status": "unknown"
             }
+
+    async def update_icon_metadata(self, icon_id: int, metadata: Dict[str, Any]) -> Optional[IconMetadataResponse]:
+        """Update metadata for a specific icon."""
+        try:
+            # Get the icon
+            query = select(IconMetadata).options(selectinload(IconMetadata.pack)).where(IconMetadata.id == icon_id)
+            result = await self.db.execute(query)
+            icon = result.scalar_one_or_none()
+            
+            if not icon:
+                return None
+            
+            # Access pack name and old key in async context before updates
+            pack_name = icon.pack.name if icon.pack else None
+            old_icon_key = icon.key
+            
+            # Update fields
+            key_changed = False
+            if 'key' in metadata:
+                # Update the key and full_key
+                new_key = metadata['key']
+                if new_key != old_icon_key:
+                    key_changed = True
+                    icon.key = new_key
+                    if pack_name:
+                        icon.full_key = f"{pack_name}:{new_key}"
+            
+            if 'search_terms' in metadata:
+                icon.search_terms = metadata['search_terms']
+            
+            # Note: Individual icons don't have categories - they inherit from pack
+            # If needed, we could add this as a custom field later
+            
+            await self.db.commit()
+            await self.db.refresh(icon)
+            
+            # Update documents if icon key changed
+            if key_changed and pack_name:
+                from .document_icon_updater import DocumentIconUpdater
+                document_updater = DocumentIconUpdater(self.db)
+                await document_updater.update_icon_key_references(pack_name, old_icon_key, icon.key)
+            
+            # Manually construct the response to avoid Pydantic relationship access issues
+            pack_data = None
+            if icon.pack:
+                # Get icon count for the pack in a separate query to avoid relationship access issues
+                icon_count_query = select(func.count(IconMetadata.id)).where(IconMetadata.pack_id == icon.pack.id)
+                icon_count_result = await self.db.execute(icon_count_query)
+                icon_count = icon_count_result.scalar() or 0
+                
+                pack_data = IconPackResponse(
+                    id=icon.pack.id,
+                    name=icon.pack.name,
+                    display_name=icon.pack.display_name,
+                    category=icon.pack.category,
+                    description=icon.pack.description,
+                    icon_count=icon_count,
+                    created_at=icon.pack.created_at,
+                    updated_at=icon.pack.updated_at
+                )
+            
+            return IconMetadataResponse(
+                id=icon.id,
+                key=icon.key,
+                search_terms=icon.search_terms,
+                icon_data=icon.icon_data,
+                file_path=icon.file_path,
+                pack_id=icon.pack_id,
+                full_key=icon.full_key,
+                access_count=icon.access_count,
+                created_at=icon.created_at,
+                updated_at=icon.updated_at,
+                pack=pack_data
+            )
+        except Exception as e:
+            await self.db.rollback()
+            raise e
+
+    async def delete_icon(self, icon_id: int) -> bool:
+        """Delete a specific icon."""
+        try:
+            # Get the icon
+            query = select(IconMetadata).where(IconMetadata.id == icon_id)
+            result = await self.db.execute(query)
+            icon = result.scalar_one_or_none()
+            
+            if not icon:
+                return False
+            
+            # Delete the icon
+            await self.db.delete(icon)
+            await self.db.commit()
+            
+            return True
+        except Exception as e:
+            await self.db.rollback()
+            raise e
