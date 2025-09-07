@@ -24,7 +24,7 @@ async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
 
 
 @router.get(
-    "/",
+    "",
     response_model=IconSearchResponse,
     **ICON_SEARCH_DOCS
 )

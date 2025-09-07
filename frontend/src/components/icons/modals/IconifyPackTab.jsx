@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Form, Button, Alert, Card, Spinner, Dropdown } from 'react-bootstrap';
+import { Form, Button, Alert, Card, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import iconsApi from '../../../api/iconsApi';
+import PackCategorySelector from '../common/PackCategorySelector';
 
 export default function IconifyPackTab({ 
   categories, 
@@ -11,8 +12,6 @@ export default function IconifyPackTab({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [newCategory, setNewCategory] = useState('');
-  const [categoryError, setCategoryError] = useState('');
 
   // Iconify pack form state
   const [iconifyForm, setIconifyForm] = useState({
@@ -32,29 +31,6 @@ export default function IconifyPackTab({
     
     // Clear errors when user types
     if (error) setError('');
-    if (categoryError) setCategoryError('');
-  };
-
-  const handleAddCategory = (category) => {
-    if (!category || !category.trim()) return;
-
-    const trimmedCategory = category.trim().toLowerCase();
-
-    // Check if category already exists
-    if (categories.includes(trimmedCategory)) {
-      setCategoryError('Category already exists');
-      return;
-    }
-
-    // Add category via parent handler
-    onAddCategory(trimmedCategory);
-
-    // Select the new category
-    handleIconifyFormChange('category', trimmedCategory);
-
-    // Clear form
-    setNewCategory('');
-    setCategoryError('');
   };
 
   const validateIconifyForm = () => {
@@ -252,97 +228,18 @@ export default function IconifyPackTab({
                 </Form.Text>
               </Form.Group>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Category *</Form.Label>
-                <Dropdown
-                  style={{
-                    border: 'var(--bs-border-width) solid var(--bs-border-color)',
-                    borderRadius: 'var(--bs-border-radius)'
-                  }}
-                >
-                  <Dropdown.Toggle
-                    as="div"
-                    id="iconifyCategory"
-                    className="form-control d-flex justify-content-between align-items-center"
-                    style={{
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}
-                    disabled={loading || categories.length === 0}
-                  >
-                    {categories.length === 0
-                      ? 'No categories available'
-                      : iconifyForm.category
-                        ? iconifyForm.category.charAt(0).toUpperCase() + iconifyForm.category.slice(1)
-                        : 'Select a category'
-                    }
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu className="w-100">
-                    {categories.length === 0 ? (
-                      <Dropdown.Item disabled>
-                        Backend unavailable - no categories loaded
-                      </Dropdown.Item>
-                    ) : (
-                      <>
-                        {categories.map((category) => (
-                          <Dropdown.Item
-                            key={category}
-                            active={category === iconifyForm.category}
-                            onClick={() => handleIconifyFormChange('category', category)}
-                            className={category === iconifyForm.category ? "text-bg-secondary" : ""}
-                          >
-                            {category.charAt(0).toUpperCase() + category.slice(1)}
-                          </Dropdown.Item>
-                        ))}
-                        <Dropdown.Divider />
-                        <div className="px-1 py-2">
-                          <div
-                            className="px-1 py-2"
-                            autoComplete="off"
-                            style={{ minWidth: "200px" }}
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              if (!newCategory) return;
-                              handleAddCategory(newCategory);
-                            }}
-                          >
-                            <div className="input-group input-group-sm">
-                              <Form.Control
-                                type="text"
-                                placeholder="New category"
-                                aria-label="New category"
-                                value={newCategory}
-                                onChange={(e) => setNewCategory(e.target.value)}
-                                disabled={loading}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (!newCategory) return;
-                                    handleAddCategory(newCategory);
-                                  }
-                                }}
-                              />
-                              <Button
-                                variant="primary"
-                                onClick={() => {
-                                  if (!newCategory) return;
-                                  handleAddCategory(newCategory);
-                                }}
-                                disabled={loading}
-                              >
-                                <i className="bi bi-plus"></i>
-                              </Button>
-                            </div>
-                          </div>
-                          {categoryError && (
-                            <div className="text-danger small mt-1">{categoryError}</div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </Dropdown.Menu>
-                </Dropdown>
-              </Form.Group>
+              <PackCategorySelector
+                showPackName={false}
+                category={iconifyForm.category}
+                onCategoryChange={(value) => handleIconifyFormChange('category', value)}
+                categories={categories}
+                onAddCategory={onAddCategory}
+                categoryLabel="Category"
+                categoryPlaceholder="Select a category"
+                categoryRequired={true}
+                loading={loading}
+                disabled={loading}
+              />
             </div>
 
             <div className="col-md-6">

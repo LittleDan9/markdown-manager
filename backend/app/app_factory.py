@@ -30,6 +30,7 @@ from app.routers import (
     pdf,
     public,
     syntax_highlighting,
+    third_party_router,
     users,
 )
 
@@ -116,6 +117,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         iconify_router.router  # Iconify browser endpoints
+    )
+    app.include_router(
+        third_party_router.router  # Unified third-party browser endpoints
     )
     app.include_router(
         categories.router, prefix="/categories", tags=["categories"]

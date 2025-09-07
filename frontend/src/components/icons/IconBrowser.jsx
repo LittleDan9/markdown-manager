@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
-import { useLogger } from '../providers/LoggerProvider';
-import { IconService } from '@/services/utilities';
+import { useLogger } from '../../providers/LoggerProvider';
+import { IconService } from '@/services/icons';
 
 const ITEMS_PER_ROW = 4;
 const INITIAL_LOAD_SIZE = 24; // 6 rows
@@ -63,14 +63,14 @@ export default function IconBrowser() {
 
         // Load only the icon packs metadata, not all icons
         const response = await IconService.getIconPacks();
-        
+
         if (!Array.isArray(response)) {
           setError('Invalid response format from icon packs API');
           return;
         }
 
         setAvailableIconPacks(response);
-        
+
         // Extract unique categories
         const categories = ['all', ...new Set(response.map(pack => pack.category))];
         setAvailableCategories(categories);
@@ -89,12 +89,12 @@ export default function IconBrowser() {
   // Initial search after icon packs are loaded
   useEffect(() => {
     if (availableIconPacks.length === 0) return;
-    
+
     const performInitialSearch = async () => {
       try {
         setSearchLoading(true);
         setError(null);
-        
+
         // Reset pagination for new search
         setAllIcons([]);
         setCurrentPage(0);
@@ -127,15 +127,15 @@ export default function IconBrowser() {
   useEffect(() => {
     // Skip if this is the initial load (availableIconPacks just got populated)
     if (availableIconPacks.length === 0) return;
-    
+
     // Skip if this is the initial values (empty search, all categories, all packs)
     if (searchTerm === '' && selectedCategory === 'all' && selectedIconPack === 'all') return;
-    
+
     const searchIcons = async () => {
       try {
         setSearchLoading(true);
         setError(null);
-        
+
         // Reset pagination for new search
         setAllIcons([]);
         setCurrentPage(0);
@@ -182,7 +182,7 @@ export default function IconBrowser() {
 
     try {
       setIsLoadingMore(true);
-      
+
       const nextPage = currentPage + 1;
       const response = await IconService.searchIcons(
         searchTerm,
@@ -208,7 +208,7 @@ export default function IconBrowser() {
   useEffect(() => {
     const handleScroll = (e) => {
       const { scrollTop, scrollHeight, clientHeight } = e.target;
-      
+
       // Trigger load more when near bottom and we have more icons
       if (scrollHeight - scrollTop <= clientHeight + 400 && hasMoreIcons && !isLoadingMore) {
         loadMoreIcons();
@@ -242,13 +242,13 @@ export default function IconBrowser() {
         </div>
       );
     }
-    
+
     // Create complete SVG with proper styling support
     const viewBox = iconData.viewBox || '0 0 24 24';
     const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="${viewBox}" class="border rounded bg-body-secondary" style="padding: 4px;">${iconData.body}</svg>`;
-    
+
     return (
-      <div 
+      <div
         dangerouslySetInnerHTML={{ __html: svgContent }}
       />
     );

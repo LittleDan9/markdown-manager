@@ -294,6 +294,92 @@ export class IconsApi extends Api {
     );
     return response.data;
   }
+
+  // Third-Party API Methods
+
+  /**
+   * Get available third-party sources
+   */
+  async getThirdPartySources() {
+    const response = await this.apiCall('/third-party/sources', 'GET', null, {}, { noAuth: true });
+    return response.data;
+  }
+
+  /**
+   * Get collections from a third-party source
+   */
+  async getThirdPartyCollections(source, searchQuery = '', categoryFilter = '') {
+    const params = new URLSearchParams();
+    if (searchQuery) params.append('search', searchQuery);
+    if (categoryFilter) params.append('category', categoryFilter);
+    
+    const queryString = params.toString();
+    const url = `/third-party/sources/${source}/collections${queryString ? `?${queryString}` : ''}`;
+    
+    const response = await this.apiCall(url, 'GET', null, {}, { noAuth: true });
+    return response.data;
+  }
+
+  /**
+   * Get categories for a third-party source
+   */
+  async getThirdPartyCategories(source) {
+    const response = await this.apiCall(`/third-party/sources/${source}/categories`, 'GET', null, {}, { noAuth: true });
+    return response.data;
+  }
+
+  /**
+   * Get icons from a third-party collection
+   */
+  async getThirdPartyIcons(source, prefix, page = 0, search = '') {
+    const params = new URLSearchParams({
+      page: page.toString()
+    });
+    if (search) params.append('search', search);
+    
+    const response = await this.apiCall(
+      `/third-party/sources/${source}/collections/${prefix}/icons?${params}`,
+      'GET',
+      null,
+      {},
+      { noAuth: true }
+    );
+    return response.data;
+  }
+
+  /**
+   * Install selected icons from a third-party collection
+   */
+  async installThirdPartyIcons(source, prefix, iconKeys, packName, category, description = '') {
+    const response = await this.apiCall(
+      `/third-party/sources/${source}/collections/${prefix}/install`,
+      'POST',
+      {
+        icon_keys: iconKeys,
+        pack_name: packName,
+        category: category,
+        description: description
+      }
+    );
+    return response.data;
+  }
+
+  /**
+   * Install entire third-party collection
+   */
+  async installEntireThirdPartyCollection(source, prefix, packName, category, description = '') {
+    const response = await this.apiCall(
+      `/third-party/sources/${source}/collections/${prefix}/install`,
+      'POST',
+      {
+        install_all: true,
+        pack_name: packName,
+        category: category,
+        description: description
+      }
+    );
+    return response.data;
+  }
 }
 
 // Create singleton instance

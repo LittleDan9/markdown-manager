@@ -16,7 +16,7 @@ async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
 
 
 @router.get(
-    "/",
+    "",
     summary="Get comprehensive icon usage statistics",
     description="""
     Retrieve detailed statistics about icon packs, usage patterns, and system metrics.

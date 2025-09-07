@@ -32,7 +32,7 @@ async def get_standardized_installer(db: AsyncSession = Depends(get_db)) -> Stan
 
 
 @router.get(
-    "/",
+    "",
     response_model=List[IconPackResponse],
     **ICON_PACKS_DOCS["get"]
 )
@@ -93,7 +93,7 @@ async def get_icon_pack_names(
 
 
 @router.post(
-    "/",
+    "",
     response_model=IconPackResponse,
     **ICON_PACKS_DOCS["post"]
 )

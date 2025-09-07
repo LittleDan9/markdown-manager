@@ -1,5 +1,5 @@
 import { logger } from "@/providers/LoggerProvider.jsx";
-import { IconService } from "../../utilities";
+import { IconService } from "../../icons";
 
 // Create service-specific logger
 const serviceLogger = logger.createServiceLogger('MermaidIconLoader');
@@ -104,16 +104,16 @@ class MermaidIconLoader {
             // First try to search for exact match in the specific pack
             let response = await IconService.searchIcons(iconName, 'all', packName, 0, 10);
             let icons = response.icons || [];
-            
+
             // Filter for exact key match first
             let exactMatch = icons.find(icon => icon.key === iconName);
-            
+
             if (!exactMatch && icons.length > 0) {
               // If no exact match, fall back to first result
               exactMatch = icons[0];
               serviceLogger.warn(`No exact match for ${packName}:${iconName}, using ${exactMatch.key} instead`);
             }
-            
+
             if (exactMatch) {
               const icon = exactMatch;
               if (icon.iconData && icon.iconData.body && icon.key) {
@@ -179,12 +179,12 @@ class MermaidIconLoader {
       if (iconPacks.length > 0) {
         const totalIcons = iconPacks.reduce((sum, pack) => sum + Object.keys(pack.icons.icons).length, 0);
         serviceLogger.info(`Registering ${iconPacks.length} icon packs with ${totalIcons} specific icons: ${iconPacks.map(p => p.name).join(', ')}`);
-        
+
         if (typeof mermaidRegisterFunction === 'function') {
           // Try the standard format first
           mermaidRegisterFunction(iconPacks);
           serviceLogger.info('✅ Icon packs registered with standard format');
-          
+
         } else {
           serviceLogger.error('❌ mermaidRegisterFunction is not a function or not available');
         }

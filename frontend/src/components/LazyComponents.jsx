@@ -15,7 +15,7 @@ const ComponentLoader = ({ text = "Loading..." }) => (
 
 // Lazy-loaded components
 export const LazyIconBrowser = lazy(() =>
-  import('./IconBrowser.jsx').then(module => ({
+  import('./icons/IconBrowser.jsx').then(module => ({
     default: module.default
   }))
 );

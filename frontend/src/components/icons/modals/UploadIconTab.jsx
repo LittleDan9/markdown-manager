@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { Form, Button, Alert, Card, Badge, Spinner, Dropdown } from 'react-bootstrap';
+import { Form, Button, Alert, Card, Badge, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import iconsApi from '../../../api/iconsApi';
+import PackCategorySelector from '../common/PackCategorySelector';
 
 export default function UploadIconTab({ 
   categories, 
@@ -14,10 +15,6 @@ export default function UploadIconTab({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [newCategory, setNewCategory] = useState('');
-  const [newPackName, setNewPackName] = useState('');
-  const [categoryError, setCategoryError] = useState('');
-  const [packNameError, setPackNameError] = useState('');
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -49,52 +46,6 @@ export default function UploadIconTab({
     
     // Clear errors when user types
     if (error) setError('');
-    if (categoryError) setCategoryError('');
-    if (packNameError) setPackNameError('');
-  };
-
-  const handleAddCategory = (category) => {
-    if (!category || !category.trim()) return;
-
-    const trimmedCategory = category.trim().toLowerCase();
-
-    // Check if category already exists
-    if (categories.includes(trimmedCategory)) {
-      setCategoryError('Category already exists');
-      return;
-    }
-
-    // Add category via parent handler
-    onAddCategory(trimmedCategory);
-
-    // Select the new category
-    handleFormChange('category', trimmedCategory);
-
-    // Clear form
-    setNewCategory('');
-    setCategoryError('');
-  };
-
-  const handleAddPackName = (packName) => {
-    if (!packName || !packName.trim()) return;
-
-    const trimmedPackName = packName.trim().toLowerCase();
-
-    // Check if pack name already exists in dropdown
-    if (dropdownPackNames.includes(trimmedPackName)) {
-      setPackNameError('Pack name already exists');
-      return;
-    }
-
-    // Add pack name via parent handler
-    onAddPackName(trimmedPackName);
-
-    // Select the new pack name
-    handleFormChange('packName', trimmedPackName);
-
-    // Clear form
-    setNewPackName('');
-    setPackNameError('');
   };
 
   const handleFileSelect = (event) => {
@@ -197,12 +148,6 @@ export default function UploadIconTab({
       if (fileInput) fileInput.value = '';
       setSvgPreview('');
 
-      // Clear category form
-      setNewCategory('');
-      setCategoryError('');
-      setNewPackName('');
-      setPackNameError('');
-
       // Reload data via parent
       onReloadData();
 
@@ -241,185 +186,28 @@ export default function UploadIconTab({
                 </Form.Text>
               </Form.Group>
 
-              <Form.Group className="mb-3">
-                <Form.Label>Pack Name *</Form.Label>
-                <Dropdown>
-                  <Dropdown.Toggle
-                    as="div"
-                    id="packNameDropdown"
-                    className="form-control d-flex justify-content-between align-items-center"
-                    style={{
-                      cursor: 'pointer',
-                      userSelect: 'none',
-                    }}
-                    disabled={loading}
-                  >
-                    {dropdownPackNames.length === 0
-                      ? 'No pack names available'
-                      : uploadForm.packName
-                        ? uploadForm.packName
-                        : 'Select or create a pack'
-                    }
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu className="w-100">
-                    {dropdownPackNames.length === 0 ? (
-                      <Dropdown.Item disabled>
-                        Backend unavailable - no pack names loaded
-                      </Dropdown.Item>
-                    ) : (
-                      <>
-                        {dropdownPackNames.map((packName) => (
-                          <Dropdown.Item
-                            key={packName}
-                            active={packName === uploadForm.packName}
-                            onClick={() => handleFormChange('packName', packName)}
-                            className={packName === uploadForm.packName ? "text-bg-secondary" : ""}
-                          >
-                            {packName}
-                            {!packNames.includes(packName) && (
-                              <Badge bg="info" className="ms-2">New</Badge>
-                            )}
-                          </Dropdown.Item>
-                        ))}
-                        <Dropdown.Divider />
-                        <div className="px-1 py-2">
-                          <div
-                            className="px-1 py-2"
-                            autoComplete="off"
-                            style={{ minWidth: "200px" }}
-                          >
-                            <div className="input-group input-group-sm">
-                              <Form.Control
-                                type="text"
-                                placeholder="New pack name"
-                                aria-label="New pack name"
-                                value={newPackName}
-                                onChange={(e) => setNewPackName(e.target.value)}
-                                disabled={loading}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (!newPackName) return;
-                                    handleAddPackName(newPackName);
-                                  }
-                                }}
-                              />
-                              <Button 
-                                variant="primary" 
-                                onClick={() => {
-                                  if (!newPackName) return;
-                                  handleAddPackName(newPackName);
-                                }}
-                                disabled={loading}
-                              >
-                                <i className="bi bi-plus"></i>
-                              </Button>
-                            </div>
-                          </div>
-                          {packNameError && (
-                            <div className="text-danger small mt-1">{packNameError}</div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </Dropdown.Menu>
-                </Dropdown>
-                <Form.Text className="text-muted">
-                  Select existing pack or create new one
-                </Form.Text>
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Category *</Form.Label>
-                <Dropdown
-                style={{
-                  border: 'var(--bs-border-width) solid var(--bs-border-color)',
-                  borderRadius: 'var(--bs-border-radius)'
-                }}
-                >
-                  <Dropdown.Toggle
-                    as="div"
-                    id="categoryDropdown"
-                    className="form-control d-flex justify-content-between align-items-center"
-                    style={{
-                      cursor: 'pointer',
-                      userSelect: 'none'
-                    }}
-                    disabled={loading || categories.length === 0}
-                  >
-                    {categories.length === 0
-                      ? 'No categories available'
-                      : uploadForm.category
-                        ? uploadForm.category.charAt(0).toUpperCase() + uploadForm.category.slice(1)
-                        : 'Select a category'
-                    }
-                  </Dropdown.Toggle>
-                  <Dropdown.Menu className="w-100">
-                    {categories.length === 0 ? (
-                      <Dropdown.Item disabled>
-                        Backend unavailable - no categories loaded
-                      </Dropdown.Item>
-                    ) : (
-                      <>
-                        {categories.map((category) => (
-                          <Dropdown.Item
-                            key={category}
-                            active={category === uploadForm.category}
-                            onClick={() => handleFormChange('category', category)}
-                            className={category === uploadForm.category ? "text-bg-secondary" : ""}
-                          >
-                            {category.charAt(0).toUpperCase() + category.slice(1)}
-                          </Dropdown.Item>
-                        ))}
-                        <Dropdown.Divider />
-                        <div className="px-1 py-2">
-                          <div
-                            className="px-1 py-2"
-                            autoComplete="off"
-                            style={{ minWidth: "200px" }}
-                            onSubmit={(e) => {
-                              e.preventDefault();
-                              if (!newCategory) return;
-                              handleAddCategory(newCategory);
-                            }}
-                          >
-                            <div className="input-group input-group-sm">
-                              <Form.Control
-                                type="text"
-                                placeholder="New category"
-                                aria-label="New category"
-                                value={newCategory}
-                                onChange={(e) => setNewCategory(e.target.value)}
-                                disabled={loading}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    e.preventDefault();
-                                    if (!newCategory) return;
-                                    handleAddCategory(newCategory);
-                                  }
-                                }}
-                              />
-                              <Button
-                                variant="primary"
-                                onClick={() => {
-                                  if (!newCategory) return;
-                                  handleAddCategory(newCategory);
-                                }}
-                                disabled={loading}
-                              >
-                                <i className="bi bi-plus"></i>
-                              </Button>
-                            </div>
-                          </div>
-                          {categoryError && (
-                            <div className="text-danger small mt-1">{categoryError}</div>
-                          )}
-                        </div>
-                      </>
-                    )}
-                  </Dropdown.Menu>
-                </Dropdown>
-              </Form.Group>
+              <PackCategorySelector
+                packName={uploadForm.packName}
+                onPackNameChange={(value) => handleFormChange('packName', value)}
+                packNames={packNames}
+                dropdownPackNames={dropdownPackNames}
+                onAddPackName={onAddPackName}
+                packNameLabel="Pack Name"
+                packNamePlaceholder="Select or create a pack"
+                packNameRequired={true}
+                showPackNameDropdown={true}
+                
+                category={uploadForm.category}
+                onCategoryChange={(value) => handleFormChange('category', value)}
+                categories={categories}
+                onAddCategory={onAddCategory}
+                categoryLabel="Category"
+                categoryPlaceholder="Select a category"
+                categoryRequired={true}
+                
+                loading={loading}
+                disabled={loading}
+              />
             </div>
 
             <div className="col-md-6">

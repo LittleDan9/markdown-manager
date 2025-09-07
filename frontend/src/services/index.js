@@ -10,6 +10,9 @@ export * from './editor';
 // Content rendering services
 export * from './rendering';
 
+// Icon services
+export * from './icons';
+
 // Pure utility services
 export * from './utilities';
 

@@ -11,8 +11,19 @@ import {
   Modal
 } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
+import PackCategorySelector from './common/PackCategorySelector';
+import iconsApi from '../../api/iconsApi';
 
-export default function IconifyBrowser({ onReloadData }) {
+export default function ThirdPartyIconBrowser({
+  categories = [],
+  packNames = [],
+  dropdownPackNames = [],
+  onAddCategory,
+  onAddPackName,
+  onReloadData
+}) {
+  const [sources, setSources] = useState([]);
+  const [selectedSource, setSelectedSource] = useState('iconify'); // Default to iconify for backward compatibility
   const [collections, setCollections] = useState([]);
   const [selectedCollection, setSelectedCollection] = useState(null);
   const [icons, setIcons] = useState([]);
@@ -21,7 +32,6 @@ export default function IconifyBrowser({ onReloadData }) {
   const [iconsLoading, setIconsLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
-  const [categories, setCategories] = useState([]);
   const [iconSearch, setIconSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
@@ -29,7 +39,7 @@ export default function IconifyBrowser({ onReloadData }) {
   const [entirePackModalOpen, setEntirePackModalOpen] = useState(false);
   const [installConfig, setInstallConfig] = useState({
     packName: '',
-    category: 'iconify',
+    category: categories.length > 0 ? categories[0] : '',
     description: ''
   });
 
@@ -48,26 +58,39 @@ export default function IconifyBrowser({ onReloadData }) {
       }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
   }, []);
 
+  // Fetch available sources
+  const fetchSources = useCallback(async () => {
+    try {
+      const data = await iconsApi.getThirdPartySources();
+
+      if (data.success) {
+        setSources(data.data.sources);
+      } else {
+        throw new Error(data.message || 'Failed to fetch sources');
+      }
+    } catch (error) {
+      showError(`Failed to load sources: ${error.message}`);
+      // Fallback to Iconify only
+      setSources([{
+        id: 'iconify',
+        name: 'Iconify',
+        description: 'Comprehensive icon framework',
+        type: 'icons'
+      }]);
+    }
+  }, [showError]);
+
   // Fetch collections
   const fetchCollections = useCallback(async (query = '', category = '') => {
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        limit: '100',
-        offset: '0'
-      });
-
-      if (query) params.append('query', query);
-      if (category) params.append('category', category);
-
-      const response = await fetch(`/api/iconify/collections?${params}`);
-      const data = await response.json();
+      const data = await iconsApi.getThirdPartyCollections(selectedSource, query, category);
 
       if (data.success) {
         setCollections(Object.entries(data.data.collections).map(([prefix, info]) => ({
@@ -82,21 +105,22 @@ export default function IconifyBrowser({ onReloadData }) {
     } finally {
       setLoading(false);
     }
-  }, [showError]);
+  }, [selectedSource, showError]);
 
   // Fetch categories
-  const fetchCategories = useCallback(async () => {
-    try {
-      const response = await fetch('/api/iconify/categories');
-      const data = await response.json();
+  // Note: Categories are now passed as props from IconManagementModal
+  // const fetchCategories = useCallback(async () => {
+  //   try {
+  //     const response = await fetch(`/api/third-party/sources/${selectedSource}/categories`);
+  //     const data = await response.json();
 
-      if (data.success) {
-        setCategories(data.data.categories);
-      }
-    } catch (error) {
-      console.warn('Failed to load categories:', error);
-    }
-  }, []);
+  //     if (data.success) {
+  //       setCategories(data.data.categories);
+  //     }
+  //   } catch (error) {
+  //     console.warn('Failed to load categories:', error);
+  //   }
+  // }, [selectedSource]);
 
   // Fetch icons from selected collection
   const fetchIcons = useCallback(async (prefix, page = 0, search = '', reset = false) => {
@@ -104,17 +128,7 @@ export default function IconifyBrowser({ onReloadData }) {
 
     setIconsLoading(true);
     try {
-      const params = new URLSearchParams({
-        page: page.toString(),
-        page_size: '48'
-      });
-
-      if (search.trim()) {
-        params.append('search', search);
-      }
-
-      const response = await fetch(`/api/iconify/collections/${prefix}/icons?${params}`);
-      const data = await response.json();
+      const data = await iconsApi.getThirdPartyIcons(selectedSource, prefix, page, search);
 
       if (data.success) {
         const newIcons = data.data.icons;
@@ -129,7 +143,7 @@ export default function IconifyBrowser({ onReloadData }) {
     } finally {
       setIconsLoading(false);
     }
-  }, [showError]);
+  }, [selectedSource, showError]);
 
   // Install selected icons
   const installIcons = async () => {
@@ -139,20 +153,14 @@ export default function IconifyBrowser({ onReloadData }) {
       const iconNames = Array.from(selectedIcons);
       const packName = installConfig.packName || selectedCollection.prefix;
 
-      const response = await fetch(`/api/iconify/collections/${selectedCollection.prefix}/install`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          icon_names: iconNames,
-          pack_name: packName,
-          category: installConfig.category,
-          description: installConfig.description
-        })
-      });
-
-      const data = await response.json();
+      const data = await iconsApi.installThirdPartyIcons(
+        selectedSource,
+        selectedCollection.prefix,
+        iconNames,
+        packName,
+        installConfig.category,
+        installConfig.description
+      );
 
       if (data.success) {
         showSuccess(data.message);
@@ -160,7 +168,7 @@ export default function IconifyBrowser({ onReloadData }) {
         setSelectedIcons(new Set());
         setInstallConfig({
           packName: '',
-          category: 'iconify',
+          category: selectedSource,
           description: ''
         });
         if (onReloadData) onReloadData();
@@ -178,27 +186,20 @@ export default function IconifyBrowser({ onReloadData }) {
     try {
       const packName = installConfig.packName || selectedCollection.prefix;
 
-      const response = await fetch(`/api/iconify/collections/${selectedCollection.prefix}/install`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          install_all: true,
-          pack_name: packName,
-          category: installConfig.category,
-          description: installConfig.description
-        })
-      });
-
-      const data = await response.json();
+      const data = await iconsApi.installEntireThirdPartyCollection(
+        selectedSource,
+        selectedCollection.prefix,
+        packName,
+        installConfig.category,
+        installConfig.description
+      );
 
       if (data.success) {
         showSuccess(data.message);
         setEntirePackModalOpen(false);
         setInstallConfig({
           packName: '',
-          category: 'iconify',
+          category: selectedSource,
           description: ''
         });
         if (onReloadData) onReloadData();
@@ -212,9 +213,13 @@ export default function IconifyBrowser({ onReloadData }) {
 
   // Initialize
   useEffect(() => {
+    fetchSources();
+  }, [fetchSources]);
+
+  // Load collections when source changes
+  useEffect(() => {
     fetchCollections();
-    fetchCategories();
-  }, [fetchCollections, fetchCategories]);
+  }, [fetchCollections]);
 
   // Search collections
   useEffect(() => {
@@ -275,7 +280,7 @@ export default function IconifyBrowser({ onReloadData }) {
   const openInstallModal = () => {
     setInstallConfig({
       packName: selectedCollection?.prefix || '',
-      category: 'iconify',
+      category: selectedSource,
       description: `Icons from ${selectedCollection?.name || 'collection'}`
     });
     setInstallModalOpen(true);
@@ -284,7 +289,7 @@ export default function IconifyBrowser({ onReloadData }) {
   const openEntirePackModal = () => {
     setInstallConfig({
       packName: selectedCollection?.prefix || '',
-      category: 'iconify',
+      category: selectedSource,
       description: `Complete ${selectedCollection?.name || 'collection'} icon pack`
     });
     setEntirePackModalOpen(true);
@@ -298,7 +303,7 @@ export default function IconifyBrowser({ onReloadData }) {
   const handleIconsScroll = useCallback((e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.target;
     const threshold = 100; // pixels from bottom to trigger load
-    
+
     if (scrollHeight - scrollTop - clientHeight < threshold && hasMore && !iconsLoading && selectedCollection) {
       loadMoreIcons();
     }
@@ -310,7 +315,28 @@ export default function IconifyBrowser({ onReloadData }) {
         {/* Collections Sidebar */}
         <div className="col-md-4" style={{ borderRight: '1px solid var(--bs-border-color)' }}>
           <div className="p-3" style={{ borderBottom: '1px solid var(--bs-border-color)' }}>
-            <h6 className="mb-3">Icon Collections</h6>
+            <h6 className="mb-3">Third-Party Icon Sources</h6>
+
+            {/* Source Selector */}
+            <Form.Select
+              value={selectedSource}
+              onChange={(e) => {
+                setSelectedSource(e.target.value);
+                setSelectedCollection(null);
+                setIcons([]);
+                setSelectedIcons(new Set());
+                setSearchQuery('');
+                setCategoryFilter('');
+                setIconSearch('');
+              }}
+              className="mb-3"
+            >
+              {sources.map(source => (
+                <option key={source.id} value={source.id}>
+                  {source.name} - {source.description}
+                </option>
+              ))}
+            </Form.Select>
 
             {/* Search and Filter */}
             <Form.Control
@@ -466,7 +492,7 @@ export default function IconifyBrowser({ onReloadData }) {
               </div>
 
               {/* Icons Grid */}
-              <div 
+              <div
                 style={{ height: '350px', overflowY: 'auto', padding: '1rem' }}
                 onScroll={handleIconsScroll}
               >
@@ -520,7 +546,7 @@ export default function IconifyBrowser({ onReloadData }) {
                     <div className="mt-2">Loading more icons...</div>
                   </div>
                 )}
-                
+
                 {icons.length === 0 && !iconsLoading && (
                   <Alert variant="info" className="mt-3">
                     {!iconSearch.trim() ? (
@@ -589,7 +615,7 @@ export default function IconifyBrowser({ onReloadData }) {
                   ...prev,
                   category: e.target.value
                 }))}
-                placeholder="iconify"
+                placeholder={selectedSource}
               />
             </Form.Group>
 
@@ -633,34 +659,34 @@ export default function IconifyBrowser({ onReloadData }) {
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Pack Name</Form.Label>
-              <Form.Control
-                type="text"
-                value={installConfig.packName}
-                onChange={(e) => setInstallConfig(prev => ({
-                  ...prev,
-                  packName: e.target.value
-                }))}
-                placeholder="Enter pack name"
-              />
-              <Form.Text className="text-muted">
-                Will be used as the identifier for this icon pack
-              </Form.Text>
-            </Form.Group>
+            <PackCategorySelector
+              packName={installConfig.packName}
+              onPackNameChange={(value) => setInstallConfig(prev => ({
+                ...prev,
+                packName: value
+              }))}
+              packNames={packNames}
+              dropdownPackNames={dropdownPackNames}
+              onAddPackName={onAddPackName}
+              packNameLabel="Pack Name"
+              packNamePlaceholder="Enter pack name"
+              packNameRequired={true}
+              showPackNameDropdown={dropdownPackNames.length > 0}
 
-            <Form.Group className="mb-3">
-              <Form.Label>Category</Form.Label>
-              <Form.Control
-                type="text"
-                value={installConfig.category}
-                onChange={(e) => setInstallConfig(prev => ({
-                  ...prev,
-                  category: e.target.value
-                }))}
-                placeholder="iconify"
-              />
-            </Form.Group>
+              category={installConfig.category}
+              onCategoryChange={(value) => setInstallConfig(prev => ({
+                ...prev,
+                category: value
+              }))}
+              categories={categories}
+              onAddCategory={onAddCategory}
+              categoryLabel="Category"
+              categoryPlaceholder={selectedSource}
+              categoryRequired={true}
+
+              loading={loading}
+              disabled={loading}
+            />
 
             <Form.Group className="mb-3">
               <Form.Label>Description</Form.Label>

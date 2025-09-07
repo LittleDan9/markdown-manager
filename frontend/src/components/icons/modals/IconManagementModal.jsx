@@ -4,7 +4,7 @@ import iconsApi from '../../../api/iconsApi';
 import UploadIconTab from './UploadIconTab';
 import IconPacksTab from './IconPacksTab';
 import DeletePackTab from './DeletePackTab';
-import IconifyBrowser from '../IconifyBrowser';
+import ThirdPartyIconBrowser from '../ThirdPartyIconBrowser';
 import InstalledIconsTab from './InstalledIconsTab';
 
 export default function IconManagementModal({ show, onHide }) {
@@ -114,11 +114,11 @@ export default function IconManagementModal({ show, onHide }) {
             </Nav.Item>
             <Nav.Item>
               <Nav.Link eventKey="browser">
-                <svg 
-                  className="me-2" 
-                  width="20" 
-                  height="20" 
-                  viewBox="0 0 48 48" 
+                <svg
+                  className="me-2"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 48 48"
                   fill="none"
                   style={{ verticalAlign: 'text-top' }}
                 >
@@ -164,9 +164,16 @@ export default function IconManagementModal({ show, onHide }) {
               />
             </Tab.Pane>
 
-            {/* Iconify Browser Tab */}
+            {/* Third-Party Icons Browser Tab */}
             <Tab.Pane eventKey="browser">
-              <IconifyBrowser onReloadData={loadAllData} />
+              <ThirdPartyIconBrowser
+                categories={categories}
+                packNames={packNames}
+                dropdownPackNames={dropdownPackNames}
+                onAddCategory={handleAddCategory}
+                onAddPackName={handleAddPackName}
+                onReloadData={loadAllData}
+              />
             </Tab.Pane>
 
             {/* Delete Pack Tab */}
