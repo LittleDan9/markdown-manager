@@ -6,6 +6,7 @@ This module aggregates all icon API functionality from domain-specific routers:
 - Icon search and metadata
 - Cache management
 - Usage statistics
+- New RESTful endpoints
 
 Maintains compatibility with existing API while providing better code organization.
 """
@@ -14,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ...schemas.icon_schemas import IconMetadataResponse
 from .search import get_icon_service
-from . import packs, search, cache, statistics, upload
+from . import packs, search, cache, statistics, upload, restful_main, admin
 
 # Create main icon router (no tags to avoid duplication)
 router = APIRouter(prefix="/icons")
@@ -34,10 +35,10 @@ async def get_icon_overview(
         packs = await icon_service.get_icon_packs()
         total_icons = sum(pack.icon_count for pack in packs)
         total_packs = len(packs)
-        
+
         # Get categories
         categories = sorted(list(set(pack.category for pack in packs if pack.category)))
-        
+
         return {
             "total_packs": total_packs,
             "total_icons": total_icons,
@@ -67,7 +68,7 @@ async def get_pack_icons(
     try:
         # Use the search functionality to get icons from a specific pack
         from ...schemas.icon_schemas import IconSearchRequest
-        
+
         search_request = IconSearchRequest(
             q="",  # No text search
             pack=pack_name,
@@ -76,13 +77,13 @@ async def get_pack_icons(
             size=size
         )
         result = await icon_service.search_icons(search_request)
-        
+
         if result.total == 0:
             raise HTTPException(
                 status_code=404,
                 detail=f"Pack '{pack_name}' not found or has no icons"
             )
-        
+
         return result
     except HTTPException:
         raise
@@ -95,6 +96,12 @@ async def get_pack_icons(
 
 # Include all domain-specific routers
 # Note: Order matters! More specific routes should be defined before general ones
+
+# NEW: Include RESTful endpoints - these take priority for cleaner URLs
+router.include_router(restful_main.router, tags=["Icons RESTful API"])
+router.include_router(admin.router, tags=["Icon Administration"])
+
+# EXISTING: Legacy endpoints for backward compatibility
 router.include_router(packs.router)
 router.include_router(search.router)
 router.include_router(cache.router)
@@ -130,3 +137,8 @@ async def get_icon(
             status_code=500,
             detail=f"Failed to get icon: {str(e)}"
         )
+
+
+# Include all sub-routers
+router.include_router(restful_main.router, tags=["RESTful Icons"])
+router.include_router(admin.router, tags=["Admin"])

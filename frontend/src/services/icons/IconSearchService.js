@@ -74,9 +74,28 @@ class IconSearchService {
   async getIconSVG(pack, key) {
     try {
       const data = await iconsApi.getIconSVG(pack, key);
-      return data.content;
+      return data.svg; // Updated to use new response structure
     } catch (error) {
       console.error('Failed to get SVG:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get raw SVG URL for direct browser rendering
+   */
+  getRawIconUrl(pack, key) {
+    return iconsApi.getRawIconUrl(pack, key);
+  }
+
+  /**
+   * Get raw SVG content directly
+   */
+  async getRawIconSVG(pack, key) {
+    try {
+      return await iconsApi.getRawIconSVG(pack, key);
+    } catch (error) {
+      console.error('Failed to get raw SVG:', error);
       throw error;
     }
   }

@@ -33,35 +33,35 @@ class IconService:
         query = select(IconMetadata).options(
             selectinload(IconMetadata.pack).selectinload(IconPack.icons)
         )
-        
+
         # Apply filters
         if search_request.q:
             query = query.where(IconMetadata.search_terms.ilike(f"%{search_request.q}%"))
-        
+
         if search_request.pack != "all":
             query = query.join(IconPack).where(IconPack.name == search_request.pack)
-        
+
         if search_request.category != "all":
             query = query.join(IconPack).where(IconPack.category == search_request.category)
-        
+
         # Order by popularity (access_count) and then by key
         query = query.order_by(desc(IconMetadata.access_count), IconMetadata.key)
-        
+
         # Get total count
         count_query = select(func.count()).select_from(query.subquery())
         total = await self.db.scalar(count_query) or 0
-        
+
         # Apply pagination and execute
         offset = search_request.page * search_request.size
         query = query.offset(offset).limit(search_request.size)
         result = await self.db.execute(query)
         icons = result.scalars().all()
-        
+
         # Calculate pagination info
         pages = (total + search_request.size - 1) // search_request.size  # Ceiling division
         has_next = search_request.page < pages - 1
         has_prev = search_request.page > 0
-        
+
         return IconSearchResponse(
             icons=[IconMetadataResponse.model_validate(icon) for icon in icons],
             total=total,
@@ -93,7 +93,21 @@ class IconService:
         icon = result.scalar_one_or_none()
 
         if icon:
-            metadata = IconMetadataResponse.model_validate(icon)
+            # Manually create the response to avoid lazy loading issues
+            metadata = IconMetadataResponse(
+                id=icon.id,
+                pack_id=icon.pack_id,
+                key=icon.key,
+                full_key=icon.full_key,
+                search_terms=icon.search_terms or "",
+                icon_data=icon.icon_data,
+                file_path=icon.file_path,
+                access_count=icon.access_count,
+                created_at=icon.created_at,
+                updated_at=icon.updated_at,
+                pack=None,  # Don't include pack to avoid lazy loading
+                urls=None   # Will be set by caller
+            )
             # Cache the result
             self.cache.put_icon_metadata(full_key, metadata)
             return metadata
@@ -118,7 +132,7 @@ class IconService:
                 icon_count_query = select(func.count(IconMetadata.id)).where(IconMetadata.pack_id == icon.pack.id)
                 icon_count_result = await self.db.execute(icon_count_query)
                 icon_count = icon_count_result.scalar() or 0
-                
+
                 # Manually construct pack data to avoid Pydantic model validation issues
                 pack_data = IconPackResponse(
                     id=icon.pack.id,
@@ -128,9 +142,10 @@ class IconService:
                     description=icon.pack.description,
                     icon_count=icon_count,
                     created_at=icon.pack.created_at,
-                    updated_at=icon.pack.updated_at
+                    updated_at=icon.pack.updated_at,
+                    urls=None  # Will be set by caller if needed
                 )
-            
+
             # Manually construct the response to avoid Pydantic relationship access issues
             return IconMetadataResponse(
                 id=icon.id,
@@ -143,7 +158,8 @@ class IconService:
                 access_count=icon.access_count,
                 created_at=icon.created_at,
                 updated_at=icon.updated_at,
-                pack=pack_data
+                pack=pack_data,
+                urls=None  # URLs will be added by the router layer
             )
         return None
 
@@ -298,15 +314,15 @@ class IconService:
         icon_data: Dict[str, Any]
     ) -> IconMetadataResponse:
         """Add a single icon to an existing pack.
-        
+
         Args:
             pack_id: ID of the existing pack
             icon_name: Name/key of the icon
             icon_data: Icon data with body, width, height, viewBox
-            
+
         Returns:
             IconMetadataResponse: The created icon metadata
-            
+
         Raises:
             ValueError: If pack doesn't exist or icon already exists
         """
@@ -314,24 +330,24 @@ class IconService:
         pack_query = select(IconPack).where(IconPack.id == pack_id)
         pack_result = await self.db.execute(pack_query)
         pack = pack_result.scalar_one_or_none()
-        
+
         if not pack:
             raise ValueError(f"Pack with ID {pack_id} not found")
-        
+
         # Check if icon already exists in this pack
         existing_query = select(IconMetadata).where(
             and_(IconMetadata.pack_id == pack_id, IconMetadata.key == icon_name)
         )
         existing_result = await self.db.execute(existing_query)
         existing_icon = existing_result.scalar_one_or_none()
-        
+
         if existing_icon:
             raise ValueError(f"Icon '{icon_name}' already exists in pack '{pack.name}'")
-        
+
         # Create new icon metadata
         full_key = f"{pack.name}:{icon_name}"
         search_terms = f"{pack.name} {icon_name} {icon_name.replace('-', ' ')}"
-        
+
         icon_metadata = IconMetadata(
             pack_id=pack_id,
             key=icon_name,
@@ -339,18 +355,18 @@ class IconService:
             search_terms=search_terms,
             icon_data=icon_data
         )
-        
+
         self.db.add(icon_metadata)
         await self.db.commit()
         await self.db.refresh(icon_metadata)
-        
+
         # Update pack's updated_at timestamp
         pack.updated_at = func.now()
         await self.db.commit()
-        
+
         # Invalidate cache for the pack
         self.cache.invalidate_pack(pack.name)
-        
+
         # Return the created icon metadata as response (without pack relationship to avoid greenlet issues)
         return IconMetadataResponse(
             id=icon_metadata.id,
@@ -363,7 +379,8 @@ class IconService:
             access_count=icon_metadata.access_count,
             created_at=icon_metadata.created_at,
             updated_at=icon_metadata.updated_at,
-            pack=None  # Exclude pack relationship to avoid async issues
+            pack=None,  # Exclude pack relationship to avoid async issues
+            urls=None   # URLs will be added by the router layer
         )
 
     def get_cache_statistics(self) -> Dict[str, Any]:
@@ -476,10 +493,10 @@ class IconService:
             # Check database connectivity by counting packs
             result = await self.db.execute(select(func.count(IconPack.id)))
             pack_count = result.scalar() or 0
-            
+
             # Check cache connectivity
             cache_healthy = self.cache is not None
-            
+
             return {
                 "status": "healthy",
                 "details": f"{pack_count} icon packs available",
@@ -499,14 +516,14 @@ class IconService:
             query = select(IconMetadata).options(selectinload(IconMetadata.pack)).where(IconMetadata.id == icon_id)
             result = await self.db.execute(query)
             icon = result.scalar_one_or_none()
-            
+
             if not icon:
                 return None
-            
+
             # Access pack name and old key in async context before updates
             pack_name = icon.pack.name if icon.pack else None
             old_icon_key = icon.key
-            
+
             # Update fields
             key_changed = False
             if 'key' in metadata:
@@ -517,22 +534,22 @@ class IconService:
                     icon.key = new_key
                     if pack_name:
                         icon.full_key = f"{pack_name}:{new_key}"
-            
+
             if 'search_terms' in metadata:
                 icon.search_terms = metadata['search_terms']
-            
+
             # Note: Individual icons don't have categories - they inherit from pack
             # If needed, we could add this as a custom field later
-            
+
             await self.db.commit()
             await self.db.refresh(icon)
-            
+
             # Update documents if icon key changed
             if key_changed and pack_name:
                 from .document_icon_updater import DocumentIconUpdater
                 document_updater = DocumentIconUpdater(self.db)
                 await document_updater.update_icon_key_references(pack_name, old_icon_key, icon.key)
-            
+
             # Manually construct the response to avoid Pydantic relationship access issues
             pack_data = None
             if icon.pack:
@@ -540,7 +557,7 @@ class IconService:
                 icon_count_query = select(func.count(IconMetadata.id)).where(IconMetadata.pack_id == icon.pack.id)
                 icon_count_result = await self.db.execute(icon_count_query)
                 icon_count = icon_count_result.scalar() or 0
-                
+
                 pack_data = IconPackResponse(
                     id=icon.pack.id,
                     name=icon.pack.name,
@@ -549,9 +566,10 @@ class IconService:
                     description=icon.pack.description,
                     icon_count=icon_count,
                     created_at=icon.pack.created_at,
-                    updated_at=icon.pack.updated_at
+                    updated_at=icon.pack.updated_at,
+                    urls=None  # URLs will be added by the router layer
                 )
-            
+
             return IconMetadataResponse(
                 id=icon.id,
                 key=icon.key,
@@ -563,7 +581,8 @@ class IconService:
                 access_count=icon.access_count,
                 created_at=icon.created_at,
                 updated_at=icon.updated_at,
-                pack=pack_data
+                pack=pack_data,
+                urls=None  # URLs will be added by the router layer
             )
         except Exception as e:
             await self.db.rollback()
@@ -576,14 +595,14 @@ class IconService:
             query = select(IconMetadata).where(IconMetadata.id == icon_id)
             result = await self.db.execute(query)
             icon = result.scalar_one_or_none()
-            
+
             if not icon:
                 return False
-            
+
             # Delete the icon
             await self.db.delete(icon)
             await self.db.commit()
-            
+
             return True
         except Exception as e:
             await self.db.rollback()

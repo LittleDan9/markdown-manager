@@ -13,8 +13,35 @@ export class IconsApi extends Api {
   /**
    * Get all icon packs
    */
-  async getIconPacks() {
+   async getIconPacks() {
     const response = await this.apiCall('/icons/packs', 'GET', null, {}, { noAuth: true });
+    return response.data;
+  }
+
+  /**
+   * Get specific icon pack and its icons
+   */
+  async getIconPack(packName, page = 0, size = 50) {
+    const queryParams = new URLSearchParams({
+      page: page.toString(),
+      size: size.toString()
+    });
+
+    const response = await this.apiCall(
+      `/icons/packs/${encodeURIComponent(packName)}?${queryParams}`,
+      'GET',
+      null,
+      {},
+      { noAuth: true }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get system overview and statistics
+   */
+  async getIconsOverview() {
+    const response = await this.apiCall('/icons/overview', 'GET', null, {}, { noAuth: true });
     return response.data;
   }
 
@@ -53,7 +80,7 @@ export class IconsApi extends Api {
    */
   async getIconMetadata(packName, key) {
     const response = await this.apiCall(
-      `/icons/${encodeURIComponent(packName)}/${encodeURIComponent(key)}`,
+      `/icons/packs/${encodeURIComponent(packName)}/${encodeURIComponent(key)}`,
       'GET',
       null,
       {},
@@ -63,11 +90,11 @@ export class IconsApi extends Api {
   }
 
   /**
-   * Get SVG content for an icon
+   * Get SVG content for an icon as JSON
    */
   async getIconSVG(packName, key) {
     const response = await this.apiCall(
-      `/icons/${encodeURIComponent(packName)}/${encodeURIComponent(key)}/svg`,
+      `/icons/packs/${encodeURIComponent(packName)}/${encodeURIComponent(key)}/svg`,
       'GET',
       null,
       {},
@@ -77,9 +104,31 @@ export class IconsApi extends Api {
   }
 
   /**
-   * Get icon metadata by ID
+   * Get raw SVG URL for direct browser rendering
+   * Returns the URL - use this for <img> src attributes
+   */
+  getRawIconUrl(packName, key) {
+    const baseUrl = this.baseURL || window.location.origin;
+    return `${baseUrl}/api/icons/packs/${encodeURIComponent(packName)}/${encodeURIComponent(key)}/raw`;
+  }
+
+  /**
+   * Get raw SVG content directly
+   */
+  async getRawIconSVG(packName, key) {
+    const response = await fetch(this.getRawIconUrl(packName, key));
+    if (!response.ok) {
+      throw new Error(`Failed to fetch raw SVG: ${response.statusText}`);
+    }
+    return await response.text();
+  }
+
+  /**
+   * Get icon metadata by ID (legacy - use getIconMetadata instead)
+   * @deprecated Use getIconMetadata(packName, key) instead
    */
   async getIconById(iconId) {
+    console.warn('getIconById is deprecated. Use getIconMetadata(packName, key) instead.');
     const response = await this.apiCall(
       `/icons/${iconId}`,
       'GET',
@@ -126,7 +175,7 @@ export class IconsApi extends Api {
    * Get cache statistics (for debugging)
    */
   async getCacheStats() {
-    const response = await this.apiCall('/icons/cache-stats', 'GET', null, {}, { noAuth: true });
+    const response = await this.apiCall('/icons/admin/cache/stats', 'GET');
     return response.data;
   }
 
@@ -134,7 +183,7 @@ export class IconsApi extends Api {
    * Clear cache
    */
   async clearCache() {
-    const response = await this.apiCall('/icons/cache-clear', 'POST', null, {}, { noAuth: true });
+    const response = await this.apiCall('/icons/admin/cache/clear', 'DELETE');
     return response.data;
   }
 
@@ -142,7 +191,7 @@ export class IconsApi extends Api {
    * Warm cache with popular icons
    */
   async warmCache() {
-    const response = await this.apiCall('/icons/cache-warm', 'POST', null, {}, { noAuth: true });
+    const response = await this.apiCall('/icons/admin/cache/warm', 'POST');
     return response.data;
   }
 
@@ -151,7 +200,7 @@ export class IconsApi extends Api {
    */
   async installIconPack(packData, mappingConfig, packageType = 'json') {
     const response = await this.apiCall(
-      '/icons/packs',
+      '/icons/admin/packs',
       'POST',
       {
         pack_data: packData,
@@ -167,7 +216,7 @@ export class IconsApi extends Api {
    */
   async updateIconPack(packName, packData, mappingConfig, packageType = 'json') {
     const response = await this.apiCall(
-      `/icons/packs/${encodeURIComponent(packName)}`,
+      `/icons/admin/packs/${encodeURIComponent(packName)}`,
       'PUT',
       {
         pack_data: packData,
@@ -184,7 +233,7 @@ export class IconsApi extends Api {
    */
   async updateIconPackMetadata(packName, metadata) {
     const response = await this.apiCall(
-      `/icons/packs/${encodeURIComponent(packName)}`,
+      `/icons/admin/packs/${encodeURIComponent(packName)}`,
       'PATCH',
       metadata
     );
@@ -196,7 +245,7 @@ export class IconsApi extends Api {
    */
   async deleteIconPack(packName) {
     const response = await this.apiCall(
-      `/icons/packs/${encodeURIComponent(packName)}`,
+      `/icons/admin/packs/${encodeURIComponent(packName)}`,
       'DELETE'
     );
     return response.data;
@@ -206,7 +255,23 @@ export class IconsApi extends Api {
    * Get icon pack statistics
    */
   async getIconStatistics() {
-    const response = await this.apiCall('/icons/statistics', 'GET', null, {}, { noAuth: true });
+    const response = await this.apiCall('/icons/admin/statistics', 'GET');
+    return response.data;
+  }
+
+  /**
+   * Get popular icons statistics
+   */
+  async getPopularIcons(limit = 50) {
+    const response = await this.apiCall(`/icons/admin/statistics/popular?limit=${limit}`, 'GET');
+    return response.data;
+  }
+
+  /**
+   * Get pack-level statistics
+   */
+  async getPackStatistics() {
+    const response = await this.apiCall('/icons/admin/statistics/packs', 'GET');
     return response.data;
   }
 
@@ -232,11 +297,11 @@ export class IconsApi extends Api {
     }
 
     const response = await this.apiCall(
-      '/icons/upload/icon',
+      '/icons/admin/upload/icon',
       'POST',
       formData,
       {},
-      { 
+      {
         isFormData: true,
         timeout: 30000 // 30 second timeout for file uploads
       }
@@ -277,7 +342,7 @@ export class IconsApi extends Api {
    */
   async updateIconMetadata(iconId, metadata) {
     const response = await this.apiCall(
-      `/icons/search/${iconId}`,
+      `/icons/admin/icons/${iconId}`,
       'PATCH',
       metadata
     );
@@ -289,7 +354,7 @@ export class IconsApi extends Api {
    */
   async deleteIcon(iconId) {
     const response = await this.apiCall(
-      `/icons/search/${iconId}`,
+      `/icons/admin/icons/${iconId}`,
       'DELETE'
     );
     return response.data;
@@ -312,10 +377,10 @@ export class IconsApi extends Api {
     const params = new URLSearchParams();
     if (searchQuery) params.append('search', searchQuery);
     if (categoryFilter) params.append('category', categoryFilter);
-    
+
     const queryString = params.toString();
     const url = `/third-party/sources/${source}/collections${queryString ? `?${queryString}` : ''}`;
-    
+
     const response = await this.apiCall(url, 'GET', null, {}, { noAuth: true });
     return response.data;
   }
@@ -336,7 +401,7 @@ export class IconsApi extends Api {
       page: page.toString()
     });
     if (search) params.append('search', search);
-    
+
     const response = await this.apiCall(
       `/third-party/sources/${source}/collections/${prefix}/icons?${params}`,
       'GET',

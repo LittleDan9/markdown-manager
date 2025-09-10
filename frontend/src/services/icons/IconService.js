@@ -123,6 +123,20 @@ class IconService {
   }
 
   /**
+   * Get raw SVG URL for direct browser rendering
+   */
+  getRawIconUrl(pack, key) {
+    return this.searchService.getRawIconUrl(pack, key);
+  }
+
+  /**
+   * Get raw SVG content directly
+   */
+  async getRawIconSVG(pack, key) {
+    return this.searchService.getRawIconSVG(pack, key);
+  }
+
+  /**
    * Batch get icons by full keys
    */
   async batchGetIcons(iconKeys) {

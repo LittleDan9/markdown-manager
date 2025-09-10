@@ -44,6 +44,7 @@ class IconPackResponse(IconPackBase):
     icon_count: int = Field(default=0, description="Number of icons in this pack")
     created_at: datetime
     updated_at: Optional[datetime] = None
+    urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -58,7 +59,7 @@ class IconPackResponse(IconPackBase):
             # If it's a dict without icon_count, set default
             data['icon_count'] = 0
             return data
-        
+
         # If it's a SQLAlchemy model object
         if hasattr(data, 'icons') and data.icons is not None:
             # Create a dict from the model and add computed icon_count
@@ -68,13 +69,13 @@ class IconPackResponse(IconPackBase):
                     result[field] = getattr(data, field)
             result['icon_count'] = len(data.icons)
             return result
-        
+
         # Fallback: convert to dict and add default icon_count
         if hasattr(data, '__dict__'):
             result = {k: v for k, v in data.__dict__.items() if not k.startswith('_')}
             result['icon_count'] = 0
             return result
-        
+
         return data
 
 
@@ -104,6 +105,7 @@ class IconMetadataResponse(IconMetadataBase):
     created_at: datetime
     updated_at: Optional[datetime] = None
     pack: Optional[IconPackResponse] = None
+    urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -169,7 +171,7 @@ class IconUsageTrackingRequest(BaseModel):
 
 class IconifyIconData(BaseModel):
     """Standardized Iconify format for icon data."""
-    
+
     body: str = Field(..., description="SVG body content (without <svg> wrapper)")
     width: Optional[int] = Field(24, description="Icon width")
     height: Optional[int] = Field(24, description="Icon height")
@@ -186,12 +188,12 @@ class IconifyIconData(BaseModel):
 
 class StandardizedIconPackRequest(BaseModel):
     """Standardized icon pack format (Iconify-style)."""
-    
+
     info: Dict[str, Any] = Field(..., description="Pack metadata")
     icons: Dict[str, IconifyIconData] = Field(..., description="Icon data in Iconify format")
     width: Optional[int] = Field(24, description="Pack-level default width")
     height: Optional[int] = Field(24, description="Pack-level default height")
-    
+
     @field_validator('info')
     @classmethod
     def validate_info(cls, v: Dict[str, Any]) -> Dict[str, Any]:
@@ -201,7 +203,7 @@ class StandardizedIconPackRequest(BaseModel):
             if field not in v:
                 raise ValueError(f"Missing required info field: {field}")
         return v
-    
+
     @field_validator('icons')
     @classmethod
     def validate_icons(cls, v: Dict[str, IconifyIconData]) -> Dict[str, IconifyIconData]:
