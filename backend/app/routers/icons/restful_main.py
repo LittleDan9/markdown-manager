@@ -414,3 +414,52 @@ async def get_icon_by_id_legacy(
             status_code=500,
             detail=f"Failed to get icon: {str(e)}"
         )
+
+
+# Metadata endpoints for pack attributes
+@router.get("/metadata/packs/{metadata_parameter}")
+async def get_pack_metadata(
+    metadata_parameter: str,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """
+    Get unique values for a specific pack attribute (dynamic metadata endpoint).
+
+    Supported metadata parameters:
+    - categories: Get all unique pack categories
+    - names: Get all pack names
+    - display_names: Get all pack display names
+    """
+    try:
+        # Define allowed metadata parameters for security
+        allowed_parameters = {
+            "categories": "category",
+            "names": "name",
+            "display_names": "display_name"
+        }
+
+        if metadata_parameter not in allowed_parameters:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid metadata parameter. Allowed: {list(allowed_parameters.keys())}"
+            )
+
+        # Get the actual field name from the mapping
+        field_name = allowed_parameters[metadata_parameter]
+
+        # Get unique values for the field
+        unique_values = await icon_service.get_pack_metadata(field_name)
+
+        return {
+            "success": True,
+            "metadata_type": metadata_parameter,
+            "data": unique_values,
+            "count": len(unique_values)
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get pack metadata: {str(e)}"
+        )

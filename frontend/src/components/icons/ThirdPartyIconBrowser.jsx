@@ -105,7 +105,7 @@ export default function ThirdPartyIconBrowser({
     } finally {
       setLoading(false);
     }
-  }, [selectedSource, showError]);
+  }, [selectedSource]); // Removed showError dependency to prevent infinite loops
 
   // Fetch categories
   // Note: Categories are now passed as props from IconManagementModal
@@ -143,7 +143,7 @@ export default function ThirdPartyIconBrowser({
     } finally {
       setIconsLoading(false);
     }
-  }, [selectedSource, showError]);
+  }, [selectedSource]); // Removed showError dependency to prevent infinite loops
 
   // Install selected icons
   const installIcons = async () => {
@@ -511,9 +511,12 @@ export default function ThirdPartyIconBrowser({
                       >
                         <Card
                           className={`h-100 cursor-pointer ${
-                            selectedIcons.has(icon.name) ? 'border-primary bg-light' : ''
+                            selectedIcons.has(icon.name) ? 'border-primary border-2' : ''
                           }`}
-                          style={{ cursor: 'pointer' }}
+                          style={{
+                            cursor: 'pointer',
+                            backgroundColor: selectedIcons.has(icon.name) ? 'var(--bs-primary-bg-subtle)' : ''
+                          }}
                           onClick={() => toggleIconSelection(icon.name)}
                         >
                           <Card.Body className="p-2 text-center">
@@ -590,34 +593,34 @@ export default function ThirdPartyIconBrowser({
         </Modal.Header>
         <Modal.Body>
           <Form>
-            <Form.Group className="mb-3">
-              <Form.Label>Pack Name</Form.Label>
-              <Form.Control
-                type="text"
-                value={installConfig.packName}
-                onChange={(e) => setInstallConfig(prev => ({
-                  ...prev,
-                  packName: e.target.value
-                }))}
-                placeholder="Enter pack name"
-              />
-              <Form.Text className="text-muted">
-                Will be used as the identifier for this icon pack
-              </Form.Text>
-            </Form.Group>
+            <PackCategorySelector
+              packName={installConfig.packName}
+              onPackNameChange={(value) => setInstallConfig(prev => ({
+                ...prev,
+                packName: value
+              }))}
+              packNames={packNames}
+              dropdownPackNames={dropdownPackNames}
+              onAddPackName={onAddPackName}
+              packNameLabel="Pack Name"
+              packNamePlaceholder="Enter pack name"
+              packNameRequired={true}
+              showPackNameDropdown={dropdownPackNames.length > 0}
 
-            <Form.Group className="mb-3">
-              <Form.Label>Category</Form.Label>
-              <Form.Control
-                type="text"
-                value={installConfig.category}
-                onChange={(e) => setInstallConfig(prev => ({
-                  ...prev,
-                  category: e.target.value
-                }))}
-                placeholder={selectedSource}
-              />
-            </Form.Group>
+              category={installConfig.category}
+              onCategoryChange={(value) => setInstallConfig(prev => ({
+                ...prev,
+                category: value
+              }))}
+              categories={categories}
+              onAddCategory={onAddCategory}
+              categoryLabel="Category"
+              categoryPlaceholder={selectedSource}
+              categoryRequired={true}
+
+              loading={loading}
+              disabled={loading}
+            />
 
             <Form.Group className="mb-3">
               <Form.Label>Description</Form.Label>

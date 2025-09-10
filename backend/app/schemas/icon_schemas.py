@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class IconPackBase(BaseModel):
@@ -12,6 +12,21 @@ class IconPackBase(BaseModel):
     display_name: str = Field(..., description="Human readable name like 'AWS Services'")
     category: str = Field(..., description="Grouping like 'aws', 'iconify'")
     description: Optional[str] = Field(None, description="Description of the icon pack")
+
+
+class IconPackReference(BaseModel):
+    """Simple pack reference for individual icon responses (no icon_count)."""
+
+    id: int
+    name: str = Field(..., description="Unique identifier like 'awssvg', 'logos'")
+    display_name: str = Field(..., description="Human readable name like 'AWS Services'")
+    category: str = Field(..., description="Grouping like 'aws', 'iconify'")
+    description: Optional[str] = Field(None, description="Description of the icon pack")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class IconPackCreate(IconPackBase):
@@ -48,36 +63,6 @@ class IconPackResponse(IconPackBase):
 
     model_config = ConfigDict(from_attributes=True)
 
-    @model_validator(mode='before')
-    @classmethod
-    def compute_icon_count(cls, data):
-        """Compute icon_count from the icons relationship if available."""
-        if isinstance(data, dict):
-            # If it's already a dict with icon_count, use it
-            if 'icon_count' in data:
-                return data
-            # If it's a dict without icon_count, set default
-            data['icon_count'] = 0
-            return data
-
-        # If it's a SQLAlchemy model object
-        if hasattr(data, 'icons') and data.icons is not None:
-            # Create a dict from the model and add computed icon_count
-            result = {}
-            for field in ['id', 'name', 'display_name', 'category', 'description', 'created_at', 'updated_at']:
-                if hasattr(data, field):
-                    result[field] = getattr(data, field)
-            result['icon_count'] = len(data.icons)
-            return result
-
-        # Fallback: convert to dict and add default icon_count
-        if hasattr(data, '__dict__'):
-            result = {k: v for k, v in data.__dict__.items() if not k.startswith('_')}
-            result['icon_count'] = 0
-            return result
-
-        return data
-
 
 class IconMetadataBase(BaseModel):
     """Base icon metadata schema."""
@@ -104,7 +89,7 @@ class IconMetadataResponse(IconMetadataBase):
     access_count: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    pack: Optional[IconPackResponse] = None
+    pack: Optional[IconPackReference] = None
     urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
 
     model_config = ConfigDict(from_attributes=True)

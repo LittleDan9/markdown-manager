@@ -48,6 +48,19 @@ async def search_icons(
             size=size
         )
         result = await icon_service.search_icons(search_request)
+
+        # Add reference URLs to each icon in search results for better API navigation
+        for icon in result.icons:
+            if hasattr(icon, 'pack') and icon.pack:
+                pack_name = getattr(icon.pack, 'name', str(icon.pack))
+                icon_key = getattr(icon, 'key', getattr(icon, 'icon_key', 'unknown'))
+                setattr(icon, 'urls', {
+                    "self": f"/icons/packs/{pack_name}/icons/{icon_key}",
+                    "raw": f"/icons/packs/{pack_name}/icons/{icon_key}/raw",
+                    "svg": f"/icons/packs/{pack_name}/icons/{icon_key}/svg",
+                    "pack": f"/icons/packs/{pack_name}"
+                })
+
         return result
     except Exception as e:
         raise HTTPException(

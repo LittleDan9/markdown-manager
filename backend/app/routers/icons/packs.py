@@ -1,9 +1,11 @@
 """
 Icon Pack Management Router - Handles pack CRUD operations (Standardized Iconify format only)
 """
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List
+from typing import List, Optional
+import logging
+import traceback
 
 from ...database import get_db
 from ...services.standardized_icon_installer import StandardizedIconPackInstaller
@@ -11,7 +13,8 @@ from ...schemas.icon_schemas import (
     IconPackResponse,
     IconPackInstallRequest,
     IconPackDeleteResponse,
-    IconPackMetadataUpdate
+    IconPackMetadataUpdate,
+    IconMetadataResponse
 )
 from ...services.icon_service import IconService
 from ...core.auth import get_admin_user
@@ -47,48 +50,6 @@ async def get_icon_packs(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get icon packs: {str(e)}"
-        )
-
-
-@router.get(
-    "/categories",
-    summary="Get all unique categories from icon packs",
-    description="Retrieve a sorted list of all unique categories used by icon packs."
-)
-async def get_icon_categories(
-    icon_service: IconService = Depends(get_icon_service)
-):
-    """Get all unique categories from existing icon packs."""
-    try:
-        packs = await icon_service.get_icon_packs()
-        categories = sorted(list(set(pack.category for pack in packs if pack.category)))
-        
-        return {"categories": categories}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get icon categories: {str(e)}"
-        )
-
-
-@router.get(
-    "/names",
-    summary="Get all unique pack names from icon packs",
-    description="Retrieve a sorted list of all unique pack names."
-)
-async def get_icon_pack_names(
-    icon_service: IconService = Depends(get_icon_service)
-):
-    """Get all unique pack names from existing icon packs."""
-    try:
-        packs = await icon_service.get_icon_packs()
-        pack_names = sorted(list(set(pack.name for pack in packs if pack.name)))
-        
-        return {"pack_names": pack_names}
-    except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get pack names: {str(e)}"
         )
 
 
@@ -188,4 +149,218 @@ async def delete_icon_pack(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to delete icon pack: {str(e)}"
+        )
+
+
+# ============================================================================
+# PACK DETAIL AND ICON ACCESS ROUTES
+# ============================================================================
+
+@router.get(
+    "/{pack_name}",
+    response_model=IconPackResponse,
+    summary="Get specific icon pack",
+    description="Get metadata for a specific icon pack by name"
+)
+async def get_icon_pack_details(
+    pack_name: str,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get metadata for a specific icon pack."""
+    try:
+        packs = await icon_service.get_icon_packs()
+        pack = next((p for p in packs if p.name == pack_name), None)
+
+        if not pack:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Icon pack '{pack_name}' not found"
+            )
+
+        # Add reference URLs
+        pack.urls = {
+            "self": f"/icons/packs/{pack.name}",
+            "icons": f"/icons/packs/{pack.name}/icons",
+            "search": f"/icons/search?pack={pack.name}"
+        }
+
+        return pack
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get icon pack: {str(e)}"
+        )
+
+
+@router.get(
+    "/{pack_name}/icons",
+    summary="List icons in pack",
+    description="Get all icons from a specific pack with pagination"
+)
+async def list_pack_icons(
+    pack_name: str,
+    page: int = 0,
+    size: int = 50,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """List all icons in a specific pack with pagination."""
+    try:
+        from ...schemas.icon_schemas import IconSearchRequest
+
+        search_request = IconSearchRequest(
+            q="",  # No text search
+            pack=pack_name,
+            category="all",
+            page=page,
+            size=size
+        )
+        result = await icon_service.search_icons(search_request)
+
+        if result.total == 0:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Pack '{pack_name}' not found or has no icons"
+            )
+
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to list pack icons: {str(e)}"
+        )
+
+
+@router.get(
+    "/{pack_name}/icons/{icon_key}",
+    response_model=IconMetadataResponse,
+    summary="Get specific icon metadata",
+    description="Get detailed metadata for a specific icon within a pack"
+)
+async def get_icon_metadata(
+    pack_name: str,
+    icon_key: str,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get metadata for a specific icon."""
+    try:
+        icon = await icon_service.get_icon_metadata(pack_name, icon_key)
+        if not icon:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Icon '{icon_key}' not found in pack '{pack_name}'"
+            )
+
+        # Add reference URLs
+        icon.urls = {
+            "self": f"/icons/packs/{pack_name}/icons/{icon_key}",
+            "raw": f"/icons/packs/{pack_name}/icons/{icon_key}/raw",
+            "svg": f"/icons/packs/{pack_name}/icons/{icon_key}/svg",
+            "pack": f"/icons/packs/{pack_name}"
+        }
+
+        return icon
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Log the full stack trace for debugging
+        logging.error(f"Failed to get icon metadata for {pack_name}:{icon_key}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": f"Failed to get icon metadata: {str(e)}",
+                "type": type(e).__name__,
+                "traceback": traceback.format_exc()
+            }
+        )
+
+
+@router.get(
+    "/{pack_name}/icons/{icon_key}/raw",
+    summary="Get raw icon content",
+    description="Get the raw SVG content for direct browser rendering",
+    responses={
+        200: {
+            "content": {"image/svg+xml": {}},
+            "description": "SVG content ready for browser rendering"
+        }
+    }
+)
+async def get_icon_raw(
+    pack_name: str,
+    icon_key: str,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get raw SVG content for direct browser rendering."""
+    try:
+        svg_data = await icon_service.get_icon_svg(pack_name, icon_key)
+        if not svg_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Icon '{icon_key}' not found in pack '{pack_name}'"
+            )
+
+        # Return raw SVG with proper headers for browser rendering
+        return Response(
+            content=svg_data,
+            media_type="image/svg+xml",
+            headers={
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": f"inline; filename=\"{pack_name}-{icon_key}.svg\""
+            }
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Log the full stack trace for debugging
+        logging.error(f"Failed to get raw icon for {pack_name}:{icon_key}", exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": f"Failed to get raw icon: {str(e)}",
+                "type": type(e).__name__,
+                "traceback": traceback.format_exc()
+            }
+        )
+
+
+@router.get(
+    "/{pack_name}/icons/{icon_key}/svg",
+    summary="Get icon SVG data",
+    description="Get SVG content as JSON response with metadata"
+)
+async def get_icon_svg(
+    pack_name: str,
+    icon_key: str,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get SVG content as JSON response with metadata."""
+    try:
+        svg_data = await icon_service.get_icon_svg(pack_name, icon_key)
+        if not svg_data:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Icon '{icon_key}' not found in pack '{pack_name}'"
+            )
+
+        return {
+            "pack": pack_name,
+            "key": icon_key,
+            "svg": svg_data,
+            "content_type": "image/svg+xml",
+            "urls": {
+                "raw": f"/icons/packs/{pack_name}/icons/{icon_key}/raw",
+                "metadata": f"/icons/packs/{pack_name}/icons/{icon_key}",
+                "pack": f"/icons/packs/{pack_name}"
+            }
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get icon SVG: {str(e)}"
         )

@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from ...schemas.icon_schemas import IconMetadataResponse
 from .search import get_icon_service
-from . import packs, search, cache, statistics, upload, restful_main, admin
+from . import packs, search, cache, statistics, upload, admin, metadata, overview, legacy
 
 # Create main icon router (no tags to avoid duplication)
 router = APIRouter(prefix="/icons")
@@ -97,16 +97,24 @@ async def get_pack_icons(
 # Include all domain-specific routers
 # Note: Order matters! More specific routes should be defined before general ones
 
-# NEW: Include RESTful endpoints - these take priority for cleaner URLs
-router.include_router(restful_main.router, tags=["Icons RESTful API"])
+# Include admin endpoints
 router.include_router(admin.router, tags=["Icon Administration"])
 
-# EXISTING: Legacy endpoints for backward compatibility
+# Include domain-specific endpoints for backward compatibility
 router.include_router(packs.router)
 router.include_router(search.router)
 router.include_router(cache.router)
 router.include_router(statistics.router)
 router.include_router(upload.router)
+
+# METADATA: Dynamic metadata endpoints
+router.include_router(metadata.router, tags=["Icon Metadata"])
+
+# OVERVIEW: System overview and statistics
+router.include_router(overview.router, tags=["Icon Overview"])
+
+# LEGACY: Backward compatibility for deprecated endpoints
+router.include_router(legacy.router, tags=["Legacy Compatibility"])
 
 
 # Put the generic /{icon_id} route LAST to avoid conflicts
@@ -137,8 +145,3 @@ async def get_icon(
             status_code=500,
             detail=f"Failed to get icon: {str(e)}"
         )
-
-
-# Include all sub-routers
-router.include_router(restful_main.router, tags=["RESTful Icons"])
-router.include_router(admin.router, tags=["Admin"])

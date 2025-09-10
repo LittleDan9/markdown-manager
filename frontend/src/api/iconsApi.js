@@ -314,8 +314,8 @@ export class IconsApi extends Api {
    */
   async getIconCategories() {
     try {
-      const response = await this.apiCall('/icons/packs/categories', 'GET', null, {}, { noAuth: true });
-      return response.data.categories;
+      const response = await this.apiCall('/icons/metadata/packs/categories', 'GET', null, {}, { noAuth: true });
+      return response.data.values || response.data.data; // Support both response formats
     } catch (error) {
       console.error('Failed to load icon categories:', error);
       // If backend is down, throw the error - don't fallback to hardcoded values
@@ -328,8 +328,8 @@ export class IconsApi extends Api {
    */
   async getIconPackNames() {
     try {
-      const response = await this.apiCall('/icons/packs/names', 'GET', null, {}, { noAuth: true });
-      return response.data.pack_names;
+      const response = await this.apiCall('/icons/metadata/packs/names', 'GET', null, {}, { noAuth: true });
+      return response.data.values || response.data.data; // Support both response formats
     } catch (error) {
       console.error('Failed to load icon pack names:', error);
       // If backend is down, throw the error - don't fallback to hardcoded values
