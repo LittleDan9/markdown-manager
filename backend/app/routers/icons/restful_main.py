@@ -10,7 +10,6 @@ This module implements a proper RESTful API design for icons with:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Response
-from fastapi.responses import Response as FastAPIResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional, List
 import traceback
