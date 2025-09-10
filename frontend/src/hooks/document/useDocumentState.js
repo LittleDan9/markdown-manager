@@ -462,16 +462,14 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   }, [currentDocument]);
 
   const exportAsPDF = useCallback(async (htmlContent, filename = null, theme = 'light') => {
-    setLoading(true);
-    setError('');
     try {
       await DocumentService.exportAsPDF(htmlContent, filename || currentDocument?.name, theme);
     } catch (error) {
-      setError('PDF export failed');
-    } finally {
-      setLoading(false);
+      console.error('PDF export failed:', error);
+      setError('PDF export failed: ' + (error.message || 'Unknown error'));
+      throw error;
     }
-  }, [currentDocument, setLoading, setError]);
+  }, [currentDocument, setError]);
 
   const importMarkdownFile = useCallback(async (file) => {
     return DocumentService.importMarkdownFile(file);
