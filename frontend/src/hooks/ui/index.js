@@ -5,3 +5,4 @@ export { default as usePreviewHTMLState } from './usePreviewHTMLState';
 export { default as useSharedViewState } from './useSharedViewState';
 export { default as useSharedViewEffects } from './useSharedViewEffects';
 export { default as useFileModal } from './useFileModal';
+export { useCodeCopy } from './useCodeCopy';

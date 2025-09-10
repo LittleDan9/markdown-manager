@@ -4,6 +4,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { HighlightService } from "@/services/editor";
 import { useMermaid } from "@/services/rendering";
+import { useCodeCopy } from "@/hooks/ui/useCodeCopy";
 
 /**
  * Modern Renderer component using the new useMermaid hook architecture
@@ -25,6 +26,9 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   const [isRendering, setIsRendering] = useState(false);
   const previewScrollRef = useRef(null);
   const hasCalledFirstRender = useRef(false);
+
+  // Setup copy functionality for code blocks
+  const setCodeCopyRef = useCodeCopy(previewHTML, true);
 
   // Use the new Mermaid hook - much cleaner than manual state management!
   const {
@@ -162,7 +166,10 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       <div id="preview" className="position-relative">
         <div
           className="preview-scroll"
-          ref={previewScrollRef}
+          ref={(element) => {
+            previewScrollRef.current = element;
+            setCodeCopyRef(element);
+          }}
           dangerouslySetInnerHTML={{ __html: previewHTML }}
         />
         {showLoadingOverlay && (
