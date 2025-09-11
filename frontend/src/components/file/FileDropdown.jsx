@@ -13,6 +13,7 @@ import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
+import DocumentService from "@/services/core/DocumentService";
 
 function FileDropdown({ setDocumentTitle }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();
@@ -94,9 +95,8 @@ function FileDropdown({ setDocumentTitle }) {
 
   const handleEnableSharing = async (documentId) => {
     try {
-      // Implementation would need DocumentService
-      showSuccess("Sharing enabled for document.");
-      return true;
+      const result = await DocumentService.enableDocumentSharing(documentId);
+      return result;
     } catch (error) {
       showError(`Failed to enable sharing: ${error.message}`);
       throw error;
@@ -105,8 +105,7 @@ function FileDropdown({ setDocumentTitle }) {
 
   const handleDisableSharing = async (documentId) => {
     try {
-      // Implementation would need DocumentService
-      showSuccess("Sharing disabled for document.");
+      await DocumentService.disableDocumentSharing(documentId);
       return true;
     } catch (error) {
       showError(`Failed to disable sharing: ${error.message}`);
