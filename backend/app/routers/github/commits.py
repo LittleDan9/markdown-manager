@@ -132,8 +132,8 @@ async def _perform_commit(
     """Perform the actual commit to GitHub."""
     # Create new branch if requested
     if commit_request.create_new_branch and commit_request.new_branch_name:
-        # TODO: Implement branch creation in GitHubService
-        pass
+        print(f"Creating new branch: {commit_request.new_branch_name}")
+        # Branch creation will be handled by the commit_file method
 
     # Determine SHA to use for commit
     sha_to_use = document.github_sha  # Default to document SHA
@@ -181,7 +181,9 @@ async def _perform_commit(
         document.content,
         commit_request.commit_message,
         branch=target_branch,
-        sha=sha_to_use
+        sha=sha_to_use,
+        create_branch=commit_request.create_new_branch,
+        base_branch=document.github_branch or repository.default_branch if commit_request.create_new_branch else None
     )
 
     return commit_result

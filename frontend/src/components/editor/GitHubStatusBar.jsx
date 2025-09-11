@@ -27,8 +27,11 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
   const [loading, setLoading] = useState(false);
   const [commitModalVisible, setCommitModalVisible] = useState(false);
   const [commitMessage, setCommitMessage] = useState('');
+  const [newBranchName, setNewBranchName] = useState('');
+  const [autoCreatePR, setAutoCreatePR] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [syncHistory, setSyncHistory] = useState([]);
+  const [branchMode, setBranchMode] = useState('current'); // 'current' or 'new'
 
   // Phase 3: New modal states
   const [pullModalVisible, setPullModalVisible] = useState(false);
@@ -123,13 +126,20 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
       return;
     }
 
+    if (branchMode === 'new' && !newBranchName.trim()) {
+      showError('Branch name is required when creating a new branch');
+      return;
+    }
+
     try {
       setLoading(true);
 
       // Ensure clean data with no circular references
       const commitData = {
         commit_message: String(commitMessage).trim(),
-        force_commit: Boolean(forceCommit)
+        force_commit: Boolean(forceCommit),
+        create_new_branch: Boolean(branchMode === 'new'),
+        new_branch_name: branchMode === 'new' ? String(newBranchName).trim() : undefined
       };
 
       console.log('GitHub Commit Request:', {
@@ -146,6 +156,37 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
       showSuccess('Changes committed successfully to GitHub');
       setCommitModalVisible(false);
       setCommitMessage('');
+      setBranchMode('current');
+      setNewBranchName('');
+
+      // If we created a new branch and auto-create PR is enabled, create the PR
+      if (branchMode === 'new' && autoCreatePR && response.success && response.branch) {
+        try {
+          // Get repository details for PR creation
+          if (status?.github_repository && status?.github_account_id) {
+            const repositories = await gitHubApi.getRepositories(status.github_account_id);
+            const repo = repositories.find(r => r.full_name === status.github_repository);
+            
+            if (repo) {
+              setCurrentRepository(repo);
+              
+              // Auto-create PR with the commit message as PR title
+              const prData = {
+                title: commitMessage.trim(),
+                body: `Auto-generated PR for changes in ${status.github_file_path}`,
+                head: response.branch,
+                base: 'main'
+              };
+              
+              const prResponse = await gitHubApi.createPullRequest(repo.id, prData);
+              showSuccess(`Pull request #${prResponse.number} created successfully`);
+            }
+          }
+        } catch (prError) {
+          console.error('Failed to auto-create PR:', prError);
+          showError('Commit successful, but failed to create pull request. You can create it manually.');
+        }
+      }
 
       // After successful commit, sync with backend to update localStorage
       try {
@@ -183,6 +224,7 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
       }
     } finally {
       setLoading(false);
+      setAutoCreatePR(false); // Reset for next time
     }
   };
 
@@ -468,6 +510,9 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
         onHide={() => {
           setCommitModalVisible(false);
           setCommitMessage('');
+          setBranchMode('current');
+          setNewBranchName('');
+          setAutoCreatePR(false);
         }}
         size="lg"
       >
@@ -480,11 +525,11 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
         <Modal.Body>
           <div className="mb-3">
             <strong>Repository:</strong> {status?.github_repository}<br />
-            <strong>Branch:</strong> {status?.github_branch}<br />
+            <strong>Current Branch:</strong> {status?.github_branch}<br />
             <strong>File:</strong> {status?.github_file_path}
           </div>
 
-          <Form.Group>
+          <Form.Group className="mb-3">
             <Form.Label>Commit Message</Form.Label>
             <Form.Control
               as="textarea"
@@ -498,6 +543,75 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
               {commitMessage.length}/1000 characters
             </Form.Text>
           </Form.Group>
+
+          {/* Branch Selection */}
+          <div className="mb-3">
+            <Form.Label className="fw-bold">Target Branch</Form.Label>
+            
+            <Form.Check
+              type="radio"
+              id="branch-current"
+              name="branchMode"
+              label={
+                <span>
+                  <i className="bi bi-git me-2"></i>
+                  Commit to current branch <code>{status?.github_branch}</code>
+                  <small className="text-muted d-block">Changes will be immediately available</small>
+                </span>
+              }
+              checked={branchMode === 'current'}
+              onChange={() => setBranchMode('current')}
+              className="mb-2"
+            />
+            
+            <Form.Check
+              type="radio"
+              id="branch-new"
+              name="branchMode"
+              label={
+                <span>
+                  <i className="bi bi-git me-2"></i>
+                  Create new branch for these changes
+                  <small className="text-muted d-block">Recommended for collaborative development</small>
+                </span>
+              }
+              checked={branchMode === 'new'}
+              onChange={() => setBranchMode('new')}
+              className="mb-3"
+            />
+
+            {branchMode === 'new' && (
+              <div className="ms-4 mb-3">
+                <Form.Group className="mb-3">
+                  <Form.Label>New Branch Name</Form.Label>
+                  <Form.Control
+                    type="text"
+                    placeholder="feature/my-changes"
+                    value={newBranchName}
+                    onChange={(e) => setNewBranchName(e.target.value)}
+                    pattern="[a-zA-Z0-9._/-]+"
+                  />
+                  <Form.Text className="text-muted">
+                    Use lowercase letters, numbers, hyphens, and forward slashes
+                  </Form.Text>
+                </Form.Group>
+
+                <Form.Check
+                  type="checkbox"
+                  id="auto-create-pr"
+                  label={
+                    <span>
+                      <i className="bi bi-git me-2"></i>
+                      Automatically create Pull Request to <code>{status?.github_branch}</code>
+                      <small className="text-muted d-block">Opens PR immediately after commit</small>
+                    </span>
+                  }
+                  checked={autoCreatePR}
+                  onChange={(e) => setAutoCreatePR(e.target.checked)}
+                />
+              </div>
+            )}
+          </div>
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -505,6 +619,9 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
             onClick={() => {
               setCommitModalVisible(false);
               setCommitMessage('');
+              setBranchMode('current');
+              setNewBranchName('');
+              setAutoCreatePR(false);
             }}
           >
             Cancel
@@ -512,17 +629,22 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
           <Button
             variant="primary"
             onClick={handleCommit}
-            disabled={loading || !commitMessage.trim()}
+            disabled={
+              loading || 
+              !commitMessage.trim() || 
+              (branchMode === 'new' && !newBranchName.trim())
+            }
           >
             {loading ? (
               <>
                 <Spinner animation="border" size="sm" className="me-2" />
-                Committing...
+                {branchMode === 'new' ? 'Creating Branch & Committing...' : 'Committing...'}
               </>
             ) : (
               <>
                 <i className="bi bi-cloud-upload me-2"></i>
-                Commit
+                {branchMode === 'new' ? `Create Branch & Commit` : 'Commit'}
+                {branchMode === 'new' && autoCreatePR && ' + PR'}
               </>
             )}
           </Button>

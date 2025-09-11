@@ -262,6 +262,11 @@ class GitHubAPI extends Api {
     
     return res.data;
   }
+
+  async createPullRequest(repositoryId, prData) {
+    const res = await this.apiCall(`/github/repositories/${repositoryId}/pull-requests`, "POST", prData);
+    return res.data;
+  }
 }
 
 // Export singleton instance
