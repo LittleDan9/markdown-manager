@@ -4,11 +4,16 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException, status
 
+from .base import BaseGitHubService
 
-class GitHubCacheService:
+
+class GitHubCacheService(BaseGitHubService):
     """Service for caching GitHub API responses and managing rate limits."""
 
     def __init__(self):
+        """Initialize cache service."""
+        super().__init__()
+        
         # For now, use in-memory cache since Redis may not be available
         self._cache = {}  # type: Dict[str, Dict[str, Any]]
         self._stats = {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import GitHubAccountList from "../../shared/GitHubAccountList";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
+import GitHubBrowserHeader from "../../github/browser/GitHubBrowserHeader";
 import { GitHubProvider } from "../../../services/FileBrowserProviders";
 import { useNotification } from "../../NotificationProvider";
 import useFileModal from "../../../hooks/ui/useFileModal";
@@ -77,6 +78,24 @@ export default function GitHubTab({
           onFileOpen(doc);
           onModalHide();
           return;
+        } else {
+          // Document was marked as imported but not found in local documents list
+          // Since user is authenticated, fetch the document from backend
+          console.log(`Document ID ${file.documentId} not found locally, fetching from backend...`);
+          try {
+            // Create a minimal document object with the known ID
+            // The handleOpenFile/loadDocument logic will fetch the full document
+            const documentToOpen = {
+              id: file.documentId,
+              name: file.name || 'Unknown Document'
+            };
+            onFileOpen(documentToOpen);
+            onModalHide();
+            return;
+          } catch (err) {
+            console.warn(`Failed to open document ID ${file.documentId}, falling back to re-import:`, err);
+            // If opening fails, fall through to re-import logic
+          }
         }
       }
 
@@ -86,15 +105,26 @@ export default function GitHubTab({
       const importResponse = await gitHubApi.importDocument({
         repository_id: selectedGitHubRepo.id,
         file_path: file.githubPath || file.path,
-        branch: selectedBranch,
+        branch: selectedBranch || selectedGitHubRepo.default_branch || 'main',
         category: 'GitHub Import'
       });
 
       console.log('Import response:', importResponse);
 
-      // Handle different possible response formats
+      // Handle the new enhanced import response format
       let importedDoc = null;
-      if (importResponse.document) {
+      
+      // Check if we got the new format with results.imported array
+      if (importResponse.results?.imported?.length > 0) {
+        const importResult = importResponse.results.imported[0];
+        // Create a minimal document object that handleOpenFile can use
+        importedDoc = {
+          id: importResult.document_id,
+          name: importResult.name
+        };
+      } 
+      // Fallback to old formats for backward compatibility
+      else if (importResponse.document) {
         importedDoc = importResponse.document;
       } else if (importResponse.data?.document) {
         importedDoc = importResponse.data.document;
@@ -106,6 +136,10 @@ export default function GitHubTab({
         console.log('Successfully imported document:', importedDoc);
         onFileOpen(importedDoc);
         onModalHide();
+      } else if (importResponse.results?.errors?.length > 0) {
+        // Show specific error from the import results
+        const errorMsg = importResponse.results.errors[0].error || 'Import failed';
+        showError(`Failed to import file: ${errorMsg}`);
       } else {
         showError('Failed to import file. Invalid response format.');
       }

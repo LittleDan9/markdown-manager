@@ -3,8 +3,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.services.github_cache_service import github_cache_service
-from app.services.github_background_sync import github_background_sync
+from app.services.github.cache import github_cache_service
+from app.services.github.background import github_background_sync
 from app.core.github_security import github_security
 from app.models.user import User
 from app.core.auth import get_current_user

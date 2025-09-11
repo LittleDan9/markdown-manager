@@ -20,7 +20,7 @@ from app.schemas.github import (
     GitHubConflictResponse
 )
 from app.services.github_service import GitHubService
-from app.services.github_cache_service import github_cache_service
+from app.services.github.cache import github_cache_service
 from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter()
@@ -315,7 +315,7 @@ async def pull_github_changes(
 ) -> Any:
     """Pull changes from GitHub repository."""
     from app.crud.document import DocumentCRUD
-    from app.services.github_sync_service import github_sync_service
+    from app.services.github.sync import github_sync_service
 
     document_crud = DocumentCRUD()
 
@@ -347,7 +347,7 @@ async def resolve_conflicts(
 ) -> Any:
     """Resolve merge conflicts with user-provided content."""
     from app.crud.document import DocumentCRUD
-    from app.services.github_sync_service import github_sync_service
+    from app.services.github.sync import github_sync_service
 
     document_crud = DocumentCRUD()
 

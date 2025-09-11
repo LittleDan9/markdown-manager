@@ -4,11 +4,17 @@ from typing import Any, Dict, List
 import httpx
 from fastapi import HTTPException
 
+from .base import BaseGitHubService
 
-class GitHubPRService:
+
+class GitHubPRService(BaseGitHubService):
     """Service for GitHub Pull Request operations."""
 
     BASE_URL = "https://api.github.com"
+
+    def __init__(self):
+        """Initialize PR service."""
+        super().__init__()
 
     async def create_pull_request(
         self,

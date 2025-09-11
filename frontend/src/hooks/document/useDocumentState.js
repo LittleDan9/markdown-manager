@@ -268,7 +268,25 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   const loadDocument = useCallback(async (id) => {
     setLoading(true);
     try {
-      const doc = DocumentService.loadDocument(id);
+      // First try to load from localStorage
+      let doc = DocumentService.loadDocument(id);
+      
+      // If not found locally, try to fetch from backend
+      if (!doc) {
+        console.log(`Document ${id} not found locally, fetching from backend...`);
+        try {
+          doc = await documentsApi.getDocument(id);
+          if (doc) {
+            // Store the fetched document locally for future use
+            DocumentStorageService.setDocument(doc);
+            console.log(`Successfully fetched document ${id} from backend`);
+          }
+        } catch (fetchError) {
+          console.error(`Failed to fetch document ${id} from backend:`, fetchError);
+          // Will fall through to the "Document not found" error below
+        }
+      }
+      
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');

@@ -4,9 +4,9 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.sql import func
+from sqlalchemy.sql import func, text
 
 from app.models.base import Base
 
@@ -25,10 +25,25 @@ class Document(Base):  # type: ignore[misc]
     __tablename__ = "documents"
     __allow_unmapped__ = True
     __table_args__ = (
-        # New constraint for folder-based uniqueness
+        # Folder-based uniqueness (keep this existing constraint)
         UniqueConstraint("user_id", "folder_path", "name", name="uq_user_folder_name"),
-        # Keep old constraint during transition
-        UniqueConstraint("user_id", "name", name="uq_user_name"),
+        
+        # Conditional partial indexes for proper document type separation
+        # Local documents: unique (user_id, folder_path, name) where github_repository_id IS NULL
+        Index(
+            "uq_local_documents",
+            "user_id", "folder_path", "name",
+            unique=True,
+            postgresql_where=text("github_repository_id IS NULL")
+        ),
+        
+        # GitHub documents: unique (user_id, github_repository_id, github_file_path, github_branch)
+        Index(
+            "uq_github_documents",
+            "user_id", "github_repository_id", "github_file_path", "github_branch",
+            unique=True,
+            postgresql_where=text("github_repository_id IS NOT NULL")
+        ),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)

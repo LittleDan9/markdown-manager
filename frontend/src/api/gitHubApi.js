@@ -92,34 +92,36 @@ class GitHubAPI extends Api {
   }
 
   // Document operations
-  async importDocument(repoId, filePath, branch = null) {
-    const res = await this.apiCall("/github/documents/import", "POST", {
-      repository_id: repoId,
-      file_path: filePath,
-      branch: branch
+  async importDocument(importData) {
+    const { repository_id, file_path, branch = "main", ...rest } = importData;
+    const res = await this.apiCall(`/github/repositories/${repository_id}/import`, "POST", {
+      branch: branch,
+      file_paths: [file_path],
+      overwrite_existing: false,
+      ...rest
     });
     return res.data;
   }
 
   async commitDocument(documentId, commitMessage) {
-    const res = await this.apiCall(`/github/documents/${documentId}/commit`, "POST", {
+    const res = await this.apiCall(`/github/commits/documents/${documentId}`, "POST", {
       commit_message: commitMessage
     });
     return res.data;
   }
 
   async pullDocument(documentId) {
-    const res = await this.apiCall(`/github/documents/${documentId}/pull`, "POST");
+    const res = await this.apiCall(`/github/sync/documents/${documentId}/pull`, "POST");
     return res.data;
   }
 
   async getDocumentStatus(documentId) {
-    const res = await this.apiCall(`/github/documents/${documentId}/status`, "GET");
+    const res = await this.apiCall(`/github/sync/documents/${documentId}/status`, "GET");
     return res.data;
   }
 
   async getDocumentSyncHistory(documentId) {
-    const res = await this.apiCall(`/github/documents/${documentId}/sync-history`, "GET");
+    const res = await this.apiCall(`/github/sync/documents/${documentId}/sync-history`, "GET");
     return res.data;
   }
 
@@ -169,23 +171,23 @@ class GitHubAPI extends Api {
 
   // Enhanced folder structure methods (Phase 4)
   async importRepositoryFiles(repositoryId, importData) {
-    const res = await this.apiCall(`/github/import/repositories/${repositoryId}/import`, "POST", importData);
+    const res = await this.apiCall(`/github/repositories/${repositoryId}/import`, "POST", importData);
     return res.data;
   }
 
   async syncRepositoryStructure(repositoryId, syncData) {
-    const res = await this.apiCall(`/github/import/repositories/${repositoryId}/sync`, "POST", syncData);
+    const res = await this.apiCall(`/github/repositories/${repositoryId}/sync`, "POST", syncData);
     return res.data;
   }
 
   async getGitHubFolders() {
-    const res = await this.apiCall("/github/import/folders", "GET");
+    const res = await this.apiCall("/github/folders", "GET");
     return res.data;
   }
 
   async getRepositoryTree(repositoryId, branch = 'main') {
     const params = new URLSearchParams({ branch });
-    const res = await this.apiCall(`/github/import/repositories/${repositoryId}/tree?${params}`, "GET");
+    const res = await this.apiCall(`/github/repositories/${repositoryId}/tree?${params}`, "GET");
     return res.data;
   }
 

@@ -1,20 +1,21 @@
 """Background synchronization service for GitHub integration."""
 import asyncio
 import logging
-from datetime import datetime, timedelta
-from typing import Any, Dict, List
-
-from sqlalchemy.ext.asyncio import AsyncSession
+from typing import Any, Dict
 
 from app.database import AsyncSessionLocal
+
+from .base import BaseGitHubService
 
 logger = logging.getLogger(__name__)
 
 
-class GitHubBackgroundSync:
+class GitHubBackgroundService(BaseGitHubService):
     """Background service for GitHub synchronization."""
 
     def __init__(self):
+        """Initialize background service."""
+        super().__init__()
         self.sync_interval = 300  # 5 minutes
         self.max_documents_per_run = 50
         self.running = False
@@ -104,4 +105,4 @@ class GitHubBackgroundSync:
 
 
 # Global background sync service
-github_background_sync = GitHubBackgroundSync()
+github_background_sync = GitHubBackgroundService()

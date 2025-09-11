@@ -13,7 +13,7 @@ from app.schemas.github import (
     GitHubPRResponse,
     GitHubPRListResponse
 )
-from app.services.github_pr_service import github_pr_service
+from app.services.github.pull_requests import github_pr_service
 
 router = APIRouter()
 github_crud = GitHubCRUD()

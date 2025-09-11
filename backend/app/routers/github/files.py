@@ -9,7 +9,7 @@ from app.database import get_db
 from app.models import User
 from app.schemas.github import GitHubFileInfo
 from app.services.github_service import GitHubService
-from app.services.github_cache_service import github_cache_service
+from app.services.github.cache import github_cache_service
 from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter()

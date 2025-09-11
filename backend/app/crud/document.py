@@ -113,13 +113,13 @@ class DocumentCRUD:
 
         result = await db.execute(
             select(Document, Category.name.label('category_name'))
-            .join(Category, Document.category_id == Category.id)
+            .outerjoin(Category, Document.category_id == Category.id)
             .filter(Document.id == id)
         )
         row = result.first()
         if row:
             document = row.Document
-            # Add category name to the document object
+            # Add category name to the document object (or None if no category)
             document.category = row.category_name
             return document
         return None
