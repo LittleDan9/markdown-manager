@@ -9,7 +9,7 @@ import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
 export default function Editor({ value, onChange, onCursorLineChange }) {
   const containerRef = useRef(null);
-  const { currentDocument } = useDocumentContext();
+  const { currentDocument, setCurrentDocument, setContent } = useDocumentContext();
   const { isAuthenticated } = useAuth();
 
   // Get the category from the current document (string name, not ID)
@@ -24,6 +24,17 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   folderPathRef.current = currentDocument?.folder_path;
 
   // Debug: Log the document structure to understand what we have
+
+  // Handle document updates from GitHub operations
+  const handleDocumentUpdate = (updatedDocument) => {
+    if (updatedDocument) {
+      setCurrentDocument(updatedDocument);
+      setContent(updatedDocument.content || '');
+      if (onChange) {
+        onChange(updatedDocument.content || '');
+      }
+    }
+  };
 
   // Debounced cursor line change handler
   const debouncedLineChange = useDebouncedCursorChange(onCursorLineChange, 300);
@@ -64,6 +75,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
             // Optional: handle status changes globally
             console.log('GitHub status updated:', status);
           }}
+          onDocumentUpdate={handleDocumentUpdate}
         />
       </div>
     </div>

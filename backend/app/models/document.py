@@ -66,6 +66,9 @@ class Document(Base):  # type: ignore[misc]
         onupdate=func.now(),
         nullable=False,
     )
+    last_opened_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True, index=True
+    )
 
     # Foreign key to user
     user_id: Mapped[int] = mapped_column(

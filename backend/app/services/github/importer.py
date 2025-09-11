@@ -247,7 +247,7 @@ class GitHubImportService(BaseGitHubService):
         return markdown_files
 
     def _generate_content_hash(self, content: str) -> str:
-        """Generate SHA-256 hash of content for comparison."""
+        """Generate SHA-256 hash for local change detection."""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
     async def get_folder_structure_for_user(self, user_id: int) -> Dict[str, Any]:

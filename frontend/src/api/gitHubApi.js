@@ -103,20 +103,21 @@ class GitHubAPI extends Api {
     return res.data;
   }
 
-  async commitDocument(documentId, commitMessage) {
-    const res = await this.apiCall(`/github/commits/documents/${documentId}`, "POST", {
-      commit_message: commitMessage
-    });
+  async commitDocument(documentId, commitData) {
+    const res = await this.apiCall(`/github/commits/documents/${documentId}`, "POST", commitData);
     return res.data;
   }
 
-  async pullDocument(documentId) {
-    const res = await this.apiCall(`/github/sync/documents/${documentId}/pull`, "POST");
+  async pullDocument(documentId, pullData = {}) {
+    const res = await this.apiCall(`/github/sync/documents/${documentId}/pull`, "POST", pullData);
     return res.data;
   }
 
-  async getDocumentStatus(documentId) {
-    const res = await this.apiCall(`/github/sync/documents/${documentId}/status`, "GET");
+  async getDocumentStatus(documentId, params = {}) {
+    const queryParams = new URLSearchParams(params);
+    const queryString = queryParams.toString();
+    const endpoint = `/github/sync/documents/${documentId}/status${queryString ? `?${queryString}` : ''}`;
+    const res = await this.apiCall(endpoint, "GET");
     return res.data;
   }
 

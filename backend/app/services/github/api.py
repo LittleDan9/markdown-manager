@@ -225,6 +225,13 @@ class GitHubAPIService(BaseGitHubService):
         """Generate SHA-256 hash of content for comparison."""
         return hashlib.sha256(content.encode('utf-8')).hexdigest()
 
+    def generate_git_blob_hash(self, content: str) -> str:
+        """Generate Git blob SHA-1 hash compatible with GitHub."""
+        import hashlib
+        # Git blob format: "blob <size>\0<content>"
+        blob_content = f"blob {len(content.encode('utf-8'))}\0".encode('utf-8') + content.encode('utf-8')
+        return hashlib.sha1(blob_content).hexdigest()
+
     async def commit_file(
         self,
         access_token: str,

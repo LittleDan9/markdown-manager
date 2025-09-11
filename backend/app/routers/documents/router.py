@@ -13,7 +13,7 @@ from app.schemas.document import (
     DocumentCreate,
     DocumentList,
 )
-from . import categories, crud, current, sharing, folders
+from . import categories, crud, current, sharing, folders, recents
 from .docs import DOCUMENT_CRUD_DOCS
 
 router = APIRouter()
@@ -157,8 +157,10 @@ async def create_document(
 
     return Document.model_validate(document, from_attributes=True)
 
+
 # Include all document sub-routers
 # NOTE: Order matters! More specific routes must come before generic ones
+router.include_router(recents.router, tags=["documents"])  # /recent before /{document_id}
 router.include_router(current.router, tags=["documents"])  # /current before /{document_id}
 router.include_router(folders.router, tags=["documents"])  # NEW: folder operations
 router.include_router(categories.router, tags=["documents"])

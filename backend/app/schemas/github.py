@@ -212,6 +212,7 @@ class GitHubStatusResponse(BaseModel):
     last_sync: Optional[datetime] = Field(None, description="Last sync timestamp")
     status_info: dict = Field(default_factory=dict, description="UI display information")
     remote_content: Optional[str] = Field(None, description="Remote content if conflicts exist")
+    github_account_id: Optional[int] = Field(None, description="GitHub account ID for API calls")
 
 
 class GitHubPullRequest(BaseModel):

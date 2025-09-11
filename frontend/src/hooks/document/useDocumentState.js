@@ -290,12 +290,28 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
-        // Clear preview HTML and highlighted blocks when loading a different document
+        // Clear the preview HTML when loading a different document
         if (setPreviewHTML) {
           setPreviewHTML('');
         }
+        // Clear highlighted blocks when loading a different document, but let the Renderer
+        // handle preview HTML generation based on the new content
         setHighlightedBlocks({});
         await updateCurrentDocument(doc);
+        
+        // Mark document as recently opened
+        try {
+          if (isAuthenticated && token && !String(doc.id).startsWith('doc_')) {
+            // For backend documents, call the API
+            await documentsApi.markDocumentOpened(doc.id);
+          } else {
+            // For local documents, update localStorage
+            DocumentStorageService.markDocumentOpened(doc.id);
+          }
+        } catch (error) {
+          console.warn('Failed to mark document as opened:', error);
+          // Don't fail the document loading for this
+        }
       } else {
         showError('Document not found');
       }

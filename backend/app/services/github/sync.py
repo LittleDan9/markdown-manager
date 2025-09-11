@@ -74,8 +74,8 @@ class GitHubSyncService(BaseGitHubService):
                 "changes_pulled": False
             }
 
-        # Generate current local content hash
-        current_local_hash = api_service.generate_content_hash(document.content)
+        # Generate current local content hash using Git blob format for consistency
+        current_local_hash = api_service.generate_git_blob_hash(document.content)
         has_local_changes = current_local_hash != document.local_sha
 
         # Handle different scenarios
@@ -109,7 +109,7 @@ class GitHubSyncService(BaseGitHubService):
         from .api import GitHubAPIService
         api_service = GitHubAPIService()
 
-        new_content_hash = api_service.generate_content_hash(remote_content)
+        new_content_hash = api_service.generate_git_blob_hash(remote_content)
 
         # Update document
         document.content = remote_content
@@ -317,7 +317,7 @@ class GitHubSyncService(BaseGitHubService):
         api_service = GitHubAPIService()
 
         # Update document with resolved content
-        new_content_hash = api_service.generate_content_hash(resolved_content)
+        new_content_hash = api_service.generate_git_blob_hash(resolved_content)
 
         document.content = resolved_content
         document.local_sha = new_content_hash

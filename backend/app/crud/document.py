@@ -619,6 +619,60 @@ class DocumentCRUD:
         await db.commit()
         return result.rowcount
 
+    async def get_recent_documents(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        limit: int = 6,
+        source: Optional[str] = None
+    ) -> List[Document]:
+        """Get recently opened documents for a user."""
+        query = select(Document).options(
+            selectinload(Document.category_ref),
+            selectinload(Document.github_repository)
+        ).filter(
+            Document.user_id == user_id,
+            Document.last_opened_at.isnot(None)
+        )
+        
+        # Filter by source if specified
+        if source == "local":
+            query = query.filter(Document.github_repository_id.is_(None))
+        elif source == "github":
+            query = query.filter(Document.github_repository_id.isnot(None))
+        
+        query = query.order_by(Document.last_opened_at.desc()).limit(limit)
+        
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def mark_document_opened(
+        self,
+        db: AsyncSession,
+        document_id: int,
+        user_id: int
+    ) -> Optional[Document]:
+        """Mark a document as recently opened."""
+        # Find and verify ownership
+        query = select(Document).filter(
+            Document.id == document_id,
+            Document.user_id == user_id
+        )
+        
+        result = await db.execute(query)
+        document = result.scalar_one_or_none()
+        
+        if not document:
+            return None
+        
+        # Update last_opened_at
+        from datetime import datetime
+        document.last_opened_at = datetime.utcnow()
+        
+        await db.commit()
+        await db.refresh(document)
+        return document
+
 
 # Create a singleton instance
 document = DocumentCRUD()

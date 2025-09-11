@@ -4,6 +4,7 @@ import FileOpenModal from "@/components/file/FileOpenModal";
 import FileImportModal from "@/components/file/FileImportModal";
 import FileSaveAsModal from "@/components/file/FileSaveAsModal";
 import FileOverwriteModal from "@/components/file/FileOverwriteModal";
+import RecentFilesDropdown from "@/components/file/RecentFilesDropdown";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import ShareModal from "@/components/shared/modals/ShareModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
@@ -113,6 +114,16 @@ function FileDropdown({ setDocumentTitle }) {
     }
   };
 
+  const handleRecentFileSelect = async (file) => {
+    try {
+      await loadDocument(file.id);
+      setDocumentTitle(file.name);
+      showSuccess(`Opened: ${file.name}`);
+    } catch (error) {
+      showError(`Failed to open document: ${error.message}`);
+    }
+  };
+
   return (
     <>
       <Dropdown as={ButtonGroup}>
@@ -120,6 +131,8 @@ function FileDropdown({ setDocumentTitle }) {
           <i className="bi bi-folder me-1"></i>File
         </Dropdown.Toggle>
         <Dropdown.Menu>
+          <RecentFilesDropdown onFileSelect={handleRecentFileSelect} />
+          
           <Dropdown.Item onClick={handleNew}>
             <i className="bi bi-file-plus me-2"></i>New
           </Dropdown.Item>

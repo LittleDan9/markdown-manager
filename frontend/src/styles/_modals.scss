@@ -657,3 +657,53 @@ body .custom-modal-content {
     padding: 1rem 1.25rem;
   }
 }
+
+// ─── RECENT FILES DROPDOWN ───
+
+.recent-files-dropdown {
+  min-width: 320px;
+  max-width: 400px;
+  border: 0;
+  padding: 0;
+
+  .recent-file-item {
+    transition: background-color 0.15s ease-in-out;
+    cursor: pointer;
+    border-radius: 0.25rem;
+    margin-bottom: 0.25rem;
+
+    &:hover {
+      background-color: var(--bs-gray-100);
+
+      [data-bs-theme="dark"] & {
+        background-color: var(--bs-gray-700);
+      }
+    }
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    .text-truncate {
+      max-width: 180px;
+    }
+  }
+
+  .hover-bg-light {
+    &:hover {
+      background-color: var(--bs-gray-50) !important;
+
+      [data-bs-theme="dark"] & {
+        background-color: var(--bs-gray-800) !important;
+      }
+    }
+  }
+
+  .min-width-0 {
+    min-width: 0;
+  }
+
+  .cursor-pointer {
+    cursor: pointer;
+  }
+}

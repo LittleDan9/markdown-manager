@@ -18,12 +18,12 @@ export default function GitHubPullModal({
   const handlePull = async () => {
     setPulling(true);
     try {
-      const result = await gitHubApi.pullChanges(document.id, {
+      const result = await gitHubApi.pullDocument(document.id, {
         force_overwrite: forceOverwrite
       });
 
       if (result.success) {
-        showSuccess(result.message);
+        showSuccess(result.message || 'Changes pulled successfully from GitHub');
         onPullSuccess?.(result);
         onHide();
       } else if (result.had_conflicts) {

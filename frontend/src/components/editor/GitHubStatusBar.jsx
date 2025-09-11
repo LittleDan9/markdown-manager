@@ -16,10 +16,13 @@ import gitHubApi from '../../api/gitHubApi';
 import GitHubPullModal from '../github/modals/GitHubPullModal';
 import GitHubConflictModal from '../github/modals/GitHubConflictModal';
 import GitHubPRModal from '../github/modals/GitHubPRModal';
+import DocumentService from '../../services/core/DocumentService';
+import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
-const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
+const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }) => {
   // Always call ALL hooks - never do conditional returns
   const { isAuthenticated } = useAuth();
+  const { syncWithBackend } = useDocumentContext();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [commitModalVisible, setCommitModalVisible] = useState(false);
@@ -90,14 +93,20 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
       // For backend documents that ARE linked to GitHub, check GitHub status
       checkStatus();
     }
-  }, [documentId, document?.github_repository_id, isAuthenticated]);
+  }, [documentId, document?.github_repository_id, document?.updated_at, isAuthenticated]);
 
-  const checkStatus = async () => {
+  const checkStatus = async (bustCache = false) => {
     if (!documentId) return;
 
     try {
       setLoading(true);
-      const statusData = await gitHubApi.getDocumentStatus(documentId);
+      console.log('Checking GitHub status...', { documentId, bustCache, timestamp: new Date().toISOString() });
+
+      // Add cache-busting parameter if needed
+      const params = bustCache ? { force_refresh: 'true', _t: Date.now() } : {};
+      const statusData = await gitHubApi.getDocumentStatus(documentId, params);
+
+      console.log('GitHub status response:', statusData);
       setStatus(statusData);
       onStatusChange?.(statusData);
     } catch (error) {
@@ -108,7 +117,7 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
     }
   };
 
-  const handleCommit = async () => {
+  const handleCommit = async (forceCommit = false) => {
     if (!commitMessage.trim()) {
       showError('Commit message is required');
       return;
@@ -116,22 +125,78 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
 
     try {
       setLoading(true);
-      await gitHubApi.commitDocument(documentId, {
-        commit_message: commitMessage,
-        force_commit: false
+
+      // Ensure clean data with no circular references
+      const commitData = {
+        commit_message: String(commitMessage).trim(),
+        force_commit: Boolean(forceCommit)
+      };
+
+      console.log('GitHub Commit Request:', {
+        documentId,
+        commitData,
+        documentSHA: document?.github_sha,
+        documentLocalSHA: document?.local_sha
       });
+
+      const response = await gitHubApi.commitDocument(documentId, commitData);
+
+      console.log('GitHub Commit Response:', response);
 
       showSuccess('Changes committed successfully to GitHub');
       setCommitModalVisible(false);
       setCommitMessage('');
-      await checkStatus(); // Refresh status
+
+      // Use the commit response to immediately update status
+      if (response.success && response.commit_sha) {
+        console.log('Updating status with commit response data:', {
+          commitSha: response.commit_sha,
+          branch: response.branch
+        });
+
+        // Update status to reflect the successful commit
+        setStatus(prevStatus => ({
+          ...prevStatus,
+          sync_status: 'synced',
+          has_local_changes: false,
+          has_remote_changes: false,
+          status_info: {
+            type: 'synced',
+            icon: '✅',
+            message: 'All changes synced',
+            color: '#52c41a'
+          }
+        }));
+      }
+
+      // After successful commit, sync with backend to update localStorage
+      try {
+        await syncWithBackend();
+        // Force reload the current document from storage
+        const updatedDoc = DocumentService.getDocument(documentId);
+        if (updatedDoc && onDocumentUpdate) {
+          onDocumentUpdate(updatedDoc);
+        }
+      } catch (error) {
+        console.error('Failed to sync after commit:', error);
+      }
+
     } catch (error) {
-      console.error('Failed to commit:', error);
+      console.error('GitHub Commit Error:', error);
+      console.error('Error Response:', error.response?.data);
 
       if (error.response?.status === 409) {
-        showError('Conflicts detected. Please resolve conflicts first.');
+        // Show conflict modal instead of auto-retry
+        setConflictData({
+          error: error.response.data,
+          documentId,
+          commitMessage: commitMessage.trim()
+        });
+        setCommitModalVisible(false);
+        setConflictModalVisible(true);
       } else {
-        showError('Failed to commit changes to GitHub');
+        const errorMessage = error.response?.data?.detail || 'Failed to commit changes to GitHub';
+        showError(errorMessage);
       }
     } finally {
       setLoading(false);
@@ -155,6 +220,19 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
   // Phase 3: New handlers
   const handlePullSuccess = async (result) => {
     showSuccess('Changes pulled successfully from GitHub');
+
+    // Sync with backend to update localStorage and reload document
+    try {
+      await syncWithBackend();
+      // Force reload the current document from storage
+      const updatedDoc = DocumentService.getDocument(documentId);
+      if (updatedDoc && onDocumentUpdate) {
+        onDocumentUpdate(updatedDoc);
+      }
+    } catch (error) {
+      console.error('Failed to sync after pull:', error);
+    }
+
     await checkStatus(); // Refresh status
     setPullModalVisible(false);
   };
@@ -166,21 +244,34 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
   };
 
   const handleConflictResolution = async (result) => {
-    showSuccess('Conflicts resolved successfully');
-    await checkStatus(); // Refresh status
-    setConflictModalVisible(false);
-    setConflictData(null);
+    try {
+      if (result.action === 'force_commit' && conflictData?.commitMessage) {
+        // User chose to force commit
+        setConflictModalVisible(false);
+        setConflictData(null);
+        await handleCommit(true); // Force commit with original message
+        return;
+      }
+
+      showSuccess('Conflicts resolved successfully');
+      await checkStatus(); // Refresh status
+      setConflictModalVisible(false);
+      setConflictData(null);
+    } catch (error) {
+      console.error('Conflict resolution error:', error);
+      showError('Failed to resolve conflicts');
+    }
   };
 
   const handleCreatePR = async () => {
-    if (!status?.github_repository) {
+    if (!status?.github_repository || !status?.github_account_id) {
       showError('No repository information available');
       return;
     }
 
     try {
-      // Get repository details
-      const repositories = await gitHubApi.getRepositories();
+      // Get repository details using the account ID from status
+      const repositories = await gitHubApi.getRepositories(status.github_account_id);
       const repo = repositories.find(r => r.full_name === status.github_repository);
 
       if (repo) {
@@ -337,7 +428,8 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
                 </OverlayTrigger>
               )}
 
-              {status.sync_status === 'synced' && (
+              {/* PR button should only show when on a feature branch, not main */}
+              {status.sync_status === 'synced' && status.github_branch && status.github_branch !== 'main' && (
                 <OverlayTrigger
                   placement="top"
                   overlay={<Tooltip>Create pull request</Tooltip>}
@@ -526,7 +618,13 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange }) => {
       <GitHubPullModal
         show={pullModalVisible}
         onHide={() => setPullModalVisible(false)}
-        document={status}
+        document={{
+          id: documentId,
+          name: document?.name || 'Untitled Document',
+          github_repository: status?.github_repository,
+          github_branch: status?.github_branch,
+          github_sync_status: status?.sync_status
+        }}
         onPullSuccess={handlePullSuccess}
         onConflictDetected={handleConflictDetected}
       />

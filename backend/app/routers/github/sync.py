@@ -165,7 +165,8 @@ async def _check_remote_changes(
     db: AsyncSession,
     document,
     github_crud: GitHubCRUD,
-    github_service: GitHubService
+    github_service: GitHubService,
+    force_refresh: bool = False
 ) -> tuple[bool, str | None, Any]:
     """Check for remote changes and get repository info."""
     has_remote_changes = False
@@ -192,15 +193,25 @@ async def _check_remote_changes(
                     document.github_file_path or "",
                     document.github_branch or "main",
                     fetch_remote_content,
-                    force_refresh=False
+                    force_refresh=force_refresh
                 )
                 
                 remote_content = cached_result["content"]
                 remote_sha = cached_result["sha"]
                 
+                # Debug SHA comparison
+                print("SHA Comparison Debug:")
+                print(f"  Document ID: {document.id}")
+                print(f"  Local github_sha: {document.github_sha}")
+                print(f"  Remote SHA: {remote_sha}")
+                print(f"  Force refresh: {force_refresh}")
+                
                 # Check if remote content differs from what we have locally
                 has_remote_changes = remote_sha != document.github_sha
-            except Exception:
+                print(f"  Has remote changes: {has_remote_changes}")
+                
+            except Exception as e:
+                print(f"Error fetching remote content: {e}")
                 # File might not exist remotely or other error
                 has_remote_changes = False
     except Exception:
@@ -236,10 +247,12 @@ async def _update_document_sync_status(
 @router.get("/documents/{document_id}/status", response_model=GitHubStatusResponse)
 async def get_document_github_status(
     document_id: int,
+    force_refresh: bool = False,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
 ) -> GitHubStatusResponse:
     """Get GitHub sync status for a document."""
+    print(f"Status endpoint called with: document_id={document_id}, force_refresh={force_refresh}")
     github_crud = GitHubCRUD()
 
     # Validate document and GitHub linkage
@@ -252,7 +265,7 @@ async def get_document_github_status(
 
     # Check for remote changes and get repository info
     has_remote_changes, remote_content, repository = await _check_remote_changes(
-        db, document, github_crud, github_service
+        db, document, github_crud, github_service, force_refresh
     )
 
     # Determine overall sync status
@@ -271,7 +284,8 @@ async def get_document_github_status(
         github_file_path=document.github_file_path,
         last_sync=document.last_github_sync_at,
         status_info=document.github_status_info,
-        remote_content=remote_content
+        remote_content=remote_content,
+        github_account_id=repository.account_id if repository else None
     )
 
 

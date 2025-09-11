@@ -289,6 +289,10 @@ class GitHubService(BaseGitHubService):
         """Generate SHA-256 hash of content for comparison."""
         return self._api_service.generate_content_hash(content)
 
+    def generate_git_blob_hash(self, content: str) -> str:
+        """Generate Git blob SHA-1 hash compatible with GitHub."""
+        return self._api_service.generate_git_blob_hash(content)
+
     async def commit_file(
         self,
         access_token: str,

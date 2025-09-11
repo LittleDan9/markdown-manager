@@ -54,7 +54,14 @@ export class Api {
       // console.log('API Response:', response.status, response.data); // Commented out to reduce noise
       return response;
     } catch (error) {
-      console.error('API Error:', error);
+      // Log error details without circular references
+      console.error('API Error:', {
+        message: error.message,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        endpoint: endpoint
+      });
 
       // Dispatch global notification for network errors
       this.handleApiError(error, endpoint);

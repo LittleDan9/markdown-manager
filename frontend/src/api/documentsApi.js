@@ -205,6 +205,51 @@ class DocumentsApi extends Api {
     const res = await this.apiCall(`/shared/${shareToken}`, "GET", null, {}, { noAuth: true });
     return res.data;
   }
+
+  /**
+   * Get recent documents
+   * @param {number} limit - Maximum number of documents to return (default: 6)
+   * @param {string} source - Filter by source: 'local' or 'github' (optional)
+   * @returns {Promise<Array>} - Array of recent documents
+   */
+  async getRecentDocuments(limit = 6, source = null) {
+    const params = { limit };
+    if (source) {
+      params.source = source;
+    }
+    const res = await this.apiCall('/documents/recent', 'GET', null, params);
+    return res.data;
+  }
+
+  /**
+   * Get recent local documents
+   * @param {number} limit - Maximum number of documents to return (default: 3)
+   * @returns {Promise<Array>} - Array of recent local documents
+   */
+  async getRecentLocalDocuments(limit = 3) {
+    const res = await this.apiCall('/documents/recent/local', 'GET', null, { limit });
+    return res.data;
+  }
+
+  /**
+   * Get recent GitHub documents
+   * @param {number} limit - Maximum number of documents to return (default: 3)
+   * @returns {Promise<Array>} - Array of recent GitHub documents
+   */
+  async getRecentGitHubDocuments(limit = 3) {
+    const res = await this.apiCall('/documents/recent/github', 'GET', null, { limit });
+    return res.data;
+  }
+
+  /**
+   * Mark a document as recently opened
+   * @param {number} documentId - Document ID
+   * @returns {Promise<Object>} - Response with updated last_opened_at
+   */
+  async markDocumentOpened(documentId) {
+    const res = await this.apiCall(`/documents/${documentId}/mark-opened`, 'PUT');
+    return res.data;
+  }
 }
 
 export default new DocumentsApi();

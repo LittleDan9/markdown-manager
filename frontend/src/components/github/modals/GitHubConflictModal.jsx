@@ -46,6 +46,21 @@ export default function GitHubConflictModal({
     }
   };
 
+  const handleForceCommit = async () => {
+    if (window.confirm("Are you sure you want to force commit? This will overwrite any remote changes.")) {
+      setResolving(true);
+      try {
+        onResolutionSuccess?.({ action: 'force_commit' });
+        onHide();
+      } catch (error) {
+        console.error("Failed to force commit:", error);
+        showError("Failed to force commit");
+      } finally {
+        setResolving(false);
+      }
+    }
+  };
+
   const useVersion = (content) => {
     setResolvedContent(content);
     setActiveTab("merged");
@@ -165,6 +180,24 @@ export default function GitHubConflictModal({
       <Modal.Footer>
         <Button variant="secondary" onClick={onHide} disabled={resolving}>
           Cancel
+        </Button>
+        <Button
+          variant="warning"
+          onClick={handleForceCommit}
+          disabled={resolving}
+          className="me-2"
+        >
+          {resolving ? (
+            <>
+              <Spinner animation="border" size="sm" className="me-2" />
+              Processing...
+            </>
+          ) : (
+            <>
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              Force Commit
+            </>
+          )}
         </Button>
         <Button
           variant="primary"
