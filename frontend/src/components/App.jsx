@@ -12,7 +12,7 @@ import AppModals from "@/components/shared/modals/AppModals";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading, saving } = useDocumentContext();
 
   // Handle GitHub OAuth results from URL parameters (fallback for popup failures)
   useGitHubOAuth();

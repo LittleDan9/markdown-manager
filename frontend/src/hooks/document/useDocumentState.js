@@ -17,6 +17,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([DRAFTS_CATEGORY, DEFAULT_CATEGORY]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false); // Separate state for save operations
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
 
@@ -325,15 +326,32 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
     const docToSave = { ...doc, content: doc.id === currentDocument.id ? content : doc.content };
-    setLoading(true);
+    setSaving(true); // Use saving state instead of loading state
     setError('');
     try {
       const saved = await DocumentService.saveDocument(docToSave, showNotification);
-      setCurrentDocument(saved);
-      if (saved.id === currentDocument.id && saved.content !== content) {
+      
+      // Only update state if something actually changed to prevent unnecessary re-renders
+      const contentChanged = saved.content !== content;
+      const documentChanged = !currentDocument || 
+        saved.id !== currentDocument.id || 
+        saved.name !== currentDocument.name ||
+        saved.category !== currentDocument.category ||
+        saved.updated_at !== currentDocument.updated_at;
+      
+      if (documentChanged) {
+        setCurrentDocument(saved);
+      }
+      
+      if (contentChanged && saved.id === currentDocument.id) {
         setContent(saved.content);
       }
-      await updateCurrentDocument(saved);
+      
+      if (documentChanged) {
+        await updateCurrentDocument(saved);
+      }
+      
+      // Always refresh documents list as it may contain new metadata
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
       return saved;
@@ -344,12 +362,12 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
       }
       return null;
     } finally {
-      setLoading(false);
+      setSaving(false); // Reset saving state instead of loading state
     }
   }, [content, currentDocument, updateCurrentDocument]);
 
   const deleteDocument = useCallback(async (id, showNotification = true) => {
-    setLoading(true);
+    setSaving(true); // Use saving state for delete operations too
     try {
       await DocumentService.deleteDocument(id, showNotification);
       const docs = DocumentService.getAllDocuments();
@@ -380,7 +398,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
         showError('Delete failed: ' + error.message);
       }
     } finally {
-      setLoading(false);
+      setSaving(false); // Reset saving state
     }
   }, [currentDocument, updateCurrentDocument, setPreviewHTML, isAuthenticated, token]);
 
@@ -471,7 +489,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   // --- SYNC ---
   const syncWithBackend = useCallback(async () => {
     if (!isAuthenticated) return;
-    setLoading(true);
+    setSaving(true); // Use saving state for sync operations
     try {
       await DocumentService.syncWithBackend();
       const docs = DocumentService.getAllDocuments();
@@ -486,7 +504,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     } catch (error) {
       setError('Sync failed: ' + error.message);
     } finally {
-      setLoading(false);
+      setSaving(false); // Reset saving state
     }
   }, [isAuthenticated, currentDocument]);
 
@@ -540,7 +558,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   return {
     migrationStatus, setMigrationStatus, hasSyncedOnMount, setHasSyncedOnMount,
     currentDocument, setCurrentDocument, content, setContent, documents, setDocuments,
-    categories, setCategories, loading, setLoading, error, setError, highlightedBlocks, setHighlightedBlocks,
+    categories, setCategories, loading, setLoading, saving, setSaving, error, setError, highlightedBlocks, setHighlightedBlocks,
     showWarning, showSuccess, showError,
     createDocument, loadDocument, saveDocument, deleteDocument, renameDocument,
     addCategory, deleteCategory, renameCategory, syncWithBackend, addDocumentToState,
