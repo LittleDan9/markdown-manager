@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from app.database import get_db
-from app.services.iconify_browser_service import IconifyBrowserService
+from app.services.icons.third_party.iconify import IconifyCollectionBrowser as IconifyBrowserService
 from app.services.standardized_icon_installer import StandardizedIconPackInstaller
 from app.schemas.icon_schemas import StandardizedIconPackRequest
 

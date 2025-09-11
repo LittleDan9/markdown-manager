@@ -1,37 +1,30 @@
 """
-Third-Party Browser Service
-Unified service for browsing and installing icons from multiple sources (Iconify, SVGL, etc.)
+Unified browser service for third-party icon providers
 """
 from typing import Dict, List, Optional
-from enum import Enum
 
-from .iconify_browser_service import IconifyBrowserService
-from .svgl_browser_service import SvglBrowserService
-
-
-class ThirdPartySource(str, Enum):
-    """Available third-party icon sources"""
-    ICONIFY = "iconify"
-    SVGL = "svgl"
+from .base import ThirdPartySource
+from .iconify.collections import IconifyCollectionBrowser
+from .svgl.categories import SvglCategoryBrowser
 
 
 class ThirdPartyBrowserService:
     """Unified service for browsing icons from multiple third-party sources"""
     
     def __init__(self):
-        self.iconify_service = IconifyBrowserService()
-        self.svgl_service = SvglBrowserService()
-        self._services = {
-            ThirdPartySource.ICONIFY: self.iconify_service,
-            ThirdPartySource.SVGL: self.svgl_service
+        self.iconify_browser = IconifyCollectionBrowser()
+        self.svgl_browser = SvglCategoryBrowser()
+        self._browsers = {
+            ThirdPartySource.ICONIFY: self.iconify_browser,
+            ThirdPartySource.SVGL: self.svgl_browser
         }
     
-    def _get_service(self, source: ThirdPartySource):
-        """Get the appropriate service for the given source"""
-        service = self._services.get(source)
-        if not service:
+    def _get_browser(self, source: ThirdPartySource):
+        """Get the appropriate browser for the given source"""
+        browser = self._browsers.get(source)
+        if not browser:
             raise ValueError(f"Unsupported source: {source}")
-        return service
+        return browser
     
     async def get_available_sources(self) -> List[Dict]:
         """Get information about all available sources"""
@@ -61,8 +54,8 @@ class ThirdPartyBrowserService:
         offset: int = 0
     ) -> Dict:
         """Search collections from the specified source"""
-        service = self._get_service(source)
-        result = await service.search_collections(query, category, limit, offset)
+        browser = self._get_browser(source)
+        result = await browser.search_collections(query, category, limit, offset)
         
         # Add source information to the result
         result["source"] = source
@@ -77,8 +70,8 @@ class ThirdPartyBrowserService:
         search: str = ""
     ) -> Dict:
         """Get icons from a specific collection"""
-        service = self._get_service(source)
-        result = await service.get_collection_icons(prefix, page, page_size, search)
+        browser = self._get_browser(source)
+        result = await browser.get_collection_icons(prefix, page, page_size, search)
         
         # Add source information to the result
         result["source"] = source
@@ -91,16 +84,8 @@ class ThirdPartyBrowserService:
         icon_names: List[str]
     ) -> Dict:
         """Get formatted icon data ready for installation"""
-        service = self._get_service(source)
-        
-        # Handle different parameter requirements for different services
-        if source == ThirdPartySource.ICONIFY:
-            result = await service.get_icon_data_for_install(prefix, icon_names)
-        elif source == ThirdPartySource.SVGL:
-            # SVGL uses category instead of prefix
-            result = await service.get_icon_data_for_install(prefix, icon_names)
-        else:
-            raise ValueError(f"Unsupported source: {source}")
+        browser = self._get_browser(source)
+        result = await browser.get_icon_data_for_install(prefix, icon_names)
         
         # Ensure source is reflected in the pack info
         result["info"]["source"] = source
@@ -108,17 +93,14 @@ class ThirdPartyBrowserService:
     
     async def get_collection_categories(self, source: ThirdPartySource) -> List[str]:
         """Get unique categories from the specified source"""
-        service = self._get_service(source)
-        return await service.get_collection_categories()
+        browser = self._get_browser(source)
+        return await browser.get_collection_categories()
     
     async def refresh_cache(self, source: Optional[ThirdPartySource] = None):
         """Refresh cache for specified source or all sources"""
         if source:
-            service = self._get_service(source)
-            if hasattr(service, 'get_collections'):
-                await service.get_collections(refresh=True)
-            elif hasattr(service, 'get_categories'):
-                await service.get_categories(refresh=True)
+            browser = self._get_browser(source)
+            await browser.refresh_cache()
         else:
             # Refresh all sources
             for source_enum in ThirdPartySource:
