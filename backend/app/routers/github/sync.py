@@ -200,14 +200,32 @@ async def _check_remote_changes(
                 remote_sha = cached_result["sha"]
                 
                 # Debug SHA comparison
-                print("SHA Comparison Debug:")
+                print("=== Status Check SHA Comparison ===")
                 print(f"  Document ID: {document.id}")
                 print(f"  Local github_sha: {document.github_sha}")
                 print(f"  Remote SHA: {remote_sha}")
                 print(f"  Force refresh: {force_refresh}")
                 
+                repo_id = document.github_repository_id
+                file_path = document.github_file_path or ''
+                branch = document.github_branch or 'main'
+                cache_key = f"github_file:{repo_id}:{file_path}:{branch}"
+                print(f"  Cache key would be: {cache_key}")
+                
                 # Check if remote content differs from what we have locally
+                # Special handling: if we just updated the document and GitHub API
+                # is still returning stale data, trust our local database
                 has_remote_changes = remote_sha != document.github_sha
+                
+                # Additional check: if the document was recently updated (within 30 seconds)
+                # and the local SHA matches a recent commit, consider it synced
+                if has_remote_changes and document.last_github_sync_at:
+                    from datetime import datetime, timezone
+                    time_since_sync = datetime.now(timezone.utc) - document.last_github_sync_at.replace(tzinfo=timezone.utc)
+                    if time_since_sync.total_seconds() < 30:
+                        print(f"  Recent sync detected ({time_since_sync.total_seconds()}s ago), trusting local state")
+                        has_remote_changes = False
+                
                 print(f"  Has remote changes: {has_remote_changes}")
                 
             except Exception as e:

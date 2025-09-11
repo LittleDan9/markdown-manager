@@ -147,36 +147,19 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
       setCommitModalVisible(false);
       setCommitMessage('');
 
-      // Use the commit response to immediately update status
-      if (response.success && response.commit_sha) {
-        console.log('Updating status with commit response data:', {
-          commitSha: response.commit_sha,
-          branch: response.branch
-        });
-
-        // Update status to reflect the successful commit
-        setStatus(prevStatus => ({
-          ...prevStatus,
-          sync_status: 'synced',
-          has_local_changes: false,
-          has_remote_changes: false,
-          status_info: {
-            type: 'synced',
-            icon: '✅',
-            message: 'All changes synced',
-            color: '#52c41a'
-          }
-        }));
-      }
-
       // After successful commit, sync with backend to update localStorage
       try {
         await syncWithBackend();
         // Force reload the current document from storage
-        const updatedDoc = DocumentService.getDocument(documentId);
+        const updatedDoc = DocumentService.loadDocument(documentId);
         if (updatedDoc && onDocumentUpdate) {
           onDocumentUpdate(updatedDoc);
         }
+        
+        // Force refresh status to ensure we get latest data from backend
+        setTimeout(() => {
+          checkStatus(true); // Force refresh after a brief delay
+        }, 500);
       } catch (error) {
         console.error('Failed to sync after commit:', error);
       }
@@ -225,7 +208,7 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
     try {
       await syncWithBackend();
       // Force reload the current document from storage
-      const updatedDoc = DocumentService.getDocument(documentId);
+      const updatedDoc = DocumentService.loadDocument(documentId);
       if (updatedDoc && onDocumentUpdate) {
         onDocumentUpdate(updatedDoc);
       }

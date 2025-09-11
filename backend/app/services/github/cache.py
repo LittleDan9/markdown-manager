@@ -229,11 +229,21 @@ class GitHubCacheService(BaseGitHubService):
         branch: Optional[str] = None
     ) -> None:
         """Invalidate file-related cache entries."""
+        print("=== Cache Invalidation ===")
+        print(f"Repo ID: {repo_id}")
+        print(f"File Path: {file_path}")
+        print(f"Branch: {branch}")
+        
         # Invalidate specific file if path/branch provided
         if file_path and branch:
             file_key = self.generate_cache_key("github_file", repo_id, file_path, branch)
+            print(f"Generated cache key: {file_key}")
             if file_key in self._cache:
                 del self._cache[file_key]
+                print(f"Deleted cache entry: {file_key}")
+            else:
+                print(f"Cache key not found: {file_key}")
+                print(f"Available cache keys: {list(self._cache.keys())}")
         
         # Invalidate all file listings for this repo
         keys_to_remove = []
@@ -241,8 +251,10 @@ class GitHubCacheService(BaseGitHubService):
             if key.startswith(f"github_files:{repo_id}:") or key.startswith(f"github_file:{repo_id}:"):
                 keys_to_remove.append(key)
         
+        print(f"Removing {len(keys_to_remove)} cache entries for repo {repo_id}")
         for key in keys_to_remove:
             del self._cache[key]
+            print(f"Deleted cache entry: {key}")
 
     async def invalidate_branch_cache(self, repo_id: int) -> None:
         """Invalidate branch cache for a repository."""
