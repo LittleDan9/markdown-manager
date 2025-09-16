@@ -4,14 +4,16 @@ import FileOpenModal from "@/components/file/FileOpenModal";
 import FileImportModal from "@/components/file/FileImportModal";
 import FileSaveAsModal from "@/components/file/FileSaveAsModal";
 import FileOverwriteModal from "@/components/file/FileOverwriteModal";
-import ConfirmModal from "@/components/modals/ConfirmModal";
-import ShareModal from "@/components/modals/ShareModal";
+import RecentFilesDropdown from "@/components/file/RecentFilesDropdown";
+import ConfirmModal from "@/components/shared/modals/ConfirmModal";
+import ShareModal from "@/components/shared/modals/ShareModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { useConfirmModal } from "@/hooks/ui";
+import { useConfirmModal, useFileModal } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
+import DocumentService from "@/services/core/DocumentService";
 
 function FileDropdown({ setDocumentTitle }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();
@@ -22,6 +24,7 @@ function FileDropdown({ setDocumentTitle }) {
     categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
   } = useDocumentContext();
   const { showSuccess, showError } = useNotification();
+  const { showFileModal, openFileModal } = useFileModal();
 
   // Share modal state
   const [showShareModal, setShowShareModal] = React.useState(false);
@@ -92,9 +95,8 @@ function FileDropdown({ setDocumentTitle }) {
 
   const handleEnableSharing = async (documentId) => {
     try {
-      // Implementation would need DocumentService
-      showSuccess("Sharing enabled for document.");
-      return true;
+      const result = await DocumentService.enableDocumentSharing(documentId);
+      return result;
     } catch (error) {
       showError(`Failed to enable sharing: ${error.message}`);
       throw error;
@@ -103,12 +105,21 @@ function FileDropdown({ setDocumentTitle }) {
 
   const handleDisableSharing = async (documentId) => {
     try {
-      // Implementation would need DocumentService
-      showSuccess("Sharing disabled for document.");
+      await DocumentService.disableDocumentSharing(documentId);
       return true;
     } catch (error) {
       showError(`Failed to disable sharing: ${error.message}`);
       throw error;
+    }
+  };
+
+  const handleRecentFileSelect = async (file) => {
+    try {
+      await loadDocument(file.id);
+      setDocumentTitle(file.name);
+      showSuccess(`Opened: ${file.name}`);
+    } catch (error) {
+      showError(`Failed to open document: ${error.message}`);
     }
   };
 
@@ -119,10 +130,12 @@ function FileDropdown({ setDocumentTitle }) {
           <i className="bi bi-folder me-1"></i>File
         </Dropdown.Toggle>
         <Dropdown.Menu>
+          <RecentFilesDropdown onFileSelect={handleRecentFileSelect} />
+          
           <Dropdown.Item onClick={handleNew}>
             <i className="bi bi-file-plus me-2"></i>New
           </Dropdown.Item>
-          <Dropdown.Item onClick={fileOps.openOpenModal}>
+          <Dropdown.Item onClick={() => openFileModal('local')}>
             <i className="bi bi-folder2-open me-2"></i>Open
           </Dropdown.Item>
           <Dropdown.Item onClick={handleClose} disabled={isDefaultDoc && !hasUnsavedChanges}>
@@ -191,12 +204,10 @@ function FileDropdown({ setDocumentTitle }) {
         onChange={fileOps.handleFileChange}
       />
 
-      {fileOps.showOpenModal && (
+      {showFileModal && (
         <FileOpenModal
-          show={fileOps.showOpenModal}
-          onHide={() => fileOps.setShowOpenModal(false)}
-          categories={categories}
-          documents={documents}
+          show={showFileModal}
+          onHide={() => {}} // Modal will handle its own closing via the hook
           onOpen={fileOps.handleOpenFile}
           deleteDocument={deleteDocument}
         />

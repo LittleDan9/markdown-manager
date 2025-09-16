@@ -16,11 +16,27 @@ async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
 
 
 @router.get(
-    "/",
+    "/health",
+    summary="Icon service health check",
+    description="Perform a health check on the icon service and its dependencies."
+)
+async def health_check(icon_service: IconService = Depends(get_icon_service)):
+    """Perform a health check on the icon service."""
+    try:
+        return await icon_service.health_check()
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Health check failed: {str(e)}"
+        )
+
+
+@router.get(
+    "",
     summary="Get comprehensive icon usage statistics",
     description="""
     Retrieve detailed statistics about icon packs, usage patterns, and system metrics.
-    
+
     **Statistics Include:**
     - Pack overview and category breakdown
     - Popular icons with access counts

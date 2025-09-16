@@ -1,8 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { EditorService, SpellCheckService, CommentService } from '@/services/editor';
+import { EditorService, SpellCheckService, CommentService, SpellCheckMarkers, TextRegionAnalyzer, MonacoMarkerAdapter, SpellCheckActions } from '@/services/editor';
 import { useTheme } from '@/providers/ThemeProvider';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
-import { getChangedRegion, toMonacoMarkers, clearSpellCheckMarkers, registerQuickFixActions } from '@/utils';
 
 /**
  * Consolidated editor hook for Monaco setup, spell check, keyboard shortcuts, and list behavior.
@@ -16,6 +15,7 @@ import { getChangedRegion, toMonacoMarkers, clearSpellCheckMarkers, registerQuic
  *   - enableListBehavior: boolean
  *   - categoryId: for spell check context
  *   - getCategoryId: function for keyboard shortcut context
+ *   - getFolderPath: function for folder-based dictionary context
  * @returns {Object} { editor, spellCheck: { progress, suggestionsMap } }
  */
 export default function useEditor({
@@ -27,7 +27,8 @@ export default function useEditor({
   enableKeyboardShortcuts = true,
   enableListBehavior = true,
   categoryId,
-  getCategoryId
+  getCategoryId,
+  getFolderPath
 }) {
   const { theme } = useTheme();
   const editorRef = useRef(null);
@@ -76,7 +77,8 @@ export default function useEditor({
   // Theme changes
   useEffect(() => {
     if (editorRef.current) {
-      editorRef.current.applyTheme(theme);
+      // Apply theme using EditorService instead of editor instance directly
+      EditorService.applyTheme(theme);
     }
   }, [theme]);
 
@@ -129,7 +131,7 @@ export default function useEditor({
     const handleResize = () => {
       if (!isResizing) {
         isResizing = true;
-        clearSpellCheckMarkers(editorRef.current, suggestionsMap.current);
+        SpellCheckMarkers.clearMarkers(editorRef.current, suggestionsMap.current);
       }
       if (resizeStartTimeout) clearTimeout(resizeStartTimeout);
       resizeStartTimeout = setTimeout(() => {
@@ -151,7 +153,7 @@ export default function useEditor({
     if (!enableSpellCheck || !editorRef.current) return;
     const editor = editorRef.current;
     const layoutDisposable = editor.onDidLayoutChange(() => {
-      clearSpellCheckMarkers(editor, suggestionsMap.current);
+      SpellCheckMarkers.clearMarkers(editor, suggestionsMap.current);
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
       resizeTimeoutRef.current = setTimeout(() => {
         if (editor && lastEditorValue.current) {
@@ -171,7 +173,7 @@ export default function useEditor({
     if (lastEditorValue.current !== previousValueRef.current) {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
       const runAndHandleSpellCheck = () => {
-        const { regionText, startOffset } = getChangedRegion(editorRef.current, previousValueRef.current, lastEditorValue.current);
+        const { regionText, startOffset } = TextRegionAnalyzer.getChangedRegion(editorRef.current, previousValueRef.current, lastEditorValue.current);
         previousValueRef.current = lastEditorValue.current;
         lastSpellCheckTime.current = Date.now();
         if (regionText.length > 0) {
@@ -197,18 +199,19 @@ export default function useEditor({
     }
   }, [enableSpellCheck, editorRef.current]);
 
-  const spellCheckDocument = async (text, startOffset) => {
+  const spellCheckDocument = async (text, startOffset, forceProgress = false) => {
     if (!enableSpellCheck || !text || text.length === 0) return;
     if (startOffset > 0 && text.length < 10) return;
     const isLarge = text.length > 100;
-    const progressCb = isLarge ? (processObj) => {
+    const shouldShowProgress = isLarge || forceProgress;
+    const progressCb = shouldShowProgress ? (processObj) => {
       lastProgressRef.current = processObj;
       setProgress(processObj);
     } : () => {};
     try {
-      const issues = await SpellCheckService.scan(text, progressCb, categoryId);
+      const issues = await SpellCheckService.scan(text, progressCb, categoryId, typeof getFolderPath === 'function' ? getFolderPath() : null);
       if (editorRef.current) {
-        suggestionsMap.current = toMonacoMarkers(
+        suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
           editorRef.current,
           issues,
           startOffset,
@@ -261,7 +264,7 @@ export default function useEditor({
     );
     // Register quick fix actions
   // IMPORTANT: getCategoryId should be memoized in the parent with useCallback to avoid repeated registration
-  registerQuickFixActions(editor, suggestionsMap, getCategoryId);
+  SpellCheckActions.registerQuickFixActions(editor, suggestionsMap, getCategoryId, getFolderPath);
     window.CommentService = CommentService;
     window.testCommentToggle = () => {
       CommentService.handleCommentToggle(editor);
@@ -425,6 +428,13 @@ export default function useEditor({
 
   return {
     editor: editorRef.current,
-    spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined
+    spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined,
+    runSpellCheck: () => {
+      if (editorRef.current && lastEditorValue.current) {
+        // Show initial progress
+        setProgress({ percentComplete: 0 });
+        spellCheckDocument(lastEditorValue.current, 0, true); // Force progress for manual spell check
+      }
+    }
   };
 }

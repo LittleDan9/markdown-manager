@@ -13,12 +13,13 @@ from app.models import Base
 config = context.config
 
 # Set the database URL from environment variable if available
-database_url = os.getenv("DATABASE_URL", "sqlite+aiosqlite:///./markdown_manager.db")
+# Default to PostgreSQL for local development, only use SQLite for tests
+default_db_url = "postgresql+psycopg://postgres:postgres@localhost:5432/markdown_manager"
+database_url = os.getenv("DATABASE_URL", default_db_url)
 
-# Check if we're using a forwarded connection (for restore operations)
-forwarded_url = os.getenv("DATABASE_URL")
-if forwarded_url:
-    database_url = forwarded_url
+# Allow tests to override with SQLite by setting ALEMBIC_USE_SQLITE=true
+if os.getenv("ALEMBIC_USE_SQLITE", "").lower() == "true":
+    database_url = "sqlite:///:memory:"
 
 # Convert async URL to sync for alembic
 if database_url.startswith("sqlite+aiosqlite"):

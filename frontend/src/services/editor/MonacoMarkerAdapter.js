@@ -1,0 +1,152 @@
+// src/services/editor/MonacoMarkerAdapter.js
+import * as monaco from 'monaco-editor';
+import SpellCheckMarkers from './SpellCheckMarkers';
+
+/**
+ * Service for converting spell check issues to Monaco markers
+ */
+export default class MonacoMarkerAdapter {
+  /**
+   * Convert spell check issues to Monaco markers and update the suggestions map
+   * @param {Object} editor - Monaco editor instance
+   * @param {Array} issues - Array of spell check issues
+   * @param {number} startOffset - Offset where the scanned region starts
+   * @param {Map} prevSuggestionsMap - Previous suggestions map to preserve
+   * @returns {Map} Updated suggestions map
+   */
+  static toMonacoMarkers(editor, issues, startOffset, prevSuggestionsMap = new Map()) {
+    // Guard against Monaco not being loaded
+    if (!monaco || !monaco.editor) {
+      console.warn('Monaco editor not fully loaded, skipping marker creation');
+      return new Map();
+    }
+
+    const model = editor.getModel();
+    if (!model) {
+      console.warn('Editor model not available, skipping marker creation');
+      return new Map();
+    }
+
+    const oldMarkers = SpellCheckMarkers.getExistingMarkers(model);
+    const newMarkers = [];
+    const newSuggestions = new Map();
+
+    let filteredOld = [];
+    if (startOffset === 0) {
+      // Full document scan - clear all spell markers
+      filteredOld = [];
+      newSuggestions.clear();
+    } else {
+      // Regional scan - calculate the actual region bounds more carefully
+      const regionEndOffset = this._calculateRegionEndOffset(startOffset, issues);
+
+      // Keep markers outside the scanned region
+      filteredOld = SpellCheckMarkers.filterMarkersOutsideRegion(
+        oldMarkers, 
+        model, 
+        startOffset, 
+        regionEndOffset
+      );
+
+      // Preserve suggestions for markers we're keeping
+      this._preserveExistingSuggestions(filteredOld, prevSuggestionsMap, newSuggestions);
+    }
+
+    // Build fresh markers + suggestion map for new issues
+    const createdMarkers = this._createMarkersFromIssues(model, issues, startOffset, newSuggestions);
+    newMarkers.push(...createdMarkers);
+
+    // Apply combined markers
+    SpellCheckMarkers.applyMarkers(model, filteredOld.concat(newMarkers));
+
+    return newSuggestions;
+  }
+
+  /**
+   * Create Monaco markers from spell check issues
+   * @param {Object} model - Monaco editor model
+   * @param {Array} issues - Array of spell check issues
+   * @param {number} startOffset - Start offset for the region
+   * @param {Map} suggestionsMap - Map to store suggestions
+   * @returns {Array} Array of Monaco markers
+   * @private
+   */
+  static _createMarkersFromIssues(model, issues, startOffset, suggestionsMap) {
+    const markers = [];
+
+    for (const issue of issues) {
+      try {
+        const marker = this._createMarkerFromIssue(model, issue, startOffset);
+        if (marker) {
+          markers.push(marker);
+          
+          // Store suggestions for this marker
+          const key = `${marker.startLineNumber}:${marker.startColumn}`;
+          suggestionsMap.set(key, issue.suggestions || []);
+        }
+      } catch (error) {
+        console.warn('Error creating marker for spell issue:', error, issue);
+      }
+    }
+
+    return markers;
+  }
+
+  /**
+   * Create a single Monaco marker from a spell check issue
+   * @param {Object} model - Monaco editor model
+   * @param {Object} issue - Spell check issue
+   * @param {number} startOffset - Start offset for the region
+   * @returns {Object|null} Monaco marker or null if creation failed
+   * @private
+   */
+  static _createMarkerFromIssue(model, issue, startOffset) {
+    const globalOffset = startOffset + issue.offset;
+    const pos = model.getPositionAt(globalOffset);
+    const wordLength = issue.word ? issue.word.length : 1;
+    const msg = `"${issue.word}" — ${issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions'}`;
+
+    return {
+      owner: 'spell',
+      severity: monaco.MarkerSeverity.Warning,
+      message: msg,
+      startLineNumber: pos.lineNumber,
+      startColumn: pos.column,
+      endLineNumber: pos.lineNumber,
+      endColumn: pos.column + wordLength,
+    };
+  }
+
+  /**
+   * Preserve suggestions for existing markers that are being kept
+   * @param {Array} existingMarkers - Array of existing markers to preserve
+   * @param {Map} prevSuggestionsMap - Previous suggestions map
+   * @param {Map} newSuggestionsMap - New suggestions map to populate
+   * @private
+   */
+  static _preserveExistingSuggestions(existingMarkers, prevSuggestionsMap, newSuggestionsMap) {
+    existingMarkers.forEach(marker => {
+      const key = `${marker.startLineNumber}:${marker.startColumn}`;
+      if (prevSuggestionsMap.has(key)) {
+        newSuggestionsMap.set(key, prevSuggestionsMap.get(key));
+      }
+    });
+  }
+
+  /**
+   * Calculate the end offset of a region based on issues found
+   * @param {number} startOffset - Start offset of the region
+   * @param {Array} issues - Array of spell check issues
+   * @returns {number} End offset of the region
+   * @private
+   */
+  static _calculateRegionEndOffset(startOffset, issues) {
+    if (!issues || issues.length === 0) {
+      return startOffset;
+    }
+
+    return Math.max(
+      ...issues.map(i => startOffset + i.offset + (i.word ? i.word.length : 0))
+    );
+  }
+}

@@ -17,6 +17,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([DRAFTS_CATEGORY, DEFAULT_CATEGORY]);
   const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false); // Separate state for save operations
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
 
@@ -256,7 +257,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     // Clear syntax highlighting cache for new document
     setHighlightedBlocks({});
     DocumentStorageService.setCurrentDocument(newDoc);
-    
+
     // Clear current document on backend if authenticated
     if (isAuthenticated && token) {
       documentsApi.setCurrentDocumentId(null).catch(err => {
@@ -268,16 +269,50 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   const loadDocument = useCallback(async (id) => {
     setLoading(true);
     try {
-      const doc = DocumentService.loadDocument(id);
+      // First try to load from localStorage
+      let doc = DocumentService.loadDocument(id);
+      
+      // If not found locally, try to fetch from backend
+      if (!doc) {
+        console.log(`Document ${id} not found locally, fetching from backend...`);
+        try {
+          doc = await documentsApi.getDocument(id);
+          if (doc) {
+            // Store the fetched document locally for future use
+            DocumentStorageService.setDocument(doc);
+            console.log(`Successfully fetched document ${id} from backend`);
+          }
+        } catch (fetchError) {
+          console.error(`Failed to fetch document ${id} from backend:`, fetchError);
+          // Will fall through to the "Document not found" error below
+        }
+      }
+      
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
-        // Clear preview HTML and highlighted blocks when loading a different document
+        // Clear the preview HTML when loading a different document
         if (setPreviewHTML) {
           setPreviewHTML('');
         }
+        // Clear highlighted blocks when loading a different document, but let the Renderer
+        // handle preview HTML generation based on the new content
         setHighlightedBlocks({});
         await updateCurrentDocument(doc);
+        
+        // Mark document as recently opened
+        try {
+          if (isAuthenticated && token && !String(doc.id).startsWith('doc_')) {
+            // For backend documents, call the API
+            await documentsApi.markDocumentOpened(doc.id);
+          } else {
+            // For local documents, update localStorage
+            DocumentStorageService.markDocumentOpened(doc.id);
+          }
+        } catch (error) {
+          console.warn('Failed to mark document as opened:', error);
+          // Don't fail the document loading for this
+        }
       } else {
         showError('Document not found');
       }
@@ -291,15 +326,32 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
     const docToSave = { ...doc, content: doc.id === currentDocument.id ? content : doc.content };
-    setLoading(true);
+    setSaving(true); // Use saving state instead of loading state
     setError('');
     try {
       const saved = await DocumentService.saveDocument(docToSave, showNotification);
-      setCurrentDocument(saved);
-      if (saved.id === currentDocument.id && saved.content !== content) {
+      
+      // Only update state if something actually changed to prevent unnecessary re-renders
+      const contentChanged = saved.content !== content;
+      const documentChanged = !currentDocument || 
+        saved.id !== currentDocument.id || 
+        saved.name !== currentDocument.name ||
+        saved.category !== currentDocument.category ||
+        saved.updated_at !== currentDocument.updated_at;
+      
+      if (documentChanged) {
+        setCurrentDocument(saved);
+      }
+      
+      if (contentChanged && saved.id === currentDocument.id) {
         setContent(saved.content);
       }
-      await updateCurrentDocument(saved);
+      
+      if (documentChanged) {
+        await updateCurrentDocument(saved);
+      }
+      
+      // Always refresh documents list as it may contain new metadata
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
       return saved;
@@ -310,17 +362,17 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
       }
       return null;
     } finally {
-      setLoading(false);
+      setSaving(false); // Reset saving state instead of loading state
     }
   }, [content, currentDocument, updateCurrentDocument]);
 
   const deleteDocument = useCallback(async (id, showNotification = true) => {
-    setLoading(true);
+    setSaving(true); // Use saving state for delete operations too
     try {
       await DocumentService.deleteDocument(id, showNotification);
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
-      
+
       // If we deleted the current document, clear the current state
       // but don't automatically switch to another document - let the caller decide
       if (currentDocument.id === id) {
@@ -332,7 +384,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
           setPreviewHTML('');
         }
         setHighlightedBlocks({});
-        
+
         // Clear current document from storage and backend
         DocumentStorageService.setCurrentDocument({ id: null, name: 'Untitled Document', category: 'General', content: '' });
         if (isAuthenticated && token) {
@@ -346,7 +398,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
         showError('Delete failed: ' + error.message);
       }
     } finally {
-      setLoading(false);
+      setSaving(false); // Reset saving state
     }
   }, [currentDocument, updateCurrentDocument, setPreviewHTML, isAuthenticated, token]);
 
@@ -437,7 +489,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   // --- SYNC ---
   const syncWithBackend = useCallback(async () => {
     if (!isAuthenticated) return;
-    setLoading(true);
+    setSaving(true); // Use saving state for sync operations
     try {
       await DocumentService.syncWithBackend();
       const docs = DocumentService.getAllDocuments();
@@ -452,7 +504,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     } catch (error) {
       setError('Sync failed: ' + error.message);
     } finally {
-      setLoading(false);
+      setSaving(false); // Reset saving state
     }
   }, [isAuthenticated, currentDocument]);
 
@@ -462,20 +514,43 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   }, [currentDocument]);
 
   const exportAsPDF = useCallback(async (htmlContent, filename = null, theme = 'light') => {
-    setLoading(true);
-    setError('');
     try {
       await DocumentService.exportAsPDF(htmlContent, filename || currentDocument?.name, theme);
     } catch (error) {
-      setError('PDF export failed');
-    } finally {
-      setLoading(false);
+      console.error('PDF export failed:', error);
+      setError('PDF export failed: ' + (error.message || 'Unknown error'));
+      throw error;
     }
-  }, [currentDocument, setLoading, setError]);
+  }, [currentDocument, setError]);
 
   const importMarkdownFile = useCallback(async (file) => {
     return DocumentService.importMarkdownFile(file);
   }, []);
+
+  /**
+   * Add a document to the local state and storage
+   * Useful for adding documents that were created externally (e.g., GitHub imports)
+   */
+  const addDocumentToState = useCallback(async (document) => {
+    try {
+      // Add to local documents state (avoid duplicates)
+      setDocuments(prevDocs => {
+        const exists = prevDocs.some(doc => doc.id === document.id);
+        if (exists) {
+          return prevDocs;
+        }
+        return [...prevDocs, document];
+      });
+
+      // Also save to localStorage so DocumentService can find it
+      DocumentStorageService.saveDocument(document);
+
+      return document;
+    } catch (error) {
+      console.error('Failed to add document to state:', error);
+      throw error;
+    }
+  }, [setDocuments]);
 
   // --- CHANGE TRACKING ---
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
@@ -483,10 +558,10 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   return {
     migrationStatus, setMigrationStatus, hasSyncedOnMount, setHasSyncedOnMount,
     currentDocument, setCurrentDocument, content, setContent, documents, setDocuments,
-    categories, setCategories, loading, setLoading, error, setError, highlightedBlocks, setHighlightedBlocks,
+    categories, setCategories, loading, setLoading, saving, setSaving, error, setError, highlightedBlocks, setHighlightedBlocks,
     showWarning, showSuccess, showError,
     createDocument, loadDocument, saveDocument, deleteDocument, renameDocument,
-    addCategory, deleteCategory, renameCategory, syncWithBackend,
+    addCategory, deleteCategory, renameCategory, syncWithBackend, addDocumentToState,
     exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges
   };
 }

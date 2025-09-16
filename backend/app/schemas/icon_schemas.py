@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class IconPackBase(BaseModel):
@@ -14,19 +14,52 @@ class IconPackBase(BaseModel):
     description: Optional[str] = Field(None, description="Description of the icon pack")
 
 
+class IconPackReference(BaseModel):
+    """Simple pack reference for individual icon responses (no icon_count)."""
+
+    id: int
+    name: str = Field(..., description="Unique identifier like 'awssvg', 'logos'")
+    display_name: str = Field(..., description="Human readable name like 'AWS Services'")
+    category: str = Field(..., description="Grouping like 'aws', 'iconify'")
+    description: Optional[str] = Field(None, description="Description of the icon pack")
+    created_at: datetime
+    updated_at: Optional[datetime] = None
+    urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class IconPackCreate(IconPackBase):
     """Icon pack creation schema."""
 
     icon_count: int = Field(0, ge=0, description="Number of icons in this pack")
 
 
+class IconPackMetadataUpdate(BaseModel):
+    """Schema for updating only icon pack metadata without affecting icons."""
+
+    name: Optional[str] = Field(None, description="Unique identifier like 'awssvg', 'logos'")
+    display_name: Optional[str] = Field(None, description="Human readable name like 'AWS Services'")
+    category: Optional[str] = Field(None, description="Grouping like 'aws', 'iconify'")
+    description: Optional[str] = Field(None, description="Description of the icon pack")
+
+
+class IconMetadataUpdate(BaseModel):
+    """Schema for updating individual icon metadata."""
+
+    key: Optional[str] = Field(None, description="Icon key/identifier")
+    search_terms: Optional[str] = Field(None, description="Searchable keywords")
+    category: Optional[str] = Field(None, description="Icon category")
+
+
 class IconPackResponse(IconPackBase):
     """Icon pack response schema."""
 
     id: int
-    icon_count: int
+    icon_count: int = Field(default=0, description="Number of icons in this pack")
     created_at: datetime
     updated_at: Optional[datetime] = None
+    urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -56,7 +89,8 @@ class IconMetadataResponse(IconMetadataBase):
     access_count: int
     created_at: datetime
     updated_at: Optional[datetime] = None
-    pack: Optional[IconPackResponse] = None
+    pack: Optional[IconPackReference] = None
+    urls: Optional[Dict[str, str]] = Field(None, description="Reference URLs for REST navigation")
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -68,7 +102,7 @@ class IconSearchRequest(BaseModel):
     pack: str = Field("all", description="Filter by pack name")
     category: str = Field("all", description="Filter by category")
     page: int = Field(0, ge=0, description="Page number for pagination")
-    size: int = Field(24, ge=1, le=100, description="Number of results per page")
+    size: int = Field(24, ge=1, le=1000, description="Number of results per page")
 
 
 class IconSearchResponse(BaseModel):
@@ -120,20 +154,60 @@ class IconUsageTrackingRequest(BaseModel):
     user_id: Optional[int] = Field(None, description="User ID if authenticated")
 
 
-class IconPackInstallRequest(BaseModel):
-    """Icon pack installation request schema."""
+class IconifyIconData(BaseModel):
+    """Standardized Iconify format for icon data."""
 
-    pack_data: Dict[str, Any] = Field(..., description="Raw data from icon package")
-    mapping_config: Dict[str, str] = Field(..., description="Data mapping configuration")
-    package_type: str = Field("json", description="Package type: 'json', 'svg_files', or 'mixed'")
+    body: str = Field(..., description="SVG body content (without <svg> wrapper)")
+    width: Optional[int] = Field(24, description="Icon width")
+    height: Optional[int] = Field(24, description="Icon height")
+    viewBox: Optional[str] = Field(None, description="SVG viewBox attribute")
+
+    @field_validator('body')
+    @classmethod
+    def validate_body(cls, v: str) -> str:
+        """Validate that body doesn't contain full SVG tags."""
+        if v.strip().startswith('<svg') or v.strip().startswith('<?xml'):
+            raise ValueError("Body should contain only SVG path/shape elements, not full SVG tags")
+        return v.strip()
+
+
+class StandardizedIconPackRequest(BaseModel):
+    """Standardized icon pack format (Iconify-style)."""
+
+    info: Dict[str, Any] = Field(..., description="Pack metadata")
+    icons: Dict[str, IconifyIconData] = Field(..., description="Icon data in Iconify format")
+    width: Optional[int] = Field(24, description="Pack-level default width")
+    height: Optional[int] = Field(24, description="Pack-level default height")
+
+    @field_validator('info')
+    @classmethod
+    def validate_info(cls, v: Dict[str, Any]) -> Dict[str, Any]:
+        """Validate required info fields."""
+        required_fields = ['name', 'displayName', 'category']
+        for field in required_fields:
+            if field not in v:
+                raise ValueError(f"Missing required info field: {field}")
+        return v
+
+    @field_validator('icons')
+    @classmethod
+    def validate_icons(cls, v: Dict[str, IconifyIconData]) -> Dict[str, IconifyIconData]:
+        """Validate icons dictionary is not empty."""
+        if not v:
+            raise ValueError("Icons dictionary cannot be empty")
+        return v
+
+
+class IconPackInstallRequest(BaseModel):
+    """Icon pack installation request schema - Standardized Iconify format only."""
+
+    pack_data: StandardizedIconPackRequest = Field(..., description="Standardized icon pack data in Iconify format")
 
 
 class IconPackUpdateRequest(BaseModel):
-    """Icon pack update request schema."""
+    """Icon pack update request schema - Standardized Iconify format only."""
 
-    pack_data: Dict[str, Any] = Field(..., description="Raw data from icon package")
-    mapping_config: Dict[str, str] = Field(..., description="Data mapping configuration")
-    package_type: str = Field("json", description="Package type: 'json', 'svg_files', or 'mixed'")
+    pack_data: StandardizedIconPackRequest = Field(..., description="Standardized icon pack data in Iconify format")
 
 
 class IconPackDeleteResponse(BaseModel):

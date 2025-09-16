@@ -66,6 +66,7 @@ class UserResponse(UserBase):
     id: int
     is_active: bool
     is_verified: bool
+    is_admin: bool
     mfa_enabled: bool
     created_at: datetime
     updated_at: Optional[datetime] = None

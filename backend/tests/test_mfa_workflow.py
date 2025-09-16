@@ -6,15 +6,14 @@ import uuid
 import pyotp
 import pytest
 
-from app.app_factory import AppFactory
+from app.app_factory import create_app
 from app.database import get_db
 
 
 @pytest.fixture
 def test_app(test_db):
     """Create test app with test database."""
-    app_factory = AppFactory()
-    app = app_factory.create_app()
+    app = create_app()
 
     # Override the database dependency
     async def get_test_db():

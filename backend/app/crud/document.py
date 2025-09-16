@@ -113,13 +113,13 @@ class DocumentCRUD:
 
         result = await db.execute(
             select(Document, Category.name.label('category_name'))
-            .join(Category, Document.category_id == Category.id)
+            .outerjoin(Category, Document.category_id == Category.id)
             .filter(Document.id == id)
         )
         row = result.first()
         if row:
             document = row.Document
-            # Add category name to the document object
+            # Add category name to the document object (or None if no category)
             document.category = row.category_name
             return document
         return None
@@ -180,10 +180,13 @@ class DocumentCRUD:
         db: AsyncSession,
         user_id: int,
         name: str,
-        content: str,
         category_id: int,
+        content: Optional[str] = None,
+        file_path: Optional[str] = None,
+        repository_type: str = "local",
+        folder_path: str = "/",
     ) -> Document:
-        """Create a new document with a category_id."""
+        """Create a new document with filesystem support."""
         # Validate that the category exists and belongs to the user
         from app.models.category import Category
 
@@ -199,14 +202,22 @@ class DocumentCRUD:
 
         document = Document(
             name=name,
-            content=content,
             category_id=category_id,
-            user_id=user_id
+            user_id=user_id,
+            file_path=file_path,
+            repository_type=repository_type,
+            folder_path=folder_path,
         )
         db.add(document)
         await db.commit()
         await db.refresh(document)
-        return document
+
+        # If content is provided, write it to filesystem
+        if content is not None and file_path is not None:
+            from app.services.storage.user import UserStorage
+            user_storage_service = UserStorage()
+            await user_storage_service.write_document(user_id, file_path, content)
+
         return document
 
     async def update(
@@ -361,6 +372,327 @@ class DocumentCRUD:
             document.category = row.category_name
             return document
         return None
+
+    async def get_by_github_metadata(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        file_path: str,
+        branch: str
+    ) -> Optional[Document]:
+        """Get a document by its GitHub metadata (repository, file path, and branch)."""
+        result = await db.execute(
+            select(Document)
+            .filter(
+                Document.user_id == user_id,
+                Document.github_repository_id == repository_id,
+                Document.github_file_path == file_path,
+                Document.github_branch == branch
+            )
+        )
+        return result.scalar_one_or_none()
+
+    async def get_documents_by_folder_path(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        folder_path: str,
+        include_subfolders: bool = False
+    ) -> List[Document]:
+        """Get documents in a specific folder path."""
+        query = select(Document).where(Document.user_id == user_id)
+
+        if include_subfolders:
+            # Get all documents in folder and subfolders
+            search_pattern = f"{folder_path.rstrip('/')}/%"
+            query = query.where(Document.folder_path.like(search_pattern))
+        else:
+            # Get documents only in exact folder
+            query = query.where(Document.folder_path == folder_path)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_folder_structure(self, db: AsyncSession, user_id: int) -> dict:
+        """Build folder tree structure for UI."""
+        # Get all unique folder paths for user
+        query = select(Document.folder_path).where(
+            Document.user_id == user_id
+        ).distinct()
+
+        result = await db.execute(query)
+        paths = result.scalars().all()
+
+        # Build hierarchical structure
+        tree = {}
+        for path in paths:
+            parts = [p for p in path.split('/') if p]
+            current = tree
+            for part in parts:
+                if part not in current:
+                    current[part] = {}
+                current = current[part]
+
+        return tree
+
+    async def search_documents(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        query: str,
+        folder_path: Optional[str] = None
+    ) -> List[Document]:
+        """Search documents by content/name with optional folder filtering."""
+        from sqlalchemy import or_
+
+        search_query = select(Document).where(Document.user_id == user_id)
+
+        # Add text search
+        search_query = search_query.where(
+            or_(
+                Document.name.ilike(f"%{query}%"),
+                Document.content.ilike(f"%{query}%")
+            )
+        )
+
+        # Add folder filtering if specified
+        if folder_path:
+            search_query = search_query.where(
+                Document.folder_path.like(f"{folder_path.rstrip('/')}%")
+            )
+
+        result = await db.execute(search_query)
+        return list(result.scalars().all())
+
+    async def get_folder_stats(self, db: AsyncSession, user_id: int) -> dict:
+        """Get statistics about folder usage."""
+        from sqlalchemy import func
+
+        # Get document count per folder
+        query = select(
+            Document.folder_path,
+            func.count(Document.id).label('document_count')
+        ).where(
+            Document.user_id == user_id
+        ).group_by(Document.folder_path)
+
+        result = await db.execute(query)
+        rows = result.all()
+
+        # Convert to dict properly
+        folder_stats = {row.folder_path: row.document_count for row in rows}
+
+        return {
+            "folder_counts": folder_stats,
+            "total_folders": len(folder_stats),
+            "total_documents": sum(folder_stats.values())
+        }
+
+    async def create_document_in_folder(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        name: str,
+        content: str,
+        folder_path: str,
+        github_data: Optional[dict] = None
+    ) -> Document:
+        """Create a new document in specified folder."""
+        # Normalize folder path
+        folder_path = Document.normalize_folder_path(folder_path)
+
+        # Check for duplicate names in folder
+        existing = await db.execute(
+            select(Document).where(
+                Document.user_id == user_id,
+                Document.folder_path == folder_path,
+                Document.name == name
+            )
+        )
+
+        if existing.scalar_one_or_none():
+            raise ValueError(f"Document '{name}' already exists in folder '{folder_path}'")
+
+        # Create document (without content field)
+        document = Document(
+            name=name,
+            folder_path=folder_path,
+            user_id=user_id
+        )
+
+        # Add GitHub data if provided
+        if github_data:
+            document.github_repository_id = github_data.get('repository_id')
+            document.github_file_path = github_data.get('file_path')
+            document.github_branch = github_data.get('branch')
+            document.github_sha = github_data.get('sha')
+            document.repository_type = "github_repo"
+            # Set file_path for filesystem storage
+            repo_name = github_data.get('repo_name', 'unknown')
+            account_id = github_data.get('account_id', 1)
+            document.file_path = f"github/{account_id}/{repo_name}/{github_data.get('file_path', '')}"
+
+        db.add(document)
+        await db.commit()
+        await db.refresh(document)
+
+        # Write content to filesystem if provided
+        if content and document.file_path:
+            from app.services.storage.user import UserStorage
+            user_storage_service = UserStorage()
+            await user_storage_service.write_document(user_id, document.file_path, content)
+
+        return document
+
+    async def move_document_to_folder(
+        self,
+        db: AsyncSession,
+        document_id: int,
+        new_folder_path: str,
+        user_id: int
+    ) -> Optional[Document]:
+        """Move document to a different folder."""
+        # Normalize the folder path
+        new_folder_path = Document.normalize_folder_path(new_folder_path)
+
+        # Get and update document
+        query = select(Document).where(
+            Document.id == document_id,
+            Document.user_id == user_id
+        )
+        result = await db.execute(query)
+        document = result.scalar_one_or_none()
+
+        if not document:
+            return None
+
+        document.folder_path = new_folder_path
+        await db.commit()
+        await db.refresh(document)
+
+        return document
+
+    async def get_github_document(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        file_path: str,
+        branch: str
+    ) -> Optional[Document]:
+        """Get a specific GitHub document by repository metadata."""
+        query = select(Document).where(
+            Document.user_id == user_id,
+            Document.github_repository_id == repository_id,
+            Document.github_file_path == file_path,
+            Document.github_branch == branch
+        )
+
+        result = await db.execute(query)
+        return result.scalar_one_or_none()
+
+    async def get_github_documents_by_repo_branch(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        branch: str
+    ) -> List[Document]:
+        """Get all documents for a specific repository/branch."""
+        query = select(Document).where(
+            Document.user_id == user_id,
+            Document.github_repository_id == repository_id,
+            Document.github_branch == branch
+        )
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def get_github_folders_for_user(self, db: AsyncSession, user_id: int) -> List[str]:
+        """Get all GitHub folder paths for a user."""
+        query = select(Document.folder_path).where(
+            Document.user_id == user_id,
+            Document.github_repository_id.isnot(None),
+            Document.folder_path.like('/GitHub/%')
+        ).distinct()
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def cleanup_orphaned_github_documents(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        repository_id: int,
+        branch: str,
+        current_file_paths: List[str]
+    ) -> int:
+        """Remove documents that no longer exist in the GitHub repository."""
+        stmt = delete(Document).where(
+            Document.user_id == user_id,
+            Document.github_repository_id == repository_id,
+            Document.github_branch == branch,
+            Document.github_file_path.notin_(current_file_paths)
+        )
+
+        result = await db.execute(stmt)
+        await db.commit()
+        return result.rowcount
+
+    async def get_recent_documents(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        limit: int = 6,
+        source: Optional[str] = None
+    ) -> List[Document]:
+        """Get recently opened documents for a user."""
+        query = select(Document).options(
+            selectinload(Document.category_ref),
+            selectinload(Document.github_repository)
+        ).filter(
+            Document.user_id == user_id,
+            Document.last_opened_at.isnot(None)
+        )
+
+        # Filter by source if specified
+        if source == "local":
+            query = query.filter(Document.github_repository_id.is_(None))
+        elif source == "github":
+            query = query.filter(Document.github_repository_id.isnot(None))
+
+        query = query.order_by(Document.last_opened_at.desc()).limit(limit)
+
+        result = await db.execute(query)
+        return list(result.scalars().all())
+
+    async def mark_document_opened(
+        self,
+        db: AsyncSession,
+        document_id: int,
+        user_id: int
+    ) -> Optional[Document]:
+        """Mark a document as recently opened."""
+        # Find and verify ownership
+        query = select(Document).filter(
+            Document.id == document_id,
+            Document.user_id == user_id
+        )
+
+        result = await db.execute(query)
+        document = result.scalar_one_or_none()
+
+        if not document:
+            return None
+
+        # Update last_opened_at
+        from datetime import datetime
+        document.last_opened_at = datetime.utcnow()
+
+        await db.commit()
+        await db.refresh(document)
+        return document
 
 
 # Create a singleton instance

@@ -1,22 +1,30 @@
 /**
  * Custom Dictionary API service for managing user's custom spell check words
+ * Updated to support folder-path based dictionaries
  */
 import { Api } from './api';
 
 class CustomDictionaryAPI extends Api {
   /**
-   * Get custom dictionary words for the current user, optionally filtered by category
-   * @param {number} [categoryId] - Optional category ID to filter words
+   * Get custom dictionary words for the current user, optionally filtered by folder path
+   * @param {string} [folderPath] - Optional folder path to filter words
+   * @param {number} [categoryId] - Optional category ID for backward compatibility
    * @returns {Promise<{words: string[], count: number}>}
    */
-  async getWords(categoryId = null) {
-    const params = categoryId ? { category_id: categoryId } : {};
+  async getWords(folderPath = null, categoryId = null) {
+    const params = {};
+    if (folderPath) {
+      params.folder_path = folderPath;
+    } else if (categoryId) {
+      // Backward compatibility
+      params.category_id = categoryId;
+    }
     const response = await this.apiCall('/dictionary/words', 'GET', null, params);
     return response.data;
   }
 
   /**
-   * Get all custom dictionary words for the current user (both user-level and category-level)
+   * Get all custom dictionary words for the current user (user-level and all folder-level)
    * @returns {Promise<{words: string[], count: number}>}
    */
   async getAllWords() {
@@ -25,7 +33,17 @@ class CustomDictionaryAPI extends Api {
   }
 
   /**
-   * Get custom dictionary words for a specific category
+   * Get custom dictionary words for a specific folder path
+   * @param {string} folderPath - The folder path
+   * @returns {Promise<{folder_path: string, words: string[], count: number}>}
+   */
+  async getFolderWords(folderPath) {
+    const response = await this.apiCall(`/dictionary/folder/${encodeURIComponent(folderPath)}/words`);
+    return response.data;
+  }
+
+  /**
+   * Get custom dictionary words for a specific category (backward compatibility)
    * @param {number} categoryId - The category ID
    * @returns {Promise<{category_id: number, words: string[], count: number}>}
    */
@@ -35,12 +53,19 @@ class CustomDictionaryAPI extends Api {
   }
 
   /**
-   * Get custom dictionary entries with details, optionally filtered by category
-   * @param {number} [categoryId] - Optional category ID to filter entries
+   * Get custom dictionary entries with details, optionally filtered by folder path
+   * @param {string} [folderPath] - Optional folder path to filter entries
+   * @param {number} [categoryId] - Optional category ID for backward compatibility
    * @returns {Promise<Array>}
    */
-  async getEntries(categoryId = null) {
-    const params = categoryId ? { category_id: categoryId } : {};
+  async getEntries(folderPath = null, categoryId = null) {
+    const params = {};
+    if (folderPath) {
+      params.folder_path = folderPath;
+    } else if (categoryId) {
+      // Backward compatibility
+      params.category_id = categoryId;
+    }
     const response = await this.apiCall('/dictionary/', 'GET', null, params);
     return response.data;
   }
@@ -49,15 +74,19 @@ class CustomDictionaryAPI extends Api {
    * Add a new word to the custom dictionary
    * @param {string} word - The word to add
    * @param {string} [notes] - Optional notes about the word
-   * @param {number} [categoryId] - Optional category ID for category-level dictionary
+   * @param {string} [folderPath] - Optional folder path for folder-level dictionary
+   * @param {number} [categoryId] - Optional category ID for backward compatibility
    * @returns {Promise<Object>}
    */
-  async addWord(word, notes = null, categoryId = null) {
+  async addWord(word, notes = null, folderPath = null, categoryId = null) {
     const data = {
       word: word.trim(),
       notes
     };
-    if (categoryId) {
+    if (folderPath) {
+      data.folder_path = folderPath;
+    } else if (categoryId) {
+      // Backward compatibility
       data.category_id = categoryId;
     }
 
@@ -91,11 +120,18 @@ class CustomDictionaryAPI extends Api {
   /**
    * Delete a word from the custom dictionary by word text
    * @param {string} word - The word to delete
-   * @param {number} [categoryId] - Optional category ID for category-specific deletion
+   * @param {string} [folderPath] - Optional folder path for folder-specific deletion
+   * @param {number} [categoryId] - Optional category ID for backward compatibility
    * @returns {Promise<Object>}
    */
-  async deleteWordByText(word, categoryId = null) {
-    const params = categoryId ? { category_id: categoryId } : {};
+  async deleteWordByText(word, folderPath = null, categoryId = null) {
+    const params = {};
+    if (folderPath) {
+      params.folder_path = folderPath;
+    } else if (categoryId) {
+      // Backward compatibility
+      params.category_id = categoryId;
+    }
     const response = await this.apiCall(`/dictionary/word/${encodeURIComponent(word)}`, 'DELETE', null, params);
     return response.data;
   }
@@ -103,11 +139,18 @@ class CustomDictionaryAPI extends Api {
   /**
    * Bulk add words to the custom dictionary
    * @param {string[]} words - Array of words to add
-   * @param {number} [categoryId] - Optional category ID for category-level dictionary
+   * @param {string} [folderPath] - Optional folder path for folder-level dictionary
+   * @param {number} [categoryId] - Optional category ID for backward compatibility
    * @returns {Promise<Array>}
    */
-  async bulkAddWords(words, categoryId = null) {
-    const params = categoryId ? { category_id: categoryId } : {};
+  async bulkAddWords(words, folderPath = null, categoryId = null) {
+    const params = {};
+    if (folderPath) {
+      params.folder_path = folderPath;
+    } else if (categoryId) {
+      // Backward compatibility
+      params.category_id = categoryId;
+    }
     const response = await this.apiCall('/dictionary/bulk', 'POST', words, params);
     return response.data;
   }

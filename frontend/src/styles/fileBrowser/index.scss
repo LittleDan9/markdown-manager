@@ -1,0 +1,11 @@
+// File Browser Main Index
+// Imports all file browser component styles in proper order
+
+@use 'container';    // Main container and layout
+@use 'breadcrumbs';  // Breadcrumb navigation
+@use 'tree';         // File tree component
+@use 'list';         // File list component  
+@use 'preview';      // File preview component
+@use 'actions';      // File browser actions
+@use 'modal';        // Modal-specific overrides
+@use 'utils';        // Utilities and multi-select

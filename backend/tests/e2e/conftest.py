@@ -12,7 +12,7 @@ import pytest
 class Config:
     """Test configuration"""
 
-    BASE_URL = "https://api.littledan.com"
+    BASE_URL = "https://littledan.com/api"
     USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
     # Test user credentials
@@ -27,6 +27,7 @@ async def test_user() -> Dict[str, str]:
         base_url=Config.BASE_URL,
         headers={"User-Agent": Config.USER_AGENT},
         timeout=30.0,
+        follow_redirects=True,
     ) as client:
         # Register user
         response = await client.post(
@@ -49,6 +50,7 @@ async def auth_token(test_user: Dict[str, str]) -> str:
         base_url=Config.BASE_URL,
         headers={"User-Agent": Config.USER_AGENT},
         timeout=30.0,
+        follow_redirects=True,
     ) as client:
         # Login
         response = await client.post(
@@ -83,6 +85,7 @@ async def authenticated_client(
             "Authorization": f"Bearer {auth_token}",
         },
         timeout=30.0,
+        follow_redirects=True,
     ) as client:
         yield client
 
@@ -94,6 +97,7 @@ async def unauthenticated_client() -> AsyncGenerator[httpx.AsyncClient, None]:
         base_url=Config.BASE_URL,
         headers={"User-Agent": Config.USER_AGENT},
         timeout=30.0,
+        follow_redirects=True,
     ) as client:
         yield client
 

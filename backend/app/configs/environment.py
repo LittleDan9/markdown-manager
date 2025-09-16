@@ -2,7 +2,7 @@
 import logging
 from typing import Any, Dict
 
-from .settings import Settings
+from .settings import Settings, settings
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +85,16 @@ class EnvironmentConfig:
             "samesite": "lax" if self.settings.is_production else "none",
         }
 
+    def get_cookie_domain(self) -> str | None:
+        """Get the appropriate cookie domain for the current environment."""
+        if self.settings.is_production:
+            # Production: set domain to allow cookies across subdomains
+            return ".littledan.com"
+        else:
+            # Development: no domain specified (browser will use the host that set it)
+            # This means cookies will be host-specific but should work via nginx proxy
+            return None
+
     def validate_configuration(self) -> bool:
         """Validate configuration for the current environment."""
         issues = []
@@ -115,3 +125,7 @@ class EnvironmentConfig:
             f"Configuration validated successfully for environment: {self.settings.environment}"
         )
         return True
+
+
+# Create global instance
+environment_config = EnvironmentConfig(settings)

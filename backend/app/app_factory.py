@@ -21,11 +21,14 @@ from app.routers import (
     custom_dictionary,
     default,
     documents,
+    github,
     icons,
+    iconify_router,
     monitoring,
     pdf,
     public,
     syntax_highlighting,
+    third_party_router,
     users,
 )
 
@@ -111,6 +114,12 @@ def setup_routers(app: FastAPI) -> None:
         icons.router  # Icon service endpoints - tags already defined in router
     )
     app.include_router(
+        iconify_router.router  # Iconify browser endpoints
+    )
+    app.include_router(
+        third_party_router.router  # Unified third-party browser endpoints
+    )
+    app.include_router(
         categories.router, prefix="/categories", tags=["categories"]
     )
     app.include_router(
@@ -126,6 +135,13 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(
         custom_dictionary.router, prefix="/dictionary", tags=["custom-dictionary"]
     )
+    app.include_router(
+        github.router, prefix="/github", tags=["github"]
+    )
+
+    # Static file serving
+    from .routers import static
+    app.include_router(static.router)
 
 
 def create_app() -> FastAPI:
@@ -135,7 +151,8 @@ def create_app() -> FastAPI:
         title=settings.project_name,
         description=settings.api_description,
         version=settings.api_version,
-        openapi_url="/openapi.json",  # Remove v1 prefix
+        openapi_url="/openapi.json",  # Keep relative path
+        root_path="/api",  # Set root path for proper URL generation behind proxy
         lifespan=_create_lifespan(),
         debug=settings.debug,
     )
@@ -145,6 +162,9 @@ def create_app() -> FastAPI:
 
     # Set up routers
     setup_routers(app)
+
+    # Static files are now served via the static_router (already included in setup_routers)
+    # The old StaticFiles mount didn't work properly with root_path="/api"
 
     logger.info("FastAPI application created successfully")
     return app

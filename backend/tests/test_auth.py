@@ -1,33 +1,5 @@
 """Test user authentication endpoints."""
 import pytest
-from fastapi.testclient import TestClient
-
-from app.app_factory import AppFactory
-from app.database import get_db
-
-
-@pytest.fixture
-def test_app(test_db):
-    """Create test app with test database."""
-    app_factory = AppFactory()
-    app = app_factory.create_app()
-
-    # Override the database dependency
-    async def get_test_db():
-        yield test_db
-
-    app.dependency_overrides[get_db] = get_test_db
-
-    yield app
-
-    # Clean up
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client(test_app):
-    """Create test client."""
-    return TestClient(test_app)
 
 
 @pytest.mark.asyncio
@@ -41,7 +13,7 @@ async def test_register_user(client):
         "display_name": "TestUser",
     }
 
-    response = client.post("/auth/register", json=user_data)
+    response = await client.post("/auth/register", json=user_data)
     assert response.status_code == 200
 
     data = response.json()
@@ -65,13 +37,13 @@ async def test_login_user(client):
         "last_name": "Test",
     }
 
-    register_response = client.post("/auth/register", json=user_data)
+    register_response = await client.post("/auth/register", json=user_data)
     assert register_response.status_code == 200
 
     # Now login
     login_data = {"email": "login@example.com", "password": "loginpassword123"}
 
-    response = client.post("/auth/login", json=login_data)
+    response = await client.post("/auth/login", json=login_data)
     assert response.status_code == 200
 
     data = response.json()
@@ -85,7 +57,7 @@ async def test_login_invalid_credentials(client):
     """Test login with invalid credentials."""
     login_data = {"email": "nonexistent@example.com", "password": "wrongpassword"}
 
-    response = client.post("/auth/login", json=login_data)
+    response = await client.post("/auth/login", json=login_data)
     assert response.status_code == 401
 
 
@@ -100,9 +72,9 @@ async def test_get_current_user(client):
         "last_name": "User",
     }
 
-    client.post("/auth/register", json=user_data)
+    await client.post("/auth/register", json=user_data)
 
-    login_response = client.post(
+    login_response = await client.post(
         "/auth/login",
         json={"email": "profile@example.com", "password": "profilepassword123"},
     )
@@ -111,7 +83,7 @@ async def test_get_current_user(client):
 
     # Get current user profile
     headers = {"Authorization": f"Bearer {token}"}
-    response = client.get("/auth/me", headers=headers)
+    response = await client.get("/auth/me", headers=headers)
 
     assert response.status_code == 200
     data = response.json()
@@ -124,7 +96,7 @@ async def test_get_current_user(client):
 async def test_get_current_user_invalid_token(client):
     """Test getting current user with invalid token."""
     headers = {"Authorization": "Bearer invalid_token"}
-    response = client.get("/auth/me", headers=headers)
+    response = await client.get("/auth/me", headers=headers)
 
     assert response.status_code == 401
 
@@ -140,10 +112,10 @@ async def test_register_duplicate_email(client):
     }
 
     # Register first user
-    response1 = client.post("/auth/register", json=user_data)
+    response1 = await client.post("/auth/register", json=user_data)
     assert response1.status_code == 200
 
     # Try to register with same email
-    response2 = client.post("/auth/register", json=user_data)
+    response2 = await client.post("/auth/register", json=user_data)
     assert response2.status_code == 400
     assert "Email already registered" in response2.json()["detail"]

@@ -5,10 +5,11 @@ import {
   HeadingGroup,
   ListGroup,
   MediaGroup,
+  SpellCheckGroup,
   ToolbarSeparator
 } from './markdown-toolbar';
 
-const MarkdownToolbar = ({ editorRef }) => {
+const MarkdownToolbar = ({ editorRef, onSpellCheck, spellCheckProgress }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
 
@@ -47,6 +48,16 @@ const MarkdownToolbar = ({ editorRef }) => {
         insertHorizontalRule={insertHorizontalRule}
         buttonVariant={buttonVariant}
         buttonStyle={styles.button}
+      />
+
+      <ToolbarSeparator style={styles.separator} />
+
+      {/* Spell Check */}
+      <SpellCheckGroup
+        onSpellCheck={onSpellCheck}
+        buttonVariant={buttonVariant}
+        buttonStyle={styles.button}
+        progress={spellCheckProgress}
       />
     </div>
   );

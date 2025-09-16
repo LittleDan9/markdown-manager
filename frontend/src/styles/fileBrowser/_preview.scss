@@ -1,0 +1,95 @@
+// File Browser Preview Styles
+// Scoped preview component to avoid conflicts with main app
+
+.unified-file-browser .file-browser-preview {
+  background-color: var(--bs-body-bg);
+  border: none !important; // Remove border completely to prevent conflicts
+  border-radius: 0 !important; // Remove border radius
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  .preview-header {
+    background: linear-gradient(135deg, var(--bs-secondary-bg), var(--bs-light)) !important;
+    border-bottom: 1px solid var(--bs-border-color);
+    padding: 0.5rem !important; // Consistent with p-2
+    min-height: 49px; // Match table header height exactly
+    height: 49px; // Force consistent height with table headers
+    font-weight: 600;
+    display: flex;
+    align-items: center; // Center content vertically
+    flex-shrink: 0;
+    box-sizing: border-box; // Ensure consistent box model
+
+    [data-bs-theme="dark"] & {
+      background: linear-gradient(135deg, var(--bs-secondary-bg), var(--bs-dark)) !important;
+    }
+  }
+
+  .file-info-section {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  .preview-content {
+    flex: 1;
+    overflow: auto;
+    min-height: 0;
+
+    pre {
+      background-color: var(--bs-body-bg);
+      border: none;
+      border-radius: 0;
+      margin: 0;
+      height: 100%;
+      overflow: auto;
+      padding: 1rem;
+      font-size: 0.875rem;
+      line-height: 1.4;
+    }
+
+    .no-preview {
+      padding: 2rem;
+      text-align: center;
+      color: var(--bs-text-muted);
+    }
+  }
+
+  // Override global preview styles that might interfere
+  .preview-scroll {
+    border: none !important;
+    border-radius: 0 !important;
+    padding: 0 !important;
+  }
+
+  // Ensure file content preview has no conflicting borders
+  .file-content-preview {
+    border: none;
+
+    .content-preview {
+      border: none;
+      padding: 0.75rem;
+      margin: 0;
+      background-color: var(--bs-body-bg);
+    }
+  }
+}
+
+// Override main app #preview styles when inside file browser
+.unified-file-browser #preview {
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  box-shadow: none !important;
+}
+
+// Also override if the file browser preview gets any preview-related IDs or classes
+.file-browser-preview#preview,
+.file-browser-preview .preview,
+.file-browser-preview [id*="preview"] {
+  border: none !important;
+  border-radius: 0 !important;
+  padding: 0.75rem !important;
+  box-shadow: none !important;
+}

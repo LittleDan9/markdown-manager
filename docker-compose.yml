@@ -4,7 +4,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./nginx/nginx-dev-nipio.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/scripts:/etc/nginx/scripts:ro
     depends_on:
@@ -56,6 +56,8 @@ services:
       - ./backend/migrations/:/markdown_manager/migrations/
       - ./backend/markdown_manager.db:/markdown_manager/markdown_manager.db
       - ./backend/alembic.ini:/markdown_manager/alembic.ini
+      # Volume mount for filesystem-based document storage
+      - ./storage:/documents
     ports:
       - "8000:8000"
     env_file:
@@ -66,6 +68,7 @@ services:
       - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
       - PDF_SERVICE_URL=http://pdf-service:8001
       - ENVIRONMENT=development
+      - MARKDOWN_STORAGE_ROOT=/documents
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

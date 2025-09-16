@@ -49,6 +49,10 @@ class DocumentStorageService {
     if (!document.created_at) {
       document.created_at = now;
     }
+    // Preserve existing last_opened_at if it exists
+    if (!document.last_opened_at && docs[document.id]?.last_opened_at) {
+      document.last_opened_at = docs[document.id].last_opened_at;
+    }
 
     // Save to localStorage
     docs[document.id] = document;
@@ -210,6 +214,33 @@ class DocumentStorageService {
 
   setCategories(categories) {
     localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
+  }
+
+  // Recent documents operations
+  markDocumentOpened(documentId) {
+    const docs = this._getStoredDocuments();
+    if (docs[documentId]) {
+      docs[documentId].last_opened_at = new Date().toISOString();
+      this._setStoredDocuments(docs);
+      return docs[documentId];
+    }
+    return null;
+  }
+
+  getRecentDocuments(limit = 6) {
+    const docs = this.getAllDocuments();
+    return docs
+      .filter(doc => doc.last_opened_at) // Only documents that have been opened
+      .sort((a, b) => new Date(b.last_opened_at) - new Date(a.last_opened_at))
+      .slice(0, limit);
+  }
+
+  getRecentLocalDocuments(limit = 3) {
+    const docs = this.getAllDocuments();
+    return docs
+      .filter(doc => doc.last_opened_at && !doc.github_repository_id) // Only local documents that have been opened
+      .sort((a, b) => new Date(b.last_opened_at) - new Date(a.last_opened_at))
+      .slice(0, limit);
   }
 
   // Clear all data (for logout)

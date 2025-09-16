@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-import ConfirmModal from "@/components/modals/ConfirmModal";
-import DocumentForm from "@/components/modals/DocumentForm";
+import ConfirmModal from "@/components/shared/modals/ConfirmModal";
+import DocumentForm from "@/components/document/modals/DocumentForm";
 
 export default function FileSaveAsModal({ show, onHide, onConfirm, defaultName = "", icon }) {
   const [selectedCategory, setSelectedCategory] = useState("General");

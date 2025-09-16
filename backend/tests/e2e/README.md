@@ -108,7 +108,7 @@ tests/e2e/
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `E2E_BASE_URL` | `https://api.littledan.com` | API base URL |
+| `E2E_BASE_URL` | `https://littledan.com/api` | API base URL (path-based) |
 | `E2E_FRONTEND_ORIGIN` | `https://littledan.com` | Frontend origin for CORS |
 | `E2E_TIMEOUT` | `30` | Request timeout (seconds) |
 | `E2E_CLEANUP` | `true` | Enable automatic cleanup |
@@ -201,7 +201,7 @@ E2E_CLEANUP=false python tests/e2e/run_e2e_tests.py
 
 ### Check API Connectivity
 ```bash
-curl -H "User-Agent: Mozilla/5.0" https://api.littledan.com/health
+curl -H "User-Agent: Mozilla/5.0" https://littledan.com/api/health
 ```
 
 ### View Test Reports

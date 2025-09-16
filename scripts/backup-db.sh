@@ -50,25 +50,76 @@ mkdir -p "$(dirname "$BACKUP_FILE")"
 TEMP_DIR=$(mktemp -d)
 trap "rm -rf $TEMP_DIR" EXIT
 
+# Tables to exclude from backup (system/migration tables)
+EXCLUDED_TABLES="alembic_version"
+
+echo "$YELLOW📋 Discovering database tables...$NC"
+
+# Get all table names excluding system tables
+TABLES=$(psql "$LOCAL_DB_URL" -t -c "
+    SELECT table_name
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_type = 'BASE TABLE'
+    AND table_name NOT IN ('$EXCLUDED_TABLES')
+    ORDER BY table_name;
+" | tr -d ' ' | grep -v '^$' | tr '\n' ' ')
+
+# Convert to array for processing
+IFS=' ' read -ra TABLE_ARRAY <<< "$TABLES"
+
+echo "$YELLOW📊 Found ${#TABLE_ARRAY[@]} tables to backup: ${TABLE_ARRAY[*]}$NC"
+
 # Export each table to JSON
-echo "$YELLOW📋 Exporting users table...$NC"
-psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT * FROM users ORDER BY id) t;" > "$TEMP_DIR/users.json"
+for table in "${TABLE_ARRAY[@]}"; do
+    if [ -n "$table" ]; then
+        echo "$YELLOW📋 Exporting $table table...$NC"
+        
+        # Check if table has an 'id' column for ordering, otherwise use default order
+        has_id=$(psql "$LOCAL_DB_URL" -t -c "
+            SELECT EXISTS(
+                SELECT 1 FROM information_schema.columns 
+                WHERE table_name = '$table' 
+                AND column_name = 'id'
+                AND table_schema = 'public'
+            );
+        " | tr -d ' \n')
+        
+        if [ "$has_id" = "t" ]; then
+            ORDER_BY="ORDER BY id"
+        else
+            ORDER_BY=""
+        fi
+        
+        psql "$LOCAL_DB_URL" -t -c "
+            SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) 
+            FROM (SELECT * FROM \"$table\" $ORDER_BY) t;
+        " > "$TEMP_DIR/$table.json"
+    fi
+done
 
-echo "$YELLOW📋 Exporting documents table...$NC"
-psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT * FROM documents ORDER BY id) t;" > "$TEMP_DIR/documents.json"
-
-echo "$YELLOW📋 Exporting custom_dictionaries table...$NC"
-psql "$LOCAL_DB_URL" -t -c "SELECT COALESCE(json_agg(row_to_json(t)), '[]'::json) FROM (SELECT * FROM custom_dictionaries ORDER BY id) t;" > "$TEMP_DIR/custom_dictionaries.json"
-
-# Build final JSON structure (removed alembic_version)
+# Build final JSON structure dynamically
 {
     echo "{"
     echo "  \"backup_timestamp\": \"$(date -u +%Y-%m-%dT%H:%M:%S.%6N+00:00)\","
     echo "  \"database_url\": \"$DB_HOST:$DB_PORT/$DB_NAME\","
+    echo "  \"excluded_tables\": [\"$EXCLUDED_TABLES\"],"
     echo "  \"tables\": {"
-    echo "    \"users\": $(cat "$TEMP_DIR/users.json" | sed 's/^ *//' | tr -d '\n'),"
-    echo "    \"documents\": $(cat "$TEMP_DIR/documents.json" | sed 's/^ *//' | tr -d '\n'),"
-    echo "    \"custom_dictionaries\": $(cat "$TEMP_DIR/custom_dictionaries.json" | sed 's/^ *//' | tr -d '\n')"
+    
+    # Add each table's data to the JSON
+    first_table=true
+    for table in "${TABLE_ARRAY[@]}"; do
+        if [ -n "$table" ]; then
+            if [ "$first_table" = true ]; then
+                first_table=false
+            else
+                echo ","
+            fi
+            echo -n "    \"$table\": $(cat "$TEMP_DIR/$table.json" | sed 's/^ *//' | tr -d '\n')"
+        fi
+    done
+    
+    echo ""
     echo "  }"
     echo "}"
 } > "$BACKUP_FILE"

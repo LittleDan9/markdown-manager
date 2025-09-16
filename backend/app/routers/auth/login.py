@@ -2,18 +2,97 @@
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Response, status
 from jose import JWTError, jwt
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import settings
+from app.configs.environment import environment_config
 from app.core.auth import authenticate_user, create_access_token
 from app.core.mfa import verify_backup_code, verify_totp_code
 from app.crud import user as crud_user
-from app.database import get_db
+from app.crud.github_crud import GitHubCRUD
+from app.database import get_db, AsyncSessionLocal
 from app.schemas.user import LoginMFARequest, LoginResponse, Token, UserLogin
+from app.services.github_service import GitHubService
 
 router = APIRouter()
+
+
+async def should_sync_account(account, force_sync: bool) -> bool:
+    """Check if a GitHub account should be synced based on last sync time."""
+    if force_sync:
+        return True
+
+    if not account.last_sync:
+        return True  # Never synced before
+
+    # Only sync if it's been more than 1 hour since last sync
+    time_since_sync = datetime.now(timezone.utc) - account.last_sync
+    return time_since_sync.total_seconds() > 3600  # 1 hour
+
+
+async def sync_account_repositories(db, github_crud, github_service, account):
+    """Sync repositories for a single GitHub account."""
+    try:
+        github_repos = await github_service.get_user_repositories(account.access_token)
+
+        for repo_data in github_repos:
+            repo_info = {
+                "github_repo_id": repo_data["id"],
+                "repo_name": repo_data["name"],
+                "repo_full_name": repo_data["full_name"],
+                "repo_owner": repo_data["owner"]["login"],
+                "description": repo_data.get("description"),
+                "default_branch": repo_data.get("default_branch", "main"),
+                "is_private": repo_data.get("private", False),
+                "account_id": account.id,
+            }
+
+            existing_repo = await github_crud.get_repository_by_github_id(db, repo_data["id"])
+            if existing_repo:
+                await github_crud.update_repository(db, existing_repo.id, repo_info)
+            else:
+                await github_crud.create_repository(db, repo_info)
+
+        # Update last sync time
+        await github_crud.update_account(
+            db, account.id, {"last_sync": datetime.now(timezone.utc)}
+        )
+
+        print(f"Successfully synced {len(github_repos)} repositories for GitHub account {account.id}")
+        return True
+
+    except Exception as e:
+        print(f"Error syncing repositories for GitHub account {account.id}: {e}")
+        return False
+
+
+async def sync_user_github_repositories_background(user_id: int, force_sync: bool = False):
+    """Background task to sync all GitHub repositories for a user.
+
+    Args:
+        user_id: The user ID to sync repositories for
+        force_sync: If True, sync regardless of last sync time. If False, only sync
+                   if it's been more than 1 hour since last sync.
+    """
+    async with AsyncSessionLocal() as db:
+        try:
+            github_crud = GitHubCRUD()
+            github_service = GitHubService()
+
+            github_accounts = await github_crud.get_user_accounts(db, user_id)
+
+            for account in github_accounts:
+                if account.access_token and await should_sync_account(account, force_sync):
+                    await sync_account_repositories(db, github_crud, github_service, account)
+                elif not force_sync:
+                    print(f"Skipping sync for GitHub account {account.id} (last synced recently)")
+
+            await db.commit()
+
+        except Exception as e:
+            print(f"Error in background GitHub sync for user {user_id}: {e}")
 
 
 def create_refresh_token(data: dict, expires_delta: timedelta):
@@ -27,6 +106,7 @@ def create_refresh_token(data: dict, expires_delta: timedelta):
 async def login(
     user_credentials: UserLogin,
     response: Response,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Authenticate user and return access token (or require MFA)."""
@@ -65,7 +145,16 @@ async def login(
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
+        domain=environment_config.get_cookie_domain(),
     )
+
+    # Start background task to sync GitHub repositories
+    background_tasks.add_task(
+        sync_user_github_repositories_background,
+        user.id,
+        True  # force_sync=True for login
+    )
+
     return LoginResponse(
         mfa_required=False,
         access_token=access_token,
@@ -77,6 +166,7 @@ async def login(
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
     response: Response,
+    background_tasks: BackgroundTasks,
     refresh_token: str = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -119,7 +209,16 @@ async def refresh_token(
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
+        domain=environment_config.get_cookie_domain(),
     )
+
+    # Start background task to sync GitHub repositories (respects 1-hour limit)
+    background_tasks.add_task(
+        sync_user_github_repositories_background,
+        user.id,
+        False  # force_sync=False for refresh token (only sync if > 1 hour since last sync)
+    )
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -131,6 +230,7 @@ async def refresh_token(
 async def login_mfa(
     mfa_credentials: LoginMFARequest,
     response: Response,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Complete MFA login with TOTP code."""
@@ -178,7 +278,16 @@ async def login_mfa(
         samesite="lax",
         max_age=14 * 24 * 60 * 60,
         path="/",
+        domain=environment_config.get_cookie_domain(),
     )
+
+    # Start background task to sync GitHub repositories
+    background_tasks.add_task(
+        sync_user_github_repositories_background,
+        user.id,
+        True  # force_sync=True for login
+    )
+
     return {
         "access_token": access_token,
         "token_type": "bearer",
@@ -188,5 +297,5 @@ async def login_mfa(
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie("refresh_token", path="/")
+    response.delete_cookie("refresh_token", path="/", domain=environment_config.get_cookie_domain())
     return {"message": "Logged out"}

@@ -1,11 +1,10 @@
 """Test syntax highlighting endpoints."""
 from fastapi.testclient import TestClient
 
-from app.app_factory import AppFactory
+from app.app_factory import create_app
 
-# Create app using factory pattern
-app_factory = AppFactory()
-app = app_factory.create_app()
+# Create app using factory function
+app = create_app()
 client = TestClient(app)
 
 

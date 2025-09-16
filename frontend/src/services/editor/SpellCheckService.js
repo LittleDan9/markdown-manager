@@ -4,7 +4,7 @@
 // import { chunkText } from './utils';
 import SpellCheckWorkerPool from './SpellCheckWorkerPool';
 import { chunkTextWithOffsets } from '@/utils';
-import { DictionaryService } from '../utilities';
+import DictionaryService from '../dictionary';
 
 export class SpellCheckService {
   constructor(chunkSize = 1000) {
@@ -38,7 +38,7 @@ export class SpellCheckService {
     }
   }
 
-  async scan(text, onProgress = () => {}, categoryId = null){
+  async scan(text, onProgress = () => {}, categoryId = null, folderPath = null){
     await this.init();
 
     const bucket = chunkTextWithOffsets(text, this.chunkSize);
@@ -49,8 +49,8 @@ export class SpellCheckService {
 
     this.workerPool._chunkOffsets = chunks.map(c => c.offset);
 
-    // Get applicable custom words for this category
-    const customWords = DictionaryService.getAllApplicableWords(categoryId);
+    // Get applicable custom words for this folder or category
+    const customWords = DictionaryService.getAllApplicableWords(folderPath, categoryId);
 
     const issues = await this.workerPool.runSpellCheckOnChunks(
       chunks,
@@ -64,19 +64,23 @@ export class SpellCheckService {
   /**
    * Get custom words for backward compatibility
    * @param {string} [categoryId] - Optional category ID
+   * @param {string} [folderPath] - Optional folder path
    * @returns {string[]} Array of custom words
    */
-  getCustomWords(categoryId = null) {
-    return DictionaryService.getAllApplicableWords(categoryId);
+  getCustomWords(categoryId = null, folderPath = null) {
+    return DictionaryService.getAllApplicableWords(folderPath, categoryId);
   }
 
   /**
    * Add a custom word - delegates to DictionaryService
    * @param {string} word - Word to add
    * @param {string} [categoryId] - Optional category ID
+   * @param {string} [folderPath] - Optional folder path
    */
-  addCustomWord(word, categoryId = null) {
-    if (categoryId) {
+  addCustomWord(word, categoryId = null, folderPath = null) {
+    if (folderPath) {
+      DictionaryService.addFolderWord(folderPath, word);
+    } else if (categoryId) {
       DictionaryService.addCategoryWord(categoryId, word);
     } else {
       DictionaryService.addCustomWord(word);
@@ -87,9 +91,12 @@ export class SpellCheckService {
    * Remove a custom word - delegates to DictionaryService
    * @param {string} word - Word to remove
    * @param {string} [categoryId] - Optional category ID
+   * @param {string} [folderPath] - Optional folder path
    */
-  removeCustomWord(word, categoryId = null) {
-    if (categoryId) {
+  removeCustomWord(word, categoryId = null, folderPath = null) {
+    if (folderPath) {
+      DictionaryService.removeFolderWord(folderPath, word);
+    } else if (categoryId) {
       DictionaryService.removeCategoryWord(categoryId, word);
     } else {
       DictionaryService.removeCustomWord(word);

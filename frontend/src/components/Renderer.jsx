@@ -4,6 +4,7 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { HighlightService } from "@/services/editor";
 import { useMermaid } from "@/services/rendering";
+import { useCodeCopy } from "@/hooks/ui/useCodeCopy";
 
 /**
  * Modern Renderer component using the new useMermaid hook architecture
@@ -26,6 +27,9 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   const previewScrollRef = useRef(null);
   const hasCalledFirstRender = useRef(false);
 
+  // Setup copy functionality for code blocks
+  const setCodeCopyRef = useCodeCopy(previewHTML, true);
+
   // Use the new Mermaid hook - much cleaner than manual state management!
   const {
     renderDiagrams,
@@ -40,7 +44,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     }
   }, [theme, mermaidTheme, updateTheme]);
 
-  // Render Markdown to HTML (same as before)
+  // Render Markdown to HTML (only when content changes)
   useEffect(() => {
     setIsRendering(true);
     // Reset the first render flag when content changes
@@ -58,6 +62,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
       block.setAttribute("data-syntax-placeholder", placeholderId);
 
+      // Use current highlighted blocks (from closure)
       if (highlightedBlocks[placeholderId]) {
         const codeEl = block.querySelector("code");
         if (codeEl) {
@@ -72,14 +77,29 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
     if (blocksToHighlight.length > 0) {
       HighlightService.highlightBlocks(blocksToHighlight).then(results => {
-        blocksToHighlight.forEach(({ placeholderId }) => {
-          const block = tempDiv.querySelector(`[data-syntax-placeholder="${placeholderId}"]`);
-          if (block && results[placeholderId]) {
-            block.querySelector("code").innerHTML = results[placeholderId];
-            block.setAttribute("data-processed", "true");
+        // Re-process the HTML with new highlights
+        const updatedTempDiv = document.createElement("div");
+        updatedTempDiv.innerHTML = render(content);
+        const updatedCodeBlocks = Array.from(updatedTempDiv.querySelectorAll("[data-syntax-placeholder]"));
+        
+        updatedCodeBlocks.forEach(block => {
+          const code = decodeURIComponent(block.dataset.code);
+          const language = block.dataset.lang;
+          const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+          block.setAttribute("data-syntax-placeholder", placeholderId);
+          
+          // Apply both existing and new highlights
+          const highlightedHtml = results[placeholderId] || highlightedBlocks[placeholderId];
+          if (highlightedHtml) {
+            const codeEl = block.querySelector("code");
+            if (codeEl) {
+              codeEl.innerHTML = highlightedHtml;
+              block.setAttribute("data-processed", "true");
+            }
           }
         });
 
+        // Update highlighted blocks state with new highlights only
         const newHighlights = {};
         Object.entries(results).forEach(([id, html]) => {
           if (!highlightedBlocks[id]) {
@@ -91,7 +111,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
           setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
         }
 
-        htmlString = tempDiv.innerHTML;
+        htmlString = updatedTempDiv.innerHTML;
         setHtml(htmlString);
         // isRendering will be handled by Mermaid effect
       }).catch(error => {
@@ -105,7 +125,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       setHtml(htmlString);
       // isRendering will be handled by Mermaid effect
     }
-  }, [content, highlightedBlocks]);
+  }, [content]); // Only depend on content, not highlightedBlocks
 
   // Handle Mermaid rendering - much cleaner with the hook!
   useEffect(() => {
@@ -162,7 +182,10 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       <div id="preview" className="position-relative">
         <div
           className="preview-scroll"
-          ref={previewScrollRef}
+          ref={(element) => {
+            previewScrollRef.current = element;
+            setCodeCopyRef(element);
+          }}
           dangerouslySetInnerHTML={{ __html: previewHTML }}
         />
         {showLoadingOverlay && (

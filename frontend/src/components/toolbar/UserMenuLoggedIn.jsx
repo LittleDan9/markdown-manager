@@ -1,18 +1,33 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
 import { useAuth } from "../../providers/AuthProvider";
-import UserSettingsModal from "../modals/UserSettingsModal";
+import UserSettingsModal from "../user/modals/UserSettingsModal";
+import GitHubModal from "../github/modals/GitHubModal";
+import IconManagementModal from "../icons/modals/IconManagementModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
   const { user, setUser, logout } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
+  const [showIconModal, setShowIconModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
+
+  // Set up return callback for FileOpen Modal → GitHub Modal navigation
+  useEffect(() => {
+    window.gitHubModalReturnCallback = () => {
+      setShowGitHubModal(true);
+    };
+    
+    return () => {
+      delete window.gitHubModalReturnCallback;
+    };
+  }, []);
 
   const handleProfile = () => {
     setActiveTab("profile-info");
@@ -32,6 +47,19 @@ function UserMenuLoggedIn() {
   const handleDictionary = () => {
     setActiveTab("dictionary");
     setShowSettingsModal(true);
+  };
+
+  const handleGitHub = () => {
+    setShowGitHubModal(true);
+  };
+
+  const handleIconManagement = () => {
+    setShowIconModal(true);
+  };
+
+  const handleAdmin = () => {
+    // Placeholder for future admin functionality
+    showSuccess("Admin panel coming soon!");
   };
 
   const handleLogout = () => {
@@ -61,6 +89,20 @@ function UserMenuLoggedIn() {
         <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
           <i className="bi bi-book me-2"></i>Dictionary
         </Dropdown.Item>
+        <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
+          <i className="bi bi-github me-2"></i>GitHub
+        </Dropdown.Item>
+        {user.is_admin && (
+          <Dropdown.Item id="iconManagementBtn" onClick={handleIconManagement}>
+            <i className="bi bi-images me-2"></i>Icon Management
+          </Dropdown.Item>
+        )}
+        {user.is_admin && (
+          <Dropdown.Item id="adminBtn" onClick={handleAdmin}>
+            <i className="bi bi-shield-fill-check text-danger me-2"></i>
+            <span className="text-danger">Admin</span>
+          </Dropdown.Item>
+        )}
         <Dropdown.Divider />
         <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
           <ThemeToggle idPrefix="userMenu"/>
@@ -76,6 +118,14 @@ function UserMenuLoggedIn() {
         defaultActiveKey={activeTab}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
+      />
+      <GitHubModal
+        show={showGitHubModal}
+        onHide={() => setShowGitHubModal(false)}
+      />
+      <IconManagementModal
+        show={showIconModal}
+        onHide={() => setShowIconModal(false)}
       />
     </>
   );

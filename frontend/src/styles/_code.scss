@@ -66,17 +66,6 @@
     i {
       font-size: 1rem;
     }
-
-    &[data-prismjs-copy].prism-copy-to-clipboard--copied::after {
-      content: "Copied!";
-      margin-left: 0.5rem;
-      font-size: 0.875rem;
-      color: variables.$color-primary;
-
-      [data-bs-theme="dark"] & {
-        color: variables.$color-primary-dark-hover;
-      }
-    }
   }
 }
 

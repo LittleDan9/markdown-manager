@@ -15,17 +15,17 @@ const ComponentLoader = ({ text = "Loading..." }) => (
 
 // Lazy-loaded components
 export const LazyIconBrowser = lazy(() =>
-  import('./IconBrowser.jsx').then(module => ({
+  import('./icons/IconBrowser.jsx').then(module => ({
     default: module.default
   }))
 );
 
 export const LazySettingsModal = lazy(() =>
-  import('./modals/UserSettingsModal.jsx')
+  import('./user/modals/UserSettingsModal.jsx')
 );
 
 export const LazyBackupCodesSection = lazy(() =>
-  import('./modals/BackupCodesSection.jsx')
+  import('./security/modals/BackupCodesSection.jsx')
 );
 
 export const LazyLogLevelController = lazy(() =>

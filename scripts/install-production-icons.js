@@ -32,6 +32,7 @@ class ProductionIconInstaller {
         path: urlParts.pathname + urlParts.search,
         method: options.method || 'GET',
         headers: {
+          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYW5AbGl0dGxlZGFuLmNvbSIsImV4cCI6MTc1Nzk5MzUwMH0.3XJZFD0jcsG6qXtVJXn0irkacNzXtVE9PhvqqTC_Phg`,
           'Content-Type': 'application/json',
           'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           ...options.headers
@@ -196,18 +197,23 @@ class ProductionIconInstaller {
       const iconsData = JSON.parse(fs.readFileSync(iconsJsonPath, 'utf-8'));
       const icons = {};
 
-      for (const [iconKey, iconData] of Object.entries(iconsData.icons || {})) {
-        const left = Number(iconData.left ?? 0);
-        const top = Number(iconData.top ?? 0);
-        const w = Number(iconData.width ?? iconsData.width ?? 24);
-        const h = Number(iconData.height ?? iconsData.height ?? 24);
+      try {
+        for (const [iconKey, iconData] of Object.entries(iconsData.icons || {})) {
+          const left = Number(iconData.left ?? 0);
+          const top = Number(iconData.top ?? 0);
+          const w = Math.round(Number(iconData.width ?? iconsData.width ?? 24));
+          const h = Math.round(Number(iconData.height ?? iconsData.height ?? 24));
 
-        icons[iconKey] = {
-          body: iconData.body, // includes <path>/<g> etc.
-          viewBox: `${left} ${top} ${w} ${h}`,
-          width: w,
-          height: h
-        };
+          icons[iconKey] = {
+            body: iconData.body, // includes <path>/<g> etc.
+            viewBox: `${left} ${top} ${w} ${h}`,
+            width: w,
+            height: h
+          };
+        }
+      } catch (error) {
+        console.error(`Error processing icons in ${packName}:`, error.message);
+        continue;
       }
 
       console.log(`Extracted ${Object.keys(icons).length} icons from ${packName}`);
@@ -240,7 +246,7 @@ class ProductionIconInstaller {
     console.log('Clearing existing icon packs...');
 
     try {
-      const data = await this.apiRequest('/packs/');
+      const data = await this.apiRequest('/packs');
       const existingPacks = data || [];
 
       for (const pack of existingPacks) {
@@ -262,22 +268,23 @@ class ProductionIconInstaller {
     console.log(`Installing pack: ${packData.name} (${Object.keys(packData.icons).length} icons)`);
 
     try {
-      const response = await this.apiRequest('/packs/', {
+      // Convert to the expected StandardizedIconPackRequest format
+      const standardizedPack = {
+        info: {
+          name: packData.name,
+          displayName: packData.display_name,
+          category: packData.category,
+          description: packData.description
+        },
+        icons: packData.icons,
+        width: 24,
+        height: 24
+      };
+
+      const response = await this.apiRequest('/packs', {
         method: 'POST',
         body: JSON.stringify({
-          pack_data: packData,
-          mapping_config: {
-            // Pack metadata mapping
-            name: 'name',
-            display_name: 'display_name',
-            category: 'category',
-            description: 'description',
-            // Icon data mapping
-            icons_data: 'icons',
-            icon_key_field: 'key',
-            search_terms_field: 'search_terms'
-          },
-          package_type: 'json'
+          pack_data: standardizedPack
         })
       });
 
@@ -299,8 +306,13 @@ class ProductionIconInstaller {
     try {
       // Test API connectivity
       console.log('Testing API connectivity...');
-      await this.apiRequest('/packs/');
-      console.log('✅ API connected successfully');
+      try {
+        await this.apiRequest('/packs');
+        console.log('✅ API connected successfully');
+      } catch (error) {
+        console.error('❌ API connectivity test failed:', error.message);
+        throw error;
+      }
 
       // Clear existing data
       await this.clearExistingPacks();
@@ -328,7 +340,8 @@ class ProductionIconInstaller {
           const result = await this.installIconPack(pack);
           results.push(result);
         } catch (error) {
-          console.error(`Failed to install ${pack.name}, continuing...`);
+          console.error(`❌ Failed to install ${pack.name}:`, error.message);
+          console.error('Full error:', error);
         }
       }
 
@@ -354,7 +367,7 @@ class ProductionIconInstaller {
     console.log('\n🔍 Verifying installation...');
 
     try {
-      const data = await this.apiRequest('/packs/');
+      const data = await this.apiRequest('/packs');
       const packs = data || [];
 
       console.log('Installed packs:');
@@ -363,10 +376,10 @@ class ProductionIconInstaller {
       }
 
       // Test search
-      const searchData1 = await this.apiRequest('/search/?q=aws&size=5');
+      const searchData1 = await this.apiRequest('/search?q=aws&size=5');
       console.log(`\nSearch test (AWS): found ${searchData1.total} icons`);
 
-      const searchData2 = await this.apiRequest('/search/?q=logo&size=5');
+      const searchData2 = await this.apiRequest('/search?q=logo&size=5');
       console.log(`Search test (logo): found ${searchData2.total} icons`);
 
       return packs;

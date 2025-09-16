@@ -14,6 +14,7 @@ from app.schemas.custom_dictionary import (
     CustomDictionaryResponse,
     CustomDictionaryUpdate,
     CustomDictionaryWordsResponse,
+    FolderDictionaryWordsResponse,
 )
 
 router = APIRouter()
@@ -22,11 +23,17 @@ router = APIRouter()
 @router.get("/words", response_model=CustomDictionaryWordsResponse)
 async def get_custom_dictionary_words(
     category_id: Optional[int] = None,
+    folder_path: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Get custom dictionary words for the current user, optionally filtered by category."""
-    if category_id is not None:
+    """Get custom dictionary words for the current user, optionally filtered by category or folder path."""
+    if folder_path is not None:
+        words = await crud_dictionary.get_folder_dictionary_words(
+            db, int(current_user.id), folder_path
+        )
+        return CustomDictionaryWordsResponse(words=words, count=len(words))
+    elif category_id is not None:
         words = await crud_dictionary.get_category_dictionary_words(
             db, int(current_user.id), category_id
         )
@@ -67,13 +74,31 @@ async def get_category_dictionary_words(
     )
 
 
-@router.get("/", response_model=list[CustomDictionaryResponse])
-async def get_custom_dictionary_entries(
-    category_id: Optional[int] = None,
+@router.get(
+    "/folder/words", response_model=FolderDictionaryWordsResponse
+)
+async def get_folder_dictionary_words(
+    folder_path: str,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Get custom dictionary entries with details for the current user, optionally filtered by category."""
+    """Get custom dictionary words for a specific folder path."""
+    words = await crud_dictionary.get_folder_dictionary_words(
+        db, int(current_user.id), folder_path
+    )
+    return FolderDictionaryWordsResponse(
+        folder_path=folder_path, words=words, count=len(words)
+    )
+
+
+@router.get("/", response_model=list[CustomDictionaryResponse])
+async def get_custom_dictionary_entries(
+    category_id: Optional[int] = None,
+    folder_path: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Get custom dictionary entries with details for the current user, optionally filtered by category or folder path."""
     entries = await crud_dictionary.get_user_dictionary_words(
         db, int(current_user.id), category_id
     )
@@ -89,12 +114,17 @@ async def add_custom_dictionary_word(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Add a new word to the custom dictionary."""
-    # Check if word already exists in the same scope (user-level or category-level)
+    # Check if word already exists in the same scope (user-level, category-level, or folder-level)
     existing_word = await crud_dictionary.get_dictionary_word_by_word(
-        db, word_data.word, int(current_user.id), word_data.category_id
+        db, word_data.word, int(current_user.id), word_data.category_id, word_data.folder_path
     )
     if existing_word:
-        scope = "category" if word_data.category_id else "user"
+        if word_data.folder_path:
+            scope = "folder"
+        elif word_data.category_id:
+            scope = "category"
+        else:
+            scope = "user"
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"Word already exists in your {scope}-level custom dictionary",
@@ -147,15 +177,21 @@ async def delete_custom_dictionary_word(
 async def delete_custom_dictionary_word_by_text(
     word: str,
     category_id: Optional[int] = None,
+    folder_path: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
-    """Delete a word from the custom dictionary by word text and optional category."""
+    """Delete a word from the custom dictionary by word text and optional category or folder path."""
     success = await crud_dictionary.delete_dictionary_word_by_word(
-        db, word, int(current_user.id), category_id
+        db, word, int(current_user.id), category_id, folder_path
     )
     if not success:
-        scope = "category" if category_id else "user"
+        if folder_path:
+            scope = "folder"
+        elif category_id:
+            scope = "category"
+        else:
+            scope = "user"
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=f"Word not found in your {scope}-level custom dictionary",
@@ -167,6 +203,7 @@ async def delete_custom_dictionary_word_by_text(
 async def bulk_add_custom_dictionary_words(
     words: list[str],
     category_id: Optional[int] = None,
+    folder_path: Optional[str] = None,
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
@@ -178,6 +215,6 @@ async def bulk_add_custom_dictionary_words(
         )
 
     new_words = await crud_dictionary.bulk_create_dictionary_words(
-        db, words, int(current_user.id), category_id
+        db, words, int(current_user.id), category_id, folder_path
     )
     return new_words

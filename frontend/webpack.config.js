@@ -150,17 +150,18 @@ module.exports = {
     new HtmlWebpackPlugin({
       template: './src/index.html',
     }),
-    ...(isProduction ? [new MonacoWebpackPlugin({
+    // Monaco Editor plugin for both development and production
+    new MonacoWebpackPlugin({
       languages: ['markdown'], // Only include markdown language
       features: [
-        // Minimal features to reduce bundle size significantly
+        // Minimal features to reduce bundle size
         'find',
         'clipboard',
         'contextmenu'
       ],
       publicPath: '/',
       globalAPI: false, // Don't expose global monaco API
-    })] : []),
+    }),
     ...(isDevelopment ? [new ReactRefreshWebpackPlugin({
       overlay: false, // Disable error overlay since we have our own
       exclude: [/node_modules/, /\.worker\.js$/], // Exclude workers and node_modules

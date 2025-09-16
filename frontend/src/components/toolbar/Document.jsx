@@ -1,6 +1,6 @@
-import DeleteCategoryModal from "@/components/modals/DeleteCategoryModal";
+import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModal";
 import React, { useEffect, useState } from "react";
-import ConfirmModal from "@/components/modals/ConfirmModal";
+import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";

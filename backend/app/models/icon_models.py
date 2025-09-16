@@ -3,9 +3,8 @@ from __future__ import annotations
 """Icon models for icon service."""
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index
-from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON
+from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
 
 from .base import BaseModel
 
@@ -36,10 +35,6 @@ class IconPack(BaseModel):
     description: Mapped[Optional[str]] = mapped_column(
         Text, nullable=True,
         comment="Description of the icon pack"
-    )
-    icon_count: Mapped[int] = mapped_column(
-        Integer, default=0, nullable=False,
-        comment="Number of icons in this pack"
     )
 
     # Relationships
@@ -79,8 +74,8 @@ class IconMetadata(BaseModel):
         comment="Space-separated search terms for full-text search"
     )
     icon_data: Mapped[Optional[dict]] = mapped_column(
-        JSONB, nullable=True,
-        comment="JSONB for Iconify data or SVG metadata"
+        JSON, nullable=True,
+        comment="JSON for Iconify data or SVG metadata"
     )
     file_path: Mapped[Optional[str]] = mapped_column(
         String(500), nullable=True,

@@ -11,6 +11,7 @@ from .base import BaseModel
 
 if TYPE_CHECKING:
     from .document import Document
+    from .github_models import GitHubAccount
 
 
 class User(BaseModel):
@@ -51,6 +52,7 @@ class User(BaseModel):
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Relationship to documents
     documents: Mapped[list["Document"]] = relationship(
@@ -73,6 +75,11 @@ class User(BaseModel):
     # Categories relationship
     categories = relationship(
         "Category", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    # GitHub integration relationships
+    github_accounts = relationship(
+        "GitHubAccount", back_populates="user", cascade="all, delete-orphan"
     )
 
     @property

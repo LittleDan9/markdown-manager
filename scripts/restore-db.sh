@@ -102,14 +102,68 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO \"$DB_USER\";
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO \"$DB_USER\";
 "
 
-# Restore tables in dependency order (removed alembic_version)
-for table in users documents custom_dictionaries; do
-    echo "$YELLOW📥 Restoring $table table...$NC"
+# Restore tables in dependency order
+echo "$YELLOW📥 Parsing backup file to get available tables...$NC"
 
-    # Extract JSON array for table and check if it exists and is not null
-    table_data=$(jq -r ".tables.$table" "$BACKUP_FILE")
+# Get all tables from backup file
+BACKUP_TABLES=$(jq -r '.tables | keys[]' "$BACKUP_FILE" 2>/dev/null || echo "")
 
+if [ -z "$BACKUP_TABLES" ]; then
+    echo "$RED❌ No tables found in backup file or invalid JSON format$NC"
+    exit 1
+fi
+
+echo "$YELLOW📊 Found tables in backup: $(echo $BACKUP_TABLES | tr '\n' ' ')$NC"
+
+# Define table restore order based on foreign key dependencies
+# Tables with no dependencies first, then dependent tables
+RESTORE_ORDER=(
+    "users"                 # No dependencies (but has self-reference to documents)
+    "icon_packs"           # No dependencies
+    "categories"           # Depends on users
+    "github_accounts"      # Depends on users  
+    "github_repositories"  # Depends on github_accounts
+    "documents"            # Depends on users, categories, github_repositories
+    "custom_dictionaries"  # Depends on users, categories
+    "github_sync_history"  # Depends on documents, github_repositories
+    "icon_metadata"        # Depends on icon_packs
+)
+
+# Get tables that exist in backup but not in our predefined order
+BACKUP_ARRAY=($BACKUP_TABLES)
+EXTRA_TABLES=()
+for table in "${BACKUP_ARRAY[@]}"; do
+    found=false
+    for ordered_table in "${RESTORE_ORDER[@]}"; do
+        if [ "$table" = "$ordered_table" ]; then
+            found=true
+            break
+        fi
+    done
+    if [ "$found" = false ]; then
+        EXTRA_TABLES+=("$table")
+    fi
+done
+
+# Add any extra tables at the end
+if [ ${#EXTRA_TABLES[@]} -gt 0 ]; then
+    echo "$YELLOW⚠️ Found additional tables not in predefined order: ${EXTRA_TABLES[*]}$NC"
+    echo "$YELLOW⚠️ These will be restored last and may fail if dependencies aren't met$NC"
+    RESTORE_ORDER+=("${EXTRA_TABLES[@]}")
+fi
+
+# Special handling for users table due to self-reference to documents
+echo "$YELLOW🔧 Temporarily disabling foreign key constraints for users table...$NC"
+psql "$LOCAL_DB_URL" -c "ALTER TABLE users DROP CONSTRAINT IF EXISTS users_current_doc_id_fkey;"
+
+# Restore tables in dependency order
+for table in "${RESTORE_ORDER[@]}"; do
+    # Check if table exists in backup
+    table_data=$(jq -r ".tables.$table" "$BACKUP_FILE" 2>/dev/null || echo "null")
+    
     if [ "$table_data" != "null" ] && [ "$table_data" != "[]" ] && [ -n "$table_data" ]; then
+        echo "$YELLOW📥 Restoring $table table...$NC"
+        
         # Convert JSON array to individual JSON objects
         echo "$table_data" | jq -c '.[]' > "$TEMP_DIR/$table.json"
 
@@ -122,7 +176,7 @@ for table in users documents custom_dictionaries; do
                 if [ -n "$row" ] && [ "$row" != "null" ]; then
                     # Escape single quotes in JSON for SQL
                     escaped_row=$(echo "$row" | sed "s/'/''/g")
-                    echo "INSERT INTO $table SELECT * FROM json_populate_record(NULL::$table, '$escaped_row');" >> "$TEMP_DIR/$table.sql"
+                    echo "INSERT INTO \"$table\" SELECT * FROM json_populate_record(NULL::\"$table\", '$escaped_row');" >> "$TEMP_DIR/$table.sql"
                 fi
             done < "$TEMP_DIR/$table.json"
 
@@ -137,38 +191,80 @@ for table in users documents custom_dictionaries; do
             echo "$YELLOW⚠️ No data found for $table table in backup$NC"
         fi
     else
-        echo "$YELLOW⚠️ Table $table is empty or null in backup$NC"
+        echo "$YELLOW⚠️ Table $table is empty, null, or missing in backup$NC"
     fi
 done
 
-# Update sequences to prevent ID conflicts
-echo "$YELLOW🔄 Updating sequences...$NC"
+# Restore users table foreign key constraint
+echo "$YELLOW� Restoring foreign key constraints...$NC"
 psql "$LOCAL_DB_URL" -c "
--- Reset all sequences based on actual data
-SELECT setval(pg_get_serial_sequence('users', 'id'), COALESCE(MAX(id), 1)) FROM users;
-SELECT setval(pg_get_serial_sequence('documents', 'id'), COALESCE(MAX(id), 1)) FROM documents;
-SELECT setval(pg_get_serial_sequence('custom_dictionaries', 'id'), COALESCE(MAX(id), 1)) FROM custom_dictionaries;
-SELECT setval(pg_get_serial_sequence('categories', 'id'), COALESCE(MAX(id), 1)) FROM categories;
-"
+    ALTER TABLE users 
+    ADD CONSTRAINT users_current_doc_id_fkey 
+    FOREIGN KEY (current_doc_id) REFERENCES documents(id);
+" 2>/dev/null || echo "$YELLOW⚠️ Could not restore users_current_doc_id_fkey constraint (this is normal if no documents exist)$NC"
+
+# Update sequences to prevent ID conflicts - dynamically discover sequences
+echo "$YELLOW🔄 Updating sequences...$NC"
+SEQUENCES=$(psql "$LOCAL_DB_URL" -t -c "
+    SELECT sequence_name
+    FROM information_schema.sequences 
+    WHERE sequence_schema = 'public';
+" | tr -d ' ' | grep -v '^$' | tr '\n' ' ')
+
+if [ -n "$SEQUENCES" ]; then
+    IFS=' ' read -ra SEQUENCE_ARRAY <<< "$SEQUENCES"
+    for seq in "${SEQUENCE_ARRAY[@]}"; do
+        if [ -n "$seq" ]; then
+            # Get table and column name from sequence name (assuming standard naming)
+            table_name=$(echo "$seq" | sed 's/_id_seq$//')
+            if [ "$table_name" != "$seq" ]; then
+                echo "$YELLOW🔄 Updating sequence: $seq for table: $table_name$NC"
+                psql "$LOCAL_DB_URL" -c "
+                    SELECT setval('$seq', COALESCE(MAX(id), 1)) FROM \"$table_name\";
+                " 2>/dev/null || echo "$YELLOW⚠️ Could not update sequence $seq$NC"
+            fi
+        fi
+    done
+else
+    echo "$YELLOW⚠️ No sequences found to update$NC"
+fi
 
 echo "$GREEN✅ Database restore complete$NC"
 
-# Show restore summary (fixed duplicate query)
+# Show restore summary
 echo "$YELLOW📊 Restore Summary:$NC"
-psql "$LOCAL_DB_URL" -c "
-SELECT
-    'users' as table_name, COUNT(*) as records
-FROM users
-UNION ALL
-SELECT
-    'documents' as table_name, COUNT(*) as records
-FROM documents
-UNION ALL
-SELECT
-    'custom_dictionaries' as table_name, COUNT(*) as records
-FROM custom_dictionaries
-UNION ALL
-SELECT
-    'categories' as table_name, COUNT(*) as records
-FROM categories;
-"
+
+# Get all tables that actually exist in the database now
+EXISTING_TABLES=$(psql "$LOCAL_DB_URL" -t -c "
+    SELECT table_name
+    FROM information_schema.tables 
+    WHERE table_schema = 'public' 
+    AND table_type = 'BASE TABLE'
+    AND table_name != 'alembic_version'
+    ORDER BY table_name;
+" | tr -d ' ' | grep -v '^$' | tr '\n' ' ')
+
+if [ -n "$EXISTING_TABLES" ]; then
+    IFS=' ' read -ra TABLE_ARRAY <<< "$EXISTING_TABLES"
+    
+    # Build dynamic query to show counts for all tables
+    UNION_QUERIES=()
+    for table in "${TABLE_ARRAY[@]}"; do
+        if [ -n "$table" ]; then
+            UNION_QUERIES+=("SELECT '$table' as table_name, COUNT(*) as records FROM \"$table\"")
+        fi
+    done
+    
+    if [ ${#UNION_QUERIES[@]} -gt 0 ]; then
+        # Join queries with UNION ALL
+        FULL_QUERY=$(printf " UNION ALL %s" "${UNION_QUERIES[@]}")
+        FULL_QUERY=${FULL_QUERY# UNION ALL }  # Remove leading "UNION ALL"
+        FULL_QUERY="$FULL_QUERY ORDER BY table_name;"
+        
+        psql "$LOCAL_DB_URL" -c "$FULL_QUERY"
+    else
+        echo "$YELLOW⚠️ No tables found to summarize$NC"
+    fi
+else
+    echo "$YELLOW⚠️ No tables found in database$NC"
+fi

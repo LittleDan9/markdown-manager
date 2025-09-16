@@ -1,27 +1,47 @@
-import React, { useState } from "react";
-import { Modal, Button, Form } from "react-bootstrap";
-import ConfirmModal from "@/components/modals/ConfirmModal";
+import React, { useState, useEffect } from "react";
+import { Modal, Button, Tabs, Tab } from "react-bootstrap";
+import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useNotification } from "@/components/NotificationProvider";
+import { useAuth } from "@/providers/AuthProvider";
+import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+import { useFileModal } from "@/hooks/ui";
+// Import the new tab components
+import LocalDocumentsTab from "./tabs/LocalDocumentsTab";
+import GitHubTab from "./tabs/GitHubTab";
 
-export default function FileOpenModal({ show, onHide, categories, documents, onOpen, setContent, deleteDocument }) {
-  // Always ensure 'General' is present
-  const safeCategories = categories?.includes("General") ? categories : ["General", ...(categories?.filter(c => c !== "General") || [])];
-  const [selectedCategory, setSelectedCategory] = useState(safeCategories[0] || "General");
-  const [selectedDocId, setSelectedDocId] = useState(null);
+export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument }) {
+  const { documents, categories } = useDocumentContext();
   const [showConfirm, setShowConfirm] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { showSuccess, showError } = useNotification();
+  const { isAuthenticated } = useAuth();
+  const { activeTab, selectedRepository, closeFileModal } = useFileModal();
 
-  // Filter documents by selected category
-  const filteredDocs = documents?.filter(
-    (doc) => doc.category === selectedCategory
-  ) || [];
+  // Sync the activeTab from the global state
+  const [localActiveTab, setLocalActiveTab] = useState(activeTab || "local");
 
-  // Helper to get last saved date
-  function getLastSaved(doc) {
-    return doc.updated_at || doc.created_at || null;
-  }
+  useEffect(() => {
+    if (activeTab) {
+      setLocalActiveTab(activeTab);
+    }
+  }, [activeTab, selectedRepository]);
+
+  // Override onHide to also close the global modal state
+  const handleHide = () => {
+    closeFileModal();
+    onHide();
+  };
+
+  const handleFileOpen = (doc) => {
+    onOpen(doc);
+    if (setContent) setContent(doc.content);
+  };
+
+  const handleDocumentDelete = (doc) => {
+    setDocToDelete(doc);
+    setShowConfirm(true);
+  };
 
   const handleDelete = async () => {
     if (!docToDelete || isDeleting) {
@@ -32,9 +52,9 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
 
     try {
       await deleteDocument(docToDelete.id);
+      showSuccess(`"${docToDelete.name}" has been deleted.`);
       setShowConfirm(false);
       setDocToDelete(null);
-      setSelectedDocId(null);
     } catch (err) {
       showError(`Failed to delete document '${docToDelete.name}'.`);
       setShowConfirm(false);
@@ -46,112 +66,97 @@ export default function FileOpenModal({ show, onHide, categories, documents, onO
 
   return (
     <>
-      <Modal show={show && !showConfirm} onHide={onHide} centered dialogClassName="open-file-modal-scroll">
+      <Modal
+        show={show && !showConfirm}
+        onHide={handleHide}
+        centered
+        size="xl"
+        dialogClassName="open-file-modal-scroll"
+        style={{ '--bs-modal-width': '90vw' }}
+      >
         <Modal.Header closeButton>
-          <Modal.Title>Open Document</Modal.Title>
+          <Modal.Title>
+            <i className="bi bi-folder2-open me-2"></i>
+            Open Document
+          </Modal.Title>
         </Modal.Header>
-        <Modal.Body>
-          <Form.Group className="mb-3">
-            <Form.Label>Category</Form.Label>
-            <Form.Select
-              value={selectedCategory}
-              onChange={(e) => {
-                setSelectedCategory(e.target.value);
-                setSelectedDocId(null);
-              }}
+
+                <Modal.Body style={{
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: 0
+        }}>
+          <div className="file-open-modal-container">
+            <Tabs
+              activeKey={localActiveTab}
+              onSelect={(k) => setLocalActiveTab(k)}
+              id="open-document-tabs"
             >
-              {safeCategories.map((cat) => (
-                <option key={cat} value={cat}>
-                  {cat}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-          <div className="list-group" style={{ maxHeight: "50vh", overflowY: "auto" }}>
-            {filteredDocs.length === 0 && (
-              <div className="text-muted">No documents in this category.</div>
-            )}
-            {filteredDocs.map((doc) => (
-              <div
-                key={doc.id}
-                className="list-group-item d-flex align-items-center justify-content-between mb-2 border rounded shadow-sm"
-                style={{ padding: "1rem" }}
-              >
-                <div className="flex-grow-1">
-                  <div style={{ fontSize: "1.2rem", fontWeight: "bold" }}>{doc.name}</div>
-                  <div className="text-muted" style={{ fontSize: "0.9rem" }}>
-                    Last saved: {getLastSaved(doc) ? new Date(getLastSaved(doc)).toLocaleString() : "Unknown"}
-                  </div>
-                </div>
-                <div className="d-flex align-items-center gap-2 ms-3">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => {
-                      setSelectedCategory(doc.category); // Sync category to opened doc
-                      onOpen(doc);
-                      if (setContent) setContent(doc.content);
-                    }}
-                  >
-                    <i className="bi bi-folder2-open me-1"></i>Open
-                  </Button>
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    onClick={() => {
-                      setDocToDelete(doc);
-                      setShowConfirm(true);
-                    }}
-                  >
-                    <i className="bi bi-trash me-1"></i>Delete
-                  </Button>
-                </div>
-              </div>
-            ))}
+              <Tab eventKey="local" title={
+                <span>
+                  <i className="bi bi-folder me-2"></i>
+                  My Documents
+                </span>
+              }>
+                <LocalDocumentsTab
+                  documents={documents}
+                  categories={categories}
+                  onFileOpen={handleFileOpen}
+                  onDocumentDelete={handleDocumentDelete}
+                  onModalHide={handleHide}
+                />
+              </Tab>
+
+              {isAuthenticated && (
+                <Tab eventKey="github" title={
+                  <span>
+                    <i className="bi bi-github me-2"></i>
+                    GitHub
+                  </span>
+                }>
+                  <GitHubTab
+                    isAuthenticated={isAuthenticated}
+                    documents={documents}
+                    onFileOpen={handleFileOpen}
+                    onModalHide={handleHide}
+                    selectedRepository={selectedRepository}
+                  />
+                </Tab>
+              )}
+            </Tabs>
           </div>
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={onHide}>
+
+        {/* <Modal.Footer>
+          <Button variant="secondary" onClick={handleHide}>
             Cancel
           </Button>
-          <Button
-            variant="primary"
-            onClick={() => {
-              const doc = documents?.find((d) => d.id === selectedDocId);
-              if (doc) {
-                onOpen(doc);
-                if (setContent) setContent(doc.content);
-              }
-            }}
-            disabled={!selectedDocId}
-          >
-            Open
-          </Button>
-        </Modal.Footer>
+        </Modal.Footer> */}
       </Modal>
+
       <ConfirmModal
         show={showConfirm}
         title="Delete Document"
         message={`Are you sure you want to delete '${docToDelete?.name}'? This cannot be undone.`}
         icon={<i className="bi bi-trash text-danger me-2"></i>}
         buttons={[
-          { text: "Delete", variant: "danger", action: "delete", autoFocus: true, disabled: isDeleting },
-          { text: "Cancel", variant: "secondary", action: "cancel", disabled: isDeleting },
+          {
+            variant: "secondary",
+            text: "Cancel",
+            onClick: () => {
+              setShowConfirm(false);
+              setDocToDelete(null);
+            }
+          },
+          {
+            variant: "danger",
+            text: isDeleting ? "Deleting..." : "Delete",
+            onClick: handleDelete,
+            disabled: isDeleting
+          }
         ]}
-        onAction={async (actionKey) => {
-          if (actionKey === "delete") {
-            await handleDelete();
-          } else if (actionKey === "cancel") {
-            setShowConfirm(false);
-            setDocToDelete(null);
-          }
-        }}
-        onHide={() => {
-          if (!isDeleting) {
-            setShowConfirm(false);
-            setDocToDelete(null);
-          }
-        }}
       />
     </>
   );

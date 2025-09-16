@@ -10,7 +10,8 @@ from ...services.icon_service import IconService
 from ...schemas.icon_schemas import (
     IconSearchResponse,
     IconSearchRequest,
-    IconMetadataResponse
+    IconMetadataResponse,
+    IconMetadataUpdate
 )
 from .docs import ICON_SEARCH_DOCS, ICON_METADATA_DOCS, ICON_SVG_DOCS
 
@@ -23,7 +24,7 @@ async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
 
 
 @router.get(
-    "/",
+    "",
     response_model=IconSearchResponse,
     **ICON_SEARCH_DOCS
 )
@@ -47,6 +48,19 @@ async def search_icons(
             size=size
         )
         result = await icon_service.search_icons(search_request)
+
+        # Add reference URLs to each icon in search results for better API navigation
+        for icon in result.icons:
+            if hasattr(icon, 'pack') and icon.pack:
+                pack_name = getattr(icon.pack, 'name', str(icon.pack))
+                icon_key = getattr(icon, 'key', getattr(icon, 'icon_key', 'unknown'))
+                setattr(icon, 'urls', {
+                    "self": f"/icons/packs/{pack_name}/icons/{icon_key}",
+                    "raw": f"/icons/packs/{pack_name}/icons/{icon_key}/raw",
+                    "svg": f"/icons/packs/{pack_name}/icons/{icon_key}/svg",
+                    "pack": f"/icons/packs/{pack_name}"
+                })
+
         return result
     except Exception as e:
         raise HTTPException(
@@ -107,4 +121,62 @@ async def get_icon_svg(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get icon SVG: {str(e)}"
+        )
+
+
+@router.patch(
+    "/{icon_id}",
+    response_model=IconMetadataResponse,
+    summary="Update icon metadata",
+    description="Update metadata for a specific icon"
+)
+async def update_icon_metadata(
+    icon_id: int,
+    metadata: IconMetadataUpdate,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Update metadata for a specific icon."""
+    try:
+        # Convert to dict and exclude None values
+        metadata_dict = {k: v for k, v in metadata.model_dump().items() if v is not None}
+        icon = await icon_service.update_icon_metadata(icon_id, metadata_dict)
+        if not icon:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Icon with ID {icon_id} not found"
+            )
+        return icon
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update icon metadata: {str(e)}"
+        )
+
+
+@router.delete(
+    "/{icon_id}",
+    summary="Delete icon",
+    description="Delete a specific icon"
+)
+async def delete_icon(
+    icon_id: int,
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Delete a specific icon."""
+    try:
+        success = await icon_service.delete_icon(icon_id)
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Icon with ID {icon_id} not found"
+            )
+        return {"success": True, "message": f"Icon {icon_id} deleted successfully"}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete icon: {str(e)}"
         )

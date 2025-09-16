@@ -1,11 +1,11 @@
 import { useState, useCallback } from 'react';
-import { DictionaryService } from '@/services/utilities';
+import DictionaryService from '@/services/dictionary';
 
 /**
  * Custom hook for dictionary CRUD operations
- * Handles adding, updating, and deleting dictionary words
+ * Updated to support folder-path based dictionaries
  */
-export function useDictionaryOperations({ selectedCategory, categories, onSuccess, onError, onEntriesChange }) {
+export function useDictionaryOperations({ selectedScope, onSuccess, onError, onEntriesChange }) {
   const [operationLoading, setOperationLoading] = useState(false);
 
   // Add a new word
@@ -17,19 +17,24 @@ export function useDictionaryOperations({ selectedCategory, categories, onSucces
     setOperationLoading(true);
 
     try {
-      const categoryId = selectedCategory || null;
-      await DictionaryService.addWord(word.trim(), notes.trim() || null, categoryId);
+      const scope = selectedScope;
+      if (scope?.folderPath) {
+        await DictionaryService.addWord(word.trim(), notes.trim() || null, scope.folderPath);
+      } else if (scope?.categoryId) {
+        // Backward compatibility
+        await DictionaryService.addWord(word.trim(), notes.trim() || null, null, scope.categoryId);
+      } else {
+        // User-level dictionary
+        await DictionaryService.addWord(word.trim(), notes.trim() || null);
+      }
 
       // Notify parent to refresh
       if (onEntriesChange) {
         await onEntriesChange();
       }
 
-      const categoryText = selectedCategory 
-        ? ` to ${categories.find(c => c.id === selectedCategory)?.name || 'category'}` 
-        : '';
-      
-      const successMessage = `Added "${word.trim()}" to your dictionary${categoryText}`;
+      const scopeText = scope?.displayName || 'personal dictionary';
+      const successMessage = `Added "${word.trim()}" to ${scopeText}`;
       if (onSuccess) onSuccess(successMessage);
       
       return { word: '', notes: '' }; // Return cleared form values
@@ -43,26 +48,31 @@ export function useDictionaryOperations({ selectedCategory, categories, onSucces
     } finally {
       setOperationLoading(false);
     }
-  }, [selectedCategory, categories, onSuccess, onError, onEntriesChange]);
+  }, [selectedScope, onSuccess, onError, onEntriesChange]);
 
   // Delete a word
   const deleteWord = useCallback(async (wordToDelete) => {
     setOperationLoading(true);
 
     try {
-      const categoryId = selectedCategory || null;
-      await DictionaryService.deleteWord(wordToDelete, categoryId);
+      const scope = selectedScope;
+      if (scope?.folderPath) {
+        await DictionaryService.deleteWord(wordToDelete, scope.folderPath);
+      } else if (scope?.categoryId) {
+        // Backward compatibility
+        await DictionaryService.deleteWord(wordToDelete, null, scope.categoryId);
+      } else {
+        // User-level dictionary
+        await DictionaryService.deleteWord(wordToDelete);
+      }
 
       // Notify parent to refresh
       if (onEntriesChange) {
         await onEntriesChange();
       }
 
-      const categoryText = selectedCategory 
-        ? ` from ${categories.find(c => c.id === selectedCategory)?.name || 'category'}` 
-        : '';
-      
-      const successMessage = `Deleted "${wordToDelete}" from your dictionary${categoryText}`;
+      const scopeText = scope?.displayName || 'personal dictionary';
+      const successMessage = `Deleted "${wordToDelete}" from ${scopeText}`;
       if (onSuccess) onSuccess(successMessage);
     } catch (err) {
       console.error("Error deleting word:", err);
@@ -72,7 +82,7 @@ export function useDictionaryOperations({ selectedCategory, categories, onSucces
     } finally {
       setOperationLoading(false);
     }
-  }, [selectedCategory, categories, onSuccess, onError, onEntriesChange]);
+  }, [selectedScope, onSuccess, onError, onEntriesChange]);
 
   // Update word notes
   const updateWordNotes = useCallback(async (entry, newNotes) => {

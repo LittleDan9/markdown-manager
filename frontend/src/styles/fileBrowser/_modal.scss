@@ -1,0 +1,91 @@
+// File Browser Modal Styles
+// Modal-specific overrides and layout
+
+.file-open-modal-container {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  // Tab navigation should be fixed height
+  .nav-tabs {
+    flex-shrink: 0;
+    margin-bottom: 0.5rem !important; // Small spacing between tabs and content
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  // Tab content should fill remaining space
+  .tab-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+
+    .tab-pane {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+      height: 100%;
+
+      &.active {
+        height: 100%;
+        display: flex !important; // Override Bootstrap's display: block
+      }
+
+      // Ensure inactive tab panes don't interfere
+      &:not(.active) {
+        display: none !important;
+      }
+    }
+  }
+
+  // File browser container within tabs
+  .file-browser-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-height: 0;
+    height: 100%;
+
+    // Header card should be fixed height
+    .header-card {
+      flex-shrink: 0;
+      margin-bottom: 0.5rem;
+    }
+
+    // File browser should fill remaining space with minimal margins
+    .unified-file-browser {
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      // Remove the margins that might be causing spacing issues
+      margin-top: 0;
+      margin-bottom: 0;
+
+      // Ensure all child elements use flex properly
+      > div {
+        flex: 1;
+        min-height: 0;
+        overflow: hidden;
+      }
+    }
+  }
+
+  // Ensure modal file browser preview doesn't inherit main app preview styles
+  .unified-file-browser .file-browser-preview {
+    border: 1px solid var(--bs-border-color) !important;
+
+    .preview-scroll {
+      border: none !important;
+      border-radius: 0 !important;
+      padding: 0.75rem !important;
+    }
+  }
+}

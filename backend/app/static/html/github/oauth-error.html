@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>GitHub Connection Error</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+            color: #333;
+        }
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        .error-icon {
+            font-size: 48px;
+            color: #dc3545;
+            margin-bottom: 20px;
+        }
+        h2 {
+            color: #dc3545;
+            margin: 0 0 16px 0;
+            font-weight: 600;
+        }
+        p {
+            margin: 12px 0;
+            line-height: 1.5;
+        }
+        .error {
+            color: #dc3545;
+            font-weight: 500;
+        }
+        .error-detail {
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 12px;
+            margin: 16px 0;
+            font-family: monospace;
+            font-size: 13px;
+            word-break: break-word;
+        }
+        .note {
+            color: #6c757d;
+            font-size: 14px;
+        }
+        .github-logo {
+            width: 24px;
+            height: 24px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="error-icon">✗</div>
+        <h2>
+            <svg class="github-logo" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+            </svg>
+            Connection Failed
+        </h2>
+        <p class="error">Failed to connect your GitHub account.</p>
+        <div class="error-detail" id="error-detail">
+            <!-- Error message will be inserted here -->
+        </div>
+        <p class="note">Please try again or contact support if the problem persists.</p>
+    </div>
+
+    <script>
+        // Get error message from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const errorMessage = urlParams.get('error') || 'Unknown error occurred';
+        document.getElementById('error-detail').textContent = errorMessage;
+
+        // Send error message to parent window and close popup
+        function closePopupWithError() {
+            // Check if we have an opener (parent window)
+            if (window.opener && !window.opener.closed) {
+                // Try multiple origins since we might be in development
+                const origins = [
+                    'http://localhost:80',           // Nginx frontend
+                    'http://localhost',              // Nginx frontend (no port)
+                    'http://localhost:3000',         // Development frontend
+                    window.location.origin,          // Current origin
+                    window.location.origin.replace('api.', '')  // Remove api. prefix
+                ];
+
+                const message = {
+                    type: 'GITHUB_AUTH_ERROR',
+                    error: errorMessage
+                };
+
+                // Send message to all possible origins
+                origins.forEach(origin => {
+                    try {
+                        window.opener.postMessage(message, origin);
+                    } catch (error) {
+                        // Silently continue to next origin
+                        console.log(`Failed to send error message to ${origin}:`, error);
+                    }
+                });
+
+                // Also try sending to '*' as a fallback
+                try {
+                    window.opener.postMessage(message, '*');
+                } catch (error) {
+                    console.log('Failed to send error message to *:', error);
+                }
+
+                // Close the popup after a longer delay so user can see console logs
+                setTimeout(() => {
+                    window.close();
+                }, 15000); // Changed to 15 seconds for error page
+            } else {
+                // No opener available - just close the window
+                console.log('No opener window available, closing popup');
+                setTimeout(() => {
+                    window.close();
+                }, 3000);
+            }
+        }
+
+        // Start the close process after showing error for a moment
+        setTimeout(closePopupWithError, 1500);
+    </script>
+</body>
+</html>
