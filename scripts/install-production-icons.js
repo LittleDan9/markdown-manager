@@ -32,7 +32,7 @@ class ProductionIconInstaller {
         path: urlParts.pathname + urlParts.search,
         method: options.method || 'GET',
         headers: {
-          'Authorization': `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYW5AbGl0dGxlZGFuLmNvbSIsImV4cCI6MTc1Nzk5MzUwMH0.3XJZFD0jcsG6qXtVJXn0irkacNzXtVE9PhvqqTC_Phg`,
+          'Authorization': `Bearer `,
           'Content-Type': 'application/json',
           'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
           ...options.headers

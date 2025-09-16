@@ -6,33 +6,8 @@ import uuid
 import pyotp
 import pytest
 
-from app.app_factory import create_app
-from app.database import get_db
 
-
-@pytest.fixture
-def test_app(test_db):
-    """Create test app with test database."""
-    app = create_app()
-
-    # Override the database dependency
-    async def get_test_db():
-        yield test_db
-
-    app.dependency_overrides[get_db] = get_test_db
-
-    yield app
-
-    # Clean up
-    app.dependency_overrides.clear()
-
-
-@pytest.fixture
-def client(test_app):
-    """Create test client."""
-    from fastapi.testclient import TestClient
-
-    return TestClient(test_app)
+# Remove test_app and client fixtures - use the ones from conftest.py
 
 
 class TOTPSimulator:
@@ -47,18 +22,18 @@ class TOTPSimulator:
         return self.totp.at(timestamp)
 
 
-def register_and_login(client, email, password, **extra):
+async def register_and_login(client, email, password, **extra):
     # Register
     reg_data = {"email": email, "password": password}
     reg_data.update(extra)
-    reg_resp = client.post("/auth/register", json=reg_data)
+    reg_resp = await client.post("/auth/register", json=reg_data)
     # Accept either success or "already exists" error
     assert reg_resp.status_code in [200, 400]
     if reg_resp.status_code == 400:
         assert "already" in reg_resp.text.lower()
 
     # Login
-    login_resp = client.post("/auth/login", json={"email": email, "password": password})
+    login_resp = await client.post("/auth/login", json={"email": email, "password": password})
     assert login_resp.status_code == 200
     token = login_resp.json()["access_token"]
     return token
@@ -68,43 +43,43 @@ def register_and_login(client, email, password, **extra):
 async def test_mfa_totp_workflow(client):
     email = f"mfauser-{uuid.uuid4()}@example.com"
     password = "MfaTestPassword123!"
-    token = register_and_login(
+    token = await register_and_login(
         client, email, password, first_name="MFA", last_name="User"
     )
     headers = {"Authorization": f"Bearer {token}"}
 
-    def setup_mfa():
-        setup_resp = client.post("/auth/mfa/setup", headers=headers)
+    async def setup_mfa():
+        setup_resp = await client.post("/auth/mfa/setup", headers=headers)
         assert setup_resp.status_code == 200
         setup_data = setup_resp.json()
         assert "secret" in setup_data
         return TOTPSimulator(setup_data["secret"])
 
-    def verify_totp(totp):
+    async def verify_totp(totp):
         code = totp.get_current_code()
-        verify_resp = client.post(
+        verify_resp = await client.post(
             "/auth/mfa/verify", json={"totp_code": code}, headers=headers
         )
         assert verify_resp.status_code == 200
 
-    def enable_mfa(totp):
-        enable_resp = client.post(
+    async def enable_mfa(totp):
+        enable_resp = await client.post(
             "/auth/mfa/enable",
             json={"totp_code": totp.get_current_code(), "current_password": password},
             headers=headers,
         )
         assert enable_resp.status_code == 200
 
-    def get_backup_codes():
-        backup_resp = client.get("/auth/mfa/backup-codes", headers=headers)
+    async def get_backup_codes():
+        backup_resp = await client.get("/auth/mfa/backup-codes", headers=headers)
         assert backup_resp.status_code == 200
         backup_data = backup_resp.json()
         assert "backup_codes" in backup_data
         assert len(backup_data["backup_codes"]) > 0
         return backup_data["backup_codes"]
 
-    def regenerate_backup_codes(totp):
-        regen_resp = client.post(
+    async def regenerate_backup_codes(totp):
+        regen_resp = await client.post(
             "/auth/mfa/regenerate-backup-codes",
             json={"totp_code": totp.get_current_code()},
             headers=headers,
@@ -112,18 +87,18 @@ async def test_mfa_totp_workflow(client):
         assert regen_resp.status_code == 200
         return regen_resp.json()["backup_codes"]
 
-    def disable_mfa(totp):
-        disable_resp = client.post(
+    async def disable_mfa(totp):
+        disable_resp = await client.post(
             "/auth/mfa/disable",
             json={"totp_code": totp.get_current_code(), "current_password": password},
             headers=headers,
         )
         assert disable_resp.status_code == 200
 
-    totp = setup_mfa()
-    verify_totp(totp)
-    enable_mfa(totp)
-    backup_codes = get_backup_codes()
-    new_codes = regenerate_backup_codes(totp)
+    totp = await setup_mfa()
+    await verify_totp(totp)
+    await enable_mfa(totp)
+    backup_codes = await get_backup_codes()
+    new_codes = await regenerate_backup_codes(totp)
     assert new_codes != backup_codes
-    disable_mfa(totp)
+    await disable_mfa(totp)

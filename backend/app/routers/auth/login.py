@@ -76,6 +76,12 @@ async def sync_user_github_repositories_background(user_id: int, force_sync: boo
         force_sync: If True, sync regardless of last sync time. If False, only sync
                    if it's been more than 1 hour since last sync.
     """
+    # Skip background sync during tests
+    import os
+    if os.environ.get("PYTEST_CURRENT_TEST") or os.environ.get("ALEMBIC_USE_SQLITE") == "true":
+        print(f"Skipping GitHub background sync for user {user_id} (test environment)")
+        return
+
     async with AsyncSessionLocal() as db:
         try:
             github_crud = GitHubCRUD()

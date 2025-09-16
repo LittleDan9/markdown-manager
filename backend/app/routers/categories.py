@@ -18,7 +18,7 @@ from app.schemas.category import (
 router = APIRouter()
 
 
-@router.get("/", response_model=list[CategoryResponse])
+@router.get("", response_model=list[CategoryResponse])
 async def get_categories(
     current_user: User = Depends(get_current_active_user),
     db: AsyncSession = Depends(get_db),
@@ -58,7 +58,7 @@ async def get_category(
     return category
 
 
-@router.post("/", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=CategoryResponse, status_code=status.HTTP_201_CREATED)
 async def create_category(
     category_data: CategoryCreate,
     current_user: User = Depends(get_current_active_user),

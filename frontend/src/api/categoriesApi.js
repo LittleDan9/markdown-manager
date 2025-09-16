@@ -9,7 +9,7 @@ class CategoriesAPI extends Api {
    * @returns {Promise<Array>}
    */
   async getCategories() {
-    const response = await this.apiCall('/categories/');
+    const response = await this.apiCall('/categories');
     return response.data;
   }
 
@@ -38,7 +38,7 @@ class CategoriesAPI extends Api {
    * @returns {Promise<Object>}
    */
   async createCategory(name) {
-    const response = await this.apiCall('/categories/', 'POST', {
+    const response = await this.apiCall('/categories', 'POST', {
       name: name.trim()
     });
     return response.data;
