@@ -35,6 +35,29 @@ async def create_document_response(
         if content is None:
             content = ""
 
+    # Check if category name is already populated (from CRUD layer joins)
+    category_name = getattr(document, 'category', None)
+
+    # If not available, try to get it from category_id
+    if not category_name and document.category_id:
+        try:
+            from app.crud.category import get_category_by_id
+            from app.database import get_db
+
+            # We need to get a database session - this is a bit hacky but necessary
+            # In a real implementation, we'd pass the db session as a parameter
+            async for db in get_db():
+                category = await get_category_by_id(db=db, category_id=document.category_id, user_id=user_id)
+                if category:
+                    category_name = category.name
+                break
+        except Exception as e:
+            print(f"Error fetching category name for category_id {document.category_id}: {e}")
+
+    # Use the folder path to infer category name as final fallback
+    if not category_name and document.folder_path and document.folder_path != '/':
+        category_name = document.folder_path.strip('/').split('/')[-1]
+
     # Manually construct the Document response schema
     return DocumentSchema(
         id=document.id,
@@ -46,7 +69,7 @@ async def create_document_response(
         updated_at=document.updated_at,
         is_shared=document.is_shared,
         share_token=document.share_token,
-        category=None,  # Will be populated by calling function if needed
+        category=category_name,  # Now populated with actual category name
         folder_path=document.folder_path,
         file_path=document.file_path,
         repository_type=document.repository_type,

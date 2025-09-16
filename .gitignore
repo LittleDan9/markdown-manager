@@ -112,3 +112,4 @@ backend/*.crt
 backend/htmlcov
 
 gallery/
+backups/migration/pre_deliverable7_backup_20250916_011511.json
