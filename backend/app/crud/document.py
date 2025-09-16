@@ -444,16 +444,11 @@ class DocumentCRUD:
         folder_path: Optional[str] = None
     ) -> List[Document]:
         """Search documents by content/name with optional folder filtering."""
-        from sqlalchemy import or_
-
         search_query = select(Document).where(Document.user_id == user_id)
 
-        # Add text search
+        # Add text search (only by name since content is not stored in DB)
         search_query = search_query.where(
-            or_(
-                Document.name.ilike(f"%{query}%"),
-                Document.content.ilike(f"%{query}%")
-            )
+            Document.name.ilike(f"%{query}%")
         )
 
         # Add folder filtering if specified

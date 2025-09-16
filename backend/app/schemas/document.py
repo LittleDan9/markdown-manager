@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_serializer, validator
+from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
 
 class DocumentBase(BaseModel):
@@ -23,21 +23,20 @@ class DocumentCreate(BaseModel):
     folder_path: Optional[str] = Field(None, min_length=1, max_length=1000)
     category_id: Optional[int] = Field(None, description="Category ID (legacy support)")
 
-    @validator('folder_path')
+    @field_validator('folder_path')
+    @classmethod
     def validate_folder_path(cls, v):
         if v is not None and not v.startswith('/'):
             v = f"/{v}"
         return v
 
-    @validator('category_id', 'folder_path')
-    def validate_location_required(cls, v, values):
+    @model_validator(mode='after')
+    def validate_location_required(self):
         # At least one of folder_path or category_id must be provided
-        folder_path = values.get('folder_path')
-        if not folder_path and not v:
+        if not self.folder_path and not self.category_id:
             # If neither is provided, default to /General
-            if 'folder_path' not in values:
-                values['folder_path'] = '/General'
-        return v
+            self.folder_path = '/General'
+        return self
 
 
 class DocumentUpdate(BaseModel):
@@ -50,7 +49,8 @@ class DocumentUpdate(BaseModel):
     )
     folder_path: Optional[str] = Field(None, min_length=1, max_length=1000)
 
-    @validator('folder_path')
+    @field_validator('folder_path')
+    @classmethod
     def validate_folder_path(cls, v):
         if v is not None and not v.startswith('/'):
             v = f"/{v}"
@@ -154,7 +154,8 @@ class CreateFolderRequest(BaseModel):
 
     path: str = Field(..., min_length=1, max_length=1000)
 
-    @validator('path')
+    @field_validator('path')
+    @classmethod
     def validate_folder_path(cls, v):
         if not v.startswith('/'):
             v = f"/{v}"
@@ -170,7 +171,8 @@ class MoveDocumentRequest(BaseModel):
 
     new_folder_path: str = Field(..., min_length=1, max_length=1000)
 
-    @validator('new_folder_path')
+    @field_validator('new_folder_path')
+    @classmethod
     def validate_folder_path(cls, v):
         if not v.startswith('/'):
             v = f"/{v}"
