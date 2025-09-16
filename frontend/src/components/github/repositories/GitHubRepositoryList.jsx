@@ -1,11 +1,9 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Card, Badge, Button, Row, Col } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import useFileModal from '../../../hooks/ui/useFileModal';
 
 export default function GitHubRepositoryList({ repositories, accountId, onRepositoryBrowse }) {
-  const [showBrowser, setShowBrowser] = useState(false);
-  const [selectedRepository, setSelectedRepository] = useState(null);
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
 
@@ -16,14 +14,8 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
       return;
     }
 
-    // Fallback to the original separate modal behavior
-    setSelectedRepository(repo);
-    setShowBrowser(true);
-  };
-
-  const handleCloseBrowser = () => {
-    setShowBrowser(false);
-    setSelectedRepository(null);
+    // Open the repository in the file modal
+    openGitHubTab(repo);
   };
 
   const handleSyncRepository = async (repo) => {
@@ -115,13 +107,6 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
         ))}
       </Row>
 
-      {/* Repository Browser Modal */}
-      <GitHubRepositoryBrowser
-        show={showBrowser}
-        onHide={handleCloseBrowser}
-        repository={selectedRepository}
-        accountId={accountId}
-      />
     </>
   );
 }

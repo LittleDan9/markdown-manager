@@ -5,6 +5,13 @@ applyTo: "backend/**/*"
 
 # FastAPI + SQLAlchemy + Alembic + Poetry
 
+## 🚨 **ACTIVE MIGRATION PROJECT**
+**Currently implementing filesystem-based document storage migration**.
+See `filesystem-migration.instructions.md` for complete migration guide, deliverables, and test scripts.
+**All document-related changes must align with filesystem storage architecture.**
+
+---
+
 When writing or reviewing backend code in this repository, AI agents must follow these rules:
 
 1. **RESTful Endpoints**

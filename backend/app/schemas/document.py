@@ -13,8 +13,11 @@ class DocumentBase(BaseModel):
     category_id: Optional[int] = Field(None, description="Category ID (legacy)")
 
 
-class DocumentCreate(DocumentBase):
+class DocumentCreate(BaseModel):
     """Schema for creating a document with folder or category support."""
+
+    name: str = Field(..., min_length=1, max_length=255)
+    content: str = Field("", description="Markdown content - defaults to empty string")
 
     # Support both new and legacy request formats
     folder_path: Optional[str] = Field(None, min_length=1, max_length=1000)
@@ -67,6 +70,10 @@ class DocumentInDB(DocumentBase):
 
     # NEW: Folder-based fields
     folder_path: str = Field(default="/", description="Hierarchical folder path")
+
+    # NEW: Filesystem storage fields
+    file_path: Optional[str] = Field(None, description="Relative path to file in storage system")
+    repository_type: str = Field(default="local", description="Repository type: local, github, or external")
 
     # GitHub integration fields
     github_repository_id: Optional[int] = None
@@ -209,3 +216,31 @@ class FolderStructureResponse(BaseModel):
     tree: dict
     total_folders: int
     user_id: int
+
+
+class DocumentHistoryCommit(BaseModel):
+    """Schema for a single commit in document history."""
+
+    hash: str
+    message: str
+    author: str
+    date: Optional[str] = None
+    files: list[str] = []
+
+
+class DocumentHistoryResponse(BaseModel):
+    """Schema for document version history response."""
+
+    document_id: int
+    document_name: str
+    repository_type: str
+    history: list[DocumentHistoryCommit]
+
+
+class DocumentVersionContent(BaseModel):
+    """Schema for document content at a specific version."""
+
+    document_id: int
+    document_name: str
+    commit_hash: str
+    content: str

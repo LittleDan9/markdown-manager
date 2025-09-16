@@ -9,6 +9,7 @@ from app.core.auth import get_current_user
 from app.database import get_db, AsyncSessionLocal
 from app.models import User
 from app.services.github_service import GitHubService
+from app.services.storage import UserStorage
 
 router = APIRouter()
 github_service = GitHubService()
@@ -16,6 +17,7 @@ github_service = GitHubService()
 
 async def sync_repositories_background(
     account_id: int,
+    user_id: int,
     access_token: str,
     db_session_factory,
 ):
@@ -26,10 +28,13 @@ async def sync_repositories_background(
             from app.crud.github_crud import GitHubCRUD
             github_crud = GitHubCRUD()
 
+            # Initialize user storage service for filesystem operations
+            user_storage_service = UserStorage()
+
             # Fetch repositories from GitHub
             github_repos = await github_service.get_user_repositories(access_token)
 
-            # Create or update repositories in database
+            # Create or update repositories in database and clone to filesystem
             for repo_data in github_repos:
                 # Check if repository already exists
                 existing_repo = await github_crud.get_repository_by_github_id(
@@ -61,6 +66,35 @@ async def sync_repositories_background(
                         "is_enabled": True,
                     }
                     await github_crud.create_repository(db, repo_create_data)
+
+                # Clone repository to filesystem if not already present
+                try:
+                    repo_dir = user_storage_service.get_github_repo_directory(
+                        user_id, account_id, repo_data["name"]
+                    )
+
+                    if not repo_dir.exists():
+                        # Construct clone URL with access token for private repos
+                        clone_url = f"https://{access_token}@github.com/{repo_data['full_name']}.git"
+
+                        clone_success = await user_storage_service.clone_github_repo(
+                            user_id=user_id,
+                            account_id=account_id,
+                            repo_name=repo_data["name"],
+                            repo_url=clone_url,
+                            branch=repo_data.get("default_branch")
+                        )
+
+                        if clone_success:
+                            print(f"Successfully cloned repository {repo_data['full_name']} to filesystem")
+                        else:
+                            print(f"Failed to clone repository {repo_data['full_name']} to filesystem")
+                    else:
+                        print(f"Repository {repo_data['full_name']} already exists on filesystem")
+
+                except Exception as clone_error:
+                    print(f"Error cloning repository {repo_data['full_name']}: {clone_error}")
+                    # Don't fail the entire sync for individual clone errors
 
             await db.commit()
 
@@ -171,6 +205,9 @@ async def oauth_callback_page(
         from app.crud.github_crud import GitHubCRUD
         github_crud = GitHubCRUD()
 
+        # Initialize UserStorage for filesystem operations
+        user_storage_service = UserStorage()
+
         # Check if account already exists by GitHub ID
         existing_account = await github_crud.get_account_by_github_id(
             db, github_user["id"]
@@ -198,12 +235,24 @@ async def oauth_callback_page(
             account = await github_crud.create_account(db, account_data)
             account_id = account.id
 
+            # Create GitHub directory structure for new account
+            try:
+                github_account_dir = user_storage_service.get_github_account_directory(
+                    user_id, account_id
+                )
+                github_account_dir.mkdir(parents=True, exist_ok=True)
+                print(f"Created GitHub account directory: {github_account_dir}")
+            except Exception as dir_error:
+                print(f"Warning: Failed to create GitHub directory structure: {dir_error}")
+                # Don't fail the OAuth process for directory creation issues
+
         await db.commit()
 
         # Schedule background repository sync
         background_tasks.add_task(
             sync_repositories_background,
             account_id,
+            user_id,
             access_token,
             AsyncSessionLocal
         )

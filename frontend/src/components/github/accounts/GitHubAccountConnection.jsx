@@ -1,25 +1,45 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, Alert, Card } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import gitHubApi from '../../../api/gitHubApi';
+import githubOAuthListener from '../../../utils/GitHubOAuthListener';
 
 export default function GitHubAccountConnection({ onSuccess }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
   const { showSuccess, showError } = useNotification();
 
-  const openAuthWindow = (authUrl) => {
-    // Open GitHub OAuth in new window
-    const popup = window.open(authUrl, 'githubAuth', 'width=600,height=600,scrollbars=yes,resizable=yes');
+  // Set up global OAuth listener
+  useEffect(() => {
+    console.log('GitHubAccountConnection: Setting up global OAuth listener');
+    const cleanup = githubOAuthListener.addListener(handleAuthMessage);
 
-    // Check if popup was blocked
+    return cleanup; // Cleanup when component unmounts
+  }, []);
+
+  const openAuthWindow = (authUrl) => {
+    console.log('Opening OAuth popup for URL:', authUrl);
+
+    // Try a different approach: use a form with target="_blank" to preserve opener
+    const popup = window.open('', 'githubAuth', 'width=600,height=600,scrollbars=yes,resizable=yes');
+
     if (!popup || popup.closed) {
       setError('Popup was blocked. Please allow popups for this site and try again.');
       return;
     }
 
-    // Listen for auth completion
-    window.addEventListener('message', handleAuthMessage);
+    // Navigate the popup to the auth URL - this should preserve opener
+    popup.location.href = authUrl;
+
+    console.log('Popup opened and navigated successfully');
+    console.log('Popup window object:', popup);
+
+    // Listen for auth completion via postMessage
+    const messageListener = (event) => {
+      console.log('Received message:', event);
+      handleAuthMessage(event);
+    };
+    window.addEventListener('message', messageListener);
 
     // Monitor popup status
     let checkCount = 0;
@@ -28,11 +48,12 @@ export default function GitHubAccountConnection({ onSuccess }) {
       try {
         if (popup.closed) {
           clearInterval(checkClosed);
-          window.removeEventListener('message', handleAuthMessage);
+          window.removeEventListener('message', messageListener);
           setConnecting(false);
+          console.log('Popup was closed');
         }
       } catch (e) {
-        // Error checking popup status
+        console.error('Error checking popup status:', e);
       }
     }, 1000);
 
@@ -42,12 +63,17 @@ export default function GitHubAccountConnection({ onSuccess }) {
         popup.close();
       }
       clearInterval(checkClosed);
-      window.removeEventListener('message', handleAuthMessage);
+      window.removeEventListener('message', messageListener);
       setConnecting(false);
+      console.log('OAuth timeout - cleaning up');
     }, 300000);
   };
 
   const handleAuthMessage = (event) => {
+    console.log('handleAuthMessage called with event:', event);
+    console.log('Event origin:', event.origin);
+    console.log('Event data:', event.data);
+
     // For debugging, temporarily accept all origins but log them
     const allowedOrigins = [
       'http://localhost:80',
@@ -60,17 +86,20 @@ export default function GitHubAccountConnection({ onSuccess }) {
     ];
 
     if (!allowedOrigins.includes(event.origin)) {
-      // Proceeding anyway for debugging
+      console.log('Origin not in allowed list, but proceeding anyway for debugging');
     }
 
     if (event.data.type === 'GITHUB_AUTH_SUCCESS') {
+      console.log('Received GITHUB_AUTH_SUCCESS');
       window.removeEventListener('message', handleAuthMessage);
       setConnecting(false);
       // showSuccess('GitHub account connected successfully!');
       if (onSuccess) {
+        console.log('Calling onSuccess callback');
         onSuccess();
       }
     } else if (event.data.type === 'GITHUB_AUTH_ERROR') {
+      console.log('Received GITHUB_AUTH_ERROR:', event.data.error);
       window.removeEventListener('message', handleAuthMessage);
       setConnecting(false);
       setError('GitHub authentication failed. Please try again.');

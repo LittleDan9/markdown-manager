@@ -24,7 +24,12 @@ async def get_current_document(
             db=db, id=current_user.current_doc_id
         )
         if document and document.user_id == current_user.id:
-            return Document.model_validate(document, from_attributes=True)
+            # Use the helper function to create response with filesystem content
+            from .response_utils import create_document_response
+            return await create_document_response(
+                document=document,
+                user_id=current_user.id
+            )
     return None
 
 

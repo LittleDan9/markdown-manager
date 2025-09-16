@@ -3,6 +3,7 @@ import { Card, Button, Alert, Badge, Row, Col } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubAccountConnection, GitHubAccountList } from '../index';
 import gitHubApi from '../../../api/gitHubApi';
+import githubOAuthListener from '../../../utils/GitHubOAuthListener';
 
 export default function GitHubAccountsTab() {
   const [accounts, setAccounts] = useState([]);
@@ -12,6 +13,21 @@ export default function GitHubAccountsTab() {
 
   useEffect(() => {
     loadAccounts();
+
+    // Set up global OAuth listener for this tab
+    console.log('GitHubAccountsTab: Setting up global OAuth listener');
+    const cleanup = githubOAuthListener.addListener((event) => {
+      console.log('GitHubAccountsTab: Received OAuth result', event);
+      if (event.data.type === 'GITHUB_AUTH_SUCCESS') {
+        console.log('GitHubAccountsTab: Processing OAuth success');
+        handleAccountConnected();
+      } else if (event.data.type === 'GITHUB_AUTH_ERROR') {
+        console.log('GitHubAccountsTab: Processing OAuth error');
+        showError('GitHub authentication failed');
+      }
+    });
+
+    return cleanup;
   }, []);
 
   const loadAccounts = async () => {

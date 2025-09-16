@@ -105,6 +105,9 @@ backend/*.sqlite
 backend/*.sqlite3
 backend/postgres-data
 
+# Filesystem storage (development)
+storage/
+
 backend/*.crt
 backend/htmlcov
 

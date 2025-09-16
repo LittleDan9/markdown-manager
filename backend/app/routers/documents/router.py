@@ -57,9 +57,13 @@ async def get_documents(
         db=db, user_id=current_user.id
     )
 
-    documents = [
-        Document.model_validate(doc, from_attributes=True) for doc in orm_documents
-    ]
+    # Use the helper function to create responses with filesystem content
+    from .response_utils import create_document_list_response
+    documents = await create_document_list_response(
+        documents=orm_documents,
+        user_id=current_user.id
+    )
+
     return DocumentList(
         documents=documents, total=len(documents), categories=categories
     )
@@ -71,7 +75,13 @@ async def create_document(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Document:
-    """Create a new document with folder or category support during transition."""
+    """Create a new document with filesystem storage and folder or category support."""
+    from app.services.storage.user import UserStorage
+    from .response_utils import create_document_response
+    from app.models.document import Document as DocumentModel
+    from app.schemas.document import DocumentConflictError
+
+    storage_service = UserStorage()
 
     # Handle both folder_path and category_id during transition
     folder_path = None
@@ -79,57 +89,10 @@ async def create_document(
 
     if hasattr(document_data, 'folder_path') and document_data.folder_path:
         # New folder-based approach
-        from app.models.document import Document as DocumentModel
         folder_path = DocumentModel.normalize_folder_path(document_data.folder_path)
-
-        # Check for duplicate in folder
-        existing_docs = await document_crud.document.get_documents_by_folder_path(
-            db, current_user.id, folder_path
-        )
-
-        for existing_doc in existing_docs:
-            if existing_doc.name == document_data.name:
-                existing_document_schema = Document.model_validate(
-                    existing_doc, from_attributes=True
-                )
-
-                from app.schemas.document import DocumentConflictError
-                conflict_detail = DocumentConflictError(
-                    detail="A document with this name already exists in this folder.",
-                    conflict_type="name_conflict",
-                    existing_document=existing_document_schema,
-                )
-                raise HTTPException(status_code=400, detail=conflict_detail.model_dump())
-
     elif hasattr(document_data, 'category_id') and document_data.category_id:
         # Legacy category-based approach
         category_id = document_data.category_id
-
-        # Check for duplicate (name, category) per user - existing logic
-        from sqlalchemy import select
-        from app.models.document import Document as DocumentModel
-
-        existing_result = await db.execute(
-            select(DocumentModel).filter(
-                DocumentModel.user_id == current_user.id,
-                DocumentModel.name == document_data.name,
-                DocumentModel.category_id == document_data.category_id,
-            )
-        )
-        existing_doc = existing_result.scalar_one_or_none()
-
-        if existing_doc:
-            existing_document_schema = Document.model_validate(
-                existing_doc, from_attributes=True
-            )
-
-            from app.schemas.document import DocumentConflictError
-            conflict_detail = DocumentConflictError(
-                detail="A document with this name and category already exists.",
-                conflict_type="name_conflict",
-                existing_document=existing_document_schema,
-            )
-            raise HTTPException(status_code=400, detail=conflict_detail.model_dump())
 
         # Convert category to folder path for storage
         from app.crud.category import get_user_categories
@@ -141,12 +104,56 @@ async def create_document(
         # Default folder if neither provided
         folder_path = "/General"
 
-    # Create document with folder path
-    from app.models.document import Document as DocumentModel
+    # Ensure we have a folder path
+    folder_path = folder_path or "/General"
+
+    # Check for duplicate documents in folder
+    existing_docs = await document_crud.document.get_documents_by_folder_path(
+        db, current_user.id, folder_path
+    )
+
+    for existing_doc in existing_docs:
+        if existing_doc.name == document_data.name:
+            existing_document_schema = Document.model_validate(
+                existing_doc, from_attributes=True
+            )
+
+            conflict_detail = DocumentConflictError(
+                detail="A document with this name already exists in this folder.",
+                conflict_type="name_conflict",
+                existing_document=existing_document_schema,
+            )
+            raise HTTPException(status_code=400, detail=conflict_detail.model_dump())
+
+    # Determine file path for filesystem storage
+    # For local categories, store in local/{category_name}/filename.md
+    # Ensure filename has .md extension
+    filename = document_data.name if document_data.name.endswith('.md') else f"{document_data.name}.md"
+    category_name = folder_path.strip('/').split('/')[-1] if folder_path != '/' else 'General'
+    file_path = f"local/{category_name}/{filename}"
+
+    # Write content to filesystem
+    content = document_data.content or ""
+    filesystem_success = await storage_service.write_document(
+        user_id=current_user.id,
+        file_path=file_path,
+        content=content,
+        commit_message=f"Create document: {document_data.name}",
+        auto_commit=True
+    )
+
+    if not filesystem_success:
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create document in filesystem storage"
+        )
+
+    # Create database record with file_path reference
     document = DocumentModel(
         name=document_data.name,
-        content=document_data.content or "",
-        folder_path=folder_path or "/General",
+        file_path=file_path,
+        repository_type="local",
+        folder_path=folder_path,
         category_id=category_id,  # Keep for transition
         user_id=current_user.id
     )
@@ -155,7 +162,12 @@ async def create_document(
     await db.commit()
     await db.refresh(document)
 
-    return Document.model_validate(document, from_attributes=True)
+    # Use the helper function to create the response
+    return await create_document_response(
+        document=document,
+        user_id=current_user.id,
+        content=content
+    )
 
 
 # Include all document sub-routers

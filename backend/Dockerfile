@@ -44,10 +44,11 @@ ENV PYTHONUNBUFFERED=1 \
 # Copy virtual environment from build stage
 COPY --from=python-base /markdown-manager/.venv /markdown-manager/.venv
 
-# Install minimal runtime dependencies
+# Install minimal runtime dependencies including git
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /markdown-manager
@@ -65,7 +66,9 @@ RUN chmod +x /markdown-manager/entrypoint.sh
 # Create non-root user for security and setup directories
 RUN groupadd -r markdown && useradd -r -g markdown markdown && \
     mkdir -p /markdown-manager/documents && \
-    chown -R markdown:markdown /markdown-manager
+    mkdir -p /documents && \
+    chown -R markdown:markdown /markdown-manager && \
+    chown -R markdown:markdown /documents
 USER markdown
 
 # Expose port

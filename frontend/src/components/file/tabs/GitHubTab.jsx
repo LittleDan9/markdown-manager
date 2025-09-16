@@ -6,6 +6,7 @@ import { GitHubProvider } from "../../../services/FileBrowserProviders";
 import { useNotification } from "../../NotificationProvider";
 import useFileModal from "../../../hooks/ui/useFileModal";
 import gitHubApi from "../../../api/gitHubApi";
+import githubOAuthListener from "../../../utils/GitHubOAuthListener";
 
 export default function GitHubTab({
   isAuthenticated,
@@ -21,6 +22,23 @@ export default function GitHubTab({
   const [loading, setLoading] = useState(false);
   const { showError, showSuccess } = useNotification();
   const { returnCallback, closeFileModal } = useFileModal();
+
+  // Set up global OAuth listener for this tab
+  useEffect(() => {
+    console.log('GitHubTab: Setting up global OAuth listener');
+    const cleanup = githubOAuthListener.addListener((event) => {
+      console.log('GitHubTab: Received OAuth result', event);
+      if (event.data.type === 'GITHUB_AUTH_SUCCESS') {
+        console.log('GitHubTab: Processing OAuth success - refreshing account list');
+        // The GitHubAccountList component should handle its own refresh
+      } else if (event.data.type === 'GITHUB_AUTH_ERROR') {
+        console.log('GitHubTab: Processing OAuth error');
+        showError('GitHub authentication failed');
+      }
+    });
+
+    return cleanup;
+  }, []);
 
   // Auto-select repository if provided via global state
   useEffect(() => {
@@ -113,7 +131,7 @@ export default function GitHubTab({
 
       // Handle the new enhanced import response format
       let importedDoc = null;
-      
+
       // Check if we got the new format with results.imported array
       if (importResponse.results?.imported?.length > 0) {
         const importResult = importResponse.results.imported[0];
@@ -122,7 +140,7 @@ export default function GitHubTab({
           id: importResult.document_id,
           name: importResult.name
         };
-      } 
+      }
       // Fallback to old formats for backward compatibility
       else if (importResponse.document) {
         importedDoc = importResponse.document;
@@ -162,6 +180,7 @@ export default function GitHubTab({
         <GitHubAccountList
           onBrowseRepository={handleGitHubRepositorySelect}
           compact={true}
+          maxHeight="70vh"
         />
       ) : (
         <div className="file-browser-container">

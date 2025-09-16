@@ -67,48 +67,72 @@
     </div>
 
     <script>
-        // Send success message to parent window
-        if (window.opener) {
-            // Try multiple origins since we might be in development
-            const origins = [
-                'http://localhost:80',           // Nginx frontend
-                'http://localhost',              // Nginx frontend (no port)
-                'http://localhost:3000',         // Development frontend
-                window.location.origin,          // Current origin
-                window.location.origin.replace('api.', '')  // Remove api. prefix
-            ];
+        // Debug logging
+        console.log('OAuth success page loaded');
+        console.log('window.opener exists:', !!window.opener);
+        console.log('window.opener.closed:', window.opener ? window.opener.closed : 'N/A');
+        console.log('window.parent exists:', !!window.parent);
+        console.log('window.name:', window.name);
 
-            const message = { type: 'GITHUB_AUTH_SUCCESS' };
-
-            origins.forEach(origin => {
-                try {
-                    window.opener.postMessage(message, origin);
-                } catch (error) {
-                    // Silently continue to next origin
-                }
-            });
-
-            // Also try sending to '*' as a fallback
+        // Try to restore opener reference if we know the window name
+        if (!window.opener && window.name === 'githubAuth') {
+            console.log('Attempting to find parent window by name...');
+            // This is a hack, but sometimes works
             try {
-                window.opener.postMessage(message, '*');
-            } catch (error) {
-                // Silently fail
+                const parentWindow = window.parent;
+                if (parentWindow && parentWindow !== window) {
+                    window.opener = parentWindow;
+                    console.log('Restored opener reference via parent');
+                }
+            } catch (e) {
+                console.log('Could not restore opener via parent:', e);
             }
-        } else {
-            // If no opener, redirect to the main app with a success parameter
-            const mainAppUrl = new URL(window.location.origin);
-            mainAppUrl.searchParams.set('github_oauth', 'success');
-
-            setTimeout(() => {
-                window.location.href = mainAppUrl.toString();
-            }, 3000);
         }
 
-        setTimeout(() => {
-            if (window.opener) {
-                window.close();
+        // Send success message to parent window and close popup
+        function closePopupWithSuccess() {
+            let messageWasSent = false;
+
+            // Method 1: Try postMessage first (fastest)
+            if (window.opener && !window.opener.closed) {
+                console.log('Attempting to send message via window.opener');
+
+                const message = { type: 'GITHUB_AUTH_SUCCESS' };
+
+                try {
+                    window.opener.postMessage(message, '*');
+                    console.log('Successfully sent message via opener');
+                    messageWasSent = true;
+                } catch (error) {
+                    console.log('Failed to send message via opener:', error);
+                }
+            } else {
+                console.log('No opener window available');
             }
-        }, 2000);
+
+            // Method 2: Always use localStorage as well (reliable fallback)
+            console.log('Using localStorage method');
+            try {
+                const fallbackData = {
+                    type: 'GITHUB_AUTH_SUCCESS',
+                    timestamp: Date.now()
+                };
+                localStorage.setItem('github_oauth_result', JSON.stringify(fallbackData));
+                console.log('Saved to localStorage:', fallbackData);
+                messageWasSent = true;
+            } catch (error) {
+                console.log('Failed to save to localStorage:', error);
+            }
+
+            // Close the popup after 3 seconds
+            setTimeout(() => {
+                console.log('Closing popup window');
+                window.close();
+            }, 3000); // 3 seconds
+        }
+
+        // Start the close process immediately when page loads
+        closePopupWithSuccess();
     </script>
 </body>
 </html>

@@ -135,9 +135,69 @@ def upgrade() -> None:
         op.f("ix_document_recovery_id"), "document_recovery", ["id"], unique=False
     )
 
+    # Create icon_packs table
+    op.create_table(
+        "icon_packs",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("name", sa.String(100), nullable=False, comment="Unique identifier like 'awssvg', 'logos'"),
+        sa.Column("display_name", sa.String(255), nullable=False, comment="Human readable name like 'AWS Services'"),
+        sa.Column("category", sa.String(100), nullable=False, comment="Grouping like 'aws', 'iconify'"),
+        sa.Column("description", sa.Text(), nullable=True, comment="Description of the icon pack"),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_icon_packs_id"), "icon_packs", ["id"], unique=False)
+    op.create_index(op.f("ix_icon_packs_category"), "icon_packs", ["category"], unique=False)
+    op.create_index(op.f("ix_icon_packs_name"), "icon_packs", ["name"], unique=True)
+
+    # Create icon_metadata table
+    op.create_table(
+        "icon_metadata",
+        sa.Column("id", sa.Integer(), nullable=False),
+        sa.Column("pack_id", sa.Integer(), nullable=False),
+        sa.Column("key", sa.String(255), nullable=False, comment="Icon identifier within pack"),
+        sa.Column("full_key", sa.String(355), nullable=False, comment="Computed: pack.name + ':' + key"),
+        sa.Column("search_terms", sa.Text(), nullable=False, comment="Space-separated search terms for full-text search"),
+        sa.Column("icon_data", sa.JSON(), nullable=True, comment="JSON for Iconify data or SVG metadata"),
+        sa.Column("file_path", sa.String(500), nullable=True, comment="File path for AWS SVG files"),
+        sa.Column("access_count", sa.Integer(), nullable=False, comment="Number of times this icon has been accessed"),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("updated_at", sa.DateTime(), nullable=False),
+        sa.ForeignKeyConstraint(["pack_id"], ["icon_packs.id"], ondelete="CASCADE"),
+        sa.PrimaryKeyConstraint("id"),
+    )
+    op.create_index(op.f("ix_icon_metadata_id"), "icon_metadata", ["id"], unique=False)
+    op.create_index(op.f("ix_icon_metadata_pack_id"), "icon_metadata", ["pack_id"], unique=False)
+    op.create_index(op.f("ix_icon_metadata_access_count"), "icon_metadata", ["access_count"], unique=False)
+    op.create_index(op.f("ix_icon_metadata_full_key"), "icon_metadata", ["full_key"], unique=False)
+    op.create_index(op.f("ix_icon_metadata_search_terms"), "icon_metadata", ["search_terms"], unique=False)
+    op.create_index(op.f("ix_icon_metadata_pack_key"), "icon_metadata", ["pack_id", "key"], unique=False)
+
+    # Create unique constraints for icon tables
+    op.create_unique_constraint("uq_icon_full_key", "icon_metadata", ["full_key"])
+    op.create_unique_constraint("uq_icon_pack_key", "icon_metadata", ["pack_id", "key"])
+
 
 def downgrade() -> None:
     """Drop all tables."""
+    # Drop icon tables first (due to foreign keys)
+    op.drop_constraint("uq_icon_pack_key", "icon_metadata", type_="unique")
+    op.drop_constraint("uq_icon_full_key", "icon_metadata", type_="unique")
+    op.drop_index(op.f("ix_icon_metadata_pack_key"), table_name="icon_metadata")
+    op.drop_index(op.f("ix_icon_metadata_search_terms"), table_name="icon_metadata")
+    op.drop_index(op.f("ix_icon_metadata_full_key"), table_name="icon_metadata")
+    op.drop_index(op.f("ix_icon_metadata_access_count"), table_name="icon_metadata")
+    op.drop_index(op.f("ix_icon_metadata_pack_id"), table_name="icon_metadata")
+    op.drop_index(op.f("ix_icon_metadata_id"), table_name="icon_metadata")
+    op.drop_table("icon_metadata")
+
+    op.drop_index(op.f("ix_icon_packs_name"), table_name="icon_packs")
+    op.drop_index(op.f("ix_icon_packs_category"), table_name="icon_packs")
+    op.drop_index(op.f("ix_icon_packs_id"), table_name="icon_packs")
+    op.drop_table("icon_packs")
+
+    # Drop other tables
     op.drop_index(op.f("ix_document_recovery_id"), table_name="document_recovery")
     op.drop_table("document_recovery")
     op.drop_index(op.f("ix_custom_dictionaries_id"), table_name="custom_dictionaries")

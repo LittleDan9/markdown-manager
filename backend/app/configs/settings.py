@@ -82,6 +82,28 @@ class Settings(BaseSettings):
         default="http://pdf-service:8001", description="PDF service URL"
     )
 
+    # Filesystem storage configuration
+    markdown_storage_root: str = Field(
+        default="/documents", description="Root directory for document storage"
+    )
+
+    # GitHub repository storage configuration
+    github_max_repo_size_mb: int = Field(
+        default=100, description="Maximum size per GitHub repository in MB"
+    )
+    github_total_storage_limit_gb: int = Field(
+        default=5, description="Total GitHub storage limit in GB"
+    )
+    github_clone_depth: int = Field(
+        default=10, description="Shallow clone depth for GitHub repositories"
+    )
+    github_auto_prune_days: int = Field(
+        default=30, description="Auto-prune unused repositories after N days"
+    )
+    github_markdown_only: bool = Field(
+        default=True, description="Only clone/sync markdown files from GitHub repos"
+    )
+
     # GitHub OAuth configuration
     github_client_id: Optional[str] = Field(
         default=None, description="GitHub OAuth client ID"

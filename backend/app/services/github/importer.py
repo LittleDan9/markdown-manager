@@ -38,7 +38,7 @@ class GitHubImportService(BaseGitHubService):
         # Extract file information
         file_path = file_data['path']
         file_name = file_data['name']
-        
+
         # Get file content from GitHub
         try:
             file_content, github_sha = await api_service.get_file_content(
@@ -67,8 +67,15 @@ class GitHubImportService(BaseGitHubService):
         )
 
         if existing_doc:
-            # Update existing document
-            existing_doc.content = file_content
+            # Update existing document filesystem content
+            from app.services.storage.user import UserStorage
+            user_storage_service = UserStorage()
+
+            # Write content to filesystem
+            if existing_doc.file_path:
+                await user_storage_service.write_document(user_id, existing_doc.file_path, file_content)
+
+            # Update database metadata
             existing_doc.folder_path = folder_path
             existing_doc.github_sha = github_sha
             existing_doc.github_sync_status = 'synced'
@@ -89,7 +96,9 @@ class GitHubImportService(BaseGitHubService):
                     'repository_id': repository.id,
                     'file_path': file_path,
                     'branch': branch,
-                    'sha': github_sha
+                    'sha': github_sha,
+                    'repo_name': repository.repo_name,
+                    'account_id': repository.account_id
                 }
             )
 
@@ -121,7 +130,7 @@ class GitHubImportService(BaseGitHubService):
                 document = await self.import_repository_file(
                     user_id, repository, access_token, file_data, branch
                 )
-                
+
                 if hasattr(document, '_sa_instance_state') and document._sa_instance_state.persistent:
                     results['updated'].append({
                         'file_path': file_data['path'],
@@ -218,7 +227,7 @@ class GitHubImportService(BaseGitHubService):
         """Recursively flatten repository structure to get all markdown files."""
         from .api import GitHubAPIService
         api_service = GitHubAPIService()
-        
+
         markdown_files = []
 
         for file_data in files:

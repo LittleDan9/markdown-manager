@@ -85,45 +85,56 @@
         const errorMessage = urlParams.get('error') || 'Unknown error occurred';
         document.getElementById('error-detail').textContent = errorMessage;
 
-        // Send error message to parent window
-        if (window.opener) {
-            // Try multiple origins since we might be in development
-            const origins = [
-                'http://localhost:80',           // Nginx frontend
-                'http://localhost',              // Nginx frontend (no port)
-                'http://localhost:3000',         // Development frontend
-                window.location.origin,          // Current origin
-                window.location.origin.replace('api.', '')  // Remove api. prefix
-            ];
+        // Send error message to parent window and close popup
+        function closePopupWithError() {
+            // Check if we have an opener (parent window)
+            if (window.opener && !window.opener.closed) {
+                // Try multiple origins since we might be in development
+                const origins = [
+                    'http://localhost:80',           // Nginx frontend
+                    'http://localhost',              // Nginx frontend (no port)
+                    'http://localhost:3000',         // Development frontend
+                    window.location.origin,          // Current origin
+                    window.location.origin.replace('api.', '')  // Remove api. prefix
+                ];
 
-            const message = {
-                type: 'GITHUB_AUTH_ERROR',
-                error: errorMessage
-            };
+                const message = {
+                    type: 'GITHUB_AUTH_ERROR',
+                    error: errorMessage
+                };
 
-            origins.forEach(origin => {
+                // Send message to all possible origins
+                origins.forEach(origin => {
+                    try {
+                        window.opener.postMessage(message, origin);
+                    } catch (error) {
+                        // Silently continue to next origin
+                        console.log(`Failed to send error message to ${origin}:`, error);
+                    }
+                });
+
+                // Also try sending to '*' as a fallback
                 try {
-                    window.opener.postMessage(message, origin);
+                    window.opener.postMessage(message, '*');
                 } catch (error) {
-                    // Silently continue to next origin
+                    console.log('Failed to send error message to *:', error);
                 }
-            });
-        } else {
-            // If no opener, redirect to the main app with an error parameter
-            const mainAppUrl = new URL(window.location.origin);
-            mainAppUrl.searchParams.set('github_oauth', 'error');
-            mainAppUrl.searchParams.set('github_error', errorMessage);
 
-            setTimeout(() => {
-                window.location.href = mainAppUrl.toString();
-            }, 3000);
+                // Close the popup after a longer delay so user can see console logs
+                setTimeout(() => {
+                    window.close();
+                }, 15000); // Changed to 15 seconds for error page
+            } else {
+                // No opener available - just close the window
+                console.log('No opener window available, closing popup');
+                setTimeout(() => {
+                    window.close();
+                }, 3000);
+            }
         }
 
-        setTimeout(() => {
-            if (window.opener) {
-                window.close();
-            }
-        }, 2000);
+        // Start the close process after showing error for a moment
+        setTimeout(closePopupWithError, 1500);
     </script>
 </body>
 </html>

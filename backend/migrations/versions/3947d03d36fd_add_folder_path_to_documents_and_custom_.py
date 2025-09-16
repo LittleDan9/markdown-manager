@@ -21,7 +21,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade_documents() -> None:
     """Add folder_path support to documents table."""
-    
+
     # Step 1: Add folder_path column (nullable initially)
     op.add_column('documents',
                   sa.Column('folder_path', sa.String(1000), nullable=True, default='/',
@@ -95,25 +95,26 @@ def upgrade_custom_dictionary() -> None:
 
 def upgrade() -> None:
     """Upgrade schema."""
-    
+
     # Upgrade documents table
     upgrade_documents()
-    
+
     # Upgrade custom dictionaries table
     upgrade_custom_dictionary()
-    
-    # Handle the icon_metadata change (from autogenerate)
-    op.alter_column('icon_metadata', 'icon_data',
-                    existing_type=postgresql.JSONB(astext_type=sa.Text()),
-                    type_=sa.JSON(),
-                    comment='JSON for Iconify data or SVG metadata',
-                    existing_comment='JSONB for Iconify data or SVG metadata',
-                    existing_nullable=True)
+
+    # Handle the icon_metadata change (from autogenerate) - TEMPORARILY COMMENTED OUT for filesystem migration
+    # TODO: Fix icon table creation in migrations
+    # op.alter_column('icon_metadata', 'icon_data',
+    #                 existing_type=postgresql.JSONB(astext_type=sa.Text()),
+    #                 type_=sa.JSON(),
+    #                 comment='JSON for Iconify data or SVG metadata',
+    #                 existing_comment='JSONB for Iconify data or SVG metadata',
+    #                 existing_nullable=True)
 
 
 def downgrade() -> None:
     """Downgrade schema."""
-    
+
     # Reverse icon_metadata change
     op.alter_column('icon_metadata', 'icon_data',
                     existing_type=sa.JSON(),
@@ -121,12 +122,12 @@ def downgrade() -> None:
                     comment='JSONB for Iconify data or SVG metadata',
                     existing_comment='JSON for Iconify data or SVG metadata',
                     existing_nullable=True)
-    
+
     # Remove custom dictionaries changes
     op.drop_constraint('uq_folder_dictionary_word', 'custom_dictionaries', type_='unique')
     op.drop_index('ix_custom_dictionaries_folder_path', 'custom_dictionaries')
     op.drop_column('custom_dictionaries', 'folder_path')
-    
+
     # Remove documents changes
     op.drop_constraint('uq_user_folder_name', 'documents', type_='unique')
     op.drop_index('ix_documents_folder_path', 'documents')

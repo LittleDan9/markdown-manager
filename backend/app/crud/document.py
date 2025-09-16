@@ -180,10 +180,13 @@ class DocumentCRUD:
         db: AsyncSession,
         user_id: int,
         name: str,
-        content: str,
         category_id: int,
+        content: Optional[str] = None,
+        file_path: Optional[str] = None,
+        repository_type: str = "local",
+        folder_path: str = "/",
     ) -> Document:
-        """Create a new document with a category_id."""
+        """Create a new document with filesystem support."""
         # Validate that the category exists and belongs to the user
         from app.models.category import Category
 
@@ -199,14 +202,22 @@ class DocumentCRUD:
 
         document = Document(
             name=name,
-            content=content,
             category_id=category_id,
-            user_id=user_id
+            user_id=user_id,
+            file_path=file_path,
+            repository_type=repository_type,
+            folder_path=folder_path,
         )
         db.add(document)
         await db.commit()
         await db.refresh(document)
-        return document
+
+        # If content is provided, write it to filesystem
+        if content is not None and file_path is not None:
+            from app.services.storage.user import UserStorage
+            user_storage_service = UserStorage()
+            await user_storage_service.write_document(user_id, file_path, content)
+
         return document
 
     async def update(
@@ -503,10 +514,9 @@ class DocumentCRUD:
         if existing.scalar_one_or_none():
             raise ValueError(f"Document '{name}' already exists in folder '{folder_path}'")
 
-        # Create document
+        # Create document (without content field)
         document = Document(
             name=name,
-            content=content,
             folder_path=folder_path,
             user_id=user_id
         )
@@ -517,10 +527,21 @@ class DocumentCRUD:
             document.github_file_path = github_data.get('file_path')
             document.github_branch = github_data.get('branch')
             document.github_sha = github_data.get('sha')
+            document.repository_type = "github_repo"
+            # Set file_path for filesystem storage
+            repo_name = github_data.get('repo_name', 'unknown')
+            account_id = github_data.get('account_id', 1)
+            document.file_path = f"github/{account_id}/{repo_name}/{github_data.get('file_path', '')}"
 
         db.add(document)
         await db.commit()
         await db.refresh(document)
+
+        # Write content to filesystem if provided
+        if content and document.file_path:
+            from app.services.storage.user import UserStorage
+            user_storage_service = UserStorage()
+            await user_storage_service.write_document(user_id, document.file_path, content)
 
         return document
 
@@ -634,15 +655,15 @@ class DocumentCRUD:
             Document.user_id == user_id,
             Document.last_opened_at.isnot(None)
         )
-        
+
         # Filter by source if specified
         if source == "local":
             query = query.filter(Document.github_repository_id.is_(None))
         elif source == "github":
             query = query.filter(Document.github_repository_id.isnot(None))
-        
+
         query = query.order_by(Document.last_opened_at.desc()).limit(limit)
-        
+
         result = await db.execute(query)
         return list(result.scalars().all())
 
@@ -658,17 +679,17 @@ class DocumentCRUD:
             Document.id == document_id,
             Document.user_id == user_id
         )
-        
+
         result = await db.execute(query)
         document = result.scalar_one_or_none()
-        
+
         if not document:
             return None
-        
+
         # Update last_opened_at
         from datetime import datetime
         document.last_opened_at = datetime.utcnow()
-        
+
         await db.commit()
         await db.refresh(document)
         return document

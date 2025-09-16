@@ -27,7 +27,7 @@ class Document(Base):  # type: ignore[misc]
     __table_args__ = (
         # Folder-based uniqueness (keep this existing constraint)
         UniqueConstraint("user_id", "folder_path", "name", name="uq_user_folder_name"),
-        
+
         # Conditional partial indexes for proper document type separation
         # Local documents: unique (user_id, folder_path, name) where github_repository_id IS NULL
         Index(
@@ -36,7 +36,7 @@ class Document(Base):  # type: ignore[misc]
             unique=True,
             postgresql_where=text("github_repository_id IS NULL")
         ),
-        
+
         # GitHub documents: unique (user_id, github_repository_id, github_file_path, github_branch)
         Index(
             "uq_github_documents",
@@ -48,7 +48,16 @@ class Document(Base):  # type: ignore[misc]
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
-    content: Mapped[str] = mapped_column(Text, nullable=False, default="")
+
+    # Filesystem-based storage fields
+    file_path: Mapped[str | None] = mapped_column(
+        String(512), nullable=True, index=True,
+        comment="Relative path to the file within the storage system"
+    )
+    repository_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="local", index=True,
+        comment="Type of repository: 'local', 'github', or 'external'"
+    )
 
     # NEW: Folder path for hierarchical organization
     folder_path: Mapped[str] = mapped_column(

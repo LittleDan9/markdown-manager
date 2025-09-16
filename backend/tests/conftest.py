@@ -1,5 +1,14 @@
 import os
 
+# Set test environment variables BEFORE any other imports
+# This ensures they override .env file values
+os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
+os.environ["ALEMBIC_USE_SQLITE"] = "true"
+os.environ["GITHUB_CLIENT_ID"] = "test_client_id"
+os.environ["GITHUB_CLIENT_SECRET"] = "test_client_secret"
+os.environ["GITHUB_REDIRECT_URI"] = "http://localhost:8000/auth/github/callback"
+os.environ["MARKDOWN_STORAGE_ROOT"] = "/tmp/pytest-storage"
+
 import pytest
 import httpx
 from sqlalchemy import create_engine
@@ -12,15 +21,6 @@ pytest_plugins = [
     "tests.fixtures.application",
     "tests.fixtures.data",
 ]
-
-# Set test database URL before importing app modules
-os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
-os.environ["ALEMBIC_USE_SQLITE"] = "true"
-
-# Set mock GitHub OAuth environment variables for testing
-os.environ["GITHUB_CLIENT_ID"] = "test_client_id"
-os.environ["GITHUB_CLIENT_SECRET"] = "test_client_secret"
-os.environ["GITHUB_REDIRECT_URI"] = "http://localhost:8000/auth/github/callback"
 
 from app.models import Base  # Import the Base for table creation
 from app.app_factory import create_app
