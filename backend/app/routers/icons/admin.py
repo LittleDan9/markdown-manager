@@ -252,6 +252,207 @@ def extract_svg_content(svg_content: str) -> dict:
     }
 
 
+async def _validate_upload_parameters(
+    svg_file: UploadFile, icon_name: str, pack_name: str
+) -> None:
+    """Validate upload parameters and file."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Validate file type
+    filename = svg_file.filename or ""
+    if not svg_file.content_type == "image/svg+xml" and not filename.endswith('.svg'):
+        logger.warning(f"Invalid file type: {svg_file.content_type}, filename: {filename}")
+        raise HTTPException(
+            status_code=400,
+            detail="File must be an SVG image"
+        )
+
+    # Validate file size (1MB limit)
+    if svg_file.size and svg_file.size > 1024 * 1024:
+        logger.warning(f"File too large: {svg_file.size} bytes")
+        raise HTTPException(
+            status_code=400,
+            detail="SVG file must be smaller than 1MB"
+        )
+
+    # Validate icon name format
+    if not re.match(r'^[a-z0-9-]+$', icon_name):
+        logger.warning(f"Invalid icon name format: {icon_name}")
+        raise HTTPException(
+            status_code=400,
+            detail="Icon name must contain only lowercase letters, numbers, and hyphens"
+        )
+
+    # Validate pack name format
+    if not re.match(r'^[a-z0-9-]+$', pack_name):
+        logger.warning(f"Invalid pack name format: {pack_name}")
+        raise HTTPException(
+            status_code=400,
+            detail="Pack name must contain only lowercase letters, numbers, and hyphens"
+        )
+
+
+async def _read_and_parse_svg(svg_file: UploadFile) -> dict:
+    """Read and parse SVG file content."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    # Read and validate SVG content
+    try:
+        svg_content = await svg_file.read()
+        if not svg_content:
+            logger.error("SVG file is empty")
+            raise HTTPException(status_code=400, detail="SVG file is empty")
+
+        svg_text = svg_content.decode('utf-8')
+        logger.debug(f"SVG content length: {len(svg_text)} characters")
+
+    except UnicodeDecodeError as e:
+        logger.error(f"Failed to decode SVG file as UTF-8: {str(e)}")
+        raise HTTPException(status_code=400, detail="SVG file must be valid UTF-8 text")
+    except Exception as e:
+        logger.error(f"Failed to read SVG file: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to read SVG file: {str(e)}")
+
+    # Parse SVG content
+    try:
+        svg_data = extract_svg_content(svg_text)
+        width, height, viewBox = svg_data['width'], svg_data['height'], svg_data['viewBox']
+        logger.debug(f"Extracted SVG data: width={width}, height={height}, viewBox={viewBox}")
+
+        if not svg_data['body'].strip():
+            logger.error("SVG file has no content body")
+            raise HTTPException(status_code=400, detail="SVG file appears to be empty or invalid")
+
+        return svg_data
+
+    except Exception as e:
+        logger.error(f"Failed to parse SVG content: {str(e)}")
+        raise HTTPException(status_code=400, detail=f"Failed to parse SVG content: {str(e)}")
+
+
+async def _add_icon_to_existing_pack(
+    existing_pack,
+    icon_name: str,
+    pack_name: str,
+    svg_data: dict,
+    icon_service: IconService,
+    search_terms: Optional[str] = None
+):
+    """Add icon to an existing pack."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        logger.info(f"Adding icon to existing pack: {existing_pack.id}")
+
+        # Use provided search terms or default to icon name
+        final_search_terms = search_terms if search_terms else icon_name.replace('-', ' ')
+
+        icon_metadata = await icon_service.add_icon_to_pack(
+            pack_name=pack_name,
+            key=icon_name,
+            search_terms=final_search_terms,
+            icon_data={
+                'body': svg_data['body'],
+                'width': svg_data['width'],
+                'height': svg_data['height'],
+                'viewBox': svg_data['viewBox']
+            }
+        )
+
+        if not icon_metadata:
+            logger.error("Failed to add icon to pack: service returned None")
+            raise HTTPException(status_code=500, detail="Failed to add icon to pack")
+
+        # Get updated pack information
+        try:
+            updated_packs = await icon_service.get_icon_packs()
+            updated_pack = next((pack for pack in updated_packs if pack.id == existing_pack.id), None)
+
+            if not updated_pack:
+                logger.error(f"Updated pack not found after adding icon: pack_id={existing_pack.id}")
+                raise HTTPException(status_code=500, detail="Failed to retrieve updated pack information")
+
+            # Add reference URLs
+            updated_pack.urls = {
+                "self": f"/icons/packs/{pack_name}",
+                "icons": f"/icons/packs/{pack_name}",
+                "new_icon": f"/icons/packs/{pack_name}/{icon_name}"
+            }
+
+            logger.info(f"Successfully added icon to existing pack: {pack_name}/{icon_name}")
+            return updated_pack
+
+        except Exception as e:
+            logger.error(f"Failed to retrieve updated pack information: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve updated pack information: {str(e)}")
+
+    except ValueError as e:
+        logger.warning(f"Validation error adding icon to pack: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to add icon to existing pack: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to add icon to existing pack: {str(e)}")
+
+
+async def _create_new_pack_with_icon(
+    pack_name: str, icon_name: str, category: str, description: Optional[str],
+    svg_data: dict, installer: StandardizedIconPackInstaller
+):
+    """Create a new pack with the uploaded icon."""
+    import logging
+    logger = logging.getLogger(__name__)
+
+    try:
+        logger.info(f"Creating new pack: {pack_name}")
+        pack_request_data = {
+            'info': {
+                'name': pack_name,
+                'displayName': pack_name.replace('-', ' ').title(),
+                'category': category,
+                'description': description or f"{pack_name.replace('-', ' ').title()} icons",
+                'version': '1.0.0'
+            },
+            'icons': {
+                icon_name: {
+                    'body': svg_data['body'],
+                    'width': svg_data['width'],
+                    'height': svg_data['height'],
+                    'viewBox': svg_data['viewBox']
+                }
+            }
+        }
+
+        # Create the standardized request object
+        try:
+            pack_request = StandardizedIconPackRequest(**pack_request_data)
+        except Exception as e:
+            logger.error(f"Failed to create pack request object: {str(e)}")
+            raise HTTPException(status_code=400, detail=f"Invalid pack data: {str(e)}")
+
+        # Install the new pack
+        result = await installer.install_pack(pack_request)
+
+        # Add reference URLs
+        result.urls = {
+            "self": f"/icons/packs/{pack_name}",
+            "icons": f"/icons/packs/{pack_name}",
+            "new_icon": f"/icons/packs/{pack_name}/{icon_name}"
+        }
+
+        logger.info(f"Successfully created new pack: {pack_name} with icon: {icon_name}")
+        return result
+
+    except ValueError as e:
+        logger.warning(f"Validation error creating new pack: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        logger.error(f"Failed to create new pack: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to create new pack: {str(e)}")
+
+
 @router.post(
     "/upload/icon",
     response_model=IconPackResponse,
@@ -264,115 +465,50 @@ async def upload_single_icon(
     pack_name: str = Form(..., description="Pack name to add icon to"),
     category: str = Form(default="other", description="Pack category"),
     description: Optional[str] = Form(default=None, description="Pack description"),
+    search_terms: Optional[str] = Form(default=None, description="Comma-separated search terms"),
     current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service),
     installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
     """Upload a single icon to a pack."""
-
-    # Validate file type
-    filename = svg_file.filename or ""
-    if not svg_file.content_type == "image/svg+xml" and not filename.endswith('.svg'):
-        raise HTTPException(
-            status_code=400,
-            detail="File must be an SVG image"
-        )
-
-    # Validate file size (1MB limit)
-    if svg_file.size and svg_file.size > 1024 * 1024:
-        raise HTTPException(
-            status_code=400,
-            detail="SVG file must be smaller than 1MB"
-        )
-
-    # Validate icon name format
-    if not re.match(r'^[a-z0-9-]+$', icon_name):
-        raise HTTPException(
-            status_code=400,
-            detail="Icon name must contain only lowercase letters, numbers, and hyphens"
-        )
-
-    # Validate pack name format
-    if not re.match(r'^[a-z0-9-]+$', pack_name):
-        raise HTTPException(
-            status_code=400,
-            detail="Pack name must contain only lowercase letters, numbers, and hyphens"
-        )
+    import logging
+    logger = logging.getLogger(__name__)
 
     try:
-        svg_content = await svg_file.read()
-        svg_text = svg_content.decode('utf-8')
-        svg_data = extract_svg_content(svg_text)
+        # Validate all input parameters
+        await _validate_upload_parameters(svg_file, icon_name, pack_name)
 
-        existing_packs = await icon_service.get_icon_packs()
-        existing_pack = next((pack for pack in existing_packs if pack.name == pack_name), None)
+        logger.info(f"Starting icon upload: icon_name={icon_name}, pack_name={pack_name}, category={category}")
+
+        # Read and parse SVG content
+        svg_data = await _read_and_parse_svg(svg_file)
+
+        # Get existing packs
+        try:
+            existing_packs = await icon_service.get_icon_packs()
+            existing_pack = next((pack for pack in existing_packs if pack.name == pack_name), None)
+            logger.info(f"Found existing pack: {existing_pack is not None}")
+
+        except Exception as e:
+            logger.error(f"Failed to retrieve existing packs: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"Failed to retrieve existing packs: {str(e)}")
 
         if existing_pack:
-            # Add icon to existing pack
-            try:
-                await icon_service.add_icon_to_pack(
-                    pack_id=existing_pack.id,
-                    icon_name=icon_name,
-                    icon_data={
-                        'body': svg_data['body'],
-                        'width': svg_data['width'],
-                        'height': svg_data['height'],
-                        'viewBox': svg_data['viewBox']
-                    }
-                )
-
-                updated_packs = await icon_service.get_icon_packs()
-                updated_pack = next((pack for pack in updated_packs if pack.id == existing_pack.id), None)
-
-                # Add reference URLs
-                updated_pack.urls = {
-                    "self": f"/icons/packs/{pack_name}",
-                    "icons": f"/icons/packs/{pack_name}",
-                    "new_icon": f"/icons/packs/{pack_name}/{icon_name}"
-                }
-
-                return updated_pack
-
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=str(e))
+            return await _add_icon_to_existing_pack(
+                existing_pack, icon_name, pack_name, svg_data, icon_service, search_terms
+            )
         else:
-            # Create new pack with this single icon
-            pack_request_data = {
-                'info': {
-                    'name': pack_name,
-                    'displayName': pack_name.replace('-', ' ').title(),
-                    'category': category,
-                    'description': description or f"{pack_name.replace('-', ' ').title()} icons",
-                    'version': '1.0.0'
-                },
-                'icons': {
-                    icon_name: {
-                        'body': svg_data['body'],
-                        'width': svg_data['width'],
-                        'height': svg_data['height'],
-                        'viewBox': svg_data['viewBox']
-                    }
-                }
-            }
+            return await _create_new_pack_with_icon(pack_name, icon_name, category, description, svg_data, installer)
 
-            pack_request = StandardizedIconPackRequest(**pack_request_data)
-            result = await installer.install_pack(pack_request)
-
-            # Add reference URLs
-            result.urls = {
-                "self": f"/icons/packs/{pack_name}",
-                "icons": f"/icons/packs/{pack_name}",
-                "new_icon": f"/icons/packs/{pack_name}/{icon_name}"
-            }
-
-            return result
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        # Re-raise HTTP exceptions without modification
+        raise
     except Exception as e:
+        # Catch any other unexpected exceptions
+        logger.error(f"Unexpected error in upload_single_icon: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to upload icon: {str(e)}"
+            detail=f"Unexpected error during icon upload: {str(e)}"
         )
 
 

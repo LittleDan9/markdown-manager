@@ -295,6 +295,9 @@ export class IconsApi extends Api {
     if (iconData.description) {
       formData.append('description', iconData.description);
     }
+    if (iconData.searchTerms) {
+      formData.append('search_terms', iconData.searchTerms);
+    }
 
     const response = await this.apiCall(
       '/icons/admin/upload/icon',

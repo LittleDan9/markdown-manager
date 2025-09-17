@@ -4,13 +4,13 @@ import { useNotification } from '../../NotificationProvider';
 import iconsApi from '../../../api/iconsApi';
 import PackCategorySelector from '../common/PackCategorySelector';
 
-export default function UploadIconTab({ 
-  categories, 
-  packNames, 
-  dropdownPackNames, 
-  onAddCategory, 
-  onAddPackName, 
-  onReloadData 
+export default function UploadIconTab({
+  categories,
+  packNames,
+  dropdownPackNames,
+  onAddCategory,
+  onAddPackName,
+  onReloadData
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -22,6 +22,7 @@ export default function UploadIconTab({
     packName: dropdownPackNames.length > 0 ? dropdownPackNames[0] : '',
     category: categories.length > 0 ? categories[0] : '',
     description: '',
+    searchTerms: '',
     svgFile: null
   });
 
@@ -35,15 +36,15 @@ export default function UploadIconTab({
         ...prev,
         [field]: value
       };
-      
+
       // If pack name changed to an existing pack, clear description
       if (field === 'packName' && packNames.includes(value)) {
         newState.description = '';
       }
-      
+
       return newState;
     });
-    
+
     // Clear errors when user types
     if (error) setError('');
   };
@@ -61,14 +62,14 @@ export default function UploadIconTab({
         setSvgPreview('');
         return;
       }
-      
+
       // Read the SVG file content for preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setSvgPreview(e.target.result);
       };
       reader.readAsText(file);
-      
+
       handleFormChange('svgFile', file);
 
       // Auto-populate icon name from filename if empty
@@ -128,7 +129,8 @@ export default function UploadIconTab({
         iconName: uploadForm.iconName,
         packName: uploadForm.packName,
         category: uploadForm.category,
-        description: uploadForm.description
+        description: uploadForm.description,
+        searchTerms: uploadForm.searchTerms
       });
 
       setSuccess(`Successfully created pack "${result.name}" with icon "${uploadForm.iconName}"`);
@@ -140,6 +142,7 @@ export default function UploadIconTab({
         packName: dropdownPackNames.length > 0 ? dropdownPackNames[0] : '',
         category: categories.length > 0 ? categories[0] : '',
         description: '',
+        searchTerms: '',
         svgFile: null
       });
 
@@ -186,6 +189,20 @@ export default function UploadIconTab({
                 </Form.Text>
               </Form.Group>
 
+              <Form.Group className="mb-3">
+                <Form.Label>Search Terms</Form.Label>
+                <Form.Control
+                  type="text"
+                  value={uploadForm.searchTerms}
+                  onChange={(e) => handleFormChange('searchTerms', e.target.value)}
+                  placeholder="e.g., switch, network, router"
+                  disabled={loading}
+                />
+                <Form.Text className="text-muted">
+                  Comma-separated keywords to help users find this icon
+                </Form.Text>
+              </Form.Group>
+
               <PackCategorySelector
                 packName={uploadForm.packName}
                 onPackNameChange={(value) => handleFormChange('packName', value)}
@@ -196,7 +213,7 @@ export default function UploadIconTab({
                 packNamePlaceholder="Select or create a pack"
                 packNameRequired={true}
                 showPackNameDropdown={true}
-                
+
                 category={uploadForm.category}
                 onCategoryChange={(value) => handleFormChange('category', value)}
                 categories={categories}
@@ -204,7 +221,7 @@ export default function UploadIconTab({
                 categoryLabel="Category"
                 categoryPlaceholder="Select a category"
                 categoryRequired={true}
-                
+
                 loading={loading}
                 disabled={loading}
               />
@@ -231,7 +248,7 @@ export default function UploadIconTab({
               })() && (
                 <Form.Group className="mb-3">
                   <Form.Label>
-                    Pack Description 
+                    Pack Description
                     <Badge bg="info" className="ms-2">New Pack</Badge>
                   </Form.Label>
                   <Form.Control
@@ -247,7 +264,7 @@ export default function UploadIconTab({
                   </Form.Text>
                 </Form.Group>
               )}
-              
+
               {/* Show info when adding to existing pack */}
               {uploadForm.packName && packNames.includes(uploadForm.packName) && (
                 <div className="mb-3">
@@ -270,7 +287,7 @@ export default function UploadIconTab({
                   <div className="col-md-3">
                     <div className="d-flex justify-content-center align-items-center p-3" style={{ minHeight: '120px', border: '1px solid #dee2e6', borderRadius: '0.375rem' }}>
                       {svgPreview ? (
-                        <div 
+                        <div
                           dangerouslySetInnerHTML={{ __html: svgPreview }}
                           style={{ width: '64px', height: '64px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         />
