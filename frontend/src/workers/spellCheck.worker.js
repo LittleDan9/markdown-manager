@@ -52,67 +52,6 @@ function addCustomWords(words) {
   });
 }
 
-function extractMarkdownTextContent(text) {
-  // Track code fence and inline code regions for skipping
-  let codeFenceRegions = [];
-  let inlineCodeRegions = [];
-
-  // Simple and robust code fence detection
-  // Since chunks now respect fence boundaries, we can use simpler logic
-  const lines = text.split('\n');
-  let inCodeFence = false;
-  let fenceStart = 0;
-  let currentPos = 0;
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    const lineStart = currentPos;
-    const lineEnd = currentPos + line.length;
-
-    // Check if this line starts/ends a code fence
-    if (/^\s*(```|~~~)/.test(line)) {
-      if (!inCodeFence) {
-        // Starting a code fence
-        inCodeFence = true;
-        fenceStart = lineStart;
-      } else {
-        // Ending a code fence
-        inCodeFence = false;
-        codeFenceRegions.push({
-          start: fenceStart,
-          end: lineEnd
-        });
-      }
-    }
-
-    // Move to next line (including newline character)
-    currentPos = lineEnd + 1;
-  }
-
-  // If we're still in a code fence at the end, close it
-  if (inCodeFence) {
-    codeFenceRegions.push({
-      start: fenceStart,
-      end: text.length
-    });
-  }
-
-  // Also match indented code blocks (4+ spaces at start of line)
-  let indentedCodeRegex = /^(?: {4,}|\t+).*$/gm;
-  let match;
-  while ((match = indentedCodeRegex.exec(text)) !== null) {
-    codeFenceRegions.push({ start: match.index, end: match.index + match[0].length });
-  }
-
-  // Find inline code
-  let inlineCodeRegex = /`[^`\n]*`/g;
-  while ((match = inlineCodeRegex.exec(text)) !== null) {
-    inlineCodeRegions.push({ start: match.index, end: match.index + match[0].length });
-  }
-
-  return { originalText: text, codeFenceRegions, inlineCodeRegions };
-}
-
 self.onmessage = async function (e) {
   let requestId;
   try {
@@ -123,29 +62,32 @@ self.onmessage = async function (e) {
       console.warn('[SpellCheckWorker] Unknown message type:', type);
       return;
     }
-    
+
     await loadDictionary();
     addCustomWords(customWords);
-    
-    // chunk: { text, startOffset, endOffset }
-    const { text, startOffset } = chunk;
+
+    // chunk: { text, startOffset, codeRegions }
+    const { text, startOffset, codeRegions = [] } = chunk;
     let issues = [];
     const seen = new Set();
-    // Get code fence and inline code regions for the chunk
-    const { codeFenceRegions, inlineCodeRegions } = extractMarkdownTextContent(text);
 
     const regex = /\b[A-Za-z']+\b/g;
     let match;
     while ((match = regex.exec(text)) !== null) {
       const word = match[0];
-      const globalOffset = startOffset + match.index;
+      const wordStart = match.index;
+      const wordEnd = wordStart + word.length;
+      const globalOffset = startOffset + wordStart;
       const dedupKey = word + ':' + globalOffset;
       if (seen.has(dedupKey)) continue;
       seen.add(dedupKey);
 
-      // Skip words inside code fence or inline code regions
-      if (codeFenceRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
-      if (inlineCodeRegions.some(region => match.index >= region.start && match.index < region.end)) continue;
+      // Skip words inside pre-computed code regions (no re-parsing needed!)
+      if (codeRegions.some(region =>
+        wordStart >= region.start && wordEnd <= region.end
+      )) {
+        continue;
+      }
 
       // Enhanced markdown token detection - skip words that are part of markdown syntax
       const upTo = text.slice(0, match.index);
@@ -178,10 +120,10 @@ self.onmessage = async function (e) {
       const beforeWord = text.slice(Math.max(0, match.index - 10), match.index);
       const afterWord = text.slice(match.index + word.length, Math.min(text.length, match.index + word.length + 10));
       if (/<[^>]*$/.test(beforeWord) && /^[^<]*>/.test(afterWord)) continue;
-      
+
       // Check if word is in custom dictionary (fast check using our set)
       if (customWordSet.has(word.trim())) continue;
-      
+
       // Check if word is correct according to main speller
       if (!speller.correct(word)) {
         const suggestions = speller.suggest(word);

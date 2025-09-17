@@ -38,6 +38,7 @@ export function chunkText(text, chunkSize) {
  * Find all code fence regions in the text to avoid splitting them
  * @param {string} text
  * @returns {Array<{start: number, end: number}>}
+ * @deprecated Use MarkdownParser.findCodeRegions instead for better accuracy
  */
 function findCodeFenceRegions(text) {
   const regions = [];
@@ -45,12 +46,12 @@ function findCodeFenceRegions(text) {
   let inCodeFence = false;
   let fenceStart = 0;
   let currentPos = 0;
-  
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineStart = currentPos;
     const lineEnd = currentPos + line.length;
-    
+
     // Check if this line starts/ends a code fence
     if (/^\s*(```|~~~)/.test(line)) {
       if (!inCodeFence) {
@@ -60,25 +61,25 @@ function findCodeFenceRegions(text) {
       } else {
         // Ending a code fence
         inCodeFence = false;
-        regions.push({ 
-          start: fenceStart, 
-          end: lineEnd 
+        regions.push({
+          start: fenceStart,
+          end: lineEnd
         });
       }
     }
-    
+
     // Move to next line (including newline character)
     currentPos = lineEnd + 1;
   }
-  
+
   // If we're still in a code fence at the end, close it
   if (inCodeFence) {
-    regions.push({ 
-      start: fenceStart, 
-      end: text.length 
+    regions.push({
+      start: fenceStart,
+      end: text.length
     });
   }
-  
+
   return regions;
 }
 
@@ -89,11 +90,14 @@ function findCodeFenceRegions(text) {
  *
  * @param {string} text
  * @param {number} chunkSize
- * @returns {{ text: string, offset: number }[]}
+ * @param {Array} [codeRegions] - Pre-computed code regions (optional, will compute if not provided)
+ * @returns {{ text: string, offset: number, codeRegions: Array }[]}
  */
-export function chunkTextWithOffsets(text, chunkSize) {
+export function chunkTextWithOffsets(text, chunkSize, codeRegions = null) {
   const chunks = [];
-  const codeFenceRegions = findCodeFenceRegions(text);
+
+  // Use provided code regions or fall back to legacy detection
+  const allCodeRegions = codeRegions || findCodeFenceRegions(text);
   let start = 0;
 
   while (start < text.length) {
@@ -104,42 +108,42 @@ export function chunkTextWithOffsets(text, chunkSize) {
       const lastSpace   = text.lastIndexOf(' ', end);
       const lastNewline = text.lastIndexOf('\n', end);
       let splitPos = Math.max(lastSpace, lastNewline);
-      
+
       if (splitPos > start) {
         end = splitPos;
       }
-      
-      // Check if the proposed chunk would split a code fence
-      const wouldSplitFence = codeFenceRegions.some(region => {
-        // A fence is split if it starts before the end but extends past the end
+
+      // Check if the proposed chunk would split a code region
+      const wouldSplitRegion = allCodeRegions.some(region => {
+        // A region is split if it starts before the end but extends past the end
         return region.start < end && region.end > end;
       });
-      
-      if (wouldSplitFence) {
-        // Find a code fence that would be split
-        const affectedFence = codeFenceRegions.find(region => 
+
+      if (wouldSplitRegion) {
+        // Find a code region that would be split
+        const affectedRegion = allCodeRegions.find(region =>
           region.start < end && region.end > end
         );
-        
-        if (affectedFence) {
-          // If the fence starts after our chunk start, end the chunk before the fence
-          if (affectedFence.start >= start) {
-            end = affectedFence.start;
+
+        if (affectedRegion) {
+          // If the region starts after our chunk start, end the chunk before the region
+          if (affectedRegion.start >= start) {
+            end = affectedRegion.start;
           } else {
-            // If the fence started before our chunk, include the entire fence
-            end = affectedFence.end + 1; // +1 to include the newline after fence
+            // If the region started before our chunk, include the entire region
+            end = affectedRegion.end + 1; // +1 to include the newline after region
           }
         }
       }
-      
+
       // Make sure we don't go backwards
       if (end <= start) {
-        // If we can't split without breaking a fence, include the whole fence
-        const containingFence = codeFenceRegions.find(region => 
+        // If we can't split without breaking a region, include the whole region
+        const containingRegion = allCodeRegions.find(region =>
           region.start <= start && region.end > start
         );
-        if (containingFence) {
-          end = containingFence.end + 1;
+        if (containingRegion) {
+          end = containingRegion.end + 1;
         } else {
           // Fallback: just advance by one character to avoid infinite loop
           end = start + 1;
@@ -150,9 +154,23 @@ export function chunkTextWithOffsets(text, chunkSize) {
     // Ensure we don't exceed text length
     end = Math.min(end, text.length);
 
+    // Get code regions that intersect with this chunk
+    const chunkCodeRegions = allCodeRegions
+      .filter(region =>
+        // Region overlaps with the chunk
+        region.start < end && region.end > start
+      )
+      .map(region => ({
+        ...region,
+        // Adjust positions relative to the chunk start
+        start: Math.max(0, region.start - start),
+        end: Math.min(end - start, region.end - start)
+      }));
+
     chunks.push({
       text: text.slice(start, end),
-      offset: start
+      offset: start,
+      codeRegions: chunkCodeRegions
     });
     start = end;
   }

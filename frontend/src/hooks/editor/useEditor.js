@@ -41,6 +41,7 @@ export default function useEditor({
   const previousValueRef = useRef(value);
   const lastProgressRef = useRef(null);
   const resizeTimeoutRef = useRef(null);
+  const autoCheckTimeout = useRef(null); // For 30-second auto spell check
 
   // Monaco editor setup
   useEffect(() => {
@@ -71,6 +72,10 @@ export default function useEditor({
         editorRef.current.dispose();
         editorRef.current = null;
       }
+      // Clean up all timeouts
+      if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
     };
   }, [containerRef]);
 
@@ -136,8 +141,8 @@ export default function useEditor({
       if (resizeStartTimeout) clearTimeout(resizeStartTimeout);
       resizeStartTimeout = setTimeout(() => {
         isResizing = false;
-        if (editorRef.current && lastEditorValue.current) {
-          spellCheckDocument(lastEditorValue.current, 0);
+        if (editorRef.current) {
+          spellCheckDocument(null, 0); // Use fresh content from editor
         }
       }, 300); // Reduced from 500ms to 300ms
     };
@@ -156,8 +161,8 @@ export default function useEditor({
       SpellCheckMarkers.clearMarkers(editor, suggestionsMap.current);
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
       resizeTimeoutRef.current = setTimeout(() => {
-        if (editor && lastEditorValue.current) {
-          spellCheckDocument(lastEditorValue.current, 0);
+        if (editor) {
+          spellCheckDocument(null, 0); // Use fresh content from editor
         }
       }, 300); // Reduced from 500ms to 300ms
     });
@@ -167,49 +172,126 @@ export default function useEditor({
     };
   }, [enableSpellCheck]);
 
-  // Main spell check logic - optimized for immediate initial check and faster user response
+  // Main spell check logic - optimized with adaptive timing based on document size and change type
   useEffect(() => {
-    if (!enableSpellCheck || !editorRef.current || !lastEditorValue.current) return;
-    if (lastEditorValue.current !== previousValueRef.current) {
+    if (!enableSpellCheck || !editorRef.current) return;
+
+    const editor = editorRef.current;
+    const currentValue = editor.getValue();
+
+    if (currentValue !== previousValueRef.current) {
+      // Clear both timeouts when content changes
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
+
       const runAndHandleSpellCheck = () => {
-        const { regionText, startOffset } = TextRegionAnalyzer.getChangedRegion(editorRef.current, previousValueRef.current, lastEditorValue.current);
-        previousValueRef.current = lastEditorValue.current;
+        const { regionText, startOffset } = TextRegionAnalyzer.getChangedRegion(
+          editorRef.current,
+          previousValueRef.current,
+          editorRef.current?.getValue() || '' // Get fresh content
+        );
+        previousValueRef.current = editorRef.current?.getValue() || '';
         lastSpellCheckTime.current = Date.now();
         if (regionText.length > 0) {
-          spellCheckDocument(regionText, startOffset);
+          spellCheckDocument(regionText, startOffset); // Pass fresh content
         }
       };
 
-      // Reduce debounce delay for better responsiveness (was 5000ms, now 2000ms)
-      debounceTimeout.current = setTimeout(runAndHandleSpellCheck, 2000);
+      // Adaptive delay based on document size and change magnitude
+      const docSize = currentValue.length;
+      const prevSize = previousValueRef.current?.length || 0;
+      const changeSize = Math.abs(docSize - prevSize);
+
+      let delay;
+      if (docSize < 500) {
+        // Very small documents - almost immediate
+        delay = 200;
+      } else if (docSize < 2000) {
+        // Small documents - quick response
+        delay = changeSize < 20 ? 300 : 500;
+      } else if (docSize < 10000) {
+        // Medium documents - balanced response
+        delay = changeSize < 50 ? 600 : 1000;
+      } else {
+        // Large documents - longer delay to avoid thrashing
+        delay = changeSize < 100 ? 1200 : 2000;
+      }
+
+      debounceTimeout.current = setTimeout(runAndHandleSpellCheck, delay);
+
+      // Set up auto-check after 15 seconds of no changes
+      autoCheckTimeout.current = setTimeout(() => {
+        const timeSinceLastCheck = Date.now() - lastSpellCheckTime.current;
+        const currentContent = editorRef.current?.getValue() || '';
+
+        // Only run auto-check if:
+        // 1. It's been more than 15 seconds since last spell check
+        // 2. Content has changed since last check
+        if (timeSinceLastCheck > 15000 && currentContent !== previousValueRef.current) {
+          console.log('[SpellCheck] Auto-running spell check after 15 seconds of inactivity');
+          spellCheckDocument(null, 0); // Check full document with fresh content
+          previousValueRef.current = currentContent;
+          lastSpellCheckTime.current = Date.now();
+        }
+      }, 15000); // 15 seconds
     }
+
     return () => {
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+      if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
     };
-  }, [enableSpellCheck, lastEditorValue.current, categoryId]);
+  }, [enableSpellCheck, editorRef.current]);
 
   // Initial spell check when editor is ready - trigger immediately
   useEffect(() => {
-    if (enableSpellCheck && editorRef.current && lastEditorValue.current) {
+    if (enableSpellCheck && editorRef.current) {
       // Don't wait - start spell check immediately when editor loads
       setTimeout(() => {
-        spellCheckDocument(lastEditorValue.current, 0);
+        spellCheckDocument(null, 0); // Use fresh content from editor
       }, 100); // Small delay to ensure editor is fully initialized
     }
   }, [enableSpellCheck, editorRef.current]);
 
-  const spellCheckDocument = async (text, startOffset, forceProgress = false) => {
-    if (!enableSpellCheck || !text || text.length === 0) return;
-    if (startOffset > 0 && text.length < 10) return;
-    const isLarge = text.length > 100;
+  // Periodic spell check - ensure it runs even during extended editing sessions
+  useEffect(() => {
+    if (!enableSpellCheck || !editorRef.current) return;
+
+    const periodicCheckInterval = setInterval(() => {
+      const timeSinceLastCheck = Date.now() - lastSpellCheckTime.current;
+      const currentContent = editorRef.current?.getValue() || '';
+
+      // Run spell check if:
+      // 1. More than 15 seconds since last check AND
+      // 2. Content has actually changed since last check
+      if (timeSinceLastCheck > 15000 && currentContent !== previousValueRef.current) {
+        console.log('[SpellCheck] Periodic spell check - content changed, running check');
+        spellCheckDocument(null, 0); // Check full document with fresh content
+        previousValueRef.current = currentContent;
+        lastSpellCheckTime.current = Date.now();
+      }
+    }, 10000); // Check every 10 seconds
+
+    return () => {
+      clearInterval(periodicCheckInterval);
+    };
+  }, [enableSpellCheck, editorRef.current]);
+
+  const spellCheckDocument = async (textOverride = null, startOffset, forceProgress = false) => {
+    if (!enableSpellCheck) return;
+
+    // ALWAYS get fresh content from editor unless explicitly overridden
+    const currentText = textOverride ?? (editorRef.current ? editorRef.current.getValue() : '');
+
+    if (!currentText || currentText.length === 0) return;
+    if (startOffset > 0 && currentText.length < 10) return;
+    const isLarge = currentText.length > 100;
     const shouldShowProgress = isLarge || forceProgress;
     const progressCb = shouldShowProgress ? (processObj) => {
       lastProgressRef.current = processObj;
       setProgress(processObj);
     } : () => {};
     try {
-      const issues = await SpellCheckService.scan(text, progressCb, categoryId, typeof getFolderPath === 'function' ? getFolderPath() : null);
+      const issues = await SpellCheckService.scan(currentText, progressCb, categoryId, typeof getFolderPath === 'function' ? getFolderPath() : null);
       if (editorRef.current) {
         suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
           editorRef.current,
@@ -232,6 +314,14 @@ export default function useEditor({
   useEffect(() => {
     if (!enableKeyboardShortcuts || !editorRef.current) return;
     const editor = editorRef.current;
+
+    // Store spell check function globally for SpellCheckActions to use
+    window.editorSpellCheckTrigger = (text = null, offset = 0) => {
+      if (editorRef.current) {
+        spellCheckDocument(text, offset);
+      }
+    };
+
     // Bold
     const boldCommand = editor.addCommand(
       monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB,
@@ -430,10 +520,16 @@ export default function useEditor({
     editor: editorRef.current,
     spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined,
     runSpellCheck: () => {
-      if (editorRef.current && lastEditorValue.current) {
+      if (editorRef.current) {
         // Show initial progress
         setProgress({ percentComplete: 0 });
-        spellCheckDocument(lastEditorValue.current, 0, true); // Force progress for manual spell check
+        spellCheckDocument(null, 0, true); // Use fresh content from editor, force progress for manual spell check
+      }
+    },
+    // Expose spell check function for use by SpellCheckActions
+    triggerSpellCheck: (text = null, offset = 0) => {
+      if (editorRef.current) {
+        spellCheckDocument(text, offset);
       }
     }
   };
