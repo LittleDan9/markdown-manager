@@ -38,8 +38,16 @@ function addCustomWords(words) {
   if (!speller || !Array.isArray(words)) return;
   words.forEach(word => {
     if (word && typeof word === 'string') {
-      speller.add(word.trim());
-      customWordSet.add(word.trim().toLowerCase());
+      const trimmedWord = word.trim();
+      // Add to nspell dictionary (this handles multiple forms internally)
+      speller.add(trimmedWord);
+      // Add all possible forms to our set for fast checking
+      customWordSet.add(trimmedWord.toLowerCase());
+      customWordSet.add(trimmedWord);
+      customWordSet.add(trimmedWord.toUpperCase());
+      if (trimmedWord.length > 1) {
+        customWordSet.add(trimmedWord[0].toUpperCase() + trimmedWord.slice(1).toLowerCase());
+      }
     }
   });
 }
@@ -115,8 +123,10 @@ self.onmessage = async function (e) {
       console.warn('[SpellCheckWorker] Unknown message type:', type);
       return;
     }
+    
     await loadDictionary();
     addCustomWords(customWords);
+    
     // chunk: { text, startOffset, endOffset }
     const { text, startOffset } = chunk;
     let issues = [];
@@ -168,10 +178,11 @@ self.onmessage = async function (e) {
       const beforeWord = text.slice(Math.max(0, match.index - 10), match.index);
       const afterWord = text.slice(match.index + word.length, Math.min(text.length, match.index + word.length + 10));
       if (/<[^>]*$/.test(beforeWord) && /^[^<]*>/.test(afterWord)) continue;
-      if (customWordSet.has(word.trim().toLowerCase())) continue;
-      if (customWordSet.has(word.trim()) ||
-        customWordSet.has(word.trim().toUpperCase()) ||
-        customWordSet.has(word.trim()[0].toUpperCase() + word.trim().slice(1).toLowerCase())) continue;
+      
+      // Check if word is in custom dictionary (fast check using our set)
+      if (customWordSet.has(word.trim())) continue;
+      
+      // Check if word is correct according to main speller
       if (!speller.correct(word)) {
         const suggestions = speller.suggest(word);
         // Compute line/column in chunk

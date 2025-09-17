@@ -1,5 +1,5 @@
 import React from "react";
-import { Card, Alert, Button, Badge, Modal, Spinner, Form } from "react-bootstrap";
+import { Alert, Button, Badge, Modal, Spinner, Form, Accordion } from "react-bootstrap";
 import { SpellCheckService } from "@/services/editor";
 import { useDictionaryState, useDictionaryOperations, useDictionaryUI } from "@/hooks";
 import { DictionaryScopeSelector } from "./DictionaryScopeSelector";
@@ -33,6 +33,7 @@ function DictionaryTab() {
     editingEntry,
     error,
     success,
+    clearNotifications,
     showSuccess,
     showError,
     handleFormSubmit,
@@ -108,12 +109,12 @@ function DictionaryTab() {
   const getDisplayInfo = () => {
     const scope = selectedScope || currentScope;
     const count = entries.length || localWordCount;
-    
+
     return {
       scope,
       count,
       title: scope?.displayName || 'Personal Dictionary',
-      description: scope?.type === 'folder' 
+      description: scope?.type === 'folder'
         ? `Manage custom words for documents in the "${scope.folder}" folder. These words won't be flagged as misspelled in documents within this folder.`
         : scope?.type === 'github'
         ? `Manage custom words for the "${scope.repository}" repository. These words won't be flagged as misspelled in documents from this repository.`
@@ -124,39 +125,73 @@ function DictionaryTab() {
   const displayInfo = getDisplayInfo();
 
   return (
-    <Card className="mt-3">
-      <Card.Body>
-        <Card.Title>
-          <i className="bi bi-book me-2"></i>Custom Dictionary
-          <Badge bg="secondary" className="ms-2">
-            {isAuthenticated
-              ? `${displayInfo.count} words`
-              : `${localWordCount} words`
-            }
-          </Badge>
-          {displayInfo.scope && displayInfo.scope.type !== 'user' && (
-            <Badge bg="info" className="ms-2">
-              {displayInfo.scope.type === 'folder' ? '📁' : '🐙'} {displayInfo.scope.folder || displayInfo.scope.repository}
-            </Badge>
+    <div className="dictionary-tab">
+      {/* Clean Header */}
+      <div className="dictionary-header">
+        <div className="d-flex align-items-center justify-content-between mb-2">
+          <h5 className="mt-2 mb-0 d-flex align-items-center">
+            <i className="bi bi-journal-plus text-secondary me-2"></i>
+            Custom Words
+          </h5>
+          {isAuthenticated && (
+            <Button
+              variant="link"
+              size="sm"
+              onClick={handleSyncWithBackend}
+              disabled={isLoading}
+              className="text-muted p-0"
+              title="Sync with server"
+            >
+              {syncing ? (
+                <Spinner size="sm" />
+              ) : (
+                <i className="bi bi-arrow-clockwise"></i>
+              )}
+            </Button>
           )}
-        </Card.Title>
+        </div>
+      </div>
 
-        <Card.Text className="text-muted">
-          {isAuthenticated
-            ? displayInfo.description
-            : "Your custom words are stored locally. Log in to sync them across devices."
-          }
-        </Card.Text>
+      {/* Alerts */}
+      {error && (
+        <Alert variant="danger" className="py-2 d-flex justify-content-between align-items-center">
+          <span>{error}</span>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={clearNotifications}
+            className="text-danger p-0 ms-2"
+            style={{ fontSize: '1.2rem', lineHeight: 1, textDecoration: 'none' }}
+            title="Dismiss"
+          >
+            ×
+          </Button>
+        </Alert>
+      )}
+      {success && (
+        <Alert variant="success" className="py-2 d-flex justify-content-between align-items-center">
+          <span>{success}</span>
+          <Button
+            variant="link"
+            size="sm"
+            onClick={clearNotifications}
+            className="text-success p-0 ms-2"
+            style={{ fontSize: '1.2rem', lineHeight: 1, textDecoration: 'none' }}
+            title="Dismiss"
+          >
+            ×
+          </Button>
+        </Alert>
+      )}
+      {syncing && (
+        <Alert variant="info" className="py-2">
+          <Spinner size="sm" className="me-2" />
+          Syncing with server...
+        </Alert>
+      )}
 
-        {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{success}</Alert>}
-        {syncing && (
-          <Alert variant="info">
-            <Spinner size="sm" className="me-2" />
-            Syncing your local dictionary with the server...
-          </Alert>
-        )}
-
+      {/* Scope Selector - More Compact */}
+      <div className="mb-3">
         <DictionaryScopeSelector
           availableScopes={availableScopes}
           selectedScope={selectedScope}
@@ -164,113 +199,145 @@ function DictionaryTab() {
           onScopeChange={setSelectedScope}
           loading={isLoading}
           isAuthenticated={isAuthenticated}
+          wordCount={displayInfo.count}
+          localWordCount={localWordCount}
         />
+      </div>
 
-        <DictionaryAddWordForm
-          newWord={newWord}
-          setNewWord={setNewWord}
-          newWordNotes={newWordNotes}
-          setNewWordNotes={setNewWordNotes}
-          onSubmit={(e) => handleFormSubmit(e, handleAddWord)}
-          loading={isLoading}
-        />
-
-        {isAuthenticated && (
-          <div className="mb-3">
-            <Button
-              variant="outline-secondary"
-              size="sm"
-              onClick={handleSyncWithBackend}
+      {/* Add Word - Inline Form */}
+      <div className="add-word-section mb-4">
+        <div className="d-flex gap-2">
+          <div className="flex-grow-1">
+            <Form.Control
+              type="text"
+              placeholder="Add a new word..."
+              value={newWord}
+              onChange={(e) => setNewWord(e.target.value)}
+              onKeyPress={(e) => {
+                if (e.key === 'Enter') {
+                  e.preventDefault();
+                  const form = { preventDefault: () => {}, target: { word: { value: newWord }, notes: { value: newWordNotes } } };
+                  handleFormSubmit(form, handleAddWord);
+                }
+              }}
               disabled={isLoading}
-            >
-              {syncing ? (
-                <>
-                  <Spinner size="sm" className="me-1" />
-                  Syncing...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-arrow-clockwise me-1"></i>
-                  Sync with Server
-                </>
-              )}
-            </Button>
+            />
+          </div>
+          <Button
+            variant="primary"
+            onClick={() => {
+              const form = { preventDefault: () => {}, target: { word: { value: newWord }, notes: { value: newWordNotes } } };
+              handleFormSubmit(form, handleAddWord);
+            }}
+            disabled={isLoading || !newWord.trim()}
+            className="px-3"
+          >
+            {isLoading ? <Spinner size="sm" /> : <i className="bi bi-plus-lg"></i>}
+          </Button>
+        </div>
+
+        {/* Optional notes field - only show when typing */}
+        {newWord.trim() && (
+          <div className="mt-2">
+            <Form.Control
+              type="text"
+              placeholder="Optional notes..."
+              value={newWordNotes}
+              onChange={(e) => setNewWordNotes(e.target.value)}
+              size="sm"
+              disabled={isLoading}
+            />
           </div>
         )}
+      </div>
 
-        <DictionaryWordList
-          entries={entries}
-          editingEntry={editingEntry}
-          onStartEdit={startEdit}
-          onCancelEdit={cancelEdit}
-          onSaveEdit={handleSaveEdit}
-          onUpdateEditNotes={updateEditNotes}
-          onDeleteWord={confirmDelete}
-          loading={isLoading}
-          isAuthenticated={isAuthenticated}
-          selectedScope={selectedScope || currentScope}
-          localWordCount={localWordCount}
-          onLocalWordDelete={handleLocalWordDelete}
-        />
-
-        {/* Delete Confirmation Modal */}
-        <Modal show={!!deleteConfirm} onHide={cancelDelete}>
-          <Modal.Header closeButton>
-            <Modal.Title>Confirm Delete</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            Are you sure you want to remove "{deleteConfirm}" from your dictionary?
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={cancelDelete}>
-              Cancel
-            </Button>
-            <Button
-              variant="danger"
-              onClick={() => executeDelete(handleDeleteWord)}
-              disabled={isLoading}
-            >
-              Delete
-            </Button>
-          </Modal.Footer>
-        </Modal>
-
-        {/* Edit Notes Modal */}
-        <Modal show={editingEntry !== null} onHide={cancelEdit}>
-          <Modal.Header closeButton>
-            <Modal.Title>Edit Notes for "{editingEntry?.word}"</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Form
-              onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target);
-                handleUpdateNotes(editingEntry, formData.get('notes'));
-              }}
-            >
-              <Form.Group>
-                <Form.Label>Notes</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  name="notes"
-                  defaultValue={editingEntry?.notes || ""}
-                  placeholder="Optional notes about this word"
-                />
-              </Form.Group>
-              <div className="mt-3">
-                <Button type="submit" variant="primary" disabled={isLoading} className="me-2">
-                  {isLoading ? <Spinner size="sm" /> : "Save"}
-                </Button>
-                <Button variant="secondary" onClick={cancelEdit}>
-                  Cancel
-                </Button>
+      {/* Word List - Clean Design */}
+      <div className="word-list-section">
+        <div className="word-list-container">
+          {(!entries || entries.length === 0) && !isLoading ? (
+            <div className="empty-state">
+              <div className="text-center py-5">
+                <i className="bi bi-journal-text text-muted display-6 mb-3"></i>
+                <p className="text-muted mb-0">No custom words yet</p>
+                <small className="text-muted">Add words above to build your dictionary</small>
               </div>
-            </Form>
-          </Modal.Body>
-        </Modal>
-      </Card.Body>
-    </Card>
+            </div>
+          ) : (
+            <DictionaryWordList
+              entries={entries}
+              editingEntry={editingEntry}
+              onStartEdit={startEdit}
+              onCancelEdit={cancelEdit}
+              onSaveEdit={handleSaveEdit}
+              onUpdateEditNotes={updateEditNotes}
+              onDeleteWord={confirmDelete}
+              loading={isLoading}
+              isAuthenticated={isAuthenticated}
+              selectedScope={selectedScope || currentScope}
+              localWordCount={localWordCount}
+              onLocalWordDelete={handleLocalWordDelete}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal */}
+      <Modal show={!!deleteConfirm} onHide={cancelDelete}>
+        <Modal.Header closeButton>
+          <Modal.Title>Confirm Delete</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          Are you sure you want to remove "{deleteConfirm}" from your dictionary?
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={cancelDelete}>
+            Cancel
+          </Button>
+          <Button
+            variant="danger"
+            onClick={() => executeDelete(handleDeleteWord)}
+            disabled={isLoading}
+          >
+            Delete
+          </Button>
+        </Modal.Footer>
+      </Modal>
+
+      {/* Edit Notes Modal */}
+      <Modal show={editingEntry !== null} onHide={cancelEdit}>
+        <Modal.Header closeButton>
+          <Modal.Title>Edit Notes for "{editingEntry?.word}"</Modal.Title>
+        </Modal.Header>
+        <Modal.Body>
+          <Form
+            onSubmit={(e) => {
+              e.preventDefault();
+              const formData = new FormData(e.target);
+              handleUpdateNotes(editingEntry, formData.get('notes'));
+            }}
+          >
+            <Form.Group>
+              <Form.Label>Notes</Form.Label>
+              <Form.Control
+                as="textarea"
+                rows={3}
+                name="notes"
+                defaultValue={editingEntry?.notes || ""}
+                placeholder="Optional notes about this word"
+              />
+            </Form.Group>
+            <div className="mt-3">
+              <Button type="submit" variant="primary" disabled={isLoading} className="me-2">
+                {isLoading ? <Spinner size="sm" /> : "Save"}
+              </Button>
+              <Button variant="secondary" onClick={cancelEdit}>
+                Cancel
+              </Button>
+            </div>
+          </Form>
+        </Modal.Body>
+      </Modal>
+    </div>
   );
 }
 

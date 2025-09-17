@@ -36,13 +36,12 @@ export function useDictionaryOperations({ selectedScope, onSuccess, onError, onE
       const scopeText = scope?.displayName || 'personal dictionary';
       const successMessage = `Added "${word.trim()}" to ${scopeText}`;
       if (onSuccess) onSuccess(successMessage);
-      
+
       return { word: '', notes: '' }; // Return cleared form values
     } catch (err) {
-      const errorMessage = err.message?.includes("already exists") 
-        ? "This word is already in your dictionary"
-        : err.message || "Failed to add word";
-      
+      // Use the detailed error message from the API
+      const errorMessage = err.message || "Failed to add word";
+
       if (onError) onError(errorMessage);
       throw err;
     } finally {
@@ -90,10 +89,10 @@ export function useDictionaryOperations({ selectedScope, onSuccess, onError, onE
 
     try {
       const updatedEntry = await DictionaryService.updateWordNotes(entry.id, newNotes);
-      
+
       const successMessage = `Updated notes for "${entry.word}"`;
       if (onSuccess) onSuccess(successMessage);
-      
+
       return updatedEntry;
     } catch (err) {
       const errorMessage = err.message || "Failed to update notes";

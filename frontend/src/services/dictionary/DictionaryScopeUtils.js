@@ -11,7 +11,7 @@ export class DictionaryScopeUtils {
    */
   static getDictionaryScope(currentDocument = null) {
     if (!currentDocument) {
-      return { type: 'user', folderPath: null, displayName: 'Personal Dictionary' };
+      return { type: 'user', folderPath: null, displayName: 'Personal' };
     }
 
     // Check if document is from GitHub
@@ -21,7 +21,7 @@ export class DictionaryScopeUtils {
       return {
         type: 'github',
         folderPath,
-        displayName: `${repoName} Repository Dictionary`,
+        displayName: `${repoName}`,
         repository: currentDocument.repository_name
       };
     }
@@ -32,14 +32,14 @@ export class DictionaryScopeUtils {
 
     if (pathParts.length === 0) {
       // Root level documents
-      return { type: 'user', folderPath: null, displayName: 'Personal Dictionary' };
+      return { type: 'user', folderPath: null, displayName: 'Personal' };
     } else if (pathParts.length === 1) {
       // One level deep - use root folder dictionary
       const rootFolder = pathParts[0];
       return {
         type: 'folder',
         folderPath: `/${rootFolder}`,
-        displayName: `${rootFolder} Folder Dictionary`,
+        displayName: `${rootFolder}`,
         folder: rootFolder
       };
     } else {
@@ -48,7 +48,7 @@ export class DictionaryScopeUtils {
       return {
         type: 'folder',
         folderPath: `/${rootFolder}`,
-        displayName: `${rootFolder} Folder Dictionary`,
+        displayName: `${rootFolder}`,
         folder: rootFolder
       };
     }
@@ -61,7 +61,7 @@ export class DictionaryScopeUtils {
    */
   static getAvailableScopes(documents = []) {
     const scopes = [
-      { type: 'user', folderPath: null, displayName: 'Personal Dictionary (All Documents)' }
+      { type: 'user', folderPath: null, displayName: 'Personal (All Documents)' }
     ];
 
     const uniqueFolders = new Set();
@@ -75,14 +75,14 @@ export class DictionaryScopeUtils {
           scopes.push({
             type: 'github',
             folderPath: `/github/${repoName}`,
-            displayName: `${repoName} Repository Dictionary`,
+            displayName: `${repoName}`,
             repository: repoName
           });
         }
       } else {
         const folderPath = doc.folder_path || '/';
         const pathParts = folderPath.split('/').filter(part => part.length > 0);
-        
+
         if (pathParts.length > 0) {
           const rootFolder = pathParts[0];
           if (!uniqueFolders.has(rootFolder)) {
@@ -90,7 +90,7 @@ export class DictionaryScopeUtils {
             scopes.push({
               type: 'folder',
               folderPath: `/${rootFolder}`,
-              displayName: `${rootFolder} Folder Dictionary`,
+              displayName: `${rootFolder}`,
               folder: rootFolder
             });
           }
