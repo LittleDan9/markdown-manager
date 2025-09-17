@@ -1,4 +1,5 @@
 """Login and authentication endpoints."""
+import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
@@ -16,6 +17,7 @@ from app.database import get_db, AsyncSessionLocal
 from app.schemas.user import LoginMFARequest, LoginResponse, Token, UserLogin
 from app.services.github_service import GitHubService
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -161,6 +163,23 @@ async def login(
         True  # force_sync=True for login
     )
 
+    # Load current document content if it exists
+    if user.current_document and user.current_document.file_path:
+        from app.services.storage.user import UserStorage
+        try:
+            # Load content from filesystem and add it to the document model
+            storage_service = UserStorage()
+            content = await storage_service.read_document(
+                user_id=user.id,
+                file_path=user.current_document.file_path
+            )
+            # Add content attribute to the document model for serialization
+            user.current_document.content = content or ""
+        except Exception as e:
+            # If content loading fails, set content to empty string
+            logger.warning(f"Failed to load current document content for user {user.id}: {e}")
+            user.current_document.content = ""
+
     return LoginResponse(
         mfa_required=False,
         access_token=access_token,
@@ -224,6 +243,23 @@ async def refresh_token(
         user.id,
         False  # force_sync=False for refresh token (only sync if > 1 hour since last sync)
     )
+
+    # Load current document content if it exists
+    if user.current_document and user.current_document.file_path:
+        from app.services.storage.user import UserStorage
+        try:
+            # Load content from filesystem and add it to the document model
+            storage_service = UserStorage()
+            content = await storage_service.read_document(
+                user_id=user.id,
+                file_path=user.current_document.file_path
+            )
+            # Add content attribute to the document model for serialization
+            user.current_document.content = content or ""
+        except Exception as e:
+            # If content loading fails, set content to empty string
+            logger.warning(f"Failed to load current document content for user {user.id} (refresh): {e}")
+            user.current_document.content = ""
 
     return {
         "access_token": access_token,
@@ -293,6 +329,23 @@ async def login_mfa(
         user.id,
         True  # force_sync=True for login
     )
+
+    # Load current document content if it exists
+    if user.current_document and user.current_document.file_path:
+        from app.services.storage.user import UserStorage
+        try:
+            # Load content from filesystem and add it to the document model
+            storage_service = UserStorage()
+            content = await storage_service.read_document(
+                user_id=user.id,
+                file_path=user.current_document.file_path
+            )
+            # Add content attribute to the document model for serialization
+            user.current_document.content = content or ""
+        except Exception as e:
+            # If content loading fails, set content to empty string
+            logger.warning(f"Failed to load current document content for user {user.id} (MFA): {e}")
+            user.current_document.content = ""
 
     return {
         "access_token": access_token,

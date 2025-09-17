@@ -85,21 +85,25 @@ function DictionaryWordEntry({
       <div className="btn-group btn-group-sm">
         {isAuthenticated && (
           <Button
-            variant="outline-primary"
+            variant="link"
             size="sm"
             onClick={() => onStartEdit(entry)}
             title="Edit notes"
             disabled={loading || isEditing}
+            className="text-muted p-1 word-edit-btn"
+            style={{ fontSize: '0.875rem' }}
           >
             <i className="bi bi-pencil"></i>
           </Button>
         )}
         <Button
-          variant="outline-danger"
+          variant="link"
           size="sm"
           onClick={() => onDelete(entry.word)}
           title="Remove word"
           disabled={loading || isEditing}
+          className="text-muted p-1 word-delete-btn"
+          style={{ fontSize: '0.875rem' }}
         >
           <i className="bi bi-trash"></i>
         </Button>
@@ -137,7 +141,7 @@ export function DictionaryWordList({
 
   const getScopeDisplayText = () => {
     if (!selectedScope) return 'personal dictionary';
-    
+
     switch (selectedScope.type) {
       case 'user':
         return 'personal dictionary';
@@ -179,10 +183,12 @@ export function DictionaryWordList({
                 <ListGroup.Item key={entry.id} className="d-flex justify-content-between align-items-center">
                   <div className="fw-bold">{entry.word}</div>
                   <Button
-                    variant="outline-danger"
+                    variant="link"
                     size="sm"
                     onClick={() => onLocalWordDelete && onLocalWordDelete(entry, selectedScope)}
                     title="Remove word"
+                    className="text-muted p-1 word-delete-btn"
+                    style={{ fontSize: '0.875rem' }}
                   >
                     <i className="bi bi-trash"></i>
                   </Button>

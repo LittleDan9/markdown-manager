@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 
 /**
  * Custom hook for managing UI state in DictionaryTab
@@ -17,6 +17,10 @@ export function useDictionaryUI() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
+  // Auto-dismiss timeout refs
+  const successTimeoutRef = useRef(null);
+  const errorTimeoutRef = useRef(null);
+
   // Clear form
   const clearForm = useCallback(() => {
     setNewWord('');
@@ -27,18 +31,49 @@ export function useDictionaryUI() {
   const clearNotifications = useCallback(() => {
     setError('');
     setSuccess('');
+    // Clear any pending timeouts
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+      successTimeoutRef.current = null;
+    }
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+      errorTimeoutRef.current = null;
+    }
   }, []);
 
-  // Show success message
+  // Show success message with auto-dismiss
   const showSuccess = useCallback((message) => {
     setSuccess(message);
     setError('');
+
+    // Clear any existing timeout
+    if (successTimeoutRef.current) {
+      clearTimeout(successTimeoutRef.current);
+    }
+
+    // Set auto-dismiss after 5 seconds
+    successTimeoutRef.current = setTimeout(() => {
+      setSuccess('');
+      successTimeoutRef.current = null;
+    }, 5000);
   }, []);
 
-  // Show error message
+  // Show error message with auto-dismiss
   const showError = useCallback((message) => {
     setError(message);
     setSuccess('');
+
+    // Clear any existing timeout
+    if (errorTimeoutRef.current) {
+      clearTimeout(errorTimeoutRef.current);
+    }
+
+    // Set auto-dismiss after 5 seconds
+    errorTimeoutRef.current = setTimeout(() => {
+      setError('');
+      errorTimeoutRef.current = null;
+    }, 5000);
   }, []);
 
   // Handle form submission

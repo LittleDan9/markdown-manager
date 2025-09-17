@@ -63,10 +63,28 @@ export class Api {
         endpoint: endpoint
       });
 
+      // Extract detailed error message from backend response
+      let detailedErrorMessage = error.message;
+      if (error.response?.data?.detail) {
+        detailedErrorMessage = error.response.data.detail;
+      } else if (error.response?.data?.message) {
+        detailedErrorMessage = error.response.data.message;
+      } else if (error.response?.data?.error) {
+        detailedErrorMessage = error.response.data.error;
+      }
+
+      // Create a new error with the detailed message but preserve other properties
+      const enhancedError = new Error(detailedErrorMessage);
+      enhancedError.response = error.response;
+      enhancedError.request = error.request;
+      enhancedError.config = error.config;
+      enhancedError.code = error.code;
+      enhancedError.status = error.response?.status;
+
       // Dispatch global notification for network errors
       this.handleApiError(error, endpoint);
 
-      throw error;
+      throw enhancedError;
     }
   }
 
