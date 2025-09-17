@@ -13,10 +13,10 @@ Implement a comprehensive markdown linting system that mirrors the existing spel
 
 ### **Core Design Principles**
 
-1. **Mirror Spell Checker Patterns**: Follow the proven architecture of SpellCheckService, SpellCheckWorkerPool, SpellCheckMarkers
-2. **Modular Service Design**: Each component has single responsibility and clear interfaces
-3. **Performance-First**: Worker pools for parallel processing, incremental checking
-4. **Configurable Rules**: Per-category and per-folder rule customization
+1. **Backend Service Architecture**: Follow the proven PDF service pattern with dedicated markdown-lint service
+2. **API-First Design**: Frontend makes HTTP requests to backend services for processing
+3. **Performance-First**: Backend processing with chunked API calls, frontend marker management
+4. **Configurable Rules**: Per-category and per-folder rule customization with database persistence
 5. **Monaco Integration**: Native VS Code-like experience with markers and quick fixes
 
 ### **System Components**
@@ -24,14 +24,11 @@ Implement a comprehensive markdown linting system that mirrors the existing spel
 ```text
 Frontend (React/Monaco)
 ├── Services Layer
-│   ├── MarkdownLintService      # Core linting logic
-│   ├── MarkdownLintWorkerPool   # Parallel processing
+│   ├── MarkdownLintService      # API client for linting requests
 │   ├── MarkdownLintMarkers      # Monaco marker management
 │   ├── MarkdownLintMarkerAdapter # Issue to marker conversion
 │   ├── MarkdownLintActions      # Quick fixes and commands
-│   └── MarkdownLintRulesService # Rule configuration
-├── Workers
-│   └── markdownLint.worker.js   # Background linting processing
+│   └── MarkdownLintRulesService # Rule configuration & API client
 ├── UI Components
 │   ├── MarkdownLintTab          # Settings interface
 │   └── Toolbar integration      # Editor controls
@@ -39,27 +36,38 @@ Frontend (React/Monaco)
     ├── useEditor hook updates   # Linting lifecycle
     └── Monaco marker display    # Visual feedback
 
-Backend (FastAPI/SQLAlchemy)
-├── API Endpoints
-│   ├── /markdown-lint/categories/{id}/rules
-│   ├── /markdown-lint/folders/{path}/rules
-│   └── /markdown-lint/global/rules
-├── Database Schema
-│   └── markdown_lint_rules table
-└── CRUD Operations
-    └── Rule persistence and retrieval
+Backend Services
+├── markdown-lint-service (Port 8002)
+│   ├── FastAPI application      # Dedicated linting service
+│   ├── markdownlint library     # Node.js markdown processing
+│   ├── /lint endpoint          # Process text chunks with rules
+│   └── /rules/definitions       # Available rule definitions
+├── markdown-manager API (Port 8000)
+│   ├── Rule persistence endpoints
+│   │   ├── /markdown-lint/categories/{id}/rules
+│   │   ├── /markdown-lint/folders/{path}/rules
+│   │   └── /markdown-lint/user/defaults
+│   ├── Proxy endpoints to lint service
+│   │   └── /markdown-lint/process
+│   └── Database Schema
+│       └── markdown_lint_rules table
+└── nginx (Port 80)
+    ├── Route /api/markdown-lint/* → markdown-manager API
+    └── Proxy linting requests to markdown-lint-service
 ```
 
 ### **Technology Stack**
 
 **Frontend**:
-- **markdownlint library**: Core linting engine (same as VSCode extension)
+- **HTTP API Client**: Communicates with backend markdown-lint-service
 - **Monaco Editor**: Marker display and quick fixes
-- **Web Workers**: Background processing for performance
+- **Chunked Processing**: Efficient handling of large documents via API
 - **React Bootstrap**: UI components for settings
 
 **Backend**:
-- **FastAPI**: REST API endpoints for rule management
+- **markdown-lint-service**: Dedicated FastAPI service with markdownlint CLI
+- **markdownlint library**: Node.js markdown processing (backend only)
+- **Main API**: FastAPI endpoints for rule management and proxying
 - **SQLAlchemy**: Async database operations
 - **PostgreSQL**: Rule storage with JSONB configuration
 
@@ -103,26 +111,29 @@ MD004, MD005, MD007, MD009, MD010, MD011, MD012, MD014, MD018-MD023, MD026-MD027
 ## 🔄 **Data Flow**
 
 ### **Linting Process**
+
 1. **Trigger**: Content change in Monaco editor (debounced 1000ms)
-2. **Chunking**: Text split into manageable chunks (2000 chars)
-3. **Rule Resolution**: Get applicable rules for current category/folder
-4. **Worker Processing**: Parallel linting via worker pool
-5. **Marker Creation**: Convert issues to Monaco markers
-6. **Display**: Show markers with tooltips and quick fixes
+2. **Chunking**: Text split into manageable chunks (2000 chars) on frontend
+3. **Rule Resolution**: Get applicable rules for current category/folder from cache/API
+4. **API Request**: Send chunks + rules to `/api/markdown-lint/process` endpoint
+5. **Backend Processing**: markdown-lint-service processes chunks with markdownlint library
+6. **Response Processing**: Convert API response to Monaco markers
+7. **Display**: Show markers with tooltips and quick fixes
 
 ### **Rule Configuration Flow**
+
 1. **UI**: User modifies rules in MarkdownLintTab
-2. **API**: POST to /markdown-lint/categories/{id}/rules
-3. **Storage**: Rules saved to database with JSONB config
-4. **Cache**: Local storage cache for immediate use
+2. **API**: POST to `/api/markdown-lint/categories/{id}/rules` via main backend
+3. **Storage**: Rules saved to PostgreSQL database with JSONB config
+4. **Cache**: Local storage cache updated for immediate use
 5. **Application**: Rules applied to next linting cycle
 
-### **Editor Integration Flow**
-1. **Hook**: useEditor integrates linting lifecycle
-2. **Triggers**: Content change, save, manual lint command
-3. **Markers**: Display issues with severity styling
-4. **Actions**: Quick fixes via Monaco code actions
-5. **Toolbar**: Manual lint controls and status display
+### **Backend Service Communication**
+
+1. **Frontend** → **Main Backend**: Rule management and user data
+2. **Main Backend** → **markdown-lint-service**: Linting processing requests
+3. **markdown-lint-service**: Independent service with markdownlint library
+4. **nginx**: Routes and load balances between services
 
 ## 🎛️ **Configuration Hierarchy**
 
@@ -153,51 +164,135 @@ Rule precedence (highest to lowest):
 ```
 frontend/src/
 ├── services/editor/
-│   ├── MarkdownLintService.js
-│   ├── MarkdownLintWorkerPool.js
-│   ├── MarkdownLintMarkers.js
-│   ├── MarkdownLintMarkerAdapter.js
-│   └── MarkdownLintActions.js
+│   ├── MarkdownLintService.js        # API client for linting requests
+│   ├── MarkdownLintMarkers.js        # Monaco marker management
+│   ├── MarkdownLintMarkerAdapter.js  # Issue to marker conversion
+│   └── MarkdownLintActions.js        # Quick fixes and commands
 ├── services/linting/
-│   └── MarkdownLintRulesService.js
-├── workers/
-│   └── markdownLint.worker.js
+│   └── MarkdownLintRulesService.js   # Rule configuration & API client
 ├── components/linting/modals/
-│   └── MarkdownLintTab.jsx
+│   └── MarkdownLintTab.jsx           # Settings interface
 ├── api/
-│   └── markdownLintApi.js
+│   └── markdownLintApi.js            # API client for rule management
 └── hooks/
-    └── useMarkdownLint.js (new)
+    └── useMarkdownLint.js            # React integration hook
 
 backend/app/
 ├── routers/
-│   └── markdown_lint.py
+│   └── markdown_lint.py              # Rule persistence endpoints
 ├── crud/
-│   └── markdown_lint.py
+│   └── markdown_lint.py              # Database operations
 ├── models/
-│   └── markdown_lint.py
+│   └── markdown_lint.py              # SQLAlchemy models
 └── schemas/
-    └── markdown_lint.py
+    └── markdown_lint.py              # Pydantic schemas
+
+markdown-lint-service/                # New dedicated service
+├── app/
+│   ├── main.py                       # FastAPI application
+│   ├── lint_service.py               # Core linting logic
+│   └── models.py                     # Request/response models
+├── Dockerfile                        # Service containerization
+└── requirements.txt                  # Python dependencies
 ```
 
 ## 🔗 **Dependencies**
 
-**New Frontend Dependencies**:
-- `markdownlint`: Core linting library
-- No additional UI dependencies (uses existing React Bootstrap)
+**Frontend Dependencies**:
+
+- No additional dependencies (removes markdownlint from frontend bundle)
+- Uses existing React Bootstrap for UI components
 
 **Backend Dependencies**:
+
+**markdown-lint-service**:
+
+- `markdownlint`: Core linting library (Node.js/Python)
+- `fastapi`: API framework
+- `uvicorn`: ASGI server
+
+**main backend**:
+
 - No additional dependencies (uses existing FastAPI/SQLAlchemy stack)
 
 ## 🎯 **Implementation Phases**
 
-1. **Phase 1**: Core Service Architecture (Week 1)
-2. **Phase 2**: Worker Implementation (Week 1)
-3. **Phase 3**: Rules Configuration System (Week 2)
-4. **Phase 4**: UserSettingsModal Integration (Week 3)
-5. **Phase 5**: Editor Integration (Week 3)
-6. **Phase 6**: Backend Implementation (Week 4)
-7. **Phase 7**: Testing & Polish (Week 5)
+### **✅ Phase 1: Backend Service Foundation**
+
+**Status**: ✅ Design Complete
+**Implementation Guide**: `.github/instructions/markdown-linting-phase-1-backend-service.md`
+
+- **Objective**: Create dedicated markdown-lint-service following PDF service pattern
+- **Key Components**:
+  - FastAPI application with markdownlint CLI integration
+  - Docker containerization with Node.js runtime
+  - `/lint` endpoint for text processing with rule configuration
+  - `/rules/definitions` endpoint for available rules metadata
+  - Async processing with chunked text support
+- **Dependencies**: markdownlint-cli, FastAPI, Docker, nginx routing
+- **Docker Integration**: New service on port 8002, nginx proxy configuration
+
+### **✅ Phase 2: API-Based Frontend Service**
+
+**Status**: ✅ Design Complete
+**Implementation Guide**: `.github/instructions/markdown-linting-phase-2-api-frontend.md`
+
+- **Objective**: Replace worker-based implementation with HTTP API client
+- **Key Components**:
+  - Updated MarkdownLintService with HTTP API communication
+  - Chunked processing via backend API calls
+  - Error handling and graceful degradation
+  - Concurrent request management with semaphore pattern
+- **Breaking Changes**: Remove worker pool, update service imports
+- **Performance**: Maintain real-time editing experience with optimized API calls
+
+
+### **🔄 Phase 3: Rules Configuration Service**
+
+**Status**: Ready for Implementation
+**Estimated Timeline**: Week 2
+
+- **Objective**: Configurable rules per category/folder with UI
+- **Frontend**: MarkdownLintRulesService, settings components
+- **Backend**: Rule persistence endpoints, database schema
+- **UI**: MarkdownLintTab with rule toggles and customization
+
+
+### **🔄 Phase 4: Enhanced Editor Integration**
+**Status**: Pending Phase 3
+**Estimated Timeline**: Week 3
+
+- **Objective**: Advanced Monaco integration with quick fixes
+- **Components**: Enhanced marker adapter, action system
+- **Features**: Quick fixes, rule suggestions, batch operations
+- **UX**: Seamless editing experience with contextual help
+
+
+### **🔄 Phase 5: Performance Optimization**
+**Status**: Pending Core Implementation
+**Estimated Timeline**: Week 4
+
+- **Objective**: Optimize for large documents and real-time editing
+- **Features**: Caching, debouncing, incremental processing
+- **Monitoring**: Performance metrics and optimization
+
+
+### **🔄 Phase 6: Advanced Features**
+**Status**: Future Enhancement
+**Estimated Timeline**: Week 5
+
+- **Objective**: Advanced linting capabilities
+- **Features**: Custom rules, templates, batch processing
+- **Integration**: CI/CD, GitHub sync, export features
+
+
+### **🔄 Phase 7: Documentation & Testing**
+**Status**: Future Enhancement
+**Estimated Timeline**: Week 6
+
+- **Objective**: Comprehensive testing and documentation
+- **Components**: Unit tests, integration tests, user guides
+- **Quality**: Code coverage, performance benchmarks
 
 ## 🔧 **Key Success Metrics**
 
@@ -210,7 +305,7 @@ backend/app/
 ## 📚 **Reference Materials**
 
 - **Existing Architecture**: `frontend/src/services/editor/` (spell checker patterns)
-- **Markdownlint Rules**: https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md
+- **Markdownlint Rules**: [Official Rules Documentation](https://github.com/DavidAnson/markdownlint/blob/main/doc/Rules.md)
 - **Monaco Integration**: `frontend/src/hooks/useEditor.js`
 - **Backend Patterns**: `backend/app/routers/` (API structure)
 

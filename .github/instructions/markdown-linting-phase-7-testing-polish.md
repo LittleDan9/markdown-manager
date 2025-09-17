@@ -15,16 +15,16 @@ Complete the markdown linting implementation with comprehensive testing, perform
 
 - **Unit Tests**: 90%+ coverage for all service components
 - **Integration Tests**: End-to-end API workflows
-- **Performance Tests**: Worker performance under load
+- **Performance Tests**: API response times and backend service performance
 - **UI Tests**: Component behavior and user interactions
 - **Error Handling**: Graceful degradation and recovery
 
 ### **Performance Targets**
 
 - **Linting Response**: <100ms for documents up to 10,000 lines
-- **Worker Startup**: <200ms for web worker initialization
 - **API Response**: <50ms for rule configuration endpoints
-- **Memory Usage**: <50MB for worker pools
+- **Backend Service**: <200ms for markdown-lint-service processing
+- **Memory Usage**: <50MB for API clients and caching
 - **UI Responsiveness**: No blocking during linting operations
 
 ## 🔧 **Implementation Tasks**
@@ -35,10 +35,10 @@ Complete the markdown linting implementation with comprehensive testing, perform
 
 ```javascript
 import { MarkdownLintService } from '../MarkdownLintService';
-import { MarkdownLintWorkerPool } from '../MarkdownLintWorkerPool';
+import { MarkdownLintApiClient } from '../MarkdownLintApiClient';
 
-// Mock the worker pool
-jest.mock('../MarkdownLintWorkerPool');
+// Mock the API client
+jest.mock('../MarkdownLintApiClient');
 
 describe('MarkdownLintService', () => {
     let service;

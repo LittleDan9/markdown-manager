@@ -778,7 +778,72 @@ async def delete_folder_rules(
     return {"message": f"Deleted {deleted_count} rules", "deleted_count": deleted_count}
 ```
 
-### **Task 6.6: Register Router in App Factory**
+### **Task 6.6: Proxy Endpoints to Markdown-Lint-Service**
+
+Add proxy endpoints that forward requests to the markdown-lint-service (created in Phase 1):
+
+```python
+# Add these imports at the top of the router file
+import httpx
+from app.core.config import get_settings
+
+# Add proxy endpoints after the main CRUD endpoints
+@router.post("/process")
+async def process_markdown(
+    request: dict,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Proxy endpoint to markdown-lint-service for processing text
+    Forwards requests from frontend MarkdownLintService (Phase 2)
+    """
+    settings = get_settings()
+    lint_service_url = f"http://markdown-lint-service:8002/lint"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.post(
+                lint_service_url,
+                json=request,
+                timeout=30.0
+            )
+            response.raise_for_status()
+            return response.json()
+    
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Markdown lint service unavailable: {str(e)}"
+        )
+    except httpx.HTTPStatusError as e:
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail=f"Markdown lint service error: {e.response.text}"
+        )
+
+@router.get("/rules/definitions")
+async def get_rule_definitions():
+    """
+    Proxy endpoint to get available rule definitions from markdown-lint-service
+    Used by frontend rules configuration (Phase 3)
+    """
+    settings = get_settings()
+    lint_service_url = f"http://markdown-lint-service:8002/rules/definitions"
+    
+    try:
+        async with httpx.AsyncClient() as client:
+            response = await client.get(lint_service_url, timeout=10.0)
+            response.raise_for_status()
+            return response.json()
+    
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503, 
+            detail=f"Markdown lint service unavailable: {str(e)}"
+        )
+```
+
+### **Task 6.7: Register Router in App Factory**
 **File**: `backend/app/app_factory.py`
 
 Add the markdown lint router to the application:

@@ -41,6 +41,11 @@ Follow markdownlint standard configuration format:
 /**
  * Service for managing markdown linting rules configuration
  * Handles rule hierarchy: folder > category > user defaults > system defaults
+ * 
+ * Integrates with:
+ * - MarkdownLintService (Phase 2): Provides rules for API-based linting requests
+ * - Backend markdown-lint-service (Phase 1): Retrieves rule definitions
+ * - Main backend API: Persists user/category/folder rule configurations
  */
 export default class MarkdownLintRulesService {
 
@@ -435,7 +440,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Category rules
    */
   async getCategoryRules(categoryId) {
-    const response = await this.apiCall(`/markdown-lint/categories/${categoryId}/rules`);
+    const response = await this.apiCall(`/api/markdown-lint/categories/${categoryId}/rules`);
     return response.data;
   }
 
@@ -446,7 +451,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Updated rules
    */
   async updateCategoryRules(categoryId, rules) {
-    const response = await this.apiCall(`/markdown-lint/categories/${categoryId}/rules`, {
+    const response = await this.apiCall(`/api/markdown-lint/categories/${categoryId}/rules`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
@@ -463,7 +468,7 @@ export class MarkdownLintApi extends Api {
    */
   async getFolderRules(folderPath) {
     const encodedPath = encodeURIComponent(folderPath);
-    const response = await this.apiCall(`/markdown-lint/folders/${encodedPath}/rules`);
+    const response = await this.apiCall(`/api/markdown-lint/folders/${encodedPath}/rules`);
     return response.data;
   }
 
@@ -475,7 +480,7 @@ export class MarkdownLintApi extends Api {
    */
   async updateFolderRules(folderPath, rules) {
     const encodedPath = encodeURIComponent(folderPath);
-    const response = await this.apiCall(`/markdown-lint/folders/${encodedPath}/rules`, {
+    const response = await this.apiCall(`/api/markdown-lint/folders/${encodedPath}/rules`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
@@ -490,7 +495,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} User default rules
    */
   async getUserDefaultRules() {
-    const response = await this.apiCall('/markdown-lint/user/defaults');
+    const response = await this.apiCall('/api/markdown-lint/user/defaults');
     return response.data;
   }
 
@@ -500,7 +505,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Updated rules
    */
   async updateUserDefaultRules(rules) {
-    const response = await this.apiCall('/markdown-lint/user/defaults', {
+    const response = await this.apiCall('/api/markdown-lint/user/defaults', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json'
@@ -512,10 +517,12 @@ export class MarkdownLintApi extends Api {
 
   /**
    * Get all rule definitions and descriptions
+   * Note: This endpoint should proxy to the markdown-lint-service 
+   * (created in Phase 1) to get the latest rule definitions
    * @returns {Promise<Object>} Rule definitions
    */
   async getRuleDefinitions() {
-    const response = await this.apiCall('/markdown-lint/rules/definitions');
+    const response = await this.apiCall('/api/markdown-lint/rules/definitions');
     return response.data;
   }
 }
