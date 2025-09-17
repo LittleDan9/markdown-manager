@@ -10,6 +10,7 @@ from app.models import User
 from app.schemas.github import GitHubCommitRequest, GitHubCommitResponse
 from app.services.github_service import GitHubService
 from app.services.github.cache import github_cache_service
+from app.services.storage.user import UserStorage
 from app.crud.github_crud import GitHubCRUD
 
 router = APIRouter()
@@ -104,7 +105,7 @@ async def _check_for_conflicts(
             fetch_remote_file,
             force_refresh=False
         )
-        
+
         remote_sha = cached_result["sha"]
 
         # Check if remote file has changed since last sync
@@ -127,7 +128,8 @@ async def _perform_commit(
     document,
     account,
     repository,
-    target_branch: str
+    target_branch: str,
+    document_content: str
 ) -> dict:
     """Perform the actual commit to GitHub."""
     # Create new branch if requested
@@ -140,12 +142,12 @@ async def _perform_commit(
     print("=== SHA Determination ===")
     print(f"Document GitHub SHA: {document.github_sha}")
     print(f"Force Commit: {commit_request.force_commit}")
-    
+
     if commit_request.force_commit:
         print("Force commit requested - fetching remote SHA")
         try:
             from app.services.github.cache import github_cache_service
-            
+
             async def fetch_remote_file():
                 content, sha = await github_service.get_file_content(
                     account.access_token,
@@ -163,7 +165,7 @@ async def _perform_commit(
                 fetch_remote_file,
                 force_refresh=True  # Force refresh for commit
             )
-            
+
             sha_to_use = cached_result["sha"]
             print(f"Force commit: Using remote SHA {sha_to_use} instead of local SHA {document.github_sha}")
         except Exception as e:
@@ -178,7 +180,7 @@ async def _perform_commit(
         repository.repo_owner,
         repository.repo_name,
         document.github_file_path or "",
-        document.content,
+        document_content,
         commit_request.commit_message,
         branch=target_branch,
         sha=sha_to_use,
@@ -201,7 +203,7 @@ async def _update_document_metadata(
     print(f"Commit Result Keys: {list(commit_result.keys())}")
     print(f"Commit Result Content: {commit_result}")
     print(f"Old GitHub SHA: {document.github_sha}")
-    
+
     # Check if commit_result has the expected structure
     if "commit" in commit_result and "sha" in commit_result["commit"]:
         new_github_sha = commit_result["commit"]["sha"]
@@ -210,11 +212,11 @@ async def _update_document_metadata(
     else:
         print(f"ERROR: No SHA found in commit_result: {commit_result}")
         raise ValueError(f"No SHA found in commit result: {list(commit_result.keys())}")
-    
+
     print(f"New GitHub SHA: {new_github_sha}")
     print(f"Old Local SHA: {document.local_sha}")
     print(f"New Local SHA: {content_sha256}")
-    
+
     document.github_sha = new_github_sha
     # Use the pre-calculated SHA-256 hash for consistency
     document.local_sha = content_sha256
@@ -255,11 +257,29 @@ async def commit_document_to_github(
     print(f"Commit Message: {commit_request.commit_message}")
     print(f"Force Commit: {commit_request.force_commit}")
     print(f"User ID: {current_user.id}")
-    
+
     # Validate document and repository access
     document, repository, account = await _validate_document_and_repository(
         db, document_id, current_user
     )
+
+    # Load document content from filesystem
+    storage_service = UserStorage()
+    document_content = ""
+    if document.file_path:
+        try:
+            content = await storage_service.read_document(
+                user_id=current_user.id,
+                file_path=document.file_path
+            )
+            document_content = content or ""
+        except Exception as e:
+            print(f"Failed to load document content from filesystem: {e}")
+            # Fallback to empty content rather than failing
+            document_content = ""
+    else:
+        # Legacy document without file_path
+        document_content = getattr(document, 'content', "")
 
     print("=== Document State ===")
     print(f"Document Name: {document.name}")
@@ -267,10 +287,10 @@ async def commit_document_to_github(
     print(f"GitHub File Path: {document.github_file_path}")
     print(f"Current GitHub SHA: {document.github_sha}")
     print(f"Current Local SHA: {document.local_sha}")
-    print(f"Content Length: {len(document.content) if document.content else 0}")
-    
+    print(f"Content Length: {len(document_content)}")
+
     # Calculate current content SHA-256 for local tracking
-    current_content_sha256 = github_service.generate_content_hash(document.content or "")
+    current_content_sha256 = github_service.generate_content_hash(document_content)
     print(f"Calculated Content SHA-256: {current_content_sha256}")
 
     # Determine target branch
@@ -282,7 +302,7 @@ async def commit_document_to_github(
     try:
         # Perform the commit
         commit_result = await _perform_commit(
-            commit_request, document, account, repository, target_branch
+            commit_request, document, account, repository, target_branch, document_content
         )
 
         # Update document metadata with calculated SHA
@@ -290,7 +310,7 @@ async def commit_document_to_github(
 
         # Extract SHA for response (handle different response structures)
         response_sha = commit_result.get("commit", {}).get("sha") or commit_result.get("sha") or "unknown"
-        
+
         print("=== Commit Success ===")
         print(f"New GitHub SHA: {response_sha}")
         print(f"Updated Local SHA: {current_content_sha256}")

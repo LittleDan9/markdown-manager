@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud import document as document_crud
 from app.database import get_db
 from app.schemas.document import SharedDocument
+from app.routers.documents.response_utils import create_document_response
 
 router = APIRouter()
 
@@ -23,13 +24,21 @@ async def get_shared_document(
             status_code=404, detail="Shared document not found or sharing disabled"
         )
 
-    # Create the response with author information
+    # Use the response utility to load content from filesystem
+    document_response = await create_document_response(
+        document=document,
+        user_id=document.user_id
+    )
+
+    # Create the shared document response with author information
     shared_doc_data = {
-        "id": document.id,
-        "name": document.name,
-        "content": document.content,
-        "category": document.category,
-        "updated_at": document.updated_at,
+        "id": document_response.id,
+        "name": document_response.name,
+        "content": document_response.content,
+        "category": document_response.category,
+        "category_id": document_response.category_id,
+        "folder_path": document_response.folder_path,
+        "updated_at": document_response.updated_at,
         "author_name": document.owner.full_name,
     }
 

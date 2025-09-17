@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.crud.github_crud import GitHubCRUD
 from app.crud.document import DocumentCRUD
 from app.models.document import Document
+from app.services.storage.user import UserStorage
 
 from .base import BaseGitHubService
 
@@ -32,6 +33,23 @@ class GitHubSyncService(BaseGitHubService):
         """Pull remote changes and handle conflicts."""
         from .api import GitHubAPIService
         api_service = GitHubAPIService()
+
+        # Load current document content from filesystem
+        storage_service = UserStorage()
+        current_content = ""
+        if document.file_path:
+            try:
+                content = await storage_service.read_document(
+                    user_id=user_id,
+                    file_path=document.file_path
+                )
+                current_content = content or ""
+            except Exception as e:
+                print(f"Failed to load document content from filesystem: {e}")
+                current_content = ""
+        else:
+            # Legacy document without file_path
+            current_content = getattr(document, 'content', "")
 
         if not document.github_repository_id:
             raise HTTPException(
@@ -75,7 +93,7 @@ class GitHubSyncService(BaseGitHubService):
             }
 
         # Generate current local content hash using Git blob format for consistency
-        current_local_hash = api_service.generate_git_blob_hash(document.content)
+        current_local_hash = api_service.generate_git_blob_hash(current_content)
         has_local_changes = current_local_hash != document.local_sha
 
         # Handle different scenarios
@@ -86,14 +104,14 @@ class GitHubSyncService(BaseGitHubService):
             )
         elif force_overwrite:
             # Force overwrite local changes
-            backup_created = await self._create_backup(db, document, user_id)
+            backup_created = await self._create_backup(db, document, user_id, current_content)
             return await self._update_document_from_remote(
                 db, document, remote_content, remote_sha, user_id, backup_created
             )
         else:
             # Attempt to merge changes
             return await self._merge_changes(
-                db, document, remote_content, remote_sha, user_id
+                db, document, remote_content, remote_sha, user_id, current_content
             )
 
     async def _update_document_from_remote(
@@ -111,8 +129,26 @@ class GitHubSyncService(BaseGitHubService):
 
         new_content_hash = api_service.generate_git_blob_hash(remote_content)
 
-        # Update document
-        document.content = remote_content
+        # Update document content in filesystem
+        storage_service = UserStorage()
+        if document.file_path:
+            try:
+                await storage_service.write_document(
+                    user_id=user_id,
+                    file_path=document.file_path,
+                    content=remote_content,
+                    commit_message=f"Sync from GitHub: {document.name}",
+                    auto_commit=True
+                )
+            except Exception as e:
+                print(f"Failed to write remote content to filesystem: {e}")
+                # Fallback to database update for legacy documents
+                document.content = remote_content
+        else:
+            # Legacy document without file_path
+            document.content = remote_content
+
+        # Update metadata
         document.github_sha = remote_sha
         document.local_sha = new_content_hash
         document.github_sync_status = "synced"
@@ -141,7 +177,8 @@ class GitHubSyncService(BaseGitHubService):
         self,
         db: AsyncSession,
         document: Document,
-        user_id: int
+        user_id: int,
+        current_content: str
     ) -> bool:
         """Create a backup copy of the document before overwriting."""
         try:
@@ -152,7 +189,7 @@ class GitHubSyncService(BaseGitHubService):
                 db,
                 user_id=user_id,
                 name=backup_name,
-                content=document.content,
+                content=current_content,
                 folder_path=backup_folder
             )
 
@@ -167,7 +204,8 @@ class GitHubSyncService(BaseGitHubService):
         document: Document,
         remote_content: str,
         remote_sha: str,
-        user_id: int
+        user_id: int,
+        current_content: str
     ) -> Dict[str, Any]:
         """Attempt to merge local and remote changes."""
         # Get the original content (last synced version)
@@ -176,7 +214,7 @@ class GitHubSyncService(BaseGitHubService):
         # Perform three-way merge
         merge_result = self._three_way_merge(
             original_content,
-            document.content,  # local changes
+            current_content,   # local changes
             remote_content     # remote changes
         )
 
@@ -194,11 +232,28 @@ class GitHubSyncService(BaseGitHubService):
         else:
             # Conflicts detected, create content with conflict markers
             conflict_content = self._create_conflict_markers(
-                document.content, remote_content, merge_result["conflicts"]
+                current_content, remote_content, merge_result["conflicts"]
             )
 
-            # Update document with conflict markers
-            document.content = conflict_content
+            # Update document with conflict markers in filesystem
+            storage_service = UserStorage()
+            if document.file_path:
+                try:
+                    await storage_service.write_document(
+                        user_id=user_id,
+                        file_path=document.file_path,
+                        content=conflict_content,
+                        commit_message=f"Conflict markers added for {document.name}",
+                        auto_commit=True
+                    )
+                except Exception as e:
+                    print(f"Failed to write conflict content to filesystem: {e}")
+                    # Fallback to database update for legacy documents
+                    document.content = conflict_content
+            else:
+                # Legacy document without file_path
+                document.content = conflict_content
+
             document.github_sync_status = "conflict"
             await db.commit()
 
@@ -316,10 +371,28 @@ class GitHubSyncService(BaseGitHubService):
         from .api import GitHubAPIService
         api_service = GitHubAPIService()
 
-        # Update document with resolved content
+        # Update document with resolved content in filesystem
         new_content_hash = api_service.generate_git_blob_hash(resolved_content)
 
-        document.content = resolved_content
+        storage_service = UserStorage()
+        if document.file_path:
+            try:
+                await storage_service.write_document(
+                    user_id=user_id,
+                    file_path=document.file_path,
+                    content=resolved_content,
+                    commit_message=f"Resolve conflicts: {document.name}",
+                    auto_commit=True
+                )
+            except Exception as e:
+                print(f"Failed to write resolved content to filesystem: {e}")
+                # Fallback to database update for legacy documents
+                document.content = resolved_content
+        else:
+            # Legacy document without file_path
+            document.content = resolved_content
+
+        # Update metadata
         document.local_sha = new_content_hash
         document.github_sync_status = "synced"
         document.last_github_sync_at = datetime.utcnow()

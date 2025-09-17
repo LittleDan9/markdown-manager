@@ -5,6 +5,7 @@
 import SpellCheckWorkerPool from './SpellCheckWorkerPool';
 import { chunkTextWithOffsets } from '@/utils';
 import DictionaryService from '../dictionary';
+import MarkdownParser from './MarkdownParser';
 
 export class SpellCheckService {
   constructor(chunkSize = 1000) {
@@ -41,13 +42,17 @@ export class SpellCheckService {
   async scan(text, onProgress = () => {}, categoryId = null, folderPath = null){
     await this.init();
 
-    const bucket = chunkTextWithOffsets(text, this.chunkSize);
+    // Pre-compute code regions once for the entire document using unified parser
+    const codeRegions = MarkdownParser.findCodeRegions(text);
+
+    const bucket = chunkTextWithOffsets(text, this.chunkSize, codeRegions);
     const chunks = bucket.map(chunk => ({
       text: chunk.text,
       startOffset: chunk.offset,
+      codeRegions: chunk.codeRegions // Pass code regions to worker
     }));
 
-    this.workerPool._chunkOffsets = chunks.map(c => c.offset);
+    this.workerPool._chunkOffsets = chunks.map(c => c.startOffset);
 
     // Get applicable custom words for this folder or category
     const customWords = DictionaryService.getAllApplicableWords(folderPath, categoryId);
