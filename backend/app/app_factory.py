@@ -24,6 +24,7 @@ from app.routers import (
     github,
     icons,
     iconify_router,
+    markdown_lint,
     monitoring,
     pdf,
     public,
@@ -134,6 +135,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         custom_dictionary.router, prefix="/dictionary", tags=["custom-dictionary"]
+    )
+    app.include_router(
+        markdown_lint.router, tags=["markdown-lint"]
     )
     app.include_router(
         github.router, prefix="/github", tags=["github"]

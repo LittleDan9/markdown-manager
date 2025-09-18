@@ -571,28 +571,174 @@ CMD ["npm", "start"]
     restart: unless-stopped
 ```
 
-### **Task 1.6: Update Backend Router (Optional for Phase 1)**
+### **Task 1.6: Create Backend API Proxy Router**
 
-**File**: `backend/app/routers/markdown_lint.py` (minimal changes needed)
-
-The existing backend router can remain largely the same, just change the service URL from FastAPI endpoint to the Node.js service:
+**File**: `backend/app/routers/markdown_lint.py` (CRITICAL - Frontend only communicates with backend)
 
 ```python
-# Change service URL to point to Node.js service
-MARKDOWN_LINT_SERVICE_URL = "http://markdown-lint-service:8002"
+"""Markdown Lint API Router - Proxy to markdown-lint-service."""
 
-# The existing HTTP client calls will work with the Node.js endpoints
-# as they return the same JSON structure
+import logging
+from typing import Any, Dict
+
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
+from pydantic import BaseModel
+
+from app.core.auth import get_current_user
+from app.models import User
+
+logger = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/markdown-lint", tags=["markdown-lint"])
+
+
+class LintRequest(BaseModel):
+    """Request model for markdown linting."""
+    text: str
+    rules: Dict[str, Any]
+    chunk_offset: int = 0
+
+
+class LintResponse(BaseModel):
+    """Response model for markdown linting."""
+    issues: list
+    processed_length: int
+    rule_count: int
+
+
+class RuleDefinitionsResponse(BaseModel):
+    """Response model for rule definitions."""
+    rules: Dict[str, Any]
+
+
+@router.post("/process", response_model=LintResponse)
+async def process_markdown(
+    request: LintRequest,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Process markdown text for linting issues.
+    
+    Proxies the request to the internal markdown-lint-service.
+    """
+    lint_service_url = "http://markdown-lint-service:8002/lint"
+    
+    logger.info(f"Processing markdown lint request for user {current_user.id}, text length: {len(request.text)}")
+    
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            response = await client.post(
+                lint_service_url,
+                json={
+                    "text": request.text,
+                    "rules": request.rules,
+                    "chunk_offset": request.chunk_offset
+                }
+            )
+            response.raise_for_status()
+            
+            result = response.json()
+            return LintResponse(**result)
+    
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Markdown lint service unavailable: {str(e)}"
+        )
+
+
+@router.get("/rules/definitions", response_model=RuleDefinitionsResponse)
+async def get_rule_definitions():
+    """Get available markdownlint rule definitions."""
+    lint_service_url = "http://markdown-lint-service:8002/rules/definitions"
+    
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(lint_service_url)
+            response.raise_for_status()
+            return RuleDefinitionsResponse(**response.json())
+    
+    except httpx.RequestError as e:
+        raise HTTPException(
+            status_code=503,
+            detail=f"Markdown lint service unavailable: {str(e)}"
+        )
+
+
+@router.get("/health")
+async def check_lint_service_health():
+    """Check the health of the markdown-lint-service."""
+    lint_service_url = "http://markdown-lint-service:8002/health"
+    
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(lint_service_url)
+            response.raise_for_status()
+            
+            result = response.json()
+            return {
+                "status": "healthy",
+                "service": "markdown-lint-proxy",
+                "downstream": result
+            }
+    
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "service": "markdown-lint-proxy",
+            "error": str(e)
+        }
+```
+
+### **Task 1.7: Register Router in App Factory**
+
+**File**: `backend/app/app_factory.py` (add import and registration)
+
+```python
+# Add to imports
+from app.routers import (
+    # ... existing imports
+    markdown_lint,
+    # ... other imports
+)
+
+# Add to setup_routers function
+def setup_routers(app: FastAPI) -> None:
+    # ... existing routers
+    app.include_router(
+        markdown_lint.router, tags=["markdown-lint"]
+    )
+    # ... other routers
 ```
 
 ## ✅ **Verification Steps**
 
 1. **Service Startup**: Verify Node.js service starts and responds to health checks
 2. **API Testing**: Test lint endpoint with sample markdown and rules
-3. **Rule Definitions**: Verify rule definitions endpoint returns complete data  
+3. **Rule Definitions**: Verify rule definitions endpoint returns complete data
 4. **Docker Integration**: Confirm service runs properly in docker-compose stack
-5. **Performance**: Test processing speed with various document sizes
-6. **Hot Reload**: Verify nodemon detects file changes and restarts service
+5. **Backend Integration**: Test backend proxy endpoints work correctly
+6. **Authentication**: Verify process endpoint requires authentication
+7. **Performance**: Test processing speed with various document sizes
+8. **Hot Reload**: Verify nodemon detects file changes and restarts service
+
+### **Backend API Testing Commands**
+
+```bash
+# Test health check (no auth required)
+curl -H "User-Agent: Mozilla/5.0 ..." http://localhost:80/api/markdown-lint/health
+
+# Test rule definitions (no auth required)
+curl -H "User-Agent: Mozilla/5.0 ..." http://localhost:80/api/markdown-lint/rules/definitions
+
+# Test process endpoint (requires authentication)
+curl -X POST -H "Content-Type: application/json" \
+     -H "Authorization: Bearer <token>" \
+     -H "User-Agent: Mozilla/5.0 ..." \
+     -d '{"text": "#Test\nContent", "rules": {"MD018": true}}' \
+     http://localhost:80/api/markdown-lint/process
+```
 
 ## 🔗 **Integration Points**
 

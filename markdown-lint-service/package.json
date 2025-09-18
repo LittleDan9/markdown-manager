@@ -1,0 +1,21 @@
+{
+  "name": "markdown-lint-service",
+  "version": "1.0.0",
+  "description": "Simple Node.js HTTP server for markdown linting",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "dependencies": {
+    "express": "^4.18.2",
+    "markdownlint": "^0.34.0",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
