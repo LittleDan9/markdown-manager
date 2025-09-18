@@ -23,7 +23,7 @@ function UserMenuLoggedIn() {
     window.gitHubModalReturnCallback = () => {
       setShowGitHubModal(true);
     };
-    
+
     return () => {
       delete window.gitHubModalReturnCallback;
     };
@@ -46,6 +46,11 @@ function UserMenuLoggedIn() {
 
   const handleDictionary = () => {
     setActiveTab("dictionary");
+    setShowSettingsModal(true);
+  };
+
+  const handleMarkdownLinting = () => {
+    setActiveTab("markdown-lint");
     setShowSettingsModal(true);
   };
 
@@ -88,6 +93,9 @@ function UserMenuLoggedIn() {
         )}
         <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
           <i className="bi bi-book me-2"></i>Dictionary
+        </Dropdown.Item>
+        <Dropdown.Item id="markdownLintingBtn" onClick={handleMarkdownLinting}>
+          <i className="bi bi-check2-square me-2"></i>Markdown Linting
         </Dropdown.Item>
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
           <i className="bi bi-github me-2"></i>GitHub

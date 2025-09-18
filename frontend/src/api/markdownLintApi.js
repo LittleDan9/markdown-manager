@@ -12,7 +12,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Category rules configuration
    */
   async getCategoryRules(categoryId) {
-    const response = await this.apiCall(`/api/markdown-lint/categories/${categoryId}/rules`);
+    const response = await this.apiCall(`/markdown-lint/categories/${categoryId}/rules`);
     return response.data;
   }
 
@@ -23,7 +23,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Updated rule configuration
    */
   async updateCategoryRules(categoryId, rules) {
-    const response = await this.apiCall(`/api/markdown-lint/categories/${categoryId}/rules`, {
+    const response = await this.apiCall(`/markdown-lint/categories/${categoryId}/rules`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -40,7 +40,7 @@ export class MarkdownLintApi extends Api {
    */
   async getFolderRules(folderPath) {
     const encodedPath = encodeURIComponent(folderPath);
-    const response = await this.apiCall(`/api/markdown-lint/folders/${encodedPath}/rules`);
+    const response = await this.apiCall(`/markdown-lint/folders/${encodedPath}/rules`);
     return response.data;
   }
 
@@ -52,7 +52,7 @@ export class MarkdownLintApi extends Api {
    */
   async updateFolderRules(folderPath, rules) {
     const encodedPath = encodeURIComponent(folderPath);
-    const response = await this.apiCall(`/api/markdown-lint/folders/${encodedPath}/rules`, {
+    const response = await this.apiCall(`/markdown-lint/folders/${encodedPath}/rules`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -67,7 +67,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} User default rules configuration
    */
   async getUserDefaultRules() {
-    const response = await this.apiCall('/api/markdown-lint/user/defaults');
+    const response = await this.apiCall('/markdown-lint/user/defaults');
     return response.data;
   }
 
@@ -111,7 +111,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Updated rule configuration
    */
   async updateUserDefaultRules(rules) {
-    const response = await this.apiCall('/api/markdown-lint/user/defaults', {
+    const response = await this.apiCall('/markdown-lint/user/defaults', {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -126,7 +126,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<Object>} Rule definitions with metadata
    */
   async getRuleDefinitions() {
-    const response = await this.apiCall('/api/markdown-lint/rules/definitions');
+    const response = await this.apiCall('/markdown-lint/rules/definitions');
     return response.data;
   }
 
@@ -136,7 +136,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<void>}
    */
   async deleteCategoryRules(categoryId) {
-    await this.apiCall(`/api/markdown-lint/categories/${categoryId}/rules`, {
+    await this.apiCall(`/markdown-lint/categories/${categoryId}/rules`, {
       method: 'DELETE'
     });
   }
@@ -148,7 +148,7 @@ export class MarkdownLintApi extends Api {
    */
   async deleteFolderRules(folderPath) {
     const encodedPath = encodeURIComponent(folderPath);
-    await this.apiCall(`/api/markdown-lint/folders/${encodedPath}/rules`, {
+    await this.apiCall(`/markdown-lint/folders/${encodedPath}/rules`, {
       method: 'DELETE'
     });
   }
@@ -158,7 +158,7 @@ export class MarkdownLintApi extends Api {
    * @returns {Promise<void>}
    */
   async deleteUserDefaultRules() {
-    await this.apiCall('/api/markdown-lint/user/defaults', {
+    await this.apiCall('/markdown-lint/user/defaults', {
       method: 'DELETE'
     });
   }

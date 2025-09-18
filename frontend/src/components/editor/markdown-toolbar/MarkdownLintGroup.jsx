@@ -7,12 +7,12 @@ import { useTheme } from '@/providers/ThemeProvider';
  */
 export function MarkdownLintGroup({ onMarkdownLint, buttonVariant, buttonStyle, progress }) {
   const { theme } = useTheme();
-  
+
   const progressBarColor = theme === 'dark' ? '#fff' : '#000';
   const progressTextColor = theme === 'dark' ? '#adb5bd' : '#6c757d';
-  
+
   return (
-    <div className="d-flex align-items-center gap-2">
+    <div className="d-flex align-items-center gap-1">
       <ButtonGroup size="sm">
         <Button
           variant={buttonVariant}
@@ -24,27 +24,27 @@ export function MarkdownLintGroup({ onMarkdownLint, buttonVariant, buttonStyle, 
           <i className="bi bi-file-text-fill"></i>
         </Button>
       </ButtonGroup>
-      
+
       {progress && (
-        <div className="d-flex align-items-center" style={{ minWidth: '80px' }}>
-          <div style={{ fontSize: '10px', minWidth: '80px' }}>
-            <div 
-              className="progress" 
-              style={{ 
-                height: '3px', 
-                width: '60px',
+        <div className="d-flex align-items-center" style={{ minWidth: '50px' }}>
+          <div style={{ fontSize: '9px', minWidth: '50px' }}>
+            <div
+              className="progress"
+              style={{
+                height: '2px',
+                width: '40px',
                 backgroundColor: theme === 'dark' ? '#495057' : '#e9ecef'
               }}
             >
               <div
                 className="progress-bar"
-                style={{ 
+                style={{
                   width: `${Math.min(progress.progress || 0, 100)}%`,
                   backgroundColor: progressBarColor
                 }}
               ></div>
             </div>
-            <div style={{ color: progressTextColor, lineHeight: '1.2', marginTop: '1px' }}>
+            <div style={{ color: progressTextColor, lineHeight: '1.1', marginTop: '1px', fontSize: '8px' }}>
               {Math.round(progress.progress || 0)}%
             </div>
           </div>

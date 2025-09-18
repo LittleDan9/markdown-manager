@@ -1,208 +1,293 @@
 /**
  * MarkdownLintTab - Settings interface for markdown linting configuration
- * 
- * Provides UI for managing markdown linting rules at different scopes:
- * - User defaults
- * - Category-specific rules
- * - Folder-specific rules
+ *
+ * Provides UI for managing user default markdown linting rules.
  */
 
 import React, { useState, useEffect } from 'react';
-import { Card, Form, Button, Alert, Spinner, Row, Col, Badge, Accordion } from 'react-bootstrap';
-import { MarkdownLintRulesService } from '../../../services/linting';
+import { Card, Form, Button, Alert, Spinner, Accordion } from 'react-bootstrap';
+import PropTypes from 'prop-types';
+import { useAuth } from '../../../providers/AuthProvider';
+import useMarkdownLintRules from '../../../hooks/useMarkdownLintRules';
+import MarkdownLintRulesService from '../../../services/linting/MarkdownLintRulesService';
+import RuleConfigInput from '../RuleConfigInput';
+import RuleImportExport from '../RuleImportExport';
 import { useNotification } from '../../NotificationProvider';
 
 const MarkdownLintTab = () => {
-  // State management
-  const [rules, setRules] = useState({});
-  const [ruleDefinitions, setRuleDefinitions] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(null);
-  const [rulesFilter, setRulesFilter] = useState('all'); // 'all', 'enabled', 'disabled'
-  const [searchTerm, setSearchTerm] = useState('');
-
+  const { user } = useAuth();
   const { showSuccess, showError } = useNotification();
 
-  // Load rules and definitions on mount
+  const {
+    rules,
+    loading,
+    error,
+    updateUserDefaults,
+    validateRules,
+    getRuleDefinitions
+  } = useMarkdownLintRules();
+
+  const [localRules, setLocalRules] = useState({});
+  const [success, setSuccess] = useState('');
+  const [validationErrors, setValidationErrors] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  // Rule categories for organization
+  const ruleCategories = {
+    'Headings': ['MD001', 'MD003', 'MD018', 'MD019', 'MD020', 'MD021', 'MD022', 'MD023', 'MD024', 'MD025', 'MD026'],
+    'Lists': ['MD004', 'MD005', 'MD007', 'MD029', 'MD030', 'MD032'],
+    'Spacing': ['MD009', 'MD010', 'MD012', 'MD027'],
+    'Links & Images': ['MD011', 'MD034', 'MD039', 'MD042', 'MD045', 'MD051', 'MD052', 'MD053'],
+    'Code': ['MD031', 'MD040', 'MD046', 'MD048'],
+    'Style': ['MD013', 'MD033', 'MD035', 'MD036', 'MD037', 'MD038', 'MD047', 'MD049', 'MD050'],
+    'Tables': ['MD054', 'MD055', 'MD056', 'MD058']
+  };
+
+  // Initialize local rules when component mounts or rules change
   useEffect(() => {
-    loadData();
-  }, []);
+    setLocalRules({ ...rules });
+  }, [rules]);
+
+  // Get rule definitions for descriptions and configuration options
+  const ruleDefinitions = getRuleDefinitions ? getRuleDefinitions() : {};
+
+  // Fallback rule definitions if not available from the hook
+  const fallbackDefinitions = {
+    'MD001': { description: 'Heading levels should only increment by one level at a time', configurable: false },
+    'MD003': { description: 'Heading style should be consistent', configurable: true },
+    'MD004': { description: 'Unordered list style should be consistent', configurable: true },
+    'MD005': { description: 'Inconsistent indentation for list items at the same level', configurable: false },
+    'MD007': { description: 'Unordered list indentation should be consistent', configurable: true },
+    'MD009': { description: 'Trailing spaces should not be present', configurable: false },
+    'MD010': { description: 'Hard tabs should not be used', configurable: false },
+    'MD012': { description: 'Multiple consecutive blank lines should not be present', configurable: true },
+    'MD013': { description: 'Line length should not exceed configured limit', configurable: true },
+    'MD018': { description: 'No space after hash on atx style heading', configurable: false },
+    'MD019': { description: 'Multiple spaces after hash on atx style heading', configurable: false },
+    'MD020': { description: 'No space inside hashes on closed atx style heading', configurable: false },
+    'MD021': { description: 'Multiple spaces inside hashes on closed atx style heading', configurable: false },
+    'MD022': { description: 'Headings should be surrounded by blank lines', configurable: false },
+    'MD023': { description: 'Headings must start at the beginning of the line', configurable: false },
+    'MD024': { description: 'Multiple headings with the same content', configurable: false },
+    'MD025': { description: 'Multiple top level headings in the same document', configurable: false },
+    'MD026': { description: 'Trailing punctuation in heading', configurable: false },
+    'MD027': { description: 'Multiple spaces after blockquote symbol', configurable: false },
+    'MD029': { description: 'Ordered list item prefix should be consistent', configurable: true },
+    'MD030': { description: 'Spaces after list markers should be consistent', configurable: false },
+    'MD031': { description: 'Fenced code blocks should be surrounded by blank lines', configurable: false },
+    'MD032': { description: 'Lists should be surrounded by blank lines', configurable: false },
+    'MD033': { description: 'Inline HTML should not be used', configurable: false },
+    'MD034': { description: 'Bare URL used instead of link syntax', configurable: false },
+    'MD035': { description: 'Horizontal rule style should be consistent', configurable: false },
+    'MD036': { description: 'Emphasis used instead of a heading', configurable: false },
+    'MD037': { description: 'Spaces inside emphasis markers', configurable: false },
+    'MD038': { description: 'Spaces inside code span elements', configurable: false },
+    'MD039': { description: 'Spaces inside link text', configurable: false },
+    'MD040': { description: 'Fenced code blocks should have a language specified', configurable: false },
+    'MD042': { description: 'No empty links', configurable: false },
+    'MD045': { description: 'Images should have alternate text (alt text)', configurable: false },
+    'MD046': { description: 'Code block style should be consistent', configurable: true },
+    'MD047': { description: 'File should end with a single newline character', configurable: false },
+    'MD048': { description: 'Code fence style should be consistent', configurable: true },
+    'MD049': { description: 'Emphasis style should be consistent', configurable: true },
+    'MD050': { description: 'Strong style should be consistent', configurable: true },
+    'MD051': { description: 'Link fragments should be valid', configurable: false },
+    'MD052': { description: 'Reference links and images should use a label that is defined', configurable: false },
+    'MD053': { description: 'Link and image reference definitions should be needed', configurable: false },
+    'MD054': { description: 'Link and image style should be consistent', configurable: false },
+    'MD055': { description: 'Table row should have a pipe character at the beginning and end', configurable: false },
+    'MD056': { description: 'Table column count should be consistent', configurable: false },
+    'MD058': { description: 'Table rows should have the same number of cells', configurable: false }
+  };
+
+  const effectiveDefinitions = Object.keys(ruleDefinitions).length > 0 ? ruleDefinitions : fallbackDefinitions;
 
   /**
-   * Load user default rules and rule definitions
+   * Handle rule toggle (enable/disable)
    */
-  const loadData = async () => {
-    setLoading(true);
-    setError(null);
+  const handleRuleToggle = (ruleId, enabled) => {
+    setLocalRules(prev => ({
+      ...prev,
+      [ruleId]: enabled
+    }));
+    setValidationErrors([]);
+  };
 
-    try {
-      // Load in parallel
-      const [userRules, definitions] = await Promise.all([
-        MarkdownLintRulesService.getUserDefaults(),
-        MarkdownLintRulesService.getRuleDefinitions()
-      ]);
+  /**
+   * Handle rule configuration change
+   */
+  const handleRuleConfig = (ruleId, config) => {
+    setLocalRules(prev => ({
+      ...prev,
+      [ruleId]: config
+    }));
+    setValidationErrors([]);
+  };
 
-      setRules(userRules);
-      setRuleDefinitions(definitions);
-    } catch (err) {
-      setError('Failed to load markdown linting configuration');
-      console.error('MarkdownLintTab: Failed to load data:', err);
-    } finally {
-      setLoading(false);
+  /**
+   * Validate current rule configuration
+   */
+  const validateCurrentRules = () => {
+    if (validateRules) {
+      const validation = validateRules(localRules);
+      setValidationErrors(validation.errors || []);
+      return validation.valid !== false;
+    } else {
+      // Fallback validation - just ensure rules are objects/booleans
+      const errors = [];
+      Object.entries(localRules).forEach(([ruleId, value]) => {
+        if (value !== true && value !== false && typeof value !== 'object') {
+          errors.push(`Invalid value for rule ${ruleId}: ${value}`);
+        }
+      });
+      setValidationErrors(errors);
+      return errors.length === 0;
     }
   };
 
   /**
-   * Save user default rules
+   * Save rules based on current level
    */
-  const saveRules = async () => {
+  const handleSave = async () => {
+    if (!validateCurrentRules()) {
+      return;
+    }
+
     setSaving(true);
-    setError(null);
+    setSuccess('');
 
     try {
-      await MarkdownLintRulesService.saveUserDefaults(rules);
-      showSuccess('Markdown linting rules saved successfully');
+      await updateUserDefaults(localRules);
+      setSuccess('User default rules updated successfully');
+      showSuccess('User default rules updated successfully');
     } catch (err) {
-      setError('Failed to save markdown linting rules');
+      // Error handling is done by the hook
       showError('Failed to save markdown linting rules');
-      console.error('MarkdownLintTab: Failed to save rules:', err);
+      console.error('Failed to save rules:', err);
     } finally {
       setSaving(false);
     }
   };
 
   /**
-   * Handle rule toggle
+   * Reset to defaults
    */
-  const handleRuleToggle = (ruleId, enabled) => {
-    setRules(prev => ({
-      ...prev,
-      [ruleId]: enabled
-    }));
+  const handleReset = () => {
+    const defaults = MarkdownLintRulesService.getDefaultRules();
+    setLocalRules({ ...defaults });
+    setValidationErrors([]);
   };
 
   /**
-   * Reset to system defaults
+   * Handle import
    */
-  const resetToDefaults = () => {
-    const defaultRules = {
-      'MD001': true,  // Heading levels should only increment by one level at a time
-      'MD003': true,  // Heading style should be consistent
-      'MD009': true,  // Trailing spaces
-      'MD010': true,  // Hard tabs
-      'MD012': true,  // Multiple consecutive blank lines
-      'MD018': true,  // No space after hash on atx style heading
-      'MD019': true,  // Multiple spaces after hash on atx style heading
-      'MD023': true,  // Headings must start at the beginning of the line
-      'MD025': true,  // Multiple top level headings in the same document
-      'MD041': true,  // First line in file should be a top level heading
-      'MD047': true,  // File should end with a single newline character
-    };
-
-    setRules(defaultRules);
+  const handleImport = (importedRules) => {
+    setLocalRules({ ...importedRules });
+    setValidationErrors([]);
   };
 
   /**
-   * Enable all rules
+   * Get rule status (enabled/disabled/configured)
    */
-  const enableAllRules = () => {
-    const allEnabled = {};
-    Object.keys(ruleDefinitions).forEach(ruleId => {
-      allEnabled[ruleId] = true;
-    });
-    setRules(allEnabled);
+  const getRuleStatus = (ruleId) => {
+    const value = localRules[ruleId];
+    if (value === false) return 'disabled';
+    if (value === true) return 'enabled';
+    if (typeof value === 'object') return 'configured';
+    return 'default';
   };
 
   /**
-   * Disable all rules
+   * Get rule configuration component
    */
-  const disableAllRules = () => {
-    const allDisabled = {};
-    Object.keys(ruleDefinitions).forEach(ruleId => {
-      allDisabled[ruleId] = false;
-    });
-    setRules(allDisabled);
-  };
+  const renderRuleConfig = (ruleId) => {
+    const definition = effectiveDefinitions[ruleId];
+    const currentValue = localRules[ruleId];
 
-  /**
-   * Filter rules based on current filter and search
-   */
-  const getFilteredRules = () => {
-    const ruleIds = Object.keys(ruleDefinitions);
-    
-    return ruleIds.filter(ruleId => {
-      const definition = ruleDefinitions[ruleId];
-      const isEnabled = rules[ruleId] === true;
+    if (!definition || !definition.configurable || typeof currentValue !== 'object') {
+      return null;
+    }
 
-      // Apply filter
-      if (rulesFilter === 'enabled' && !isEnabled) return false;
-      if (rulesFilter === 'disabled' && isEnabled) return false;
+    // Render specific configuration UI based on rule
+    switch (ruleId) {
+      case 'MD003': // heading-style
+        return (
+          <Form.Select
+            size="sm"
+            value={currentValue.style || 'atx'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="atx">ATX (# ## ###)</option>
+            <option value="atx_closed">ATX Closed (# ## # ### #)</option>
+            <option value="setext">Setext (underlined)</option>
+            <option value="setext_with_atx">Setext + ATX</option>
+          </Form.Select>
+        );
 
-      // Apply search
-      if (searchTerm) {
-        const searchLower = searchTerm.toLowerCase();
-        const matchesRule = ruleId.toLowerCase().includes(searchLower);
-        const matchesName = definition.name?.toLowerCase().includes(searchLower);
-        const matchesDesc = definition.description?.toLowerCase().includes(searchLower);
-        return matchesRule || matchesName || matchesDesc;
-      }
+      case 'MD004': // ul-style
+        return (
+          <Form.Select
+            size="sm"
+            value={currentValue.style || 'dash'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="dash">Dash (-)</option>
+            <option value="asterisk">Asterisk (*)</option>
+            <option value="plus">Plus (+)</option>
+            <option value="consistent">Consistent</option>
+          </Form.Select>
+        );
 
-      return true;
-    });
-  };
+      case 'MD007': // ul-indent
+        return (
+          <Form.Control
+            type="number"
+            size="sm"
+            min="1"
+            max="8"
+            value={currentValue.indent || 2}
+            onChange={(e) => handleRuleConfig(ruleId, { indent: parseInt(e.target.value) })}
+            style={{ width: '80px' }}
+          />
+        );
 
-  /**
-   * Group rules by category
-   */
-  const getRulesByCategory = () => {
-    const filtered = getFilteredRules();
-    const grouped = {};
-
-    filtered.forEach(ruleId => {
-      const definition = ruleDefinitions[ruleId];
-      const category = definition.category || 'general';
-      
-      if (!grouped[category]) {
-        grouped[category] = [];
-      }
-      
-      grouped[category].push(ruleId);
-    });
-
-    return grouped;
-  };
-
-  /**
-   * Render rule item
-   */
-  const renderRuleItem = (ruleId) => {
-    const definition = ruleDefinitions[ruleId];
-    const isEnabled = rules[ruleId] === true;
-
-    return (
-      <div key={ruleId} className="d-flex align-items-center justify-content-between py-2 border-bottom">
-        <div className="flex-grow-1">
-          <div className="d-flex align-items-center gap-2">
-            <code className="text-primary">{ruleId}</code>
-            {definition.fixable && (
-              <Badge bg="success" text="light" className="small">
-                Auto-fixable
-              </Badge>
-            )}
+      case 'MD013': // line-length
+        return (
+          <div className="d-flex gap-2 align-items-center">
+            <Form.Control
+              type="number"
+              size="sm"
+              min="40"
+              max="200"
+              value={currentValue.line_length || 80}
+              onChange={(e) => handleRuleConfig(ruleId, {
+                ...currentValue,
+                line_length: parseInt(e.target.value)
+              })}
+              style={{ width: '80px' }}
+            />
+            <Form.Check
+              type="checkbox"
+              checked={currentValue.code_blocks || false}
+              onChange={(e) => handleRuleConfig(ruleId, {
+                ...currentValue,
+                code_blocks: e.target.checked
+              })}
+              label="Code blocks"
+            />
           </div>
-          <div className="text-muted small">
-            <strong>{definition.name}</strong> - {definition.description}
-          </div>
-        </div>
-        <Form.Check
-          type="switch"
-          checked={isEnabled}
-          onChange={(e) => handleRuleToggle(ruleId, e.target.checked)}
-          className="ms-2"
-        />
-      </div>
-    );
+        );
+
+      default:
+        return (
+          <RuleConfigInput
+            ruleId={ruleId}
+            definition={definition}
+            value={currentValue}
+            onChange={(config) => handleRuleConfig(ruleId, config)}
+          />
+        );
+    }
   };
 
   if (loading) {
@@ -216,131 +301,136 @@ const MarkdownLintTab = () => {
     );
   }
 
-  const rulesByCategory = getRulesByCategory();
-  const enabledCount = Object.values(rules).filter(Boolean).length;
-  const totalCount = Object.keys(ruleDefinitions).length;
-
   return (
-    <div>
-      {/* Header */}
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <div>
-          <h5 className="mb-1">Markdown Linting Rules</h5>
+    <Card className="mt-3">
+      <Card.Header>
+        <h5 className="mb-0">
+          <i className="bi bi-check2-square me-2"></i>
+          Markdown Linting Rules
+        </h5>
+      </Card.Header>
+
+      <Card.Body>
+        {error && <Alert variant="danger">{error}</Alert>}
+        {success && <Alert variant="success">{success}</Alert>}
+
+        {validationErrors.length > 0 && (
+          <Alert variant="warning">
+            <strong>Configuration Issues:</strong>
+            <ul className="mb-0 mt-2">
+              {validationErrors.map((err, idx) => (
+                <li key={idx}>{err}</li>
+              ))}
+            </ul>
+          </Alert>
+        )}
+
+        <div className="mb-3">
           <small className="text-muted">
-            Configure which markdown linting rules are enabled by default.
-            These settings apply to all documents unless overridden at the category or folder level.
+            Configure your default markdown linting rules. These rules will be applied to all your documents.
           </small>
         </div>
-        <Badge bg="primary" className="fs-6">
-          {enabledCount} / {totalCount} enabled
-        </Badge>
-      </div>
 
-      {/* Error Alert */}
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+        <Accordion defaultActiveKey={['0']} alwaysOpen>
+          {Object.entries(ruleCategories).map(([category, ruleIds], categoryIndex) => (
+            <Accordion.Item key={category} eventKey={categoryIndex.toString()}>
+              <Accordion.Header>
+                <div className="d-flex justify-content-between align-items-center w-100 me-3">
+                  <span>{category}</span>
+                  <div>
+                    <span className="badge bg-secondary me-2">
+                      {ruleIds.filter(id => getRuleStatus(id) === 'enabled').length} enabled
+                    </span>
+                    <span className="badge bg-info">
+                      {ruleIds.filter(id => getRuleStatus(id) === 'configured').length} configured
+                    </span>
+                  </div>
+                </div>
+              </Accordion.Header>
+              <Accordion.Body>
+                {ruleIds.map(ruleId => {
+                  const definition = effectiveDefinitions[ruleId];
+                  const status = getRuleStatus(ruleId);
+                  const isEnabled = localRules[ruleId] !== false;
 
-      {/* Controls */}
-      <Card className="mb-3">
-        <Card.Body>
-          <Row className="align-items-center">
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label className="small fw-bold">Filter Rules</Form.Label>
-                <Form.Select
-                  size="sm"
-                  value={rulesFilter}
-                  onChange={(e) => setRulesFilter(e.target.value)}
-                >
-                  <option value="all">All Rules</option>
-                  <option value="enabled">Enabled Only</option>
-                  <option value="disabled">Disabled Only</option>
-                </Form.Select>
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Group>
-                <Form.Label className="small fw-bold">Search</Form.Label>
-                <Form.Control
-                  size="sm"
-                  type="text"
-                  placeholder="Search rules..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </Form.Group>
-            </Col>
-            <Col md={4}>
-              <Form.Label className="small fw-bold">Quick Actions</Form.Label>
-              <div className="d-flex gap-1">
-                <Button size="sm" variant="outline-success" onClick={enableAllRules}>
-                  All On
-                </Button>
-                <Button size="sm" variant="outline-danger" onClick={disableAllRules}>
-                  All Off
-                </Button>
-                <Button size="sm" variant="outline-secondary" onClick={resetToDefaults}>
-                  Defaults
-                </Button>
-              </div>
-            </Col>
-          </Row>
-        </Card.Body>
-      </Card>
-
-      {/* Rules List */}
-      <Card>
-        <Card.Body>
-          {Object.keys(rulesByCategory).length === 0 ? (
-            <div className="text-center text-muted py-4">
-              <i className="bi bi-search fs-1 mb-2"></i>
-              <div>No rules match your current filter criteria.</div>
-            </div>
-          ) : (
-            <Accordion>
-              {Object.entries(rulesByCategory).map(([category, ruleIds]) => (
-                <Accordion.Item key={category} eventKey={category}>
-                  <Accordion.Header>
-                    <div className="d-flex align-items-center justify-content-between w-100 me-3">
-                      <span className="text-capitalize fw-bold">{category}</span>
-                      <Badge bg="secondary">{ruleIds.length}</Badge>
+                  return (
+                    <div key={ruleId} className="border-bottom py-2">
+                      <div className="d-flex align-items-center">
+                        <div className="flex-shrink-0" style={{ width: '200px' }}>
+                          <Form.Check
+                            type="switch"
+                            id={`rule-${ruleId}`}
+                            checked={isEnabled}
+                            onChange={(e) => handleRuleToggle(ruleId, e.target.checked)}
+                            label={
+                              <span>
+                                <code>{ruleId}</code>
+                                {status === 'configured' && (
+                                  <span className="badge bg-info ms-1" style={{ fontSize: '0.6em' }}>Configured</span>
+                                )}
+                              </span>
+                            }
+                          />
+                        </div>
+                        <div className="flex-fill px-3">
+                          <small className="text-muted">
+                            {definition?.description || 'No description available'}
+                          </small>
+                        </div>
+                        <div className="flex-shrink-0">
+                          {isEnabled && renderRuleConfig(ruleId)}
+                        </div>
+                      </div>
                     </div>
-                  </Accordion.Header>
-                  <Accordion.Body>
-                    {ruleIds.map(renderRuleItem)}
-                  </Accordion.Body>
-                </Accordion.Item>
-              ))}
-            </Accordion>
-          )}
-        </Card.Body>
-      </Card>
+                  );
+                })}
+              </Accordion.Body>
+            </Accordion.Item>
+          ))}
+        </Accordion>
 
-      {/* Save Controls */}
-      <div className="d-flex justify-content-end gap-2 mt-3">
-        <Button variant="outline-secondary" onClick={loadData} disabled={saving}>
-          <i className="bi bi-arrow-clockwise me-1"></i>
-          Reload
-        </Button>
-        <Button variant="primary" onClick={saveRules} disabled={saving}>
-          {saving ? (
-            <>
-              <Spinner animation="border" size="sm" className="me-1" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <i className="bi bi-check2 me-1"></i>
-              Save Rules
-            </>
-          )}
-        </Button>
-      </div>
-    </div>
+        <div className="d-flex justify-content-between mt-4">
+          <div>
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={handleReset}
+              disabled={loading}
+              className="me-2"
+            >
+              Reset to Defaults
+            </Button>
+            <RuleImportExport
+              currentRules={localRules}
+              onImport={handleImport}
+            />
+          </div>
+
+          <div>
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={handleSave}
+              disabled={loading || validationErrors.length > 0 || saving}
+            >
+              {saving ? (
+                <>
+                  <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                  Saving...
+                </>
+              ) : (
+                'Save Rules'
+              )}
+            </Button>
+          </div>
+        </div>
+      </Card.Body>
+    </Card>
   );
+};
+
+MarkdownLintTab.propTypes = {
+  // Add any prop types if needed in the future
 };
 
 export default MarkdownLintTab;
