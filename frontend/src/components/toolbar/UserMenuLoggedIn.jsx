@@ -97,6 +97,7 @@ function UserMenuLoggedIn() {
         <Dropdown.Item id="markdownLintingBtn" onClick={handleMarkdownLinting}>
           <i className="bi bi-check2-square me-2"></i>Markdown Linting
         </Dropdown.Item>
+        <Dropdown.Divider />
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
           <i className="bi bi-github me-2"></i>GitHub
         </Dropdown.Item>

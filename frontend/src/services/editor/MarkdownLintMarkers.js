@@ -1,6 +1,6 @@
 /**
  * MarkdownLintMarkers - Monaco marker management for markdown linting
- * 
+ *
  * Handles conversion of linting issues to Monaco editor markers and
  * manages marker lifecycle (create, update, clear).
  */
@@ -31,7 +31,7 @@ export class MarkdownLintMarkers {
 
       // Convert issues to Monaco markers
       const markers = this.issuesToMarkers(model, issues, startOffset);
-      
+
       // Set markers on the model
       this.monaco.editor.setModelMarkers(model, this.markerOwner, markers);
 
@@ -73,7 +73,7 @@ export class MarkdownLintMarkers {
 
       // Clear all markers for this owner
       this.monaco.editor.setModelMarkers(model, this.markerOwner, []);
-      
+
       if (markersMap) {
         markersMap.clear();
       }
@@ -124,7 +124,7 @@ export class MarkdownLintMarkers {
     try {
       // Adjust line number for 1-based indexing and offset
       const lineNumber = Math.max(1, issue.line);
-      
+
       // Ensure line number is within model bounds
       const lineCount = model.getLineCount();
       if (lineNumber > lineCount) {
@@ -142,7 +142,7 @@ export class MarkdownLintMarkers {
       // Use issue column if provided
       if (typeof issue.column === 'number' && issue.column > 0) {
         startColumn = Math.min(issue.column, lineLength + 1);
-        
+
         // Calculate end column based on length or default to line end
         if (typeof issue.length === 'number' && issue.length > 0) {
           endColumn = Math.min(startColumn + issue.length, lineLength + 1);
@@ -207,8 +207,15 @@ export class MarkdownLintMarkers {
   formatMarkerMessage(issue) {
     const rule = issue.rule || issue.ruleNames?.[0] || 'unknown';
     const message = issue.message || issue.description || 'Markdown lint issue';
-    
-    return `${rule}: ${message}`;
+
+    let formattedMessage = `${rule}: ${message}`;
+
+    // Add fixable indicator if the issue can be auto-fixed
+    if (issue.fixable === true) {
+      formattedMessage += ` 🔧 Auto-fixable`;
+    }
+
+    return formattedMessage;
   }
 
   /**
@@ -223,7 +230,7 @@ export class MarkdownLintMarkers {
    * Get markers for a specific line range
    * @param {Map} markersMap - Current markers map
    * @param {number} startLine - Start line number
-   * @param {number} endLine - End line number  
+   * @param {number} endLine - End line number
    * @returns {Array} Array of markers in the range
    */
   getMarkersInRange(markersMap, startLine, endLine) {

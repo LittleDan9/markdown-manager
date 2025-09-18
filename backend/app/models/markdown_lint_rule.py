@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class MarkdownLintRule(BaseModel):
     """
     Model for storing markdown lint rule configurations.
-    
+
     Supports three levels of rule configuration:
     1. User defaults (scope='user', scope_id=user_id, scope_value=None)
     2. Category rules (scope='category', scope_id=category_id, scope_value=None)
@@ -37,20 +37,23 @@ class MarkdownLintRule(BaseModel):
     scope: Mapped[str] = mapped_column(
         String(20), nullable=False, index=True
     )  # 'user', 'category', 'folder'
-    
+
     scope_id: Mapped[int | None] = mapped_column(
         Integer, nullable=True, index=True
     )  # category_id for category scope, user_id for folder scope
-    
+
     scope_value: Mapped[str | None] = mapped_column(
         String(500), nullable=True, index=True
     )  # folder_path for folder scope
-    
+
     # Rule configuration as JSON
     rules: Mapped[Dict[str, Any]] = mapped_column(
         JSON, nullable=False, default=dict
     )
-    
+
+    # Global linting enabled/disabled toggle
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # Metadata
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -67,7 +70,7 @@ class MarkdownLintRule(BaseModel):
 
     @classmethod
     def create_user_defaults(
-        cls, user_id: int, rules: Dict[str, Any], description: str | None = None
+        cls, user_id: int, rules: Dict[str, Any], description: str | None = None, enabled: bool = True
     ) -> "MarkdownLintRule":
         """Factory method to create user default rules."""
         return cls(
@@ -76,7 +79,8 @@ class MarkdownLintRule(BaseModel):
             scope_id=user_id,
             scope_value=None,
             rules=rules,
-            description=description or "User default markdown lint rules"
+            description=description or "User default markdown lint rules",
+            enabled=enabled
         )
 
     @classmethod

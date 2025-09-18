@@ -17,15 +17,17 @@
 }
 
 // Hide the "View Problem (Alt+F8)" link in hover tooltips for both spell check and markdown lint
-.monaco-editor .monaco-hover .hover-row .actions {
-  display: none !important;
-}
+// TEMPORARILY DISABLED - Allow tooltip actions to show fixable status and quick fixes
+// .monaco-editor .monaco-hover .hover-row .actions {
+//   display: none !important;
+// }
 
 // Alternative approach - hide specific action links by content
-.monaco-editor .monaco-hover .hover-row a[title*="View Problem"],
-.monaco-editor .monaco-hover .hover-row a[title*="Alt+F8"] {
-  display: none !important;
-}
+// TEMPORARILY DISABLED - Allow tooltip actions to show fixable status and quick fixes
+// .monaco-editor .monaco-hover .hover-row a[title*="View Problem"],
+// .monaco-editor .monaco-hover .hover-row a[title*="Alt+F8"] {
+//   display: none !important;
+// }
 
 // Ensure Monaco editor context menus also appear above toolbar AND preview
 .monaco-menu-container {

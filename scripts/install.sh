@@ -3,6 +3,7 @@
 FRONTEND_DIR=$1
 API_DIR=$2
 PDF_DIR=$3
+LINT_DIR=$4
 EXIT_CODE=0
 
 export PYTHON_PATH=/usr/bin/python
@@ -52,6 +53,8 @@ FROM_EMAIL=no-reply@example.com
 SMTP_USE_TLS=True
 DEFAULT_PAGE_SIZE=20
 MAX_PAGE_SIZE=100
+PDF_SERVICE_URL=http://pdf-service:8001
+MARKDOWN_LINT_SERVICE_URL=http://markdown-lint-service:8002
 EOF
 
 fi
@@ -78,6 +81,20 @@ if [ $? -ne 0 ]; then
   EXIT_CODE=3
 else
   echo "$GREEN✅ PDF dependencies installed$NC"
+fi
+popd > /dev/null
+
+echo ""
+echo "$YELLOW📦 Installing markdown lint dependencies...$NC"
+pushd $LINT_DIR > /dev/null
+
+npm install
+
+if [ $? -ne 0 ]; then
+  echo "$RED❌ Failed to install markdown lint dependencies$NC"
+  EXIT_CODE=4
+else
+  echo "$GREEN✅ Markdown lint dependencies installed$NC"
 fi
 popd > /dev/null
 

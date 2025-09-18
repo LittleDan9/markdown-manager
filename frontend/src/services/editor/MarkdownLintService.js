@@ -2,17 +2,14 @@
  * MarkdownLintService - API-based markdown linting service
  *
  * Replaces worker-based implementation with HTTP API calls to backend.
- * Communicates with backend /api/markdown-lint endpoints which proxy
- * to the internal markdown-lint-service.
+ * Uses lintingApi for all backend communication.
  */
 
-import { Api } from '../../api/api';
+import lintingApi from '../../api/lintingApi';
 
-export class MarkdownLintService extends Api {
+export class MarkdownLintService {
   constructor(chunkSize = 2000) {
-    super();
     this.chunkSize = chunkSize;
-    this.serviceUrl = '/markdown-lint'; // Backend proxy endpoints
     this._enabled = true;
     this._initialized = false;
   }
@@ -119,56 +116,98 @@ export class MarkdownLintService extends Api {
    */
   async lintChunk(text, rules, offset = 0) {
     try {
-      const response = await this.apiCall(`${this.serviceUrl}/process`, 'POST', {
-        text,
+      const result = await lintingApi.processText(text, {
         rules,
         chunk_offset: offset
       });
 
-      return response.data.issues || [];
+      return result.issues || [];
     } catch (error) {
       console.error('MarkdownLintService: Chunk processing failed:', error);
       throw error;
     }
   }
 
-    /**
+  /**
    * Get context-specific rules for markdown linting
-   * @param {number|null} categoryId - Category ID
-   * @param {string|null} folderPath - Folder path
+   * @param {number|null} categoryId - Category ID (ignored in simplified system)
+   * @param {string|null} folderPath - Folder path (ignored in simplified system)
    * @returns {Promise<Object>} Rules configuration object
    */
   async getRulesForContext(categoryId, folderPath) {
     try {
-      // Import services dynamically to avoid circular dependencies
-      const { default: MarkdownLintRulesService } = await import('../linting/MarkdownLintRulesService');
-      const markdownLintApi = await import('../../api/markdownLintApi');
-      const { default: AuthService } = await import('../core/AuthService');
-
-      // Set up API client if not already configured
-      if (!MarkdownLintRulesService._apiClient) {
-        MarkdownLintRulesService.setApiClient(markdownLintApi.default);
-      }
-
-      // Get current user ID from AuthService
-      await AuthService.waitForInitialization();
-      const authState = AuthService.getAuthState();
-      const userId = authState.user?.id;
-
-      if (!userId || !authState.isAuthenticated) {
-        // Return default rules if no user context
-        return MarkdownLintRulesService.getDefaultRules();
-      }
-
-      // Get effective rules using the new service
-      const rules = await MarkdownLintRulesService.getEffectiveRules(userId, categoryId, folderPath);
-      return rules;
-
+      // Use the new lintingApi to get effective rules
+      return await lintingApi.getEffectiveRules();
     } catch (error) {
-      console.error('MarkdownLintService: Failed to get rules for context:', error);
-      // Return default rules to prevent blocking
-      const { default: MarkdownLintRulesService } = await import('../linting/MarkdownLintRulesService');
-      return MarkdownLintRulesService.getDefaultRules();
+      console.warn('MarkdownLintService: Failed to get rules for context:', error);
+      // Return recommended defaults to prevent blocking
+      return await this.getRecommendedDefaults();
+    }
+  }
+
+  /**
+   * Get recommended default rules from the markdown-lint-service
+   * @returns {Promise<Object>} Recommended default rules
+   */
+  async getRecommendedDefaults() {
+    try {
+      return await lintingApi.getRecommendedDefaults();
+    } catch (error) {
+      console.warn('MarkdownLintService: Failed to get recommended defaults, using fallback');
+      // Fallback to a minimal set of recommended rules
+      return {
+        "MD001": true,  // Heading levels should only increment by one level at a time
+        "MD003": { "style": "atx" }, // Heading style
+        "MD004": { "style": "dash" }, // Unordered list style
+        "MD005": true,  // Inconsistent indentation for list items
+        "MD007": { "indent": 2 }, // Unordered list indentation
+        "MD009": true,  // Trailing spaces
+        "MD010": true,  // Hard tabs
+        "MD011": true,  // Reversed link syntax
+        "MD012": true,  // Multiple consecutive blank lines
+        "MD013": false, // Line length (disabled by default)
+        "MD014": true,  // Dollar signs used before commands
+        "MD018": true,  // No space after hash on atx style heading
+        "MD019": true,  // Multiple spaces after hash on atx style heading
+        "MD020": true,  // No space inside hashes on closed atx style heading
+        "MD021": true,  // Multiple spaces inside hashes on closed atx style heading
+        "MD022": true,  // Headings should be surrounded by blank lines
+        "MD023": true,  // Headings must start at the beginning of the line
+        "MD024": true,  // Multiple headings with the same content
+        "MD025": true,  // Multiple top level headings in the same document
+        "MD026": true,  // Trailing punctuation in heading
+        "MD027": true,  // Multiple spaces after blockquote symbol
+        "MD028": true,  // Blank line inside blockquote
+        "MD029": { "style": "ordered" }, // Ordered list item prefix
+        "MD030": true,  // Spaces after list markers
+        "MD031": true,  // Fenced code blocks should be surrounded by blank lines
+        "MD032": true,  // Lists should be surrounded by blank lines
+        "MD033": false, // Inline HTML (disabled by default)
+        "MD034": true,  // Bare URL used
+        "MD035": true,  // Horizontal rule style
+        "MD036": true,  // Emphasis used instead of a heading
+        "MD037": true,  // Spaces inside emphasis markers
+        "MD038": true,  // Spaces inside code span elements
+        "MD039": true,  // Spaces inside link text
+        "MD040": true,  // Fenced code blocks should have a language specified
+        "MD041": true,  // First line in file should be a top level heading
+        "MD042": true,  // No empty links
+        "MD043": false, // Required heading structure (disabled by default)
+        "MD044": true,  // Proper names should have the correct capitalization
+        "MD045": true,  // Images should have alternate text (alt text)
+        "MD046": { "style": "fenced" }, // Code block style
+        "MD047": true,  // Files should end with a single newline character
+        "MD048": { "style": "backtick" }, // Code fence style
+        "MD049": { "style": "underscore" }, // Emphasis style
+        "MD050": { "style": "asterisk" }, // Strong style
+        "MD051": true,  // Link fragments should be valid
+        "MD052": true,  // Reference links and images should use a label that is defined
+        "MD053": true,  // Link and image reference definitions should be needed
+        "MD054": true,  // Link and image style
+        "MD055": true,  // Table pipe style
+        "MD056": true,  // Table column count
+        "MD058": true   // Table row count
+      };
     }
   }
 
@@ -211,13 +250,11 @@ export class MarkdownLintService extends Api {
    */
   async getRuleDefinitions() {
     try {
-      const response = await this.apiCall(`${this.serviceUrl}/rules/definitions`);
-      return response.data.rules || {};
+      return await lintingApi.getRuleDefinitions();
     } catch (error) {
       console.error('MarkdownLintService: Failed to get rule definitions:', error);
-      // Fallback to rules service if backend fails
-      const { MarkdownLintRulesService } = await import('../linting/MarkdownLintRulesService');
-      return MarkdownLintRulesService.getRuleDefinitions();
+      // Return empty object as fallback
+      return {};
     }
   }
 
@@ -227,8 +264,8 @@ export class MarkdownLintService extends Api {
    */
   async checkHealth() {
     try {
-      const response = await this.apiCall(`${this.serviceUrl}/health`, 'GET', null, {}, { timeout: 5000 });
-      return response.status === 200;
+      await lintingApi.checkHealth();
+      return true;
     } catch (error) {
       console.warn('MarkdownLintService: Health check failed:', error);
       return false;

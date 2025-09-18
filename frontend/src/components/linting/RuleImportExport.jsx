@@ -1,12 +1,11 @@
 import React, { useState } from 'react';
 import { Button, Modal, Form, Alert } from 'react-bootstrap';
 import PropTypes from 'prop-types';
-import MarkdownLintRulesService from '../../services/linting/MarkdownLintRulesService';
 
 /**
  * Component for importing and exporting rule configurations
  */
-function RuleImportExport({ currentRules, onImport }) {
+function RuleImportExport({ currentRules, onImport, validateRules }) {
   const [showModal, setShowModal] = useState(false);
   const [importText, setImportText] = useState('');
   const [error, setError] = useState('');
@@ -40,10 +39,12 @@ function RuleImportExport({ currentRules, onImport }) {
         throw new Error('Invalid format: missing rules object');
       }
 
-      // Validate rules
-      const validation = MarkdownLintRulesService.validateRules(importData.rules);
-      if (!validation.valid) {
-        throw new Error(`Invalid rules: ${validation.errors.join(', ')}`);
+      // Validate rules if validation function provided
+      if (validateRules) {
+        const validation = validateRules(importData.rules);
+        if (!validation.valid) {
+          throw new Error(`Invalid rules: ${validation.errors.join(', ')}`);
+        }
       }
 
       onImport(importData.rules);
@@ -112,7 +113,8 @@ function RuleImportExport({ currentRules, onImport }) {
 
 RuleImportExport.propTypes = {
   currentRules: PropTypes.object.isRequired,
-  onImport: PropTypes.func.isRequired
+  onImport: PropTypes.func.isRequired,
+  validateRules: PropTypes.func
 };
 
 export default RuleImportExport;

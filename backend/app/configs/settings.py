@@ -82,6 +82,11 @@ class Settings(BaseSettings):
         default="http://pdf-service:8001", description="PDF service URL"
     )
 
+    # Markdown Lint Service configuration
+    markdown_lint_service_url: str = Field(
+        default="http://markdown-lint-service:8002", description="Markdown lint service URL"
+    )
+
     # Filesystem storage configuration
     markdown_storage_root: str = Field(
         default="/documents", description="Root directory for document storage"

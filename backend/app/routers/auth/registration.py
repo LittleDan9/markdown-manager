@@ -11,9 +11,51 @@ from app.database import get_db
 from app.schemas.user import UserCreate, UserResponse
 from app.schemas.category import CategoryCreate
 from app.services.storage.user import UserStorage
+from app.services.markdown_lint_rule import MarkdownLintRuleService
+from app.configs.settings import get_settings
+import httpx
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+async def _get_recommended_lint_defaults() -> dict:
+    """Get recommended default linting rules from the linting service."""
+    settings = get_settings()
+    lint_service_url = settings.markdown_lint_service_url + "/rules/recommended-defaults"
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(lint_service_url)
+            response.raise_for_status()
+            result = response.json()
+            return result.get("rules", {})
+    except Exception as e:
+        logger.warning(f"Failed to get recommended lint defaults: {e}")
+        # Return a basic fallback set of rules
+        return {
+            "MD009": True,  # no-trailing-spaces
+            "MD010": True,  # no-hard-tabs
+            "MD022": True,  # blanks-around-headings
+            "MD047": True   # single-trailing-newline
+        }
+
+
+async def _initialize_user_defaults(user_id: int, db: AsyncSession) -> bool:
+    """Initialize default markdown lint rules for a new user."""
+    try:
+        recommended_rules = await _get_recommended_lint_defaults()
+        await MarkdownLintRuleService.save_user_defaults(
+            db,
+            user_id,
+            recommended_rules,
+            "Recommended default rules for new users"
+        )
+        logger.info(f"Initialized default lint rules for user {user_id}")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to initialize default lint rules for user {user_id}: {e}")
+        return False
 
 
 async def _initialize_user_filesystem(user_id: int, storage_service: UserStorage) -> bool:
@@ -80,6 +122,12 @@ async def register(user_data: UserCreate, db: AsyncSession = Depends(get_db)) ->
 
         # Create default categories
         created_categories = await _create_default_categories(user.id, db, storage_service)
+
+        # Initialize default markdown lint rules
+        lint_defaults_initialized = await _initialize_user_defaults(user.id, db)
+        if not lint_defaults_initialized:
+            logger.warning(f"Failed to initialize lint defaults for user {user.id}, continuing anyway")
+
         logger.info(f"Successfully registered user {user.id} with {len(created_categories)} categories")
         return user
 

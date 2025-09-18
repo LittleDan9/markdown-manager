@@ -9,7 +9,6 @@ import { Card, Form, Button, Alert, Spinner, Accordion } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../../providers/AuthProvider';
 import useMarkdownLintRules from '../../../hooks/useMarkdownLintRules';
-import MarkdownLintRulesService from '../../../services/linting/MarkdownLintRulesService';
 import RuleConfigInput from '../RuleConfigInput';
 import RuleImportExport from '../RuleImportExport';
 import { useNotification } from '../../NotificationProvider';
@@ -20,17 +19,22 @@ const MarkdownLintTab = () => {
 
   const {
     rules,
+    enabled,
     loading,
     error,
-    updateUserDefaults,
+    loadRules,
+    saveRules,
+    resetToDefaults,
     validateRules,
     getRuleDefinitions
   } = useMarkdownLintRules();
 
   const [localRules, setLocalRules] = useState({});
+  const [localEnabled, setLocalEnabled] = useState(true);
   const [success, setSuccess] = useState('');
   const [validationErrors, setValidationErrors] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [ruleDefinitions, setRuleDefinitions] = useState({});
 
   // Rule categories for organization
   const ruleCategories = {
@@ -45,13 +49,38 @@ const MarkdownLintTab = () => {
 
   // Initialize local rules when component mounts or rules change
   useEffect(() => {
-    setLocalRules({ ...rules });
-  }, [rules]);
+    console.log('MarkdownLintTab: rules from hook changed, updating localRules:', rules);
+    console.log('MarkdownLintTab: enabled from hook:', enabled);
+    setLocalRules(rules ? { ...rules } : {});
+    setLocalEnabled(enabled !== false); // Default to true if undefined
+  }, [rules, enabled]);
+
+  // Load rules when component mounts
+  useEffect(() => {
+    console.log('MarkdownLintTab: component mounted, loading rules and definitions');
+    console.log('MarkdownLintTab: loadRules function available:', typeof loadRules);
+    console.log('MarkdownLintTab: getRuleDefinitions function available:', typeof getRuleDefinitions);
+
+    if (loadRules) {
+      loadRules();
+    } else {
+      console.error('MarkdownLintTab: loadRules function not available!');
+    }
+
+    // Load rule definitions from API
+    if (getRuleDefinitions) {
+      getRuleDefinitions().then(definitions => {
+        console.log('MarkdownLintTab: loaded rule definitions:', definitions);
+        setRuleDefinitions(definitions);
+      }).catch(error => {
+        console.warn('MarkdownLintTab: failed to load rule definitions:', error);
+        setRuleDefinitions({});
+      });
+    }
+  }, [loadRules, getRuleDefinitions]);
 
   // Get rule definitions for descriptions and configuration options
-  const ruleDefinitions = getRuleDefinitions ? getRuleDefinitions() : {};
-
-  // Fallback rule definitions if not available from the hook
+  // Fallback rule definitions if not available from the API
   const fallbackDefinitions = {
     'MD001': { description: 'Heading levels should only increment by one level at a time', configurable: false },
     'MD003': { description: 'Heading style should be consistent', configurable: true },
@@ -107,7 +136,7 @@ const MarkdownLintTab = () => {
    */
   const handleRuleToggle = (ruleId, enabled) => {
     setLocalRules(prev => ({
-      ...prev,
+      ...(prev || {}),
       [ruleId]: enabled
     }));
     setValidationErrors([]);
@@ -118,10 +147,75 @@ const MarkdownLintTab = () => {
    */
   const handleRuleConfig = (ruleId, config) => {
     setLocalRules(prev => ({
-      ...prev,
+      ...(prev || {}),
       [ruleId]: config
     }));
     setValidationErrors([]);
+  };
+
+  /**
+   * Enable all rules in a category
+   */
+  const handleCategoryEnableAll = (categoryRuleIds) => {
+    setLocalRules(prev => {
+      const updated = { ...(prev || {}) };
+      categoryRuleIds.forEach(ruleId => {
+        updated[ruleId] = true;
+      });
+      return updated;
+    });
+    setValidationErrors([]);
+  };
+
+  /**
+   * Disable all rules in a category
+   */
+  const handleCategoryDisableAll = (categoryRuleIds) => {
+    setLocalRules(prev => {
+      const updated = { ...(prev || {}) };
+      categoryRuleIds.forEach(ruleId => {
+        updated[ruleId] = false;
+      });
+      return updated;
+    });
+    setValidationErrors([]);
+  };
+
+  /**
+   * Check if all rules in a category are enabled
+   */
+  const isCategoryAllEnabled = (categoryRuleIds) => {
+    return categoryRuleIds.every(ruleId => {
+      const value = localRules && localRules[ruleId];
+      return value === true || (typeof value === 'object' && value !== null);
+    });
+  };
+
+  /**
+   * Check if all rules in a category are disabled
+   */
+  const isCategoryAllDisabled = (categoryRuleIds) => {
+    return categoryRuleIds.every(ruleId => {
+      const value = localRules && localRules[ruleId];
+      return value === false || value === undefined;
+    });
+  };
+
+  /**
+   * Toggle all rules in a category - if mostly enabled, disable all; if mostly disabled, enable all
+   */
+  const handleCategoryToggle = (categoryRuleIds) => {
+    const enabledCount = categoryRuleIds.filter(ruleId => {
+      const value = localRules && localRules[ruleId];
+      return value === true || (typeof value === 'object' && value !== null);
+    }).length;
+
+    // If more than half are enabled, disable all; otherwise enable all
+    if (enabledCount > categoryRuleIds.length / 2) {
+      handleCategoryDisableAll(categoryRuleIds);
+    } else {
+      handleCategoryEnableAll(categoryRuleIds);
+    }
   };
 
   /**
@@ -135,11 +229,13 @@ const MarkdownLintTab = () => {
     } else {
       // Fallback validation - just ensure rules are objects/booleans
       const errors = [];
-      Object.entries(localRules).forEach(([ruleId, value]) => {
-        if (value !== true && value !== false && typeof value !== 'object') {
-          errors.push(`Invalid value for rule ${ruleId}: ${value}`);
-        }
-      });
+      if (localRules) {
+        Object.entries(localRules).forEach(([ruleId, value]) => {
+          if (value !== true && value !== false && typeof value !== 'object') {
+            errors.push(`Invalid value for rule ${ruleId}: ${value}`);
+          }
+        });
+      }
       setValidationErrors(errors);
       return errors.length === 0;
     }
@@ -157,9 +253,11 @@ const MarkdownLintTab = () => {
     setSuccess('');
 
     try {
-      await updateUserDefaults(localRules);
+      await saveRules(localRules, localEnabled, 'User default markdown lint rules');
       setSuccess('User default rules updated successfully');
       showSuccess('User default rules updated successfully');
+
+      console.log('Save completed, rules updated successfully');
     } catch (err) {
       // Error handling is done by the hook
       showError('Failed to save markdown linting rules');
@@ -170,11 +268,18 @@ const MarkdownLintTab = () => {
   };
 
   /**
-   * Reset to defaults
+   * Reset to defaults (load recommended defaults)
    */
-  const handleReset = () => {
-    const defaults = MarkdownLintRulesService.getDefaultRules();
-    setLocalRules({ ...defaults });
+  const handleReset = async () => {
+    try {
+      console.log('MarkdownLintTab: resetting to defaults');
+      await resetToDefaults();
+      setSuccess('Rules reset to recommended defaults');
+      showSuccess('Rules reset to recommended defaults');
+    } catch (error) {
+      console.error('MarkdownLintTab: error resetting to defaults:', error);
+      showError('Failed to reset to defaults');
+    }
     setValidationErrors([]);
   };
 
@@ -182,7 +287,7 @@ const MarkdownLintTab = () => {
    * Handle import
    */
   const handleImport = (importedRules) => {
-    setLocalRules({ ...importedRules });
+    setLocalRules(importedRules ? { ...importedRules } : {});
     setValidationErrors([]);
   };
 
@@ -190,11 +295,13 @@ const MarkdownLintTab = () => {
    * Get rule status (enabled/disabled/configured)
    */
   const getRuleStatus = (ruleId) => {
+    if (!localRules) return 'disabled';
     const value = localRules[ruleId];
     if (value === false) return 'disabled';
     if (value === true) return 'enabled';
-    if (typeof value === 'object') return 'configured';
-    return 'default';
+    if (typeof value === 'object' && value !== null) return 'configured';
+    // undefined or other values are treated as disabled (not in database)
+    return 'disabled';
   };
 
   /**
@@ -202,7 +309,7 @@ const MarkdownLintTab = () => {
    */
   const renderRuleConfig = (ruleId) => {
     const definition = effectiveDefinitions[ruleId];
-    const currentValue = localRules[ruleId];
+    const currentValue = (localRules && localRules[ruleId]) || null;
 
     if (!definition || !definition.configurable || typeof currentValue !== 'object') {
       return null;
@@ -259,18 +366,18 @@ const MarkdownLintTab = () => {
               size="sm"
               min="40"
               max="200"
-              value={currentValue.line_length || 80}
+              value={(currentValue && currentValue.line_length) || 80}
               onChange={(e) => handleRuleConfig(ruleId, {
-                ...currentValue,
+                ...(currentValue || {}),
                 line_length: parseInt(e.target.value)
               })}
               style={{ width: '80px' }}
             />
             <Form.Check
               type="checkbox"
-              checked={currentValue.code_blocks || false}
+              checked={(currentValue && currentValue.code_blocks) || false}
               onChange={(e) => handleRuleConfig(ruleId, {
-                ...currentValue,
+                ...(currentValue || {}),
                 code_blocks: e.target.checked
               })}
               label="Code blocks"
@@ -301,6 +408,10 @@ const MarkdownLintTab = () => {
     );
   }
 
+  // Debug info
+  console.log('MarkdownLintTab: rendering with localRules:', localRules);
+  console.log('MarkdownLintTab: localRules keys:', localRules ? Object.keys(localRules) : 'localRules is null/undefined');
+
   return (
     <Card className="mt-3">
       <Card.Header>
@@ -326,68 +437,126 @@ const MarkdownLintTab = () => {
         )}
 
         <div className="mb-3">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <div>
+              <Form.Check
+                type="switch"
+                id="linting-enabled"
+                checked={localEnabled}
+                onChange={(e) => setLocalEnabled(e.target.checked)}
+                label={
+                  <span>
+                    <strong>Enable Markdown Linting</strong>
+                    <small className="text-muted d-block">
+                      When enabled, your configured rules will be applied to all documents
+                    </small>
+                  </span>
+                }
+              />
+            </div>
+          </div>
           <small className="text-muted">
-            Configure your default markdown linting rules. These rules will be applied to all your documents.
+            Configure your default markdown linting rules below. These rules will be applied to all your documents when linting is enabled.
           </small>
         </div>
 
-        <Accordion defaultActiveKey={['0']} alwaysOpen>
-          {Object.entries(ruleCategories).map(([category, ruleIds], categoryIndex) => (
-            <Accordion.Item key={category} eventKey={categoryIndex.toString()}>
-              <Accordion.Header>
-                <div className="d-flex justify-content-between align-items-center w-100 me-3">
-                  <span>{category}</span>
-                  <div>
-                    <span className="badge bg-secondary me-2">
-                      {ruleIds.filter(id => getRuleStatus(id) === 'enabled').length} enabled
-                    </span>
-                    <span className="badge bg-info">
-                      {ruleIds.filter(id => getRuleStatus(id) === 'configured').length} configured
-                    </span>
-                  </div>
-                </div>
-              </Accordion.Header>
-              <Accordion.Body>
-                {ruleIds.map(ruleId => {
-                  const definition = effectiveDefinitions[ruleId];
-                  const status = getRuleStatus(ruleId);
-                  const isEnabled = localRules[ruleId] !== false;
-
-                  return (
-                    <div key={ruleId} className="border-bottom py-2">
-                      <div className="d-flex align-items-center">
-                        <div className="flex-shrink-0" style={{ width: '200px' }}>
+        <div
+          className="accordion-scroll-container"
+          style={{
+            maxHeight: '60vh',
+            overflowY: 'auto',
+            paddingRight: '5px',
+            marginRight: '-5px'
+          }}
+        >
+          <Accordion defaultActiveKey={localEnabled ? ['0'] : []} alwaysOpen>
+            {Object.entries(ruleCategories).map(([category, ruleIds], categoryIndex) => (
+              <Accordion.Item key={category} eventKey={categoryIndex.toString()}>
+                <Accordion.Header>
+                  <div className="d-flex justify-content-between align-items-center w-100 me-3">
+                    <span className={!localEnabled ? 'text-muted' : ''}>{category}</span>
+                    <div className="d-flex align-items-center">
+                      {localEnabled && (
+                        <div
+                          className="me-3"
+                          onClick={(e) => e.stopPropagation()}
+                          onMouseDown={(e) => e.stopPropagation()}
+                        >
                           <Form.Check
                             type="switch"
-                            id={`rule-${ruleId}`}
-                            checked={isEnabled}
-                            onChange={(e) => handleRuleToggle(ruleId, e.target.checked)}
+                            id={`category-toggle-${categoryIndex}`}
+                            checked={isCategoryAllEnabled(ruleIds)}
+                            onChange={(e) => {
+                              e.stopPropagation();
+                              handleCategoryToggle(ruleIds);
+                            }}
+                            onClick={(e) => e.stopPropagation()}
                             label={
-                              <span>
-                                <code>{ruleId}</code>
-                                {status === 'configured' && (
-                                  <span className="badge bg-info ms-1" style={{ fontSize: '0.6em' }}>Configured</span>
-                                )}
-                              </span>
+                              <small style={{ fontSize: '0.8em', color: '#6c757d' }}>
+                                {isCategoryAllEnabled(ruleIds) ? 'All enabled' :
+                                 isCategoryAllDisabled(ruleIds) ? 'All disabled' : 'Mixed'}
+                              </small>
                             }
+                            style={{ fontSize: '0.8em' }}
                           />
                         </div>
-                        <div className="flex-fill px-3">
-                          <small className="text-muted">
-                            {definition?.description || 'No description available'}
-                          </small>
-                        </div>
-                        <div className="flex-shrink-0">
-                          {isEnabled && renderRuleConfig(ruleId)}
-                        </div>
+                      )}
+                      <div>
+                        <span className={`badge ${localEnabled ? 'bg-secondary' : 'bg-light text-muted'} me-2`}>
+                          {ruleIds.filter(id => getRuleStatus(id) === 'enabled').length} enabled
+                        </span>
+                        <span className={`badge ${localEnabled ? 'bg-info' : 'bg-light text-muted'}`}>
+                          {ruleIds.filter(id => getRuleStatus(id) === 'configured').length} configured
+                        </span>
                       </div>
                     </div>
-                  );
-                })}
-              </Accordion.Body>
-            </Accordion.Item>
-          ))}
-        </Accordion>
+                  </div>
+                </Accordion.Header>
+                <Accordion.Body>
+                  {ruleIds.map(ruleId => {
+                    const definition = effectiveDefinitions[ruleId];
+                    const status = getRuleStatus(ruleId);
+                    const ruleValue = (localRules && localRules[ruleId]) || undefined;
+                    // Only treat explicitly true or configured (object) rules as enabled
+                    const isEnabled = ruleValue === true || (typeof ruleValue === 'object' && ruleValue !== null);
+
+                    return (
+                      <div key={ruleId} className="border-bottom py-2">
+                        <div className="d-flex align-items-center">
+                          <div className="flex-shrink-0" style={{ width: '200px' }}>
+                            <Form.Check
+                              type="switch"
+                              id={`rule-${ruleId}`}
+                              checked={isEnabled}
+                              disabled={!localEnabled}
+                              onChange={(e) => handleRuleToggle(ruleId, e.target.checked)}
+                              label={
+                                <span className={!localEnabled ? 'text-muted' : ''}>
+                                  <code>{ruleId}</code>
+                                  {status === 'configured' && (
+                                    <span className="badge bg-info ms-1" style={{ fontSize: '0.6em' }}>Configured</span>
+                                  )}
+                                </span>
+                              }
+                            />
+                          </div>
+                          <div className="flex-fill px-3">
+                            <small className="text-muted">
+                              {definition?.description || 'No description available'}
+                            </small>
+                          </div>
+                          <div className="flex-shrink-0">
+                            {isEnabled && localEnabled && renderRuleConfig(ruleId)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Accordion.Body>
+              </Accordion.Item>
+            ))}
+          </Accordion>
+        </div>
 
         <div className="d-flex justify-content-between mt-4">
           <div>
@@ -395,15 +564,18 @@ const MarkdownLintTab = () => {
               variant="outline-secondary"
               size="sm"
               onClick={handleReset}
-              disabled={loading}
+              disabled={loading || !localEnabled}
               className="me-2"
             >
               Reset to Defaults
             </Button>
-            <RuleImportExport
-              currentRules={localRules}
-              onImport={handleImport}
-            />
+            {localEnabled && (
+              <RuleImportExport
+                currentRules={localRules}
+                onImport={handleImport}
+                validateRules={validateRules}
+              />
+            )}
           </div>
 
           <div>
@@ -419,7 +591,7 @@ const MarkdownLintTab = () => {
                   Saving...
                 </>
               ) : (
-                'Save Rules'
+                'Save Configuration'
               )}
             </Button>
           </div>

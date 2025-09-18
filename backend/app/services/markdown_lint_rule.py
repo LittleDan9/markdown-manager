@@ -13,12 +13,12 @@ class MarkdownLintRuleService:
     @staticmethod
     async def get_user_defaults(db: AsyncSession, user_id: int) -> Optional[Dict[str, Any]]:
         """
-        Get user's default markdown lint rules.
-        
+        Get user's default markdown lint rules (rules only).
+
         Args:
             db: Database session
             user_id: User ID
-            
+
         Returns:
             User's default rules or None if not found
         """
@@ -35,28 +35,52 @@ class MarkdownLintRuleService:
         return rule.rules if rule else None
 
     @staticmethod
+    async def get_user_defaults_record(db: AsyncSession, user_id: int) -> Optional[MarkdownLintRule]:
+        """
+        Get user's default markdown lint rule record (full object).
+
+        Args:
+            db: Database session
+            user_id: User ID
+
+        Returns:
+            User's default rule record or None if not found
+        """
+        result = await db.execute(
+            select(MarkdownLintRule).where(
+                and_(
+                    MarkdownLintRule.user_id == user_id,
+                    MarkdownLintRule.scope == "user",
+                    MarkdownLintRule.is_active.is_(True)
+                )
+            )
+        )
+        return result.scalar_one_or_none()
+
+    @staticmethod
     async def save_user_defaults(
-        db: AsyncSession, user_id: int, rules: Dict[str, Any], description: Optional[str] = None
+        db: AsyncSession, user_id: int, rules: Dict[str, Any], description: Optional[str] = None, enabled: bool = True
     ) -> MarkdownLintRule:
         """
         Save or update user's default markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             rules: Rule configuration dictionary
             description: Optional description
-            
+            enabled: Whether linting is globally enabled
+
         Returns:
             Created or updated MarkdownLintRule instance
-            
+
         Raises:
             ValueError: If rules validation fails
         """
         # Validate rules format
         if not isinstance(rules, dict):
             raise ValueError("Rules must be a dictionary")
-        
+
         # Check if user defaults already exist
         existing = await db.execute(
             select(MarkdownLintRule).where(
@@ -67,11 +91,12 @@ class MarkdownLintRuleService:
             )
         )
         existing_rule = existing.scalar_one_or_none()
-        
+
         if existing_rule:
             # Update existing rules
             existing_rule.rules = rules
             existing_rule.description = description or existing_rule.description
+            existing_rule.enabled = enabled
             existing_rule.is_active = True
             await db.commit()
             await db.refresh(existing_rule)
@@ -81,7 +106,8 @@ class MarkdownLintRuleService:
             new_rule = MarkdownLintRule.create_user_defaults(
                 user_id=user_id,
                 rules=rules,
-                description=description
+                description=description,
+                enabled=enabled
             )
             db.add(new_rule)
             await db.commit()
@@ -94,12 +120,12 @@ class MarkdownLintRuleService:
     ) -> Optional[Dict[str, Any]]:
         """
         Get category-specific markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             category_id: Category ID
-            
+
         Returns:
             Category rules or None if not found
         """
@@ -126,21 +152,21 @@ class MarkdownLintRuleService:
     ) -> MarkdownLintRule:
         """
         Save or update category-specific markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             category_id: Category ID
             rules: Rule configuration dictionary
             description: Optional description
-            
+
         Returns:
             Created or updated MarkdownLintRule instance
         """
         # Validate rules format
         if not isinstance(rules, dict):
             raise ValueError("Rules must be a dictionary")
-        
+
         # Check if category rules already exist
         existing = await db.execute(
             select(MarkdownLintRule).where(
@@ -152,7 +178,7 @@ class MarkdownLintRuleService:
             )
         )
         existing_rule = existing.scalar_one_or_none()
-        
+
         if existing_rule:
             # Update existing rules
             existing_rule.rules = rules
@@ -180,12 +206,12 @@ class MarkdownLintRuleService:
     ) -> Optional[Dict[str, Any]]:
         """
         Get folder-specific markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             folder_path: Folder path
-            
+
         Returns:
             Folder rules or None if not found
         """
@@ -212,21 +238,21 @@ class MarkdownLintRuleService:
     ) -> MarkdownLintRule:
         """
         Save or update folder-specific markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             folder_path: Folder path
             rules: Rule configuration dictionary
             description: Optional description
-            
+
         Returns:
             Created or updated MarkdownLintRule instance
         """
         # Validate rules format
         if not isinstance(rules, dict):
             raise ValueError("Rules must be a dictionary")
-        
+
         # Check if folder rules already exist
         existing = await db.execute(
             select(MarkdownLintRule).where(
@@ -238,7 +264,7 @@ class MarkdownLintRuleService:
             )
         )
         existing_rule = existing.scalar_one_or_none()
-        
+
         if existing_rule:
             # Update existing rules
             existing_rule.rules = rules
@@ -264,11 +290,11 @@ class MarkdownLintRuleService:
     async def delete_user_defaults(db: AsyncSession, user_id: int) -> bool:
         """
         Delete user's default markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
-            
+
         Returns:
             True if rules were deleted, False if not found
         """
@@ -287,12 +313,12 @@ class MarkdownLintRuleService:
     async def delete_category_rules(db: AsyncSession, user_id: int, category_id: int) -> bool:
         """
         Delete category-specific markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             category_id: Category ID
-            
+
         Returns:
             True if rules were deleted, False if not found
         """
@@ -312,12 +338,12 @@ class MarkdownLintRuleService:
     async def delete_folder_rules(db: AsyncSession, user_id: int, folder_path: str) -> bool:
         """
         Delete folder-specific markdown lint rules.
-        
+
         Args:
             db: Database session
             user_id: User ID
             folder_path: Folder path
-            
+
         Returns:
             True if rules were deleted, False if not found
         """
@@ -339,46 +365,46 @@ class MarkdownLintRuleService:
     ) -> Dict[str, Any]:
         """
         Get merged rules following hierarchy: folder > category > user defaults.
-        
+
         Args:
             db: Database session
             user_id: User ID
             category_id: Optional category ID
             folder_path: Optional folder path
-            
+
         Returns:
             Merged rule configuration dictionary
         """
         merged_rules = {}
-        
+
         # Start with user defaults
         user_defaults = await MarkdownLintRuleService.get_user_defaults(db, user_id)
         if user_defaults:
             merged_rules.update(user_defaults)
-        
+
         # Apply category rules if available
         if category_id:
             category_rules = await MarkdownLintRuleService.get_category_rules(db, user_id, category_id)
             if category_rules:
                 merged_rules.update(category_rules)
-        
+
         # Apply folder rules if available (highest priority)
         if folder_path:
             folder_rules = await MarkdownLintRuleService.get_folder_rules(db, user_id, folder_path)
             if folder_rules:
                 merged_rules.update(folder_rules)
-        
+
         return merged_rules
 
     @staticmethod
     async def list_user_rules(db: AsyncSession, user_id: int) -> List[MarkdownLintRule]:
         """
         List all markdown lint rules for a user.
-        
+
         Args:
             db: Database session
             user_id: User ID
-            
+
         Returns:
             List of MarkdownLintRule instances
         """

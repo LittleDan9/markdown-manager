@@ -13,6 +13,7 @@ from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import User
 from app.services.markdown_lint_rule import MarkdownLintRuleService
+from app.configs.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -42,12 +43,14 @@ class RuleConfigurationRequest(BaseModel):
     """Request model for rule configuration."""
     rules: Dict[str, Any]
     description: str | None = None
+    enabled: bool = True
 
 
 class RuleConfigurationResponse(BaseModel):
     """Response model for rule configuration."""
     rules: Dict[str, Any]
     description: str | None = None
+    enabled: bool = True
     updated_at: str | None = None
 
 
@@ -62,7 +65,8 @@ async def process_markdown(
     Proxies the request to the internal markdown-lint-service.
     Adds user context and forwards the request.
     """
-    lint_service_url = "http://markdown-lint-service:8002/lint"
+    settings = get_settings()
+    lint_service_url = settings.markdown_lint_service_url + "/lint"
 
     logger.info(f"Processing markdown lint request for user {current_user.id}, text length: {len(request.text)}")
 
@@ -115,7 +119,8 @@ async def get_rule_definitions():
     Proxies the request to the internal markdown-lint-service.
     No authentication required as rule definitions are static.
     """
-    lint_service_url = "http://markdown-lint-service:8002/rules/definitions"
+    settings = get_settings()
+    lint_service_url = settings.markdown_lint_service_url + "/rules/definitions"
 
     logger.info("Fetching markdown lint rule definitions")
 
@@ -154,6 +159,55 @@ async def get_rule_definitions():
         )
 
 
+@router.get("/rules/recommended-defaults", response_model=RuleDefinitionsResponse)
+async def get_recommended_defaults():
+    """
+    Get recommended default markdown lint rules for new users.
+
+    Proxies the request to the internal markdown-lint-service.
+    No authentication required as recommended defaults are static.
+    """
+    settings = get_settings()
+    lint_service_url = settings.markdown_lint_service_url + "/rules/recommended-defaults"
+
+    logger.info("Fetching recommended default lint rules")
+
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                lint_service_url,
+                headers={
+                    "User-Agent": "markdown-manager-backend/1.0"
+                }
+            )
+            response.raise_for_status()
+
+            result = response.json()
+            logger.info("Retrieved recommended default rules")
+
+            # Return the rules portion to match the expected response model
+            return RuleDefinitionsResponse(rules=result.get("rules", {}))
+
+    except httpx.RequestError as e:
+        logger.error(f"Markdown lint service request error: {str(e)}")
+        raise HTTPException(
+            status_code=503,
+            detail=f"Markdown lint service unavailable: {str(e)}"
+        )
+    except httpx.HTTPStatusError as e:
+        logger.error(f"Markdown lint service HTTP error: {e.response.status_code}")
+        raise HTTPException(
+            status_code=e.response.status_code,
+            detail="Failed to retrieve recommended defaults"
+        )
+    except Exception as e:
+        logger.error(f"Unexpected error fetching recommended defaults: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="Internal server error while fetching recommended defaults"
+        )
+
+
 @router.get("/health")
 async def check_lint_service_health():
     """
@@ -162,7 +216,8 @@ async def check_lint_service_health():
     Returns the service health status for monitoring purposes.
     No authentication required for health checks.
     """
-    lint_service_url = "http://markdown-lint-service:8002/health"
+    settings = get_settings()
+    lint_service_url = settings.markdown_lint_service_url + "/health"
 
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
@@ -196,13 +251,20 @@ async def get_user_defaults(
     Get user's default markdown lint rules.
 
     Returns the user's default rule configuration or 404 if not set.
+    This endpoint returns NULL (404) when user has no configuration,
+    allowing clients to fall back to recommended defaults.
     """
-    rules = await MarkdownLintRuleService.get_user_defaults(db, current_user.id)
+    rules_record = await MarkdownLintRuleService.get_user_defaults_record(db, current_user.id)
 
-    if rules is None:
+    if rules_record is None:
         raise HTTPException(status_code=404, detail="User default rules not found")
 
-    return RuleConfigurationResponse(rules=rules)
+    return RuleConfigurationResponse(
+        rules=rules_record.rules,
+        description=rules_record.description,
+        enabled=rules_record.enabled,
+        updated_at=rules_record.updated_at.isoformat() if rules_record.updated_at else None
+    )
 
 
 @router.put("/user/defaults", response_model=RuleConfigurationResponse)
@@ -218,11 +280,12 @@ async def save_user_defaults(
     """
     try:
         rule = await MarkdownLintRuleService.save_user_defaults(
-            db, current_user.id, request.rules, request.description
+            db, current_user.id, request.rules, request.description, request.enabled
         )
         return RuleConfigurationResponse(
             rules=rule.rules,
             description=rule.description,
+            enabled=rule.enabled,
             updated_at=rule.updated_at.isoformat() if rule.updated_at else None
         )
     except ValueError as e:

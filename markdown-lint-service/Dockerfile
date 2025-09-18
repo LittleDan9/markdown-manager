@@ -9,8 +9,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copy application code
+# Copy application code and configuration files
 COPY server.js ./
+COPY rules-definitions.json ./
+COPY recommended-defaults.json ./
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \

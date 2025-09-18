@@ -66,7 +66,10 @@ export class Api {
       // Extract detailed error message from backend response
       let detailedErrorMessage = error.message;
       if (error.response?.data?.detail) {
-        detailedErrorMessage = error.response.data.detail;
+        // Handle case where detail might be an array or object
+        detailedErrorMessage = typeof error.response.data.detail === 'string'
+          ? error.response.data.detail
+          : JSON.stringify(error.response.data.detail);
       } else if (error.response?.data?.message) {
         detailedErrorMessage = error.response.data.message;
       } else if (error.response?.data?.error) {

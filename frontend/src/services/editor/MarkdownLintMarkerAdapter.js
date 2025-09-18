@@ -44,12 +44,14 @@ export class MarkdownLintMarkerAdapter {
         if (marker) {
           markers.push(marker);
 
-          // Create unique key for marker lookup
-          const key = `${marker.startLineNumber}-${marker.startColumn}-${issue.rule}`;
+          // Create unique key for marker lookup (format: lineStart-colStart-lineEnd-colEnd)
+          const key = `${marker.startLineNumber}-${marker.startColumn}-${marker.endLineNumber}-${marker.endColumn}`;
           markersMap.set(key, {
             ...marker,
             id: `markdownlint-${i}`,
-            issue: issue
+            issue: issue,
+            fixable: issue.fixable || false,
+            fixInfo: issue.fixInfo || null
           });
         }
       }
@@ -214,6 +216,11 @@ export class MarkdownLintMarkerAdapter {
       message += ` (${ruleName})`;
     }
     message += `: ${description}`;
+
+    // Add fixable indicator if the issue can be auto-fixed
+    if (issue.fixable === true) {
+      message += ` 🔧 Auto-fixable`;
+    }
 
     // Add additional context if available
     if (issue.context) {

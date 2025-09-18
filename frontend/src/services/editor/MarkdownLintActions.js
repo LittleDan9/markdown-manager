@@ -1,6 +1,6 @@
 /**
  * MarkdownLintActions - Quick fixes and commands for markdown linting
- * 
+ *
  * Provides Monaco editor actions for fixing common markdown issues
  * and integrating linting controls into the editor UI.
  */
@@ -30,8 +30,22 @@ export class MarkdownLintActions {
     }
 
     const actionIds = [];
+    const disposables = [];
 
     try {
+      // Register code action provider for context-sensitive quick fixes
+      const codeActionProvider = this._registerCodeActionProvider(markersMapRef, monaco);
+      disposables.push(codeActionProvider);
+
+      // Register global command for applying markdown lint fixes
+      if (!monaco.editor._markdownLintApplyFixRegistered) {
+        monaco.editor.registerCommand('markdownlint.applyFix', async (accessor, ...args) => {
+          const [fixInfo, range, editorInstance] = args;
+          await this._applyMarkdownLintFix(fixInfo, range, editorInstance);
+        });
+        monaco.editor._markdownLintApplyFixRegistered = true;
+      }
+
       // Register fix trailing spaces action
       const fixTrailingSpacesId = 'markdownlint.fix.trailing-spaces';
       editor.addAction({
@@ -97,7 +111,7 @@ export class MarkdownLintActions {
       });
       actionIds.push(toggleLintingId);
 
-      console.log(`MarkdownLintActions: Registered ${actionIds.length} actions`);
+      console.log(`MarkdownLintActions: Registered ${actionIds.length} actions and code action provider`);
       return actionIds;
 
     } catch (error) {
@@ -125,7 +139,7 @@ export class MarkdownLintActions {
       for (let lineNumber = 1; lineNumber <= lineCount; lineNumber++) {
         const lineContent = model.getLineContent(lineNumber);
         const trimmedContent = lineContent.trimEnd();
-        
+
         if (lineContent.length !== trimmedContent.length) {
           edits.push({
             range: {
@@ -242,7 +256,7 @@ export class MarkdownLintActions {
         if (headingMatch) {
           const hashes = headingMatch[1];
           const restOfLine = headingMatch[2];
-          
+
           // Find position in original line
           const hashIndex = lineContent.indexOf(hashes);
           if (hashIndex !== -1) {
@@ -315,7 +329,7 @@ export class MarkdownLintActions {
       window.dispatchEvent(new CustomEvent('markdownlint:toggle', {
         detail: { editor }
       }));
-      
+
       console.log('MarkdownLintActions: Toggled linting');
 
     } catch (error) {
@@ -341,6 +355,166 @@ export class MarkdownLintActions {
 
     } catch (error) {
       console.error('MarkdownLintActions: Failed to fix all issues:', error);
+    }
+  }
+
+  /**
+   * Register code action provider for context-sensitive quick fixes
+   * @param {Object} markersMapRef - Reference to markers map
+   * @param {Object} monaco - Monaco editor namespace
+   * @returns {Object} Disposable registration
+   * @private
+   */
+  static _registerCodeActionProvider(markersMapRef, monaco) {
+    return monaco.languages.registerCodeActionProvider('markdown', {
+      provideCodeActions(model, range, context) {
+        const actions = [];
+
+        // Get markers at the current position
+        const markers = monaco.editor.getModelMarkers({
+          resource: model.uri,
+          owner: 'markdownlint'
+        });
+
+        // Find markers that intersect with the current range
+        const relevantMarkers = markers.filter(marker => {
+          return marker.startLineNumber <= range.endLineNumber &&
+                 marker.endLineNumber >= range.startLineNumber;
+        });
+
+        for (const marker of relevantMarkers) {
+          // Check if this marker has fix information
+          const markerKey = `${marker.startLineNumber}-${marker.startColumn}-${marker.endLineNumber}-${marker.endColumn}`;
+          const markersMap = markersMapRef.current;
+
+          if (markersMap && markersMap.has(markerKey)) {
+            const issueData = markersMap.get(markerKey);
+
+            // Only show quick fix if the issue is fixable
+            if (issueData.fixable && issueData.fixInfo) {
+              const rule = marker.code?.value || marker.code || 'unknown';
+
+              actions.push({
+                title: `🔧 Fix ${rule}: ${MarkdownLintActions._getFixDescription(rule, issueData.fixInfo)}`,
+                kind: monaco.languages.CodeActionKind.QuickFix,
+                isPreferred: true,
+                command: {
+                  id: 'markdownlint.applyFix',
+                  title: 'Apply markdown lint fix',
+                  arguments: [issueData.fixInfo, marker, model]
+                }
+              });
+            }
+          }
+        }
+
+        return {
+          actions,
+          dispose: () => {}
+        };
+      }
+    });
+  }
+
+  /**
+   * Get human-readable description for a fix
+   * @param {string} rule - Rule identifier
+   * @param {Object} fixInfo - Fix information from markdownlint
+   * @returns {string} Fix description
+   * @private
+   */
+  static _getFixDescription(rule, fixInfo) {
+    switch (rule) {
+      case 'MD009':
+        return 'Remove trailing spaces';
+      case 'MD010':
+        return 'Replace hard tabs with spaces';
+      case 'MD012':
+        return 'Remove multiple blank lines';
+      case 'MD018':
+      case 'MD019':
+        return 'Add space after heading hash';
+      case 'MD047':
+        return 'Add trailing newline';
+      default:
+        if (fixInfo.insertText) {
+          return `Insert "${fixInfo.insertText}"`;
+        } else if (fixInfo.deleteText) {
+          return `Delete "${fixInfo.deleteText}"`;
+        } else {
+          return 'Apply auto-fix';
+        }
+    }
+  }
+
+  /**
+   * Apply a markdown lint fix using markdownlint's fixInfo
+   * @param {Object} fixInfo - Fix information from markdownlint
+   * @param {Object} marker - Monaco marker object
+   * @param {Object} model - Monaco editor model
+   * @private
+   */
+  static async _applyMarkdownLintFix(fixInfo, marker, model) {
+    if (!fixInfo || !model) {
+      console.warn('MarkdownLintActions: Invalid fix info or model');
+      return;
+    }
+
+    try {
+      const edits = [];
+
+      if (fixInfo.editColumn && typeof fixInfo.insertText === 'string') {
+        // Insert text at specific column
+        const lineNumber = marker.startLineNumber;
+        const column = fixInfo.editColumn;
+
+        edits.push({
+          range: {
+            startLineNumber: lineNumber,
+            startColumn: column,
+            endLineNumber: lineNumber,
+            endColumn: column
+          },
+          text: fixInfo.insertText
+        });
+      } else if (fixInfo.deleteText) {
+        // Delete specific text
+        const lineNumber = marker.startLineNumber;
+        const lineContent = model.getLineContent(lineNumber);
+        const deleteIndex = lineContent.indexOf(fixInfo.deleteText);
+
+        if (deleteIndex !== -1) {
+          edits.push({
+            range: {
+              startLineNumber: lineNumber,
+              startColumn: deleteIndex + 1,
+              endLineNumber: lineNumber,
+              endColumn: deleteIndex + fixInfo.deleteText.length + 1
+            },
+            text: ''
+          });
+        }
+      } else {
+        // Generic fix based on marker range
+        edits.push({
+          range: {
+            startLineNumber: marker.startLineNumber,
+            startColumn: marker.startColumn,
+            endLineNumber: marker.endLineNumber,
+            endColumn: marker.endColumn
+          },
+          text: fixInfo.insertText || ''
+        });
+      }
+
+      if (edits.length > 0) {
+        // Apply the edits
+        model.pushEditOperations([], edits, () => null);
+        console.log(`MarkdownLintActions: Applied fix for ${marker.code?.value || marker.code}`);
+      }
+
+    } catch (error) {
+      console.error('MarkdownLintActions: Failed to apply fix:', error);
     }
   }
 

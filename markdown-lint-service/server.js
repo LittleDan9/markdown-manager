@@ -1,9 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const markdownlint = require('markdownlint');
+const fs = require('fs');
+const path = require('path');
 
 const app = express();
 const PORT = process.env.MARKDOWN_LINT_PORT || 8002;
+
+// Load rule definitions and recommended defaults from JSON files
+let ruleDefinitions = {};
+let recommendedDefaults = {};
+
+try {
+    const rulesPath = path.join(__dirname, 'rules-definitions.json');
+    const defaultsPath = path.join(__dirname, 'recommended-defaults.json');
+
+    ruleDefinitions = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
+    recommendedDefaults = JSON.parse(fs.readFileSync(defaultsPath, 'utf8'));
+
+    console.log(`Loaded ${Object.keys(ruleDefinitions).length} rule definitions`);
+    console.log(`Loaded recommended defaults for ${Object.keys(recommendedDefaults.rules).length} rules`);
+} catch (error) {
+    console.error('Failed to load rule configuration files:', error);
+    process.exit(1);
+}
 
 // Middleware
 app.use(cors());
@@ -18,10 +38,10 @@ app.get('/health', (req, res) => {
 app.post('/lint', async (req, res) => {
     try {
         const { text, rules, chunk_offset = 0 } = req.body;
-        
+
         if (!text || !rules) {
-            return res.status(400).json({ 
-                error: 'Missing required fields: text and rules' 
+            return res.status(400).json({
+                error: 'Missing required fields: text and rules'
             });
         }
 
@@ -37,10 +57,10 @@ app.post('/lint', async (req, res) => {
 
         // Run markdownlint
         const results = markdownlint.sync(options);
-        
+
         // Parse results into our response format
         const issues = parseMarkdownlintResults(results, chunk_offset);
-        
+
         console.log(`Found ${issues.length} issues`);
 
         res.json({
@@ -51,9 +71,9 @@ app.post('/lint', async (req, res) => {
 
     } catch (error) {
         console.error('Linting error:', error);
-        res.status(500).json({ 
-            error: 'Linting failed', 
-            details: error.message 
+        res.status(500).json({
+            error: 'Linting failed',
+            details: error.message
         });
     }
 });
@@ -61,18 +81,27 @@ app.post('/lint', async (req, res) => {
 // Get rule definitions endpoint
 app.get('/rules/definitions', (req, res) => {
     try {
-        // Get all available markdownlint rules
-        const ruleDefinitions = getRuleDefinitions();
-        
         res.json({
             rules: ruleDefinitions
         });
-
     } catch (error) {
         console.error('Failed to get rule definitions:', error);
-        res.status(500).json({ 
-            error: 'Failed to get rule definitions', 
-            details: error.message 
+        res.status(500).json({
+            error: 'Failed to get rule definitions',
+            details: error.message
+        });
+    }
+});
+
+// Get recommended default rules endpoint
+app.get('/rules/recommended-defaults', (req, res) => {
+    try {
+        res.json(recommendedDefaults);
+    } catch (error) {
+        console.error('Failed to get recommended defaults:', error);
+        res.status(500).json({
+            error: 'Failed to get recommended defaults',
+            details: error.message
         });
     }
 });
@@ -80,7 +109,7 @@ app.get('/rules/definitions', (req, res) => {
 // Parse markdownlint results into our API format
 function parseMarkdownlintResults(results, chunkOffset) {
     const issues = [];
-    
+
     // results.content contains array of issues for the 'content' string
     if (results.content) {
         results.content.forEach(issue => {
@@ -100,7 +129,7 @@ function parseMarkdownlintResults(results, chunkOffset) {
             issues.push(lintIssue);
         });
     }
-    
+
     return issues;
 }
 
@@ -108,7 +137,7 @@ function parseMarkdownlintResults(results, chunkOffset) {
 function calculateOffset(issue) {
     const lineNum = issue.lineNumber || 1;
     const colNum = issue.columnNumber || 1;
-    
+
     // Simplified calculation - in practice might need more precision
     return (lineNum - 1) * 50 + (colNum - 1);
 }
@@ -122,314 +151,14 @@ function isFixable(ruleNames) {
         'MD038', 'MD039', 'MD044', 'MD047', 'MD049', 'MD050', 'MD051',
         'MD053', 'MD054', 'MD058'
     ]);
-    
-    return ruleNames.some(rule => fixableRules.has(rule));
-}
 
-// Get comprehensive rule definitions
-function getRuleDefinitions() {
-    return {
-        'MD001': {
-            name: 'heading-increment',
-            description: 'Heading levels should only increment by one level at a time',
-            category: 'headings',
-            fixable: false
-        },
-        'MD003': {
-            name: 'heading-style',
-            description: 'Heading style should be consistent',
-            category: 'headings',
-            fixable: false
-        },
-        'MD004': {
-            name: 'ul-style',
-            description: 'Unordered list style should be consistent',
-            category: 'lists',
-            fixable: true
-        },
-        'MD005': {
-            name: 'list-indent',
-            description: 'Inconsistent indentation for list items at the same level',
-            category: 'lists',
-            fixable: true
-        },
-        'MD007': {
-            name: 'ul-indent',
-            description: 'Unordered list indentation should be consistent',
-            category: 'lists',
-            fixable: true
-        },
-        'MD009': {
-            name: 'no-trailing-spaces',
-            description: 'Trailing spaces are not allowed',
-            category: 'whitespace',
-            fixable: true
-        },
-        'MD010': {
-            name: 'no-hard-tabs',
-            description: 'Hard tabs are not allowed',
-            category: 'whitespace',
-            fixable: true
-        },
-        'MD011': {
-            name: 'no-reversed-links',
-            description: 'Reversed link syntax is not allowed',
-            category: 'links',
-            fixable: true
-        },
-        'MD012': {
-            name: 'no-multiple-blanks',
-            description: 'Multiple consecutive blank lines are not allowed',
-            category: 'whitespace',
-            fixable: true
-        },
-        'MD013': {
-            name: 'line-length',
-            description: 'Line length should not exceed specified limit',
-            category: 'line-length',
-            fixable: false
-        },
-        'MD018': {
-            name: 'no-missing-space-atx',
-            description: 'No space after hash on ATX style heading',
-            category: 'headings',
-            fixable: true
-        },
-        'MD019': {
-            name: 'no-multiple-space-atx',
-            description: 'Multiple spaces after hash on ATX style heading',
-            category: 'headings',
-            fixable: true
-        },
-        'MD020': {
-            name: 'no-missing-space-closed-atx',
-            description: 'No space inside hashes on closed ATX style heading',
-            category: 'headings',
-            fixable: true
-        },
-        'MD021': {
-            name: 'no-multiple-space-closed-atx',
-            description: 'Multiple spaces inside hashes on closed ATX style heading',
-            category: 'headings',
-            fixable: true
-        },
-        'MD022': {
-            name: 'blanks-around-headings',
-            description: 'Headings should be surrounded by blank lines',
-            category: 'headings',
-            fixable: true
-        },
-        'MD023': {
-            name: 'heading-start-left',
-            description: 'Headings must start at the beginning of the line',
-            category: 'headings',
-            fixable: true
-        },
-        'MD024': {
-            name: 'no-duplicate-heading',
-            description: 'Multiple headings with the same content',
-            category: 'headings',
-            fixable: false
-        },
-        'MD025': {
-            name: 'single-title',
-            description: 'Multiple top level headings in the same document',
-            category: 'headings',
-            fixable: false
-        },
-        'MD026': {
-            name: 'no-trailing-punctuation',
-            description: 'Trailing punctuation in heading',
-            category: 'headings',
-            fixable: true
-        },
-        'MD027': {
-            name: 'no-multiple-space-blockquote',
-            description: 'Multiple spaces after blockquote symbol',
-            category: 'blockquote',
-            fixable: true
-        },
-        'MD028': {
-            name: 'no-blanks-blockquote',
-            description: 'Blank line inside blockquote',
-            category: 'blockquote',
-            fixable: false
-        },
-        'MD029': {
-            name: 'ol-prefix',
-            description: 'Ordered list item prefix',
-            category: 'lists',
-            fixable: false
-        },
-        'MD030': {
-            name: 'list-marker-space',
-            description: 'Spaces after list markers',
-            category: 'lists',
-            fixable: true
-        },
-        'MD031': {
-            name: 'blanks-around-fences',
-            description: 'Fenced code blocks should be surrounded by blank lines',
-            category: 'code',
-            fixable: true
-        },
-        'MD032': {
-            name: 'blanks-around-lists',
-            description: 'Lists should be surrounded by blank lines',
-            category: 'lists',
-            fixable: true
-        },
-        'MD033': {
-            name: 'no-inline-html',
-            description: 'Inline HTML',
-            category: 'html',
-            fixable: false
-        },
-        'MD034': {
-            name: 'no-bare-urls',
-            description: 'Bare URL used',
-            category: 'links',
-            fixable: true
-        },
-        'MD035': {
-            name: 'hr-style',
-            description: 'Horizontal rule style',
-            category: 'hr',
-            fixable: false
-        },
-        'MD036': {
-            name: 'no-emphasis-as-heading',
-            description: 'Emphasis used instead of a heading',
-            category: 'emphasis',
-            fixable: false
-        },
-        'MD037': {
-            name: 'no-space-in-emphasis',
-            description: 'Spaces inside emphasis markers',
-            category: 'emphasis',
-            fixable: true
-        },
-        'MD038': {
-            name: 'no-space-in-code',
-            description: 'Spaces inside code span elements',
-            category: 'code',
-            fixable: true
-        },
-        'MD039': {
-            name: 'no-space-in-links',
-            description: 'Spaces inside link text',
-            category: 'links',
-            fixable: true
-        },
-        'MD040': {
-            name: 'fenced-code-language',
-            description: 'Fenced code blocks should have a language specified',
-            category: 'code',
-            fixable: false
-        },
-        'MD041': {
-            name: 'first-line-heading',
-            description: 'First line in file should be a top level heading',
-            category: 'headings',
-            fixable: false
-        },
-        'MD042': {
-            name: 'no-empty-links',
-            description: 'No empty links',
-            category: 'links',
-            fixable: false
-        },
-        'MD043': {
-            name: 'required-headings',
-            description: 'Required heading structure',
-            category: 'headings',
-            fixable: false
-        },
-        'MD044': {
-            name: 'proper-names',
-            description: 'Proper names should have the correct capitalization',
-            category: 'spelling',
-            fixable: true
-        },
-        'MD045': {
-            name: 'no-alt-text',
-            description: 'Images should have alternate text (alt text)',
-            category: 'accessibility',
-            fixable: false
-        },
-        'MD046': {
-            name: 'code-block-style',
-            description: 'Code block style',
-            category: 'code',
-            fixable: false
-        },
-        'MD047': {
-            name: 'single-trailing-newline',
-            description: 'Files should end with a single newline character',
-            category: 'whitespace',
-            fixable: true
-        },
-        'MD048': {
-            name: 'code-fence-style',
-            description: 'Code fence style',
-            category: 'code',
-            fixable: false
-        },
-        'MD049': {
-            name: 'emphasis-style',
-            description: 'Emphasis style should be consistent',
-            category: 'emphasis',
-            fixable: true
-        },
-        'MD050': {
-            name: 'strong-style',
-            description: 'Strong style should be consistent',
-            category: 'emphasis',
-            fixable: true
-        },
-        'MD051': {
-            name: 'link-fragments',
-            description: 'Link fragments should be valid',
-            category: 'links',
-            fixable: true
-        },
-        'MD052': {
-            name: 'reference-links-images',
-            description: 'Reference links and images should use a label that is defined',
-            category: 'links',
-            fixable: false
-        },
-        'MD053': {
-            name: 'link-image-reference-definitions',
-            description: 'Link and image reference definitions should be needed',
-            category: 'links',
-            fixable: true
-        },
-        'MD054': {
-            name: 'link-image-style',
-            description: 'Link and image style',
-            category: 'links',
-            fixable: true
-        },
-        'MD055': {
-            name: 'table-pipe-style',
-            description: 'Table pipe style',
-            category: 'table',
-            fixable: false
-        },
-        'MD056': {
-            name: 'table-column-count',
-            description: 'Table column count',
-            category: 'table',
-            fixable: false
-        }
-    };
+    return ruleNames.some(rule => fixableRules.has(rule));
 }
 
 // Start server
 app.listen(PORT, '0.0.0.0', () => {
     console.log(`Markdown Lint Service running on port ${PORT}`);
-    
+
     try {
         const markdownlintPkg = require('markdownlint/package.json');
         console.log(`markdownlint library version: ${markdownlintPkg.version}`);
