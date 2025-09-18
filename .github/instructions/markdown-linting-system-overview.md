@@ -13,9 +13,9 @@ Implement a comprehensive markdown linting system that mirrors the existing spel
 
 ### **Core Design Principles**
 
-1. **Backend Service Architecture**: Follow the proven PDF service pattern with dedicated markdown-lint service
+1. **Simplified Service Architecture**: Use simple Node.js Express server instead of complex FastAPI layers
 2. **API-First Design**: Frontend makes HTTP requests to backend services for processing
-3. **Performance-First**: Backend processing with chunked API calls, frontend marker management
+3. **Performance-First**: Direct library access eliminates subprocess overhead
 4. **Configurable Rules**: Per-category and per-folder rule customization with database persistence
 5. **Monaco Integration**: Native VS Code-like experience with markers and quick fixes
 
@@ -38,10 +38,10 @@ Frontend (React/Monaco)
 
 Backend Services
 ├── markdown-lint-service (Port 8002)
-│   ├── FastAPI application      # Dedicated linting service
-│   ├── markdownlint library     # Node.js markdown processing
-│   ├── /lint endpoint          # Process text chunks with rules
-│   └── /rules/definitions       # Available rule definitions
+│   ├── Node.js Express server      # Simple HTTP server
+│   ├── markdownlint library        # Direct library integration
+│   ├── /lint endpoint            # Process text chunks with rules
+│   └── /rules/definitions         # Available rule definitions
 ├── markdown-manager API (Port 8000)
 │   ├── Rule persistence endpoints
 │   │   ├── /markdown-lint/categories/{id}/rules
@@ -49,6 +49,7 @@ Backend Services
 │   │   └── /markdown-lint/user/defaults
 │   ├── Proxy endpoints to lint service
 │   │   └── /markdown-lint/process
+│   ├── Hot reload enabled for development
 │   └── Database Schema
 │       └── markdown_lint_rules table
 └── nginx (Port 80)
@@ -65,11 +66,12 @@ Backend Services
 - **React Bootstrap**: UI components for settings
 
 **Backend**:
-- **markdown-lint-service**: Dedicated FastAPI service with markdownlint CLI
-- **markdownlint library**: Node.js markdown processing (backend only)
+- **markdown-lint-service**: Simple Node.js Express server with direct markdownlint library integration
+- **markdownlint library**: Direct Node.js library access (no CLI subprocess calls)
 - **Main API**: FastAPI endpoints for rule management and proxying
 - **SQLAlchemy**: Async database operations
 - **PostgreSQL**: Rule storage with JSONB configuration
+- **Hot Reload**: Development environment supports live code updates
 
 ### **Integration Points**
 
@@ -131,9 +133,15 @@ MD004, MD005, MD007, MD009, MD010, MD011, MD012, MD014, MD018-MD023, MD026-MD027
 ### **Backend Service Communication**
 
 1. **Frontend** → **Main Backend**: Rule management and user data
-2. **Main Backend** → **markdown-lint-service**: Linting processing requests
-3. **markdown-lint-service**: Independent service with markdownlint library
+2. **Main Backend** → **markdown-lint-service**: HTTP requests to Node.js Express server
+3. **markdown-lint-service**: Direct markdownlint library integration (no subprocess calls)
 4. **nginx**: Routes and load balances between services
+
+**Architecture Benefits:**
+- **Simplified**: Node.js Express server instead of FastAPI → subprocess → CLI
+- **Performance**: Direct library access eliminates subprocess overhead
+- **Debugging**: Direct Node.js console logs and error handling
+- **Development**: Hot reload for faster iteration cycles
 
 ## 🎛️ **Configuration Hierarchy**
 
@@ -187,13 +195,11 @@ backend/app/
 └── schemas/
     └── markdown_lint.py              # Pydantic schemas
 
-markdown-lint-service/                # New dedicated service
-├── app/
-│   ├── main.py                       # FastAPI application
-│   ├── lint_service.py               # Core linting logic
-│   └── models.py                     # Request/response models
+markdown-lint-service/                # Simple Node.js service  
+├── server.js                         # Express.js HTTP server
+├── package.json                      # Node.js dependencies and scripts
 ├── Dockerfile                        # Service containerization
-└── requirements.txt                  # Python dependencies
+└── README.md                         # Service documentation
 ```
 
 ## 🔗 **Dependencies**
@@ -207,9 +213,9 @@ markdown-lint-service/                # New dedicated service
 
 **markdown-lint-service**:
 
-- `markdownlint`: Core linting library (Node.js/Python)
-- `fastapi`: API framework
-- `uvicorn`: ASGI server
+- `markdownlint`: Core linting library (Node.js)
+- `express`: HTTP server framework  
+- `cors`: Cross-origin request support
 
 **main backend**:
 
@@ -222,15 +228,16 @@ markdown-lint-service/                # New dedicated service
 **Status**: ✅ Design Complete
 **Implementation Guide**: `.github/instructions/markdown-linting-phase-1-backend-service.md`
 
-- **Objective**: Create dedicated markdown-lint-service following PDF service pattern
+- **Objective**: Create simple Node.js Express server for markdown linting
 - **Key Components**:
-  - FastAPI application with markdownlint CLI integration
-  - Docker containerization with Node.js runtime
+  - Express.js HTTP server with direct markdownlint library integration
+  - Docker containerization with Node.js runtime  
   - `/lint` endpoint for text processing with rule configuration
   - `/rules/definitions` endpoint for available rules metadata
-  - Async processing with chunked text support
-- **Dependencies**: markdownlint-cli, FastAPI, Docker, nginx routing
-- **Docker Integration**: New service on port 8002, nginx proxy configuration
+  - Hot reload support for development
+- **Dependencies**: markdownlint, express, cors, Docker, nginx routing
+- **Docker Integration**: New service on port 8002, volume mount for development
+- **Architecture**: Eliminates FastAPI → subprocess → CLI complexity
 
 ### **✅ Phase 2: API-Based Frontend Service**
 

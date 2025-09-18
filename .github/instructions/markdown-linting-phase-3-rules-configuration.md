@@ -44,7 +44,7 @@ Follow markdownlint standard configuration format:
  * 
  * Integrates with:
  * - MarkdownLintService (Phase 2): Provides rules for API-based linting requests
- * - Backend markdown-lint-service (Phase 1): Retrieves rule definitions
+ * - Backend markdown-lint-service (Phase 1): Node.js Express server for rule definitions
  * - Main backend API: Persists user/category/folder rule configurations
  */
 export default class MarkdownLintRulesService {
