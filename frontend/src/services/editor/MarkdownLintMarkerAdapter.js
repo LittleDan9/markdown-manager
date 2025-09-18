@@ -1,22 +1,23 @@
 /**
  * MarkdownLintMarkerAdapter - Convert linting issues to Monaco editor markers
- * 
+ *
  * Provides utilities for converting markdown linting issues into Monaco editor
  * markers with proper positioning, styling, and metadata.
  */
 
 export class MarkdownLintMarkerAdapter {
   /**
-   * Convert linting issues to Monaco markers with proper offset handling
+   * Convert markdown lint issues to Monaco markers
    * @param {Object} editor - Monaco editor instance
-   * @param {Array} issues - Array of linting issues
-   * @param {number} startOffset - Character offset for chunk processing
-   * @param {Map} prevMarkersMap - Previous markers map for comparison
-   * @returns {Map} Map of markers for quick lookup
+   * @param {Array} issues - Array of markdown lint issues
+   * @param {number} startOffset - Start offset for position calculation
+   * @param {Map} existingMarkersMap - Existing markers map to update
+   * @param {Object} monaco - Monaco editor API reference
+   * @returns {Map} Map of marker keys to marker objects
    */
-  static toMonacoMarkers(editor, issues, startOffset = 0, prevMarkersMap = new Map()) {
+  static toMonacoMarkers(editor, issues = [], startOffset = 0, existingMarkersMap = null, monaco = null) {
     if (!editor || !Array.isArray(issues)) {
-      return new Map();
+      return existingMarkersMap || new Map();
     }
 
     try {
@@ -25,9 +26,9 @@ export class MarkdownLintMarkerAdapter {
         return new Map();
       }
 
-      // Get Monaco reference from editor
-      const monaco = editor.constructor.monaco || window.monaco;
-      if (!monaco) {
+      // Use provided Monaco reference or try to get it from editor/window
+      const monacoRef = monaco || editor.constructor.monaco || window.monaco;
+      if (!monacoRef) {
         console.warn('MarkdownLintMarkerAdapter: Monaco reference not available');
         return new Map();
       }
@@ -38,11 +39,11 @@ export class MarkdownLintMarkerAdapter {
 
       for (let i = 0; i < issues.length; i++) {
         const issue = issues[i];
-        const marker = this.issueToMonacoMarker(model, issue, startOffset, monaco);
-        
+        const marker = this.issueToMonacoMarker(model, issue, startOffset, monacoRef);
+
         if (marker) {
           markers.push(marker);
-          
+
           // Create unique key for marker lookup
           const key = `${marker.startLineNumber}-${marker.startColumn}-${issue.rule}`;
           markersMap.set(key, {
@@ -54,14 +55,14 @@ export class MarkdownLintMarkerAdapter {
       }
 
       // Set markers on the model
-      monaco.editor.setModelMarkers(model, 'markdownlint', markers);
+      monacoRef.editor.setModelMarkers(model, 'markdownlint', markers);
 
       console.log(`MarkdownLintMarkerAdapter: Created ${markers.length} Monaco markers`);
       return markersMap;
 
     } catch (error) {
-      console.error('MarkdownLintMarkerAdapter: Failed to create Monaco markers:', error);
-      return new Map();
+      console.error('MarkdownLintMarkerAdapter: Error converting issues to markers:', error);
+      return existingMarkersMap || new Map();
     }
   }
 
@@ -74,56 +75,62 @@ export class MarkdownLintMarkerAdapter {
    * @returns {Object|null} Monaco marker object or null
    */
   static issueToMonacoMarker(model, issue, startOffset = 0, monaco) {
-    if (!issue || typeof issue.line !== 'number') {
+    // Handle both 'line' and 'lineNumber' properties from different linting sources
+    const lineNumber = issue.lineNumber || issue.line;
+    if (!issue || typeof lineNumber !== 'number') {
       return null;
     }
 
     try {
       // Ensure line number is valid (1-based)
-      const lineNumber = Math.max(1, Math.floor(issue.line));
+      const validLineNumber = Math.max(1, Math.floor(lineNumber));
       const lineCount = model.getLineCount();
-      
-      if (lineNumber > lineCount) {
-        console.warn(`MarkdownLintMarkerAdapter: Line ${lineNumber} exceeds model line count ${lineCount}`);
+
+      if (validLineNumber > lineCount) {
+        console.warn(`MarkdownLintMarkerAdapter: Line ${validLineNumber} exceeds model line count ${lineCount}`);
         return null;
       }
 
       // Get line content for column calculations
-      const lineContent = model.getLineContent(lineNumber);
+      const lineContent = model.getLineContent(validLineNumber);
       const lineLength = lineContent.length;
 
-      // Calculate column positions
+      // Calculate column positions - for markdown lint, highlight the entire line by default
       let startColumn = 1;
-      let endColumn = lineLength + 1;
+      let endColumn = Math.max(lineLength + 1, 2); // Ensure at least 1 character is highlighted
 
-      // Use issue column if provided
-      if (typeof issue.column === 'number' && issue.column > 0) {
-        startColumn = Math.min(Math.max(1, issue.column), lineLength + 1);
-        
-        // Calculate end column based on length
-        if (typeof issue.length === 'number' && issue.length > 0) {
-          endColumn = Math.min(startColumn + issue.length, lineLength + 1);
-        } else {
-          // Default to highlighting relevant part of line
-          endColumn = Math.min(startColumn + 10, lineLength + 1);
-        }
+      // Only use specific column positioning for certain rules that benefit from precise highlighting
+      const columnNumber = issue.columnNumber || issue.column;
+      const shouldUseSpecificColumn = (
+        typeof columnNumber === 'number' &&
+        columnNumber > 0 &&
+        typeof issue.length === 'number' &&
+        issue.length > 0 &&
+        (issue.rule === 'MD009' || issue.rule === 'MD010') // Only for trailing spaces and hard tabs
+      );
+
+      if (shouldUseSpecificColumn) {
+        // Use specific range for precise issues like trailing spaces
+        startColumn = Math.min(Math.max(1, columnNumber), lineLength + 1);
+        endColumn = Math.min(startColumn + issue.length, lineLength + 1);
       }
+      // For all other markdown lint issues, highlight the entire line
 
       // Get severity from Monaco
       const severity = this.getMonacoSeverity(issue, monaco);
 
       // Create marker object
       const marker = {
-        startLineNumber: lineNumber,
+        startLineNumber: validLineNumber,
         startColumn,
-        endLineNumber: lineNumber,
+        endLineNumber: validLineNumber,
         endColumn,
         message: this.formatIssueMessage(issue),
         severity,
         source: 'markdownlint',
         code: {
           value: issue.rule || issue.ruleNames?.[0] || 'unknown',
-          target: this.getRuleDocumentationUrl(issue.rule)
+          target: this.getRuleDocumentationUrl(issue.rule || issue.ruleNames?.[0])
         },
         tags: this.getMarkerTags(issue, monaco)
       };
@@ -159,8 +166,8 @@ export class MarkdownLintMarkerAdapter {
       return MarkerSeverity.Hint;
     }
 
-    // Default to warning for most markdown lint issues
-    return MarkerSeverity.Warning;
+    // Use Info severity for markdown lint issues to get yellow squiggles (different from spell check warnings)
+    return MarkerSeverity.Info;
   }
 
   /**
@@ -198,9 +205,9 @@ export class MarkdownLintMarkerAdapter {
    */
   static formatIssueMessage(issue) {
     const rule = issue.rule || issue.ruleNames?.[0] || 'unknown';
-    const ruleName = issue.ruleName || rule;
-    const description = issue.message || issue.description || 'Markdown lint issue';
-    
+    const ruleName = issue.ruleName || issue.ruleDescription || rule;
+    const description = issue.message || issue.description || issue.ruleDescription || 'Markdown lint issue';
+
     // Create detailed message
     let message = `${rule}`;
     if (ruleName && ruleName !== rule) {
@@ -231,11 +238,12 @@ export class MarkdownLintMarkerAdapter {
     return `${baseUrl}/${rule}.md`;
   }
 
-  /**
-   * Clear all markdown lint markers from editor
+    /**
+   * Clear all MarkdownLint markers from editor
    * @param {Object} editor - Monaco editor instance
+   * @param {Object} monaco - Monaco editor API reference (optional)
    */
-  static clearMarkers(editor) {
+  static clearMarkers(editor, monaco = null) {
     if (!editor) {
       return;
     }
@@ -246,9 +254,11 @@ export class MarkdownLintMarkerAdapter {
         return;
       }
 
-      const monaco = editor.constructor.monaco || window.monaco;
-      if (monaco) {
-        monaco.editor.setModelMarkers(model, 'markdownlint', []);
+      const monacoRef = monaco || editor.constructor.monaco || window.monaco;
+      if (monacoRef) {
+        monacoRef.editor.setModelMarkers(model, 'markdownlint', []);
+      } else {
+        console.warn('MarkdownLintMarkerAdapter: Monaco reference not available for clearing markers');
       }
 
       console.log('MarkdownLintMarkerAdapter: Cleared all markers');
@@ -273,7 +283,7 @@ export class MarkdownLintMarkerAdapter {
     }
 
     for (const marker of markersMap.values()) {
-      if (marker.startLineNumber >= startLine && 
+      if (marker.startLineNumber >= startLine &&
           marker.startLineNumber <= endLine) {
         markersInRange.push(marker);
       }

@@ -5,6 +5,7 @@ from .custom_dictionary import CustomDictionary
 from .document import Document
 from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
 from .icon_models import IconMetadata, IconPack
+from .markdown_lint_rule import MarkdownLintRule
 from .user import User
 
 __all__ = [
@@ -18,5 +19,6 @@ __all__ = [
     "GitHubSyncHistory",
     "IconMetadata",
     "IconPack",
+    "MarkdownLintRule",
     "User"
 ]

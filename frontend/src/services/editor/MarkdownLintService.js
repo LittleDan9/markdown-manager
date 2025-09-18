@@ -1,6 +1,6 @@
 /**
  * MarkdownLintService - API-based markdown linting service
- * 
+ *
  * Replaces worker-based implementation with HTTP API calls to backend.
  * Communicates with backend /api/markdown-lint endpoints which proxy
  * to the internal markdown-lint-service.
@@ -32,7 +32,7 @@ export class MarkdownLintService extends Api {
       if (!isHealthy) {
         console.warn('MarkdownLintService: Backend service not healthy');
       }
-      
+
       this._initialized = true;
       console.log('MarkdownLintService: Initialized successfully');
     } catch (error) {
@@ -60,7 +60,7 @@ export class MarkdownLintService extends Api {
 
       // Get applicable rules for this category/folder
       const rules = await this.getRulesForContext(categoryId, folderPath);
-      
+
       if (Object.keys(rules).length === 0) {
         console.log('MarkdownLintService: No rules configured');
         return [];
@@ -73,12 +73,12 @@ export class MarkdownLintService extends Api {
 
       for (let i = 0; i < chunks.length; i++) {
         const chunk = chunks[i];
-        
+
         try {
           // Process chunk via backend API
           const chunkIssues = await this.lintChunk(
-            chunk.text, 
-            rules, 
+            chunk.text,
+            rules,
             chunk.offset
           );
 
@@ -132,46 +132,43 @@ export class MarkdownLintService extends Api {
     }
   }
 
-  /**
-   * Get rules applicable for the current context
+    /**
+   * Get context-specific rules for markdown linting
    * @param {number|null} categoryId - Category ID
-   * @param {string|null} folderPath - Folder path  
+   * @param {string|null} folderPath - Folder path
    * @returns {Promise<Object>} Rules configuration object
    */
   async getRulesForContext(categoryId, folderPath) {
     try {
-      // Import MarkdownLintRulesService dynamically to avoid circular dependencies
-      const { default: markdownLintRulesService } = await import('../linting/MarkdownLintRulesService');
-      
-      // Get rules based on context hierarchy:
-      // 1. Folder-specific rules (highest priority)
-      // 2. Category-specific rules  
-      // 3. User defaults
-      // 4. System defaults
-      
-      let rules = {};
-      
-      // Start with user defaults
-      const userDefaults = await markdownLintRulesService.getUserDefaults();
-      rules = { ...userDefaults };
-      
-      // Apply category-specific rules if available
-      if (categoryId) {
-        const categoryRules = await markdownLintRulesService.getCategoryRules(categoryId);
-        rules = { ...rules, ...categoryRules };
+      // Import services dynamically to avoid circular dependencies
+      const { default: MarkdownLintRulesService } = await import('../linting/MarkdownLintRulesService');
+      const markdownLintApi = await import('../../api/markdownLintApi');
+      const { default: AuthService } = await import('../core/AuthService');
+
+      // Set up API client if not already configured
+      if (!MarkdownLintRulesService._apiClient) {
+        MarkdownLintRulesService.setApiClient(markdownLintApi.default);
       }
-      
-      // Apply folder-specific rules if available (highest priority)
-      if (folderPath) {
-        const folderRules = await markdownLintRulesService.getFolderRules(folderPath);
-        rules = { ...rules, ...folderRules };
+
+      // Get current user ID from AuthService
+      await AuthService.waitForInitialization();
+      const authState = AuthService.getAuthState();
+      const userId = authState.user?.id;
+
+      if (!userId || !authState.isAuthenticated) {
+        // Return default rules if no user context
+        return MarkdownLintRulesService.getDefaultRules();
       }
-      
+
+      // Get effective rules using the new service
+      const rules = await MarkdownLintRulesService.getEffectiveRules(userId, categoryId, folderPath);
       return rules;
+
     } catch (error) {
       console.error('MarkdownLintService: Failed to get rules for context:', error);
-      // Return empty rules to prevent blocking
-      return {};
+      // Return default rules to prevent blocking
+      const { default: MarkdownLintRulesService } = await import('../linting/MarkdownLintRulesService');
+      return MarkdownLintRulesService.getDefaultRules();
     }
   }
 
@@ -190,7 +187,7 @@ export class MarkdownLintService extends Api {
 
     while (offset < text.length) {
       let chunkEnd = offset + this.chunkSize;
-      
+
       // Try to break on line boundaries to avoid splitting markdown elements
       if (chunkEnd < text.length) {
         const nextNewline = text.indexOf('\n', chunkEnd);
@@ -201,7 +198,7 @@ export class MarkdownLintService extends Api {
 
       const chunkText = text.slice(offset, chunkEnd);
       chunks.push({ text: chunkText, offset });
-      
+
       offset = chunkEnd;
     }
 

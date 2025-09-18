@@ -46,43 +46,44 @@ export default class SpellCheckActions {
   static _registerCodeActionProvider(suggestionsMapRef, getCategoryId, getFolderPath) {
     return monaco.languages.registerCodeActionProvider('markdown', {
       provideCodeActions(model, range) {
+        const actions = [];
+
         // Get current categoryId and folderPath dynamically
         const categoryId = typeof getCategoryId === 'function' ? getCategoryId() : getCategoryId;
         const folderPath = typeof getFolderPath === 'function' ? getFolderPath() : getFolderPath;
 
+        // Check for spell check actions
         const wordInfo = model.getWordAtPosition(range.getStartPosition());
-        if (!wordInfo || !wordInfo.word) return { actions: [], dispose: () => {} };
+        if (wordInfo && wordInfo.word) {
+          const trueRange = new monaco.Range(
+            range.startLineNumber,
+            wordInfo.startColumn,
+            range.endLineNumber,
+            wordInfo.startColumn + wordInfo.word.length
+          );
 
-        const trueRange = new monaco.Range(
-          range.startLineNumber,
-          wordInfo.startColumn,
-          range.endLineNumber,
-          wordInfo.startColumn + wordInfo.word.length
-        );
+          const suggestions = SpellCheckActions._findSuggestions(
+            suggestionsMapRef,
+            range,
+            model,
+            wordInfo
+          );
 
-        const suggestions = SpellCheckActions._findSuggestions(
-          suggestionsMapRef,
-          range,
-          model,
-          wordInfo
-        );
+          if (suggestions) {
+            // Add replacement suggestions
+            actions.push(...SpellCheckActions._createReplacementActions(suggestions, trueRange, model));
 
-        if (!suggestions) return { actions: [], dispose: () => {} };
-
-        const actions = [];
-
-        // Add replacement suggestions
-        actions.push(...SpellCheckActions._createReplacementActions(suggestions, trueRange, model));
-
-        // Add dictionary actions
-        actions.push(...SpellCheckActions._createDictionaryActions(
-          wordInfo.word,
-          range,
-          suggestionsMapRef,
-          folderPath,
-          categoryId,
-          model
-        ));
+            // Add dictionary actions
+            actions.push(...SpellCheckActions._createDictionaryActions(
+              wordInfo.word,
+              range,
+              suggestionsMapRef,
+              folderPath,
+              categoryId,
+              model
+            ));
+          }
+        }
 
         return { actions, dispose: () => {} };
       }

@@ -24,8 +24,13 @@ class Editor {
       minimap: { enabled: false },
       // Always enable word wrap for Markdown editor
       wordWrap: "on",
-      // Disable performance-heavy features to prevent Chrome freezing
-      hover: { enabled: false },
+      // Enable hover for diagnostics/markers but with delay to avoid performance issues
+      hover: {
+        enabled: true,
+        delay: 300,
+        sticky: true,
+        above: true // Try to position hover above the line when possible
+      },
       quickSuggestions: false,
       suggestOnTriggerCharacters: false,
       acceptSuggestionOnEnter: "off",

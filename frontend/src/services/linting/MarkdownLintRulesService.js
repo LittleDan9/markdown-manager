@@ -1,385 +1,376 @@
 /**
- * MarkdownLintRulesService - Rule management and configuration service
- * 
- * Handles rule persistence, retrieval, and management for markdown linting.
- * Communicates with backend API endpoints for rule storage.
+ * MarkdownLintRulesService - Core service for markdown lint rules management
+ * Handles rule hierarchy, localStorage caching, and validation logic
  */
 
-import { Api } from '../../api/api';
+const STORAGE_KEY = 'markdownLintRules';
+const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
 
-export class MarkdownLintRulesService extends Api {
-  constructor() {
-    super();
-    this.serviceUrl = '/markdown-lint';
-    this._ruleDefinitions = null;
-    this._cacheTimeout = 5 * 60 * 1000; // 5 minutes
-    this._cache = new Map();
-  }
-
+export class MarkdownLintRulesService {
   /**
-   * Get rule definitions from backend or cache
-   * @returns {Promise<Object>} Rule definitions object
+   * Get effective rules for a document by building hierarchy
+   * @param {number} userId - User ID
+   * @param {number|null} categoryId - Category ID (optional)
+   * @param {string|null} folderPath - Folder path (optional)
+   * @returns {Promise<Object>} Merged rules object
    */
-  async getRuleDefinitions() {
-    const cacheKey = 'rule_definitions';
-    const cached = this._getCacheEntry(cacheKey);
-    
-    if (cached) {
-      return cached.data;
-    }
-
+  static async getEffectiveRules(userId, categoryId = null, folderPath = null) {
     try {
-      const response = await this.apiCall(`${this.serviceUrl}/rules/definitions`);
-      const rules = response.data.rules || {};
-      
-      this._setCacheEntry(cacheKey, rules);
-      return rules;
-    } catch (error) {
-      console.error('MarkdownLintRulesService: Failed to get rule definitions:', error);
-      
-      // Return fallback rule definitions if backend fails
-      return this._getFallbackRuleDefinitions();
-    }
-  }
-
-  /**
-   * Get user's default rule configuration
-   * @returns {Promise<Object>} User default rules
-   */
-  async getUserDefaults() {
-    const cacheKey = 'user_defaults';
-    const cached = this._getCacheEntry(cacheKey);
-    
-    if (cached) {
-      return cached.data;
-    }
-
-    try {
-      const response = await this.apiCall(`${this.serviceUrl}/user/defaults`);
-      const rules = response.data.rules || {};
-      
-      this._setCacheEntry(cacheKey, rules);
-      return rules;
-    } catch (error) {
-      console.debug('MarkdownLintRulesService: User defaults endpoint not available, using system defaults');
-      
-      // Return sensible defaults if backend fails
-      return this._getSystemDefaults();
-    }
-  }
-
-  /**
-   * Save user's default rule configuration
-   * @param {Object} rules - Rule configuration object
-   * @returns {Promise<void>}
-   */
-  async saveUserDefaults(rules) {
-    try {
-      await this.apiCall(`${this.serviceUrl}/user/defaults`, 'PUT', { rules });
-      
-      // Update cache
-      this._setCacheEntry('user_defaults', rules);
-      
-      console.log('MarkdownLintRulesService: User defaults saved successfully');
-    } catch (error) {
-      console.error('MarkdownLintRulesService: Failed to save user defaults:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get category-specific rule configuration
-   * @param {number} categoryId - Category ID
-   * @returns {Promise<Object>} Category rules
-   */
-  async getCategoryRules(categoryId) {
-    const cacheKey = `category_${categoryId}`;
-    const cached = this._getCacheEntry(cacheKey);
-    
-    if (cached) {
-      return cached.data;
-    }
-
-    try {
-      const response = await this.apiCall(`${this.serviceUrl}/categories/${categoryId}/rules`);
-      const rules = response.data.rules || {};
-      
-      this._setCacheEntry(cacheKey, rules);
-      return rules;
-    } catch (error) {
-      if (error.status === 404) {
-        // No category-specific rules configured, this is normal
-        console.debug(`MarkdownLintRulesService: No rules configured for category ${categoryId}`);
-        return {};
+      const cachedRules = this.getCachedRules(userId, categoryId, folderPath);
+      if (cachedRules) {
+        return cachedRules;
       }
-      
-      console.error('MarkdownLintRulesService: Failed to get category rules:', error);
-      return {};
+
+      // Build hierarchy from most general to most specific
+      const hierarchy = this.buildRuleHierarchy(userId, categoryId, folderPath);
+      const effectiveRules = await this.mergeRuleHierarchy(hierarchy);
+
+      // Cache the result
+      this.setCachedRules(userId, categoryId, folderPath, effectiveRules);
+
+      return effectiveRules;
+    } catch (error) {
+      console.error('Error getting effective rules:', error);
+      return this.getDefaultRules();
     }
   }
 
   /**
-   * Save category-specific rule configuration
-   * @param {number} categoryId - Category ID
-   * @param {Object} rules - Rule configuration object
-   * @returns {Promise<void>}
+   * Build rule hierarchy array from general to specific
+   * @param {number} userId - User ID
+   * @param {number|null} categoryId - Category ID
+   * @param {string|null} folderPath - Folder path
+   * @returns {Array} Hierarchy of rule contexts
    */
-  async saveCategoryRules(categoryId, rules) {
-    try {
-      await this.apiCall(`${this.serviceUrl}/categories/${categoryId}/rules`, 'PUT', { rules });
-      
-      // Update cache
-      this._setCacheEntry(`category_${categoryId}`, rules);
-      
-      console.log(`MarkdownLintRulesService: Category ${categoryId} rules saved successfully`);
-    } catch (error) {
-      console.error('MarkdownLintRulesService: Failed to save category rules:', error);
-      throw error;
+  static buildRuleHierarchy(userId, categoryId, folderPath) {
+    const hierarchy = [
+      { scope: 'user', userId }
+    ];
+
+    if (categoryId) {
+      hierarchy.push({ scope: 'category', userId, categoryId });
     }
+
+    if (folderPath && folderPath !== '/') {
+      // Add folder hierarchy (parent folders first)
+      const folders = this.getFolderHierarchy(folderPath);
+      folders.forEach(folder => {
+        hierarchy.push({
+          scope: 'folder',
+          userId,
+          categoryId,
+          folderPath: folder
+        });
+      });
+    }
+
+    return hierarchy;
   }
 
   /**
-   * Get folder-specific rule configuration
-   * @param {string} folderPath - Folder path
-   * @returns {Promise<Object>} Folder rules
+   * Get folder hierarchy from root to target folder
+   * @param {string} folderPath - Target folder path
+   * @returns {Array<string>} Array of folder paths from root to target
    */
-  async getFolderRules(folderPath) {
-    const cacheKey = `folder_${folderPath}`;
-    const cached = this._getCacheEntry(cacheKey);
-    
-    if (cached) {
-      return cached.data;
+  static getFolderHierarchy(folderPath) {
+    if (!folderPath || folderPath === '/') {
+      return [];
     }
 
-    try {
-      // Encode folder path for URL
-      const encodedPath = encodeURIComponent(folderPath);
-      const response = await this.apiCall(`${this.serviceUrl}/folders/${encodedPath}/rules`);
-      const rules = response.data.rules || {};
-      
-      this._setCacheEntry(cacheKey, rules);
-      return rules;
-    } catch (error) {
-      if (error.status === 404) {
-        // No folder-specific rules configured, this is normal
-        console.debug(`MarkdownLintRulesService: No rules configured for folder ${folderPath}`);
-        return {};
+    const parts = folderPath.split('/').filter(part => part.length > 0);
+    const hierarchy = [];
+
+    for (let i = 0; i < parts.length; i++) {
+      const path = '/' + parts.slice(0, i + 1).join('/');
+      hierarchy.push(path);
+    }
+
+    return hierarchy;
+  }
+
+  /**
+   * Merge rule hierarchy to get effective rules
+   * @param {Array} hierarchy - Rule hierarchy contexts
+   * @returns {Promise<Object>} Merged rules object
+   */
+  static async mergeRuleHierarchy(hierarchy) {
+    let effectiveRules = this.getDefaultRules();
+
+    for (const context of hierarchy) {
+      try {
+        const rules = await this.getRulesForContext(context);
+        if (rules && rules.rules) {
+          effectiveRules = this.mergeRules(effectiveRules, rules.rules);
+        }
+      } catch (error) {
+        console.warn('Failed to get rules for context:', context, error);
       }
-      
-      console.error('MarkdownLintRulesService: Failed to get folder rules:', error);
-      return {};
     }
+
+    return effectiveRules;
   }
 
   /**
-   * Save folder-specific rule configuration
-   * @param {string} folderPath - Folder path
-   * @param {Object} rules - Rule configuration object
-   * @returns {Promise<void>}
+   * Get rules for a specific context from API
+   * @param {Object} context - Rule context (scope, userId, etc.)
+   * @returns {Promise<Object|null>} Rules object or null
    */
-  async saveFolderRules(folderPath, rules) {
+  static async getRulesForContext(context) {
+    // This will be injected by the hook to avoid circular dependencies
+    if (!this._apiClient) {
+      throw new Error('API client not configured');
+    }
+
     try {
-      const encodedPath = encodeURIComponent(folderPath);
-      await this.apiCall(`${this.serviceUrl}/folders/${encodedPath}/rules`, 'PUT', { rules });
-      
-      // Update cache
-      this._setCacheEntry(`folder_${folderPath}`, rules);
-      
-      console.log(`MarkdownLintRulesService: Folder ${folderPath} rules saved successfully`);
+      return await this._apiClient.getRules(context);
     } catch (error) {
-      console.error('MarkdownLintRulesService: Failed to save folder rules:', error);
+      if (error.response?.status === 404) {
+        return null; // No rules found for this context
+      }
       throw error;
     }
   }
 
   /**
-   * Delete category-specific rule configuration
-   * @param {number} categoryId - Category ID
-   * @returns {Promise<void>}
+   * Set API client instance (dependency injection)
+   * @param {Object} apiClient - MarkdownLintApi instance
    */
-  async deleteCategoryRules(categoryId) {
-    try {
-      await this.apiCall(`${this.serviceUrl}/categories/${categoryId}/rules`, 'DELETE');
-      
-      // Clear cache
-      this._clearCacheEntry(`category_${categoryId}`);
-      
-      console.log(`MarkdownLintRulesService: Category ${categoryId} rules deleted successfully`);
-    } catch (error) {
-      console.error('MarkdownLintRulesService: Failed to delete category rules:', error);
-      throw error;
-    }
+  static setApiClient(apiClient) {
+    this._apiClient = apiClient;
   }
 
   /**
-   * Delete folder-specific rule configuration
-   * @param {string} folderPath - Folder path
-   * @returns {Promise<void>}
+   * Merge two rule objects (specific overrides general)
+   * @param {Object} generalRules - General rules object
+   * @param {Object} specificRules - Specific rules object
+   * @returns {Object} Merged rules object
    */
-  async deleteFolderRules(folderPath) {
-    try {
-      const encodedPath = encodeURIComponent(folderPath);
-      await this.apiCall(`${this.serviceUrl}/folders/${encodedPath}/rules`, 'DELETE');
-      
-      // Clear cache
-      this._clearCacheEntry(`folder_${folderPath}`);
-      
-      console.log(`MarkdownLintRulesService: Folder ${folderPath} rules deleted successfully`);
-    } catch (error) {
-      console.error('MarkdownLintRulesService: Failed to delete folder rules:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Clear all cached rule configurations
-   */
-  clearCache() {
-    this._cache.clear();
-    console.log('MarkdownLintRulesService: Cache cleared');
-  }
-
-  /**
-   * Get cache entry if not expired
-   * @param {string} key - Cache key
-   * @returns {Object|null} Cached data or null
-   * @private
-   */
-  _getCacheEntry(key) {
-    const entry = this._cache.get(key);
-    if (!entry) {
-      return null;
-    }
-
-    const now = Date.now();
-    if (now - entry.timestamp > this._cacheTimeout) {
-      this._cache.delete(key);
-      return null;
-    }
-
-    return entry;
-  }
-
-  /**
-   * Set cache entry with timestamp
-   * @param {string} key - Cache key
-   * @param {any} data - Data to cache
-   * @private
-   */
-  _setCacheEntry(key, data) {
-    this._cache.set(key, {
-      data,
-      timestamp: Date.now()
-    });
-  }
-
-  /**
-   * Clear specific cache entry
-   * @param {string} key - Cache key
-   * @private
-   */
-  _clearCacheEntry(key) {
-    this._cache.delete(key);
-  }
-
-  /**
-   * Get system default rules configuration
-   * @returns {Object} Default rules
-   * @private
-   */
-  _getSystemDefaults() {
+  static mergeRules(generalRules, specificRules) {
     return {
-      // Enable common useful rules by default
+      ...generalRules,
+      ...specificRules
+    };
+  }
+
+  /**
+   * Get default markdown-lint rules
+   * @returns {Object} Default rules configuration
+   */
+  static getDefaultRules() {
+    return {
       'MD001': true,  // Heading levels should only increment by one level at a time
-      'MD003': true,  // Heading style should be consistent
+      'MD003': { style: 'atx' }, // Heading style
+      'MD004': { style: 'dash' }, // Unordered list style
+      'MD005': true,  // Inconsistent indentation for list items at the same level
+      'MD007': { indent: 2 }, // Unordered list indentation
       'MD009': true,  // Trailing spaces
       'MD010': true,  // Hard tabs
-      'MD012': true,  // Multiple consecutive blank lines
+      'MD011': true,  // Reversed link syntax
+      'MD012': { maximum: 1 }, // Multiple consecutive blank lines
+      'MD013': { line_length: 80 }, // Line length
+      'MD014': true,  // Dollar signs used before commands without showing output
       'MD018': true,  // No space after hash on atx style heading
       'MD019': true,  // Multiple spaces after hash on atx style heading
+      'MD020': true,  // No space inside hashes on closed atx style heading
+      'MD021': true,  // Multiple spaces inside hashes on closed atx style heading
+      'MD022': true,  // Headings should be surrounded by blank lines
       'MD023': true,  // Headings must start at the beginning of the line
+      'MD024': true,  // Multiple headings with the same content
       'MD025': true,  // Multiple top level headings in the same document
+      'MD026': true,  // Trailing punctuation in heading
+      'MD027': true,  // Multiple spaces after blockquote symbol
+      'MD028': true,  // Blank line inside blockquote
+      'MD029': { style: 'ordered' }, // Ordered list item prefix
+      'MD030': true,  // Spaces after list markers
+      'MD031': true,  // Fenced code blocks should be surrounded by blank lines
+      'MD032': true,  // Lists should be surrounded by blank lines
+      'MD033': true,  // Inline HTML
+      'MD034': true,  // Bare URL used
+      'MD035': true,  // Horizontal rule style
+      'MD036': true,  // Emphasis used instead of a heading
+      'MD037': true,  // Spaces inside emphasis markers
+      'MD038': true,  // Spaces inside code span elements
+      'MD039': true,  // Spaces inside link text
+      'MD040': true,  // Fenced code blocks should have a language specified
       'MD041': true,  // First line in file should be a top level heading
-      'MD047': true,  // File should end with a single newline character
+      'MD042': true,  // No empty links
+      'MD043': false, // Required heading structure (disabled by default)
+      'MD044': true,  // Proper names should have the correct capitalization
+      'MD045': true,  // Images should have alternate text (alt text)
+      'MD046': { style: 'fenced' }, // Code block style
+      'MD047': true,  // Files should end with a single newline character
+      'MD048': { style: 'backtick' }, // Code fence style
+      'MD049': { style: 'underscore' }, // Emphasis style
+      'MD050': { style: 'asterisk' }, // Strong style
+      'MD051': true,  // Link fragments should be valid
+      'MD052': true,  // Reference links and images should use a label that is defined
+      'MD053': true   // Link and image reference definitions should be needed
     };
   }
 
   /**
-   * Get fallback rule definitions when backend is unavailable
-   * @returns {Object} Fallback rule definitions
-   * @private
+   * Validate rules object structure
+   * @param {Object} rules - Rules object to validate
+   * @returns {boolean} True if valid
    */
-  _getFallbackRuleDefinitions() {
-    return {
-      'MD001': {
-        name: 'heading-increment',
-        description: 'Heading levels should only increment by one level at a time',
-        category: 'headers',
-        fixable: false
-      },
-      'MD003': {
-        name: 'heading-style',
-        description: 'Heading style should be consistent',
-        category: 'headers',
-        fixable: true
-      },
-      'MD009': {
-        name: 'no-trailing-spaces',
-        description: 'Trailing spaces',
-        category: 'whitespace',
-        fixable: true
-      },
-      'MD010': {
-        name: 'no-hard-tabs',
-        description: 'Hard tabs',
-        category: 'whitespace',
-        fixable: true
-      },
-      'MD012': {
-        name: 'no-multiple-blanks',
-        description: 'Multiple consecutive blank lines',
-        category: 'whitespace',
-        fixable: true
-      },
-      'MD018': {
-        name: 'no-missing-space-atx',
-        description: 'No space after hash on atx style heading',
-        category: 'headers',
-        fixable: true
-      },
-      'MD019': {
-        name: 'no-multiple-space-atx',
-        description: 'Multiple spaces after hash on atx style heading',
-        category: 'headers',
-        fixable: true
-      },
-      'MD023': {
-        name: 'heading-start-left',
-        description: 'Headings must start at the beginning of the line',
-        category: 'headers',
-        fixable: true
-      },
-      'MD025': {
-        name: 'single-title',
-        description: 'Multiple top level headings in the same document',
-        category: 'headers',
-        fixable: false
-      },
-      'MD041': {
-        name: 'first-line-heading',
-        description: 'First line in file should be a top level heading',
-        category: 'headers',
-        fixable: false
-      },
-      'MD047': {
-        name: 'single-trailing-newline',
-        description: 'File should end with a single newline character',
-        category: 'whitespace',
-        fixable: true
+  static validateRules(rules) {
+    if (!rules || typeof rules !== 'object') {
+      return false;
+    }
+
+    // Check if all keys are valid rule names (MD### format)
+    const validRulePattern = /^MD\d{3}$/;
+    return Object.keys(rules).every(key => validRulePattern.test(key));
+  }
+
+  /**
+   * Get cache key for rule context
+   * @param {number} userId - User ID
+   * @param {number|null} categoryId - Category ID
+   * @param {string|null} folderPath - Folder path
+   * @returns {string} Cache key
+   */
+  static getCacheKey(userId, categoryId, folderPath) {
+    const parts = [userId];
+    if (categoryId) parts.push(`cat:${categoryId}`);
+    if (folderPath) parts.push(`folder:${folderPath}`);
+    return parts.join('|');
+  }
+
+  /**
+   * Get cached rules if valid and not expired
+   * @param {number} userId - User ID
+   * @param {number|null} categoryId - Category ID
+   * @param {string|null} folderPath - Folder path
+   * @returns {Object|null} Cached rules or null
+   */
+  static getCachedRules(userId, categoryId, folderPath) {
+    try {
+      const cacheKey = this.getCacheKey(userId, categoryId, folderPath);
+      const cached = localStorage.getItem(`${STORAGE_KEY}:${cacheKey}`);
+
+      if (!cached) {
+        return null;
       }
-    };
+
+      const data = JSON.parse(cached);
+      const now = Date.now();
+
+      if (now - data.timestamp > CACHE_EXPIRY_MS) {
+        // Expired, remove from cache
+        localStorage.removeItem(`${STORAGE_KEY}:${cacheKey}`);
+        return null;
+      }
+
+      return data.rules;
+    } catch (error) {
+      console.warn('Error reading cached rules:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Cache rules with timestamp
+   * @param {number} userId - User ID
+   * @param {number|null} categoryId - Category ID
+   * @param {string|null} folderPath - Folder path
+   * @param {Object} rules - Rules to cache
+   */
+  static setCachedRules(userId, categoryId, folderPath, rules) {
+    try {
+      const cacheKey = this.getCacheKey(userId, categoryId, folderPath);
+      const data = {
+        rules,
+        timestamp: Date.now()
+      };
+
+      localStorage.setItem(`${STORAGE_KEY}:${cacheKey}`, JSON.stringify(data));
+    } catch (error) {
+      console.warn('Error caching rules:', error);
+    }
+  }
+
+  /**
+   * Clear cached rules for specific context
+   * @param {number} userId - User ID
+   * @param {number|null} categoryId - Category ID
+   * @param {string|null} folderPath - Folder path
+   */
+  static clearCachedRules(userId, categoryId, folderPath) {
+    try {
+      const cacheKey = this.getCacheKey(userId, categoryId, folderPath);
+      localStorage.removeItem(`${STORAGE_KEY}:${cacheKey}`);
+    } catch (error) {
+      console.warn('Error clearing cached rules:', error);
+    }
+  }
+
+  /**
+   * Clear all cached rules for a user
+   * @param {number} userId - User ID
+   */
+  static clearAllCachedRules(userId) {
+    try {
+      const keys = Object.keys(localStorage);
+      const prefix = `${STORAGE_KEY}:${userId}`;
+
+      keys.forEach(key => {
+        if (key.startsWith(prefix)) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch (error) {
+      console.warn('Error clearing all cached rules:', error);
+    }
+  }
+
+  /**
+   * Get cache statistics
+   * @param {number} userId - User ID
+   * @returns {Object} Cache statistics
+   */
+  static getCacheStats(userId) {
+    try {
+      const keys = Object.keys(localStorage);
+      const prefix = `${STORAGE_KEY}:${userId}`;
+      const userCacheKeys = keys.filter(key => key.startsWith(prefix));
+
+      let totalSize = 0;
+      let expiredCount = 0;
+      const now = Date.now();
+
+      userCacheKeys.forEach(key => {
+        const value = localStorage.getItem(key);
+        if (value) {
+          totalSize += value.length;
+
+          try {
+            const data = JSON.parse(value);
+            if (now - data.timestamp > CACHE_EXPIRY_MS) {
+              expiredCount++;
+            }
+          } catch (e) {
+            // Ignore parsing errors
+          }
+        }
+      });
+
+      return {
+        totalEntries: userCacheKeys.length,
+        totalSize,
+        expiredEntries: expiredCount,
+        cacheExpiry: CACHE_EXPIRY_MS
+      };
+    } catch (error) {
+      console.warn('Error getting cache stats:', error);
+      return {
+        totalEntries: 0,
+        totalSize: 0,
+        expiredEntries: 0,
+        cacheExpiry: CACHE_EXPIRY_MS
+      };
+    }
   }
 }
 
-// Export singleton instance
-export default new MarkdownLintRulesService();
+export default MarkdownLintRulesService;

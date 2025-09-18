@@ -35,7 +35,7 @@ export default function useEditor({
   const { theme } = useTheme();
   const editorRef = useRef(null);
   const lastEditorValue = useRef(value);
-  
+
   // Spell check state
   const [progress, setProgress] = useState(null);
   const suggestionsMap = useRef(new Map());
@@ -68,6 +68,20 @@ export default function useEditor({
           const newValue = editor.getValue();
           lastEditorValue.current = newValue;
           if (onChange) onChange(newValue);
+
+          // Trigger markdown linting on content change
+          if (enableMarkdownLint && newValue !== lintPreviousValueRef.current) {
+            // Clear existing timeouts
+            if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
+            if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
+
+            // Set debounced lint timeout
+            lintDebounceTimeout.current = setTimeout(() => {
+              lintDocument(newValue, 0);
+              lintPreviousValueRef.current = newValue;
+              lastLintTime.current = Date.now();
+            }, 1000); // 1 second debounce
+          }
         });
         // Cursor position changes
         if (onCursorLineChange) {
@@ -200,7 +214,7 @@ export default function useEditor({
     const handleResize = () => {
       if (!isResizing) {
         isResizing = true;
-        MarkdownLintMarkerAdapter.clearMarkers(editorRef.current);
+        MarkdownLintMarkerAdapter.clearMarkers(editorRef.current, monaco);
       }
       if (resizeStartTimeout) clearTimeout(resizeStartTimeout);
       resizeStartTimeout = setTimeout(() => {
@@ -222,7 +236,7 @@ export default function useEditor({
     if (!enableMarkdownLint || !editorRef.current) return;
     const editor = editorRef.current;
     const layoutDisposable = editor.onDidLayoutChange(() => {
-      MarkdownLintMarkerAdapter.clearMarkers(editor);
+      MarkdownLintMarkerAdapter.clearMarkers(editor, monaco);
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
       resizeTimeoutRef.current = setTimeout(() => {
         if (editor) {
@@ -375,51 +389,6 @@ export default function useEditor({
   };
 
   // MARKDOWN LINTING LOGIC
-  
-  // Main markdown linting logic with debouncing
-  useEffect(() => {
-    if (!enableMarkdownLint || !editorRef.current) return;
-
-    const editor = editorRef.current;
-    const currentValue = editor.getValue();
-
-    if (currentValue !== lintPreviousValueRef.current) {
-      // Clear timeouts when content changes
-      if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
-      if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
-
-      const runMarkdownLint = () => {
-        const currentContent = editorRef.current?.getValue() || '';
-        lintPreviousValueRef.current = currentContent;
-        lastLintTime.current = Date.now();
-        if (currentContent.length > 0) {
-          lintDocument(currentContent, 0);
-        }
-      };
-
-      // Longer debounce delay for linting since it's less urgent than spell check
-      const delay = 1500; // 1.5 seconds
-      lintDebounceTimeout.current = setTimeout(runMarkdownLint, delay);
-
-      // Auto-lint after 30 seconds of no changes
-      autoLintTimeout.current = setTimeout(() => {
-        const timeSinceLastLint = Date.now() - lastLintTime.current;
-        const currentContent = editorRef.current?.getValue() || '';
-
-        if (timeSinceLastLint > 30000 && currentContent !== lintPreviousValueRef.current) {
-          console.log('[MarkdownLint] Auto-running lint check after 30 seconds of inactivity');
-          lintDocument(currentContent, 0);
-          lintPreviousValueRef.current = currentContent;
-          lastLintTime.current = Date.now();
-        }
-      }, 30000); // 30 seconds
-    }
-
-    return () => {
-      if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
-      if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
-    };
-  }, [enableMarkdownLint, editorRef.current]);
 
   // Initial markdown lint when editor is ready
   useEffect(() => {
@@ -457,7 +426,7 @@ export default function useEditor({
     const currentText = textOverride ?? (editorRef.current ? editorRef.current.getValue() : '');
 
     if (!currentText || currentText.length === 0) return;
-    
+
     const isLarge = currentText.length > 1000;
     const shouldShowProgress = isLarge || forceProgress;
     const progressCb = shouldShowProgress ? (processObj) => {
@@ -467,21 +436,22 @@ export default function useEditor({
 
     try {
       const issues = await MarkdownLintService.scan(
-        currentText, 
-        progressCb, 
-        categoryId, 
+        currentText,
+        progressCb,
+        categoryId,
         typeof getFolderPath === 'function' ? getFolderPath() : null
       );
-      
+
       if (editorRef.current) {
         markersMap.current = MarkdownLintMarkerAdapter.toMonacoMarkers(
           editorRef.current,
           issues,
           startOffset,
-          markersMap.current
+          markersMap.current,
+          monaco
         );
       }
-      
+
       if (lastLintProgressRef.current && lastLintProgressRef.current.progress >= 100) {
         setTimeout(() => setLintProgress(null), 500);
       } else {
@@ -535,20 +505,20 @@ export default function useEditor({
         CommentService.handleCommentToggle(editor);
       }
     );
-    // Register quick fix actions
+        // Register quick fix actions
   // IMPORTANT: getCategoryId should be memoized in the parent with useCallback to avoid repeated registration
   SpellCheckActions.registerQuickFixActions(editor, suggestionsMap, getCategoryId, getFolderPath);
-  
+
   // Register markdown linting actions
   MarkdownLintActions.registerQuickFixActions(editor, markersMap, getCategoryId, getFolderPath);
-  
+
     // Store global functions for external access
     window.editorMarkdownLintTrigger = (text = null, offset = 0) => {
       if (editorRef.current) {
         lintDocument(text, offset);
       }
     };
-    
+
     window.CommentService = CommentService;
     window.testCommentToggle = () => {
       CommentService.handleCommentToggle(editor);

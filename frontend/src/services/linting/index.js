@@ -1,2 +1,2 @@
 // Linting services
-export { default as MarkdownLintRulesService } from './MarkdownLintRulesService';
+export { default as MarkdownLintRulesService, MarkdownLintRulesService as MarkdownLintRulesServiceClass } from './MarkdownLintRulesService';

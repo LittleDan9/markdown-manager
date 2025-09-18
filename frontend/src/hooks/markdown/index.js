@@ -5,3 +5,4 @@ export { useHeadingInsertion } from './useHeadingInsertion';
 export { useListInsertion } from './useListInsertion';
 export { useHorizontalRuleInsertion } from './useHorizontalRuleInsertion';
 export { useMarkdownActions } from './useMarkdownActions';
+export { useMarkdownLintRules } from '../useMarkdownLintRules';
