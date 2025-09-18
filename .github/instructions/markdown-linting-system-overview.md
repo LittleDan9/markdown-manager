@@ -154,10 +154,10 @@ Rule precedence (highest to lowest):
 ## 🚀 **Performance Considerations**
 
 - **Incremental Processing**: Only lint changed regions when possible
-- **Worker Pools**: 2-4 workers based on hardware concurrency
+- **HTTP Request Optimization**: Efficient batching and concurrent processing  
 - **Debounced Updates**: 1000ms delay to avoid excessive processing
 - **Marker Reuse**: Preserve existing markers outside changed regions
-- **Chunk Size**: 2000 character chunks for optimal worker utilization
+- **Chunk Size**: 2000 character chunks for optimal API utilization
 
 ## 🧪 **Testing Strategy**
 

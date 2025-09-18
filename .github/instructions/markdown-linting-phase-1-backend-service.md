@@ -1,6 +1,6 @@
 ---
 applyTo: "markdown-lint-service/**/*"
-description: "Phase 1: Backend Markdown Lint Service - Dedicated service for markdown processing following PDF service pattern"
+description: "Phase 1: Backend Markdown Lint Service - Simple Node.js Express server for markdown processing"
 ---
 
 # Phase 1: Backend Markdown Lint Service
