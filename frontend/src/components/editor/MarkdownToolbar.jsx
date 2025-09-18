@@ -6,10 +6,17 @@ import {
   ListGroup,
   MediaGroup,
   SpellCheckGroup,
+  MarkdownLintGroup,
   ToolbarSeparator
 } from './markdown-toolbar';
 
-const MarkdownToolbar = ({ editorRef, onSpellCheck, spellCheckProgress }) => {
+const MarkdownToolbar = ({ 
+  editorRef, 
+  onSpellCheck, 
+  spellCheckProgress,
+  onMarkdownLint,
+  markdownLintProgress
+}) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
 
@@ -58,6 +65,16 @@ const MarkdownToolbar = ({ editorRef, onSpellCheck, spellCheckProgress }) => {
         buttonVariant={buttonVariant}
         buttonStyle={styles.button}
         progress={spellCheckProgress}
+      />
+
+      <ToolbarSeparator style={styles.separator} />
+
+      {/* Markdown Lint */}
+      <MarkdownLintGroup
+        onMarkdownLint={onMarkdownLint}
+        buttonVariant={buttonVariant}
+        buttonStyle={styles.button}
+        progress={markdownLintProgress}
       />
     </div>
   );

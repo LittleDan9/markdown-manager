@@ -41,12 +41,13 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
 
 
   // Use consolidated editor hook
-  const { editor, spellCheck, runSpellCheck } = useEditor({
+  const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
     value,
     onChange,
     onCursorLineChange: debouncedLineChange,
     enableSpellCheck: true,
+    enableMarkdownLint: true,
     enableKeyboardShortcuts: true,
     enableListBehavior: true,
     categoryId,
@@ -55,6 +56,7 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   });
 
   const progress = spellCheck?.progress;
+  const lintProgress = markdownLint?.lintProgress;
 
   // Generate CSS class based on whether status bar will be shown
   const editorClassName = `has-toolbar ${isAuthenticated ? 'has-github-status' : 'no-github-status'}`;
@@ -65,6 +67,8 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
         editorRef={{ current: editor }} 
         onSpellCheck={runSpellCheck} 
         spellCheckProgress={progress}
+        onMarkdownLint={runMarkdownLint}
+        markdownLintProgress={lintProgress}
       />
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
         <div ref={containerRef} className="monaco-container" style={{ flex: 1, width: "100%" }} />
