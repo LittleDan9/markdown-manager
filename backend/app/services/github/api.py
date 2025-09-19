@@ -70,6 +70,98 @@ class GitHubAPIService(BaseGitHubService):
 
             return response.json()
 
+    async def get_user_repositories_filtered(
+        self,
+        access_token: str,
+        max_repos: int = 50,
+        min_updated_days: int = 365,
+        include_forks: bool = False,
+        exclude_archived: bool = True,
+        page: int = 1,
+        per_page: int = 30
+    ) -> List[Dict[str, Any]]:
+        """Get user's repositories with filtering for large organizations."""
+        from datetime import datetime, timedelta, timezone
+
+        all_repos = []
+        current_page = page
+        cutoff_date = datetime.now(timezone.utc) - timedelta(days=min_updated_days)
+
+        async with httpx.AsyncClient() as client:
+            while len(all_repos) < max_repos:
+                response = await client.get(
+                    f"{self.BASE_URL}/user/repos",
+                    params={
+                        "type": "all",
+                        "sort": "updated",
+                        "direction": "desc",
+                        "per_page": per_page,
+                        "page": current_page
+                    },
+                    headers={
+                        "Authorization": f"token {access_token}",
+                        "Accept": "application/vnd.github.v3+json",
+                        "User-Agent": "Markdown-Manager/1.0"
+                    }
+                )
+
+                if response.status_code != 200:
+                    raise HTTPException(
+                        status_code=status.HTTP_400_BAD_REQUEST,
+                        detail="Failed to get repositories"
+                    )
+
+                repos = response.json()
+                if not repos:  # No more repositories
+                    break
+
+                for repo in repos:
+                    # Apply filters
+                    if len(all_repos) >= max_repos:
+                        break
+
+                    # Skip forks if not wanted
+                    if not include_forks and repo.get("fork", False):
+                        continue
+
+                    # Skip archived repos if not wanted
+                    if exclude_archived and repo.get("archived", False):
+                        continue
+
+                    # Check update date
+                    updated_at = datetime.fromisoformat(
+                        repo.get("updated_at", "").replace('Z', '+00:00')
+                    )
+                    if updated_at < cutoff_date:
+                        # Since repos are sorted by updated date, we can stop here
+                        return all_repos
+
+                    all_repos.append(repo)
+
+                current_page += 1
+
+        return all_repos
+
+    async def get_user_organizations(self, access_token: str) -> List[Dict[str, Any]]:
+        """Get organizations that the user belongs to."""
+        async with httpx.AsyncClient() as client:
+            response = await client.get(
+                f"{self.BASE_URL}/user/orgs",
+                headers={
+                    "Authorization": f"token {access_token}",
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "Markdown-Manager/1.0"
+                }
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail=f"Failed to get user organizations: {response.text}"
+                )
+
+            return response.json()
+
     async def get_repository_contents(
         self,
         access_token: str,
@@ -81,7 +173,7 @@ class GitHubAPIService(BaseGitHubService):
         """Get repository contents at specified path."""
         # Normalize path - GitHub API expects empty string for root, not "/"
         normalized_path = path.strip('/')
-        
+
         async with httpx.AsyncClient() as client:
             url = f"{self.BASE_URL}/repos/{owner}/{repo}/contents"
             if normalized_path:

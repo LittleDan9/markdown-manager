@@ -68,6 +68,21 @@ class GitHubService(BaseGitHubService):
         """Get user's repositories."""
         return await self._api_service.get_user_repositories(access_token, page, per_page)
 
+    async def get_user_repositories_filtered(
+        self,
+        access_token: str,
+        max_repos: int = 50,
+        min_updated_days: int = 365,
+        include_forks: bool = False,
+        exclude_archived: bool = True,
+        page: int = 1,
+        per_page: int = 30
+    ) -> List[Dict[str, Any]]:
+        """Get user's repositories with filtering for large organizations."""
+        return await self._api_service.get_user_repositories_filtered(
+            access_token, max_repos, min_updated_days, include_forks, exclude_archived, page, per_page
+        )
+
     async def get_repository_contents(
         self,
         access_token: str,

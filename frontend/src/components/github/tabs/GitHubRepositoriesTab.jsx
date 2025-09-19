@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Alert, Badge, Row, Col, Form, InputGroup } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
+import GitHubRepositorySettings from '../settings/GitHubRepositorySettings';
 import gitHubApi from '../../../api/gitHubApi';
 import { sortRepositories } from '../../../utils/githubUtils';
 import useFileModal from '../../../hooks/ui/useFileModal';
@@ -13,6 +14,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
+  const [showRepositorySettings, setShowRepositorySettings] = useState(false);
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
 
@@ -40,7 +42,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
 
   const loadRepositories = async () => {
     if (!selectedAccount) return;
-    
+
     try {
       setLoading(true);
       const reposData = await gitHubApi.getRepositories(selectedAccount);
@@ -61,107 +63,139 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     )
   );
 
+  const handleAddRepositories = () => {
+    setShowRepositorySettings(true);
+  };
+
+  const handleRepositorySettingsClose = () => {
+    setShowRepositorySettings(false);
+    // Refresh repositories after settings are closed to show any newly added repos
+    if (selectedAccount) {
+      loadRepositories();
+    }
+  };
+
   return (
     <div className="github-repositories-tab">
-      <Row className="mb-3">
-        <Col md={6}>
-          <Form.Group>
-            <Form.Label>GitHub Account</Form.Label>
-            <Form.Select
-              value={selectedAccount}
-              onChange={(e) => setSelectedAccount(e.target.value)}
-              disabled={accounts.length === 0}
-            >
-              <option value="">Select an account...</option>
-              {accounts.map(account => (
-                <option key={account.id} value={account.id}>
-                  {account.username}
-                </option>
-              ))}
-            </Form.Select>
-          </Form.Group>
-        </Col>
-        <Col md={6}>
-          <Form.Group>
-            <Form.Label>Search Repositories</Form.Label>
-            <InputGroup>
-              <InputGroup.Text>
-                <i className="bi bi-search"></i>
-              </InputGroup.Text>
-              <Form.Control
-                type="text"
-                placeholder="Search by name or description..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </InputGroup>
-          </Form.Group>
-        </Col>
-      </Row>
+      {!showRepositorySettings ? (
+        <>
+          <Row className="mb-3">
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>GitHub Account</Form.Label>
+                <Form.Select
+                  value={selectedAccount}
+                  onChange={(e) => setSelectedAccount(e.target.value)}
+                  disabled={accounts.length === 0}
+                >
+                  <option value="">Select an account...</option>
+                  {accounts.map(account => (
+                    <option key={account.id} value={account.id}>
+                      {account.username}
+                    </option>
+                  ))}
+                </Form.Select>
+              </Form.Group>
+            </Col>
+            <Col md={6}>
+              <Form.Group>
+                <Form.Label>Search Repositories</Form.Label>
+                <InputGroup>
+                  <InputGroup.Text>
+                    <i className="bi bi-search"></i>
+                  </InputGroup.Text>
+                  <Form.Control
+                    type="text"
+                    placeholder="Search by name or description..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </InputGroup>
+              </Form.Group>
+            </Col>
+          </Row>
 
-      {error && (
-        <Alert variant="danger" dismissible onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+          {error && (
+            <Alert variant="danger" dismissible onClose={() => setError(null)}>
+              {error}
+            </Alert>
+          )}
 
-      {!selectedAccount && accounts.length > 0 && (
-        <Alert variant="info">
-          <i className="bi bi-info-circle me-2"></i>
-          Please select a GitHub account to view repositories.
-        </Alert>
-      )}
+          {!selectedAccount && accounts.length > 0 && (
+            <Alert variant="info">
+              <i className="bi bi-info-circle me-2"></i>
+              Please select a GitHub account to view repositories.
+            </Alert>
+          )}
 
-      {accounts.length === 0 && (
-        <Alert variant="warning">
-          <i className="bi bi-exclamation-triangle me-2"></i>
-          No GitHub accounts connected. Please connect an account first in the Accounts tab.
-        </Alert>
-      )}
+          {accounts.length === 0 && (
+            <Alert variant="warning">
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              No GitHub accounts connected. Please connect an account first in the Accounts tab.
+            </Alert>
+          )}
 
-      {selectedAccount && (
-        <Card>
-          <Card.Header className="d-flex align-items-center justify-content-between">
-            <div>
-              <i className="bi bi-folder-open me-2"></i>
-              Repositories
-              {searchTerm && (
-                <small className="text-muted ms-2">
-                  (filtered by "{searchTerm}")
-                </small>
-              )}
-            </div>
-            <div>
-              <Badge bg="primary" pill className="me-2">
-                {filteredRepositories.length}
-              </Badge>
-              <Button
-                variant="outline-primary"
-                size="sm"
-                onClick={loadRepositories}
-                disabled={loading}
-              >
-                <i className="bi bi-arrow-clockwise me-1"></i>
-                Refresh
-              </Button>
-            </div>
-          </Card.Header>
-          <Card.Body>
-            {loading ? (
-              <div className="d-flex justify-content-center p-4">
-                <div className="spinner-border text-primary" role="status">
-                  <span className="visually-hidden">Loading repositories...</span>
+          {selectedAccount && (
+            <Card>
+              <Card.Header className="d-flex align-items-center justify-content-between">
+                <div>
+                  <i className="bi bi-folder-open me-2"></i>
+                  Repositories
+                  {searchTerm && (
+                    <small className="text-muted ms-2">
+                      (filtered by "{searchTerm}")
+                    </small>
+                  )}
                 </div>
-              </div>
-            ) : (
-              <GitHubRepositoryList 
-                repositories={filteredRepositories}
-                accountId={selectedAccount}
-                onRepositoryBrowse={onRepositoryBrowse}
-              />
-            )}
-          </Card.Body>
-        </Card>
+                <div>
+                  <Badge bg="primary" pill className="me-2">
+                    {filteredRepositories.length}
+                  </Badge>
+                  <Button
+                    variant="success"
+                    size="sm"
+                    onClick={handleAddRepositories}
+                    className="me-2"
+                    disabled={!selectedAccount}
+                  >
+                    <i className="bi bi-plus-circle me-1"></i>
+                    Add Repositories
+                  </Button>
+                  <Button
+                    variant="outline-primary"
+                    size="sm"
+                    onClick={loadRepositories}
+                    disabled={loading}
+                  >
+                    <i className="bi bi-arrow-clockwise me-1"></i>
+                    Refresh
+                  </Button>
+                </div>
+              </Card.Header>
+              <Card.Body>
+                {loading ? (
+                  <div className="d-flex justify-content-center p-4">
+                    <div className="spinner-border text-primary" role="status">
+                      <span className="visually-hidden">Loading repositories...</span>
+                    </div>
+                  </div>
+                ) : (
+                  <GitHubRepositoryList
+                    repositories={filteredRepositories}
+                    accountId={selectedAccount}
+                    onRepositoryBrowse={onRepositoryBrowse}
+                  />
+                )}
+              </Card.Body>
+            </Card>
+          )}
+        </>
+      ) : (
+        // Repository Settings View
+        <GitHubRepositorySettings
+          account={accounts.find(acc => acc.id.toString() === selectedAccount)}
+          onBack={handleRepositorySettingsClose}
+        />
       )}
     </div>
   );

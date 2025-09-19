@@ -9,6 +9,7 @@ const GitHubAccountList = ({
   onBrowseRepository,
   onDeleteAccount,
   onConnectGitHub,
+  onRepositorySettings,
   compact = false,
   maxHeight = 'auto' // Allow custom max height override
 }) => {
@@ -415,7 +416,20 @@ const GitHubAccountList = ({
                   <div className="fw-semibold">{account.display_name || account.username}</div>
                   <small className="text-muted">@{account.username}</small>
                 </div>
-                <div className="ms-auto me-2">
+                <div className="ms-auto me-2 d-flex align-items-center">
+                  {onRepositorySettings && (
+                    <span
+                      className="btn btn-outline-primary btn-sm me-2"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onRepositorySettings(account);
+                      }}
+                      style={{ cursor: 'pointer' }}
+                      title="Repository Settings"
+                    >
+                      <i className="bi bi-list-check"></i>
+                    </span>
+                  )}
                   <Badge bg="success" className="me-2">Connected</Badge>
                   {accountRepositories[account.id] && (
                     <Badge bg="secondary">

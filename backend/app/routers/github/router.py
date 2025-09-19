@@ -1,7 +1,7 @@
 """Main GitHub router that aggregates all GitHub sub-routers."""
 from fastapi import APIRouter
 
-from . import accounts, auth, cache, commits, files, repositories, sync, pull_requests, import_enhanced
+from . import accounts, auth, cache, commits, files, repositories, repository_selection, sync, pull_requests, import_enhanced
 
 router = APIRouter()
 
@@ -9,6 +9,7 @@ router = APIRouter()
 router.include_router(auth.router, prefix="/auth", tags=["github-auth"])
 router.include_router(accounts.router, prefix="/accounts", tags=["github-accounts"])
 router.include_router(repositories.router, prefix="/repositories", tags=["github-repositories"])
+router.include_router(repository_selection.router, prefix="/repository-selection", tags=["github-repository-selection"])
 router.include_router(files.router, prefix="/files", tags=["github-files"])
 router.include_router(sync.router, prefix="/sync", tags=["github-sync"])
 router.include_router(commits.router, prefix="/commits", tags=["github-commits"])

@@ -63,8 +63,24 @@ async def sync_repositories(
             detail="GitHub account not found"
         )
 
-    # Fetch repositories from GitHub
-    github_repos = await github_service.get_user_repositories(account.access_token)
+    # Fetch repositories from GitHub with smart filtering
+    # First, get a small sample to check repository count
+    initial_repos = await github_service.get_user_repositories(account.access_token, page=1, per_page=10)
+
+    # If user has many repos (likely in large org), use filtered approach
+    if len(initial_repos) >= 10:
+        # Use filtered repository access for large organizations
+        import os
+        github_repos = await github_service.get_user_repositories_filtered(
+            account.access_token,
+            max_repos=int(os.getenv("GITHUB_MAX_REPOS_PER_ACCOUNT", "50")),
+            min_updated_days=int(os.getenv("GITHUB_MIN_UPDATED_DAYS", "180")),
+            include_forks=os.getenv("GITHUB_INCLUDE_FORKS", "false").lower() == "true",
+            exclude_archived=os.getenv("GITHUB_EXCLUDE_ARCHIVED", "true").lower() == "true"
+        )
+    else:
+        # For smaller accounts, sync all repositories
+        github_repos = await github_service.get_user_repositories(account.access_token)
 
     synced_repos = []
     for repo_data in github_repos:
@@ -136,7 +152,7 @@ async def get_repository_branches(
         "github_branches", repo_id
     )
     cached_branches = await github_cache_service.get_cached(cache_key)
-    
+
     if cached_branches is None:
         branches = await fetch_branches()
         await github_cache_service.set_cached(
@@ -217,7 +233,7 @@ async def get_file_content(
             file_path,
             ref=branch
         )
-        
+
         return {
             "content": content,
             "sha": sha,
