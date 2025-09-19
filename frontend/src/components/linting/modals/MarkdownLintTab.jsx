@@ -129,7 +129,34 @@ const MarkdownLintTab = () => {
     'MD058': { description: 'Table rows should have the same number of cells', configurable: false }
   };
 
-  const effectiveDefinitions = Object.keys(ruleDefinitions).length > 0 ? ruleDefinitions : fallbackDefinitions;
+  // Compute effective definitions each render to ensure it updates when ruleDefinitions changes
+  const effectiveDefinitions = React.useMemo(() => {
+    const hasApiDefinitions = ruleDefinitions && Object.keys(ruleDefinitions).length > 0;
+    
+    if (hasApiDefinitions) {
+      // Merge API definitions with fallback to ensure configurable field is preserved
+      const merged = {};
+      Object.keys(fallbackDefinitions).forEach(ruleId => {
+        merged[ruleId] = {
+          ...fallbackDefinitions[ruleId], // Start with fallback (has configurable field)
+          ...(ruleDefinitions[ruleId] || {}) // Override with API data if available
+        };
+      });
+      
+      // Add any additional rules from API that aren't in fallback
+      Object.keys(ruleDefinitions).forEach(ruleId => {
+        if (!merged[ruleId]) {
+          merged[ruleId] = ruleDefinitions[ruleId];
+        }
+      });
+      
+      console.log('Using merged definitions. MD003:', merged.MD003);
+      return merged;
+    }
+    
+    console.log('Using fallback definitions. MD003:', fallbackDefinitions.MD003);
+    return fallbackDefinitions;
+  }, [ruleDefinitions]);
 
   /**
    * Handle rule toggle (enable/disable)
@@ -297,10 +324,18 @@ const MarkdownLintTab = () => {
   const getRuleStatus = (ruleId) => {
     if (!localRules) return 'disabled';
     const value = localRules[ruleId];
+    const definition = effectiveDefinitions[ruleId];
+    
     if (value === false) return 'disabled';
+    if (!value) return 'disabled'; // undefined or null
+    
+    // If the rule is configurable and enabled (true or object), show as configured
+    if (definition?.configurable && value) return 'configured';
+    
+    // Otherwise, just enabled
     if (value === true) return 'enabled';
     if (typeof value === 'object' && value !== null) return 'configured';
-    // undefined or other values are treated as disabled (not in database)
+    
     return 'disabled';
   };
 
@@ -309,11 +344,15 @@ const MarkdownLintTab = () => {
    */
   const renderRuleConfig = (ruleId) => {
     const definition = effectiveDefinitions[ruleId];
-    const currentValue = (localRules && localRules[ruleId]) || null;
+    const currentValue = localRules && localRules.hasOwnProperty(ruleId) ? localRules[ruleId] : undefined;
 
-    if (!definition || !definition.configurable || typeof currentValue !== 'object') {
+    // Only show config for configurable rules that are enabled (true or object)
+    if (!definition || !definition.configurable || !currentValue || currentValue === false) {
       return null;
     }
+
+    // If rule is just enabled (true), use default configuration object
+    const configValue = typeof currentValue === 'object' ? currentValue : {};
 
     // Render specific configuration UI based on rule
     switch (ruleId) {
@@ -321,7 +360,7 @@ const MarkdownLintTab = () => {
         return (
           <Form.Select
             size="sm"
-            value={currentValue.style || 'atx'}
+            value={configValue.style || 'atx'}
             onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
           >
             <option value="atx">ATX (# ## ###)</option>
@@ -335,7 +374,7 @@ const MarkdownLintTab = () => {
         return (
           <Form.Select
             size="sm"
-            value={currentValue.style || 'dash'}
+            value={configValue.style || 'dash'}
             onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
           >
             <option value="dash">Dash (-)</option>
@@ -352,7 +391,7 @@ const MarkdownLintTab = () => {
             size="sm"
             min="1"
             max="8"
-            value={currentValue.indent || 2}
+            value={configValue.indent || 2}
             onChange={(e) => handleRuleConfig(ruleId, { indent: parseInt(e.target.value) })}
             style={{ width: '80px' }}
           />
@@ -366,18 +405,18 @@ const MarkdownLintTab = () => {
               size="sm"
               min="40"
               max="200"
-              value={(currentValue && currentValue.line_length) || 80}
+              value={(configValue && configValue.line_length) || 80}
               onChange={(e) => handleRuleConfig(ruleId, {
-                ...(currentValue || {}),
+                ...(configValue || {}),
                 line_length: parseInt(e.target.value)
               })}
               style={{ width: '80px' }}
             />
             <Form.Check
               type="checkbox"
-              checked={(currentValue && currentValue.code_blocks) || false}
+              checked={(configValue && configValue.code_blocks) || false}
               onChange={(e) => handleRuleConfig(ruleId, {
-                ...(currentValue || {}),
+                ...(configValue || {}),
                 code_blocks: e.target.checked
               })}
               label="Code blocks"
@@ -385,14 +424,91 @@ const MarkdownLintTab = () => {
           </div>
         );
 
-      default:
+      case 'MD012': // multiple-blank-lines
         return (
-          <RuleConfigInput
-            ruleId={ruleId}
-            definition={definition}
-            value={currentValue}
-            onChange={(config) => handleRuleConfig(ruleId, config)}
+          <Form.Control
+            type="number"
+            size="sm"
+            min="1"
+            max="10"
+            value={configValue.maximum || 1}
+            onChange={(e) => handleRuleConfig(ruleId, { maximum: parseInt(e.target.value) })}
+            style={{ width: '80px' }}
           />
+        );
+
+      case 'MD029': // ol-prefix
+        return (
+          <Form.Select
+            size="sm"
+            value={configValue.style || 'one_or_ordered'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="one">One (1. 1. 1.)</option>
+            <option value="ordered">Ordered (1. 2. 3.)</option>
+            <option value="one_or_ordered">One or Ordered</option>
+          </Form.Select>
+        );
+
+      case 'MD046': // code-block-style
+        return (
+          <Form.Select
+            size="sm"
+            value={configValue.style || 'consistent'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="indented">Indented (4 spaces)</option>
+            <option value="fenced">Fenced (```)</option>
+            <option value="consistent">Consistent</option>
+          </Form.Select>
+        );
+
+      case 'MD048': // code-fence-style
+        return (
+          <Form.Select
+            size="sm"
+            value={configValue.style || 'backtick'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="backtick">Backtick (```)</option>
+            <option value="tilde">Tilde (~~~)</option>
+            <option value="consistent">Consistent</option>
+          </Form.Select>
+        );
+
+      case 'MD049': // emphasis-style
+        return (
+          <Form.Select
+            size="sm"
+            value={configValue.style || 'asterisk'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="asterisk">Asterisk (*text*)</option>
+            <option value="underscore">Underscore (_text_)</option>
+            <option value="consistent">Consistent</option>
+          </Form.Select>
+        );
+
+      case 'MD050': // strong-style
+        return (
+          <Form.Select
+            size="sm"
+            value={configValue.style || 'asterisk'}
+            onChange={(e) => handleRuleConfig(ruleId, { style: e.target.value })}
+          >
+            <option value="asterisk">Asterisk (**text**)</option>
+            <option value="underscore">Underscore (__text__)</option>
+            <option value="consistent">Consistent</option>
+          </Form.Select>
+        );
+
+      default:
+        // For any other configurable rule, show a simple text input or message
+        return (
+          <small className="text-info">
+            <i className="bi bi-gear me-1"></i>
+            Configurable
+          </small>
         );
     }
   };
@@ -463,7 +579,8 @@ const MarkdownLintTab = () => {
         <div
           className="accordion-scroll-container"
           style={{
-            maxHeight: '60vh',
+            maxHeight: 'calc(70vh - 300px)',
+            minHeight: '200px',
             overflowY: 'auto',
             paddingRight: '5px',
             marginRight: '-5px'
@@ -533,8 +650,10 @@ const MarkdownLintTab = () => {
                               label={
                                 <span className={!localEnabled ? 'text-muted' : ''}>
                                   <code>{ruleId}</code>
-                                  {status === 'configured' && (
-                                    <span className="badge bg-info ms-1" style={{ fontSize: '0.6em' }}>Configured</span>
+                                  {definition?.configurable && (
+                                    <span className="badge bg-info ms-1" style={{ fontSize: '0.7em', fontWeight: 'bold' }}>
+                                      Configurable
+                                    </span>
                                   )}
                                 </span>
                               }
@@ -546,7 +665,12 @@ const MarkdownLintTab = () => {
                             </small>
                           </div>
                           <div className="flex-shrink-0">
-                            {isEnabled && localEnabled && renderRuleConfig(ruleId)}
+                            {isEnabled && localEnabled && definition?.configurable && (
+                              <div className="d-flex align-items-center gap-2">
+                                <small className="text-muted">Configure:</small>
+                                {renderRuleConfig(ruleId)}
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
