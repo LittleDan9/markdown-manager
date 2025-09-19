@@ -1,0 +1,20 @@
+[Unit]
+Description=Markdown Manager Lint Service (Docker)
+After=network.target docker.service
+Requires=docker.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+EnvironmentFile=/etc/markdown-manager.env
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-lint \
+  -e NODE_ENV=production \
+  -e ENVIRONMENT=${ENVIRONMENT} \
+  -e MARKDOWN_LINT_PORT=${MARKDOWN_LINT_PORT} \
+  -p 8002:8002 \
+  littledan9/markdown-manager-lint:latest
+ExecStop=/usr/bin/docker stop markdown-manager-lint
+
+[Install]
+WantedBy=multi-user.target

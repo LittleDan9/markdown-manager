@@ -6,6 +6,12 @@ export { default as PerformanceOptimizer } from './PerformanceOptimizer';
 export { default as SpellCheckService } from './SpellCheckService';
 export { default as SpellCheckWorkerPool } from './SpellCheckWorkerPool';
 
+// Markdown linting services
+export { default as MarkdownLintService } from './MarkdownLintService';
+export { default as MarkdownLintMarkers } from './MarkdownLintMarkers';
+export { default as MarkdownLintMarkerAdapter } from './MarkdownLintMarkerAdapter';
+export { default as MarkdownLintActions } from './MarkdownLintActions';
+
 // Spell check utilities
 export { default as SpellCheckMarkers } from './SpellCheckMarkers';
 export { default as TextRegionAnalyzer } from './TextRegionAnalyzer';

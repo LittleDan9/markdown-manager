@@ -3,8 +3,9 @@ set -e
 
 BACKEND_DIR=${1:-./backend}
 PDF_SERVICE_DIR=${2:-./pdf-service}
-REMOTE_USER_HOST=${3:-dlittle@10.0.1.51}
-REGISTRY_PORT=${4:-5000}
+LINT_SERVICE_DIR=${3:-./markdown-lint-service}
+REMOTE_USER_HOST=${4:-dlittle@10.0.1.51}
+REGISTRY_PORT=${5:-5000}
 KEY=~/.ssh/id_danbian
 
 source ./scripts/colors.sh
@@ -12,6 +13,7 @@ source ./scripts/colors.sh
 # Validation message (all parameters now have defaults)
 echo "$BLUE📋 Backend dir: $BACKEND_DIR$NC"
 echo "$BLUE📋 PDF service dir: $PDF_SERVICE_DIR$NC"
+echo "$BLUE📋 Lint service dir: $LINT_SERVICE_DIR$NC"
 echo "$BLUE📋 Remote host: $REMOTE_USER_HOST$NC"
 echo "$BLUE📋 Registry port: $REGISTRY_PORT$NC"
 
@@ -20,6 +22,8 @@ BACKEND_LOCAL_IMAGE="littledan9/markdown-manager:latest"
 BACKEND_REGISTRY_IMAGE="localhost:$REGISTRY_PORT/markdown-manager:latest"
 PDF_LOCAL_IMAGE="littledan9/markdown-manager-pdf:latest"
 PDF_REGISTRY_IMAGE="localhost:$REGISTRY_PORT/markdown-manager-pdf:latest"
+LINT_LOCAL_IMAGE="littledan9/markdown-manager-lint:latest"
+LINT_REGISTRY_IMAGE="localhost:$REGISTRY_PORT/markdown-manager-lint:latest"
 REMOTE_REGISTRY_URL="$REMOTE_USER_HOST:$REGISTRY_PORT"
 
 # Function to build and deploy a service
@@ -115,8 +119,12 @@ if ! curl -s http://localhost:$REGISTRY_PORT/v2/ | grep -q "{}"; then
 fi
 
 # Deploy PDF service first (dependency for backend)
-echo "$CYAN� Deploying PDF service...$NC"
+echo "$CYAN🔧 Deploying PDF service...$NC"
 PDF_SKIP_PUSH=$(deploy_service "PDF" $PDF_LOCAL_IMAGE $PDF_REGISTRY_IMAGE $PDF_SERVICE_DIR)
+
+# Deploy markdown linting service (dependency for backend)
+echo "$CYAN🧪 Deploying markdown linting service...$NC"
+LINT_SKIP_PUSH=$(deploy_service "lint" $LINT_LOCAL_IMAGE $LINT_REGISTRY_IMAGE $LINT_SERVICE_DIR)
 
 # Deploy backend service
 echo "$CYAN🔧 Deploying backend service...$NC"
@@ -130,6 +138,9 @@ echo "$YELLOW🚀 Deploying containers on $REMOTE_USER_HOST$NC"
 # Copy and install PDF service systemd service file
 scp -q -i $KEY $PDF_SERVICE_DIR/markdown-manager-pdf.service $REMOTE_USER_HOST:/tmp/
 
+# Copy and install lint service systemd service file
+scp -q -i $KEY $LINT_SERVICE_DIR/markdown-manager-lint.service $REMOTE_USER_HOST:/tmp/
+
 # Copy and install backend systemd service file
 scp -q -i $KEY $BACKEND_DIR/markdown-manager-api.service $REMOTE_USER_HOST:/tmp/
 
@@ -140,6 +151,11 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST 'bash -s' << EOH
   sudo cp /tmp/markdown-manager-pdf.service /etc/systemd/system/markdown-manager-pdf.service
   sudo systemctl daemon-reload
   sudo systemctl enable markdown-manager-pdf.service
+
+  # Install lint service
+  sudo cp /tmp/markdown-manager-lint.service /etc/systemd/system/markdown-manager-lint.service
+  sudo systemctl daemon-reload
+  sudo systemctl enable markdown-manager-lint.service
 
   # Install backend service
   sudo cp /tmp/markdown-manager-api.service /etc/systemd/system/markdown-manager-api.service
@@ -157,6 +173,17 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST 'bash -s' << EOH
     echo "✅ Using existing PDF service image (no pull needed)"
   fi
 
+  # Pull lint service image if needed
+  if [ "$LINT_SKIP_PUSH" != "true" ]; then
+    echo "🚀 Pulling latest lint service image from local registry..."
+    docker pull localhost:$REGISTRY_PORT/markdown-manager-lint:latest
+
+    # Tag for local use (matching the service file expectations)
+    docker tag localhost:$REGISTRY_PORT/markdown-manager-lint:latest $LINT_LOCAL_IMAGE
+  else
+    echo "✅ Using existing lint service image (no pull needed)"
+  fi
+
   # Pull backend image if needed
   if [ "$BACKEND_SKIP_PUSH" != "true" ]; then
     echo "🚀 Pulling latest backend image from local registry..."
@@ -168,12 +195,18 @@ ssh -q -T -i $KEY $REMOTE_USER_HOST 'bash -s' << EOH
     echo "✅ Using existing backend image (no pull needed)"
   fi
 
-  # Restart services in proper order (PDF service first, then backend)
+  # Restart services in proper order (dependencies first)
   echo "🔄 Restarting PDF service..."
   sudo systemctl restart markdown-manager-pdf.service
 
   echo "⏳ Waiting for PDF service to be ready..."
-  sleep 5
+  sleep 3
+
+  echo "🔄 Restarting lint service..."
+  sudo systemctl restart markdown-manager-lint.service
+
+  echo "⏳ Waiting for lint service to be ready..."
+  sleep 3
 
   echo "🔄 Restarting backend service..."
   sudo systemctl restart markdown-manager-api.service
@@ -191,6 +224,7 @@ echo "$GREEN✅ Docker deployment complete using local registry$NC"
 # Clean up local registry tags
 docker rmi $BACKEND_REGISTRY_IMAGE 2>/dev/null || true
 docker rmi $PDF_REGISTRY_IMAGE 2>/dev/null || true
+docker rmi $LINT_REGISTRY_IMAGE 2>/dev/null || true
 
 # Show registry stats
 echo "$YELLOW📊 Remote registry stats:$NC"

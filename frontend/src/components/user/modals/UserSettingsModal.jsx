@@ -4,6 +4,7 @@ import ProfileInfoTab from "./ProfileInfoTab";
 import SecurityTab from "../../security/modals/SecurityTab";
 import MFATab from "../../security/modals/MFATab";
 import DictionaryTab from "../../dictionary/modals/DictionaryTab";
+import MarkdownLintTab from "../../linting/modals/MarkdownLintTab";
 
 import userApi from "../../../api/userApi";
 import { useAuth } from "../../../providers/AuthProvider";
@@ -127,6 +128,11 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
                 <i className="bi bi-book me-1"></i>Dictionary
               </Nav.Link>
             </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="markdown-lint">
+                <i className="bi bi-check2-square me-1"></i>Markdown Linting
+              </Nav.Link>
+            </Nav.Item>
           </Nav>
           <Tab.Content id="profileTabContent">
             {!guestMode && (
@@ -159,6 +165,9 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
             )}
             <Tab.Pane eventKey="dictionary">
               <DictionaryTab />
+            </Tab.Pane>
+            <Tab.Pane eventKey="markdown-lint">
+              <MarkdownLintTab />
             </Tab.Pane>
           </Tab.Content>
         </Tab.Container>

@@ -1,0 +1,60 @@
+{
+  "version": "1.0",
+  "description": "Recommended default markdown linting rules for new users",
+  "rules": {
+    "MD009": true,
+    "MD010": true,
+    "MD012": true,
+    "MD022": true,
+    "MD047": true,
+    "MD001": true,
+    "MD018": true,
+    "MD019": true,
+    "MD023": true,
+    "MD004": true,
+    "MD005": true,
+    "MD030": true,
+    "MD032": true,
+    "MD031": true,
+    "MD040": true,
+    "MD034": true,
+    "MD039": true,
+    "MD042": true,
+    "MD037": true,
+    "MD038": true
+  },
+  "ruleCategories": {
+    "essential": [
+      "MD009",
+      "MD010",
+      "MD012",
+      "MD022",
+      "MD047"
+    ],
+    "headings": [
+      "MD001",
+      "MD018",
+      "MD019",
+      "MD023"
+    ],
+    "lists": [
+      "MD004",
+      "MD005",
+      "MD030",
+      "MD032"
+    ],
+    "code": [
+      "MD031",
+      "MD040"
+    ],
+    "links": [
+      "MD034",
+      "MD039",
+      "MD042"
+    ],
+    "cleanup": [
+      "MD037",
+      "MD038"
+    ]
+  }
+}

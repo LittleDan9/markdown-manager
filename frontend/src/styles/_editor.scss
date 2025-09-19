@@ -9,6 +9,87 @@
   border-radius: 0.5rem;
 }
 
+// Fix Monaco editor hover tooltip z-index to appear above toolbar AND preview pane
+.monaco-editor .monaco-hover,
+.monaco-editor .monaco-hover-content,
+.monaco-hover-widget {
+  z-index: 10000 !important;
+}
+
+// Hide the "View Problem (Alt+F8)" link in hover tooltips for both spell check and markdown lint
+// TEMPORARILY DISABLED - Allow tooltip actions to show fixable status and quick fixes
+// .monaco-editor .monaco-hover .hover-row .actions {
+//   display: none !important;
+// }
+
+// Alternative approach - hide specific action links by content
+// TEMPORARILY DISABLED - Allow tooltip actions to show fixable status and quick fixes
+// .monaco-editor .monaco-hover .hover-row a[title*="View Problem"],
+// .monaco-editor .monaco-hover .hover-row a[title*="Alt+F8"] {
+//   display: none !important;
+// }
+
+// Ensure Monaco editor context menus also appear above toolbar AND preview
+.monaco-menu-container {
+  z-index: 10000 !important;
+}
+
+// Ensure preview container doesn't interfere with editor tooltips
+#previewContainer,
+#preview {
+  z-index: 1 !important; // Lower than tooltip z-index
+}
+
+// CRITICAL: Fix the split-view layout to allow tooltips to escape
+#main.split-view {
+  overflow: visible !important; // Allow tooltips to escape the main container
+
+  .editor-wrapper {
+    overflow: visible !important; // Allow tooltips to escape the editor wrapper
+  }
+
+  .renderer-wrapper {
+    overflow: hidden; // Keep preview contained as normal
+  }
+}
+
+// Allow hover widgets to escape the editor bounds while keeping editor scrolling intact
+#editorContainer {
+  // Allow the entire editor container to show overflow for tooltips
+  overflow: visible !important;
+  // Ensure editor container can layer above preview for tooltips
+  position: relative;
+  z-index: 10; // Higher than preview but lower than tooltips
+}
+
+#editor.has-toolbar {
+  // Allow overflow for the main editor container
+  overflow: visible !important;
+
+  .monaco-container {
+    // Allow overflow for the Monaco container
+    overflow: visible !important;
+
+    // Target all Monaco editor elements to allow overflow
+    .monaco-editor {
+      overflow: visible !important;
+
+      // But keep the view lines container with proper overflow for scrolling
+      .view-lines {
+        overflow: hidden;
+      }
+
+      // Ensure hover widgets can escape all containers
+      .monaco-hover-widget,
+      .monaco-hover,
+      .monaco-hover-content {
+        z-index: 10000 !important;
+        // Let Monaco handle positioning naturally
+      }
+    }
+  }
+}
+
 // When editor has a toolbar, we need to modify the border structure
 #editor.has-toolbar {
   border-top: none !important; // Remove top border since toolbar provides it

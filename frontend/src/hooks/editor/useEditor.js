@@ -1,22 +1,23 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { EditorService, SpellCheckService, CommentService, SpellCheckMarkers, TextRegionAnalyzer, MonacoMarkerAdapter, SpellCheckActions } from '@/services/editor';
+import { EditorService, SpellCheckService, CommentService, SpellCheckMarkers, TextRegionAnalyzer, MonacoMarkerAdapter, SpellCheckActions, MarkdownLintService, MarkdownLintMarkers, MarkdownLintMarkerAdapter, MarkdownLintActions } from '@/services/editor';
 import { useTheme } from '@/providers/ThemeProvider';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 
 /**
- * Consolidated editor hook for Monaco setup, spell check, keyboard shortcuts, and list behavior.
+ * Consolidated editor hook for Monaco setup, spell check, markdown linting, keyboard shortcuts, and list behavior.
  * @param {Object} options
  *   - containerRef: ref to DOM container
  *   - value: initial editor value
  *   - onChange: callback for content changes
  *   - onCursorLineChange: callback for cursor line changes
  *   - enableSpellCheck: boolean
+ *   - enableMarkdownLint: boolean
  *   - enableKeyboardShortcuts: boolean
  *   - enableListBehavior: boolean
- *   - categoryId: for spell check context
+ *   - categoryId: for spell check and linting context
  *   - getCategoryId: function for keyboard shortcut context
- *   - getFolderPath: function for folder-based dictionary context
- * @returns {Object} { editor, spellCheck: { progress, suggestionsMap } }
+ *   - getFolderPath: function for folder-based dictionary/rules context
+ * @returns {Object} { editor, spellCheck: { progress, suggestionsMap }, markdownLint: { lintProgress, markersMap } }
  */
 export default function useEditor({
   containerRef,
@@ -24,6 +25,7 @@ export default function useEditor({
   onChange,
   onCursorLineChange,
   enableSpellCheck = true,
+  enableMarkdownLint = true,
   enableKeyboardShortcuts = true,
   enableListBehavior = true,
   categoryId,
@@ -33,6 +35,7 @@ export default function useEditor({
   const { theme } = useTheme();
   const editorRef = useRef(null);
   const lastEditorValue = useRef(value);
+
   // Spell check state
   const [progress, setProgress] = useState(null);
   const suggestionsMap = useRef(new Map());
@@ -42,6 +45,15 @@ export default function useEditor({
   const lastProgressRef = useRef(null);
   const resizeTimeoutRef = useRef(null);
   const autoCheckTimeout = useRef(null); // For 30-second auto spell check
+
+  // Markdown linting state
+  const [lintProgress, setLintProgress] = useState(null);
+  const markersMap = useRef(new Map());
+  const lintDebounceTimeout = useRef(null);
+  const lastLintTime = useRef(Date.now());
+  const lintPreviousValueRef = useRef(value);
+  const lastLintProgressRef = useRef(null);
+  const autoLintTimeout = useRef(null);
 
   // Monaco editor setup
   useEffect(() => {
@@ -56,6 +68,20 @@ export default function useEditor({
           const newValue = editor.getValue();
           lastEditorValue.current = newValue;
           if (onChange) onChange(newValue);
+
+          // Trigger markdown linting on content change
+          if (enableMarkdownLint && newValue !== lintPreviousValueRef.current) {
+            // Clear existing timeouts
+            if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
+            if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
+
+            // Set debounced lint timeout
+            lintDebounceTimeout.current = setTimeout(() => {
+              lintDocument(newValue, 0);
+              lintPreviousValueRef.current = newValue;
+              lastLintTime.current = Date.now();
+            }, 1000); // 1 second debounce
+          }
         });
         // Cursor position changes
         if (onCursorLineChange) {
@@ -76,6 +102,8 @@ export default function useEditor({
       if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
       if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+      if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
+      if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
     };
   }, [containerRef]);
 
@@ -128,6 +156,12 @@ export default function useEditor({
     SpellCheckService.init().catch(console.error);
   }, [enableSpellCheck]);
 
+  // MARKDOWN LINTING
+  useEffect(() => {
+    if (!enableMarkdownLint) return;
+    MarkdownLintService.init().catch(console.error);
+  }, [enableMarkdownLint]);
+
   // Window resize for spell check - reduced delay for better responsiveness
   useEffect(() => {
     if (!enableSpellCheck || !editorRef.current) return;
@@ -171,6 +205,50 @@ export default function useEditor({
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
     };
   }, [enableSpellCheck]);
+
+  // Window resize for markdown linting
+  useEffect(() => {
+    if (!enableMarkdownLint || !editorRef.current) return;
+    let isResizing = false;
+    let resizeStartTimeout = null;
+    const handleResize = () => {
+      if (!isResizing) {
+        isResizing = true;
+        MarkdownLintMarkerAdapter.clearMarkers(editorRef.current, monaco);
+      }
+      if (resizeStartTimeout) clearTimeout(resizeStartTimeout);
+      resizeStartTimeout = setTimeout(() => {
+        isResizing = false;
+        if (editorRef.current) {
+          lintDocument(null, 0);
+        }
+      }, 1000); // Slower than spell check since linting is less frequent
+    };
+    window.addEventListener('resize', handleResize);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (resizeStartTimeout) clearTimeout(resizeStartTimeout);
+    };
+  }, [enableMarkdownLint]);
+
+  // Editor layout change for markdown linting
+  useEffect(() => {
+    if (!enableMarkdownLint || !editorRef.current) return;
+    const editor = editorRef.current;
+    const layoutDisposable = editor.onDidLayoutChange(() => {
+      MarkdownLintMarkerAdapter.clearMarkers(editor, monaco);
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+      resizeTimeoutRef.current = setTimeout(() => {
+        if (editor) {
+          lintDocument(null, 0);
+        }
+      }, 1000);
+    });
+    return () => {
+      layoutDisposable.dispose();
+      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+    };
+  }, [enableMarkdownLint]);
 
   // Main spell check logic - optimized with adaptive timing based on document size and change type
   useEffect(() => {
@@ -310,6 +388,81 @@ export default function useEditor({
     }
   };
 
+  // MARKDOWN LINTING LOGIC
+
+  // Initial markdown lint when editor is ready
+  useEffect(() => {
+    if (enableMarkdownLint && editorRef.current) {
+      setTimeout(() => {
+        lintDocument(null, 0);
+      }, 500); // Delay more than spell check to avoid conflict
+    }
+  }, [enableMarkdownLint, editorRef.current]);
+
+  // Periodic markdown lint
+  useEffect(() => {
+    if (!enableMarkdownLint || !editorRef.current) return;
+
+    const periodicLintInterval = setInterval(() => {
+      const timeSinceLastLint = Date.now() - lastLintTime.current;
+      const currentContent = editorRef.current?.getValue() || '';
+
+      if (timeSinceLastLint > 30000 && currentContent !== lintPreviousValueRef.current) {
+        console.log('[MarkdownLint] Periodic lint check - content changed, running check');
+        lintDocument(currentContent, 0);
+        lintPreviousValueRef.current = currentContent;
+        lastLintTime.current = Date.now();
+      }
+    }, 20000); // Check every 20 seconds
+
+    return () => {
+      clearInterval(periodicLintInterval);
+    };
+  }, [enableMarkdownLint, editorRef.current]);
+
+  const lintDocument = async (textOverride = null, startOffset, forceProgress = false) => {
+    if (!enableMarkdownLint) return;
+
+    const currentText = textOverride ?? (editorRef.current ? editorRef.current.getValue() : '');
+
+    if (!currentText || currentText.length === 0) return;
+
+    const isLarge = currentText.length > 1000;
+    const shouldShowProgress = isLarge || forceProgress;
+    const progressCb = shouldShowProgress ? (processObj) => {
+      lastLintProgressRef.current = processObj;
+      setLintProgress(processObj);
+    } : () => {};
+
+    try {
+      const issues = await MarkdownLintService.scan(
+        currentText,
+        progressCb,
+        categoryId,
+        typeof getFolderPath === 'function' ? getFolderPath() : null
+      );
+
+      if (editorRef.current) {
+        markersMap.current = MarkdownLintMarkerAdapter.toMonacoMarkers(
+          editorRef.current,
+          issues,
+          startOffset,
+          markersMap.current,
+          monaco
+        );
+      }
+
+      if (lastLintProgressRef.current && lastLintProgressRef.current.progress >= 100) {
+        setTimeout(() => setLintProgress(null), 500);
+      } else {
+        setLintProgress(null);
+      }
+    } catch (error) {
+      console.error('MarkdownLint: Failed to lint document:', error);
+      setLintProgress(null);
+    }
+  };
+
   // KEYBOARD SHORTCUTS
   useEffect(() => {
     if (!enableKeyboardShortcuts || !editorRef.current) return;
@@ -352,9 +505,20 @@ export default function useEditor({
         CommentService.handleCommentToggle(editor);
       }
     );
-    // Register quick fix actions
+        // Register quick fix actions
   // IMPORTANT: getCategoryId should be memoized in the parent with useCallback to avoid repeated registration
   SpellCheckActions.registerQuickFixActions(editor, suggestionsMap, getCategoryId, getFolderPath);
+
+  // Register markdown linting actions
+  MarkdownLintActions.registerQuickFixActions(editor, markersMap, getCategoryId, getFolderPath);
+
+    // Store global functions for external access
+    window.editorMarkdownLintTrigger = (text = null, offset = 0) => {
+      if (editorRef.current) {
+        lintDocument(text, offset);
+      }
+    };
+
     window.CommentService = CommentService;
     window.testCommentToggle = () => {
       CommentService.handleCommentToggle(editor);
@@ -519,6 +683,7 @@ export default function useEditor({
   return {
     editor: editorRef.current,
     spellCheck: enableSpellCheck ? { progress, suggestionsMap } : undefined,
+    markdownLint: enableMarkdownLint ? { lintProgress, markersMap } : undefined,
     runSpellCheck: () => {
       if (editorRef.current) {
         // Show initial progress
@@ -526,10 +691,23 @@ export default function useEditor({
         spellCheckDocument(null, 0, true); // Use fresh content from editor, force progress for manual spell check
       }
     },
+    runMarkdownLint: () => {
+      if (editorRef.current) {
+        // Show initial progress
+        setLintProgress({ progress: 0 });
+        lintDocument(null, 0, true); // Force progress for manual lint check
+      }
+    },
     // Expose spell check function for use by SpellCheckActions
     triggerSpellCheck: (text = null, offset = 0) => {
       if (editorRef.current) {
         spellCheckDocument(text, offset);
+      }
+    },
+    // Expose markdown lint function for use by MarkdownLintActions
+    triggerMarkdownLint: (text = null, offset = 0) => {
+      if (editorRef.current) {
+        lintDocument(text, offset);
       }
     }
   };

@@ -96,3 +96,22 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  markdown-lint-service:
+    build:
+      context: ./markdown-lint-service
+      dockerfile: Dockerfile
+    environment:
+      - MARKDOWN_LINT_PORT=8002
+      - NODE_ENV=development
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./markdown-lint-service/server.js:/app/server.js  # Mount only server.js for hot reload
+    command: ["npm", "start"]     # Use standard start command
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
