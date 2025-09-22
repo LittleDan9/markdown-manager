@@ -3,8 +3,9 @@ from __future__ import annotations
 """Icon models for icon service."""
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON
-from sqlalchemy.orm import Mapped, mapped_column, relationship, column_property
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON, func
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
 
@@ -63,10 +64,16 @@ class IconMetadata(BaseModel):
         String(255), nullable=False,
         comment="Icon identifier within pack"
     )
-    full_key: Mapped[str] = mapped_column(
-        String(355), nullable=False, index=True,
-        comment="Computed: pack.name + ':' + key"
-    )
+
+    @hybrid_property
+    def full_key(self) -> str:
+        """Computed full key as pack.name:key."""
+        return f"{self.pack.name}:{self.key}"
+
+    @full_key.expression
+    def _full_key_expression(cls):
+        """SQL expression for full_key queries."""
+        return func.concat(IconPack.name, ':', cls.key)
 
     # Search and metadata
     search_terms: Mapped[str] = mapped_column(
@@ -91,7 +98,6 @@ class IconMetadata(BaseModel):
     # Add unique constraint for pack_id + key combination
     __table_args__ = (
         UniqueConstraint('pack_id', 'key', name='uq_icon_pack_key'),
-        UniqueConstraint('full_key', name='uq_icon_full_key'),
         Index('ix_icon_metadata_pack_key', 'pack_id', 'key'),
         Index('ix_icon_metadata_access_count', 'access_count'),
     )
