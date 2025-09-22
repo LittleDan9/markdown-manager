@@ -15,11 +15,15 @@ class GitHubAuthService(BaseGitHubService):
     def __init__(self):
         """Initialize GitHub authentication service with OAuth configuration."""
         super().__init__()
-        
+
         self.client_id = os.getenv("GITHUB_CLIENT_ID")
         self.client_secret = os.getenv("GITHUB_CLIENT_SECRET")
         self.redirect_uri = os.getenv("GITHUB_REDIRECT_URI")
-        self.scope = "public_repo,user:email"  # Only public repos + email
+
+        # Support both public-only and full repo access
+        # Default to public_repo for security, but allow full repo access if needed
+        github_scope = os.getenv("GITHUB_OAUTH_SCOPE", "public_repo")
+        self.scope = f"{github_scope},user:email"
 
         if not all([self.client_id, self.client_secret, self.redirect_uri]):
             raise ValueError("GitHub OAuth environment variables not properly configured")

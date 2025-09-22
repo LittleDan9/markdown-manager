@@ -42,17 +42,17 @@
       padding: 0 !important;
       background: none !important;
       border: none !important;
-      
+
       .breadcrumb-item {
         margin: 0 !important;
         padding: 0 !important;
         line-height: 1 !important;
-        
+
         &::before {
           margin: 0 0.25rem !important;
           padding: 0 !important;
         }
-        
+
         &.active {
           margin: 0 !important;
           padding: 0 !important;
@@ -394,7 +394,7 @@
 
   // File List Table Styles
   .github-file-list {
-    
+
     .table {
       margin-bottom: 0;
       --bs-table-bg: var(--bs-body-bg);
@@ -557,6 +557,163 @@
         &:hover {
           background-color: var(--bs-tertiary-bg);
         }
+      }
+    }
+  }
+
+  // Repository Settings Component
+  .github-repository-settings {
+    // Overall container with maximum height
+    max-height: 90vh;
+    overflow-y: auto;
+
+    // Repository lists with proper scrolling
+    .repo-list-container {
+      max-height: 50vh;
+      overflow-y: auto;
+      padding: 1rem;
+
+      // Ensure proper padding at bottom to prevent clipping
+      padding-bottom: 1.5rem;
+    }
+
+    // Selected repositories section
+    .selected-repos-section {
+      .card-body {
+        @extend .repo-list-container;
+      }
+    }
+
+    // Available repositories section
+    .available-repos-section {
+      .card-body {
+        padding: 1rem;
+      }
+
+      .repo-search-list {
+        max-height: 45vh;
+        overflow-y: auto;
+        padding-bottom: 1rem;
+      }
+    }
+
+    // Individual repository cards
+    .repo-card {
+      transition: all 0.2s ease;
+      border: 1px solid var(--bs-border-color-translucent);
+      margin-bottom: 0.75rem !important; // Ensure consistent spacing
+
+      &:last-child {
+        margin-bottom: 0 !important; // Remove extra space for last item since we have padding-bottom
+      }
+
+      &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+        border-color: var(--bs-primary);
+      }
+
+      .card-body {
+        padding: 0.75rem;
+      }
+
+      // Language badges with better visibility
+      .language-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+
+        &.bg-outline-secondary {
+          color: var(--bs-body-color);
+          border: 1px solid var(--bs-border-color);
+          background-color: var(--bs-secondary-bg);
+        }
+      }
+    }
+
+    // Statistics card styling
+    .statistics-card {
+      .card-header {
+        background: linear-gradient(135deg, var(--bs-light), var(--bs-secondary-bg));
+        border-bottom: 1px solid var(--bs-border-color);
+
+        [data-bs-theme="dark"] & {
+          background: linear-gradient(135deg, var(--bs-dark), var(--bs-secondary-bg));
+        }
+      }
+    }
+
+    // Auto-sync toggle card
+    .auto-sync-card {
+      border: 2px solid var(--bs-info-border-subtle);
+      background: linear-gradient(135deg, var(--bs-info-bg-subtle), var(--bs-light));
+
+      [data-bs-theme="dark"] & {
+        background: linear-gradient(135deg, var(--bs-info-bg-subtle), var(--bs-dark));
+      }
+
+      .card-body {
+        padding: 0.75rem;
+      }
+    }
+
+    // Collapsible sections
+    .collapsible-header {
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: var(--bs-secondary-bg);
+      }
+
+      .chevron-icon {
+        transition: transform 0.2s ease;
+
+        &.collapsed {
+          transform: rotate(-90deg);
+        }
+      }
+    }
+
+    // Pagination controls
+    .pagination-controls {
+      padding: 1rem 0;
+      border-top: 1px solid var(--bs-border-color-translucent);
+      margin-top: 1rem;
+    }
+
+    // Bulk modal improvements
+    .bulk-modal {
+      .modal-body {
+        max-height: 60vh;
+        overflow-y: auto;
+
+        .bulk-repo-list {
+          max-height: 50vh;
+          overflow-y: auto;
+          padding: 0.5rem 0;
+          padding-bottom: 1rem;
+        }
+      }
+    }
+
+    // Loading states
+    .loading-spinner {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 200px;
+    }
+
+    // Empty states
+    .empty-state {
+      text-align: center;
+      padding: 2rem;
+      color: var(--bs-text-muted);
+
+      .empty-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
       }
     }
   }

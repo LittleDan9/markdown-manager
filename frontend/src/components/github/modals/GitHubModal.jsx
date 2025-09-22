@@ -6,7 +6,7 @@ import useFileModal from '../../../hooks/ui/useFileModal';
 
 export default function GitHubModal({ show, onHide }) {
   const [activeTab, setActiveTab] = useState('accounts');
-  const { accounts, loading: accountsLoading } = useGitHubAccounts();
+  const { accounts, loading: accountsLoading, loadAccounts } = useGitHubAccounts();
   const { openGitHubTab } = useFileModal();
 
   // Reset to accounts tab if current tab becomes unavailable
@@ -17,6 +17,11 @@ export default function GitHubModal({ show, onHide }) {
       }
     }
   }, [accounts, accountsLoading, activeTab]);
+
+  const handleAccountsChange = (updatedAccounts) => {
+    // Refresh the accounts from the hook to keep them in sync
+    loadAccounts();
+  };
 
   const handleRepositoryBrowse = (repository) => {
     // Close the GitHub System Modal and open FileOpen Modal to GitHub tab
@@ -31,7 +36,7 @@ export default function GitHubModal({ show, onHide }) {
         }
       }, 100);
     };
-    
+
     onHide();
     openGitHubTab(repository, returnCallback);
   };
@@ -75,16 +80,19 @@ export default function GitHubModal({ show, onHide }) {
 
           <Tab.Content>
             <Tab.Pane eventKey="accounts">
-              <GitHubAccountsTab />
+              <GitHubAccountsTab onAccountsChange={handleAccountsChange} />
             </Tab.Pane>
             {hasAccounts && (
               <Tab.Pane eventKey="repositories">
-                <GitHubRepositoriesTab onRepositoryBrowse={handleRepositoryBrowse} />
+                <GitHubRepositoriesTab
+                  key={`repositories-${accounts.length}`}
+                  onRepositoryBrowse={handleRepositoryBrowse}
+                />
               </Tab.Pane>
             )}
             {hasAccounts && (
               <Tab.Pane eventKey="performance">
-                <GitHubCacheSyncTab />
+                <GitHubCacheSyncTab key={`performance-${accounts.length}`} />
               </Tab.Pane>
             )}
           </Tab.Content>

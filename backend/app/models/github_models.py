@@ -1,7 +1,7 @@
 """GitHub integration models."""
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import TYPE_CHECKING, Optional
 
@@ -21,6 +21,11 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .document import Document
     from .user import User
+
+
+def utc_now():
+    """Helper function to get timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
 
 
 class GitHubSyncStatus(str, Enum):
@@ -48,11 +53,11 @@ class GitHubAccount(BaseModel):
     # OAuth tokens (encrypted in production)
     access_token: Mapped[str] = mapped_column(Text, nullable=False)
     refresh_token: Mapped[str | None] = mapped_column(Text, nullable=True)
-    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_sync: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_sync: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Relationships
     user_id: Mapped[int] = mapped_column(
@@ -61,6 +66,9 @@ class GitHubAccount(BaseModel):
     user: Mapped["User"] = relationship("User", back_populates="github_accounts")
     repositories: Mapped[list["GitHubRepository"]] = relationship(
         "GitHubRepository", back_populates="account", cascade="all, delete-orphan"
+    )
+    repository_selections: Mapped[list["GitHubRepositorySelection"]] = relationship(
+        "GitHubRepositorySelection", back_populates="github_account", cascade="all, delete-orphan"
     )
 
 
@@ -85,7 +93,7 @@ class GitHubRepository(BaseModel):
     # Repository status
     is_private: Mapped[bool] = mapped_column(Boolean, default=False)
     is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Sync settings
     auto_sync_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
@@ -155,4 +163,43 @@ class GitHubSyncHistory(BaseModel):
     )
     document: Mapped[Optional["Document"]] = relationship(
         "Document", back_populates="github_sync_history"
+    )
+
+
+class GitHubRepositorySelection(BaseModel):
+    """User's manual selection of repositories to sync."""
+
+    __tablename__ = "github_repository_selections"
+
+    # Links to user's GitHub account
+    github_account_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("github_accounts.id"), nullable=False, index=True
+    )
+
+    # Repository information from GitHub API
+    github_repo_id: Mapped[int] = mapped_column(Integer, nullable=False)
+    repo_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    repo_full_name: Mapped[str] = mapped_column(String(500), nullable=False)
+    repo_owner: Mapped[str] = mapped_column(String(255), nullable=False)
+    is_private: Mapped[bool] = mapped_column(Boolean, default=False)
+
+    # Repository metadata (cached from GitHub)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    language: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    default_branch: Mapped[str] = mapped_column(String(255), default="main")
+    repo_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # User selection metadata
+    selected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    sync_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    # Relationships
+    github_account: Mapped["GitHubAccount"] = relationship(
+        "GitHubAccount", back_populates="repository_selections"
+    )
+
+    __table_args__ = (
+        UniqueConstraint("github_account_id", "github_repo_id", name="unique_account_repo_selection"),
     )

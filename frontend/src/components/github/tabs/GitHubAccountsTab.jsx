@@ -5,7 +5,7 @@ import { GitHubAccountConnection, GitHubAccountList } from '../index';
 import gitHubApi from '../../../api/gitHubApi';
 import githubOAuthListener from '../../../utils/GitHubOAuthListener';
 
-export default function GitHubAccountsTab() {
+export default function GitHubAccountsTab({ onAccountsChange }) {
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -36,6 +36,11 @@ export default function GitHubAccountsTab() {
       const accountsData = await gitHubApi.getAccounts();
       setAccounts(accountsData);
       setError(null);
+
+      // Notify parent of accounts change
+      if (onAccountsChange) {
+        onAccountsChange(accountsData);
+      }
     } catch (err) {
       setError('Failed to load GitHub accounts');
       console.error('Error loading accounts:', err);
@@ -49,8 +54,14 @@ export default function GitHubAccountsTab() {
   };
 
   const handleAccountDisconnected = (accountId) => {
-    setAccounts(accounts.filter(acc => acc.id !== accountId));
+    const updatedAccounts = accounts.filter(acc => acc.id !== accountId);
+    setAccounts(updatedAccounts);
     showSuccess('GitHub account disconnected successfully!');
+
+    // Notify parent of accounts change
+    if (onAccountsChange) {
+      onAccountsChange(updatedAccounts);
+    }
   };
 
   if (loading) {

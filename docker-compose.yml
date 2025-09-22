@@ -65,9 +65,6 @@ services:
     environment:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
-      - PDF_SERVICE_URL=http://pdf-service:8001
-      - ENVIRONMENT=development
       - MARKDOWN_STORAGE_ROOT=/documents
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]

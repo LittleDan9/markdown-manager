@@ -1,4 +1,5 @@
 """GitHub OAuth authentication endpoints."""
+import os
 import secrets
 from urllib.parse import urlencode
 from fastapi import APIRouter, Depends, Query, BackgroundTasks
@@ -31,8 +32,59 @@ async def sync_repositories_background(
             # Initialize user storage service for filesystem operations
             user_storage_service = UserStorage()
 
-            # Fetch repositories from GitHub
-            github_repos = await github_service.get_user_repositories(access_token)
+            # Check if user has repository selections configured
+            from app.services.github.repository_selector import GitHubRepositorySelector
+            repository_selector = GitHubRepositorySelector()
+
+            selected_repos = await repository_selector.get_selected_repositories(
+                db, account_id, active_only=True
+            )
+
+            # If user has manual selections, only sync those
+            if selected_repos:
+                print(f"Using manual repository selections: {len(selected_repos)} repositories selected")
+                # Get GitHub data for selected repositories only
+                github_repos = await github_service.get_user_repositories(access_token, per_page=100)
+                selected_repo_ids = {selection.github_repo_id for selection in selected_repos}
+
+                # Filter to only selected repositories with sync enabled
+                github_repos = [
+                    repo for repo in github_repos
+                    if repo['id'] in selected_repo_ids
+                ]
+
+                # Further filter by sync_enabled status
+                enabled_selections = [s for s in selected_repos if s.sync_enabled]
+                enabled_repo_ids = {selection.github_repo_id for selection in enabled_selections}
+                github_repos = [
+                    repo for repo in github_repos
+                    if repo['id'] in enabled_repo_ids
+                ]
+
+                print(f"Syncing {len(github_repos)} manually selected repositories")
+            else:
+                # Fall back to automatic filtering for large organizations
+                # First, get a small sample to check repository count
+                initial_repos = await github_service.get_user_repositories(access_token, page=1, per_page=10)
+
+                # If user has many repos (likely in large org), use filtered approach
+                # This helps avoid syncing 1000+ repos from large organizations
+                if len(initial_repos) >= 10:
+                    # Use filtered repository access for large organizations
+                    # Only sync recently updated, non-archived, non-fork repositories
+                    github_repos = await github_service.get_user_repositories_filtered(
+                        access_token,
+                        max_repos=int(os.getenv("GITHUB_MAX_REPOS_PER_ACCOUNT", "50")),
+                        min_updated_days=int(os.getenv("GITHUB_MIN_UPDATED_DAYS", "180")),
+                        include_forks=os.getenv("GITHUB_INCLUDE_FORKS", "false").lower() == "true",
+                        exclude_archived=os.getenv("GITHUB_EXCLUDE_ARCHIVED", "true").lower() == "true"
+                    )
+                    max_repos = int(os.getenv("GITHUB_MAX_REPOS_PER_ACCOUNT", "50"))
+                    print(f"Large organization detected. Syncing {len(github_repos)} "
+                          f"filtered repositories (max {max_repos})")
+                else:
+                    # For smaller accounts, sync all repositories
+                    github_repos = await github_service.get_user_repositories(access_token)
 
             # Create or update repositories in database and clone to filesystem
             for repo_data in github_repos:

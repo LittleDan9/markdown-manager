@@ -1,0 +1,126 @@
+.github-repository-settings {
+  .repo-card {
+    border: 1px solid var(--bs-border-color);
+    transition: all 0.2s ease-in-out;
+
+    &:hover {
+      border-color: var(--bs-primary);
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    .card-body {
+      padding: 0.75rem;
+    }
+  }
+
+  .form-check-input:checked {
+    background-color: var(--bs-success);
+    border-color: var(--bs-success);
+  }
+
+  .badge {
+    font-size: 0.7rem;
+
+    &.bg-warning {
+      color: var(--bs-dark);
+    }
+  }
+
+  .input-group {
+    .input-group-text {
+      background-color: var(--bs-gray-100);
+      border-color: var(--bs-border-color);
+    }
+  }
+
+  .btn-outline-primary:hover,
+  .btn-outline-secondary:hover {
+    transform: translateY(-1px);
+  }
+
+  .spinner-border {
+    width: 2rem;
+    height: 2rem;
+  }
+
+  .card-header {
+    background-color: var(--bs-gray-50);
+    border-bottom: 1px solid var(--bs-border-color);
+
+    h5 {
+      color: var(--bs-dark);
+    }
+  }
+
+  .alert {
+    border: none;
+    border-radius: 8px;
+
+    &.alert-info {
+      background-color: rgba(13, 110, 253, 0.1);
+      color: var(--bs-primary);
+    }
+
+    &.alert-secondary {
+      background-color: rgba(108, 117, 125, 0.1);
+      color: var(--bs-secondary);
+    }
+  }
+}
+
+// Dark theme support
+[data-bs-theme="dark"] {
+  .github-repository-settings {
+    .repo-card {
+      background-color: var(--bs-dark);
+      border-color: var(--bs-gray-700);
+
+      &:hover {
+        border-color: var(--bs-primary);
+      }
+
+      .card-body {
+        color: var(--bs-light);
+      }
+    }
+
+    .card-header {
+      background-color: var(--bs-gray-800);
+      border-bottom-color: var(--bs-gray-700);
+
+      h5 {
+        color: var(--bs-light);
+      }
+    }
+
+    .input-group-text {
+      background-color: var(--bs-gray-800);
+      border-color: var(--bs-gray-700);
+      color: var(--bs-light);
+    }
+
+    .form-control {
+      background-color: var(--bs-gray-800);
+      border-color: var(--bs-gray-700);
+      color: var(--bs-light);
+
+      &:focus {
+        background-color: var(--bs-gray-800);
+        border-color: var(--bs-primary);
+        color: var(--bs-light);
+      }
+    }
+
+    .form-select {
+      background-color: var(--bs-gray-800);
+      border-color: var(--bs-gray-700);
+      color: var(--bs-light);
+
+      &:focus {
+        background-color: var(--bs-gray-800);
+        border-color: var(--bs-primary);
+        color: var(--bs-light);
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import GitHubAccountList from "../../shared/GitHubAccountList";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
 import GitHubBrowserHeader from "../../github/browser/GitHubBrowserHeader";
+import GitHubRepositorySettings from "../../github/settings/GitHubRepositorySettings";
 import { GitHubProvider } from "../../../services/FileBrowserProviders";
 import { useNotification } from "../../NotificationProvider";
 import useFileModal from "../../../hooks/ui/useFileModal";
@@ -20,6 +21,8 @@ export default function GitHubTab({
   const [branches, setBranches] = useState([]);
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [loading, setLoading] = useState(false);
+  const [currentView, setCurrentView] = useState('accounts'); // 'accounts', 'browser', 'settings'
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const { showError, showSuccess } = useNotification();
   const { returnCallback, closeFileModal } = useFileModal();
 
@@ -50,13 +53,44 @@ export default function GitHubTab({
   const handleGitHubRepositorySelect = async (repository) => {
     console.log('Selected GitHub repository:', repository);
     setSelectedGitHubRepo(repository);
+    setCurrentView('browser');
     await loadBranches(repository);
+  };
+
+  const handleRepositorySettings = (account) => {
+    setSelectedAccount(account);
+    setCurrentView('settings');
+  };
+
+  const handleBackToAccounts = () => {
+    setCurrentView('accounts');
+    setSelectedGitHubRepo(null);
+    setSelectedAccount(null);
+    setGitHubProvider(null);
+    setBranches([]);
+    setSelectedBranch('main');
   };
 
   const loadBranches = async (repository) => {
     try {
       setLoading(true);
-      const branchData = await gitHubApi.getRepositoryBranches(repository.id);
+
+      // Check if repository has an internal repo ID (required for branches API)
+      if (!repository.internal_repo_id) {
+        // For repositories without internal IDs, we'll create a minimal branch list
+        // using the default branch from the repository selection data
+        const defaultBranch = repository.default_branch || 'main';
+        setBranches([{ name: defaultBranch }]);
+        setSelectedBranch(defaultBranch);
+
+        // Create provider with the default branch
+        const provider = new GitHubProvider(repository, defaultBranch, { filters: { fileTypes: [] } });
+        setGitHubProvider(provider);
+        return;
+      }
+
+      // Use the internal repo ID for the branches API
+      const branchData = await gitHubApi.getRepositoryBranches(repository.internal_repo_id);
       setBranches(branchData);
 
       // Set default branch
@@ -68,8 +102,17 @@ export default function GitHubTab({
       const provider = new GitHubProvider(repository, branch, { filters: { fileTypes: [] } });
       setGitHubProvider(provider);
     } catch (err) {
-      showError('Failed to load repository branches');
-      console.error('Error loading branches:', err);
+      // Fallback to default branch if branches API fails
+      console.warn('Failed to load branches, using default branch:', err);
+      const defaultBranch = repository.default_branch || 'main';
+      setBranches([{ name: defaultBranch }]);
+      setSelectedBranch(defaultBranch);
+
+      // Create provider with the default branch
+      const provider = new GitHubProvider(repository, defaultBranch, { filters: { fileTypes: [] } });
+      setGitHubProvider(provider);
+
+      showError('Failed to load repository branches, using default branch');
     } finally {
       setLoading(false);
     }
@@ -176,13 +219,23 @@ export default function GitHubTab({
 
   return (
     <>
-      {!selectedGitHubRepo ? (
+      {currentView === 'accounts' && (
         <GitHubAccountList
           onBrowseRepository={handleGitHubRepositorySelect}
+          onRepositorySettings={handleRepositorySettings}
           compact={true}
           maxHeight="70vh"
         />
-      ) : (
+      )}
+
+      {currentView === 'settings' && selectedAccount && (
+        <GitHubRepositorySettings
+          account={selectedAccount}
+          onBack={handleBackToAccounts}
+        />
+      )}
+
+      {currentView === 'browser' && selectedGitHubRepo && (
         <div className="file-browser-container">
           {/* Repository header with integrated back button and branch selection */}
           <GitHubBrowserHeader
@@ -196,10 +249,7 @@ export default function GitHubTab({
                 closeFileModal(); // This will trigger the callback
               } else {
                 // Regular back to repository selection
-                setSelectedGitHubRepo(null);
-                setGitHubProvider(null);
-                setBranches([]);
-                setSelectedBranch('main');
+                handleBackToAccounts();
               }
             }}
             loading={loading}
