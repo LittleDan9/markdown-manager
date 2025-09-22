@@ -1,4 +1,5 @@
 """GitHub repository selection and search service."""
+import os
 from typing import List, Optional, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, and_, func
@@ -25,29 +26,63 @@ class GitHubRepositorySelector:
         language: Optional[str] = None,
         sort_by: str = "updated"
     ) -> Dict[str, Any]:
-        """Search available repositories for a GitHub account."""
+        """Search available repositories for a GitHub account with intelligent limits."""
 
-        # Get repositories from GitHub API - temporarily use basic method to test
+        # Get configuration from environment variables
+        max_repos_per_account = int(os.getenv('GITHUB_MAX_REPOS_PER_ACCOUNT', '100'))
+        include_forks = os.getenv('GITHUB_INCLUDE_FORKS', 'true').lower() == 'true'
+        exclude_archived = os.getenv('GITHUB_EXCLUDE_ARCHIVED', 'true').lower() == 'true'
+
+        # Use different strategies based on whether we have specific search criteria
+        if search_query or organization or language:
+            # For specific searches, fetch more repositories to ensure we find matches
+            # This is especially important for large organizations
+            search_max_repos = min(500, max_repos_per_account * 10)  # Fetch up to 500 repos for search
+            max_fetch_pages = min(20, (search_max_repos + 99) // 100)  # Up to 20 pages for search
+        else:
+            # For general browsing, use the configured limits
+            search_max_repos = max_repos_per_account
+            max_fetch_pages = min(10, (max_repos_per_account + 99) // 100)
+
         all_repos = []
         page_num = 1
-        while len(all_repos) < 2000:  # Safety limit
-            page_repos = await self.github_api.get_user_repositories(
-                access_token=github_account.access_token,
-                page=page_num,
-                per_page=100
-            )
-            if not page_repos:
+
+        # Fetch repositories with appropriate limits
+        while page_num <= max_fetch_pages and len(all_repos) < search_max_repos:
+            try:
+                page_repos = await self.github_api.get_user_repositories(
+                    access_token=github_account.access_token,
+                    page=page_num,
+                    per_page=100
+                )
+                if not page_repos:
+                    break
+
+                all_repos.extend(page_repos)
+                page_num += 1
+
+                # Stop if we've fetched enough repositories
+                if len(all_repos) >= search_max_repos:
+                    all_repos = all_repos[:search_max_repos]
+                    break
+
+            except Exception as e:
+                print(f"Error fetching repositories page {page_num}: {e}")
                 break
-            all_repos.extend(page_repos)
-            page_num += 1
 
-        github_repos = all_repos
-
-        # Apply additional filters
+        # Apply filtering
         filtered_repos = []
-        for repo in github_repos:
+        for repo in all_repos:
             # Skip private repos if not requested
             if repo.get('private', False) and not include_private:
+                continue
+
+            # Skip forks if configured to exclude them
+            if repo.get('fork', False) and not include_forks:
+                continue
+
+            # Skip archived repos if configured to exclude them
+            if repo.get('archived', False) and exclude_archived:
                 continue
 
             # Filter by organization if specified
@@ -79,14 +114,17 @@ class GitHubRepositorySelector:
 
         # Sort repositories
         if sort_by == "updated":
-            # Parse datetime strings for proper sorting
+            # Parse datetime strings for proper sorting with None handling
             def get_updated_datetime(repo):
                 updated_str = repo.get('updated_at', '')
                 if not updated_str:
-                    return parse_github_datetime('1970-01-01T00:00:00Z')  # Very old date for repos without update time
-                return parse_github_datetime(updated_str) or parse_github_datetime('1970-01-01T00:00:00Z')
+                    # Return a very old date for repos without update time
+                    return parse_github_datetime('1970-01-01T00:00:00Z') or utc_now()
+                parsed_dt = parse_github_datetime(updated_str)
+                return parsed_dt or utc_now()
 
-            filtered_repos.sort(key=get_updated_datetime, reverse=True)
+            # Sort with proper type handling
+            filtered_repos.sort(key=lambda r: get_updated_datetime(r), reverse=True)
         elif sort_by == "name":
             filtered_repos.sort(key=lambda r: r.get('name', '').lower())
         elif sort_by == "stars":
@@ -109,6 +147,14 @@ class GitHubRepositorySelector:
                 "language": language,
                 "include_private": include_private,
                 "sort_by": sort_by
+            },
+            "limits_info": {
+                "max_repos_fetched": len(all_repos),
+                "search_max_repos": search_max_repos,
+                "max_repos_per_account": max_repos_per_account,
+                "filtered_count": len(filtered_repos),
+                "fetched_pages": page_num - 1,
+                "search_strategy": "enhanced_search" if (search_query or organization or language) else "standard_browse"
             }
         }
 

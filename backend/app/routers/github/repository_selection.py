@@ -3,10 +3,12 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select, and_
 
 from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import User
+from app.models.github_models import GitHubRepository
 from app.services.github.repository_selector import GitHubRepositorySelector
 from app.crud.github_crud import GitHubCRUD
 
@@ -144,26 +146,46 @@ async def get_selected_repositories(
             db, account_id, active_only=True
         )
 
+        # Get the corresponding GitHubRepository records for each selection
+        selection_data = []
+        for selection in selections:
+            # Try to find the corresponding GitHubRepository
+            repo_query = await db.execute(
+                select(GitHubRepository).where(
+                    and_(
+                        GitHubRepository.account_id == account_id,
+                        GitHubRepository.github_repo_id == selection.github_repo_id
+                    )
+                )
+            )
+            repo = repo_query.scalar_one_or_none()
+
+            selection_data.append({
+                "id": selection.id,
+                "github_repo_id": selection.github_repo_id,
+                "internal_repo_id": repo.id if repo else None,  # Add internal repo ID if exists
+                "repo_name": selection.repo_name,
+                "repo_full_name": selection.repo_full_name,
+                "repo_owner": selection.repo_owner,
+                "is_private": selection.is_private,
+                "description": selection.description,
+                "language": selection.language,
+                "default_branch": selection.default_branch,
+                "sync_enabled": selection.sync_enabled,
+                "selected_at": selection.selected_at.isoformat(),
+                "last_synced_at": selection.last_synced_at.isoformat() if selection.last_synced_at else None
+            })
+
         return {
-            "selections": [
-                {
-                    "id": selection.id,
-                    "github_repo_id": selection.github_repo_id,
-                    "repo_name": selection.repo_name,
-                    "repo_full_name": selection.repo_full_name,
-                    "repo_owner": selection.repo_owner,
-                    "is_private": selection.is_private,
-                    "description": selection.description,
-                    "language": selection.language,
-                    "default_branch": selection.default_branch,
-                    "sync_enabled": selection.sync_enabled,
-                    "selected_at": selection.selected_at.isoformat(),
-                    "last_synced_at": selection.last_synced_at.isoformat() if selection.last_synced_at else None
-                }
-                for selection in selections
-            ],
+            "selections": selection_data,
             "total_count": len(selections)
         }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get selected repositories: {str(e)}"
+        )
 
     except Exception as e:
         raise HTTPException(

@@ -74,7 +74,23 @@ export default function GitHubTab({
   const loadBranches = async (repository) => {
     try {
       setLoading(true);
-      const branchData = await gitHubApi.getRepositoryBranches(repository.id);
+
+      // Check if repository has an internal repo ID (required for branches API)
+      if (!repository.internal_repo_id) {
+        // For repositories without internal IDs, we'll create a minimal branch list
+        // using the default branch from the repository selection data
+        const defaultBranch = repository.default_branch || 'main';
+        setBranches([{ name: defaultBranch }]);
+        setSelectedBranch(defaultBranch);
+
+        // Create provider with the default branch
+        const provider = new GitHubProvider(repository, defaultBranch, { filters: { fileTypes: [] } });
+        setGitHubProvider(provider);
+        return;
+      }
+
+      // Use the internal repo ID for the branches API
+      const branchData = await gitHubApi.getRepositoryBranches(repository.internal_repo_id);
       setBranches(branchData);
 
       // Set default branch
@@ -86,8 +102,17 @@ export default function GitHubTab({
       const provider = new GitHubProvider(repository, branch, { filters: { fileTypes: [] } });
       setGitHubProvider(provider);
     } catch (err) {
-      showError('Failed to load repository branches');
-      console.error('Error loading branches:', err);
+      // Fallback to default branch if branches API fails
+      console.warn('Failed to load branches, using default branch:', err);
+      const defaultBranch = repository.default_branch || 'main';
+      setBranches([{ name: defaultBranch }]);
+      setSelectedBranch(defaultBranch);
+
+      // Create provider with the default branch
+      const provider = new GitHubProvider(repository, defaultBranch, { filters: { fileTypes: [] } });
+      setGitHubProvider(provider);
+
+      showError('Failed to load repository branches, using default branch');
     } finally {
       setLoading(false);
     }

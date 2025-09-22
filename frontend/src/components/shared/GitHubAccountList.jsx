@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Button, ListGroup, Alert, Badge, Spinner, Accordion, Form } from 'react-bootstrap';
 import gitHubApi from '../../api/gitHubApi';
+import gitHubRepositorySelectionApi from '../../api/gitHubRepositorySelectionApi';
 import ConfirmModal from '../shared/modals/ConfirmModal';
 import githubOAuthListener from '../../utils/GitHubOAuthListener';
 
@@ -157,16 +158,37 @@ const GitHubAccountList = ({
 
   const loadRepositories = async (accountId) => {
     try {
-      console.log('GitHubAccountList: Loading repositories for account:', accountId);
-      const repos = await gitHubApi.getRepositories(accountId);
+      console.log('GitHubAccountList: Loading selected repositories for account:', accountId);
+      // Use repository selection API to get only user-selected repositories
+      const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(accountId);
+
+      // Transform the selected repositories data to match the expected format
+      const transformedRepos = selectedReposData.selections.map(selection => ({
+        id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
+        github_repo_id: selection.github_repo_id,
+        internal_repo_id: selection.internal_repo_id,
+        name: selection.repo_name,
+        full_name: selection.repo_full_name,
+        description: selection.description,
+        private: selection.is_private,
+        language: selection.language,
+        default_branch: selection.default_branch,
+        sync_enabled: selection.sync_enabled,
+        last_synced_at: selection.last_synced_at,
+        selected_at: selection.selected_at,
+        owner: {
+          login: selection.repo_owner
+        }
+      }));
+
       setAccountRepositories(prev => ({
         ...prev,
-        [accountId]: repos
+        [accountId]: transformedRepos
       }));
-      console.log('GitHubAccountList: Loaded', repos.length, 'repositories for account:', accountId);
+      console.log('GitHubAccountList: Loaded', transformedRepos.length, 'selected repositories for account:', accountId);
     } catch (error) {
-      console.error('Failed to load repositories:', error);
-      setError('Failed to load repositories. Please try again.');
+      console.error('Failed to load selected repositories:', error);
+      setError('Failed to load selected repositories. Please try again.');
     }
   };
 
@@ -208,17 +230,37 @@ const GitHubAccountList = ({
         // Check each account for repository updates
         for (const accountId of newAccountIds) {
           try {
-            const repos = await gitHubApi.getRepositories(accountId);
-            const currentCount = repos.length;
+            // Use repository selection API to get only user-selected repositories
+            const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(accountId);
+            const currentCount = selectedReposData.selections.length;
             const previousCount = lastRepositoryCount[accountId];
 
-            console.log(`Account ${accountId}: ${currentCount} repos (was ${previousCount})`);
+            console.log(`Account ${accountId}: ${currentCount} selected repos (was ${previousCount})`);
 
             // Update repository list if count changed
             if (currentCount !== previousCount) {
+              // Transform the data to match expected format
+              const transformedRepos = selectedReposData.selections.map(selection => ({
+                id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
+                github_repo_id: selection.github_repo_id,
+                internal_repo_id: selection.internal_repo_id,
+                name: selection.repo_name,
+                full_name: selection.repo_full_name,
+                description: selection.description,
+                private: selection.is_private,
+                language: selection.language,
+                default_branch: selection.default_branch,
+                sync_enabled: selection.sync_enabled,
+                last_synced_at: selection.last_synced_at,
+                selected_at: selection.selected_at,
+                owner: {
+                  login: selection.repo_owner
+                }
+              }));
+
               setAccountRepositories(prev => ({
                 ...prev,
-                [accountId]: repos
+                [accountId]: transformedRepos
               }));
               lastRepositoryCount[accountId] = currentCount;
               allAccountsStable = false;
@@ -229,7 +271,7 @@ const GitHubAccountList = ({
               allAccountsStable = false;
             }
           } catch (error) {
-            console.error(`Error checking repositories for account ${accountId}:`, error);
+            console.error(`Error checking selected repositories for account ${accountId}:`, error);
             allAccountsStable = false;
           }
         }
@@ -464,9 +506,9 @@ const GitHubAccountList = ({
                     <div className="d-flex align-items-center">
                       <Spinner animation="border" size="sm" className="text-info me-2" />
                       <div>
-                        <strong>Syncing repositories...</strong>
+                        <strong>Loading selected repositories...</strong>
                         <br />
-                        <small>Importing markdown files. Repository count may increase as sync progresses.</small>
+                        <small>Fetching your selected repositories for this account.</small>
                       </div>
                     </div>
                   </div>
@@ -524,8 +566,9 @@ const GitHubAccountList = ({
                     if (accountRepositories[account.id].length === 0) {
                       return (
                         <div className="text-center py-3 text-muted">
-                          <i className="bi bi-inbox"></i>
-                          <div className="mt-2">No repositories found</div>
+                          <i className="bi bi-folder-check"></i>
+                          <div className="mt-2">No repositories selected</div>
+                          <small>Use the repository settings to select repositories</small>
                         </div>
                       );
                     }
@@ -568,19 +611,20 @@ const GitHubAccountList = ({
                 <div className="text-center py-4">
                   <Spinner animation="border" size="sm" className="text-success" />
                   <div className="mt-2 text-muted">
-                    <strong>Syncing repositories...</strong>
+                    <strong>Loading selected repositories...</strong>
                   </div>
                   <div className="mt-1">
                     <small className="text-muted">
-                      Importing markdown files from your repositories
+                      Fetching your selected repositories
                     </small>
                   </div>
                 </div>
                 ) : (
                   // No repositories loaded yet (different from loading state)
                   <div className="text-center py-3 text-muted">
-                    <i className="bi bi-inbox"></i>
-                    <div className="mt-2">No repositories loaded</div>
+                    <i className="bi bi-folder-check"></i>
+                    <div className="mt-2">No selected repositories loaded</div>
+                    <small>Select repositories using the settings button</small>
                   </div>
                 )}
               </Accordion.Body>

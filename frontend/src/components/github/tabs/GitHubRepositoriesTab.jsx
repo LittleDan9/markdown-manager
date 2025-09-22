@@ -4,6 +4,7 @@ import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
 import GitHubRepositorySettings from '../settings/GitHubRepositorySettings';
 import gitHubApi from '../../../api/gitHubApi';
+import gitHubRepositorySelectionApi from '../../../api/gitHubRepositorySelectionApi';
 import { sortRepositories } from '../../../utils/githubUtils';
 import useFileModal from '../../../hooks/ui/useFileModal';
 
@@ -45,12 +46,33 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
 
     try {
       setLoading(true);
-      const reposData = await gitHubApi.getRepositories(selectedAccount);
-      setRepositories(reposData);
+      // Use repository selection API to get only user-selected repositories
+      const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(selectedAccount);
+
+      // Transform the selected repositories data to match the expected format
+      const transformedRepos = selectedReposData.selections.map(selection => ({
+        id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
+        github_repo_id: selection.github_repo_id,
+        internal_repo_id: selection.internal_repo_id,
+        name: selection.repo_name,
+        full_name: selection.repo_full_name,
+        description: selection.description,
+        private: selection.is_private,
+        language: selection.language,
+        default_branch: selection.default_branch,
+        sync_enabled: selection.sync_enabled,
+        last_synced_at: selection.last_synced_at,
+        selected_at: selection.selected_at,
+        owner: {
+          login: selection.repo_owner
+        }
+      }));
+
+      setRepositories(transformedRepos);
       setError(null);
     } catch (err) {
-      setError('Failed to load repositories');
-      console.error('Error loading repositories:', err);
+      setError('Failed to load selected repositories');
+      console.error('Error loading selected repositories:', err);
     } finally {
       setLoading(false);
     }
@@ -99,14 +121,14 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label>Search Repositories</Form.Label>
+                <Form.Label>Search Selected Repositories</Form.Label>
                 <InputGroup>
                   <InputGroup.Text>
                     <i className="bi bi-search"></i>
                   </InputGroup.Text>
                   <Form.Control
                     type="text"
-                    placeholder="Search by name or description..."
+                    placeholder="Search selected repositories by name or description..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -124,7 +146,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
           {!selectedAccount && accounts.length > 0 && (
             <Alert variant="info">
               <i className="bi bi-info-circle me-2"></i>
-              Please select a GitHub account to view repositories.
+              Please select a GitHub account to view your selected repositories.
             </Alert>
           )}
 
@@ -139,8 +161,8 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
             <Card>
               <Card.Header className="d-flex align-items-center justify-content-between">
                 <div>
-                  <i className="bi bi-folder-open me-2"></i>
-                  Repositories
+                  <i className="bi bi-folder-check me-2"></i>
+                  Selected Repositories
                   {searchTerm && (
                     <small className="text-muted ms-2">
                       (filtered by "{searchTerm}")
@@ -159,7 +181,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                     disabled={!selectedAccount}
                   >
                     <i className="bi bi-plus-circle me-1"></i>
-                    Add Repositories
+                    Manage Repository Selection
                   </Button>
                   <Button
                     variant="outline-primary"
@@ -176,9 +198,26 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                 {loading ? (
                   <div className="d-flex justify-content-center p-4">
                     <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Loading repositories...</span>
+                      <span className="visually-hidden">Loading selected repositories...</span>
                     </div>
                   </div>
+                ) : filteredRepositories.length === 0 ? (
+                  <Alert variant="info" className="text-center">
+                    <i className="bi bi-info-circle me-2"></i>
+                    <strong>No repositories selected yet.</strong>
+                    <p className="mb-2 mt-2">
+                      Use the "Add Repositories" button above to select repositories from your GitHub account.
+                    </p>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={handleAddRepositories}
+                      disabled={!selectedAccount}
+                    >
+                      <i className="bi bi-plus-circle me-1"></i>
+                      Select Repositories
+                    </Button>
+                  </Alert>
                 ) : (
                   <GitHubRepositoryList
                     repositories={filteredRepositories}

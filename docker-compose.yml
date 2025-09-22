@@ -65,16 +65,7 @@ services:
     environment:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
-      - DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
-      - PDF_SERVICE_URL=http://pdf-service:8001
-      - ENVIRONMENT=development
       - MARKDOWN_STORAGE_ROOT=/documents
-      # GitHub OAuth Configuration
-      - GITHUB_OAUTH_SCOPE=repo,read:org  # Full repo access and organization reading
-      - GITHUB_MAX_REPOS_PER_ACCOUNT=50  # Max repos to sync per account
-      - GITHUB_MIN_UPDATED_DAYS=180      # Only sync repos updated in last N days
-      - GITHUB_INCLUDE_FORKS=false       # Include forked repositories
-      - GITHUB_EXCLUDE_ARCHIVED=true     # Exclude archived repositories
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s

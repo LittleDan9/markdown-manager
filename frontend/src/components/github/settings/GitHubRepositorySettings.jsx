@@ -236,7 +236,7 @@ export default function GitHubRepositorySettings({ account, onBack }) {
       Rust: 'dark',
       'C++': 'primary',
       C: 'secondary',
-      Shell: 'dark',
+      Shell: 'secondary',
       PowerShell: 'info',
       Vue: 'success',
       React: 'info',
@@ -253,9 +253,11 @@ export default function GitHubRepositorySettings({ account, onBack }) {
       Julia: 'primary',
       'Objective-C': 'info',
       'Objective-C++': 'primary',
-      Assembly: 'warning'
+      Assembly: 'warning',
+      HCL: 'info',
+      PLpgSQL: 'primary'
     };
-    return colors[language] || 'outline-secondary';
+    return colors[language] || 'secondary';
   };
 
   const handleAutoSyncAllRepos = async (enabled) => {
@@ -406,7 +408,7 @@ export default function GitHubRepositorySettings({ account, onBack }) {
             {!selectedReposCollapsed && (
               <Card.Body className="repo-list-container" style={{ maxHeight: '50vh', overflowY: 'auto', paddingBottom: '1.5rem' }}>
               {loading ? (
-                <div className="loading-spinner">
+                <div className="loading-spinner d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
                   <div className="spinner-border text-primary" role="status">
                     <span className="visually-hidden">Loading...</span>
                   </div>
@@ -580,7 +582,7 @@ export default function GitHubRepositorySettings({ account, onBack }) {
               {/* Repository List */}
               <div className="repo-search-list" style={{ maxHeight: '30vh', overflowY: 'auto', paddingBottom: '1rem' }}>
                 {searchLoading ? (
-                  <div className="loading-spinner">
+                  <div className="loading-spinner d-flex justify-content-center align-items-center" style={{ minHeight: '200px' }}>
                     <div className="spinner-border text-primary" role="status">
                       <span className="visually-hidden">Searching...</span>
                     </div>

@@ -166,7 +166,7 @@ deploy-front: build ## Build and deploy frontend (includes nginx config)
 	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
 
 deploy-back: ## Deploy backend services (includes nginx config)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) pdf-service $(REMOTE_USER_HOST) 5000
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) pdf-service markdown-lint-service $(REMOTE_USER_HOST) 5000
 
 # Nginx-only deployment targets
 deploy-nginx-frontend: ## Deploy only frontend nginx config

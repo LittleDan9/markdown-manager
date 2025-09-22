@@ -7,6 +7,50 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
 
+  const getLanguageColor = (language) => {
+    if (!language) return 'secondary';
+
+    const colors = {
+      JavaScript: 'warning',
+      TypeScript: 'info',
+      Python: 'success',
+      Java: 'danger',
+      'C#': 'primary',
+      Go: 'secondary',
+      HTML: 'danger',
+      CSS: 'info',
+      SCSS: 'info',
+      PHP: 'primary',
+      Ruby: 'danger',
+      Swift: 'warning',
+      Kotlin: 'primary',
+      Rust: 'dark',
+      'C++': 'primary',
+      C: 'secondary',
+      Shell: 'secondary',
+      PowerShell: 'info',
+      Vue: 'success',
+      React: 'info',
+      Svelte: 'warning',
+      Dart: 'info',
+      Elixir: 'primary',
+      Clojure: 'success',
+      Haskell: 'primary',
+      Lua: 'primary',
+      Perl: 'info',
+      R: 'info',
+      Scala: 'danger',
+      MATLAB: 'warning',
+      Julia: 'primary',
+      'Objective-C': 'info',
+      'Objective-C++': 'primary',
+      Assembly: 'warning',
+      HCL: 'info',
+      PLpgSQL: 'primary'
+    };
+    return colors[language] || 'secondary';
+  };
+
   const handleBrowseRepository = (repo) => {
     // Check if there's a callback to open FileOpen Modal instead
     if (onRepositoryBrowse) {
@@ -30,11 +74,11 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
   if (repositories.length === 0) {
     return (
       <div className="text-center py-4">
-        <i className="bi bi-folder-x fs-1 text-muted"></i>
-        <h5 className="mt-3 text-muted">No repositories found</h5>
+        <i className="bi bi-folder-check fs-1 text-muted"></i>
+        <h5 className="mt-3 text-muted">No selected repositories</h5>
         <p className="text-muted">
-          This GitHub account doesn't have any accessible repositories,
-          or they haven't been loaded yet.
+          You haven't selected any repositories yet.
+          Use the "Manage Repository Selection" button to choose repositories to sync.
         </p>
       </div>
     );
@@ -55,9 +99,18 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
                     </h6>
                     <small className="text-muted">{repo.full_name}</small>
                   </div>
-                  <div>
-                    <Badge bg={repo.private ? 'warning' : 'success'} className="ms-2">
+                  <div className="d-flex gap-1">
+                    <Badge bg={repo.private ? 'warning' : 'success'}>
                       {repo.private ? 'Private' : 'Public'}
+                    </Badge>
+                    {repo.language && (
+                      <Badge bg={getLanguageColor(repo.language)}>
+                        {repo.language}
+                      </Badge>
+                    )}
+                    <Badge bg="primary" className="d-flex align-items-center">
+                      <i className="bi bi-check-circle me-1" style={{ fontSize: '0.75em' }}></i>
+                      Selected
                     </Badge>
                   </div>
                 </div>
@@ -76,8 +129,17 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
                         {repo.default_branch}
                       </span>
                       <span>
-                        <i className="bi bi-clock me-1"></i>
-                        Updated recently
+                        {repo.sync_enabled ? (
+                          <span className="text-success">
+                            <i className="bi bi-arrow-clockwise me-1"></i>
+                            Sync Enabled
+                          </span>
+                        ) : (
+                          <span className="text-warning">
+                            <i className="bi bi-pause-circle me-1"></i>
+                            Sync Disabled
+                          </span>
+                        )}
                       </span>
                     </div>
                   </div>
