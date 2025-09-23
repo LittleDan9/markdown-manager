@@ -9,17 +9,19 @@ import { NotificationProvider } from '../components/NotificationProvider.jsx';
 
 // Application Providers
 import { AuthProvider } from './AuthProvider';
+import { UserSettingsProvider } from './UserSettingsProvider';
 import { DocumentContextProvider } from './DocumentContextProvider.jsx';
 
 /**
  * AppProviders - Centralized provider composition for the entire application
- * 
+ *
  * Provider order is critical for dependencies:
  * 1. Infrastructure Layer (Logger, ErrorBoundary, Theme, Notifications)
- * 2. Core Application Layer (Auth)
+ * 2. Core Application Layer (Auth, UserSettings)
  * 3. Feature Layer (SharedView, Document, PreviewHTML)
- * 
+ *
  * Dependencies:
+ * - UserSettingsProvider depends on: AuthProvider
  * - DocumentProvider depends on: AuthProvider, SharedViewProvider, NotificationProvider
  * - All others are independent
  */
@@ -30,9 +32,11 @@ function AppProviders({ children }) {
         <ThemeProvider>
           <NotificationProvider>
             <AuthProvider>
-              <DocumentContextProvider>
-                {children}
-              </DocumentContextProvider>
+              <UserSettingsProvider>
+                <DocumentContextProvider>
+                  {children}
+                </DocumentContextProvider>
+              </UserSettingsProvider>
             </AuthProvider>
           </NotificationProvider>
         </ThemeProvider>

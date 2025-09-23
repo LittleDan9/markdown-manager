@@ -7,7 +7,7 @@ import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
-export default function Editor({ value, onChange, onCursorLineChange }) {
+export default function Editor({ value, onChange, onCursorLineChange, fullscreenPreview = false }) {
   const containerRef = useRef(null);
   const { currentDocument, setCurrentDocument, setContent } = useDocumentContext();
   const { isAuthenticated } = useAuth();
@@ -62,10 +62,16 @@ export default function Editor({ value, onChange, onCursorLineChange }) {
   const editorClassName = `has-toolbar ${isAuthenticated ? 'has-github-status' : 'no-github-status'}`;
 
   return (
-    <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
-      <MarkdownToolbar 
-        editorRef={{ current: editor }} 
-        onSpellCheck={runSpellCheck} 
+    <div style={{
+      height: "100%",
+      width: "100%",
+      position: "relative",
+      display: fullscreenPreview ? "none" : "flex",
+      flexDirection: "column"
+    }}>
+      <MarkdownToolbar
+        editorRef={{ current: editor }}
+        onSpellCheck={runSpellCheck}
         spellCheckProgress={progress}
         onMarkdownLint={runMarkdownLint}
         markdownLintProgress={lintProgress}

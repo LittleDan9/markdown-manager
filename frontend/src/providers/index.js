@@ -2,6 +2,7 @@
 export { AuthProvider, useAuth } from './AuthProvider';
 export { LoggerProvider, useLogger } from './LoggerProvider';
 export { ThemeProvider, useTheme } from './ThemeProvider';
+export { UserSettingsProvider, useUserSettings } from './UserSettingsProvider';
 export { default as AppProviders } from './AppProviders';
 export { DocumentContextProvider, useDocumentContext } from './DocumentContextProvider.jsx';
 

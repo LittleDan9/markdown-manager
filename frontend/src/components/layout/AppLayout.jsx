@@ -1,9 +1,10 @@
 import React from 'react';
 import PropTypes from 'prop-types';
+import InvisibleResizer from './InvisibleResizer';
 
 /**
  * AppLayout - Main layout structure for the application
- * Provides the basic layout structure without business logic
+ * Simple layout structure with invisible resize functionality
  */
 function AppLayout({ header, toolbar, editorSection, rendererSection, fullscreenPreview }) {
   return (
@@ -11,9 +12,13 @@ function AppLayout({ header, toolbar, editorSection, rendererSection, fullscreen
       <div id="container">
         {header}
         {toolbar}
-        <div id="main" className={fullscreenPreview ? "preview-full" : "split-view"}>
+        <div
+          id="main"
+          className={fullscreenPreview ? "preview-full" : "split-view"}
+        >
           {editorSection}
           {rendererSection}
+          <InvisibleResizer fullscreenPreview={fullscreenPreview} />
         </div>
       </div>
     </div>

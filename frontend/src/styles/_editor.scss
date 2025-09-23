@@ -95,12 +95,19 @@
   border-top: none !important; // Remove top border since toolbar provides it
   border-radius: 0 0 0.5rem 0.5rem !important; // Bottom corners rounded
 
-  // Monaco container takes up most of the space
+  // Ensure proper flex layout to prevent Monaco from pushing status bar out
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  min-height: 0 !important;
+
+  // Monaco container takes up available space minus status bar
   .monaco-container {
     border: none !important;
     border-radius: 0 !important; // No radius for Monaco itself
     flex: 1 1 auto;
     min-height: 0; // Allow Monaco to shrink properly
+    overflow: hidden; // Ensure Monaco doesn't overflow
   }
 
   .monaco-editor,
@@ -108,10 +115,24 @@
     border-radius: 0; // Remove all border radius for Monaco editor
   }
 
+  // When GitHub status bar is present, reserve space for it
+  &.has-github-status {
+    .monaco-container {
+      // Reserve space for the status bar at the bottom (min 40px + borders)
+      max-height: calc(100% - 50px); // Reserve 50px for status bar and borders
+    }
+
+    // Ensure the GitHub status bar is properly positioned
+    .github-status-bar {
+      flex: 0 0 auto; // Fixed size, don't grow/shrink
+    }
+  }
+
   // If no GitHub status bar is present (guest users), Monaco should have bottom corners
   &.no-github-status {
     .monaco-container {
       border-radius: 0 0 0.5rem 0.5rem !important;
+      max-height: 100%; // Can use full height when no status bar
     }
 
     .monaco-editor,
@@ -127,8 +148,131 @@
   border-bottom: none; // Will connect with editor border
   border-radius: 0.5rem 0.5rem 0 0; // Only top corners rounded
 
+  // Ensure consistent height for dropdown buttons
+  .heading-dropdown,
+  .media-dropdown,
+  .format-dropdown {
+    .btn {
+      height: 27px !important; // Match actual btn-sm height (27px)
+      min-height: 27px !important;
+      max-height: 27px !important;
+      display: flex !important;
+      align-items: center !important;
+      padding: 0.25rem 0.5rem !important; // Match btn-sm padding
+      line-height: 1 !important; // Remove any line-height differences
+      box-sizing: border-box !important;
+      border: 1px solid transparent !important; // Match other toolbar buttons
+    }
+
+    .dropdown-toggle {
+      height: 27px !important;
+      min-height: 27px !important;
+      max-height: 27px !important;
+      border: 1px solid transparent !important; // Remove white border
+    }
+
+    // Match button variant styling for light/dark modes
+    .btn-outline-secondary {
+      border-color: transparent !important;
+      background-color: transparent !important;
+    }
+
+    .btn-outline-secondary:hover,
+    .btn-outline-secondary:focus,
+    .btn-outline-secondary.show {
+      border-color: var(--bs-secondary-border-subtle) !important;
+      background-color: var(--bs-secondary-bg-subtle) !important;
+    }
+
+    .dropdown-toggle::after {
+      margin-left: 0.255em !important; // Adjust dropdown arrow spacing
+    }
+
+    // Style the dropdown menu itself - use higher specificity
+    &.show .dropdown-menu,
+    .dropdown-menu {
+      padding: 0.125rem 0 !important; // Very minimal top/bottom padding
+      margin: 0 !important; // Remove any margin
+      border-radius: 0.25rem !important; // Smaller border radius
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important; // Subtle shadow
+      min-width: 140px !important; // Smaller minimum width
+      max-width: 180px !important; // Prevent it from getting too wide
+    }
+
+    // Style dropdown items - use higher specificity
+    &.show .dropdown-item,
+    .dropdown-item {
+      padding: 0.25rem 0.5rem !important; // Much more compact padding
+      font-size: 0.8125rem !important; // Slightly smaller font
+      line-height: 1.2 !important; // Tighter line height
+      white-space: nowrap !important; // Prevent text wrapping
+
+      // Icon spacing
+      i {
+        width: 14px !important; // Smaller icon width
+        text-align: center !important;
+        font-size: 0.75rem !important; // Smaller icons
+      }
+
+      // Make strong text slightly smaller too
+      strong {
+        font-size: 0.8125rem !important;
+        font-weight: 600 !important; // Slightly less bold
+      }
+
+      // Muted text (keyboard shortcuts) smaller
+      .text-muted {
+        font-size: 0.75rem !important;
+      }
+
+      // Hover/focus states
+      &:hover,
+      &:focus {
+        background-color: var(--bs-secondary-bg-subtle) !important;
+        color: var(--bs-body-color) !important;
+      }
+
+      // Active state
+      &:active {
+        background-color: var(--bs-primary-bg-subtle) !important;
+        color: var(--bs-primary-text-emphasis) !important;
+      }
+    }
+  }
+
   @include mixins.dark {
     border-color: #495057;
+  }
+}
+
+// Global dropdown overrides for toolbar dropdowns - even higher specificity
+.markdown-toolbar .dropdown-menu {
+  padding: 0.125rem 0 !important;
+  margin: 0 !important;
+  border-radius: 0.25rem !important;
+  min-width: 140px !important;
+  max-width: 180px !important;
+}
+
+.markdown-toolbar .dropdown-item {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.8125rem !important;
+  line-height: 1.2 !important;
+  white-space: nowrap !important;
+
+  i {
+    width: 14px !important;
+    text-align: center !important;
+    font-size: 0.75rem !important;
+  }
+
+  strong {
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+  }
+
+  .text-muted {
+    font-size: 0.75rem !important;
   }
 }
 
@@ -150,6 +294,15 @@
 
   // Add subtle shadow to separate from editor content
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+
+  // Ensure proper positioning and sizing
+  flex: 0 0 auto; // Don't grow or shrink - fixed size
+  height: auto; // Let content determine height
+  min-height: 40px; // Minimum height to ensure content fits
+  max-height: 60px; // Maximum height to prevent excessive growth
+  width: 100%;
+  position: relative; // Ensure proper positioning
+  z-index: 2; // Above Monaco editor content
 
   // Ensure proper theming
   @include mixins.dark {
@@ -176,6 +329,17 @@
 #editor {
   min-width: 0 !important;
   width: 100% !important;
+
+  // CRITICAL: Ensure the editor uses proper flex layout to constrain Monaco
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  overflow: hidden !important; // Prevent the entire editor from scrolling
+
+  // Override any inline styles that might interfere
+  &[style*="height"] {
+    height: 100% !important;
+  }
 }
 
 // Ensure preview content can shrink

@@ -31,6 +31,7 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = None
     sync_preview_scroll_enabled: Optional[bool] = None
     autosave_enabled: Optional[bool] = None
+    editor_width_percentage: Optional[int] = Field(None, ge=10, le=90)
 
 
 class UserUpdatePassword(BaseModel):
@@ -73,6 +74,7 @@ class UserResponse(UserBase):
     full_name: str
     sync_preview_scroll_enabled: bool
     autosave_enabled: bool
+    editor_width_percentage: int
     current_doc_id: Optional[int] = None
     current_document: Optional["Document"] = None  # Should match Document schema
 

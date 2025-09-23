@@ -26,72 +26,89 @@
     flex: 1 1 auto; // share 100vh minus header and toolbar, shrink/grow if needed
     min-height: 0; // allow its children to shrink
     overflow: hidden;
+    position: relative; // Allow positioning of the resizer
 
 
     &.split-view {
-      .editor-wrapper   { width: 40%; }
-      .renderer-wrapper { width: 70%; }
+      #editorContainer   { width: 40%; }
+      #previewContainer { width: 60%; }
     }
 
     &.preview-full {
-      .editor-wrapper   { width: 0; }
-      .renderer-wrapper { width: 100%; }
+      #editorContainer   {
+        width: 0 !important;
+        flex: 0 0 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        overflow: hidden !important;
+      }
+      #previewContainer {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        padding: 0.5rem !important;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
     }
 
     // common to both states
-    .editor-wrapper,
-    .renderer-wrapper {
+    #editorContainer,
+    #previewContainer {
       overflow: hidden;             // hide the editor as it shrinks
       // transition: width 0.3s ease;  // smooth grow/shrink
     }
 
-    // ─── LEFT EDITOR PANE (40% width) ───
+    // ─── LEFT EDITOR PANE (dynamic width) ───
     #editorContainer {
-      flex: 0 0 40%; // exactly 40% of #main's width
+      flex: 0 0 40%; // default 40% of #main's width (overridden by inline styles)
       height: 100%; // fill #main's height
       display: flex;
       flex-direction: column;
       min-height: 0; // allow #editor to shrink/grow inside
+      max-height: 100%; // prevent overflow beyond container height
       border-top-left-radius: 0.5rem;
       border-bottom-left-radius: 0.5rem;
-      padding: 1rem;
+      padding: 0.5rem; // Reduced from 1rem (50% reduction)
       box-sizing: border-box;
+      overflow: hidden; // ensure content doesn't overflow container
 
       #editor {
         flex: 1 1 auto; // fill entire height of #editorContainer
         border: 1px solid #ced4da;
         border-radius: 0.5rem;
         overflow: hidden; // Monaco editor will handle its own scrolling
-        
+        min-height: 0; // allow editor to shrink if needed
+
         @include mixins.dark {
           border-color: #495057;
         }
       }
     }
 
-    // ─── RIGHT PREVIEW PANE (60% width) ───
+    // ─── RIGHT PREVIEW PANE (dynamic width) ───
     #previewContainer {
-      flex: 0 0 60%; // exactly 60% of #main's width
+      flex: 0 0 60%; // default 60% of #main's width (overridden by inline styles)
       height: 100%; // fill #main's height
-      display: flex; // center #preview inside it
-      justify-content: center;
-      align-items: center;
+      display: flex; // align #preview inside it
+      flex-direction: column;
       // background-color: #ffffff;
       min-height: 0; // allow #preview to shrink/grow
-      padding: 1rem;
+      padding: 0.5rem; // Reduced from 1rem (50% reduction)
+      padding-top: 0.5rem; // Match editor top padding
       /* Optionally, if you want a dropped‐shadow around the preview: */
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
       #preview {
         width: 100%;
-        height: 100%;
         display: flex; // center its children (the Mermaid SVG)
         flex-direction: column;
         border-radius: 0.5rem;
         border: #ced4da 1px solid;
         padding: 0.25rem;
         box-sizing: border-box;
-        
+        flex: 1 1 auto; // Ensure it fills available height
+        min-height: 0; // Allow content to shrink if needed
+
         @include mixins.dark {
           border-color: #495057;
         }
@@ -102,7 +119,7 @@
         overflow: auto;
         border-radius: inherit;
         min-height: 0;
-        padding: 1rem;
+        padding: 0.5rem; // Reduced padding
         word-wrap: break-word;
         overflow-wrap: break-word;
         -webkit-hyphens: auto;

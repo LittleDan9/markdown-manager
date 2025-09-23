@@ -4,7 +4,7 @@
 // Document hooks - Document state, operations, and lifecycle
 export * from './document';
 
-// Editor hooks - Monaco editor, cursor, and keyboard interactions  
+// Editor hooks - Monaco editor, cursor, and keyboard interactions
 export * from './editor';
 
 // Dictionary hooks - Custom dictionary management
@@ -22,11 +22,15 @@ export * from './ui';
 // Performance hooks - Optimization, monitoring, and memory management
 export * from './performance';
 
+// LocalStorage hooks - Browser storage management and persistence
+export { useLocalStorage, useEditorWidth } from './useLocalStorage';
+
 // This allows importing from specific categories:
 // import { useDocumentState, useSaveDocument } from '@/hooks/document';
 // import { useEditor, useGlobalKeyboardShortcuts } from '@/hooks/editor';
 // import { useDictionaryState } from '@/hooks/dictionary';
 // import { useGitHubOAuth, useGitHubAccounts } from '@/hooks/github';
-// 
+// import { useLocalStorage, useEditorWidth } from '@/hooks';
+//
 // Or from the main barrel export:
 // import { useDocumentState, useEditor, useDictionaryState, useGitHubOAuth } from '@/hooks';

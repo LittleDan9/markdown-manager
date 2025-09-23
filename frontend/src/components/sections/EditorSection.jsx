@@ -21,7 +21,7 @@ function EditorSection({
   }
 
   return (
-    <div className="editor-wrapper">
+    <div id="editorContainer">
       {!isInitializing ? (
         <Editor
           value={content}
@@ -31,7 +31,7 @@ function EditorSection({
           fullscreenPreview={fullscreenPreview}
         />
       ) : (
-        <div id="editorContainer" style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
+        <div style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
           <div className="editor-loading-container">
             <div className="text-center">
               <div className="spinner-border text-primary mb-3" role="status">

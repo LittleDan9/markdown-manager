@@ -48,6 +48,7 @@ class User(BaseModel):
     # Editor/UX settings
     sync_preview_scroll_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     autosave_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    editor_width_percentage: Mapped[int] = mapped_column(Integer, default=40)
 
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

@@ -33,6 +33,11 @@ function App() {
   // Setup global keyboard shortcuts (Ctrl+S, etc.)
   useGlobalKeyboardShortcuts();
 
+  // Debug fullscreen state changes
+  useEffect(() => {
+    console.log('App: fullscreenPreview changed to:', fullscreenPreview);
+  }, [fullscreenPreview]);
+
   // Setup auto-save management (30 seconds delay, only when content changes)
   useDocumentAutoSave(currentDocument, content, saveDocument, autosaveEnabled, isSharedView, 30000);
 

@@ -50,6 +50,7 @@ async def get_current_user_profile(
         full_name=current_user.full_name,
         sync_preview_scroll_enabled=current_user.sync_preview_scroll_enabled,
         autosave_enabled=current_user.autosave_enabled,
+        editor_width_percentage=current_user.editor_width_percentage,
         current_doc_id=current_user.current_doc_id,
         current_document=current_document
     )

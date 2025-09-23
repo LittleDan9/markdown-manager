@@ -48,7 +48,7 @@ function RendererSection({
       documentLoading,
       hasRendered
     });
-    
+
     if (!content.trim() && !isInitializing && !sharedLoading && !documentLoading) {
       console.log("RendererSection: Setting hasRendered=true for empty content");
       setHasRendered(true);
@@ -64,23 +64,25 @@ function RendererSection({
   const showSpinner = (isInitializing || sharedLoading || documentLoading) && !hasRendered;
 
   return (
-    <div className="renderer-wrapper position-relative">
+    <>
       {isSharedView && !sharedDocument && !sharedLoading ? (
-        <Container className="py-4">
-          <Alert variant="danger">
-            <Alert.Heading>Unable to Load Document</Alert.Heading>
-            <p>The shared document could not be found or sharing has been disabled.</p>
-            <hr />
-            <div className="d-flex justify-content-end">
-              <Button
-                variant="outline-danger"
-                onClick={() => window.location.href = '/'}
-              >
-                Go to Main App
-              </Button>
-            </div>
-          </Alert>
-        </Container>
+        <div id="previewContainer">
+          <Container className="py-4">
+            <Alert variant="danger">
+              <Alert.Heading>Unable to Load Document</Alert.Heading>
+              <p>The shared document could not be found or sharing has been disabled.</p>
+              <hr />
+              <div className="d-flex justify-content-end">
+                <Button
+                  variant="outline-danger"
+                  onClick={() => window.location.href = '/'}
+                >
+                  Go to Main App
+                </Button>
+              </div>
+            </Alert>
+          </Container>
+        </div>
       ) : (
         <Renderer
           content={content}
@@ -92,7 +94,7 @@ function RendererSection({
           loadingMessage={loadingMessage}
         />
       )}
-    </div>
+    </>
   );
 }
 RendererSection.propTypes = {
