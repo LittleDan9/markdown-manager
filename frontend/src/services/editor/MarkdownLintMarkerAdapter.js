@@ -242,7 +242,7 @@ export class MarkdownLintMarkerAdapter {
 
     // markdownlint rule documentation URLs
     const baseUrl = 'https://github.com/DavidAnson/markdownlint/blob/main/doc';
-    return `${baseUrl}/${rule}.md`;
+    return `${baseUrl}/${rule.toLowerCase()}.md`;
   }
 
     /**

@@ -8,7 +8,7 @@
 import lintingApi from '../../api/lintingApi';
 
 export class MarkdownLintService {
-  constructor(chunkSize = 2000) {
+  constructor(chunkSize = 1000000) { // 1MB - align with PerformanceOptimizer thresholds
     this.chunkSize = chunkSize;
     this._enabled = true;
     this._initialized = false;
