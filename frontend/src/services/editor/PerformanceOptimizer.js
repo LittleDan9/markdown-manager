@@ -155,6 +155,15 @@ class PerformanceOptimizer {
       // Disable rulers and guides
       rulers: [],
       renderControlCharacters: false,
+      // Disable Unicode character highlighting
+      unicodeHighlight: {
+        ambiguousCharacters: false,
+        invisibleCharacters: false,
+        nonBasicASCII: false,
+        includeComments: false,
+        allowedCharacters: {},
+        allowedLocales: true
+      },
 
       // More aggressive performance settings only for extreme documents
       contextmenu: !isExtreme,

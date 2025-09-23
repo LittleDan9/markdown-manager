@@ -44,6 +44,15 @@ class Editor {
       renderLineHighlight: "none",
       renderWhitespace: "none",
       renderControlCharacters: false,
+      // Disable Unicode character highlighting
+      unicodeHighlight: {
+        ambiguousCharacters: false,
+        invisibleCharacters: false,
+        nonBasicASCII: false,
+        includeComments: false,
+        allowedCharacters: {},
+        allowedLocales: true
+      },
       direction: "LTR"
     };
 
