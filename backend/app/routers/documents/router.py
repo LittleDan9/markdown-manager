@@ -130,6 +130,7 @@ async def create_document(
     # Ensure filename has .md extension
     filename = document_data.name if document_data.name.endswith('.md') else f"{document_data.name}.md"
     category_name = folder_path.strip('/').split('/')[-1] if folder_path != '/' else 'General'
+    # File path relative to user directory
     file_path = f"local/{category_name}/{filename}"
 
     # Write content to filesystem

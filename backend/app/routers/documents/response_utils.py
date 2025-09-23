@@ -27,13 +27,32 @@ async def create_document_response(
     # Load content from filesystem if not provided
     if content is None:
         storage_service = UserStorage()
-        content = await storage_service.read_document(
-            user_id=user_id,
-            file_path=document.file_path or ""
-        )
-        # If content is still None, use empty string as fallback
+        try:
+            content = await storage_service.read_document(
+                user_id=user_id,
+                file_path=document.file_path or ""
+            )
+        except Exception as e:
+            # Log the specific error for debugging
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.warning(f"Failed to read document {document.id} from filesystem: {e}")
+            content = None
+        
+        # If content is still None, provide helpful fallback message
         if content is None:
-            content = ""
+            if document.file_path:
+                content = (
+                    f"# File Not Found\n\n"
+                    f"The document file at `{document.file_path}` could not be loaded.\n\n"
+                    f"This may indicate:\n"
+                    f"- The file was deleted from the filesystem\n"
+                    f"- There's a permission issue\n"
+                    f"- The file path is incorrect\n\n"
+                    f"Please check the document's file path or re-import the document if it's from GitHub."
+                )
+            else:
+                content = "# No Content\n\nThis document has no associated file path."
 
     # Check if category name is already populated (from CRUD layer joins)
     category_name = getattr(document, 'category', None)
