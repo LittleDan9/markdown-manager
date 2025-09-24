@@ -68,11 +68,58 @@ class GitHubCRUD:
         return account
 
     async def delete_account(self, db: AsyncSession, account_id: int) -> bool:
-        """Delete GitHub account."""
+        """Delete GitHub account and clean up all related data."""
+        from sqlalchemy import select, delete
+        from app.models.document import Document
+        from app.models.github_models import GitHubRepository, GitHubSyncHistory, GitHubRepositorySelection
+        
         account = await self.get_account(db, account_id)
         if not account:
             return False
 
+        # Step 1: Get all repository IDs that will be deleted
+        repository_ids_result = await db.execute(
+            select(GitHubRepository.id).where(GitHubRepository.account_id == account_id)
+        )
+        repository_ids = [row[0] for row in repository_ids_result.fetchall()]
+
+        if repository_ids:
+            # Step 2: Handle documents that reference these repositories
+            documents_result = await db.execute(
+                select(Document).where(Document.github_repository_id.in_(repository_ids))
+            )
+            documents_to_update = documents_result.fetchall()
+
+            # Update documents to remove GitHub references (convert to local)
+            for (document,) in documents_to_update:
+                document.github_repository_id = None
+                document.github_file_path = None
+                document.github_branch = None
+                document.github_sha = None
+                document.local_sha = None
+                document.github_sync_status = None
+                document.last_github_sync_at = None
+                document.github_commit_message = None
+                document.repository_type = "local"
+                # Keep the document content and move to local storage
+                # The file_path should already be set for local storage
+
+            # Step 3: Delete sync history for these repositories
+            await db.execute(
+                delete(GitHubSyncHistory).where(GitHubSyncHistory.repository_id.in_(repository_ids))
+            )
+
+        # Step 4: Delete repository selections (handled by cascade, but explicit for clarity)
+        await db.execute(
+            delete(GitHubRepositorySelection).where(GitHubRepositorySelection.github_account_id == account_id)
+        )
+
+        # Step 5: Delete repositories (this will cascade to remaining sync history)
+        await db.execute(
+            delete(GitHubRepository).where(GitHubRepository.account_id == account_id)
+        )
+
+        # Step 6: Delete the account itself
         await db.delete(account)
         await db.commit()
         return True

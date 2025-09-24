@@ -58,6 +58,16 @@ class DocumentsApi extends Api {
     return res.data;
   }
 
+  /**
+   * Open a GitHub document with proper repo management and filesystem sync
+   * @param {number} id - Document ID
+   * @returns {Promise<Object>} - Document with synced content
+   */
+  async openGitHubDocument(id) {
+    const res = await this.apiCall(`/documents/${id}/github/open`, 'POST');
+    return res.data;
+  }
+
   async createDocument({ name, content, category, category_id }) {
     // If category_id is provided, use it; otherwise try to resolve category name to ID
     let finalCategoryId = category_id;

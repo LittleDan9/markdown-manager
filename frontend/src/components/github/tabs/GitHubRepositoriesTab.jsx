@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Alert, Badge, Row, Col, Form, InputGroup } from 'react-bootstrap';
+import { Card, Button, Alert, Badge, Row, Col, Form, InputGroup, ProgressBar } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
 import GitHubRepositorySettings from '../settings/GitHubRepositorySettings';
@@ -16,6 +16,8 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [error, setError] = useState(null);
   const [showRepositorySettings, setShowRepositorySettings] = useState(false);
+  const [gitStatusOverview, setGitStatusOverview] = useState(null);
+  const [loadingGitStatus, setLoadingGitStatus] = useState(false);
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
 
@@ -70,11 +72,56 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
 
       setRepositories(transformedRepos);
       setError(null);
+      
+      // Load git status overview after repositories are loaded
+      if (transformedRepos.length > 0) {
+        loadGitStatusOverview(transformedRepos);
+      }
     } catch (err) {
       setError('Failed to load selected repositories');
       console.error('Error loading selected repositories:', err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadGitStatusOverview = async (repoList = repositories) => {
+    if (repoList.length === 0) return;
+    
+    setLoadingGitStatus(true);
+    
+    try {
+      const statusPromises = repoList.map(async (repo) => {
+        if (!repo.internal_repo_id && !repo.id) return null;
+        
+        const repoId = repo.internal_repo_id || repo.id;
+        try {
+          const status = await gitHubApi.getRepositoryStatus(repoId);
+          return { repo: repo.name, ...status };
+        } catch (error) {
+          return { repo: repo.name, error: error.message };
+        }
+      });
+      
+      const statuses = await Promise.all(statusPromises);
+      const validStatuses = statuses.filter(status => status && !status.error);
+      
+      const overview = {
+        total: repoList.length,
+        cloned: validStatuses.length,
+        withChanges: validStatuses.filter(s => s.has_changes).length,
+        clean: validStatuses.filter(s => !s.has_changes).length,
+        branches: [...new Set(validStatuses.map(s => s.branch))],
+        totalModified: validStatuses.reduce((sum, s) => sum + (s.modified_files?.length || 0), 0),
+        totalStaged: validStatuses.reduce((sum, s) => sum + (s.staged_files?.length || 0), 0),
+        totalUntracked: validStatuses.reduce((sum, s) => sum + (s.untracked_files?.length || 0), 0)
+      };
+      
+      setGitStatusOverview(overview);
+    } catch (error) {
+      console.error('Failed to load git status overview:', error);
+    } finally {
+      setLoadingGitStatus(false);
     }
   };
 
@@ -155,6 +202,100 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
               <i className="bi bi-exclamation-triangle me-2"></i>
               No GitHub accounts connected. Please connect an account first in the Accounts tab.
             </Alert>
+          )}
+
+          {selectedAccount && gitStatusOverview && (
+            <Card className="mb-3">
+              <Card.Header className="d-flex align-items-center justify-content-between">
+                <div>
+                  <i className="bi bi-git me-2"></i>
+                  Git Status Overview
+                </div>
+                <Button
+                  variant="outline-secondary"
+                  size="sm"
+                  onClick={() => loadGitStatusOverview()}
+                  disabled={loadingGitStatus}
+                >
+                  <i className={`bi ${loadingGitStatus ? 'bi-arrow-clockwise spinning' : 'bi-arrow-clockwise'} me-1`}></i>
+                  Refresh Status
+                </Button>
+              </Card.Header>
+              <Card.Body>
+                <Row>
+                  <Col md={3}>
+                    <div className="text-center">
+                      <div className="h4 mb-1 text-primary">{gitStatusOverview.cloned}</div>
+                      <div className="small text-muted">Cloned Locally</div>
+                      <ProgressBar 
+                        now={(gitStatusOverview.cloned / gitStatusOverview.total) * 100} 
+                        variant="primary" 
+                        className="mt-1" 
+                        style={{ height: '4px' }}
+                      />
+                    </div>
+                  </Col>
+                  <Col md={3}>
+                    <div className="text-center">
+                      <div className="h4 mb-1 text-success">{gitStatusOverview.clean}</div>
+                      <div className="small text-muted">Clean</div>
+                      <ProgressBar 
+                        now={gitStatusOverview.cloned > 0 ? (gitStatusOverview.clean / gitStatusOverview.cloned) * 100 : 0} 
+                        variant="success" 
+                        className="mt-1" 
+                        style={{ height: '4px' }}
+                      />
+                    </div>
+                  </Col>
+                  <Col md={3}>
+                    <div className="text-center">
+                      <div className="h4 mb-1 text-warning">{gitStatusOverview.withChanges}</div>
+                      <div className="small text-muted">With Changes</div>
+                      <ProgressBar 
+                        now={gitStatusOverview.cloned > 0 ? (gitStatusOverview.withChanges / gitStatusOverview.cloned) * 100 : 0} 
+                        variant="warning" 
+                        className="mt-1" 
+                        style={{ height: '4px' }}
+                      />
+                    </div>
+                  </Col>
+                  <Col md={3}>
+                    <div className="text-center">
+                      <div className="h4 mb-1 text-info">{gitStatusOverview.branches.length}</div>
+                      <div className="small text-muted">Active Branches</div>
+                      <div className="mt-1 small">
+                        {gitStatusOverview.branches.slice(0, 2).map(branch => (
+                          <Badge key={branch} bg="info" className="me-1">{branch}</Badge>
+                        ))}
+                        {gitStatusOverview.branches.length > 2 && (
+                          <Badge bg="secondary">+{gitStatusOverview.branches.length - 2}</Badge>
+                        )}
+                      </div>
+                    </div>
+                  </Col>
+                </Row>
+                {(gitStatusOverview.totalModified > 0 || gitStatusOverview.totalStaged > 0 || gitStatusOverview.totalUntracked > 0) && (
+                  <Row className="mt-3 pt-3 border-top">
+                    <Col>
+                      <div className="small text-muted text-center">
+                        <span className="me-3">
+                          <i className="bi bi-pencil text-warning me-1"></i>
+                          {gitStatusOverview.totalModified} modified
+                        </span>
+                        <span className="me-3">
+                          <i className="bi bi-plus-circle text-success me-1"></i>
+                          {gitStatusOverview.totalStaged} staged
+                        </span>
+                        <span>
+                          <i className="bi bi-question-circle text-secondary me-1"></i>
+                          {gitStatusOverview.totalUntracked} untracked
+                        </span>
+                      </div>
+                    </Col>
+                  </Row>
+                )}
+              </Card.Body>
+            </Card>
           )}
 
           {selectedAccount && (

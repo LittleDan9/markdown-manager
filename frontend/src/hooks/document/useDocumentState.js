@@ -271,15 +271,15 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     try {
       // First try to load from localStorage
       let doc = DocumentService.loadDocument(id);
-      
+
       // If not found locally, try to fetch from backend
       if (!doc) {
         console.log(`Document ${id} not found locally, fetching from backend...`);
         try {
           doc = await documentsApi.getDocument(id);
           if (doc) {
-            // Store the fetched document locally for future use
-            DocumentStorageService.setDocument(doc);
+            // Store the fetched document locally for future use, but don't set as current yet
+            DocumentStorageService.setDocument(doc, false);
             console.log(`Successfully fetched document ${id} from backend`);
           }
         } catch (fetchError) {
@@ -287,7 +287,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
           // Will fall through to the "Document not found" error below
         }
       }
-      
+
       if (doc) {
         setCurrentDocument(doc);
         setContent(doc.content || '');
@@ -299,7 +299,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
         // handle preview HTML generation based on the new content
         setHighlightedBlocks({});
         await updateCurrentDocument(doc);
-        
+
         // Mark document as recently opened
         try {
           if (isAuthenticated && token && !String(doc.id).startsWith('doc_')) {
@@ -330,27 +330,27 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     setError('');
     try {
       const saved = await DocumentService.saveDocument(docToSave, showNotification);
-      
+
       // Only update state if something actually changed to prevent unnecessary re-renders
       const contentChanged = saved.content !== content;
-      const documentChanged = !currentDocument || 
-        saved.id !== currentDocument.id || 
+      const documentChanged = !currentDocument ||
+        saved.id !== currentDocument.id ||
         saved.name !== currentDocument.name ||
         saved.category !== currentDocument.category ||
         saved.updated_at !== currentDocument.updated_at;
-      
+
       if (documentChanged) {
         setCurrentDocument(saved);
       }
-      
+
       if (contentChanged && saved.id === currentDocument.id) {
         setContent(saved.content);
       }
-      
+
       if (documentChanged) {
         await updateCurrentDocument(saved);
       }
-      
+
       // Always refresh documents list as it may contain new metadata
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);

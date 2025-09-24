@@ -522,7 +522,7 @@ class DocumentCRUD:
             document.github_file_path = github_data.get('file_path')
             document.github_branch = github_data.get('branch')
             document.github_sha = github_data.get('sha')
-            document.repository_type = "github_repo"
+            document.repository_type = "github"
             # Set file_path for filesystem storage - relative to user directory
             repo_name = github_data.get('repo_name', 'unknown')
             account_id = github_data.get('account_id', 1)

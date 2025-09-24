@@ -79,6 +79,19 @@ class DocumentStorageService {
     return deletedDoc;
   }
 
+  // Combined operation: save document and optionally set as current
+  setDocument(doc, setCurrent = true) {
+    // Save to document storage
+    const savedDoc = this.saveDocument(doc);
+    
+    // Optionally set as current document
+    if (setCurrent) {
+      this.setCurrentDocument(savedDoc);
+    }
+    
+    return savedDoc;
+  }
+
   // Current document operations
   getCurrentDocument() {
     const doc = localStorage.getItem(CURRENT_DOC_KEY);

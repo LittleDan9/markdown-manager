@@ -539,6 +539,96 @@ body .custom-modal-content {
   }
 }
 
+// GitHub Save Modal Styles
+.github-save-modal {
+  .github-save-branch-options {
+    .form-check-label {
+      font-weight: 500;
+      color: var(--bs-body-color);
+      cursor: pointer;
+      
+      &:hover {
+        color: var(--bs-primary);
+      }
+    }
+    
+    .form-check:has(.form-check-input:disabled) .form-check-label {
+      opacity: 0.6;
+      cursor: not-allowed;
+      
+      &:hover {
+        color: var(--bs-body-color);
+      }
+    }
+  }
+
+  .github-save-new-branch-form {
+    background: rgba(var(--bs-primary-rgb), 0.02);
+    border: 1px solid rgba(var(--bs-primary-rgb), 0.1);
+    border-radius: var(--bs-border-radius-lg);
+    padding: 1.25rem;
+    margin-top: 0.75rem;
+    transition: all 0.2s ease;
+
+    [data-bs-theme="dark"] & {
+      background: rgba(var(--bs-primary-rgb), 0.08);
+      border-color: rgba(var(--bs-primary-rgb), 0.2);
+    }
+
+    .form-label {
+      font-size: 0.875rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .form-control,
+    .form-select {
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+      &:focus {
+        border-color: var(--bs-primary);
+        box-shadow: 0 0 0 0.2rem rgba(var(--bs-primary-rgb), 0.25);
+      }
+    }
+
+    .form-text {
+      font-size: 0.8125rem;
+      line-height: 1.4;
+    }
+  }
+
+  .github-save-repo-info {
+    background: var(--bs-gray-50);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    padding: 1rem;
+    margin-top: 1rem;
+
+    [data-bs-theme="dark"] & {
+      background: rgba(255, 255, 255, 0.02);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+
+    .github-save-target-branch {
+      background: var(--bs-gray-100);
+      color: var(--bs-body-color);
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.8125rem;
+      border: 1px solid var(--bs-border-color);
+
+      [data-bs-theme="dark"] & {
+        background: var(--bs-gray-800);
+        border-color: var(--bs-gray-700);
+      }
+    }
+  }
+}
+
 // GitHub repositories scroll container
 .github-repositories-scroll {
   max-height: 300px;
@@ -655,6 +745,32 @@ body .custom-modal-content {
 
   .accordion-body {
     padding: 1rem 1.25rem;
+  }
+}
+
+// Spinning animation for refresh buttons
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}
+
+// Git status indicators
+.git-status-indicator {
+  .badge {
+    font-size: 0.7rem;
+  }
+}
+
+.github-repo-card {
+  transition: all 0.2s ease;
+  
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   }
 }
 

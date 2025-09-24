@@ -136,25 +136,36 @@ export default function GitHubTab({
       if (file.isImported && file.documentId) {
         const doc = documents?.find((d) => d.id === file.documentId);
         if (doc) {
-          onFileOpen(doc);
-          onModalHide();
-          return;
+          // For GitHub documents, use the special GitHub opening endpoint
+          // to ensure repo is cloned and content is synced
+          try {
+            console.log(`Opening GitHub document ${file.documentId} with repo management...`);
+            const { default: documentsApi } = await import('@/api/documentsApi');
+            const gitHubDoc = await documentsApi.openGitHubDocument(file.documentId);
+            console.log('GitHub document opened successfully:', gitHubDoc);
+            onFileOpen(gitHubDoc);
+            onModalHide();
+            return;
+          } catch (error) {
+            console.warn('Failed to open GitHub document with repo management, falling back to regular open:', error);
+            // Fall back to regular document opening
+            onFileOpen(doc);
+            onModalHide();
+            return;
+          }
         } else {
           // Document was marked as imported but not found in local documents list
-          // Since user is authenticated, fetch the document from backend
-          console.log(`Document ID ${file.documentId} not found locally, fetching from backend...`);
+          // Since user is authenticated, try to open it with GitHub repo management
+          console.log(`Document ID ${file.documentId} not found locally, trying GitHub repo management...`);
           try {
-            // Create a minimal document object with the known ID
-            // The handleOpenFile/loadDocument logic will fetch the full document
-            const documentToOpen = {
-              id: file.documentId,
-              name: file.name || 'Unknown Document'
-            };
-            onFileOpen(documentToOpen);
+            const { default: documentsApi } = await import('@/api/documentsApi');
+            const gitHubDoc = await documentsApi.openGitHubDocument(file.documentId);
+            console.log('GitHub document opened successfully via repo management:', gitHubDoc);
+            onFileOpen(gitHubDoc);
             onModalHide();
             return;
           } catch (err) {
-            console.warn(`Failed to open document ID ${file.documentId}, falling back to re-import:`, err);
+            console.warn(`Failed to open document ID ${file.documentId} with GitHub repo management, falling back to re-import:`, err);
             // If opening fails, fall through to re-import logic
           }
         }

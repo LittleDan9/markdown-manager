@@ -49,9 +49,15 @@ class GitHubFilesystemService(BaseGitHubService):
             Tuple of (success, stdout, stderr)
         """
         try:
-            process = await asyncio.create_subprocess_exec(
+            # Build git command with safe directory and ownership bypass
+            git_command = [
                 "git",
-                *command,
+                "-c", "safe.directory=*",  # Bypass ownership check
+                *command
+            ]
+            
+            process = await asyncio.create_subprocess_exec(
+                *git_command,
                 cwd=repo_path,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE

@@ -432,3 +432,99 @@ class GitHubAPIService(BaseGitHubService):
                     "local_sha": local_sha
                 }
             raise
+
+    async def get_file_commits(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        file_path: str,
+        branch: str = "main",
+        limit: int = 50
+    ) -> List[Dict[str, Any]]:
+        """Get commit history for a specific file."""
+        async with httpx.AsyncClient() as client:
+            params = {
+                "sha": branch,
+                "path": file_path,
+                "per_page": min(limit, 100)  # GitHub API max is 100
+            }
+            
+            response = await client.get(
+                f"{self.BASE_URL}/repos/{owner}/{repo}/commits",
+                params=params,
+                headers={
+                    "Authorization": f"token {access_token}",
+                    "Accept": "application/vnd.github.v3+json",
+                    "User-Agent": "Markdown-Manager/1.0"
+                }
+            )
+
+            if response.status_code != 200:
+                raise HTTPException(
+                    status_code=response.status_code,
+                    detail=f"Failed to get commit history: {response.text}"
+                )
+
+            commits_data = response.json()
+            
+            # Transform GitHub API response to our format
+            commits = []
+            for commit in commits_data:
+                commits.append({
+                    "hash": commit["sha"],
+                    "short_hash": commit["sha"][:7],
+                    "message": commit["commit"]["message"],
+                    "author_name": commit["commit"]["author"]["name"],
+                    "author_email": commit["commit"]["author"]["email"],
+                    "date": commit["commit"]["author"]["date"],
+                    "relative_date": self._format_relative_date(commit["commit"]["author"]["date"]),
+                    "url": commit["html_url"],
+                    "github_data": {
+                        "author": commit.get("author", {}),
+                        "committer": commit.get("committer", {}),
+                        "stats": commit.get("stats", {}),
+                        "files": commit.get("files", [])
+                    }
+                })
+            
+            return commits
+
+    def _format_relative_date(self, iso_date: str) -> str:
+        """Format ISO date to relative date string."""
+        from datetime import datetime, timezone
+        
+        # Parse ISO date
+        try:
+            # Handle both with and without timezone info
+            if iso_date.endswith('Z'):
+                date = datetime.fromisoformat(iso_date[:-1] + '+00:00')
+            elif '+' in iso_date or iso_date.count('-') > 2:
+                date = datetime.fromisoformat(iso_date)
+            else:
+                date = datetime.fromisoformat(iso_date).replace(tzinfo=timezone.utc)
+            
+            now = datetime.now(timezone.utc)
+            diff = now - date
+            
+            days = diff.days
+            hours = diff.seconds // 3600
+            minutes = (diff.seconds % 3600) // 60
+            
+            if days > 365:
+                years = days // 365
+                return f"{years} year{'s' if years > 1 else ''} ago"
+            elif days > 30:
+                months = days // 30
+                return f"{months} month{'s' if months > 1 else ''} ago"
+            elif days > 0:
+                return f"{days} day{'s' if days > 1 else ''} ago"
+            elif hours > 0:
+                return f"{hours} hour{'s' if hours > 1 else ''} ago"
+            elif minutes > 0:
+                return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
+            else:
+                return "just now"
+                
+        except Exception:
+            return "unknown"

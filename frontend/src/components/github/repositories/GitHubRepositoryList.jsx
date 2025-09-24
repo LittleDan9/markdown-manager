@@ -1,11 +1,57 @@
-import React from 'react';
-import { Card, Badge, Button, Row, Col } from 'react-bootstrap';
+import React, { useState, useEffect } from 'react';
+import { Card, Badge, Button, Row, Col, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import useFileModal from '../../../hooks/ui/useFileModal';
+import gitHubApi from '../../../api/gitHubApi';
 
 export default function GitHubRepositoryList({ repositories, accountId, onRepositoryBrowse }) {
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
+  const [repositoryStatuses, setRepositoryStatuses] = useState({});
+  const [loadingStatuses, setLoadingStatuses] = useState(new Set());
+
+  // Load git status for all repositories when component mounts or repositories change
+  useEffect(() => {
+    if (repositories.length > 0) {
+      loadRepositoryStatuses();
+    }
+  }, [repositories]);
+
+  const loadRepositoryStatuses = async () => {
+    const statusPromises = repositories.map(async (repo) => {
+      // Only try to get status for repositories that have an internal repo ID
+      if (!repo.internal_repo_id && !repo.id) return null;
+      
+      const repoId = repo.internal_repo_id || repo.id;
+      setLoadingStatuses(prev => new Set(prev).add(repoId));
+      
+      try {
+        const status = await gitHubApi.getRepositoryStatus(repoId);
+        return { repoId, status };
+      } catch (error) {
+        // Status check is optional - don't show errors for this
+        console.warn(`Failed to get status for repository ${repo.name}:`, error.message);
+        return { repoId, status: null };
+      } finally {
+        setLoadingStatuses(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(repoId);
+          return newSet;
+        });
+      }
+    });
+
+    const results = await Promise.all(statusPromises);
+    const statusMap = {};
+    
+    results.forEach(result => {
+      if (result) {
+        statusMap[result.repoId] = result.status;
+      }
+    });
+    
+    setRepositoryStatuses(statusMap);
+  };
 
   const getLanguageColor = (language) => {
     if (!language) return 'secondary';
@@ -71,6 +117,77 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
     }
   };
 
+  const renderGitStatus = (repo) => {
+    const repoId = repo.internal_repo_id || repo.id;
+    const isLoading = loadingStatuses.has(repoId);
+    const status = repositoryStatuses[repoId];
+
+    if (isLoading) {
+      return (
+        <div className="git-status-indicator loading">
+          <Spinner size="sm" className="me-1" />
+          <small className="text-muted">Loading status...</small>
+        </div>
+      );
+    }
+
+    if (!status) {
+      return (
+        <div className="git-status-indicator offline">
+          <Badge bg="secondary" className="me-1">
+            <i className="bi bi-cloud-slash me-1"></i>
+            Not Cloned
+          </Badge>
+        </div>
+      );
+    }
+
+    return (
+      <div className="git-status-indicator">
+        <div className="d-flex align-items-center gap-2 mb-1">
+          <Badge bg="info" className="d-flex align-items-center">
+            <i className="bi bi-git me-1"></i>
+            {status.branch}
+          </Badge>
+          {status.has_changes && (
+            <Badge bg="warning" className="d-flex align-items-center">
+              <i className="bi bi-exclamation-circle me-1"></i>
+              Changes
+            </Badge>
+          )}
+          {!status.has_changes && (
+            <Badge bg="success" className="d-flex align-items-center">
+              <i className="bi bi-check-circle me-1"></i>
+              Clean
+            </Badge>
+          )}
+        </div>
+        {status.has_changes && (
+          <div className="small text-muted">
+            {status.modified_files.length > 0 && (
+              <span className="me-2">
+                <i className="bi bi-pencil me-1"></i>
+                {status.modified_files.length} modified
+              </span>
+            )}
+            {status.staged_files.length > 0 && (
+              <span className="me-2">
+                <i className="bi bi-plus-circle me-1"></i>
+                {status.staged_files.length} staged
+              </span>
+            )}
+            {status.untracked_files.length > 0 && (
+              <span>
+                <i className="bi bi-question-circle me-1"></i>
+                {status.untracked_files.length} untracked
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+    );
+  };
+
   if (repositories.length === 0) {
     return (
       <div className="text-center py-4">
@@ -122,11 +239,16 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
                     </p>
                   )}
 
+                  {/* Git Status Section */}
+                  <div className="mb-3">
+                    {renderGitStatus(repo)}
+                  </div>
+
                   <div className="small text-muted mb-3">
                     <div className="d-flex justify-content-between">
                       <span>
-                        <i className="bi bi-git me-1"></i>
-                        {repo.default_branch}
+                        <i className="bi bi-code-slash me-1"></i>
+                        Default: {repo.default_branch}
                       </span>
                       <span>
                         {repo.sync_enabled ? (
@@ -158,9 +280,18 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
                   <Button
                     variant="outline-secondary"
                     size="sm"
-                    onClick={() => handleSyncRepository(repo)}
+                    onClick={() => loadRepositoryStatuses()}
+                    title="Refresh Git Status"
                   >
                     <i className="bi bi-arrow-clockwise"></i>
+                  </Button>
+                  <Button
+                    variant="outline-success"
+                    size="sm"
+                    onClick={() => handleSyncRepository(repo)}
+                    title="Sync Repository"
+                  >
+                    <i className="bi bi-cloud-download"></i>
                   </Button>
                 </div>
               </Card.Body>

@@ -7,6 +7,7 @@ import { useAuth } from "../../providers/AuthProvider";
 import UserSettingsModal from "../user/modals/UserSettingsModal";
 import GitHubModal from "../github/modals/GitHubModal";
 import IconManagementModal from "../icons/modals/IconManagementModal";
+import AdminModal from "../admin/AdminModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
@@ -15,6 +16,7 @@ function UserMenuLoggedIn() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [showIconModal, setShowIconModal] = useState(false);
+  const [showAdminModal, setShowAdminModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
 
@@ -63,8 +65,7 @@ function UserMenuLoggedIn() {
   };
 
   const handleAdmin = () => {
-    // Placeholder for future admin functionality
-    showSuccess("Admin panel coming soon!");
+    setShowAdminModal(true);
   };
 
   const handleLogout = () => {
@@ -135,6 +136,10 @@ function UserMenuLoggedIn() {
       <IconManagementModal
         show={showIconModal}
         onHide={() => setShowIconModal(false)}
+      />
+      <AdminModal
+        show={showAdminModal}
+        onHide={() => setShowAdminModal(false)}
       />
     </>
   );

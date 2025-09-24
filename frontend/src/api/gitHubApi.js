@@ -267,6 +267,77 @@ class GitHubAPI extends Api {
     const res = await this.apiCall(`/github/repositories/${repositoryId}/pull-requests`, "POST", prData);
     return res.data;
   }
+
+  // GitHub Save Operations
+  async getUserRepositoriesForSave() {
+    const res = await this.apiCall("/github/save/user-repositories", "GET");
+    return res.data;
+  }
+
+  async getRepositoryBranchesForSave(repositoryId) {
+    const res = await this.apiCall(`/github/save/repositories/${repositoryId}/branches`, "GET");
+    return res.data;
+  }
+
+  async getRepositoryStatus(repositoryId) {
+    const res = await this.apiCall(`/github/save/repositories/${repositoryId}/status`, "GET");
+    return res.data;
+  }
+
+  async saveDocumentToGitHub(documentId, saveData) {
+    const res = await this.apiCall(`/github/save/documents/${documentId}/save`, "POST", saveData);
+    return res.data;
+  }
+
+  // Git Operations
+  async commitChanges(repositoryId, commitData) {
+    const res = await this.apiCall(`/github/git/repositories/${repositoryId}/commit`, "POST", commitData);
+    return res.data;
+  }
+
+  async stashChanges(repositoryId, stashData = {}) {
+    const res = await this.apiCall(`/github/git/repositories/${repositoryId}/stash`, "POST", stashData);
+    return res.data;
+  }
+
+  async createBranch(repositoryId, branchData) {
+    const res = await this.apiCall(`/github/git/repositories/${repositoryId}/branches`, "POST", branchData);
+    return res.data;
+  }
+
+  async getGitHistory(repositoryId, limit = 50) {
+    const res = await this.apiCall(`/github/git/repositories/${repositoryId}/history?limit=${limit}`, "GET");
+    return res.data;
+  }
+
+  // Document-based Git Operations (unified for all documents)
+  async getDocumentGitStatus(documentId) {
+    const res = await this.apiCall(`/documents/${documentId}/git/status`, "GET");
+    return res.data;
+  }
+
+  async commitDocumentChanges(documentId, commitMessage) {
+    const res = await this.apiCall(`/documents/${documentId}/git/commit`, "POST", {
+      commit_message: commitMessage
+    });
+    return res.data;
+  }
+
+  async getDocumentGitHistory(documentId, limit = 20) {
+    const res = await this.apiCall(`/documents/${documentId}/git/history?limit=${limit}`, "GET");
+    return res.data;
+  }
+
+  // Admin Operations
+  async getOrphanedDocuments() {
+    const res = await this.apiCall("/github/admin/orphaned-documents", "GET");
+    return res.data;
+  }
+
+  async cleanupOrphanedDocuments() {
+    const res = await this.apiCall("/github/admin/orphaned-documents", "DELETE");
+    return res.data;
+  }
 }
 
 // Export singleton instance
