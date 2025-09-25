@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Modal, Nav, Tab } from 'react-bootstrap';
 import PropTypes from 'prop-types';
-import OrphansTab from './OrphansTab';
 import AdminStorageTab from './AdminStorageTab';
 
 function AdminModal({ show, onHide }) {
-  const [activeTab, setActiveTab] = useState('orphans');
+  const [activeTab, setActiveTab] = useState('storage');
 
   return (
     <Modal
@@ -13,7 +12,6 @@ function AdminModal({ show, onHide }) {
       onHide={onHide}
       size="lg"
       aria-labelledby="admin-modal-title"
-      backdrop="static"
     >
       <Modal.Header closeButton>
         <Modal.Title id="admin-modal-title">
@@ -24,11 +22,6 @@ function AdminModal({ show, onHide }) {
       <Modal.Body>
         <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
           <Nav variant="tabs" className="mb-3">
-            <Nav.Item>
-              <Nav.Link eventKey="orphans">
-                Orphaned Documents
-              </Nav.Link>
-            </Nav.Item>
             <Nav.Item>
               <Nav.Link eventKey="storage">
                 <i className="bi bi-hdd me-2"></i>
@@ -44,9 +37,6 @@ function AdminModal({ show, onHide }) {
           </Nav>
 
           <Tab.Content>
-            <Tab.Pane eventKey="orphans">
-              <OrphansTab />
-            </Tab.Pane>
             <Tab.Pane eventKey="storage">
               <AdminStorageTab />
             </Tab.Pane>

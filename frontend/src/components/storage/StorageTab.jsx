@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Button, Alert, Spinner, Row, Col, Badge, Table, Nav } from 'react-bootstrap';
+import { Card, Button, Alert, Spinner, Row, Col, Badge, Table, Nav, Tab } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
 import ConfirmModal from '../shared/modals/ConfirmModal';
 
@@ -11,6 +11,7 @@ function StorageTab({ userId = null, isAdmin = false }) {
   const [cleanupLoading, setCleanupLoading] = useState(false);
   const [repoCleanupLoading, setRepoCleanupLoading] = useState(false);
   const [error, setError] = useState('');
+  const [activeTab, setActiveTab] = useState('stats');
   const [activeCleanupTab, setActiveCleanupTab] = useState('documents');
   const [showRepoConfirm, setShowRepoConfirm] = useState(false);
   const [showDocConfirm, setShowDocConfirm] = useState(false);
@@ -202,242 +203,271 @@ function StorageTab({ userId = null, isAdmin = false }) {
     <div className="storage-tab">
       {error && <Alert variant="danger">{error}</Alert>}
 
-      {/* Storage Statistics */}
-      {storageStats && (
-        <Card className="mb-4">
-          <Card.Header>
-            <h5 className="mb-0">
+      <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
+        <Nav variant="tabs" className="mb-3">
+          <Nav.Item>
+            <Nav.Link eventKey="stats">
               <i className="bi bi-pie-chart me-2"></i>
-              Storage Statistics {isAdmin && userId && `(User ID: ${userId})`}
-            </h5>
-          </Card.Header>
-          <Card.Body>
-            <Row className="storage-stats-grid">
-              <Col md={4}>
-                <Card className="stat-card border-0 mb-3">
-                  <Card.Body className="text-center">
-                    <h3 className="stat-value text-primary">{storageStats.total_documents}</h3>
-                    <p className="stat-label">Total Documents</p>
-                  </Card.Body>
-                </Card>
-              </Col>
-              <Col md={4}>
-                <Card className="stat-card border-0 mb-3">
-                  <Card.Body className="text-center">
-                    <h3 className="stat-value text-info">{formatBytes(storageStats.storage_size_bytes)}</h3>
-                    <p className="stat-label">Storage Used</p>
-                  </Card.Body>
-                </Card>
-              </Col>
-              <Col md={4}>
-                <Card className="stat-card border-0 mb-3">
-                  <Card.Body className="text-center">
-                    <h3 className="stat-value text-success">{storageStats.repositories_count}</h3>
-                    <p className="stat-label">Repositories</p>
-                  </Card.Body>
-                </Card>
-              </Col>
-            </Row>
+              Document Stats
+            </Nav.Link>
+          </Nav.Item>
+          <Nav.Item>
+            <Nav.Link eventKey="orphans">
+              <i className="bi bi-exclamation-triangle me-2"></i>
+              Orphans ({orphanedDocs.length + orphanedRepos.length})
+            </Nav.Link>
+          </Nav.Item>
+        </Nav>
 
-            <Row className="storage-badges-row">
-              <Col md={3}>
-                <div className="badge-container text-center">
-                  <Badge bg="primary" className="me-2">{storageStats.local_documents}</Badge>
-                  <div className="badge-label">Local Documents</div>
-                </div>
-              </Col>
-              <Col md={3}>
-                <div className="badge-container text-center">
-                  <Badge bg="info" className="me-2">{storageStats.github_documents}</Badge>
-                  <div className="badge-label">GitHub Documents</div>
-                </div>
-              </Col>
-              <Col md={3}>
-                <div className="badge-container text-center">
-                  <Badge bg="success" className="me-2">{storageStats.documents_with_files}</Badge>
-                  <div className="badge-label">With Files</div>
-                </div>
-              </Col>
-              <Col md={3}>
-                <div className="badge-container text-center">
-                  <Badge bg={storageStats.orphaned_documents > 0 ? "warning" : "secondary"} className="me-2">
-                    {storageStats.orphaned_documents}
-                  </Badge>
-                  <div className="badge-label">Orphaned</div>
-                </div>
-              </Col>
-            </Row>
+        <Tab.Content>
+          <Tab.Pane eventKey="stats">
+            {loading && !storageStats ? (
+              <div className="text-center p-4">
+                <Spinner animation="border" role="status">
+                  <span className="visually-hidden">Loading storage stats...</span>
+                </Spinner>
+              </div>
+            ) : (
+              storageStats && (
+                <Card className="mb-4">
+                  <Card.Header>
+                    <h5 className="mb-0">
+                      <i className="bi bi-pie-chart me-2"></i>
+                      Storage Statistics {isAdmin && userId && `(User ID: ${userId})`}
+                    </h5>
+                  </Card.Header>
+                  <Card.Body>
+                    <Row className="storage-stats-grid">
+                      <Col md={4}>
+                        <Card className="stat-card border-0 mb-3">
+                          <Card.Body className="text-center">
+                            <h3 className="stat-value text-primary">{storageStats.total_documents}</h3>
+                            <p className="stat-label">Total Documents</p>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col md={4}>
+                        <Card className="stat-card border-0 mb-3">
+                          <Card.Body className="text-center">
+                            <h3 className="stat-value text-info">{formatBytes(storageStats.storage_size_bytes)}</h3>
+                            <p className="stat-label">Storage Used</p>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                      <Col md={4}>
+                        <Card className="stat-card border-0 mb-3">
+                          <Card.Body className="text-center">
+                            <h3 className="stat-value text-success">{storageStats.repositories_count}</h3>
+                            <p className="stat-label">Repositories</p>
+                          </Card.Body>
+                        </Card>
+                      </Col>
+                    </Row>
 
-            {(storageStats.local_repositories || storageStats.github_repositories) && (
-              <Row className="mt-3">
-                <Col md={6}>
-                  <div className="badge-container text-center">
-                    <Badge bg="outline-primary" className="me-2">{storageStats.local_repositories || 0}</Badge>
-                    <div className="badge-label">Local Repositories</div>
-                  </div>
-                </Col>
-                <Col md={6}>
-                  <div className="badge-container text-center">
-                    <Badge bg="outline-info" className="me-2">{storageStats.github_repositories || 0}</Badge>
-                    <div className="badge-label">GitHub Repositories</div>
-                  </div>
-                </Col>
-              </Row>
+                    <Row className="storage-badges-row">
+                      <Col md={3}>
+                        <div className="badge-container text-center">
+                          <Badge bg="primary" className="me-2">{storageStats.local_documents}</Badge>
+                          <div className="badge-label">Local Documents</div>
+                        </div>
+                      </Col>
+                      <Col md={3}>
+                        <div className="badge-container text-center">
+                          <Badge bg="info" className="me-2">{storageStats.github_documents}</Badge>
+                          <div className="badge-label">GitHub Documents</div>
+                        </div>
+                      </Col>
+                      <Col md={3}>
+                        <div className="badge-container text-center">
+                          <Badge bg="success" className="me-2">{storageStats.documents_with_files}</Badge>
+                          <div className="badge-label">With Files</div>
+                        </div>
+                      </Col>
+                      <Col md={3}>
+                        <div className="badge-container text-center">
+                          <Badge bg={storageStats.orphaned_documents > 0 ? "warning" : "secondary"} className="me-2">
+                            {storageStats.orphaned_documents}
+                          </Badge>
+                          <div className="badge-label">Orphaned</div>
+                        </div>
+                      </Col>
+                    </Row>
+
+                    {(storageStats.local_repositories || storageStats.github_repositories) && (
+                      <Row className="mt-3">
+                        <Col md={6}>
+                          <div className="badge-container text-center">
+                            <Badge bg="outline-primary" className="me-2">{storageStats.local_repositories || 0}</Badge>
+                            <div className="badge-label">Local Repositories</div>
+                          </div>
+                        </Col>
+                        <Col md={6}>
+                          <div className="badge-container text-center">
+                            <Badge bg="outline-info" className="me-2">{storageStats.github_repositories || 0}</Badge>
+                            <div className="badge-label">GitHub Repositories</div>
+                          </div>
+                        </Col>
+                      </Row>
+                    )}
+                  </Card.Body>
+                </Card>
+              )
             )}
-          </Card.Body>
-        </Card>
-      )}
+          </Tab.Pane>
 
-      {/* Orphaned Items Section */}
-      <Card className="orphaned-docs-section">
-        <Card.Header className="section-header">
-          <Nav variant="tabs" className="mb-0">
-            <Nav.Item>
-              <Nav.Link
-                active={activeCleanupTab === 'documents'}
-                onClick={() => setActiveCleanupTab('documents')}
-              >
-                <i className="bi bi-file-text me-2"></i>
-                Orphaned Documents ({orphanedDocs.length})
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link
-                active={activeCleanupTab === 'repositories'}
-                onClick={() => setActiveCleanupTab('repositories')}
-              >
-                <i className="bi bi-folder me-2"></i>
-                Orphaned Repositories ({orphanedRepos.length})
-              </Nav.Link>
-            </Nav.Item>
-          </Nav>
-        </Card.Header>
-        <Card.Body>
-          {activeCleanupTab === 'documents' && (
-            <>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h6 className="mb-0">Documents without files</h6>
-                {orphanedDocs.length > 0 && (
-                  <Button
-                    variant="danger"
-                    size="sm"
-                    className="cleanup-button"
-                    onClick={handleCleanup}
-                    disabled={cleanupLoading}
-                  >
-                    {cleanupLoading ? (
-                      <>
-                        <Spinner size="sm" className="me-2" />
-                        Cleaning...
-                      </>
+          <Tab.Pane eventKey="orphans">
+            <Card className="orphaned-docs-section">
+              <Card.Header className="section-header">
+                <Nav variant="tabs" className="mb-0">
+                  <Nav.Item>
+                    <Nav.Link
+                      active={activeCleanupTab === 'documents'}
+                      onClick={() => setActiveCleanupTab('documents')}
+                    >
+                      <i className="bi bi-file-text me-2"></i>
+                      Orphaned Documents ({orphanedDocs.length})
+                    </Nav.Link>
+                  </Nav.Item>
+                  <Nav.Item>
+                    <Nav.Link
+                      active={activeCleanupTab === 'repositories'}
+                      onClick={() => setActiveCleanupTab('repositories')}
+                    >
+                      <i className="bi bi-folder me-2"></i>
+                      Orphaned Repositories ({orphanedRepos.length})
+                    </Nav.Link>
+                  </Nav.Item>
+                </Nav>
+              </Card.Header>
+              <Card.Body>
+                {activeCleanupTab === 'documents' && (
+                  <>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h6 className="mb-0">Documents without files</h6>
+                      {orphanedDocs.length > 0 && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          className="cleanup-button"
+                          onClick={handleCleanup}
+                          disabled={cleanupLoading}
+                        >
+                          {cleanupLoading ? (
+                            <>
+                              <Spinner size="sm" className="me-2" />
+                              Cleaning...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-trash me-2"></i>
+                              Clean Up Documents
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
+
+                    {orphanedDocs.length === 0 ? (
+                      <Alert variant="success" className="no-orphans-alert">
+                        <i className="bi bi-check-circle me-2"></i>
+                        No orphaned documents found. Your document records are clean!
+                      </Alert>
                     ) : (
-                      <>
-                        <i className="bi bi-trash me-2"></i>
-                        Clean Up Documents
-                      </>
+                      <Table striped hover responsive className="orphaned-table">
+                        <thead>
+                          <tr>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>File Path</th>
+                            <th>Reason</th>
+                            <th>Created</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orphanedDocs.map((doc) => (
+                            <tr key={doc.id}>
+                              <td>{doc.name}</td>
+                              <td>
+                                <Badge bg={doc.repository_type === 'github' ? 'info' : 'primary'}>
+                                  {doc.repository_type}
+                                </Badge>
+                              </td>
+                              <td><code>{doc.file_path}</code></td>
+                              <td><small className="text-muted">{doc.reason}</small></td>
+                              <td><small>{new Date(doc.created_at).toLocaleDateString()}</small></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
                     )}
-                  </Button>
+                  </>
                 )}
-              </div>
 
-              {orphanedDocs.length === 0 ? (
-                <Alert variant="success" className="no-orphans-alert">
-                  <i className="bi bi-check-circle me-2"></i>
-                  No orphaned documents found. Your document records are clean!
-                </Alert>
-              ) : (
-                <Table striped hover responsive className="orphaned-table">
-                  <thead>
-                    <tr>
-                      <th>Name</th>
-                      <th>Type</th>
-                      <th>File Path</th>
-                      <th>Reason</th>
-                      <th>Created</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orphanedDocs.map((doc) => (
-                      <tr key={doc.id}>
-                        <td>{doc.name}</td>
-                        <td>
-                          <Badge bg={doc.repository_type === 'github' ? 'info' : 'primary'}>
-                            {doc.repository_type}
-                          </Badge>
-                        </td>
-                        <td><code>{doc.file_path}</code></td>
-                        <td><small className="text-muted">{doc.reason}</small></td>
-                        <td><small>{new Date(doc.created_at).toLocaleDateString()}</small></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </>
-          )}
+                {activeCleanupTab === 'repositories' && (
+                  <>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <h6 className="mb-0">Repositories without documents</h6>
+                      {orphanedRepos.length > 0 && (
+                        <Button
+                          variant="warning"
+                          size="sm"
+                          className="cleanup-button"
+                          onClick={handleRepoCleanup}
+                          disabled={repoCleanupLoading}
+                        >
+                          {repoCleanupLoading ? (
+                            <>
+                              <Spinner size="sm" className="me-2" />
+                              Cleaning...
+                            </>
+                          ) : (
+                            <>
+                              <i className="bi bi-folder-x me-2"></i>
+                              Clean Up Repositories
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </div>
 
-          {activeCleanupTab === 'repositories' && (
-            <>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <h6 className="mb-0">Repositories without documents</h6>
-                {orphanedRepos.length > 0 && (
-                  <Button
-                    variant="warning"
-                    size="sm"
-                    className="cleanup-button"
-                    onClick={handleRepoCleanup}
-                    disabled={repoCleanupLoading}
-                  >
-                    {repoCleanupLoading ? (
-                      <>
-                        <Spinner size="sm" className="me-2" />
-                        Cleaning...
-                      </>
+                    {orphanedRepos.length === 0 ? (
+                      <Alert variant="success" className="no-orphans-alert">
+                        <i className="bi bi-check-circle me-2"></i>
+                        No orphaned repositories found. Your filesystem is clean!
+                      </Alert>
                     ) : (
-                      <>
-                        <i className="bi bi-folder-x me-2"></i>
-                        Clean Up Repositories
-                      </>
+                      <Table striped hover responsive className="orphaned-table">
+                        <thead>
+                          <tr>
+                            <th>Repository ID</th>
+                            <th>Type</th>
+                            <th>Path</th>
+                            <th>Reason</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {orphanedRepos.map((repo, index) => (
+                            <tr key={index}>
+                              <td><code>{repo.repository_id}</code></td>
+                              <td>
+                                <Badge bg={repo.repository_type === 'github' ? 'info' : 'primary'}>
+                                  {repo.repository_type}
+                                </Badge>
+                              </td>
+                              <td><code>{repo.repository_path}</code></td>
+                              <td><small className="text-muted">{repo.reason}</small></td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </Table>
                     )}
-                  </Button>
+                  </>
                 )}
-              </div>
-
-              {orphanedRepos.length === 0 ? (
-                <Alert variant="success" className="no-orphans-alert">
-                  <i className="bi bi-check-circle me-2"></i>
-                  No orphaned repositories found. Your filesystem is clean!
-                </Alert>
-              ) : (
-                <Table striped hover responsive className="orphaned-table">
-                  <thead>
-                    <tr>
-                      <th>Repository ID</th>
-                      <th>Type</th>
-                      <th>Path</th>
-                      <th>Reason</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {orphanedRepos.map((repo, index) => (
-                      <tr key={index}>
-                        <td><code>{repo.repository_id}</code></td>
-                        <td>
-                          <Badge bg={repo.repository_type === 'github' ? 'info' : 'primary'}>
-                            {repo.repository_type}
-                          </Badge>
-                        </td>
-                        <td><code>{repo.repository_path}</code></td>
-                        <td><small className="text-muted">{repo.reason}</small></td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </Table>
-              )}
-            </>
-          )}
-        </Card.Body>
-      </Card>
+              </Card.Body>
+            </Card>
+          </Tab.Pane>
+        </Tab.Content>
+      </Tab.Container>
 
       <div className="refresh-section text-center">
         <Button

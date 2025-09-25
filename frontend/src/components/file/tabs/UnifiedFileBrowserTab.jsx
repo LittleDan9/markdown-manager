@@ -5,6 +5,7 @@ import { LocalDocumentsProvider } from "../../../services/FileBrowserProviders";
 import { createFileBrowserProvider } from "../../../services/providers/UnifiedFileBrowserProvider";
 import { useUnifiedFileOpening } from "../../../services/core/UnifiedFileOpeningService";
 import GitHubAccountList from "../../shared/GitHubAccountList";
+import GitHubRepositorySettings from "../../github/settings/GitHubRepositorySettings";
 import config from '../../../config';
 
 export default function UnifiedFileBrowserTab({
@@ -28,6 +29,8 @@ export default function UnifiedFileBrowserTab({
   const [selectedRepository, setSelectedRepository] = useState(initialRepository);
   const [selectedBranch, setSelectedBranch] = useState('main');
   const [showRepositorySelection, setShowRepositorySelection] = useState(false);
+  const [showRepositorySettings, setShowRepositorySettings] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState(null);
 
   // Unified file opening hook
   const { openFromFileNode, isOpening, lastError } = useUnifiedFileOpening();
@@ -83,6 +86,19 @@ export default function UnifiedFileBrowserTab({
     console.log('👆 File selected for preview:', file);
     // File selection for preview is handled by UnifiedFileBrowser internally
     // The preview panel will show the content automatically
+  };
+
+  const handleRepositorySettings = (account) => {
+    console.log('🔧 Opening repository settings for account:', account.username);
+    setSelectedAccount(account);
+    setShowRepositorySettings(true);
+    setShowRepositorySelection(false);
+  };
+
+  const handleBackToRepositorySelection = () => {
+    setShowRepositorySettings(false);
+    setShowRepositorySelection(true);
+    setSelectedAccount(null);
   };
 
   const handleFileOpen = async (file) => {
@@ -164,28 +180,52 @@ export default function UnifiedFileBrowserTab({
         </div>
 
         {/* Current source indicator */}
-        <div className="text-muted small">
+        <div className="text-muted small d-flex align-items-center">
           {currentDataSource === 'local' && (
             <span><i className="bi bi-folder me-1"></i>Local ({documents?.length || 0} documents)</span>
           )}
           {currentDataSource === 'github' && selectedRepository && (
-            <span><i className="bi bi-github me-1"></i>{selectedRepository.repo_owner}/{selectedRepository.repo_name} ({selectedBranch})</span>
+            <div className="d-flex align-items-center">
+              <button
+                className="btn btn-link btn-sm p-0 me-2 text-primary"
+                onClick={() => setShowRepositorySelection(true)}
+                title="Back to repository selection"
+              >
+                <i className="bi bi-arrow-left me-1"></i>
+                Back
+              </button>
+              <span><i className="bi bi-github me-1"></i>{selectedRepository.repo_owner}/{selectedRepository.repo_name} ({selectedBranch})</span>
+            </div>
+          )}
+          {currentDataSource === 'github' && !selectedRepository && (
+            <span><i className="bi bi-github me-1"></i>Select a repository</span>
           )}
         </div>
       </div>
 
+      {/* Repository Settings for GitHub */}
+      {showRepositorySettings && selectedAccount && (
+        <div style={{ height: '500px' }}>
+          <GitHubRepositorySettings
+            account={selectedAccount}
+            onBack={handleBackToRepositorySelection}
+          />
+        </div>
+      )}
+
       {/* Repository Selection for GitHub */}
-      {showRepositorySelection && currentDataSource === 'github' && (
+      {showRepositorySelection && currentDataSource === 'github' && !showRepositorySettings && (
         <div style={{ height: '400px' }}>
           <GitHubAccountList
             onBrowseRepository={handleRepositorySelect}
+            onRepositorySettings={handleRepositorySettings}
             documents={documents}
           />
         </div>
       )}
 
       {/* Unified File Browser */}
-      {currentProvider && !showRepositorySelection && (
+      {currentProvider && !showRepositorySelection && !showRepositorySettings && (
         <div className="file-browser-content">
           <UnifiedFileBrowser
             dataProvider={currentProvider}
@@ -210,16 +250,6 @@ export default function UnifiedFileBrowserTab({
             className="unified-browser"
             style={{ height: '500px' }}
           />
-        </div>
-      )}
-
-      {/* Unified Architecture Badge */}
-      {config.features.unifiedArchitecture && (
-        <div className="mt-2 text-center">
-          <span className="badge bg-success">
-            <i className="bi bi-check-circle me-1"></i>
-            Unified Architecture - One Browser, All Sources
-          </span>
         </div>
       )}
 
