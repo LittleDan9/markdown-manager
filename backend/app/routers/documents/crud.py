@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from datetime import datetime
+from typing import Optional
 
 from app.core.auth import get_current_user
 from app.crud import document as document_crud
@@ -142,6 +143,92 @@ async def _update_document_content(
         return True
 
 
+async def _handle_document_filesystem_changes(
+    document,
+    storage_service,
+    user_id: int,
+    db,
+    original_file_path: str,
+    new_name: str,
+    new_category_name: Optional[str],
+    name_changed: bool,
+    category_changed: bool
+) -> None:
+    """Handle filesystem operations when document name or category changes."""
+
+    # Determine repository type and construct new file path
+    if original_file_path.startswith('local/'):
+        # Local document: local/{category}/{filename}
+        path_parts = original_file_path.split('/')
+        old_category = path_parts[1] if len(path_parts) >= 2 else 'General'
+
+        # Use new category name if category changed, otherwise keep old category
+        target_category = new_category_name if category_changed and new_category_name else old_category
+        new_file_path = f"local/{target_category}/{new_name}.md"
+
+        # Only perform filesystem operation if the path actually changed
+        if new_file_path != original_file_path:
+            # Move/rename the file in filesystem
+            success = await storage_service.move_document(
+                user_id=user_id,
+                old_path=original_file_path,
+                new_path=new_file_path,
+                commit_message=_build_commit_message(name_changed, category_changed, new_name, target_category),
+                auto_commit=True
+            )
+
+            if not success:
+                raise Exception(f"Failed to move document from {original_file_path} to {new_file_path}")
+
+            # Update the file_path in the document
+            document.file_path = new_file_path
+
+    elif original_file_path.startswith('github/'):
+        # GitHub document: github/{account_id}/{repo_name}/{github_file_path}
+        path_parts = original_file_path.split('/')
+        if len(path_parts) >= 4:
+            account_id = path_parts[1]
+            repo_name = path_parts[2]
+            old_github_path = '/'.join(path_parts[3:])
+
+            # For GitHub documents, only handle filename changes within the same directory
+            # Category changes don't apply to GitHub documents as they follow repo structure
+            if name_changed:
+                # Extract directory path and construct new filename
+                github_path_parts = old_github_path.split('/')
+                github_path_parts[-1] = f"{new_name}.md"  # Replace filename
+                new_github_path = '/'.join(github_path_parts)
+                new_file_path = f"github/{account_id}/{repo_name}/{new_github_path}"
+
+                # Move/rename the file in filesystem
+                success = await storage_service.move_document(
+                    user_id=user_id,
+                    old_path=original_file_path,
+                    new_path=new_file_path,
+                    commit_message=f"Rename {old_github_path.split('/')[-1]} to {new_name}.md",
+                    auto_commit=True
+                )
+
+                if not success:
+                    raise Exception(f"Failed to rename GitHub document from {original_file_path} to {new_file_path}")
+
+                # Update both file_path and github_file_path in the document
+                document.file_path = new_file_path
+                document.github_file_path = new_github_path
+
+
+def _build_commit_message(name_changed: bool, category_changed: bool, new_name: str, new_category: str) -> str:
+    """Build descriptive commit message for document changes."""
+    if name_changed and category_changed:
+        return f"Rename and move document to {new_name} in {new_category}"
+    elif name_changed:
+        return f"Rename document to {new_name}"
+    elif category_changed:
+        return f"Move document to category {new_category}"
+    else:
+        return "Update document"
+
+
 async def _validate_category(db: AsyncSession, category_id: int, user_id: int):
     """Helper function to validate category ownership."""
     from app.models.category import Category
@@ -155,6 +242,56 @@ async def _validate_category(db: AsyncSession, category_id: int, user_id: int):
     return result.scalar_one_or_none()
 
 
+async def _process_document_updates(
+    document,
+    document_data: DocumentUpdate,
+    storage_service,
+    current_user,
+    db: AsyncSession
+) -> None:
+    """Process document name and category changes with filesystem operations."""
+
+    # Store original values
+    original_name = document.name
+    original_category_id = document.category_id
+    original_file_path = document.file_path
+
+    # Determine changes
+    name_changed = document_data.name is not None and document_data.name != original_name
+    category_changed = (
+        document_data.category_id is not None
+        and document_data.category_id != original_category_id
+    )
+
+    # Handle category updates first
+    new_category_name = None
+    if category_changed and document_data.category_id is not None:
+        category_obj = await _validate_category(db, document_data.category_id, current_user.id)
+        if not category_obj:
+            raise ValueError(f"Category with ID {document_data.category_id} not found for user")
+        new_category_name = category_obj.name
+        document.category_id = document_data.category_id
+
+    # Handle name updates
+    if name_changed and document_data.name is not None:
+        document.name = document_data.name
+
+    # Handle filesystem operations
+    if (name_changed or category_changed) and original_file_path:
+        final_name = document_data.name or original_name
+        await _handle_document_filesystem_changes(
+            document=document,
+            storage_service=storage_service,
+            user_id=current_user.id,
+            db=db,
+            original_file_path=original_file_path,
+            new_name=final_name,
+            new_category_name=new_category_name,
+            name_changed=name_changed,
+            category_changed=category_changed
+        )
+
+
 @router.put("/{document_id}", response_model=Document, **DOCUMENT_CRUD_DOCS["update"])
 async def update_document(
     document_id: int,
@@ -163,7 +300,7 @@ async def update_document(
     current_user: User = Depends(get_current_user),
 ) -> Document:
     """Update a document with filesystem storage and git versioning."""
-    from app.services.storage.user import UserStorage
+    from app.services.storage import UserStorage
     from datetime import datetime, timezone
 
     storage_service = UserStorage()
@@ -184,16 +321,16 @@ async def update_document(
                 detail="Failed to update document content in filesystem"
             )
 
-    # Handle name updates
-    if document_data.name is not None:
-        document.name = document_data.name
-
-    # Handle category updates
-    if document_data.category_id is not None:
-        category_obj = await _validate_category(db, document_data.category_id, current_user.id)
-        if not category_obj:
-            raise ValueError(f"Category with ID {document_data.category_id} not found for user")
-        document.category_id = document_data.category_id
+    # Handle name/category changes with filesystem operations
+    try:
+        await _process_document_updates(document, document_data, storage_service, current_user, db)
+    except Exception as e:
+        # Rollback database changes if filesystem operations fail
+        await db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update document in filesystem: {str(e)}"
+        )
 
     # Handle folder path updates
     if document_data.folder_path is not None:
