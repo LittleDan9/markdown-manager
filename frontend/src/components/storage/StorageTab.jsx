@@ -204,20 +204,33 @@ function StorageTab({ userId = null, isAdmin = false }) {
       {error && <Alert variant="danger">{error}</Alert>}
 
       <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
-        <Nav variant="tabs" className="mb-3">
-          <Nav.Item>
-            <Nav.Link eventKey="stats">
-              <i className="bi bi-pie-chart me-2"></i>
-              Document Stats
-            </Nav.Link>
-          </Nav.Item>
-          <Nav.Item>
-            <Nav.Link eventKey="orphans">
-              <i className="bi bi-exclamation-triangle me-2"></i>
-              Orphans ({orphanedDocs.length + orphanedRepos.length})
-            </Nav.Link>
-          </Nav.Item>
-        </Nav>
+        <div className="d-flex justify-content-between align-items-center mb-3">
+          <Nav variant="tabs">
+            <Nav.Item>
+              <Nav.Link eventKey="stats">
+                <i className="bi bi-pie-chart me-2"></i>
+                Document Stats
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="orphans">
+                <i className="bi bi-exclamation-triangle me-2"></i>
+                Orphans ({orphanedDocs.length + orphanedRepos.length})
+              </Nav.Link>
+            </Nav.Item>
+          </Nav>
+
+          <Button
+            variant="outline-primary"
+            size="sm"
+            onClick={() => { loadStorageStats(); loadOrphanedDocs(); loadOrphanedRepos(); }}
+            disabled={loading}
+            className="ms-3"
+          >
+            <i className="bi bi-arrow-clockwise me-1"></i>
+            Refresh
+          </Button>
+        </div>
 
         <Tab.Content>
           <Tab.Pane eventKey="stats">
@@ -468,17 +481,6 @@ function StorageTab({ userId = null, isAdmin = false }) {
           </Tab.Pane>
         </Tab.Content>
       </Tab.Container>
-
-      <div className="refresh-section text-center">
-        <Button
-          variant="outline-primary"
-          onClick={() => { loadStorageStats(); loadOrphanedDocs(); loadOrphanedRepos(); }}
-          disabled={loading}
-        >
-          <i className="bi bi-arrow-clockwise me-2"></i>
-          Refresh
-        </Button>
-      </div>
 
       {/* Repository Cleanup Confirmation Modal */}
       <ConfirmModal

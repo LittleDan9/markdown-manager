@@ -1,4 +1,5 @@
 @use "variables";
+@use "mixins";
 
 // ─── GLOBAL RESET AND BASE STYLES ───
 *, *::before, *::after {
@@ -19,6 +20,73 @@ body {
   display: flex;
   overflow: hidden;
   flex-direction: column;
+}
+
+// ─── GLOBAL SCROLLBAR THEMING ───
+// Apply consistent scrollbar styling across the entire application
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bs-body-bg);
+  border-radius: 4px;
+  margin: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bs-border-color);
+  border-radius: 4px;
+  border: 1px solid var(--bs-body-bg);
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--bs-secondary);
+  }
+
+  &:active {
+    background: var(--bs-secondary-text-emphasis);
+  }
+}
+
+::-webkit-scrollbar-corner {
+  background: var(--bs-body-bg);
+}
+
+// Firefox scrollbar theming
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--bs-border-color) var(--bs-body-bg);
+}
+
+// Dark theme scrollbar overrides
+[data-bs-theme="dark"] {
+  ::-webkit-scrollbar-track {
+    background: var(--bs-dark);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--bs-secondary);
+    border: 1px solid var(--bs-dark);
+
+    &:hover {
+      background: var(--bs-secondary-text-emphasis);
+    }
+
+    &:active {
+      background: var(--bs-light);
+    }
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: var(--bs-dark);
+  }
+
+  * {
+    scrollbar-color: var(--bs-secondary) var(--bs-dark);
+  }
 }
 
 // Global cursor utilities
@@ -99,12 +167,12 @@ body {
   transition: opacity 0.3s ease-out, transform 0.3s ease-out !important;
   opacity: 1;
   transform: translateY(0);
-  
+
   &.alert-closing {
     opacity: 0;
     transform: translateY(-10px);
   }
-  
+
   // Smooth entrance animation
   animation: slideInFromTop 0.3s ease-out;
 }
