@@ -5,7 +5,7 @@
 /**
  * Sort repository items with proper hierarchy and alphabetical ordering
  * 1. Folders first (alphabetical)
- * 2. Dot files (alphabetical) 
+ * 2. Dot files (alphabetical)
  * 3. Regular files (alphabetical)
  * @param {Array} items - Array of file/folder objects
  * @returns {Array} Sorted array
@@ -25,9 +25,9 @@ export const sortRepositoryItems = (items) => {
 
     // 2. If both are folders, sort alphabetically
     if (aIsFolder && bIsFolder) {
-      return aName.localeCompare(bName, undefined, { 
-        numeric: true, 
-        sensitivity: 'base' 
+      return aName.localeCompare(bName, undefined, {
+        numeric: true,
+        sensitivity: 'base'
       });
     }
 
@@ -36,9 +36,9 @@ export const sortRepositoryItems = (items) => {
     if (!aIsDotFile && bIsDotFile) return 1;
 
     // 4. Within the same category (both dot files or both regular files), sort alphabetically
-    return aName.localeCompare(bName, undefined, { 
-      numeric: true, 
-      sensitivity: 'base' 
+    return aName.localeCompare(bName, undefined, {
+      numeric: true,
+      sensitivity: 'base'
     });
   });
 };
@@ -50,16 +50,16 @@ export const sortRepositoryItems = (items) => {
  */
 export const formatFileSize = (size) => {
   if (!size || size === 0) return '-';
-  
+
   const units = ['B', 'KB', 'MB', 'GB', 'TB'];
   let index = 0;
   let fileSize = size;
-  
+
   while (fileSize >= 1024 && index < units.length - 1) {
     fileSize /= 1024;
     index++;
   }
-  
+
   return `${fileSize.toFixed(index === 0 ? 0 : 1)} ${units[index]}`;
 };
 
@@ -75,16 +75,24 @@ export const isMarkdownFile = (fileInput) => {
     if (fileInput.source === 'local') {
       return true;
     }
-    // For other sources, check the filename
-    const filename = fileInput.name || fileInput.filename || '';
-    return /\.(md|markdown)$/i.test(filename);
+
+    // GitHub files - check if source is github (they should all be markdown)
+    if (fileInput.source === 'github') {
+      return true; // All GitHub files in our system are markdown
+    }
+
+    // For other sources, check the filename or name with extension
+    const filename = fileInput.filename || fileInput.name || '';
+    const originalName = fileInput._githubFile?.name || filename;
+
+    return /\.(md|markdown)$/i.test(originalName);
   }
-  
+
   // If it's just a filename string, check the extension
   if (typeof fileInput === 'string') {
     return /\.(md|markdown)$/i.test(fileInput);
   }
-  
+
   return false;
 };
 
@@ -115,7 +123,7 @@ export const getElevatedHoverBackgroundColor = (theme) => {
  */
 export const createBreadcrumbSegments = (path) => {
   if (!path) return [];
-  
+
   const parts = path.split('/').filter(p => p);
   return parts.map((part, index) => ({
     name: part,
@@ -166,11 +174,11 @@ export const getEmptyState = (context = 'tree') => {
       message: 'No files found'
     },
     list: {
-      icon: 'bi-folder-x', 
+      icon: 'bi-folder-x',
       message: 'This folder is empty'
     }
   };
-  
+
   return states[context] || states.tree;
 };
 
@@ -181,7 +189,7 @@ export const getEmptyState = (context = 'tree') => {
  */
 export const normalizePath = (path) => {
   if (!path || path === '/') return '/';
-  
+
   // Remove trailing slashes and ensure leading slash
   const normalized = '/' + path.replace(/^\/+|\/+$/g, '');
   return normalized === '/' ? '/' : normalized;
@@ -207,10 +215,10 @@ export const getFileExtension = (filename) => {
  */
 export const isParentPath = (parentPath, childPath) => {
   if (!parentPath || !childPath) return false;
-  
+
   const normalizedParent = normalizePath(parentPath);
   const normalizedChild = normalizePath(childPath);
-  
+
   if (normalizedParent === '/') return true;
   return normalizedChild.startsWith(normalizedParent + '/');
 };

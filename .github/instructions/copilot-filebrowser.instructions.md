@@ -1,12 +1,18 @@
-# AI Agent FileBrowser Guidelines
+# AI Agent FileBrowser Guidelines - HISTORICAL PRE-UNIFICATION
 
 applyTo: "frontend/src/components/shared/FileBrowser/**/*", "frontend/src/components/file/**/*", "frontend/src/services/providers/**/*"
+
+**⚠️ IMPORTANT**: This document describes the **pre-unification architecture** that is being replaced.
+
+**FOR CURRENT IMPLEMENTATION**: See `#file:copilot-unification.instructions.md` for the unified architecture being implemented.
 
 **See also**: `.github/copilot-development.instructions.md` for development environment setup (Docker, HMR, database access)
 
 ---
 
-## FileBrowser Architecture: Unified Multi-Source File Navigation
+## Historical Context: Pre-Unification FileBrowser Architecture
+
+This document preserves the original FileBrowser architecture design for historical reference and to understand the complexity that the unified architecture is solving.
 
 The FileBrowser system provides **unified file browsing across multiple data sources** (local documents, GitHub repositories) with consistent UI patterns. Critical architectural patterns:
 
@@ -543,4 +549,14 @@ else:
 
 ---
 
-**AI Agents**: Master the provider pattern first - it's the foundation. Understand data flow: Provider → UnifiedFileBrowser → individual components → user actions. File navigation must maintain tree/list synchronization and proper state updates across all panels. **CRITICAL**: The dual filesystem architecture (local category git repos vs GitHub repo clones) creates fundamental complexity that FileBrowser must abstract while maintaining consistent navigation patterns.
+**AI Agents**: This document describes the **HISTORICAL** pre-unification architecture with complex provider patterns and dual filesystem abstraction.
+
+**⚠️ FOR NEW DEVELOPMENT**: Use `#file:copilot-unification.instructions.md` which implements a simplified unified approach that eliminates the complexity described in this document while preserving the excellent 3-tier file browser UI.
+
+**Key Historical Issues This Document Shows**:
+- Multiple API endpoints for same operations (`getDocument` vs `openGitHubDocument`)
+- Complex provider pattern abstracting dual filesystem architecture
+- Frontend branching logic based on document source type
+- Virtual path translation layers creating unnecessary complexity
+
+The unified architecture solves these issues with Document ID-centric access and single API patterns.

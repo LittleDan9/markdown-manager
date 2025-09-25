@@ -218,7 +218,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     if (currentDocument && currentDocument.content !== content) {
       setContent(currentDocument.content || '');
     }
-  }, [currentDocument.id]);
+  }, [currentDocument]);
 
   useEffect(() => {
     if (!isAuthenticated && !token && !isInitializing) {

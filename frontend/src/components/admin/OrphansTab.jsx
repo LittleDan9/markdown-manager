@@ -18,18 +18,18 @@ function OrphansTab() {
     if (success && !showSuccess) {
       setShowSuccess(true);
       setIsClosing(false);
-      
+
       // Clear any existing timeouts
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current);
       }
-      
+
       // Set auto-dismiss timer
       successTimeoutRef.current = setTimeout(() => {
         handleCloseSuccess();
       }, 3000);
     }
-    
+
     return () => {
       if (successTimeoutRef.current) {
         clearTimeout(successTimeoutRef.current);
@@ -42,12 +42,12 @@ function OrphansTab() {
 
   const handleCloseSuccess = () => {
     setIsClosing(true);
-    
+
     // Clear auto-dismiss timer
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current);
     }
-    
+
     // Wait for animation to complete, then hide
     closeTimeoutRef.current = setTimeout(() => {
       setSuccess("");
@@ -61,7 +61,7 @@ function OrphansTab() {
     setSuccess("");
     setShowSuccess(false);
     setIsClosing(false);
-    
+
     // Clear any pending timeouts
     if (successTimeoutRef.current) {
       clearTimeout(successTimeoutRef.current);
@@ -149,9 +149,9 @@ function OrphansTab() {
         <Card.Body>
           {error && <Alert variant="danger">{error}</Alert>}
           {success && showSuccess && (
-            <Alert 
-              variant="success" 
-              dismissible 
+            <Alert
+              variant="success"
+              dismissible
               onClose={handleCloseSuccess}
               className={`alert-auto-dismiss ${isClosing ? 'alert-closing' : ''}`}
               style={{
@@ -230,6 +230,15 @@ function OrphansTab() {
                               <i className="bi bi-folder me-1"></i>
                               {doc.folder_path}
                             </small>
+                            {doc.file_path && (
+                              <>
+                                <br />
+                                <small className="text-muted">
+                                  <i className="bi bi-file-earmark me-1"></i>
+                                  {doc.file_path}
+                                </small>
+                              </>
+                            )}
                             {doc.repo_name && (
                               <>
                                 <br />
@@ -240,9 +249,20 @@ function OrphansTab() {
                                 </small>
                               </>
                             )}
+                            {doc.orphan_reason && (
+                              <>
+                                <br />
+                                <small className="text-warning">
+                                  <i className="bi bi-exclamation-triangle me-1"></i>
+                                  {doc.orphan_reason}
+                                </small>
+                              </>
+                            )}
                           </div>
                           <div className="text-end">
-                            <Badge bg="danger">Orphaned</Badge>
+                            <Badge bg={doc.orphan_type === 'filesystem_missing' ? 'warning' : 'danger'}>
+                              {doc.orphan_type === 'filesystem_missing' ? 'File Missing' : 'GitHub Orphaned'}
+                            </Badge>
                             {doc.account_username && (
                               <>
                                 <br />

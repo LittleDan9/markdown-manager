@@ -102,7 +102,7 @@ function Toolbar({
           ) : (
             // Normal document controls
             <>
-              <FileDropdown setDocumentTitle={setDocumentTitle} />
+              <FileDropdown setDocumentTitle={setDocumentTitle} setContent={setContent} />
               <div className="vr opacity-50"></div>
               <div className="d-flex align-items-center">
                 <i className="bi bi-file-earmark-text me-2 text-muted"></i>

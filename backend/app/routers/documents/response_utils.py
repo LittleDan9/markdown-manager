@@ -1,5 +1,6 @@
 """Utilities for constructing document API responses."""
 from typing import Optional
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.document import Document as DocumentModel
 from app.schemas.document import Document as DocumentSchema
 from app.services.storage.user import UserStorage
@@ -8,7 +9,8 @@ from app.services.storage.user import UserStorage
 async def create_document_response(
     document: DocumentModel,
     user_id: int,
-    content: Optional[str] = None
+    content: Optional[str] = None,
+    db: Optional[AsyncSession] = None
 ) -> DocumentSchema:
     """
     Create a Document schema response from a database model.
@@ -38,7 +40,7 @@ async def create_document_response(
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to read document {document.id} from filesystem: {e}")
             content = None
-        
+
         # If content is still None, provide helpful fallback message
         if content is None:
             if document.file_path:
@@ -57,25 +59,22 @@ async def create_document_response(
     # Check if category name is already populated (from CRUD layer joins)
     category_name = getattr(document, 'category', None)
 
-    # If not available, try to get it from category_id
-    if not category_name and document.category_id:
+    # If not available, try to get it from category_id using provided db session
+    if not category_name and document.category_id and db:
         try:
             from app.crud.category import get_category_by_id
-            from app.database import get_db
-
-            # We need to get a database session - this is a bit hacky but necessary
-            # In a real implementation, we'd pass the db session as a parameter
-            async for db in get_db():
-                category = await get_category_by_id(db=db, category_id=document.category_id, user_id=user_id)
-                if category:
-                    category_name = category.name
-                break
+            category = await get_category_by_id(db=db, category_id=document.category_id, user_id=user_id)
+            if category:
+                category_name = category.name
         except Exception as e:
             print(f"Error fetching category name for category_id {document.category_id}: {e}")
 
     # Use the folder path to infer category name as final fallback
+    # But skip this for GitHub documents which have complex folder paths
     if not category_name and document.folder_path and document.folder_path != '/':
-        category_name = document.folder_path.strip('/').split('/')[-1]
+        # Don't extract category from GitHub folder paths (they contain repository info)
+        if document.repository_type != 'github':
+            category_name = document.folder_path.strip('/').split('/')[-1]
 
     # Manually construct the Document response schema
     return DocumentSchema(

@@ -19,7 +19,7 @@ import { useAuth } from "@/providers/AuthProvider";
 import DocumentService from "@/services/core/DocumentService";
 import gitHubApi from "@/api/gitHubApi";
 
-function FileDropdown({ setDocumentTitle }) {
+function FileDropdown({ setDocumentTitle, setContent }) {
   const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
@@ -45,7 +45,7 @@ function FileDropdown({ setDocumentTitle }) {
   const [gitLoading, setGitLoading] = useState(false);
 
   // Consolidated file operations
-  const fileOps = useFileOperations({ setDocumentTitle, setContent: undefined, renderedHTML: previewHTML, theme });
+  const fileOps = useFileOperations({ setDocumentTitle, setContent, renderedHTML: previewHTML, theme });
 
   // Load git status when document changes
   useEffect(() => {
@@ -58,7 +58,7 @@ function FileDropdown({ setDocumentTitle }) {
 
   const loadGitStatus = async (documentId) => {
     if (!documentId) return;
-    
+
     setGitLoading(true);
     try {
       const status = await gitHubApi.getDocumentGitStatus(documentId);
@@ -81,9 +81,9 @@ function FileDropdown({ setDocumentTitle }) {
     setGitLoading(true);
     try {
       const result = await gitHubApi.commitDocumentChanges(currentDocument.id, commitMessage);
-      
+
       showSuccess(`Successfully committed changes: ${result.commit_hash?.substring(0, 7) || 'success'}`);
-      
+
       // Reload status after commit
       await loadGitStatus(currentDocument.id);
     } catch (error) {
@@ -95,12 +95,12 @@ function FileDropdown({ setDocumentTitle }) {
 
   const handleSaveAndCommit = async () => {
     if (!currentDocument) return;
-    
+
     // Save first
     try {
       await saveDocument({ ...currentDocument, content });
       setDocumentTitle(currentDocument.name);
-      
+
       // Then commit
       await handleCommit();
     } catch (error) {
@@ -124,11 +124,11 @@ function FileDropdown({ setDocumentTitle }) {
         // Add any other information we might have from the document
         ...(currentDocument.github_file_path && { file_path: currentDocument.github_file_path })
       };
-      
+
       // Open the GitHub tab with the specific repository pre-selected
       openFileModal('github', repositoryInfo);
     } else {
-      // For local repositories, open the local tab 
+      // For local repositories, open the local tab
       openFileModal('local');
     }
   };
@@ -279,7 +279,7 @@ function FileDropdown({ setDocumentTitle }) {
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <RecentFilesDropdown onFileSelect={handleRecentFileSelect} />
-          
+
           {/* Document Operations */}
           <Dropdown.Item onClick={handleNew}>
             <i className="bi bi-file-plus me-2"></i>New Document
@@ -290,9 +290,9 @@ function FileDropdown({ setDocumentTitle }) {
           <Dropdown.Item onClick={handleClose} disabled={isDefaultDoc && !hasUnsavedChanges}>
             <i className="bi bi-x-circle me-2"></i>Close Document
           </Dropdown.Item>
-          
+
           <Dropdown.Divider />
-          
+
           {/* Save Operations with Git Integration */}
           <Dropdown.Item onClick={handleSave} disabled={gitLoading}>
             <i className="bi bi-save me-2"></i>Save
@@ -308,7 +308,7 @@ function FileDropdown({ setDocumentTitle }) {
               </Badge>
             )}
           </Dropdown.Item>
-          
+
           {gitStatus && (gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
             <Dropdown.Item onClick={handleSaveAndCommit} disabled={gitLoading || isDefaultDoc}>
               <i className="bi bi-check-square me-2"></i>Save & Commit...
@@ -361,9 +361,9 @@ function FileDropdown({ setDocumentTitle }) {
               <Dropdown.Header>
                 <i className="bi bi-git me-2"></i>Version Control
               </Dropdown.Header>
-              
-              <Dropdown.Item 
-                onClick={handleCommit} 
+
+              <Dropdown.Item
+                onClick={handleCommit}
                 disabled={gitLoading || (!gitStatus?.has_uncommitted_changes && !gitStatus?.has_staged_changes && !gitStatus?.has_untracked_files)}
               >
                 <i className="bi bi-check-square me-2"></i>Commit Changes
@@ -371,21 +371,21 @@ function FileDropdown({ setDocumentTitle }) {
                   <small className="text-muted ms-2">(no changes)</small>
                 )}
               </Dropdown.Item>
-              
+
               <Dropdown.Item onClick={handleCreateBranch} disabled={gitLoading}>
                 <i className="bi bi-diagram-3 me-2"></i>Create Branch
                 <small className="text-muted ms-2">(coming soon)</small>
               </Dropdown.Item>
-              
+
               <Dropdown.Item onClick={handleStashChanges} disabled={gitLoading}>
                 <i className="bi bi-archive me-2"></i>Stash Changes
                 <small className="text-muted ms-2">(coming soon)</small>
               </Dropdown.Item>
-              
+
               <Dropdown.Item onClick={handleViewGitFiles} disabled={gitLoading}>
                 <i className="bi bi-folder me-2"></i>Browse Repository
               </Dropdown.Item>
-              
+
               <Dropdown.Item onClick={handleViewGitHistory} disabled={gitLoading}>
                 <i className="bi bi-clock-history me-2"></i>View History
               </Dropdown.Item>
@@ -399,11 +399,11 @@ function FileDropdown({ setDocumentTitle }) {
               <Dropdown.Header>
                 <i className="bi bi-github me-2"></i>GitHub
               </Dropdown.Header>
-              
+
               <Dropdown.Item onClick={handleSaveToGitHub} disabled={isDefaultDoc}>
                 <i className="bi bi-cloud-arrow-up me-2"></i>Save to GitHub
               </Dropdown.Item>
-              
+
               {gitStatus?.repository_type === 'github' && (
                 <Dropdown.Item onClick={handleGitSync} disabled={gitLoading}>
                   <i className="bi bi-cloud-arrow-up-down me-2"></i>Sync with GitHub
@@ -413,7 +413,7 @@ function FileDropdown({ setDocumentTitle }) {
           )}
 
           <Dropdown.Divider />
-          
+
           {/* Document Management */}
           <Dropdown.Item onClick={handleDelete} disabled={isDefaultDoc}>
             <i className="bi bi-trash me-2"></i>Delete Document
@@ -423,9 +423,9 @@ function FileDropdown({ setDocumentTitle }) {
               <i className="bi bi-share me-2"></i>Share Document
             </Dropdown.Item>
           )}
-          
+
           <Dropdown.Divider />
-          
+
           {/* Import/Export */}
           <Dropdown.Header>Import/Export</Dropdown.Header>
           <Dropdown.Item onClick={fileOps.handleImport}>
@@ -440,9 +440,9 @@ function FileDropdown({ setDocumentTitle }) {
           >
             <i className="bi bi-filetype-pdf me-2"></i>Export PDF
           </Dropdown.Item>
-          
+
           <Dropdown.Divider />
-          
+
           {/* Settings */}
           <Dropdown.Header>Settings</Dropdown.Header>
           <Dropdown.Item
@@ -497,6 +497,8 @@ function FileDropdown({ setDocumentTitle }) {
           onHide={() => {}} // Modal will handle its own closing via the hook
           onOpen={fileOps.handleOpenFile}
           deleteDocument={deleteDocument}
+          setDocumentTitle={setDocumentTitle}
+          setContent={setContent}
         />
       )}
 

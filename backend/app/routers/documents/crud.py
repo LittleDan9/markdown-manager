@@ -1,6 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from datetime import datetime
 
 from app.core.auth import get_current_user
 from app.crud import document as document_crud
@@ -17,20 +19,105 @@ router = APIRouter()
 @router.get("/{document_id}", response_model=Document, **DOCUMENT_CRUD_DOCS["get"])
 async def get_document(
     document_id: int,
+    force_sync: bool = Query(False, description="Force sync from remote source for GitHub documents"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Document:
-    """Get a specific document with content from filesystem."""
+    """
+    Get a specific document with content - UNIFIED for all source types.
 
-    document = await document_crud.document.get(db=db, id=document_id)
-    if not document or document.user_id != current_user.id:
-        raise HTTPException(status_code=404, detail="Document not found")
+    This single endpoint handles:
+    - Local documents (reads from filesystem)
+    - GitHub documents (auto-syncs repo and reads from filesystem)
+    - Future source types (extensible)
 
-    # Use the helper function to create the response with filesystem content
-    return await create_document_response(
-        document=document,
-        user_id=current_user.id
-    )
+    No more branching logic needed in frontend!
+    """
+    try:
+        # Get document from database with category relationship loaded
+        result = await db.execute(
+            select(DocumentModel)
+            .options(selectinload(DocumentModel.category_ref))
+            .filter(DocumentModel.id == document_id, DocumentModel.user_id == current_user.id)
+        )
+        document = result.scalar_one_or_none()
+        if not document:
+            raise HTTPException(status_code=404, detail="Document not found or access denied")
+
+        # Pre-load all fields we'll need for the response before any commits
+        # This prevents lazy loading issues later
+        document_data = {
+            'id': document.id,
+            'name': document.name,
+            'category_id': document.category_id,
+            'user_id': document.user_id,
+            'created_at': document.created_at,
+            'updated_at': document.updated_at,
+            'is_shared': document.is_shared,
+            'share_token': document.share_token,
+            'folder_path': document.folder_path,
+            'file_path': document.file_path,
+            'repository_type': document.repository_type,
+            'github_repository_id': document.github_repository_id,
+            'github_file_path': document.github_file_path,
+            'github_sha': document.github_sha,
+            'github_sync_status': document.github_sync_status,
+            'last_github_sync_at': document.last_github_sync_at
+        }
+
+        # Handle GitHub document sync if needed
+        if document.repository_type == "github" and force_sync:
+            # Use unified service to handle GitHub sync automatically
+            from app.services.unified_document import unified_document_service
+            try:
+                # The unified service will handle GitHub sync as part of get_document_with_content
+                await unified_document_service.get_document_with_content(
+                    db=db,
+                    document_id=document_id,
+                    user_id=current_user.id,
+                    force_sync=True
+                )
+            except Exception as e:
+                print(f"Warning: GitHub sync failed for document {document_id}: {e}")
+                # Continue with normal document retrieval
+
+        # Update last opened timestamp
+        try:
+            document.last_opened_at = datetime.utcnow()
+            db.add(document)
+            await db.commit()
+        except Exception as e:
+            print(f"Warning: Failed to update last_opened_at for document {document_id}: {e}")
+            await db.rollback()
+
+        # Set category name attribute for response helper
+        if document.category_ref:
+            document.category = document.category_ref.name
+        else:
+            document.category = None
+
+        # Create a new DocumentModel instance with the pre-loaded data
+        # This avoids lazy loading issues with the committed/expired object
+        detached_doc = DocumentModel(**document_data)
+        detached_doc.category = getattr(document, 'category', None)
+
+        # Use existing response helper for content loading and response construction
+        return await create_document_response(
+            document=detached_doc,
+            user_id=current_user.id,
+            content=None,  # Let response helper load content
+            db=db  # Pass database session to avoid async context issues
+        )
+
+    except HTTPException:
+        raise  # Re-raise HTTP exceptions as-is
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    except Exception as e:
+        print(f"Error getting document {document_id}: {e}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail="Failed to retrieve document")
 
 
 async def _update_document_content(
@@ -110,7 +197,6 @@ async def update_document(
 
     # Handle folder path updates
     if document_data.folder_path is not None:
-        from app.models.document import Document as DocumentModel
         new_folder_path = DocumentModel.normalize_folder_path(document_data.folder_path)
         document.folder_path = new_folder_path
 
@@ -141,8 +227,8 @@ async def delete_document(
 
     # Get the document first to check ownership and get file_path
     result = await db.execute(
-        select(Document).filter(
-            Document.id == document_id, Document.user_id == current_user.id
+        select(DocumentModel).filter(
+            DocumentModel.id == document_id, DocumentModel.user_id == current_user.id
         )
     )
     document = result.scalar_one_or_none()
@@ -193,8 +279,8 @@ async def move_document(
 
     # Get the document
     result = await db.execute(
-        select(Document).filter(
-            Document.id == document_id, Document.user_id == current_user.id
+        select(DocumentModel).filter(
+            DocumentModel.id == document_id, DocumentModel.user_id == current_user.id
         )
     )
     document = result.scalar_one_or_none()
@@ -281,8 +367,8 @@ async def get_document_history(
 
     # Get the document
     result = await db.execute(
-        select(Document).filter(
-            Document.id == document_id, Document.user_id == current_user.id
+        select(DocumentModel).filter(
+            DocumentModel.id == document_id, DocumentModel.user_id == current_user.id
         )
     )
     document = result.scalar_one_or_none()
@@ -332,8 +418,8 @@ async def get_document_at_commit(
 
     # Get the document
     result = await db.execute(
-        select(Document).filter(
-            Document.id == document_id, Document.user_id == current_user.id
+        select(DocumentModel).filter(
+            DocumentModel.id == document_id, DocumentModel.user_id == current_user.id
         )
     )
     document = result.scalar_one_or_none()

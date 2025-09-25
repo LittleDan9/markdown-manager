@@ -44,6 +44,13 @@ function getApiBaseUrl() {
 const config = {
   apiBaseUrl: getApiBaseUrl(),
   isDevelopment: isDevelopment(),
+
+  // Feature Flags
+  features: {
+    // Enable unified architecture (document ID-centric file browser/opening)
+    // Set to true to enable new unified components during migration
+    unifiedArchitecture: true, // Enable during development/testing
+  }
 };
 
 export default config;

@@ -46,8 +46,30 @@ export class Api {
       ))
     };
 
-    // Remove data for GET requests
-    if (method === "GET") delete config.data;
+    // For GET requests, convert extraHeaders to query params if they contain non-header data
+    if (method === "GET") {
+      delete config.data;
+      // If extraHeaders contains query parameters (non-header keys), use them as params
+      const queryParams = {};
+      const actualHeaders = {};
+
+      for (const [key, value] of Object.entries(extraHeaders)) {
+        // Headers typically have specific formats (Authorization, Content-Type, etc.)
+        // Query params are typically lowercase or simple names like 'limit', 'page', etc.
+        if (key.toLowerCase() === key && !key.includes('-') && typeof value !== 'undefined') {
+          queryParams[key] = value;
+        } else {
+          actualHeaders[key] = value;
+        }
+      }
+
+      if (Object.keys(queryParams).length > 0) {
+        config.params = queryParams;
+      }
+
+      // Update headers to only include actual headers
+      config.headers = { ...config.headers, ...actualHeaders };
+    }
 
     try {
       const response = await axios(config);

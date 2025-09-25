@@ -5,11 +5,11 @@ import { useNotification } from "@/components/NotificationProvider";
 import { useAuth } from "@/providers/AuthProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useFileModal } from "@/hooks/ui";
-// Import the new tab components
-import LocalDocumentsTab from "./tabs/LocalDocumentsTab";
-import GitHubTab from "./tabs/GitHubTab";
+import config from "@/config.js";
+// Import the unified tab component
+import UnifiedFileBrowserTab from "./tabs/UnifiedFileBrowserTab";
 
-export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument }) {
+export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument, setDocumentTitle }) {
   const { documents, categories } = useDocumentContext();
   const [showConfirm, setShowConfirm] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
@@ -89,43 +89,21 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
           minHeight: 0
         }}>
           <div className="file-open-modal-container">
-            <Tabs
-              activeKey={localActiveTab}
-              onSelect={(k) => setLocalActiveTab(k)}
-              id="open-document-tabs"
-            >
-              <Tab eventKey="local" title={
-                <span>
-                  <i className="bi bi-folder me-2"></i>
-                  My Documents
-                </span>
-              }>
-                <LocalDocumentsTab
-                  documents={documents}
-                  categories={categories}
-                  onFileOpen={handleFileOpen}
-                  onDocumentDelete={handleDocumentDelete}
-                  onModalHide={handleHide}
-                />
-              </Tab>
-
-              {isAuthenticated && (
-                <Tab eventKey="github" title={
-                  <span>
-                    <i className="bi bi-github me-2"></i>
-                    GitHub
-                  </span>
-                }>
-                  <GitHubTab
-                    isAuthenticated={isAuthenticated}
-                    documents={documents}
-                    onFileOpen={handleFileOpen}
-                    onModalHide={handleHide}
-                    selectedRepository={selectedRepository}
-                  />
-                </Tab>
-              )}
-            </Tabs>
+            {/* UNIFIED FILE BROWSER - One interface for all data sources */}
+            <UnifiedFileBrowserTab
+              // Local document props
+              documents={documents}
+              categories={categories}
+              onFileOpen={handleFileOpen}
+              onDocumentDelete={handleDocumentDelete}
+              onModalHide={handleHide}
+              // GitHub integration props
+              initialRepository={selectedRepository}
+              setContent={setContent}
+              setDocumentTitle={setDocumentTitle}
+              showSuccess={showSuccess}
+              showError={showError}
+            />
           </div>
         </Modal.Body>
 
