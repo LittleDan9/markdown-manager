@@ -203,9 +203,9 @@ async def get_orphaned_documents(
                 GitHubAccount.is_active.is_(True)
             )
         )
-        account = github_account.scalar_one_or_none()
+        accounts = github_account.scalars().all()
 
-        if not account:
+        if not accounts:
             orphaned_docs.append({
                 "id": doc.id,
                 "name": doc.name,
@@ -598,9 +598,9 @@ async def get_user_orphaned_documents(
                 GitHubAccount.is_active.is_(True)
             )
         )
-        account = github_account.scalar_one_or_none()
+        accounts = github_account.scalars().all()
 
-        if not account:
+        if not accounts:
             orphaned_docs.append({
                 "id": doc.id,
                 "name": doc.name,
@@ -748,9 +748,9 @@ async def perform_orphan_cleanup(user_id: int, db: AsyncSession) -> dict:
                 GitHubAccount.is_active.is_(True)
             )
         )
-        account = github_account.scalar_one_or_none()
+        accounts = github_account.scalars().all()
 
-        if not account:
+        if not accounts:
             github_orphan_ids.append(doc.id)
 
     # Check 2: Documents with missing filesystem files
