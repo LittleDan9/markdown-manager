@@ -12,7 +12,7 @@ import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
-  const { user, setUser, logout } = useAuth();
+  const { user, setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [showIconModal, setShowIconModal] = useState(false);
@@ -105,6 +105,31 @@ function UserMenuLoggedIn() {
         </Dropdown.Item>
         <Dropdown.Item id="storageBtn" onClick={handleStorage}>
           <i className="bi bi-hdd me-2"></i>Storage
+        </Dropdown.Item>
+        <Dropdown.Divider />
+        <Dropdown.Item
+          onClick={() => setAutosaveEnabled((prev) => !prev)}
+          aria-checked={autosaveEnabled}
+          role="menuitemcheckbox"
+        >
+          {autosaveEnabled ? (
+            <i className="bi bi-toggle-on text-success me-2"></i>
+          ) : (
+            <i className="bi bi-toggle-off text-secondary me-2"></i>
+          )}
+          Autosave
+        </Dropdown.Item>
+        <Dropdown.Item
+          onClick={() => setSyncPreviewScrollEnabled((prev) => !prev)}
+          aria-checked={syncPreviewScrollEnabled}
+          role="menuitemcheckbox"
+        >
+          {syncPreviewScrollEnabled ? (
+            <i className="bi bi-toggle-on text-success me-2"></i>
+          ) : (
+            <i className="bi bi-toggle-off text-secondary me-2"></i>
+          )}
+          Sync Preview Scroll
         </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>

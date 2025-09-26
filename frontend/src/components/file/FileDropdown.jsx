@@ -7,11 +7,9 @@ import FileOverwriteModal from "@/components/file/FileOverwriteModal";
 import GitHubSaveModal from "@/components/file/modals/GitHubSaveModal";
 import RecentFilesDropdown from "@/components/file/RecentFilesDropdown";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
-import ShareModal from "@/components/shared/modals/ShareModal";
 import GitHistoryModal from "@/components/shared/modals/GitHistoryModal";
-import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { useConfirmModal, useFileModal } from "@/hooks/ui";
+import { useConfirmModal, useFileModal, useResponsiveMenu } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
@@ -20,7 +18,7 @@ import DocumentService from "@/services/core/DocumentService";
 import gitHubApi from "@/api/gitHubApi";
 
 function FileDropdown({ setDocumentTitle, setContent }) {
-  const { autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, isAuthenticated } = useAuth();
+  const { isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const {
@@ -29,16 +27,27 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
+  
+  // Responsive menu hook - adjusted thresholds for better UX
+  const { isFullMenu, isMediumMenu, isCompactMenu, showInFull, showInMedium, hideInCompact } = useResponsiveMenu({
+    fullMenuHeight: 900,  // 900px+ shows everything
+    mediumMenuHeight: 700, // 700-899px shows most features  
+    compactMenuHeight: 500 // <700px shows minimal features
+  });
 
-  // Share modal state
-  const [showShareModal, setShowShareModal] = React.useState(false);
+  // Debug logging for responsive behavior
+  useEffect(() => {
+    const mode = isCompactMenu ? 'Compact' : isMediumMenu ? 'Medium' : 'Full';
+    console.debug(`[FileDropdown] Responsive mode: ${mode} (window height: ${window.innerHeight}px)`);
+  }, [isCompactMenu, isMediumMenu, isFullMenu]);
+
+  // Removed share modal state - now handled by ShareButton component
 
   // GitHub save modal state
   const [showGitHubSaveModal, setShowGitHubSaveModal] = React.useState(false);
 
-  // New modal states
+  // Git history modal state
   const [showGitHistoryModal, setShowGitHistoryModal] = useState(false);
-  const [showDocumentInfoModal, setShowDocumentInfoModal] = useState(false);
 
   // Git state management
   const [gitStatus, setGitStatus] = useState(null);
@@ -154,11 +163,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     showInfo('Stash management: Stash save, apply, and management functionality coming soon');
   };
 
-  const handleShowDocumentInfo = () => {
-    if (!currentDocument) return;
-    setShowDocumentInfoModal(true);
-  };
-
   // File operation handlers
   const handleNew = () => {
     if (hasUnsavedChanges) {
@@ -212,34 +216,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     );
   };
 
-  const handleShare = () => {
-    if (isDefaultDoc) {
-      showError("Please save the document before sharing.");
-      return;
-    }
-    setShowShareModal(true);
-  };
-
-  const handleEnableSharing = async (documentId) => {
-    try {
-      const result = await DocumentService.enableDocumentSharing(documentId);
-      return result;
-    } catch (error) {
-      showError(`Failed to enable sharing: ${error.message}`);
-      throw error;
-    }
-  };
-
-  const handleDisableSharing = async (documentId) => {
-    try {
-      await DocumentService.disableDocumentSharing(documentId);
-      return true;
-    } catch (error) {
-      showError(`Failed to disable sharing: ${error.message}`);
-      throw error;
-    }
-  };
-
   const handleRecentFileSelect = async (file) => {
     try {
       await loadDocument(file.id);
@@ -280,7 +256,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         <Dropdown.Menu>
           <RecentFilesDropdown onFileSelect={handleRecentFileSelect} />
 
-          {/* Document Operations */}
+          {/* Core Operations - Always visible */}
           <Dropdown.Item onClick={handleNew}>
             <i className="bi bi-file-plus me-2"></i>New Document
           </Dropdown.Item>
@@ -290,10 +266,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
           <Dropdown.Item onClick={handleClose} disabled={isDefaultDoc && !hasUnsavedChanges}>
             <i className="bi bi-x-circle me-2"></i>Close Document
           </Dropdown.Item>
-
-          <Dropdown.Divider />
-
-          {/* Save Operations with Git Integration */}
           <Dropdown.Item onClick={handleSave} disabled={gitLoading}>
             <i className="bi bi-save me-2"></i>Save
             {gitLoading && <Spinner size="sm" className="ms-2" />}
@@ -308,7 +280,11 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               </Badge>
             )}
           </Dropdown.Item>
+          <Dropdown.Item onClick={handleDelete} disabled={isDefaultDoc}>
+            <i className="bi bi-trash me-2"></i>Delete Document
+          </Dropdown.Item>
 
+          {/* Save & Commit - Always show if there are changes */}
           {gitStatus && (gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
             <Dropdown.Item onClick={handleSaveAndCommit} disabled={gitLoading || isDefaultDoc}>
               <i className="bi bi-check-square me-2"></i>Save & Commit...
@@ -316,51 +292,57 @@ function FileDropdown({ setDocumentTitle, setContent }) {
             </Dropdown.Item>
           )}
 
-          {/* Git Status Information */}
-          {gitStatus && (
-            <>
-              <Dropdown.ItemText className="small text-muted">
-                <div className="d-flex align-items-center justify-content-between">
-                  <span>
-                    <i className="bi bi-git me-1"></i>
-                    {gitStatus.repository_type} • {gitStatus.current_branch}
-                  </span>
-                  <button
-                    className="btn btn-sm btn-outline-secondary"
-                    onClick={handleRefreshGitStatus}
-                    disabled={gitLoading}
-                    title="Refresh git status"
-                    style={{ padding: '2px 6px', fontSize: '0.7em' }}
-                  >
-                    <i className="bi bi-arrow-clockwise"></i>
-                  </button>
-                </div>
-                {(gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
-                  <div className="text-warning mt-1">
-                    <i className="bi bi-exclamation-triangle me-1"></i>
-                    <strong>Uncommitted changes detected</strong>
-                    {gitStatus.modified_files?.length > 0 && <div>• {gitStatus.modified_files.length} modified files</div>}
-                    {gitStatus.staged_files?.length > 0 && <div>• {gitStatus.staged_files.length} staged files</div>}
-                    {gitStatus.untracked_files?.length > 0 && <div>• {gitStatus.untracked_files.length} untracked files</div>}
-                  </div>
-                )}
-                {!gitStatus.has_uncommitted_changes && !gitStatus.has_staged_changes && !gitStatus.has_untracked_files && (
-                  <div className="text-success mt-1">
-                    <i className="bi bi-check-circle me-1"></i>
-                    Working directory clean
-                  </div>
-                )}
-              </Dropdown.ItemText>
-            </>
-          )}
+          <Dropdown.Divider />
 
-          {/* Git Operations */}
+          {/* Version Control Operations */}
           {gitStatus && (
             <>
-              <Dropdown.Divider />
-              <Dropdown.Header>
-                <i className="bi bi-git me-2"></i>Version Control
-              </Dropdown.Header>
+              {showInMedium() && (
+                <Dropdown.Header>
+                  <i className="bi bi-git me-2"></i>Version Control
+                </Dropdown.Header>
+              )}
+              {isCompactMenu && (
+                <Dropdown.Header>
+                  <i className="bi bi-git me-2"></i>Git ({gitStatus.repository_type})
+                </Dropdown.Header>
+              )}
+
+              {/* Git Status Information - Now within Version Control section */}
+              {showInMedium() && (
+                <Dropdown.ItemText className="small text-muted">
+                  <div className="d-flex align-items-center justify-content-between">
+                    <span>
+                      <i className="bi bi-info-circle me-1"></i>
+                      {gitStatus.repository_type} • {gitStatus.current_branch}
+                    </span>
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      onClick={handleRefreshGitStatus}
+                      disabled={gitLoading}
+                      title="Refresh git status"
+                      style={{ padding: '2px 6px', fontSize: '0.7em' }}
+                    >
+                      <i className="bi bi-arrow-clockwise"></i>
+                    </button>
+                  </div>
+                  {(gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
+                    <div className="text-warning mt-1">
+                      <i className="bi bi-exclamation-triangle me-1"></i>
+                      <strong>Uncommitted changes detected</strong>
+                      {gitStatus.modified_files?.length > 0 && <div>• {gitStatus.modified_files.length} modified files</div>}
+                      {gitStatus.staged_files?.length > 0 && <div>• {gitStatus.staged_files.length} staged files</div>}
+                      {gitStatus.untracked_files?.length > 0 && <div>• {gitStatus.untracked_files.length} untracked files</div>}
+                    </div>
+                  )}
+                  {!gitStatus.has_uncommitted_changes && !gitStatus.has_staged_changes && !gitStatus.has_untracked_files && (
+                    <div className="text-success mt-1">
+                      <i className="bi bi-check-circle me-1"></i>
+                      Working directory clean
+                    </div>
+                  )}
+                </Dropdown.ItemText>
+              )}
 
               <Dropdown.Item
                 onClick={handleCommit}
@@ -372,15 +354,19 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 )}
               </Dropdown.Item>
 
-              <Dropdown.Item onClick={handleCreateBranch} disabled={gitLoading}>
-                <i className="bi bi-diagram-3 me-2"></i>Create Branch
-                <small className="text-muted ms-2">(coming soon)</small>
-              </Dropdown.Item>
+              {showInMedium() && (
+                <>
+                  <Dropdown.Item onClick={handleCreateBranch} disabled={gitLoading}>
+                    <i className="bi bi-diagram-3 me-2"></i>Create Branch
+                    <small className="text-muted ms-2">(coming soon)</small>
+                  </Dropdown.Item>
 
-              <Dropdown.Item onClick={handleStashChanges} disabled={gitLoading}>
-                <i className="bi bi-archive me-2"></i>Stash Changes
-                <small className="text-muted ms-2">(coming soon)</small>
-              </Dropdown.Item>
+                  <Dropdown.Item onClick={handleStashChanges} disabled={gitLoading}>
+                    <i className="bi bi-archive me-2"></i>Stash Changes
+                    <small className="text-muted ms-2">(coming soon)</small>
+                  </Dropdown.Item>
+                </>
+              )}
 
               <Dropdown.Item onClick={handleViewGitFiles} disabled={gitLoading}>
                 <i className="bi bi-folder me-2"></i>Browse Repository
@@ -389,13 +375,14 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               <Dropdown.Item onClick={handleViewGitHistory} disabled={gitLoading}>
                 <i className="bi bi-clock-history me-2"></i>View History
               </Dropdown.Item>
+
+              <Dropdown.Divider />
             </>
           )}
 
           {/* GitHub Operations */}
           {isAuthenticated && (
             <>
-              <Dropdown.Divider />
               <Dropdown.Header>
                 <i className="bi bi-github me-2"></i>GitHub
               </Dropdown.Header>
@@ -404,79 +391,52 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 <i className="bi bi-cloud-arrow-up me-2"></i>Save to GitHub
               </Dropdown.Item>
 
-              {gitStatus?.repository_type === 'github' && (
+              {gitStatus?.repository_type === 'github' && showInMedium() && (
                 <Dropdown.Item onClick={handleGitSync} disabled={gitLoading}>
                   <i className="bi bi-cloud-arrow-up-down me-2"></i>Sync with GitHub
                 </Dropdown.Item>
               )}
+
+              <Dropdown.Divider />
             </>
           )}
 
-          <Dropdown.Divider />
+          {/* Import/Export Operations */}
+          {showInMedium() && (
+            <>
+              <Dropdown.Header>Import/Export</Dropdown.Header>
+              <Dropdown.Item onClick={fileOps.handleImport}>
+                <i className="bi bi-file-earmark-arrow-up me-2"></i>Import Markdown
+              </Dropdown.Item>
+              <Dropdown.Item onClick={fileOps.handleExportMarkdown}>
+                <i className="bi bi-filetype-md me-2"></i>Export Markdown
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={fileOps.handleExportPDF}
+                disabled={!previewHTML || previewHTML === ""}
+              >
+                <i className="bi bi-filetype-pdf me-2"></i>Export PDF
+              </Dropdown.Item>
 
-          {/* Document Management */}
-          <Dropdown.Item onClick={handleDelete} disabled={isDefaultDoc}>
-            <i className="bi bi-trash me-2"></i>Delete Document
-          </Dropdown.Item>
-          {isAuthenticated && (
-            <Dropdown.Item onClick={handleShare} disabled={isDefaultDoc}>
-              <i className="bi bi-share me-2"></i>Share Document
-            </Dropdown.Item>
+              <Dropdown.Divider />
+            </>
           )}
 
-          <Dropdown.Divider />
-
-          {/* Import/Export */}
-          <Dropdown.Header>Import/Export</Dropdown.Header>
-          <Dropdown.Item onClick={fileOps.handleImport}>
-            <i className="bi bi-file-earmark-arrow-up me-2"></i>Import Markdown
-          </Dropdown.Item>
-          <Dropdown.Item onClick={fileOps.handleExportMarkdown}>
-            <i className="bi bi-filetype-md me-2"></i>Export Markdown
-          </Dropdown.Item>
-          <Dropdown.Item
-            onClick={fileOps.handleExportPDF}
-            disabled={!previewHTML || previewHTML === ""}
-          >
-            <i className="bi bi-filetype-pdf me-2"></i>Export PDF
-          </Dropdown.Item>
-
-          <Dropdown.Divider />
-
-          {/* Settings */}
-          <Dropdown.Header>Settings</Dropdown.Header>
-          <Dropdown.Item
-            onClick={() => setAutosaveEnabled((prev) => !prev)}
-            aria-checked={autosaveEnabled}
-            role="menuitemcheckbox"
-          >
-            {autosaveEnabled ? (
-              <i className="bi bi-toggle-on text-success me-2"></i>
-            ) : (
-              <i className="bi bi-toggle-off text-secondary me-2"></i>
-            )}
-            Autosave {autosaveEnabled ? "On" : "Off"}
-          </Dropdown.Item>
-
-          <Dropdown.Item
-            onClick={() => setSyncPreviewScrollEnabled((prev) => !prev)}
-            aria-checked={syncPreviewScrollEnabled}
-            role="menuitemcheckbox"
-          >
-            {syncPreviewScrollEnabled ? (
-              <i className="bi bi-toggle-on text-success me-2"></i>
-            ) : (
-              <i className="bi bi-toggle-off text-secondary me-2"></i>
-            )}
-            Sync Preview Scroll {syncPreviewScrollEnabled ? "On" : "Off"}
-          </Dropdown.Item>
-
-          {/* Debug Info */}
-          {gitStatus && (
+          {/* Compact Menu: Grouped Import/Export */}
+          {isCompactMenu && (
             <>
-              <Dropdown.Divider />
-              <Dropdown.Item onClick={handleShowDocumentInfo} disabled={gitLoading}>
-                <i className="bi bi-info-circle me-2"></i>Document Info
+              <Dropdown.Header>Import/Export</Dropdown.Header>
+              <Dropdown.Item onClick={fileOps.handleImport}>
+                <i className="bi bi-file-earmark-arrow-up me-2"></i>Import
+              </Dropdown.Item>
+              <Dropdown.Item onClick={fileOps.handleExportMarkdown}>
+                <i className="bi bi-filetype-md me-2"></i>Export MD
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={fileOps.handleExportPDF}
+                disabled={!previewHTML || previewHTML === ""}
+              >
+                <i className="bi bi-filetype-pdf me-2"></i>Export PDF
               </Dropdown.Item>
             </>
           )}
@@ -584,15 +544,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         />
       )}
 
-      {/* Share Modal */}
-      <ShareModal
-        show={showShareModal}
-        onHide={() => setShowShareModal(false)}
-        document={currentDocument}
-        onShare={handleEnableSharing}
-        onUnshare={handleDisableSharing}
-      />
-
       {/* GitHub Save Modal */}
       <GitHubSaveModal
         show={showGitHubSaveModal}
@@ -608,14 +559,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         documentId={currentDocument?.id}
         repositoryType={gitStatus?.repository_type}
         currentBranch={gitStatus?.current_branch}
-      />
-
-      {/* Document Info Modal */}
-      <DocumentInfoModal
-        show={showDocumentInfoModal}
-        onHide={() => setShowDocumentInfoModal(false)}
-        document={currentDocument}
-        gitStatus={gitStatus}
       />
     </>
   );

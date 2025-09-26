@@ -2,6 +2,8 @@ import React, { useEffect, useState, useCallback } from "react";
 import FileDropdown from "@/components/file/FileDropdown";
 import DocumentToolbar from "@/components/toolbar/Document";
 import UserToolbar from "@/components/toolbar/User";
+import ShareButton from "@/components/shared/ShareButton";
+import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
@@ -20,6 +22,7 @@ function Toolbar({
     currentDocument?.name || "Untitled Document"
   );
   const [importMarkdownFile, setImportMarkdownFile] = useState(null);
+  const [showDocumentInfoModal, setShowDocumentInfoModal] = useState(false);
 
   // Memoize setDocumentTitle to prevent infinite re-renders
   const setDocumentTitle = useCallback((title) => {
@@ -61,6 +64,11 @@ function Toolbar({
     e.preventDefault();
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
+  };
+
+  const handleShowDocumentInfo = () => {
+    if (!currentDocument || !currentDocument.id) return;
+    setShowDocumentInfoModal(true);
   };
 
   return (
@@ -105,7 +113,24 @@ function Toolbar({
               <FileDropdown setDocumentTitle={setDocumentTitle} setContent={setContent} />
               <div className="vr opacity-50"></div>
               <div className="d-flex align-items-center">
-                <i className="bi bi-file-earmark-text me-2 text-muted"></i>
+                <button
+                  className="btn btn-link p-0 me-2 text-muted"
+                  onClick={handleShowDocumentInfo}
+                  disabled={!currentDocument?.id}
+                  title={currentDocument?.id ? "View Document Information" : "No document loaded"}
+                  data-bs-toggle="tooltip"
+                  data-bs-placement="bottom"
+                  style={{ 
+                    border: 'none', 
+                    background: 'none',
+                    fontSize: '1rem',
+                    lineHeight: 1,
+                    cursor: currentDocument?.id ? 'pointer' : 'default',
+                    opacity: currentDocument?.id ? 1 : 0.6
+                  }}
+                >
+                  <i className="bi bi-file-earmark-text"></i>
+                </button>
                 <DocumentToolbar
                   documentTitle={documentTitle}
                   setDocumentTitle={setDocumentTitle}
@@ -116,6 +141,9 @@ function Toolbar({
         </div>
         {/* Right side: Utility Controls */}
         <div className="d-flex align-items-center gap-2" id="utilityControls">
+          {!isSharedView && (
+            <ShareButton />
+          )}
           {!isSharedView && (
             <button
               id="iconBrowserBtn"
@@ -165,6 +193,14 @@ function Toolbar({
           />
         </div>
       </div>
+
+      {/* Document Info Modal */}
+      <DocumentInfoModal
+        show={showDocumentInfoModal}
+        onHide={() => setShowDocumentInfoModal(false)}
+        document={currentDocument}
+        gitStatus={null} // We don't have git status in toolbar, but modal can handle null
+      />
     </nav>
   );
 }
