@@ -63,10 +63,10 @@ class ResetMFARequest(BaseModel):
     reason: Optional[str] = Field(None, description="Optional reason for MFA reset")
 
 
-router = APIRouter()
+router = APIRouter(tags=["Admin - Users"])
 
 
-@router.get("/users/stats")
+@router.get("/stats")
 async def get_user_stats(
     admin_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
@@ -90,7 +90,7 @@ async def get_user_stats(
     }
 
 
-@router.get("/users", response_model=List[AdminUserResponse])
+@router.get("", response_model=List[AdminUserResponse])
 async def get_all_users(
     admin_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db),
@@ -146,7 +146,6 @@ async def get_all_users(
             autosave_enabled=user.autosave_enabled,
             editor_width_percentage=user.editor_width_percentage,
             current_doc_id=user.current_doc_id,
-            current_document=None,  # Skip document details for list view
             last_login=None,  # TODO: Implement last_login tracking
             reset_token_expires=user.reset_token_expires,
             document_count=len(user.documents) if user.documents else 0,
@@ -157,7 +156,7 @@ async def get_all_users(
     return admin_users
 
 
-@router.get("/users/{user_id}", response_model=AdminUserResponse)
+@router.get("/{user_id}", response_model=AdminUserResponse)
 async def get_user_by_id(
     user_id: int,
     admin_user: User = Depends(get_admin_user),
@@ -199,7 +198,6 @@ async def get_user_by_id(
         autosave_enabled=user.autosave_enabled,
         editor_width_percentage=user.editor_width_percentage,
         current_doc_id=user.current_doc_id,
-        current_document=None,  # Skip for now to avoid complexity
         last_login=None,  # TODO: Implement last_login tracking
         reset_token_expires=user.reset_token_expires,
         document_count=len(user.documents) if user.documents else 0,
@@ -209,7 +207,7 @@ async def get_user_by_id(
     return admin_user_data
 
 
-@router.put("/users/{user_id}", response_model=AdminUserResponse)
+@router.put("/{user_id}", response_model=AdminUserResponse)
 async def update_user_admin(
     user_id: int,
     user_update: UserUpdateAdmin,
@@ -278,7 +276,6 @@ async def update_user_admin(
         autosave_enabled=user.autosave_enabled,
         editor_width_percentage=user.editor_width_percentage,
         current_doc_id=user.current_doc_id,
-        current_document=None,
         last_login=None,
         reset_token_expires=user.reset_token_expires,
         document_count=len(user.documents) if user.documents else 0,
@@ -288,7 +285,7 @@ async def update_user_admin(
     return admin_user_data
 
 
-@router.post("/users/{user_id}/reset-mfa")
+@router.post("/{user_id}/reset-mfa")
 async def reset_user_mfa(
     user_id: int,
     reset_request: ResetMFARequest,
@@ -328,7 +325,7 @@ async def reset_user_mfa(
     }
 
 
-@router.delete("/users/{user_id}")
+@router.delete("/{user_id}")
 async def delete_user_admin(
     user_id: int,
     admin_user: User = Depends(get_admin_user),

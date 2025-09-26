@@ -2,7 +2,7 @@
 from fastapi import APIRouter
 
 from . import (
-    accounts, admin, auth, cache, commits, files, repositories,
+    accounts, auth, cache, commits, files, repositories,
     repository_selection, sync, pull_requests, import_enhanced, save_to_github, git_operations
 )
 
@@ -21,4 +21,4 @@ router.include_router(cache.router, prefix="/cache", tags=["github-cache"])
 router.include_router(import_enhanced.router, tags=["github-import-enhanced"])
 router.include_router(save_to_github.router, prefix="/save", tags=["github-save"])
 router.include_router(git_operations.router, prefix="/git", tags=["git-operations"])
-router.include_router(admin.router, prefix="/admin", tags=["github-admin"])
+# admin.router REMOVED - admin endpoints moved to /admin/github/*

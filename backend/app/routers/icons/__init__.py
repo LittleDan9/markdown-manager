@@ -10,6 +10,6 @@ This package contains the icon API organized into focused, maintainable modules:
 Each module handles a specific domain with clean separation of concerns.
 """
 
-from .main import router
+from .router import router
 
 __all__ = ["router"]

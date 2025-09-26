@@ -2,12 +2,13 @@ import React, { useState } from 'react';
 import { Form, Button, Alert, Card, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import iconsApi from '../../../api/iconsApi';
+import { adminIconsApi } from '../../../api/admin';
 import PackCategorySelector from '../common/PackCategorySelector';
 
-export default function IconifyPackTab({ 
-  categories, 
+export default function IconifyPackTab({
+  categories,
   onAddCategory,
-  onReloadData 
+  onReloadData
 }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -28,7 +29,7 @@ export default function IconifyPackTab({
       ...prev,
       [field]: value
     }));
-    
+
     // Clear errors when user types
     if (error) setError('');
   };
@@ -74,7 +75,7 @@ export default function IconifyPackTab({
 
     try {
       let packData;
-      
+
       // Check if it's a direct JSON URL or needs to be converted to collection API
       if (iconifyForm.packUrl.includes('.json')) {
         // It's a direct JSON URL, try to fetch it first
@@ -89,7 +90,7 @@ export default function IconifyPackTab({
           const urlParts = iconifyForm.packUrl.split('/');
           const filename = urlParts[urlParts.length - 1];
           const prefix = filename.replace('.json', '');
-          
+
           const collectionUrl = `https://api.iconify.design/collection?prefix=${prefix}&info=1`;
           const response = await fetch(collectionUrl);
           if (!response.ok) {
@@ -105,10 +106,10 @@ export default function IconifyPackTab({
         }
         packData = await response.json();
       }
-      
+
       // Handle different response formats
       let icons, info;
-      
+
       if (packData.icons && packData.info) {
         // Direct icon data format
         icons = packData.icons;
@@ -118,13 +119,13 @@ export default function IconifyPackTab({
         const iconDataUrl = `https://api.iconify.design/${packData.prefix}.json?icons=${Object.keys(packData.uncategorized || []).concat(
           Object.values(packData.categories || {}).flat()
         ).slice(0, 50).join(',')}`; // Limit to first 50 icons for now
-        
+
         const iconResponse = await fetch(iconDataUrl);
         if (!iconResponse.ok) {
           throw new Error(`Failed to fetch icon data: ${iconResponse.statusText}`);
         }
         const iconData = await iconResponse.json();
-        
+
         icons = iconData.icons;
         info = packData.info;
       } else {
@@ -147,7 +148,7 @@ export default function IconifyPackTab({
       };
 
       // Install the pack using the existing API
-      const result = await iconsApi.installIconPack(customPackData, null, 'json');
+      const result = await adminIconsApi.installIconPack(customPackData, null, 'json');
 
       setSuccess(`Successfully installed Iconify pack "${result.display_name}" with ${Object.keys(icons).length} icons`);
       showSuccess(`Iconify pack "${result.display_name}" installed successfully!`);
@@ -173,13 +174,14 @@ export default function IconifyPackTab({
   };
 
   return (
-    <Card>
-      <Card.Header>
-        <h5 className="mb-0">Install Iconify Pack</h5>
-      </Card.Header>
-      <Card.Body>
-        {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{success}</Alert>}
+    <div className="icon-pack-tab">
+      <Card>
+        <Card.Header>
+          <h5 className="mb-0">Install Iconify Pack</h5>
+        </Card.Header>
+        <Card.Body>
+          {error && <Alert variant="danger">{error}</Alert>}
+          {success && <Alert variant="success">{success}</Alert>}
 
         <Alert variant="info" className="mb-3">
           <Alert.Heading as="h6">
@@ -333,11 +335,11 @@ export default function IconifyPackTab({
                 </>
               ) : (
                 <>
-                  <svg 
-                    className="me-2" 
-                    width="20" 
-                    height="20" 
-                    viewBox="0 0 48 48" 
+                  <svg
+                    className="me-2"
+                    width="20"
+                    height="20"
+                    viewBox="0 0 48 48"
                     fill="none"
                     style={{ verticalAlign: 'text-top' }}
                   >
@@ -357,5 +359,6 @@ export default function IconifyPackTab({
         </Form>
       </Card.Body>
     </Card>
+    </div>
   );
 }

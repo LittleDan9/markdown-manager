@@ -16,7 +16,6 @@ from app.middleware import (
     RequestContextMiddleware,
 )
 from app.routers import (
-    admin,
     auth,
     categories,
     custom_dictionary,
@@ -33,6 +32,7 @@ from app.routers import (
     third_party_router,
     users,
 )
+from app.routers.admin import router as admin_router
 
 logger = logging.getLogger(__name__)
 
@@ -112,7 +112,7 @@ def setup_routers(app: FastAPI) -> None:
         auth.router, prefix="/auth", tags=["auth"]
     )  # Includes MFA endpoints at /auth/mfa/*
     app.include_router(users.router, prefix="/users", tags=["users"])
-    app.include_router(admin.router, prefix="/admin", tags=["admin"])
+    app.include_router(admin_router, tags=["admin"])  # Already has /admin prefix
     app.include_router(
         icons.router  # Icon service endpoints - tags already defined in router
     )

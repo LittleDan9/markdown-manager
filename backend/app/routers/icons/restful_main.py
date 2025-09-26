@@ -58,7 +58,7 @@ async def list_icon_packs(
         for pack in packs:
             pack.urls = {
                 "self": f"/icons/packs/{pack.name}",
-                "icons": f"/icons/packs/{pack.name}",
+                "contents": f"/icons/packs/{pack.name}/contents",
                 "search": f"/icons/search?pack={pack.name}"
             }
 
@@ -94,7 +94,7 @@ async def get_icon_pack(
         # Add reference URLs
         pack.urls = {
             "self": f"/icons/packs/{pack.name}",
-            "icons": f"/icons/packs/{pack.name}",
+            "contents": f"/icons/packs/{pack.name}/contents",
             "search": f"/icons/search?pack={pack.name}"
         }
 
@@ -109,17 +109,17 @@ async def get_icon_pack(
 
 
 @router.get(
-    "/packs/{pack_name}",
-    summary="List icons in pack",
+    "/packs/{pack_name}/contents",
+    summary="List contents of pack",
     description="Get all icons from a specific pack with pagination"
 )
-async def list_pack_icons(
+async def list_pack_contents(
     pack_name: str,
     page: int = 0,
     size: int = 50,
     icon_service: IconService = Depends(get_icon_service)
 ):
-    """List all icons in a specific pack."""
+    """List all icons in a specific pack with pagination."""
     try:
         search_request = IconSearchRequest(
             q="",
@@ -139,9 +139,9 @@ async def list_pack_icons(
         # Add reference URLs to each icon
         for icon in result.icons:
             icon.urls = {
-                "self": f"/icons/packs/{pack_name}/{icon.key}",
-                "raw": f"/icons/packs/{pack_name}/{icon.key}/raw",
-                "svg": f"/icons/packs/{pack_name}/{icon.key}/svg",
+                "self": f"/icons/packs/{pack_name}/contents/{icon.key}",
+                "raw": f"/icons/packs/{pack_name}/contents/{icon.key}/raw",
+                "svg": f"/icons/packs/{pack_name}/contents/{icon.key}/svg",
                 "pack": f"/icons/packs/{pack_name}"
             }
 
@@ -151,12 +151,12 @@ async def list_pack_icons(
     except Exception as e:
         raise HTTPException(
             status_code=500,
-            detail=f"Failed to list pack icons: {str(e)}"
+            detail=f"Failed to list pack contents: {str(e)}"
         )
 
 
 @router.get(
-    "/packs/{pack_name}/{icon_key}",
+    "/packs/{pack_name}/contents/{icon_key}",
     response_model=IconMetadataResponse,
     summary="Get specific icon metadata",
     description="Get detailed metadata for a specific icon within a pack"
@@ -177,9 +177,9 @@ async def get_icon_metadata(
 
         # Add reference URLs
         icon.urls = {
-            "self": f"/icons/packs/{pack_name}/{icon_key}",
-            "raw": f"/icons/packs/{pack_name}/{icon_key}/raw",
-            "svg": f"/icons/packs/{pack_name}/{icon_key}/svg",
+            "self": f"/icons/packs/{pack_name}/contents/{icon_key}",
+            "raw": f"/icons/packs/{pack_name}/contents/{icon_key}/raw",
+            "svg": f"/icons/packs/{pack_name}/contents/{icon_key}/svg",
             "pack": f"/icons/packs/{pack_name}"
         }
 
@@ -200,7 +200,7 @@ async def get_icon_metadata(
 
 
 @router.get(
-    "/packs/{pack_name}/{icon_key}/raw",
+    "/packs/{pack_name}/contents/{icon_key}/raw",
     summary="Get raw icon content",
     description="Get the raw SVG content for direct browser rendering",
     responses={
@@ -249,7 +249,7 @@ async def get_icon_raw(
 
 
 @router.get(
-    "/packs/{pack_name}/{icon_key}/svg",
+    "/packs/{pack_name}/contents/{icon_key}/svg",
     summary="Get icon SVG data",
     description="Get SVG content as JSON response with metadata"
 )
@@ -273,8 +273,8 @@ async def get_icon_svg(
             "svg": svg_data,
             "content_type": "image/svg+xml",
             "urls": {
-                "raw": f"/icons/packs/{pack_name}/{icon_key}/raw",
-                "metadata": f"/icons/packs/{pack_name}/{icon_key}",
+                "raw": f"/icons/packs/{pack_name}/contents/{icon_key}/raw",
+                "metadata": f"/icons/packs/{pack_name}/contents/{icon_key}",
                 "pack": f"/icons/packs/{pack_name}"
             }
         }

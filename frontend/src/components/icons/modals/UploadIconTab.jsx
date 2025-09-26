@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Form, Button, Alert, Card, Badge, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import iconsApi from '../../../api/iconsApi';
+import { adminIconsApi } from '../../../api/admin';
 import PackCategorySelector from '../common/PackCategorySelector';
 
 export default function UploadIconTab({
@@ -124,7 +125,7 @@ export default function UploadIconTab({
 
     try {
       // Use the new single icon upload API
-      const result = await iconsApi.uploadSingleIcon({
+      const result = await adminIconsApi.uploadSingleIcon({
         svgFile: uploadForm.svgFile,
         iconName: uploadForm.iconName,
         packName: uploadForm.packName,

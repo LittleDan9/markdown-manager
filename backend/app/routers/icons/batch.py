@@ -113,9 +113,9 @@ async def batch_get_icons(
                 pack_name = getattr(icon.pack, 'name', 'unknown')
                 icon_key = getattr(icon, 'key', 'unknown')
                 setattr(icon, 'urls', {
-                    "self": f"/icons/packs/{pack_name}/icons/{icon_key}",
-                    "raw": f"/icons/packs/{pack_name}/icons/{icon_key}/raw",
-                    "svg": f"/icons/packs/{pack_name}/icons/{icon_key}/svg",
+                    "self": f"/icons/packs/{pack_name}/contents/{icon_key}",
+                    "raw": f"/icons/packs/{pack_name}/contents/{icon_key}/raw",
+                    "svg": f"/icons/packs/{pack_name}/contents/{icon_key}/svg",
                     "pack": f"/icons/packs/{pack_name}"
                 })
 

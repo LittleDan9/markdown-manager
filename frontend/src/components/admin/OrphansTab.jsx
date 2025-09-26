@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, Button, Alert, Spinner, Badge, ListGroup } from "react-bootstrap";
 import PropTypes from "prop-types";
+import { adminGitHubApi } from "../../api/admin";
 
 function OrphansTab() {
   const [orphanedDocs, setOrphanedDocs] = useState([]);
@@ -76,19 +77,7 @@ function OrphansTab() {
     clearAllAlerts();
 
     try {
-      const response = await fetch("/api/github/admin/orphaned-documents", {
-        method: "GET",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to fetch orphaned documents: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await adminGitHubApi.getMyOrphanedDocuments();
       setOrphanedDocs(data);
       setHasChecked(true);
 
@@ -114,19 +103,7 @@ function OrphansTab() {
     clearAllAlerts();
 
     try {
-      const response = await fetch("/api/github/admin/orphaned-documents", {
-        method: "DELETE",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("authToken")}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cleanup orphaned documents: ${response.statusText}`);
-      }
-
-      const data = await response.json();
+      const data = await adminGitHubApi.cleanupMyOrphanedDocuments();
       setSuccess(data.message);
       setOrphanedDocs([]);
       setHasChecked(false);

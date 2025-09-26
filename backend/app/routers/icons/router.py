@@ -3,7 +3,7 @@ Main Icon API Router - Clean RESTful structure
 
 This module implements the primary icon API with proper RESTful design:
 - /icons/packs/* - Icon pack management
-- /icons/search - Icon search functionality
+- /icons/search - Icon search functionality  
 - /icons/overview - System overview
 - /icons/{icon_id} - Legacy icon access by ID
 """

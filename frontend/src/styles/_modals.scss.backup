@@ -546,16 +546,16 @@ body .custom-modal-content {
       font-weight: 500;
       color: var(--bs-body-color);
       cursor: pointer;
-
+      
       &:hover {
         color: var(--bs-primary);
       }
     }
-
+    
     .form-check:has(.form-check-input:disabled) .form-check-label {
       opacity: 0.6;
       cursor: not-allowed;
-
+      
       &:hover {
         color: var(--bs-body-color);
       }
@@ -767,7 +767,7 @@ body .custom-modal-content {
 
 .github-repo-card {
   transition: all 0.2s ease;
-
+  
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
@@ -900,14 +900,14 @@ body .custom-modal-content {
     max-height: none !important;
     border: 1px solid var(--bs-border-color);
     border-radius: 0.375rem;
-
+    
     // Fix Bootstrap row overflow by preventing it entirely
     .row {
       margin-left: 0 !important;
       margin-right: 0 !important;
       width: 100% !important;
     }
-
+    
     // Adjust column padding to compensate for no row margins
     .col, [class*="col-"] {
       padding-left: 0.25rem !important;

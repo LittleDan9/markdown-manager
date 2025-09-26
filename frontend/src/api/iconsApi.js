@@ -19,16 +19,30 @@ export class IconsApi extends Api {
   }
 
   /**
-   * Get specific icon pack and its icons
+   * Get icons from a specific pack with pagination using proper RESTful endpoint
    */
-  async getIconPack(packName, page = 0, size = 50) {
+  async getPackContents(packName, page = 0, size = 50) {
     const queryParams = new URLSearchParams({
       page: page.toString(),
       size: size.toString()
     });
 
     const response = await this.apiCall(
-      `/icons/packs/${encodeURIComponent(packName)}?${queryParams}`,
+      `/icons/packs/${encodeURIComponent(packName)}/contents?${queryParams}`,
+      'GET',
+      null,
+      {},
+      { noAuth: true }
+    );
+    return response.data;
+  }
+
+  /**
+   * Get specific icon pack metadata (without icons) using RESTful endpoint
+   */
+  async getIconPack(packName) {
+    const response = await this.apiCall(
+      `/icons/packs/${encodeURIComponent(packName)}`,
       'GET',
       null,
       {},
@@ -76,11 +90,11 @@ export class IconsApi extends Api {
   }
 
   /**
-   * Get specific icon metadata
+   * Get specific icon metadata using proper RESTful endpoint
    */
   async getIconMetadata(packName, key) {
     const response = await this.apiCall(
-      `/icons/packs/${encodeURIComponent(packName)}/${encodeURIComponent(key)}`,
+      `/icons/packs/${encodeURIComponent(packName)}/contents/${encodeURIComponent(key)}`,
       'GET',
       null,
       {},
@@ -90,11 +104,11 @@ export class IconsApi extends Api {
   }
 
   /**
-   * Get SVG content for an icon as JSON
+   * Get SVG content for an icon as JSON using proper RESTful endpoint
    */
   async getIconSVG(packName, key) {
     const response = await this.apiCall(
-      `/icons/packs/${encodeURIComponent(packName)}/${encodeURIComponent(key)}/svg`,
+      `/icons/packs/${encodeURIComponent(packName)}/contents/${encodeURIComponent(key)}/svg`,
       'GET',
       null,
       {},
@@ -104,12 +118,12 @@ export class IconsApi extends Api {
   }
 
   /**
-   * Get raw SVG URL for direct browser rendering
+   * Get raw SVG URL for direct browser rendering using proper RESTful endpoint
    * Returns the URL - use this for <img> src attributes
    */
   getRawIconUrl(packName, key) {
     const baseUrl = this.baseURL || window.location.origin;
-    return `${baseUrl}/api/icons/packs/${encodeURIComponent(packName)}/${encodeURIComponent(key)}/raw`;
+    return `${baseUrl}/api/icons/packs/${encodeURIComponent(packName)}/contents/${encodeURIComponent(key)}/raw`;
   }
 
   /**
@@ -171,109 +185,8 @@ export class IconsApi extends Api {
     }
   }
 
-  /**
-   * Get cache statistics (for debugging)
-   */
-  async getCacheStats() {
-    const response = await this.apiCall('/icons/admin/cache/stats', 'GET');
-    return response.data;
-  }
-
-  /**
-   * Clear cache
-   */
-  async clearCache() {
-    const response = await this.apiCall('/icons/admin/cache/clear', 'DELETE');
-    return response.data;
-  }
-
-  /**
-   * Warm cache with popular icons
-   */
-  async warmCache() {
-    const response = await this.apiCall('/icons/admin/cache/warm', 'POST');
-    return response.data;
-  }
-
-  /**
-   * Install new icon pack (admin function)
-   */
-  async installIconPack(packData, mappingConfig, packageType = 'json') {
-    const response = await this.apiCall(
-      '/icons/admin/packs',
-      'POST',
-      {
-        pack_data: packData,
-        mapping_config: mappingConfig,
-        package_type: packageType
-      }
-    );
-    return response.data;
-  }
-
-  /**
-   * Update existing icon pack
-   */
-  async updateIconPack(packName, packData, mappingConfig, packageType = 'json') {
-    const response = await this.apiCall(
-      `/icons/admin/packs/${encodeURIComponent(packName)}`,
-      'PUT',
-      {
-        pack_data: packData,
-        mapping_config: mappingConfig,
-        package_type: packageType
-      }
-    );
-    return response.data;
-  }
-
-  /**
-   * Update only icon pack metadata (name, display_name, category, description)
-   * without affecting the icons themselves
-   */
-  async updateIconPackMetadata(packName, metadata) {
-    const response = await this.apiCall(
-      `/icons/admin/packs/${encodeURIComponent(packName)}`,
-      'PATCH',
-      metadata
-    );
-    return response.data;
-  }
-
-  /**
-   * Delete icon pack
-   */
-  async deleteIconPack(packName) {
-    const response = await this.apiCall(
-      `/icons/admin/packs/${encodeURIComponent(packName)}`,
-      'DELETE'
-    );
-    return response.data;
-  }
-
-  /**
-   * Get icon pack statistics
-   */
-  async getIconStatistics() {
-    const response = await this.apiCall('/icons/admin/statistics', 'GET');
-    return response.data;
-  }
-
-  /**
-   * Get popular icons statistics
-   */
-  async getPopularIcons(limit = 50) {
-    const response = await this.apiCall(`/icons/admin/statistics/popular?limit=${limit}`, 'GET');
-    return response.data;
-  }
-
-  /**
-   * Get pack-level statistics
-   */
-  async getPackStatistics() {
-    const response = await this.apiCall('/icons/admin/statistics/packs', 'GET');
-    return response.data;
-  }
+  // Admin methods have been moved to api/admin/iconsApi.js
+  // Use adminIconsApi for cache management, pack operations, and statistics
 
   /**
    * Get example mapping configurations
@@ -283,34 +196,8 @@ export class IconsApi extends Api {
     return response.data;
   }
 
-  /**
-   * Upload a single icon to a pack
-   */
-  async uploadSingleIcon(iconData) {
-    const formData = new FormData();
-    formData.append('svg_file', iconData.svgFile);
-    formData.append('icon_name', iconData.iconName);
-    formData.append('pack_name', iconData.packName);
-    formData.append('category', iconData.category);
-    if (iconData.description) {
-      formData.append('description', iconData.description);
-    }
-    if (iconData.searchTerms) {
-      formData.append('search_terms', iconData.searchTerms);
-    }
-
-    const response = await this.apiCall(
-      '/icons/admin/upload/icon',
-      'POST',
-      formData,
-      {},
-      {
-        isFormData: true,
-        timeout: 30000 // 30 second timeout for file uploads
-      }
-    );
-    return response.data;
-  }
+  // Admin methods have been moved to api/admin/iconsApi.js
+  // Use adminIconsApi for single icon upload and icon management operations
 
   /**
    * Get unique categories from existing icon packs
@@ -340,28 +227,8 @@ export class IconsApi extends Api {
     }
   }
 
-  /**
-   * Update metadata for a specific icon
-   */
-  async updateIconMetadata(iconId, metadata) {
-    const response = await this.apiCall(
-      `/icons/admin/icons/${iconId}`,
-      'PATCH',
-      metadata
-    );
-    return response.data;
-  }
-
-  /**
-   * Delete a specific icon
-   */
-  async deleteIcon(iconId) {
-    const response = await this.apiCall(
-      `/icons/admin/icons/${iconId}`,
-      'DELETE'
-    );
-    return response.data;
-  }
+  // Admin methods have been moved to api/admin/iconsApi.js
+  // Use adminIconsApi for icon metadata updates and deletion
 
   // Third-Party API Methods
 

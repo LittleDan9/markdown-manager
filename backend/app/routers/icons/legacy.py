@@ -41,9 +41,9 @@ async def get_icon_by_id_legacy(
             pack_name = getattr(icon.pack, 'name', 'unknown')
             icon_key = getattr(icon, 'key', 'unknown')
             setattr(icon, 'urls', {
-                "recommended": f"/icons/packs/{pack_name}/icons/{icon_key}",
-                "raw": f"/icons/packs/{pack_name}/icons/{icon_key}/raw",
-                "svg": f"/icons/packs/{pack_name}/icons/{icon_key}/svg",
+                "recommended": f"/icons/packs/{pack_name}/contents/{icon_key}",
+                "raw": f"/icons/packs/{pack_name}/contents/{icon_key}/raw",
+                "svg": f"/icons/packs/{pack_name}/contents/{icon_key}/svg",
                 "pack": f"/icons/packs/{pack_name}"
             })
 

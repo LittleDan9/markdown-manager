@@ -1,0 +1,526 @@
+// ─── GITHUB INTEGRATION MODAL STYLES ───
+
+.github-auth-modal {
+  .modal-dialog {
+    max-width: 600px;
+  }
+
+  .auth-step {
+    margin-bottom: 2rem;
+
+    &.active {
+      .step-header {
+        color: #007bff;
+        border-color: #007bff;
+      }
+    }
+
+    &.completed {
+      .step-header {
+        color: #28a745;
+        border-color: #28a745;
+      }
+
+      .step-icon::after {
+        content: '✓';
+        color: #28a745;
+        font-weight: bold;
+      }
+    }
+
+    .step-header {
+      display: flex;
+      align-items: center;
+      padding: 1rem;
+      border: 2px solid #e9ecef;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      background: #f8f9fa;
+
+      [data-bs-theme="dark"] & {
+        background: #2a2a2a;
+        border-color: #495057;
+        color: #ffffff;
+      }
+
+      .step-icon {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 1rem;
+        font-weight: bold;
+
+        [data-bs-theme="dark"] & {
+          background: #495057;
+        }
+      }
+
+      .step-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin: 0;
+      }
+    }
+
+    .step-content {
+      padding-left: 3rem;
+
+      .form-group {
+        margin-bottom: 1rem;
+
+        label {
+          display: block;
+          margin-bottom: 0.5rem;
+          font-weight: 500;
+        }
+
+        input {
+          width: 100%;
+          padding: 0.75rem;
+          border: 1px solid #ced4da;
+          border-radius: 4px;
+
+          &:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+          }
+
+          [data-bs-theme="dark"] & {
+            background: #1a1a1a;
+            border-color: #495057;
+            color: #ffffff;
+          }
+        }
+      }
+
+      .instruction-text {
+        color: #6c757d;
+        margin-bottom: 1rem;
+        line-height: 1.5;
+
+        [data-bs-theme="dark"] & {
+          color: #adb5bd;
+        }
+      }
+
+      .code-block {
+        background: #f8f9fa;
+        border: 1px solid #e9ecef;
+        border-radius: 4px;
+        padding: 1rem;
+        font-family: monospace;
+        margin: 1rem 0;
+        position: relative;
+
+        [data-bs-theme="dark"] & {
+          background: #1a1a1a;
+          border-color: #495057;
+          color: #ffffff;
+        }
+
+        .copy-button {
+          position: absolute;
+          top: 0.5rem;
+          right: 0.5rem;
+          background: #007bff;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          padding: 0.25rem 0.5rem;
+          font-size: 0.8rem;
+          cursor: pointer;
+
+          &:hover {
+            background: #0056b3;
+          }
+        }
+      }
+    }
+  }
+
+  .progress-indicator {
+    margin: 2rem 0;
+    text-align: center;
+
+    .progress-steps {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 1rem;
+
+      .progress-step {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 50%;
+        background: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 0.5rem;
+        position: relative;
+
+        &.active {
+          background: #007bff;
+          color: white;
+        }
+
+        &.completed {
+          background: #28a745;
+          color: white;
+
+          &::after {
+            content: '✓';
+          }
+        }
+
+        [data-bs-theme="dark"] & {
+          background: #495057;
+
+          &.active {
+            background: #007bff;
+          }
+
+          &.completed {
+            background: #28a745;
+          }
+        }
+
+        &:not(:last-child)::before {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 100%;
+          width: 1rem;
+          height: 2px;
+          background: #e9ecef;
+          transform: translateY(-50%);
+
+          [data-bs-theme="dark"] & {
+            background: #495057;
+          }
+        }
+
+        &.completed + .progress-step::before {
+          background: #28a745;
+        }
+      }
+    }
+
+    .progress-text {
+      color: #6c757d;
+      font-size: 0.9rem;
+
+      [data-bs-theme="dark"] & {
+        color: #adb5bd;
+      }
+    }
+  }
+
+  .connection-status {
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    text-align: center;
+
+    &.connected {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+
+      [data-bs-theme="dark"] & {
+        background: #0f2419;
+        color: #75b798;
+        border-color: #1e7e34;
+      }
+    }
+
+    &.disconnected {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+
+      [data-bs-theme="dark"] & {
+        background: #2c0b0e;
+        color: #f1aeb5;
+        border-color: #842029;
+      }
+    }
+
+    &.pending {
+      background: #fff3cd;
+      color: #856404;
+      border: 1px solid #ffeaa7;
+
+      [data-bs-theme="dark"] & {
+        background: #332701;
+        color: #ffda6a;
+        border-color: #997404;
+      }
+    }
+
+    .status-icon {
+      font-size: 2rem;
+      margin-bottom: 0.5rem;
+      display: block;
+    }
+
+    .status-title {
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+    }
+
+    .status-message {
+      margin: 0;
+      opacity: 0.8;
+    }
+  }
+
+  .organization-selector {
+    margin: 1rem 0;
+
+    .org-option {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem;
+      border: 1px solid #e9ecef;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: #007bff;
+        background: #f8f9fa;
+      }
+
+      &.selected {
+        border-color: #007bff;
+        background: #e7f3ff;
+
+        [data-bs-theme="dark"] & {
+          background: #0d2a44;
+        }
+      }
+
+      [data-bs-theme="dark"] & {
+        border-color: #495057;
+        background: #2a2a2a;
+
+        &:hover {
+          border-color: #007bff;
+          background: #1a1a1a;
+        }
+      }
+
+      .org-avatar {
+        width: 2rem;
+        height: 2rem;
+        border-radius: 4px;
+        margin-right: 1rem;
+      }
+
+      .org-info {
+        flex: 1;
+
+        .org-name {
+          font-weight: 600;
+          margin: 0 0 0.25rem 0;
+        }
+
+        .org-description {
+          color: #6c757d;
+          font-size: 0.9rem;
+          margin: 0;
+
+          [data-bs-theme="dark"] & {
+            color: #adb5bd;
+          }
+        }
+      }
+    }
+  }
+
+  .repository-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid #e9ecef;
+    border-radius: 4px;
+
+    [data-bs-theme="dark"] & {
+      border-color: #495057;
+    }
+
+    .repo-item {
+      display: flex;
+      align-items: center;
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #e9ecef;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background: #f8f9fa;
+      }
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &.selected {
+        background: #e7f3ff;
+        border-color: #007bff;
+
+        [data-bs-theme="dark"] & {
+          background: #0d2a44;
+        }
+      }
+
+      [data-bs-theme="dark"] & {
+        border-bottom-color: #495057;
+
+        &:hover {
+          background: #1a1a1a;
+        }
+      }
+
+      .repo-checkbox {
+        margin-right: 1rem;
+      }
+
+      .repo-info {
+        flex: 1;
+
+        .repo-name {
+          font-weight: 600;
+          color: #007bff;
+          margin: 0 0 0.25rem 0;
+        }
+
+        .repo-description {
+          color: #6c757d;
+          font-size: 0.9rem;
+          margin: 0;
+
+          [data-bs-theme="dark"] & {
+            color: #adb5bd;
+          }
+        }
+      }
+
+      .repo-stats {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        color: #6c757d;
+        font-size: 0.9rem;
+
+        [data-bs-theme="dark"] & {
+          color: #adb5bd;
+        }
+
+        .stat-item {
+          display: flex;
+          align-items: center;
+          gap: 0.25rem;
+        }
+      }
+    }
+  }
+
+  .sync-status {
+    margin: 1rem 0;
+    padding: 1rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+    border-left: 4px solid #007bff;
+
+    [data-bs-theme="dark"] & {
+      background: #2a2a2a;
+    }
+
+    .sync-title {
+      font-weight: 600;
+      margin-bottom: 0.5rem;
+      color: #007bff;
+    }
+
+    .sync-progress {
+      margin: 1rem 0;
+
+      .progress {
+        height: 8px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+
+        [data-bs-theme="dark"] & {
+          background: #495057;
+        }
+
+        .progress-bar {
+          height: 100%;
+          background: #007bff;
+          transition: width 0.3s ease;
+        }
+      }
+
+      .progress-text {
+        font-size: 0.9rem;
+        color: #6c757d;
+        margin-top: 0.5rem;
+
+        [data-bs-theme="dark"] & {
+          color: #adb5bd;
+        }
+      }
+    }
+
+    .sync-log {
+      max-height: 200px;
+      overflow-y: auto;
+      background: #ffffff;
+      padding: 1rem;
+      border-radius: 4px;
+      font-family: monospace;
+      font-size: 0.9rem;
+      border: 1px solid #e9ecef;
+
+      [data-bs-theme="dark"] & {
+        background: #1a1a1a;
+        border-color: #495057;
+        color: #ffffff;
+      }
+
+      .log-entry {
+        margin-bottom: 0.25rem;
+
+        .log-timestamp {
+          color: #6c757d;
+          margin-right: 0.5rem;
+
+          [data-bs-theme="dark"] & {
+            color: #adb5bd;
+          }
+        }
+
+        &.error {
+          color: #dc3545;
+        }
+
+        &.success {
+          color: #28a745;
+        }
+
+        &.warning {
+          color: #ffc107;
+        }
+      }
+    }
+  }
+}

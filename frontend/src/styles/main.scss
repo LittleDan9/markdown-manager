@@ -16,7 +16,7 @@
 @use "editor";
 @use "preview";
 @use "code";
-@use "modals";
+@use "modals/index" as modals;
 @use "github";
 @use "storage";
 @use "admin";

@@ -311,195 +311,190 @@ export default function ThirdPartyIconBrowser({
 
   return (
     <>
-      <div className="row g-0">
-        {/* Collections Sidebar */}
-        <div className="col-md-4" style={{ borderRight: '1px solid var(--bs-border-color)' }}>
-          <div className="p-3" style={{ borderBottom: '1px solid var(--bs-border-color)' }}>
-            <h6 className="mb-3">Third-Party Icon Sources</h6>
+      <div className="third-party-icon-browser">
+        <div className="browser-layout">
+          {/* Collections Panel */}
+          <div className="collections-panel">
+            <div className="collections-panel-header">
+              <h6>Third-Party Icon Sources</h6>
 
-            {/* Source Selector */}
-            <Form.Select
-              value={selectedSource}
-              onChange={(e) => {
-                setSelectedSource(e.target.value);
-                setSelectedCollection(null);
-                setIcons([]);
-                setSelectedIcons(new Set());
-                setSearchQuery('');
-                setCategoryFilter('');
-                setIconSearch('');
-              }}
-              className="mb-3"
-            >
-              {sources.map(source => (
-                <option key={source.id} value={source.id}>
-                  {source.name} - {source.description}
-                </option>
-              ))}
-            </Form.Select>
-
-            {/* Search and Filter */}
-            <Form.Control
-              type="text"
-              placeholder="Search collections..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="mb-2"
-            />
-
-            <Form.Select
-              value={categoryFilter}
-              onChange={(e) => setCategoryFilter(e.target.value)}
-              size="sm"
-            >
-              <option value="">All Categories</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </Form.Select>
-          </div>
-
-          {/* Collections List */}
-          <div style={{ height: '400px', overflowY: 'auto', padding: '1rem' }}>
-            {loading ? (
-              <div className="text-center py-4">
-                <Spinner animation="border" size="sm" />
-                <div className="mt-2">Loading collections...</div>
-              </div>
-            ) : (
-              collections.map(collection => (
-                <Card
-                  key={collection.prefix}
-                  className={`mb-2 cursor-pointer ${
-                    selectedCollection?.prefix === collection.prefix ? 'border-primary' : ''
-                  }`}
-                  style={{ cursor: 'pointer' }}
-                  onClick={() => selectCollection(collection)}
-                >
-                  <Card.Body className="p-3">
-                    <div className="d-flex justify-content-between align-items-start">
-                      <div>
-                        <h6 className="mb-1">{collection.name}</h6>
-                        <small className="text-muted">{collection.prefix}</small>
-                      </div>
-                      <Badge bg="secondary">{collection.total}</Badge>
-                    </div>
-                    {collection.category && (
-                      <Badge bg="outline-primary" className="mt-2">
-                        {collection.category}
-                      </Badge>
-                    )}
-                    {collection.samples && (
-                      <div className="mt-2">
-                        <div className="d-flex flex-wrap">
-                          {collection.samples.slice(0, 3).map(sample => (
-                            <small key={sample} className="text-muted me-2">
-                              {sample}
-                            </small>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-                  </Card.Body>
-                </Card>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Icons Grid */}
-        <div className="col-md-8">
-          {selectedCollection ? (
-            <>
-              {/* Header */}
-              <div className="p-3" style={{ borderBottom: '1px solid var(--bs-border-color)' }}>
-                <div className="d-flex justify-content-between align-items-center">
-                  <div>
-                    <h6 className="mb-0">{selectedCollection.name}</h6>
-                    <small className="text-muted">
-                      {selectedIcons.size} selected of {icons.length} loaded
-                    </small>
-                  </div>
-                  <div>
-                    <Button
-                      variant="outline-success"
-                      size="sm"
-                      className="me-2"
-                      onClick={openEntirePackModal}
-                    >
-                      <i className="bi bi-download me-1"></i>
-                      Import Entire Pack
-                    </Button>
-                    {selectedIcons.size > 0 && (
-                      <>
-                        <Button
-                          variant="outline-secondary"
-                          size="sm"
-                          className="me-2"
-                          onClick={clearSelection}
-                        >
-                          Clear Selection
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={openInstallModal}
-                        >
-                          Install {selectedIcons.size} Icons
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Search and Controls */}
-              <div className="p-3" style={{ borderBottom: '1px solid var(--bs-border-color)' }}>
-                <div className="row">
-                  <div className="col-md-8">
-                    <Form.Control
-                      type="text"
-                      placeholder="Search icons in collection..."
-                      value={iconSearch}
-                      onChange={(e) => setIconSearch(e.target.value)}
-                    />
-                    <div className="mt-2">
-                      <small className="text-muted me-3">Try: </small>
-                      {['home', 'user', 'heart', 'star', 'search', 'check'].map(term => (
-                        <Button
-                          key={term}
-                          variant="outline-secondary"
-                          size="sm"
-                          className="me-2 mb-1"
-                          onClick={() => setIconSearch(term)}
-                        >
-                          {term}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="col-md-4 text-end">
-                    <Button
-                      variant="outline-primary"
-                      size="sm"
-                      onClick={selectAllVisibleIcons}
-                      disabled={icons.length === 0}
-                    >
-                      Select All Visible
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Icons Grid */}
-              <div
-                style={{ height: '350px', overflowY: 'auto', padding: '1rem' }}
-                onScroll={handleIconsScroll}
+              {/* Source Selector */}
+              <Form.Select
+                value={selectedSource}
+                onChange={(e) => {
+                  setSelectedSource(e.target.value);
+                  setSelectedCollection(null);
+                  setIcons([]);
+                  setSelectedIcons(new Set());
+                  setSearchQuery('');
+                  setCategoryFilter('');
+                  setIconSearch('');
+                }}
               >
-                <div className="row g-2">
-                  {icons.map(icon => (
-                    <div key={icon.name} className="col-2">
+                {sources.map(source => (
+                  <option key={source.id} value={source.id}>
+                    {source.name} - {source.description}
+                  </option>
+                ))}
+              </Form.Select>
+
+              {/* Search and Filter */}
+              <Form.Control
+                type="text"
+                placeholder="Search collections..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+
+              <Form.Select
+                value={categoryFilter}
+                onChange={(e) => setCategoryFilter(e.target.value)}
+                size="sm"
+              >
+                <option value="">All Categories</option>
+                {categories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </Form.Select>
+            </div>
+
+            {/* Scrollable Collections List */}
+            <div className="collections-scroll-area">
+              {loading ? (
+                <div className="loading-state">
+                  <Spinner animation="border" size="sm" />
+                  <div className="mt-2">Loading collections...</div>
+                </div>
+              ) : (
+                collections.map(collection => (
+                  <Card
+                    key={collection.prefix}
+                    className={`collection-item ${
+                      selectedCollection?.prefix === collection.prefix ? 'selected' : ''
+                    }`}
+                    onClick={() => selectCollection(collection)}
+                  >
+                    <Card.Body>
+                      <div className="d-flex justify-content-between align-items-start">
+                        <div>
+                          <h6 className="mb-1 fs-6">{collection.name}</h6>
+                          <small className="text-muted">{collection.prefix}</small>
+                        </div>
+                        <Badge bg="secondary">{collection.total}</Badge>
+                      </div>
+                      {collection.category && (
+                        <Badge bg="outline-primary" className="mt-2">
+                          {collection.category}
+                        </Badge>
+                      )}
+                      {collection.samples && (
+                        <div className="mt-2">
+                          <div className="d-flex flex-wrap">
+                            {collection.samples.slice(0, 3).map(sample => (
+                              <small key={sample} className="text-muted me-2">
+                                {sample}
+                              </small>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </Card.Body>
+                  </Card>
+                ))
+              )}
+            </div>
+          </div>
+
+          {/* Icons Panel */}
+          <div className="icons-panel">
+            {selectedCollection ? (
+              <>
+                {/* Icons Header */}
+                <div className="icons-panel-header">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <h6 className="mb-0">{selectedCollection.name}</h6>
+                      <small className="text-muted">
+                        {selectedIcons.size} selected of {icons.length} loaded
+                      </small>
+                    </div>
+                    <div>
+                      <Button
+                        variant="outline-success"
+                        size="sm"
+                        className="me-2"
+                        onClick={openEntirePackModal}
+                      >
+                        <i className="bi bi-download me-1"></i>
+                        Import Entire Pack
+                      </Button>
+                      {selectedIcons.size > 0 && (
+                        <>
+                          <Button
+                            variant="outline-secondary"
+                            size="sm"
+                            className="me-2"
+                            onClick={clearSelection}
+                          >
+                            Clear Selection
+                          </Button>
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            onClick={openInstallModal}
+                          >
+                            Install {selectedIcons.size} Icons
+                          </Button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Search and Controls */}
+                <div className="icons-panel-controls">
+                  <div className="row">
+                    <div className="col-md-8">
+                      <Form.Control
+                        type="text"
+                        placeholder="Search icons in collection..."
+                        value={iconSearch}
+                        onChange={(e) => setIconSearch(e.target.value)}
+                      />
+                      <div className="mt-2">
+                        <small className="text-muted me-3">Try: </small>
+                        {['home', 'user', 'heart', 'star', 'search', 'check'].map(term => (
+                          <Button
+                            key={term}
+                            variant="outline-secondary"
+                            size="sm"
+                            className="me-2 mb-1"
+                            onClick={() => setIconSearch(term)}
+                          >
+                            {term}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="col-md-4 text-end">
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={selectAllVisibleIcons}
+                        disabled={icons.length === 0}
+                      >
+                        Select All Visible
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Scrollable Icons Grid */}
+                <div className="icons-scroll-area" onScroll={handleIconsScroll}>
+                  <div className="icons-grid">
+                    {icons.map(icon => (
                       <OverlayTrigger
+                        key={icon.name}
                         placement="top"
                         overlay={
                           <Tooltip>
@@ -510,84 +505,72 @@ export default function ThirdPartyIconBrowser({
                         }
                       >
                         <Card
-                          className={`h-100 cursor-pointer ${
-                            selectedIcons.has(icon.name) ? 'border-primary border-2' : ''
+                          className={`icon-item ${
+                            selectedIcons.has(icon.name) ? 'selected' : ''
                           }`}
-                          style={{
-                            cursor: 'pointer',
-                            backgroundColor: selectedIcons.has(icon.name) ? 'var(--bs-primary-bg-subtle)' : ''
-                          }}
                           onClick={() => toggleIconSelection(icon.name)}
                         >
-                          <Card.Body className="p-2 text-center">
+                          <Card.Body>
                             <div
-                              className="mb-1 icon-svg-container"
+                              className="icon-display"
                               dangerouslySetInnerHTML={{ __html: icon.svg }}
-                              style={{
-                                height: '32px',
-                                width: '32px',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                margin: '0 auto'
-                              }}
                             />
-                            <small className="text-muted d-block text-truncate">
+                            <small className="icon-name text-muted">
                               {icon.name}
                             </small>
                           </Card.Body>
                         </Card>
                       </OverlayTrigger>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Loading indicator */}
-                {iconsLoading && (
-                  <div className="text-center py-4">
-                    <Spinner animation="border" size="sm" />
-                    <div className="mt-2">Loading more icons...</div>
+                    ))}
                   </div>
-                )}
 
-                {icons.length === 0 && !iconsLoading && (
-                  <Alert variant="info" className="mt-3">
-                    {!iconSearch.trim() ? (
-                      <>
-                        <h6>No Icons Available</h6>
-                        <p className="mb-0">
-                          This collection appears to be empty or failed to load.
-                          <br />
-                          Try refreshing or selecting a different collection.
-                        </p>
-                      </>
-                    ) : (
-                      <>
-                        <h6>No Icons Found</h6>
-                        <p className="mb-0">
-                          No icons found for "{iconSearch}". Try a different search term.
-                        </p>
-                      </>
-                    )}
-                  </Alert>
-                )}
+                  {/* Loading indicator */}
+                  {iconsLoading && (
+                    <div className="loading-state">
+                      <Spinner animation="border" size="sm" />
+                      <div className="mt-2">Loading more icons...</div>
+                    </div>
+                  )}
+
+                  {icons.length === 0 && !iconsLoading && (
+                    <Alert variant="info" className="mt-3">
+                      {!iconSearch.trim() ? (
+                        <>
+                          <h6>No Icons Available</h6>
+                          <p className="mb-0">
+                            This collection appears to be empty or failed to load.
+                            <br />
+                            Try refreshing or selecting a different collection.
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <h6>No Icons Found</h6>
+                          <p className="mb-0">
+                            No icons found for "{iconSearch}". Try a different search term.
+                          </p>
+                        </>
+                      )}
+                    </Alert>
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="empty-state-panel">
+                <div>
+                  <h6>Select a Collection</h6>
+                  <p className="text-muted">
+                    Choose an icon collection from the left to browse and install icons
+                  </p>
+                </div>
               </div>
-            </>
-          ) : (
-            <div className="d-flex align-items-center justify-content-center" style={{ height: '500px' }}>
-              <div className="text-center">
-                <h6>Select a Collection</h6>
-                <p className="text-muted">
-                  Choose an icon collection from the left to browse and install icons
-                </p>
-              </div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Install Modal */}
-      <Modal show={installModalOpen} onHide={() => setInstallModalOpen(false)}>
+    {/* Install Modal */}
+    <Modal show={installModalOpen} onHide={() => setInstallModalOpen(false)}>
         <Modal.Header closeButton>
           <Modal.Title>Install Icon Pack</Modal.Title>
         </Modal.Header>

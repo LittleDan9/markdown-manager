@@ -19,7 +19,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
     try {
       // Call the backend API through gitHubApi
       const data = await gitHubApi.getDocumentGitHistory(documentId, 20);
-      
+
       // Transform the backend response to match our expected format
       const transformedCommits = data.commits.map((commit, index) => ({
         hash: commit.hash,
@@ -31,7 +31,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
         relativeDate: commit.relative_date,
         isCurrent: index === 0 // Mark the first (latest) commit as current
       }));
-      
+
       setCommits(transformedCommits);
     } catch (err) {
       setError(`Failed to load commit history: ${err.message}`);
@@ -60,10 +60,10 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
     if (relativeString && relativeString !== dateString) {
       return relativeString;
     }
-    
+
     // Otherwise calculate relative time from date
     if (!dateString) return 'Unknown time';
-    
+
     try {
       const now = new Date();
       const date = new Date(dateString);
@@ -135,12 +135,12 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
               <i className="bi bi-info-circle me-1"></i>
               Showing {commits.length} recent commits
             </div>
-            
+
             <div className="git-history-timeline">
               {commits.map((commit, index) => (
                 <div key={commit.hash} className="commit-item border-start border-2 border-primary ps-3 pb-3 position-relative">
                   {/* Timeline dot */}
-                  <div 
+                  <div
                     className={`position-absolute bg-${commit.isCurrent ? 'success' : 'primary'} rounded-circle`}
                     style={{
                       width: '12px',
@@ -149,7 +149,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
                       top: '8px'
                     }}
                   ></div>
-                  
+
                   <div className="commit-header d-flex align-items-center justify-content-between mb-2">
                     <div className="d-flex align-items-center">
                       <code className="me-2 text-primary">{commit.shortHash}</code>
@@ -164,11 +164,11 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
                       {formatRelativeTime(commit.relativeDate, commit.date)}
                     </small>
                   </div>
-                  
+
                   <div className="commit-message mb-2">
                     <strong>{commit.message}</strong>
                   </div>
-                  
+
                   <div className="commit-meta small text-muted d-flex align-items-center">
                     <i className="bi bi-person me-1"></i>
                     <span className="me-3">{commit.author}</span>
@@ -201,24 +201,6 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
           </div>
         </div>
       </Modal.Footer>
-
-      <style jsx>{`
-        .git-history-timeline {
-          position: relative;
-        }
-        .commit-item:last-child {
-          border-left: none !important;
-        }
-        .commit-item:last-child::after {
-          content: '';
-          position: absolute;
-          left: -1px;
-          bottom: 0;
-          width: 2px;
-          height: 20px;
-          background: linear-gradient(to bottom, var(--bs-primary), transparent);
-        }
-      `}</style>
     </Modal>
   );
 }

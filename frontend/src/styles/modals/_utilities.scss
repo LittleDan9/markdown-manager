@@ -1,0 +1,290 @@
+// ─── UTILITY MODAL STYLES ───
+
+.modal-loading {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  min-height: 200px !important;
+
+  .spinner {
+    width: 3rem !important;
+    height: 3rem !important;
+    border: 0.3rem solid rgba(0, 123, 255, 0.2) !important;
+    border-top: 0.3rem solid #007bff !important;
+    border-radius: 50% !important;
+    animation: spin 1s linear infinite !important;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+}
+
+.modal-error {
+  text-align: center !important;
+  padding: 2rem !important;
+
+  .error-icon {
+    font-size: 3rem !important;
+    color: #dc3545 !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .error-title {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+    color: #dc3545 !important;
+  }
+
+  .error-message {
+    color: #6c757d !important;
+
+    [data-bs-theme="dark"] & {
+      color: #adb5bd !important;
+    }
+  }
+}
+
+.modal-empty-state {
+  text-align: center !important;
+  padding: 3rem 2rem !important;
+
+  .empty-icon {
+    font-size: 4rem !important;
+    color: #6c757d !important;
+    margin-bottom: 1rem !important;
+    opacity: 0.5 !important;
+
+    [data-bs-theme="dark"] & {
+      color: #adb5bd !important;
+    }
+  }
+
+  .empty-title {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 0.5rem !important;
+    color: #495057 !important;
+
+    [data-bs-theme="dark"] & {
+      color: #f8f9fa !important;
+    }
+  }
+
+  .empty-message {
+    color: #6c757d !important;
+    margin-bottom: 2rem !important;
+
+    [data-bs-theme="dark"] & {
+      color: #adb5bd !important;
+    }
+  }
+
+  .empty-action {
+    .btn {
+      padding: 0.75rem 2rem !important;
+    }
+  }
+}
+
+.modal-search-results {
+  .search-stats {
+    padding: 0.5rem 1rem !important;
+    background: #f8f9fa !important;
+    border-bottom: 1px solid #e9ecef !important;
+    font-size: 0.9rem !important;
+    color: #6c757d !important;
+
+    [data-bs-theme="dark"] & {
+      background: #2a2a2a !important;
+      border-bottom-color: #444 !important;
+      color: #adb5bd !important;
+    }
+  }
+
+  .no-results {
+    text-align: center !important;
+    padding: 2rem !important;
+    color: #6c757d !important;
+
+    [data-bs-theme="dark"] & {
+      color: #adb5bd !important;
+    }
+  }
+}
+
+.modal-confirmation {
+  text-align: center !important;
+
+  .confirmation-icon {
+    font-size: 3rem !important;
+    margin-bottom: 1rem !important;
+
+    &.warning {
+      color: #ffc107 !important;
+    }
+
+    &.danger {
+      color: #dc3545 !important;
+    }
+
+    &.info {
+      color: #17a2b8 !important;
+    }
+  }
+
+  .confirmation-title {
+    font-size: 1.25rem !important;
+    font-weight: 600 !important;
+    margin-bottom: 1rem !important;
+  }
+
+  .confirmation-message {
+    color: #6c757d !important;
+    margin-bottom: 2rem !important;
+    line-height: 1.5 !important;
+
+    [data-bs-theme="dark"] & {
+      color: #adb5bd !important;
+    }
+  }
+
+  .confirmation-actions {
+    display: flex !important;
+    justify-content: center !important;
+    gap: 1rem !important;
+  }
+}
+
+.modal-tabs-vertical {
+  display: flex !important;
+  height: 100% !important;
+
+  .nav-tabs {
+    flex-direction: column !important;
+    border-right: 1px solid #dee2e6 !important;
+    border-bottom: none !important;
+    min-width: 200px !important;
+    margin: 0 !important;
+
+    [data-bs-theme="dark"] & {
+      border-right-color: #444 !important;
+    }
+
+    .nav-link {
+      text-align: left !important;
+      border: 1px solid transparent !important;
+      border-radius: 0 !important;
+      margin: 0 !important;
+
+      &.active {
+        border-color: #dee2e6 #dee2e6 #dee2e6 transparent !important;
+        background: #fff !important;
+
+        [data-bs-theme="dark"] & {
+          border-color: #444 #444 #444 transparent !important;
+          background: #1a1a1a !important;
+        }
+      }
+    }
+  }
+
+  .tab-content {
+    flex: 1 !important;
+    padding: 1rem !important;
+  }
+}
+
+.modal-form {
+  .form-row {
+    display: flex !important;
+    gap: 1rem !important;
+    margin-bottom: 1rem !important;
+
+    &.single-column {
+      flex-direction: column !important;
+      gap: 0 !important;
+    }
+  }
+
+  .form-group {
+    flex: 1 !important;
+
+    &.form-group-sm {
+      flex: 0 0 auto !important;
+      min-width: 120px !important;
+    }
+
+    &.form-group-lg {
+      flex: 2 !important;
+    }
+
+    label {
+      display: block !important;
+      margin-bottom: 0.5rem !important;
+      font-weight: 500 !important;
+      color: #495057 !important;
+
+      [data-bs-theme="dark"] & {
+        color: #f8f9fa !important;
+      }
+
+      &.required::after {
+        content: ' *' !important;
+        color: #dc3545 !important;
+      }
+    }
+
+    .form-control {
+      transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out !important;
+
+      &:focus {
+        border-color: #007bff !important;
+        box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1) !important;
+        outline: none !important;
+      }
+
+      &.is-invalid {
+        border-color: #dc3545 !important;
+
+        &:focus {
+          box-shadow: 0 0 0 3px rgba(220, 53, 69, 0.1) !important;
+        }
+      }
+
+      &.is-valid {
+        border-color: #28a745 !important;
+
+        &:focus {
+          box-shadow: 0 0 0 3px rgba(40, 167, 69, 0.1) !important;
+        }
+      }
+    }
+
+    .invalid-feedback {
+      display: block !important;
+      color: #dc3545 !important;
+      font-size: 0.875rem !important;
+      margin-top: 0.25rem !important;
+    }
+
+    .valid-feedback {
+      display: block !important;
+      color: #28a745 !important;
+      font-size: 0.875rem !important;
+      margin-top: 0.25rem !important;
+    }
+
+    .form-text {
+      color: #6c757d !important;
+      font-size: 0.875rem !important;
+      margin-top: 0.25rem !important;
+
+      [data-bs-theme="dark"] & {
+        color: #adb5bd !important;
+      }
+    }
+  }
+}

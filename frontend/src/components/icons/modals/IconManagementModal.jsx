@@ -3,7 +3,6 @@ import { Modal, Tab, Nav } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import UploadIconTab from './UploadIconTab';
 import IconPacksTab from './IconPacksTab';
-import DeletePackTab from './DeletePackTab';
 import ThirdPartyIconBrowser from '../ThirdPartyIconBrowser';
 import InstalledIconsTab from './InstalledIconsTab';
 
@@ -84,15 +83,15 @@ export default function IconManagementModal({ show, onHide }) {
   };
 
   return (
-    <Modal show={show} onHide={handleClose} size="xl" centered scrollable>
+    <Modal show={show} onHide={handleClose} size="xl" centered className="icon-management-modal">
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="bi bi-images me-2"></i>
           Icon Management
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
+      <Modal.Body>
+        <Tab.Container activeKey={activeTab} onSelect={setActiveTab} className="tab-container">
           <Nav variant="tabs" className="mb-3" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bs-body-bg)', zIndex: 10 }}>
             <Nav.Item>
               <Nav.Link eventKey="packs">
@@ -130,18 +129,12 @@ export default function IconManagementModal({ show, onHide }) {
                   <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M24 25v16"/>
                   <circle cx="24" cy="23" r="4" fill="currentColor"/>
                 </svg>
-                Iconify Browser
-              </Nav.Link>
-            </Nav.Item>
-            <Nav.Item>
-              <Nav.Link eventKey="delete">
-                <i className="bi bi-trash me-2"></i>
-                Delete Packs
+                Icon Browser
               </Nav.Link>
             </Nav.Item>
           </Nav>
 
-          <Tab.Content style={{ minHeight: '400px' }}>
+          <Tab.Content>
             {/* Packs Tab */}
             <Tab.Pane eventKey="packs">
               <IconPacksTab iconPacks={iconPacks} onReloadData={loadAllData} loading={loading} />
@@ -172,14 +165,6 @@ export default function IconManagementModal({ show, onHide }) {
                 dropdownPackNames={dropdownPackNames}
                 onAddCategory={handleAddCategory}
                 onAddPackName={handleAddPackName}
-                onReloadData={loadAllData}
-              />
-            </Tab.Pane>
-
-            {/* Delete Pack Tab */}
-            <Tab.Pane eventKey="delete">
-              <DeletePackTab
-                iconPacks={iconPacks}
                 onReloadData={loadAllData}
               />
             </Tab.Pane>

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Button, Badge, Row, Col, Spinner, Alert, Form, InputGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
+import { adminIconsApi } from '../../../api/admin';
 
-export default function IconViewModal({ icon, show, onHide, initialEditMode = false }) {
+export default function IconViewModal({ icon, show, onHide, initialEditMode = false, onSave }) {
   const [iconData, setIconData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -14,6 +15,11 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
 
   useEffect(() => {
     if (show && icon?.id) {
+      // Reset iconData when a new icon is selected
+      setIconData(null);
+      setError(null);
+      setSaveSuccess(false);
+
       fetchIconData();
       // Set initial edit mode immediately if requested, even before data loads
       if (initialEditMode) {
@@ -38,9 +44,19 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     setLoading(true);
     setError(null);
     try {
-      // Use the new getIconById API method to fetch fresh icon data
-      const freshIcon = await iconsApi.getIconById(icon.id);
-      setIconData(freshIcon);
+      // Use the current iconData if available (after updates), otherwise use original icon
+      const currentIcon = iconData || icon;
+
+      // Use the proper RESTful endpoint for getting icon metadata
+      if (currentIcon.pack && currentIcon.pack.name && currentIcon.key) {
+        const freshIcon = await iconsApi.getIconMetadata(currentIcon.pack.name, currentIcon.key);
+        setIconData(freshIcon);
+      } else {
+        // Fallback to the ID-based method if pack info is not available
+        console.warn('Using ID-based getIconById - pack information not available');
+        const freshIcon = await iconsApi.getIconById(currentIcon.id);
+        setIconData(freshIcon);
+      }
     } catch (err) {
       console.error('Error fetching icon data:', err);
       setError(err.message);
@@ -67,18 +83,23 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
   const handleSave = async () => {
     setSaving(true);
     setError(null);
-    
+
     try {
       const metadata = {
         key: editedKey.trim(),
         search_terms: editedSearchTerms.trim()
       };
-      
-      const updatedIcon = await iconsApi.updateIconMetadata(icon.id, metadata);
+
+      const updatedIcon = await adminIconsApi.updateIconMetadata(icon.id, metadata);
       setIconData(updatedIcon);
       setIsEditing(false);
       setSaveSuccess(true);
-      
+
+      // Call parent callback if provided
+      if (onSave && typeof onSave === 'function') {
+        onSave(updatedIcon);
+      }
+
       // Hide success message after 3 seconds
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err) {
@@ -112,7 +133,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
 
     // Use fresh API data if available, fallback to passed icon data
     const iconToRender = iconData || icon;
-    
+
     if (!iconToRender.icon_data || !iconToRender.icon_data.body) {
       return (
         <div className="text-center text-muted p-5">
@@ -123,10 +144,10 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     }
 
     const { body, width = 24, height = 24, viewBox } = iconToRender.icon_data;
-    
+
     return (
       <div className="text-center p-4">
-        <div style={{ 
+        <div style={{
           border: '1px solid var(--bs-border-color)',
           borderRadius: '0.375rem',
           padding: '20px',
@@ -142,7 +163,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
             viewBox={viewBox || `0 0 ${width} ${height}`}
             fill="currentColor"
             className="icon-svg"
-            style={{ 
+            style={{
               display: 'block',
               color: 'var(--bs-primary, #0d6efd)',
               width: '100%',
@@ -196,25 +217,25 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
           </div>
         </Modal.Title>
       </Modal.Header>
-      
+
       <Modal.Body>
         {saveSuccess && (
           <Alert variant="success" className="mb-3">
             Icon updated successfully! Documents using this icon have been automatically updated.
           </Alert>
         )}
-        
+
         <Row>
           {/* Large Icon Display */}
           <Col md={6}>
             <h6 className="mb-3">Icon Preview</h6>
             {renderLargeIcon()}
           </Col>
-          
+
           {/* Icon Details */}
           <Col md={6}>
             <h6 className="mb-3">Details</h6>
-            
+
             <div className="mb-3">
               <div className="d-flex justify-content-between align-items-center mb-2">
                 <strong>Icon Key:</strong>
@@ -234,7 +255,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                     disabled={saving}
                   />
                 ) : (
-                  <span 
+                  <span
                     className="cursor-pointer"
                     onClick={() => copyToClipboard(displayIcon.key)}
                     title="Click to copy"
@@ -245,24 +266,24 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                 )}
               </div>
             </div>
-            
+
             <div className="mb-3">
               <strong>Full Key:</strong>
               <div className="mt-1">
-                <small 
+                <small
                   className="text-muted cursor-pointer text-decoration-underline"
                   onClick={() => copyToClipboard(displayIcon.full_key)}
                   title="Click to copy full key"
                   style={{ cursor: 'pointer' }}
                 >
-                  {displayIcon.full_key.length > 40 
-                    ? `${displayIcon.full_key.substring(0, 37)}...` 
+                  {displayIcon.full_key.length > 40
+                    ? `${displayIcon.full_key.substring(0, 37)}...`
                     : displayIcon.full_key
                   }
                 </small>
               </div>
             </div>
-            
+
             {displayIcon.search_terms && (
               <div className="mb-3">
                 <div className="d-flex align-items-center mb-2">
@@ -271,7 +292,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                     placement="top"
                     overlay={
                       <Tooltip>
-                        Space-delimited keywords used when searching for this icon. 
+                        Space-delimited keywords used when searching for this icon.
                         Example: "aws lambda serverless function compute"
                       </Tooltip>
                     }
@@ -295,7 +316,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                 </div>
               </div>
             )}
-            
+
             {displayIcon.icon_data && (displayIcon.icon_data.width !== 24 || displayIcon.icon_data.height !== 24 || displayIcon.icon_data.viewBox) && (
               <div className="mb-3">
                 <strong>Properties:</strong>
@@ -310,19 +331,19 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
           </Col>
         </Row>
       </Modal.Body>
-      
+
       <Modal.Footer>
         {isEditing ? (
           <div className="d-flex gap-2">
-            <Button 
-              variant="outline-secondary" 
+            <Button
+              variant="outline-secondary"
               onClick={handleCancel}
               disabled={saving}
             >
               Cancel
             </Button>
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               onClick={handleSave}
               disabled={saving || !editedKey.trim()}
             >

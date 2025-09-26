@@ -1,7 +1,7 @@
 import { Api } from './api.js';
 
 class GitHubAPI extends Api {
-  
+
   // OAuth flow
   async getAuthUrl() {
     const res = await this.apiCall("/github/auth/url", "GET");
@@ -77,7 +77,7 @@ class GitHubAPI extends Api {
 
     const queryString = params.toString();
     const endpoint = `/github/repositories/${repoId}/files${queryString ? `?${queryString}` : ""}`;
-    
+
     const res = await this.apiCall(endpoint, "GET");
     return res.data;
   }
@@ -134,7 +134,7 @@ class GitHubAPI extends Api {
 
     const queryString = params.toString();
     const endpoint = `/github/repositories/${repositoryId}/contents${queryString ? `?${queryString}` : ""}`;
-    
+
     const res = await this.apiCall(endpoint, "GET");
     return res.data;
   }
@@ -218,17 +218,17 @@ class GitHubAPI extends Api {
 
   // File content retrieval for GitHub provider
   async getFileContent(repositoryId, filePath, branch = 'main') {
-    const params = new URLSearchParams({ 
-      path: filePath, 
-      branch 
+    const params = new URLSearchParams({
+      path: filePath,
+      branch
     });
     const res = await this.apiCall(`/github/repositories/${repositoryId}/contents?${params}`, "GET");
-    
+
     // Handle both array response (when backend returns list) and single object response
     console.log('GitHub API getFileContent response:', res.data);
-    
+
     let fileData = res.data;
-    
+
     // Handle array response (backend returns array)
     if (Array.isArray(res.data)) {
       if (res.data.length === 0) {
@@ -238,17 +238,17 @@ class GitHubAPI extends Api {
       fileData = res.data[0];
       console.log('Extracted file data from array:', fileData);
     }
-    
+
     // Validate that we have file data
     if (!fileData) {
       throw new Error(`No file data returned for ${filePath}`);
     }
-    
+
     // If no content field, this might be a directory or error
     if (!fileData.content) {
       throw new Error(`File content not available for ${filePath}. This might be a directory.`);
     }
-    
+
     // If this is a file response with content, return decoded content
     if (fileData.content && fileData.encoding === 'base64') {
       return {
@@ -259,7 +259,7 @@ class GitHubAPI extends Api {
         path: fileData.path
       };
     }
-    
+
     return res.data;
   }
 
@@ -328,16 +328,8 @@ class GitHubAPI extends Api {
     return res.data;
   }
 
-  // Admin Operations
-  async getOrphanedDocuments() {
-    const res = await this.apiCall("/github/admin/orphaned-documents", "GET");
-    return res.data;
-  }
-
-  async cleanupOrphanedDocuments() {
-    const res = await this.apiCall("/github/admin/orphaned-documents", "DELETE");
-    return res.data;
-  }
+  // Admin methods have been moved to api/admin/githubApi.js
+  // Use adminGitHubApi for admin operations like orphaned document management
 }
 
 // Export singleton instance
