@@ -5,7 +5,7 @@ import { useNotification } from "@/components/NotificationProvider";
 import { DocumentStorageService } from "@/services/core";
 import documentsApi from "@/api/documentsApi";
 
-function RecentFilesDropdown({ onFileSelect }) {
+function RecentFilesDropdown({ onFileSelect, onClose }) {
   const { isAuthenticated } = useAuth();
   const { showError } = useNotification();
   const [recentLocal, setRecentLocal] = useState([]);
@@ -20,14 +20,27 @@ function RecentFilesDropdown({ onFileSelect }) {
   const loadRecentFiles = async () => {
     setLoading(true);
     try {
-      // Always get local recent files
-      const localFiles = DocumentStorageService.getRecentLocalDocuments(5); // Show more in submenu
-      setRecentLocal(localFiles);
+      // Get local recent files (3 most recent)
+      if (isAuthenticated) {
+        // When authenticated, use backend API for local documents
+        try {
+          const localFiles = await documentsApi.getRecentLocalDocuments(3);
+          setRecentLocal(localFiles);
+        } catch (error) {
+          console.warn('Failed to load recent local documents from API, falling back to localStorage:', error);
+          const localFiles = DocumentStorageService.getRecentLocalDocuments(3);
+          setRecentLocal(localFiles);
+        }
+      } else {
+        // When not authenticated, use localStorage
+        const localFiles = DocumentStorageService.getRecentLocalDocuments(3);
+        setRecentLocal(localFiles);
+      }
 
-      // Get GitHub recent files if authenticated
+      // Get GitHub recent files if authenticated (3 most recent)
       if (isAuthenticated) {
         try {
-          const githubFiles = await documentsApi.getRecentGitHubDocuments(5); // Show more in submenu
+          const githubFiles = await documentsApi.getRecentGitHubDocuments(3);
           setRecentGitHub(githubFiles);
         } catch (error) {
           console.warn('Failed to load recent GitHub documents:', error);
@@ -44,24 +57,45 @@ function RecentFilesDropdown({ onFileSelect }) {
     }
   };
 
-  const handleFileSelect = (file) => {
+  const handleFileSelect = async (file) => {
     if (onFileSelect) {
+      // Mark document as opened if it has an ID and we're authenticated
+      if (isAuthenticated && file.id) {
+        try {
+          await documentsApi.markDocumentOpened(file.id);
+        } catch (error) {
+          console.warn('Failed to mark document as opened:', error);
+        }
+      } else if (!isAuthenticated && file.id) {
+        // For local documents when not authenticated, use local storage tracking
+        DocumentStorageService.markDocumentOpened(file.id);
+      }
+
       onFileSelect(file);
     }
+
     setShowSubmenu(false); // Close submenu after selection
+
+    // Close the main dropdown
+    if (onClose) {
+      onClose();
+    }
   };
 
   const formatFileDisplayName = (file) => {
+    // Use appropriate field based on file source
+    const fileName = file.name || file.title || 'Untitled';
+
     // Truncate long names for submenu
-    if (file.name.length > 30) {
-      return file.name.substring(0, 27) + '...';
+    if (fileName.length > 30) {
+      return fileName.substring(0, 27) + '...';
     }
-    return file.name;
+    return fileName;
   };
 
   const formatLastOpened = (lastOpenedAt) => {
     if (!lastOpenedAt) return '';
-    
+
     const date = new Date(lastOpenedAt);
     const now = new Date();
     const diffMs = now - date;
@@ -82,12 +116,12 @@ function RecentFilesDropdown({ onFileSelect }) {
   }
 
   return (
-    <div 
+    <div
       className="dropdown-submenu"
       onMouseEnter={() => setShowSubmenu(true)}
       onMouseLeave={() => setShowSubmenu(false)}
     >
-      <Dropdown.Item 
+      <Dropdown.Item
         as="div"
         className="d-flex justify-content-between align-items-center"
         style={{ cursor: 'pointer' }}
@@ -98,9 +132,9 @@ function RecentFilesDropdown({ onFileSelect }) {
         </span>
         <i className="bi bi-chevron-right"></i>
       </Dropdown.Item>
-      
+
       {showSubmenu && (
-        <div 
+        <div
           className="dropdown-submenu-menu show"
           style={{
             position: 'absolute',
@@ -123,7 +157,7 @@ function RecentFilesDropdown({ onFileSelect }) {
               <i className="bi bi-clock-history me-2 text-muted"></i>
               <span className="fw-semibold text-muted">Recent Files</span>
             </div>
-            
+
             {loading ? (
               <div className="text-center py-3">
                 <div className="spinner-border spinner-border-sm text-secondary" role="status">
@@ -165,7 +199,7 @@ function RecentFilesDropdown({ onFileSelect }) {
                             {formatFileDisplayName(file)}
                           </div>
                           <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                            {file.category || 'General'}
+                            {file.category || file.category_name || file.folder_path || 'General'}
                           </div>
                         </div>
                         <div className="text-muted ms-2" style={{ fontSize: '0.7rem', flexShrink: 0 }}>
@@ -229,7 +263,7 @@ function RecentFilesDropdown({ onFileSelect }) {
           </div>
         </div>
       )}
-      
+
       <Dropdown.Divider />
     </div>
   );

@@ -95,7 +95,8 @@ async def create_document_response(
         github_file_path=document.github_file_path,
         github_sha=document.github_sha,
         github_sync_status=document.github_sync_status,
-        last_github_sync_at=document.last_github_sync_at
+        last_github_sync_at=document.last_github_sync_at,
+        last_opened_at=document.last_opened_at  # Add the missing field
     )
 
 

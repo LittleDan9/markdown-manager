@@ -27,11 +27,11 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
-  
+
   // Responsive menu hook - adjusted thresholds for better UX
   const { isFullMenu, isMediumMenu, isCompactMenu, showInFull, showInMedium, hideInCompact } = useResponsiveMenu({
     fullMenuHeight: 900,  // 900px+ shows everything
-    mediumMenuHeight: 700, // 700-899px shows most features  
+    mediumMenuHeight: 700, // 700-899px shows most features
     compactMenuHeight: 500 // <700px shows minimal features
   });
 
@@ -226,6 +226,15 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     }
   };
 
+  // Function to close the main dropdown
+  const closeDropdown = () => {
+    // Find the dropdown toggle and trigger a click to close it
+    const dropdownToggle = document.querySelector('#fileMenuDropdown');
+    if (dropdownToggle && dropdownToggle.getAttribute('aria-expanded') === 'true') {
+      dropdownToggle.click();
+    }
+  };
+
   const handleSaveToGitHub = () => {
     if (isDefaultDoc) {
       showError("Please save the document locally before saving to GitHub.");
@@ -254,7 +263,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
           )}
         </Dropdown.Toggle>
         <Dropdown.Menu>
-          <RecentFilesDropdown onFileSelect={handleRecentFileSelect} />
+          <RecentFilesDropdown onFileSelect={handleRecentFileSelect} onClose={closeDropdown} />
 
           {/* Core Operations - Always visible */}
           <Dropdown.Item onClick={handleNew}>
@@ -417,8 +426,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               >
                 <i className="bi bi-filetype-pdf me-2"></i>Export PDF
               </Dropdown.Item>
-
-              <Dropdown.Divider />
             </>
           )}
 
