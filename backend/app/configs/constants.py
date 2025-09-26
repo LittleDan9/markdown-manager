@@ -15,11 +15,9 @@ class Constants:
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 90  # 90 minutes
 
-    # Database
-    SQLITE_URL_PATTERN: str = "sqlite+aiosqlite:///{path}"
-    POSTGRES_URL_PATTERN: str = (
-        "postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
-    )
+    # Security
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 90  # 90 minutes
 
     # SMTP defaults
     DEFAULT_SMTP_PORT: int = 587
