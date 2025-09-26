@@ -91,34 +91,6 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
 
 # Utility functions for accessing context in route handlers
-def get_request_id() -> str:
+def get_request_id() -> Optional[str]:
     """Get the current request ID."""
     return request_id_var.get()
-
-
-def get_user_id() -> Optional[str]:
-    """Get the current user ID."""
-    return user_id_var.get()
-
-
-def set_user_id(user_id: str) -> None:
-    """Set the current user ID (typically called by auth middleware)."""
-    user_id_var.set(user_id)
-
-
-def get_request_context() -> Dict[str, Any]:
-    """Get the current request context."""
-    return request_context_var.get()
-
-
-def add_to_context(key: str, value: Any) -> None:
-    """Add data to the current request context."""
-    context = request_context_var.get()
-    context[key] = value
-    request_context_var.set(context)
-
-
-def get_from_context(key: str, default: Any = None) -> Any:
-    """Get data from the current request context."""
-    context = request_context_var.get()
-    return context.get(key, default)

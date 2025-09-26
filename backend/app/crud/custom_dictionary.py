@@ -22,20 +22,6 @@ async def get_user_dictionary_words(
     return list(result.scalars().all())
 
 
-async def get_user_dictionary_word_list(
-    db: AsyncSession, user_id: int, category_id: Optional[int] = None
-) -> list[str]:
-    """Get list of custom words for a user (words only), optionally filtered by category."""
-    query = select(CustomDictionary.word).where(CustomDictionary.user_id == user_id)
-
-    if category_id is not None:
-        # Get words for specific category
-        query = query.where(CustomDictionary.category_id == category_id)
-
-    result = await db.execute(query.order_by(CustomDictionary.word))
-    return list(result.scalars().all())
-
-
 async def get_all_user_dictionary_words(db: AsyncSession, user_id: int) -> list[str]:
     """Get all custom words for a user (both user-level and category-level)."""
     result = await db.execute(
@@ -88,18 +74,6 @@ async def get_folder_dictionary_words(
         .order_by(CustomDictionary.word)
     )
     return list(result.scalars().all())
-
-
-async def get_dictionary_word_by_id(
-    db: AsyncSession, word_id: int, user_id: int
-) -> Optional[CustomDictionary]:
-    """Get a specific custom dictionary word by ID and user."""
-    result = await db.execute(
-        select(CustomDictionary).where(
-            CustomDictionary.id == word_id, CustomDictionary.user_id == user_id
-        )
-    )
-    return result.scalar_one_or_none()
 
 
 async def get_dictionary_word_by_word(

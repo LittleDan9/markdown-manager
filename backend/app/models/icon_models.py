@@ -3,7 +3,7 @@ from __future__ import annotations
 """Icon models for icon service."""
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON, func
+from sqlalchemy import ForeignKey, Integer, String, Text, UniqueConstraint, Index, JSON
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -69,11 +69,6 @@ class IconMetadata(BaseModel):
     def full_key(self) -> str:
         """Computed full key as pack.name:key."""
         return f"{self.pack.name}:{self.key}"
-
-    @full_key.expression
-    def _full_key_expression(cls):
-        """SQL expression for full_key queries."""
-        return func.concat(IconPack.name, ':', cls.key)
 
     # Search and metadata
     search_terms: Mapped[str] = mapped_column(
