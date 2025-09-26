@@ -21,7 +21,7 @@ import { useCodeCopy } from "@/hooks/ui/useCodeCopy";
  */
 function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, showLoadingOverlay, loadingMessage }) {
   const { theme } = useTheme();
-  const { highlightedBlocks, setHighlightedBlocks, previewHTML, setPreviewHTML } = useDocumentContext();
+  const { highlightedBlocks, setHighlightedBlocks, previewHTML, setPreviewHTML, currentDocument } = useDocumentContext();
   const [html, setHtml] = useState("");
   const [isRendering, setIsRendering] = useState(false);
   const previewScrollRef = useRef(null);
@@ -44,10 +44,15 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     }
   }, [theme, mermaidTheme, updateTheme]);
 
-  // Render Markdown to HTML (only when content changes)
+  // Reset render flag when document changes (even if content is the same)
+  useEffect(() => {
+    hasCalledFirstRender.current = false;
+  }, [currentDocument?.id]);
+
+  // Render Markdown to HTML (when content changes or component mounts)
   useEffect(() => {
     setIsRendering(true);
-    // Reset the first render flag when content changes
+    // Reset the first render flag when content changes or document changes
     hasCalledFirstRender.current = false;
 
     let htmlString = render(content);
@@ -81,13 +86,13 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
         const updatedTempDiv = document.createElement("div");
         updatedTempDiv.innerHTML = render(content);
         const updatedCodeBlocks = Array.from(updatedTempDiv.querySelectorAll("[data-syntax-placeholder]"));
-        
+
         updatedCodeBlocks.forEach(block => {
           const code = decodeURIComponent(block.dataset.code);
           const language = block.dataset.lang;
           const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
           block.setAttribute("data-syntax-placeholder", placeholderId);
-          
+
           // Apply both existing and new highlights
           const highlightedHtml = results[placeholderId] || highlightedBlocks[placeholderId];
           if (highlightedHtml) {
@@ -125,7 +130,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       setHtml(htmlString);
       // isRendering will be handled by Mermaid effect
     }
-  }, [content]); // Only depend on content, not highlightedBlocks
+  }, [content, currentDocument?.id]); // Depend on content AND document ID to handle document changes
 
   // Handle Mermaid rendering - much cleaner with the hook!
   useEffect(() => {

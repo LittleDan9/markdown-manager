@@ -26,21 +26,24 @@ async def get_recent_documents(
 ):
     """
     Get recently opened documents for the authenticated user.
-    
+
     Returns up to `limit` recently opened documents, optionally filtered by source:
     - source='local': Only local documents (non-GitHub)
     - source='github': Only GitHub documents
     - source=None: All documents
-    
+
     Documents are ordered by last_opened_at desc.
     """
+    from .response_utils import create_document_list_response
+
     orm_documents = await document_crud.document.get_recent_documents(
         db=db, user_id=current_user.id, limit=limit, source=source
     )
-    
-    return [
-        Document.model_validate(doc, from_attributes=True) for doc in orm_documents
-    ]
+
+    return await create_document_list_response(
+        documents=orm_documents,
+        user_id=current_user.id
+    )
 
 
 @router.get("/recent/local", response_model=List[Document])
@@ -50,13 +53,16 @@ async def get_recent_local_documents(
     db: AsyncSession = Depends(get_db)
 ):
     """Get recently opened local documents (non-GitHub) for the authenticated user."""
+    from .response_utils import create_document_list_response
+
     orm_documents = await document_crud.document.get_recent_documents(
         db=db, user_id=current_user.id, limit=limit, source="local"
     )
-    
-    return [
-        Document.model_validate(doc, from_attributes=True) for doc in orm_documents
-    ]
+
+    return await create_document_list_response(
+        documents=orm_documents,
+        user_id=current_user.id
+    )
 
 
 @router.get("/recent/github", response_model=List[Document])
@@ -66,13 +72,16 @@ async def get_recent_github_documents(
     db: AsyncSession = Depends(get_db)
 ):
     """Get recently opened GitHub documents for the authenticated user."""
+    from .response_utils import create_document_list_response
+
     orm_documents = await document_crud.document.get_recent_documents(
         db=db, user_id=current_user.id, limit=limit, source="github"
     )
-    
-    return [
-        Document.model_validate(doc, from_attributes=True) for doc in orm_documents
-    ]
+
+    return await create_document_list_response(
+        documents=orm_documents,
+        user_id=current_user.id
+    )
 
 
 @router.put("/{document_id}/mark-opened")
@@ -85,10 +94,10 @@ async def mark_document_opened(
     document = await document_crud.document.mark_document_opened(
         db=db, document_id=document_id, user_id=current_user.id
     )
-    
+
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
-    
+
     return {
         "message": "Document marked as opened",
         "last_opened_at": document.last_opened_at

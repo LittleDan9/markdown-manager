@@ -132,7 +132,7 @@ class DocumentCRUD:
 
         result = await db.execute(
             select(Document, Category.name.label('category_name'))
-            .join(Category, Document.category_id == Category.id)
+            .outerjoin(Category, Document.category_id == Category.id)  # Use LEFT JOIN to include docs with null category_id
             .filter(Document.user_id == user_id)
             .order_by(Document.updated_at.desc())
             .offset(skip)

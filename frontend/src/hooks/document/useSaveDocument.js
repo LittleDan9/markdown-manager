@@ -6,7 +6,7 @@ import { useAuth } from '@/providers/AuthProvider';
 /**
  * Custom hook that provides a standardized save document function
  * Encapsulates all save logic and can be used by shortcuts, buttons, menus, etc.
- * 
+ *
  * @returns {Function} handleSave - Function to save the current document
  */
 export default function useSaveDocument() {
@@ -30,11 +30,27 @@ export default function useSaveDocument() {
       hasDocument: !!currentDocument,
       isAuthenticated,
       documentId: currentDocument?.id,
-      contentLength: content?.length || 0
+      contentLength: content?.length || 0,
+      repositoryType: currentDocument?.repository_type
     });
+
     try {
       console.log('useSaveDocument: Starting save operation...');
-      // Create document with current content for save
+
+      // Special handling for GitHub documents - only update content, not document record
+      if (currentDocument.repository_type === 'github' && isAuthenticated) {
+        console.log('useSaveDocument: GitHub document detected, using content-only update');
+        const documentsApi = (await import('@/api/documentsApi')).default;
+
+        await documentsApi.updateDocument(currentDocument.id, {
+          content: content
+        });
+
+        showSuccess('Document content saved to filesystem');
+        return { ...currentDocument, content };
+      }
+
+      // Standard save flow for local documents
       const docWithCurrentContent = { ...currentDocument, content };
       const saved = await saveDocument(docWithCurrentContent, true); // Show notifications
       console.log('useSaveDocument: Save operation completed:', { saved: !!saved });

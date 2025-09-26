@@ -24,21 +24,12 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
   // --- File Open Logic ---
   const openOpenModal = useCallback(() => setShowOpenModal(true), []);
   const handleOpenFile = useCallback(async (doc) => {
-    if (currentDocument && currentDocument.id && setContent) {
-      const currentContent = setContent || '';
-      const savedContent = currentDocument.content || '';
-      if (currentContent !== savedContent && currentContent.trim() !== '') {
-        try {
-          await saveDocument({ ...currentDocument, content: currentContent }, false);
-        } catch (error) {
-          // Continue with opening
-        }
-      }
-    }
+    // Note: Document context already handles unsaved changes via other mechanisms
+    // No need to manually check and save here since we don't have reliable access to current editor content
     setPendingOpenId(doc.id);
     await loadDocument(doc.id);
     setShowOpenModal(false);
-  }, [loadDocument, saveDocument, currentDocument, setContent]);
+  }, [loadDocument]);
   const handleOpenEffect = useCallback(() => {
     if (pendingOpenId && currentDocument && currentDocument.id === pendingOpenId) {
       if (setContent) setContent(currentDocument.content);

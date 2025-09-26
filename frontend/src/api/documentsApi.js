@@ -260,6 +260,52 @@ class DocumentsApi extends Api {
     const res = await this.apiCall(`/documents/${documentId}/mark-opened`, 'PUT');
     return res.data;
   }
+
+  // ========================================
+  // UNIFIED GITHUB REPOSITORY MANAGEMENT
+  // ========================================
+
+  /**
+   * Get GitHub repositories for an account (unified approach)
+   * @param {number} accountId - GitHub account ID
+   * @returns {Promise<Object>} - Response with repositories list
+   */
+  async getGitHubRepositories(accountId) {
+    const res = await this.apiCall(`/github/accounts/${accountId}/repositories`, 'GET');
+    return res.data;
+  }
+
+  /**
+   * Add a GitHub repository to sync (unified approach)
+   * @param {number} accountId - GitHub account ID
+   * @param {number} repositoryId - Repository ID
+   * @returns {Promise<Object>} - Response with updated repository
+   */
+  async addGitHubRepository(accountId, repositoryId) {
+    const res = await this.apiCall(`/github/accounts/${accountId}/repositories/${repositoryId}`, 'POST');
+    return res.data;
+  }
+
+  /**
+   * Remove a GitHub repository from sync (unified approach)
+   * @param {number} accountId - GitHub account ID
+   * @param {number} repositoryId - Repository ID
+   * @returns {Promise<Object>} - Response confirming removal
+   */
+  async removeGitHubRepository(accountId, repositoryId) {
+    const res = await this.apiCall(`/github/accounts/${accountId}/repositories/${repositoryId}`, 'DELETE');
+    return res.data;
+  }
+
+  /**
+   * Get GitHub repository statistics (unified approach)
+   * @param {number} accountId - GitHub account ID
+   * @returns {Promise<Object>} - Statistics about selected repositories
+   */
+  async getGitHubRepositoryStatistics(accountId) {
+    const res = await this.apiCall(`/github/accounts/${accountId}/repositories/statistics`, 'GET');
+    return res.data;
+  }
 }
 
 export default new DocumentsApi();

@@ -56,6 +56,11 @@ function UserMenuLoggedIn() {
     setShowSettingsModal(true);
   };
 
+  const handleStorage = () => {
+    setActiveTab("storage");
+    setShowSettingsModal(true);
+  };
+
   const handleGitHub = () => {
     setShowGitHubModal(true);
   };
@@ -97,6 +102,9 @@ function UserMenuLoggedIn() {
         </Dropdown.Item>
         <Dropdown.Item id="markdownLintingBtn" onClick={handleMarkdownLinting}>
           <i className="bi bi-check2-square me-2"></i>Markdown Linting
+        </Dropdown.Item>
+        <Dropdown.Item id="storageBtn" onClick={handleStorage}>
+          <i className="bi bi-hdd me-2"></i>Storage
         </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>

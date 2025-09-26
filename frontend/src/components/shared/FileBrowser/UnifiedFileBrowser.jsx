@@ -15,7 +15,9 @@ export default function UnifiedFileBrowser({
   selectedFiles = [],
   initialPath = '/',
   breadcrumbType = 'github', // 'github' or 'local'
-  breadcrumbData = {} // Additional data for breadcrumb (repository, categories, documents)
+  breadcrumbData = {}, // Additional data for breadcrumb (repository, categories, documents)
+  className = '',
+  style = {}
 }) {
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [treeData, setTreeData] = useState([]);
@@ -196,7 +198,10 @@ export default function UnifiedFileBrowser({
   };
 
   return (
-    <div className={`unified-file-browser ${loading ? 'loading' : ''} ${finalConfig.allowMultiSelect ? 'file-browser-multi-select' : ''}`}>
+    <div
+      className={`unified-file-browser ${loading ? 'loading' : ''} ${finalConfig.allowMultiSelect ? 'file-browser-multi-select' : ''} ${className}`}
+      style={style}
+    >
         {/* Full-width Breadcrumb Bar */}
         {finalConfig.showBreadcrumb && (
           <div className="breadcrumb-section">
