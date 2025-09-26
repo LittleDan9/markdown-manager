@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Button, Alert, Spinner, Row, Col, Badge, Table, Nav, Tab } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
 import ConfirmModal from '../shared/modals/ConfirmModal';
+import adminGitHubApi from '../../api/admin/githubApi';
 
 function StorageTab({ userId = null, isAdmin = false }) {
   const [storageStats, setStorageStats] = useState(null);
@@ -17,15 +18,6 @@ function StorageTab({ userId = null, isAdmin = false }) {
   const [showDocConfirm, setShowDocConfirm] = useState(false);
   const { showSuccess, showError } = useNotification();
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('authToken');
-    const tokenType = localStorage.getItem('tokenType') || 'Bearer';
-    return {
-      'Authorization': `${tokenType} ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
-
   const formatBytes = (bytes) => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -38,20 +30,12 @@ function StorageTab({ userId = null, isAdmin = false }) {
     setLoading(true);
     setError('');
     try {
-      const baseUrl = isAdmin && userId
-        ? `/api/github/admin/users/${userId}/storage-stats`
-        : '/api/github/admin/user/storage-stats';
-
-      const response = await fetch(baseUrl, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load storage stats: ${response.statusText}`);
+      let stats;
+      if (isAdmin && userId) {
+        stats = await adminGitHubApi.getUserStorageStats(userId);
+      } else {
+        stats = await adminGitHubApi.getMyStorageStats();
       }
-
-      const stats = await response.json();
       setStorageStats(stats);
     } catch (err) {
       setError(err.message);
@@ -64,20 +48,12 @@ function StorageTab({ userId = null, isAdmin = false }) {
   const loadOrphanedDocs = async () => {
     setError('');
     try {
-      const baseUrl = isAdmin && userId
-        ? `/api/github/admin/users/${userId}/orphaned-documents`
-        : '/api/github/admin/orphaned-documents';
-
-      const response = await fetch(baseUrl, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load orphaned documents: ${response.statusText}`);
+      let docs;
+      if (isAdmin && userId) {
+        docs = await adminGitHubApi.getUserOrphanedDocuments(userId);
+      } else {
+        docs = await adminGitHubApi.getMyOrphanedDocuments();
       }
-
-      const docs = await response.json();
       setOrphanedDocs(docs);
     } catch (err) {
       setError(err.message);
@@ -88,20 +64,12 @@ function StorageTab({ userId = null, isAdmin = false }) {
   const loadOrphanedRepos = async () => {
     setError('');
     try {
-      const baseUrl = isAdmin && userId
-        ? `/api/github/admin/users/${userId}/orphaned-repositories`
-        : '/api/github/admin/orphaned-repositories';
-
-      const response = await fetch(baseUrl, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load orphaned repositories: ${response.statusText}`);
+      let repos;
+      if (isAdmin && userId) {
+        repos = await adminGitHubApi.getUserOrphanedRepositories(userId);
+      } else {
+        repos = await adminGitHubApi.getMyOrphanedRepositories();
       }
-
-      const repos = await response.json();
       setOrphanedRepos(repos);
     } catch (err) {
       setError(err.message);
@@ -118,20 +86,12 @@ function StorageTab({ userId = null, isAdmin = false }) {
     setRepoCleanupLoading(true);
     setError('');
     try {
-      const baseUrl = isAdmin && userId
-        ? `/api/github/admin/users/${userId}/orphaned-repositories`
-        : '/api/github/admin/orphaned-repositories';
-
-      const response = await fetch(baseUrl, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cleanup orphaned repositories: ${response.statusText}`);
+      let result;
+      if (isAdmin && userId) {
+        result = await adminGitHubApi.cleanupUserOrphanedRepositories(userId);
+      } else {
+        result = await adminGitHubApi.cleanupMyOrphanedRepositories();
       }
-
-      const result = await response.json();
       showSuccess(`Repository cleanup completed: ${result.deleted_repositories} repositories removed, ${result.cleaned_directories} directories cleaned`);
 
       // Reload data
@@ -155,20 +115,12 @@ function StorageTab({ userId = null, isAdmin = false }) {
     setCleanupLoading(true);
     setError('');
     try {
-      const baseUrl = isAdmin && userId
-        ? `/api/github/admin/users/${userId}/orphaned-documents`
-        : '/api/github/admin/user/orphaned-documents';
-
-      const response = await fetch(baseUrl, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to cleanup orphaned documents: ${response.statusText}`);
+      let result;
+      if (isAdmin && userId) {
+        result = await adminGitHubApi.cleanupUserOrphanedDocuments(userId);
+      } else {
+        result = await adminGitHubApi.cleanupMyOrphanedDocuments();
       }
-
-      const result = await response.json();
       showSuccess(`Cleanup completed: ${result.deleted_count} documents removed, ${result.cleaned_directories} directories cleaned, ${result.cleaned_repositories} repositories cleaned`);
 
       // Reload data

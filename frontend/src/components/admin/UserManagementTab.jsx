@@ -15,6 +15,7 @@ import {
 } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
 import PropTypes from 'prop-types';
+import adminUsersApi from '../../api/admin/usersApi';
 
 function UserManagementTab() {
   const [users, setUsers] = useState([]);
@@ -29,35 +30,17 @@ function UserManagementTab() {
   const [confirmAction, setConfirmAction] = useState(null);
   const { showError, showSuccess, showWarning } = useNotification();
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('authToken');
-    const tokenType = localStorage.getItem('tokenType') || 'Bearer';
-    return {
-      'Authorization': `${tokenType} ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
-
   const loadUsers = async () => {
     setLoading(true);
     setError('');
     try {
-      const params = new URLSearchParams();
-      if (searchTerm) params.append('search', searchTerm);
+      const params = {};
+      if (searchTerm) params.search = searchTerm;
       if (activeFilter !== 'all') {
-        params.append('active_only', activeFilter === 'active');
+        params.active_only = activeFilter === 'active';
       }
 
-      const response = await fetch(`/api/admin/users?${params.toString()}`, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load users: ${response.statusText}`);
-      }
-
-      const userData = await response.json();
+      const userData = await adminUsersApi.getAllUsers(params);
       setUsers(userData);
     } catch (err) {
       setError(err.message);
@@ -69,15 +52,8 @@ function UserManagementTab() {
 
   const loadUserStats = async () => {
     try {
-      const response = await fetch('/api/admin/users/stats', {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (response.ok) {
-        const statsData = await response.json();
-        setStats(statsData);
-      }
+      const statsData = await adminUsersApi.getUserStats();
+      setStats(statsData);
     } catch (err) {
       console.warn('Failed to load user stats:', err);
     }
@@ -91,16 +67,7 @@ function UserManagementTab() {
 
     setDetailsLoading(true);
     try {
-      const response = await fetch(`/api/admin/users/${user.id}`, {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load user details: ${response.statusText}`);
-      }
-
-      const userDetails = await response.json();
+      const userDetails = await adminUsersApi.getUserById(user.id);
       setSelectedUser(userDetails);
     } catch (err) {
       showError(err.message);
@@ -112,18 +79,7 @@ function UserManagementTab() {
 
   const updateUser = async (userId, updates) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify(updates)
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to update user: ${response.statusText}`);
-      }
-
-      const updatedUser = await response.json();
+      const updatedUser = await adminUsersApi.updateUser(userId, updates);
       setSelectedUser(updatedUser);
 
       // Update user in list and refresh selected user if it's the same
@@ -146,16 +102,7 @@ function UserManagementTab() {
 
   const resetMFA = async (userId) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}/reset-mfa`, {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ reason: 'Admin reset via user management panel' })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to reset MFA: ${response.statusText}`);
-      }
+      await adminUsersApi.resetUserMFA(userId, 'Admin reset via user management panel');
 
       // Refresh user details
       if (selectedUser && selectedUser.id === userId) {
@@ -169,15 +116,7 @@ function UserManagementTab() {
 
   const deleteUser = async (userId) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
-        method: 'DELETE',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || `Failed to delete user: ${response.statusText}`);
-      }
+      await adminUsersApi.deleteUser(userId);
 
       // Remove user from list and clear selection if it was selected
       setUsers(prevUsers => prevUsers.filter(user => user.id !== userId));

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Form, Alert, Spinner } from 'react-bootstrap';
 import StorageTab from '../storage/StorageTab';
 import { useNotification } from '../NotificationProvider';
+import adminGitHubApi from '../../api/admin/githubApi';
 
 function AdminStorageTab() {
   const [users, setUsers] = useState([]);
@@ -10,30 +11,12 @@ function AdminStorageTab() {
   const [error, setError] = useState('');
   const { showError } = useNotification();
 
-  const getAuthHeaders = () => {
-    const token = localStorage.getItem('authToken');
-    const tokenType = localStorage.getItem('tokenType') || 'Bearer';
-    return {
-      'Authorization': `${tokenType} ${token}`,
-      'Content-Type': 'application/json'
-    };
-  };
-
   const loadUsers = async () => {
     setLoading(true);
     setError('');
     try {
-      // Use the admin users endpoint
-      const response = await fetch('/api/github/admin/users', {
-        method: 'GET',
-        headers: getAuthHeaders()
-      });
-
-      if (!response.ok) {
-        throw new Error(`Failed to load users: ${response.statusText}`);
-      }
-
-      const userData = await response.json();
+      // Use the admin GitHub API
+      const userData = await adminGitHubApi.getAllUsersForAdmin();
       setUsers(userData);
 
       // Auto-select first user if available

@@ -8,6 +8,7 @@
 import { BaseFileBrowserProvider } from './BaseFileBrowserProvider.js';
 import { NODE_TYPES, SOURCE_TYPES } from '../../types/FileBrowserTypes.js';
 import documentsApi from '../../api/documentsApi.js';
+import gitHubApi from '../../api/gitHubApi.js';
 
 /**
  * Unified provider that works with document IDs instead of virtual paths
@@ -57,18 +58,12 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
 
       console.log(`🔍 Fetching GitHub path: "${githubPath}" for UI path: "${path}"`);
 
-      const response = await fetch(`/api/github/repositories/${this.sourceConfig.repositoryId}/contents?path=${encodeURIComponent(githubPath)}&branch=${this.sourceConfig.branch}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
+      const contents = await gitHubApi.getRepositoryContents(
+        this.sourceConfig.repositoryId,
+        githubPath,
+        this.sourceConfig.branch
+      );
 
-      if (!response.ok) {
-        console.error('Failed to fetch GitHub path contents:', response.status, githubPath);
-        return [];
-      }
-
-      const contents = await response.json();
       console.log(`📁 Found ${contents.length} items in GitHub path: ${githubPath}`);
 
       // Convert GitHub items to file nodes
@@ -124,29 +119,12 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
       console.log('🔧 Repository ID:', this.sourceConfig.repositoryId);
       console.log('🌳 Branch:', this.sourceConfig.branch);
 
-      const authToken = localStorage.getItem('authToken');
-      console.log('🔑 Auth token available:', !!authToken);
-      console.log('🔑 Auth token preview:', authToken ? authToken.substring(0, 20) + '...' : 'null');
+      const data = await gitHubApi.getFileContent(
+        this.sourceConfig.repositoryId,
+        fileNode._githubFile.path,
+        this.sourceConfig.branch
+      );
 
-      const url = `/api/github/repositories/${this.sourceConfig.repositoryId}/file?file_path=${encodeURIComponent(fileNode._githubFile.path)}&branch=${this.sourceConfig.branch}`;
-      console.log('🌐 Fetching URL:', url);
-
-      const response = await fetch(url, {
-        headers: {
-          'Authorization': `Bearer ${authToken}`
-        }
-      });
-
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response ok:', response.ok);
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response:', errorText);
-        throw new Error(`Failed to fetch file: ${response.status} - ${errorText}`);
-      }
-
-      const data = await response.json();
       console.log('📄 Content received, length:', data.content?.length || 0);
       return data.content || '';
 
@@ -179,18 +157,12 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
     console.log('� Browsing GitHub repository directly...');
     try {
       // Get repository contents directly from the GitHub API
-      const response = await fetch(`/api/github/repositories/${this.sourceConfig.repositoryId}/contents?branch=${this.sourceConfig.branch}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
-        }
-      });
+      const contents = await gitHubApi.getRepositoryContents(
+        this.sourceConfig.repositoryId,
+        '',
+        this.sourceConfig.branch
+      );
 
-      if (!response.ok) {
-        console.error('Failed to fetch repository contents:', response.status);
-        return [];
-      }
-
-      const contents = await response.json();
       console.log(`🔍 Found ${contents.length} items in repository`);
 
       // Convert GitHub items to file nodes for the browser
