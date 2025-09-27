@@ -573,6 +573,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
       {/* Icon View Modal */}
       <IconViewModal
+        key={`${selectedIcon?.id}-${selectedIcon?.key}`} // Force re-mount when icon changes
         icon={selectedIcon}
         show={showViewModal}
         initialEditMode={showEditMode}

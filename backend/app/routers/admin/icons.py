@@ -223,7 +223,8 @@ async def upload_single_icon(
         svg_content = await svg_file.read()
         svg_text = svg_content.decode('utf-8')
 
-        if not svg_text.strip().startswith('<svg'):
+        # More robust SVG validation - check if it contains an SVG element
+        if '<svg' not in svg_text.lower():
             raise HTTPException(status_code=400, detail="Invalid SVG file")
 
         # Create or update the pack with the new icon
@@ -237,27 +238,29 @@ async def upload_single_icon(
 
         if not result:
             # Try to create a new pack if it doesn't exist
-            from ...schemas.icon_schemas import StandardizedIconData
-
-            icon_data = StandardizedIconData(
+            from ...schemas.icon_schemas import StandardizedIconPackRequest, IconifyIconData
+            
+            # Create the icon data
+            icon_data = IconifyIconData(
                 body=svg_text,
                 width=24,
                 height=24
             )
-
-            pack_data = {
-                "info": {
+            
+            # Create the pack request
+            standardized_pack_data = StandardizedIconPackRequest(
+                info={
                     "name": pack_name,
                     "display_name": pack_name.replace('-', ' ').title(),
                     "category": category,
                     "description": description or f"Custom pack for {pack_name} icons"
                 },
-                "icons": {
-                    icon_name: icon_data.model_dump()
+                icons={
+                    icon_name: icon_data
                 }
-            }
+            )
 
-            pack_request = IconPackInstallRequest(pack_data=pack_data)
+            pack_request = IconPackInstallRequest(pack_data=standardized_pack_data)
             return await install_icon_pack(pack_request, current_user, installer)
 
         # Convert icon result to pack response (for consistency)
@@ -279,11 +282,11 @@ async def upload_single_icon(
 
 
 # ============================================================================
-# ICON MANAGEMENT
+# INDIVIDUAL ICON MANAGEMENT
 # ============================================================================
 
 @router.patch(
-    "/icons/{icon_id}",
+    "/{icon_id}",
     summary="Update icon metadata",
     description="Update metadata for a specific icon"
 )
@@ -323,7 +326,7 @@ async def update_icon_metadata(
 
 
 @router.delete(
-    "/icons/{icon_id}",
+    "/{icon_id}",
     summary="Delete icon",
     description="Delete a specific icon"
 )

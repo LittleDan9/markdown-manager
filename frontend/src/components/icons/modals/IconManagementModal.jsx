@@ -13,21 +13,39 @@ export default function IconManagementModal({ show, onHide }) {
   const [packNames, setPackNames] = useState([]); // Original backend pack names for comparison
   const [dropdownPackNames, setDropdownPackNames] = useState([]); // Pack names shown in dropdown
   const [loading, setLoading] = useState(false);
+  const [dataLoaded, setDataLoaded] = useState(false); // Track if we've loaded data for this session
 
   // Load existing packs and categories on mount
   useEffect(() => {
-    if (show) {
+    if (show && !dataLoaded) {
       setLoading(true);
-      loadAllData().finally(() => setLoading(false));
+      loadAllData()
+        .then(() => setDataLoaded(true))
+        .finally(() => setLoading(false));
     }
-  }, [show]);
+  }, [show, dataLoaded]);
 
   const loadAllData = async () => {
-    await Promise.all([
-      loadIconPacks(),
-      loadCategories(),
-      loadPackNames()
-    ]);
+    // Load data sequentially to avoid hitting rate limits
+    // Start with the most critical data first
+    try {
+      await loadIconPacks();
+      // Small delay to avoid overwhelming the server
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await loadCategories();
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await loadPackNames();
+    } catch (error) {
+      console.error('Error loading icon management data:', error);
+    }
+  };
+
+  const handleReloadData = async () => {
+    setDataLoaded(false); // Reset cache flag to force reload
+    setLoading(true);
+    await loadAllData();
+    setDataLoaded(true);
+    setLoading(false);
   };
 
   const loadIconPacks = async () => {
@@ -137,12 +155,12 @@ export default function IconManagementModal({ show, onHide }) {
           <Tab.Content>
             {/* Packs Tab */}
             <Tab.Pane eventKey="packs">
-              <IconPacksTab iconPacks={iconPacks} onReloadData={loadAllData} loading={loading} />
+              <IconPacksTab iconPacks={iconPacks} onReloadData={handleReloadData} loading={loading} />
             </Tab.Pane>
 
             {/* Installed Icons Tab */}
             <Tab.Pane eventKey="installed">
-              <InstalledIconsTab iconPacks={iconPacks} onReloadData={loadAllData} packsLoading={loading} />
+              <InstalledIconsTab iconPacks={iconPacks} onReloadData={handleReloadData} packsLoading={loading} />
             </Tab.Pane>
 
             {/* Upload Tab */}
@@ -153,7 +171,7 @@ export default function IconManagementModal({ show, onHide }) {
                 dropdownPackNames={dropdownPackNames}
                 onAddCategory={handleAddCategory}
                 onAddPackName={handleAddPackName}
-                onReloadData={loadAllData}
+                onReloadData={handleReloadData}
               />
             </Tab.Pane>
 
@@ -165,7 +183,7 @@ export default function IconManagementModal({ show, onHide }) {
                 dropdownPackNames={dropdownPackNames}
                 onAddCategory={handleAddCategory}
                 onAddPackName={handleAddPackName}
-                onReloadData={loadAllData}
+                onReloadData={handleReloadData}
               />
             </Tab.Pane>
           </Tab.Content>

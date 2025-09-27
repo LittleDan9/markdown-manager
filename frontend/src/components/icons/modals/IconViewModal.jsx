@@ -26,9 +26,21 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
         setIsEditing(true);
         setEditedKey(icon.key || '');
         setEditedSearchTerms(icon.search_terms || '');
+      } else {
+        // Ensure we're not in edit mode unless explicitly requested
+        setIsEditing(false);
       }
+    } else if (!show) {
+      // Reset all state when modal is hidden
+      setIconData(null);
+      setError(null);
+      setSaveSuccess(false);
+      setIsEditing(false);
+      setEditedKey('');
+      setEditedSearchTerms('');
+      setSaving(false);
     }
-  }, [show, icon?.id, initialEditMode]);
+  }, [show, icon?.id, icon?.key, initialEditMode]); // Added icon?.key to ensure updates when icon changes
 
   useEffect(() => {
     // Reset editing state when modal opens/closes or icon changes
