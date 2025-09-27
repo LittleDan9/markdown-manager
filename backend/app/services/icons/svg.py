@@ -34,8 +34,11 @@ class IconSVGService(BaseIconService):
         # Generate SVG based on icon type
         svg_content = None
         if metadata.icon_data:
+            # Handle full SVG storage (for complex SVGs)
+            if isinstance(metadata.icon_data, dict) and 'full_svg' in metadata.icon_data:
+                svg_content = metadata.icon_data['full_svg']
             # Handle Iconify-style data
-            if isinstance(metadata.icon_data, dict) and 'body' in metadata.icon_data:
+            elif isinstance(metadata.icon_data, dict) and 'body' in metadata.icon_data:
                 width = metadata.icon_data.get('width', 24)
                 height = metadata.icon_data.get('height', 24)
                 viewbox = metadata.icon_data.get('viewBox', f'0 0 {width} {height}')

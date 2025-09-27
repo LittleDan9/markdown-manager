@@ -42,7 +42,7 @@ class IconCreationService(BaseIconService):
                 existing_icon.search_terms = search_terms
                 existing_icon.icon_data = icon_data
                 existing_icon.file_path = file_path
-                existing_icon.full_key = f"{pack_name}:{key}"
+                # Note: full_key is computed automatically from pack.name and key
 
                 await self.db.commit()
                 await self.db.refresh(existing_icon)
@@ -57,11 +57,11 @@ class IconCreationService(BaseIconService):
                 new_icon = IconMetadata(
                     pack_id=pack.id,
                     key=key,
-                    full_key=f"{pack_name}:{key}",
                     search_terms=search_terms,
                     icon_data=icon_data,
                     file_path=file_path,
                     access_count=0
+                    # Note: full_key is computed automatically from pack.name and key
                 )
 
                 self.db.add(new_icon)

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Form, Button, Alert, Card, Badge, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import iconsApi from '../../../api/iconsApi';
@@ -16,6 +16,8 @@ export default function UploadIconTab({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [showError, setShowError] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
 
   // Upload form state
   const [uploadForm, setUploadForm] = useState({
@@ -29,7 +31,54 @@ export default function UploadIconTab({
 
   const [svgPreview, setSvgPreview] = useState('');
 
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess: showNotificationSuccess, showError: showNotificationError } = useNotification();
+
+  // Auto-dismiss alerts after 3 seconds
+  useEffect(() => {
+    let timer;
+    if (showError && error) {
+      timer = setTimeout(() => {
+        setShowError(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showError, error]);
+
+  useEffect(() => {
+    let timer;
+    if (showSuccess && success) {
+      timer = setTimeout(() => {
+        setShowSuccess(false);
+      }, 3000);
+    }
+    return () => {
+      if (timer) clearTimeout(timer);
+    };
+  }, [showSuccess, success]);
+
+  // Show error with animation
+  const displayError = (message) => {
+    setError(message);
+    setShowError(true);
+  };
+
+  // Show success with animation
+  const displaySuccess = (message) => {
+    setSuccess(message);
+    setShowSuccess(true);
+  };
+
+  // Clear error
+  const clearError = () => {
+    setShowError(false);
+  };
+
+  // Clear success
+  const clearSuccess = () => {
+    setShowSuccess(false);
+  };
 
   const handleFormChange = (field, value) => {
     setUploadForm(prev => {
@@ -47,19 +96,21 @@ export default function UploadIconTab({
     });
 
     // Clear errors when user types
-    if (error) setError('');
+    if (showError) {
+      setShowError(false);
+    }
   };
 
   const handleFileSelect = (event) => {
     const file = event.target.files[0];
     if (file) {
       if (file.type !== 'image/svg+xml' && !file.name.endsWith('.svg')) {
-        setError('Please select a valid SVG file.');
+        displayError('Please select a valid SVG file.');
         setSvgPreview('');
         return;
       }
       if (file.size > 1024 * 1024) { // 1MB limit
-        setError('SVG file must be smaller than 1MB.');
+        displayError('SVG file must be smaller than 1MB.');
         setSvgPreview('');
         return;
       }
@@ -90,26 +141,26 @@ export default function UploadIconTab({
 
   const validateForm = () => {
     if (!uploadForm.iconName.trim()) {
-      setError('Icon name is required.');
+      displayError('Icon name is required.');
       return false;
     }
     if (!uploadForm.packName.trim()) {
-      setError('Pack name is required.');
+      displayError('Pack name is required.');
       return false;
     }
     if (!uploadForm.category) {
-      setError('Category is required.');
+      displayError('Category is required.');
       return false;
     }
     if (!uploadForm.svgFile) {
-      setError('SVG file is required.');
+      displayError('SVG file is required.');
       return false;
     }
 
     // Validate icon name format
     const nameRegex = /^[a-z0-9-]+$/;
     if (!nameRegex.test(uploadForm.iconName)) {
-      setError('Icon name must contain only lowercase letters, numbers, and hyphens.');
+      displayError('Icon name must contain only lowercase letters, numbers, and hyphens.');
       return false;
     }
 
@@ -120,8 +171,8 @@ export default function UploadIconTab({
     if (!validateForm()) return;
 
     setLoading(true);
-    setError('');
-    setSuccess('');
+    setShowError(false);
+    setShowSuccess(false);
 
     try {
       // Use the new single icon upload API
@@ -134,8 +185,8 @@ export default function UploadIconTab({
         searchTerms: uploadForm.searchTerms
       });
 
-      setSuccess(`Successfully created pack "${result.name}" with icon "${uploadForm.iconName}"`);
-      showSuccess(`Icon pack "${result.display_name}" created successfully!`);
+      displaySuccess(`Successfully created pack "${result.name}" with icon "${uploadForm.iconName}"`);
+      showNotificationSuccess(`Icon pack "${result.display_name}" created successfully!`);
 
       // Reset form
       setUploadForm({
@@ -157,8 +208,8 @@ export default function UploadIconTab({
 
     } catch (err) {
       const errorMessage = err.message || 'Failed to upload icon';
-      setError(errorMessage);
-      showError(errorMessage);
+      displayError(errorMessage);
+      showNotificationError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -169,9 +220,59 @@ export default function UploadIconTab({
       <Card.Header>
         <h5 className="mb-0">Upload New Icon</h5>
       </Card.Header>
-      <Card.Body>
-        {error && <Alert variant="danger">{error}</Alert>}
-        {success && <Alert variant="success">{success}</Alert>}
+      <Card.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
+        {/* Alert Messages with Smooth Transitions */}
+        <div style={{ minHeight: showError || showSuccess ? 'auto' : '0px', overflow: 'hidden' }}>
+          {showError && error && (
+            <Alert
+              variant="danger"
+              dismissible
+              onClose={clearError}
+              className="mb-3"
+              style={{
+                transition: 'all 0.3s ease-in-out',
+                opacity: showError ? 1 : 0,
+                transform: showError ? 'translateY(0)' : 'translateY(-10px)'
+              }}
+            >
+              <div className="d-flex justify-content-between align-items-start">
+                <div className="flex-grow-1">{error}</div>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={clearError}
+                  style={{ fontSize: '0.75em' }}
+                ></button>
+              </div>
+            </Alert>
+          )}
+
+          {showSuccess && success && (
+            <Alert
+              variant="success"
+              dismissible
+              onClose={clearSuccess}
+              className="mb-3"
+              style={{
+                transition: 'all 0.3s ease-in-out',
+                opacity: showSuccess ? 1 : 0,
+                transform: showSuccess ? 'translateY(0)' : 'translateY(-10px)'
+              }}
+            >
+              <div className="d-flex justify-content-between align-items-start">
+                <div className="flex-grow-1">{success}</div>
+                <button
+                  type="button"
+                  className="btn-close"
+                  aria-label="Close"
+                  onClick={clearSuccess}
+                  style={{ fontSize: '0.75em' }}
+                ></button>
+              </div>
+            </Alert>
+          )}
+        </div>
 
         <Form>
           <div className="row">

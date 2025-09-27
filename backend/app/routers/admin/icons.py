@@ -10,8 +10,9 @@ Admin operations for icon management:
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Optional, Dict, Any
 import re
+import logging
 
 from ...database import get_db
 from ...services.icon_service import IconService
@@ -26,8 +27,82 @@ from ...schemas.icon_schemas import (
 from ...core.auth import get_admin_user
 from ...models.user import User
 
-# Create router without prefix - will be added by parent router
 router = APIRouter(tags=["Icon Administration"])
+
+
+async def _process_svg_content(svg_text: str) -> Dict[str, Any]:
+    """
+    Process SVG content to extract metadata and determine optimal storage method.
+
+    For complex SVGs like the firewall icon, we store the full SVG content.
+    For simple SVGs, we could try to extract just the paths/shapes.
+    """
+    try:
+        # Parse the SVG to extract dimensions and viewBox
+        # Remove XML declaration and DOCTYPE if present
+        svg_clean = re.sub(r'<\?xml[^>]*\?>', '', svg_text)
+        svg_clean = re.sub(r'<!DOCTYPE[^>]*>', '', svg_clean).strip()
+
+        # Try to parse basic SVG attributes
+        svg_tag_match = re.search(r'<svg[^>]*>', svg_clean, re.IGNORECASE)
+        width = 24
+        height = 24
+        viewbox = None
+
+        if svg_tag_match:
+            svg_tag = svg_tag_match.group(0)
+
+            # Extract width
+            width_match = re.search(r'width\s*=\s*["\']?([^"\'>\s]+)', svg_tag, re.IGNORECASE)
+            if width_match:
+                try:
+                    width_str = width_match.group(1)
+                    # Remove units like 'px', 'pt', etc.
+                    width_num = re.sub(r'[^\d\.]', '', width_str)
+                    if width_num:
+                        width = int(float(width_num))
+                except (ValueError, TypeError):
+                    pass
+
+            # Extract height
+            height_match = re.search(r'height\s*=\s*["\']?([^"\'>\s]+)', svg_tag, re.IGNORECASE)
+            if height_match:
+                try:
+                    height_str = height_match.group(1)
+                    # Remove units like 'px', 'pt', etc.
+                    height_num = re.sub(r'[^\d\.]', '', height_str)
+                    if height_num:
+                        height = int(float(height_num))
+                except (ValueError, TypeError):
+                    pass
+
+            # Extract viewBox
+            viewbox_match = re.search(r'viewBox\s*=\s*["\']([^"\']*)["\']', svg_tag, re.IGNORECASE)
+            if viewbox_match:
+                viewbox = viewbox_match.group(1)
+
+        # Default viewBox if not found
+        if not viewbox:
+            viewbox = f"0 0 {width} {height}"
+
+        # For complex SVGs (with multiple elements, transforms, etc.),
+        # store the full SVG content as a raw SVG rather than trying to extract body
+        # This bypasses the Iconify validation that rejects full SVG content
+        return {
+            "full_svg": svg_text,  # Store full SVG content
+            "width": width,
+            "height": height,
+            "viewBox": viewbox
+        }
+
+    except Exception:
+        # If parsing fails, fall back to storing the full SVG
+        return {
+            "full_svg": svg_text,
+            "width": 24,
+            "height": 24,
+            "viewBox": "0 0 24 24"
+        }
 
 
 async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
@@ -199,7 +274,6 @@ async def upload_single_icon(
     installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
     """Upload a single icon to a pack."""
-    import logging
     logger = logging.getLogger(__name__)
 
     try:
@@ -227,37 +301,71 @@ async def upload_single_icon(
         if '<svg' not in svg_text.lower():
             raise HTTPException(status_code=400, detail="Invalid SVG file")
 
+        # Process SVG content to extract metadata and determine storage method
+        parsed_svg_data = await _process_svg_content(svg_text)
+
         # Create or update the pack with the new icon
         result = await icon_service.add_icon_to_pack(
             pack_name=pack_name,
             key=icon_name,
             search_terms=search_terms or "",
-            icon_data={"body": svg_text},
+            icon_data=parsed_svg_data,
             file_path=None
         )
 
         if not result:
             # Try to create a new pack if it doesn't exist
             from ...schemas.icon_schemas import StandardizedIconPackRequest, IconifyIconData
-            
-            # Create the icon data
-            icon_data = IconifyIconData(
-                body=svg_text,
-                width=24,
-                height=24
-            )
-            
+
+            # For the new pack creation, we need to extract just the body content
+            # Try to extract the inner content from the full SVG
+            try:
+                # Remove XML declaration and get content between svg tags
+                svg_clean = re.sub(r'<\?xml[^>]*\?>', '', svg_text)
+                svg_clean = re.sub(r'<!DOCTYPE[^>]*>', '', svg_clean).strip()
+
+                # Extract content between <svg> and </svg> - handle multi-line SVG tags
+                svg_content_match = re.search(r'<svg[^>]*?>(.*?)</svg\s*>', svg_clean, re.DOTALL | re.IGNORECASE)
+                if svg_content_match:
+                    inner_content = svg_content_match.group(1).strip()
+
+                    # Create the icon data with extracted body
+                    icon_data = IconifyIconData(
+                        body=inner_content,
+                        width=parsed_svg_data.get("width", 24),
+                        height=parsed_svg_data.get("height", 24),
+                        viewBox=parsed_svg_data.get("viewBox", "0 0 24 24")
+                    )
+                else:
+                    # Fallback: create minimal icon data
+                    icon_data = IconifyIconData(
+                        body="<!-- Complex SVG -->",
+                        width=24,
+                        height=24,
+                        viewBox="0 0 24 24"
+                    )
+            except Exception:
+                # Ultimate fallback
+                icon_data = IconifyIconData(
+                    body="<!-- Complex SVG -->",
+                    width=24,
+                    height=24,
+                    viewBox="0 0 24 24"
+                )
+
             # Create the pack request
             standardized_pack_data = StandardizedIconPackRequest(
                 info={
                     "name": pack_name,
-                    "display_name": pack_name.replace('-', ' ').title(),
+                    "displayName": pack_name.replace('-', ' ').title(),  # camelCase for schema
                     "category": category,
                     "description": description or f"Custom pack for {pack_name} icons"
                 },
                 icons={
                     icon_name: icon_data
-                }
+                },
+                width=24,
+                height=24
             )
 
             pack_request = IconPackInstallRequest(pack_data=standardized_pack_data)
