@@ -155,6 +155,7 @@ export class IconsApi extends Api {
 
   /**
    * Batch get icons by full keys
+   * @param {Array} iconKeys - Array of full icon keys (pack:icon)
    */
   async batchGetIcons(iconKeys) {
     const response = await this.apiCall(

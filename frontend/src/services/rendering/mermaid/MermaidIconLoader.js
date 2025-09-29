@@ -1,5 +1,6 @@
 import { logger } from "@/providers/LoggerProvider.jsx";
 import { IconService } from "../../icons";
+import { cleanSvgBodyForBrowser } from "../../../utils/svgUtils";
 
 // Create service-specific logger
 const serviceLogger = logger.createServiceLogger('MermaidIconLoader');
@@ -135,7 +136,7 @@ class MermaidIconLoader {
         }
 
         packGroups[packName][icon.key] = {
-          body: icon.icon_data.body,
+          body: cleanSvgBodyForBrowser(icon.icon_data.body),
           width: width,
           height: height,
           viewBox: viewBox
@@ -252,7 +253,7 @@ class MermaidIconLoader {
           }
 
           iconMap[iconName] = {
-            body: body,
+            body: cleanSvgBodyForBrowser(body),
             width: width,
             height: height,
             viewBox: viewBox
@@ -307,7 +308,7 @@ class MermaidIconLoader {
         }
 
         iconMap[exactMatch.key] = {
-          body: exactMatch.iconData.body,
+          body: cleanSvgBodyForBrowser(exactMatch.iconData.body),
           width: width,
           height: height,
           viewBox: viewBox

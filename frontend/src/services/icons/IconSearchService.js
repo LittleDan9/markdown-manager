@@ -102,6 +102,8 @@ class IconSearchService {
 
   /**
    * Batch get icons by full keys
+   * @param {Array} iconKeys - Array of full icon keys (pack:icon)
+   * @returns {Object} - { found: [...], notFound: [...] }
    */
   async batchGetIcons(iconKeys) {
     try {

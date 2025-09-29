@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Badge, Row, Col, Spinner, Alert, Form, InputGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
+import { cleanSvgBodyForBrowser } from '../../../utils/svgUtils';
 
 export default function IconViewModal({ icon, show, onHide, initialEditMode = false, onSave }) {
   const [iconData, setIconData] = useState(null);
@@ -184,7 +185,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
               maxHeight: '260px'
             }}
           >
-            <g dangerouslySetInnerHTML={{ __html: body }} />
+            <g dangerouslySetInnerHTML={{ __html: cleanSvgBodyForBrowser(body) }} />
           </svg>
         </div>
       </div>
@@ -214,7 +215,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                   fill="currentColor"
                   className="icon-svg"
                 >
-                  <g dangerouslySetInnerHTML={{ __html: displayIcon.icon_data.body }} />
+                  <g dangerouslySetInnerHTML={{ __html: cleanSvgBodyForBrowser(displayIcon.icon_data.body) }} />
                 </svg>
               ) : (
                 <i className="bi bi-image"></i>
