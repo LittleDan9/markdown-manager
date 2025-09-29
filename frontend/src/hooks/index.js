@@ -13,6 +13,9 @@ export * from './dictionary';
 // GitHub hooks - GitHub integration, OAuth, and repository management
 export { useGitHubOAuth, useGitHubAccounts, useGitHubRepositories } from './github';
 
+// Icon hooks - Icon statistics, cache management, and performance monitoring
+export * from './icons';
+
 // Markdown hooks - Markdown formatting and toolbar functionality
 export * from './markdown';
 

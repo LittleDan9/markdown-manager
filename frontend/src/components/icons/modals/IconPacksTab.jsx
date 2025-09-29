@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
-import { Card, ListGroup, Badge, Button, Modal, Form, Alert, Spinner } from 'react-bootstrap';
-import iconsApi from '../../../api/iconsApi';
+import { Card, Button, Modal, Form, Alert, Spinner, Row, Col } from 'react-bootstrap';
 import { adminIconsApi } from '../../../api/admin';
 import { useNotification } from '../../NotificationProvider';
 import ConfirmModal from '../../shared/modals/ConfirmModal';
@@ -21,7 +20,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
 
   const { showSuccess, showError } = useNotification();
 
-  const handleEdit = (pack) => {
+  const handleEditPack = (pack) => {
     setEditingPack(pack);
     setEditForm({
       name: pack.name,
@@ -29,11 +28,11 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
       category: pack.category,
       description: pack.description || ''
     });
-    setKeyChangeWarning(pack.name !== editForm.name);
+    setKeyChangeWarning(false);
     setShowEditModal(true);
   };
 
-  const handleDelete = (pack) => {
+  const handleDeletePack = (pack) => {
     setPackToDelete(pack);
     setShowDeleteModal(true);
   };
@@ -48,11 +47,9 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
     setLoading(true);
     try {
       await adminIconsApi.deleteIconPack(packToDelete.name);
-
       showSuccess(`Icon pack "${packToDelete.display_name}" deleted successfully!`);
       setShowDeleteModal(false);
       setPackToDelete(null);
-
       if (onReloadData) {
         onReloadData();
       }
@@ -70,7 +67,6 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
       [field]: value
     }));
 
-    // Check if name (key) is changing
     if (field === 'name' && editingPack) {
       setKeyChangeWarning(value !== editingPack.name);
     }
@@ -81,7 +77,6 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
 
     setLoading(true);
     try {
-      // Prepare metadata for efficient update (no icons affected)
       const metadata = {
         name: editForm.name,
         display_name: editForm.displayName,
@@ -90,7 +85,6 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
       };
 
       await adminIconsApi.updateIconPackMetadata(editingPack.name, metadata);
-
       showSuccess(`Icon pack "${editForm.displayName}" updated successfully!`);
       setShowEditModal(false);
       setEditingPack(null);
@@ -107,96 +101,106 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
   };
 
   return (
-    <div className="icon-pack-tab">
-      <div className="container-fluid">
-        <div className="row justify-content-center">
-          <div className="col-lg-10 col-xl-8">
-            <Card>
-              <Card.Header>
-                <h5>Existing Icon Packs</h5>
-              </Card.Header>
-        <Card.Body>
+    <div className="icon-packs-tab">
+      {/* Icon Packs Management */}
+      <Card className="shadow-sm border-0">
+        <Card.Header className="bg-dark text-white border-0">
+          <h6 className="mb-0 fw-semibold">
+            <i className="bi bi-collection me-2"></i>
+            Icon Packs ({iconPacks.length})
+          </h6>
+        </Card.Header>
+        <Card.Body className="p-0">
           {initialLoading ? (
-            <div className="loading-state">
-              <Spinner animation="border" />
-              <p className="mt-2">Loading icon packs...</p>
+            <div className="loading-state text-center py-5">
+              <Spinner animation="border" variant="primary" />
+              <p className="mt-3 mb-0">Loading icon packs...</p>
             </div>
           ) : iconPacks.length === 0 ? (
-            <div className="empty-state">
-              <i className="bi bi-collection empty-icon"></i>
+            <div className="empty-state text-center py-5">
+              <i className="bi bi-collection display-3 text-muted mb-3 opacity-50"></i>
               <h6>No Icon Packs Found</h6>
-              <p>Install some icon packs to get started with your icon library.</p>
+              <p className="text-muted mb-0">Install some icon packs to get started with your icon library.</p>
             </div>
           ) : (
-            <div className="icon-packs-list">
-              <ListGroup variant="flush">
-                {iconPacks.map(pack => (
-                  <ListGroup.Item key={pack.id}>
-                    <div className="row align-items-center">
-                      {/* Icon and Info Column */}
-                      <div className="col-md-6">
-                        <div className="pack-header">
-                          <div className="pack-icon">
-                            <i className="bi bi-collection"></i>
+            <div className="packs-scroll-container" style={{ maxHeight: '600px', overflowY: 'auto' }}>
+              <div className="p-4">
+                <Row className="g-3">
+                  {iconPacks.map(pack => (
+                    <Col key={pack.id} md={6} lg={4} xl={3}>
+                      <Card className="pack-card h-100 shadow-sm border-0">
+                        <Card.Header className="bg-body-secondary border-0 p-3">
+                          <div className="d-flex justify-content-between align-items-center">
+                            <div className="pack-icon-display">
+                              <i className="bi bi-collection fs-4 text-primary"></i>
+                            </div>
+                            <div className="pack-actions">
+                              <Button
+                                variant="outline-secondary"
+                                size="sm"
+                                onClick={() => handleEditPack(pack)}
+                                className="me-1"
+                                title="Edit pack"
+                              >
+                                <i className="bi bi-pencil"></i>
+                              </Button>
+                              <Button
+                                variant="outline-danger"
+                                size="sm"
+                                onClick={() => handleDeletePack(pack)}
+                                title="Delete pack"
+                              >
+                                <i className="bi bi-trash"></i>
+                              </Button>
+                            </div>
                           </div>
-                          <div className="pack-info">
-                            <h6 className="pack-name mb-1">{pack.display_name}</h6>
-                            <p className="pack-description mb-1">{pack.description || 'No description available'}</p>
-                            <small className="pack-details text-muted">
-                              Pack: {pack.name} | Category: {pack.category}
-                            </small>
+                        </Card.Header>
+                        <Card.Body className="p-3">
+                          <h6 className="card-title mb-2 text-truncate" title={pack.display_name}>
+                            {pack.display_name}
+                          </h6>
+                          <div className="pack-details">
+                            <div className="d-flex justify-content-between align-items-center mb-2">
+                              <span className="badge bg-primary bg-opacity-10 text-primary">
+                                {pack.category}
+                              </span>
+                              <small className="text-muted">
+                                {pack.icons_count} icon{pack.icons_count !== 1 ? 's' : ''}
+                              </small>
+                            </div>
+                            <div className="pack-meta small text-muted">
+                              <div className="mb-1">
+                                <strong>Key:</strong> <code className="bg-light px-1 rounded">{pack.name}</code>
+                              </div>
+                              {pack.description && (
+                                <div className="pack-description text-truncate" title={pack.description}>
+                                  {pack.description}
+                                </div>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      </div>
-
-                      {/* Badges Column */}
-                      <div className="col-md-3">
-                        <div className="pack-badges">
-                          <Badge bg="primary" pill className="me-2">
-                            {pack.icon_count} icons
-                          </Badge>
-                          <Badge bg="secondary">
-                            {pack.category}
-                          </Badge>
-                        </div>
-                      </div>
-
-                      {/* Actions Column */}
-                      <div className="col-md-3 text-end">
-                        <div className="pack-actions">
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="text-muted p-1 me-2"
-                            onClick={() => handleEdit(pack)}
-                            disabled={loading}
-                            title="Edit pack"
-                          >
-                            <i className="bi bi-pencil"></i>
-                          </Button>
-                          <Button
-                            variant="link"
-                            size="sm"
-                            className="text-muted p-1"
-                            onClick={() => handleDelete(pack)}
-                            disabled={loading}
-                            title="Delete pack"
-                          >
-                            <i className="bi bi-trash"></i>
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  </ListGroup.Item>
-                ))}
-              </ListGroup>
+                        </Card.Body>
+                        <Card.Footer className="bg-transparent border-0 p-3 pt-0">
+                          <div className="d-grid">
+                            <Button
+                              variant="outline-primary"
+                              size="sm"
+                              onClick={() => window.open(`/api/admin/icons/packs/${pack.name}/preview`, '_blank')}
+                            >
+                              <i className="bi bi-eye me-1"></i>
+                              Preview Icons
+                            </Button>
+                          </div>
+                        </Card.Footer>
+                      </Card>
+                    </Col>
+                  ))}
+                </Row>
+              </div>
             </div>
           )}
         </Card.Body>
       </Card>
-          </div>
-        </div>
-      </div>
 
       {/* Delete Confirmation Modal */}
       <ConfirmModal
@@ -212,48 +216,25 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
             action: 'cancel'
           },
           {
-            text: loading ? 'Deleting...' : 'Delete Pack',
+            text: 'Delete Pack',
             variant: 'danger',
-            action: 'delete',
-            disabled: loading,
-            icon: loading ? null : 'bi bi-trash'
+            action: 'delete'
           }
         ]}
       >
         {packToDelete && (
-          <div>
-            <p>
-              Are you sure you want to delete the icon pack <strong>"{packToDelete.display_name}"</strong>?
-            </p>
-            <Card className="mb-3">
-              <Card.Body>
-                <div className="d-flex align-items-center">
-                  <div className="me-3">
-                    <i className="bi bi-collection display-6 text-primary"></i>
-                  </div>
-                  <div>
-                    <h6 className="mb-1">{packToDelete.display_name}</h6>
-                    <p className="mb-1 text-muted">{packToDelete.description || 'No description'}</p>
-                    <div className="d-flex gap-2">
-                      <Badge bg="primary" pill>{packToDelete.icon_count} icons</Badge>
-                      <Badge bg="secondary">{packToDelete.category}</Badge>
-                    </div>
-                    <small className="text-muted d-block mt-1">Pack ID: {packToDelete.name}</small>
-                  </div>
-                </div>
-              </Card.Body>
-            </Card>
-            <Alert variant="danger" className="mb-0">
-              <i className="bi bi-exclamation-triangle me-2"></i>
-              <strong>This action cannot be undone!</strong>
-              <br />
-              All {packToDelete.icon_count} icons in this pack will be permanently deleted.
-            </Alert>
-          </div>
+          <p>
+            Are you sure you want to delete the icon pack{' '}
+            <strong>"{packToDelete.display_name}"</strong>?
+          </p>
         )}
+        <Alert variant="warning" className="small">
+          <i className="bi bi-exclamation-triangle me-1"></i>
+          This action cannot be undone. All icons in this pack will be permanently removed.
+        </Alert>
       </ConfirmModal>
 
-      {/* Edit Modal */}
+      {/* Edit Icon Pack Modal */}
       <Modal show={showEditModal} onHide={() => setShowEditModal(false)} size="lg">
         <Modal.Header closeButton>
           <Modal.Title>Edit Icon Pack</Modal.Title>
@@ -316,7 +297,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                 rows={3}
                 value={editForm.description}
                 onChange={(e) => handleFormChange('description', e.target.value)}
-                placeholder="Optional description for the icon pack"
+                placeholder="Optional description of the icon pack..."
               />
             </Form.Group>
           </Form>
@@ -332,7 +313,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
           >
             {loading ? (
               <>
-                <span className="spinner-border spinner-border-sm me-2" role="status"></span>
+                <Spinner animation="border" size="sm" className="me-2" />
                 Updating...
               </>
             ) : (

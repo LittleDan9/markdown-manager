@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Tab, Nav } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import UploadIconTab from './UploadIconTab';
+import IconStatsTab from './IconStatsTab';
 import IconPacksTab from './IconPacksTab';
 import ThirdPartyIconBrowser from '../ThirdPartyIconBrowser';
 import InstalledIconsTab from './InstalledIconsTab';
 
 export default function IconManagementModal({ show, onHide }) {
-  const [activeTab, setActiveTab] = useState('packs');
+  const [activeTab, setActiveTab] = useState('stats');
   const [iconPacks, setIconPacks] = useState([]);
   const [categories, setCategories] = useState([]);
   const [packNames, setPackNames] = useState([]); // Original backend pack names for comparison
@@ -96,25 +97,38 @@ export default function IconManagementModal({ show, onHide }) {
   };
 
   const handleClose = () => {
-    setActiveTab('packs');
+    setActiveTab('stats');
     onHide();
   };
 
   return (
-    <Modal show={show} onHide={handleClose} size="xl" centered className="icon-management-modal">
+    <Modal
+      show={show}
+      onHide={handleClose}
+      size="xl"
+      centered
+      className="icon-management-modal"
+      style={{ height: '90vh' }}
+    >
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="bi bi-images me-2"></i>
           Icon Management
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body>
-        <Tab.Container activeKey={activeTab} onSelect={setActiveTab} className="tab-container">
-          <Nav variant="tabs" className="mb-3" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bs-body-bg)', zIndex: 10 }}>
+      <Modal.Body className="d-flex flex-column" style={{ height: 'calc(90vh - 120px)', padding: 0 }}>
+        <Tab.Container activeKey={activeTab} onSelect={setActiveTab} className="tab-container h-100 d-flex flex-column">
+          <Nav variant="tabs" className="mb-0 flex-shrink-0" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bs-body-bg)', zIndex: 10, padding: '1rem 1rem 0 1rem' }}>
+            <Nav.Item>
+              <Nav.Link eventKey="stats">
+                <i className="bi bi-speedometer2 me-2"></i>
+                Statistics
+              </Nav.Link>
+            </Nav.Item>
             <Nav.Item>
               <Nav.Link eventKey="packs">
                 <i className="bi bi-collection me-2"></i>
-                Icon Packs ({iconPacks.length})
+                Icon Packs
               </Nav.Link>
             </Nav.Item>
             <Nav.Item>
@@ -152,39 +166,54 @@ export default function IconManagementModal({ show, onHide }) {
             </Nav.Item>
           </Nav>
 
-          <Tab.Content>
-            {/* Packs Tab */}
-            <Tab.Pane eventKey="packs">
-              <IconPacksTab iconPacks={iconPacks} onReloadData={handleReloadData} loading={loading} />
+          <Tab.Content className="flex-grow-1 overflow-hidden" style={{ padding: '1rem' }}>
+            {/* Statistics Tab */}
+            <Tab.Pane eventKey="stats" className="h-100">
+              <div className="h-100 overflow-auto">
+                <IconStatsTab iconPacks={iconPacks} onReloadData={handleReloadData} loading={loading} />
+              </div>
+            </Tab.Pane>
+
+            {/* Icon Packs Tab */}
+            <Tab.Pane eventKey="packs" className="h-100">
+              <div className="h-100 overflow-auto">
+                <IconPacksTab iconPacks={iconPacks} onReloadData={handleReloadData} loading={loading} />
+              </div>
             </Tab.Pane>
 
             {/* Installed Icons Tab */}
-            <Tab.Pane eventKey="installed">
-              <InstalledIconsTab iconPacks={iconPacks} onReloadData={handleReloadData} packsLoading={loading} />
+            <Tab.Pane eventKey="installed" className="h-100">
+              <div className="h-100 overflow-auto">
+                <InstalledIconsTab iconPacks={iconPacks} onReloadData={handleReloadData} packsLoading={loading} />
+              </div>
             </Tab.Pane>
 
             {/* Upload Tab */}
-            <Tab.Pane eventKey="upload">
-              <UploadIconTab
-                categories={categories}
-                packNames={packNames}
-                dropdownPackNames={dropdownPackNames}
-                onAddCategory={handleAddCategory}
-                onAddPackName={handleAddPackName}
-                onReloadData={handleReloadData}
-              />
+            <Tab.Pane eventKey="upload" className="h-100">
+              <div className="h-100 overflow-auto">
+                <UploadIconTab
+                  categories={categories}
+                  packNames={packNames}
+                  dropdownPackNames={dropdownPackNames}
+                  onAddCategory={handleAddCategory}
+                  onAddPackName={handleAddPackName}
+                  onReloadData={handleReloadData}
+                />
+              </div>
             </Tab.Pane>
 
             {/* Third-Party Icons Browser Tab */}
-            <Tab.Pane eventKey="browser">
-              <ThirdPartyIconBrowser
-                categories={categories}
-                packNames={packNames}
-                dropdownPackNames={dropdownPackNames}
-                onAddCategory={handleAddCategory}
-                onAddPackName={handleAddPackName}
-                onReloadData={handleReloadData}
-              />
+            <Tab.Pane eventKey="browser" className="h-100">
+              <div className="h-100 overflow-auto">
+                <ThirdPartyIconBrowser
+                  categories={categories}
+                  packNames={packNames}
+                  dropdownPackNames={dropdownPackNames}
+                  onAddCategory={handleAddCategory}
+                  onAddPackName={handleAddPackName}
+                  onReloadData={handleReloadData}
+                />
+              </div>
             </Tab.Pane>
           </Tab.Content>
         </Tab.Container>

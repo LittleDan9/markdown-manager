@@ -10,7 +10,7 @@ Admin operations for icon management:
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import re
 import xml.etree.ElementTree as ET
 import logging
@@ -546,18 +546,53 @@ async def delete_icon(
 
 @router.get(
     "/cache/stats",
-    summary="Get cache stats",
-    description="Retrieve detailed statistics about the icon cache performance"
+    summary="Get cache performance statistics",
+    description="Retrieve detailed performance metrics about icon cache operations including hit ratios, "
+                "memory usage, and TTL effectiveness"
 )
 async def get_cache_stats(
     current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service)
 ):
-    """Get cache performance statistics."""
+    """Get comprehensive cache performance statistics."""
     try:
+        cache_stats = icon_service.get_cache_stats()
+
+        # Add additional performance metrics
+        metadata_cache_stats = icon_service.cache.metadata_cache.get_stats()
+        svg_cache_stats = icon_service.cache.svg_cache.get_stats()
+
         return {
             "success": True,
-            "cache_stats": "Cache statistics not yet implemented"
+            "cache_performance": cache_stats,
+            "metadata_cache": {
+                "size": metadata_cache_stats["size"],
+                "max_size": metadata_cache_stats["max_size"],
+                "utilization_percent": round((metadata_cache_stats["size"] / metadata_cache_stats["max_size"]) * 100, 2),
+                "total_accesses": metadata_cache_stats["total_accesses"],
+                "average_accesses_per_entry": round(
+                    metadata_cache_stats["total_accesses"] / max(metadata_cache_stats["size"], 1), 2
+                )
+            },
+            "svg_cache": {
+                "size": svg_cache_stats["size"],
+                "max_size": svg_cache_stats["max_size"],
+                "utilization_percent": round((svg_cache_stats["size"] / svg_cache_stats["max_size"]) * 100, 2),
+                "total_accesses": svg_cache_stats["total_accesses"],
+                "average_accesses_per_entry": round(
+                    svg_cache_stats["total_accesses"] / max(svg_cache_stats["size"], 1), 2
+                ),
+                "ttl_seconds": icon_service.cache.svg_ttl_seconds
+            },
+            "performance_summary": {
+                "total_entries": cache_stats["metadata"]["size"] + cache_stats["svg"]["size"],
+                "estimated_memory_mb": cache_stats["memory_estimate_mb"],
+                "overall_hit_ratio": round((cache_stats["metadata"]["hit_ratio"] + cache_stats["svg"]["hit_ratio"]) / 2, 4),
+                "cache_efficiency": (
+                    "good" if cache_stats["metadata"]["hit_ratio"] > 0.7 and cache_stats["svg"]["hit_ratio"] > 0.7
+                    else "needs_optimization"
+                )
+            }
         }
     except Exception as e:
         raise HTTPException(
@@ -569,18 +604,17 @@ async def get_cache_stats(
 @router.post(
     "/cache/warm",
     summary="Warm cache",
-    description="Pre-load the cache with the most popular icons for improved performance"
+    description="Pre-load cache with popular icons from API usage and document analysis"
 )
 async def warm_cache(
     current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service)
 ):
-    """Pre-load the cache with the most popular icons for improved performance."""
+    """Pre-load the cache with popular icons including document analysis."""
     try:
-        return {
-            "success": True,
-            "message": "Cache warming not yet implemented"
-        }
+        # Use enhanced warm cache with user document analysis
+        result = await icon_service.warm_cache(user_id=current_user.id)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -599,16 +633,235 @@ async def clear_cache(
 ):
     """Clear all cached icon data to free memory or force fresh data loading."""
     try:
+        # Get stats before clearing for reporting
+        before_stats = icon_service.get_cache_stats()
+
         # Clear the icon cache
-        icon_service.cache.clear_all()
+        icon_service.clear_all_cache()
+
+        # Get stats after clearing
+        after_stats = icon_service.get_cache_stats()
+
         return {
             "success": True,
-            "message": "Cache cleared successfully"
+            "message": "Cache cleared successfully",
+            "cleared": {
+                "metadata_entries": before_stats["metadata"]["size"],
+                "svg_entries": before_stats["svg"]["size"],
+                "estimated_memory_freed_mb": before_stats["memory_estimate_mb"]
+            },
+            "current_stats": after_stats
         }
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to clear cache: {str(e)}"
+        )
+
+
+@router.delete(
+    "/cache/packs/{pack_name}",
+    summary="Invalidate pack cache",
+    description="Remove all cached entries for a specific icon pack"
+)
+async def invalidate_pack_cache(
+    pack_name: str,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Invalidate cache entries for a specific pack."""
+    try:
+        # Get stats before invalidation
+        before_stats = icon_service.get_cache_stats()
+
+        # Invalidate pack cache
+        invalidated_count = icon_service.invalidate_pack_cache(pack_name)
+
+        # Get stats after invalidation
+        after_stats = icon_service.get_cache_stats()
+
+        return {
+            "success": True,
+            "message": f"Cache invalidated for pack '{pack_name}'",
+            "pack_name": pack_name,
+            "invalidated_entries": invalidated_count,
+            "memory_freed_mb": round(before_stats["memory_estimate_mb"] - after_stats["memory_estimate_mb"], 2),
+            "current_cache_size": {
+                "metadata": after_stats["metadata"]["size"],
+                "svg": after_stats["svg"]["size"]
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to invalidate pack cache: {str(e)}"
+        )
+
+
+@router.get(
+    "/cache/analysis",
+    summary="Get cache performance analysis",
+    description="Analyze cache performance patterns and provide optimization recommendations"
+)
+async def get_cache_analysis(
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Analyze cache performance and provide optimization insights."""
+    try:
+        cache_stats = icon_service.get_cache_stats()
+        metadata_stats = icon_service.cache.metadata_cache.get_stats()
+        svg_stats = icon_service.cache.svg_cache.get_stats()
+
+        # Calculate performance insights
+        metadata_hit_ratio = cache_stats["metadata"]["hit_ratio"]
+        svg_hit_ratio = cache_stats["svg"]["hit_ratio"]
+
+        # Generate recommendations
+        recommendations = []
+
+        if metadata_hit_ratio < 0.6:
+            recommendations.append({
+                "type": "metadata_cache",
+                "issue": "Low metadata cache hit ratio",
+                "current_ratio": round(metadata_hit_ratio, 3),
+                "suggestion": "Consider increasing metadata cache size or reviewing access patterns"
+            })
+
+        if svg_hit_ratio < 0.6:
+            recommendations.append({
+                "type": "svg_cache",
+                "issue": "Low SVG cache hit ratio",
+                "current_ratio": round(svg_hit_ratio, 3),
+                "suggestion": "Consider increasing SVG cache size or adjusting TTL settings"
+            })
+
+        # Check utilization
+        metadata_util = (metadata_stats["size"] / metadata_stats["max_size"]) * 100
+        svg_util = (svg_stats["size"] / svg_stats["max_size"]) * 100
+
+        if metadata_util > 90:
+            recommendations.append({
+                "type": "metadata_capacity",
+                "issue": "Metadata cache near capacity",
+                "current_utilization": f"{metadata_util:.1f}%",
+                "suggestion": "Consider increasing metadata cache max_size to reduce evictions"
+            })
+
+        if svg_util > 90:
+            recommendations.append({
+                "type": "svg_capacity",
+                "issue": "SVG cache near capacity",
+                "current_utilization": f"{svg_util:.1f}%",
+                "suggestion": "Consider increasing SVG cache max_size or reducing TTL"
+            })
+
+        # Memory analysis
+        memory_mb = cache_stats["memory_estimate_mb"]
+        if memory_mb > 100:  # More than 100MB
+            recommendations.append({
+                "type": "memory_usage",
+                "issue": "High cache memory usage",
+                "current_memory_mb": memory_mb,
+                "suggestion": "Monitor memory usage and consider reducing cache sizes if needed"
+            })
+
+        return {
+            "success": True,
+            "performance_analysis": {
+                "overall_health": "good" if len(recommendations) == 0 else "needs_attention",
+                "metadata_performance": {
+                    "hit_ratio": round(metadata_hit_ratio, 3),
+                    "utilization_percent": round(metadata_util, 1),
+                    "average_accesses": round(metadata_stats["total_accesses"] / max(metadata_stats["size"], 1), 1)
+                },
+                "svg_performance": {
+                    "hit_ratio": round(svg_hit_ratio, 3),
+                    "utilization_percent": round(svg_util, 1),
+                    "average_accesses": round(svg_stats["total_accesses"] / max(svg_stats["size"], 1), 1),
+                    "ttl_effectiveness": "good" if svg_hit_ratio > 0.7 else "review_needed"
+                },
+                "memory_analysis": {
+                    "total_memory_mb": memory_mb,
+                    "memory_per_entry_kb": round((memory_mb * 1024) / max(metadata_stats["size"] + svg_stats["size"], 1), 1)
+                }
+            },
+            "recommendations": recommendations,
+            "optimization_tips": [
+                "Monitor hit ratios regularly - target >70% for good performance",
+                "Adjust cache sizes based on usage patterns and available memory",
+                "Consider different TTL settings for different content types",
+                "Clear cache during low-traffic periods for optimal performance"
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze cache performance: {str(e)}"
+        )
+
+
+@router.get(
+    "/cache/packs/{pack_name}",
+    summary="Get pack cache details",
+    description="Get detailed cache information for a specific icon pack"
+)
+async def get_pack_cache_details(
+    pack_name: str,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get cache details for a specific pack."""
+    try:
+        pack_info = icon_service.get_pack_cache_info(pack_name)
+        return {
+            "success": True,
+            "pack_cache_info": pack_info
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get pack cache details: {str(e)}"
+        )
+
+
+@router.post(
+    "/cache/cleanup",
+    summary="Cleanup expired cache entries",
+    description="Remove expired cache entries to free memory and improve performance"
+)
+async def cleanup_cache(
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Clean up expired cache entries."""
+    try:
+        # Get expired entries info before cleanup
+        expired_info = icon_service.get_expired_entries()
+
+        # Perform cleanup
+        removed_count = icon_service.cleanup_expired_entries()
+
+        # Get updated cache stats
+        updated_stats = icon_service.get_cache_stats()
+
+        return {
+            "success": True,
+            "message": f"Cleaned up {removed_count} expired entries",
+            "cleanup_details": {
+                "expired_entries_found": expired_info["expired_count"],
+                "entries_removed": removed_count,
+                "memory_freed_estimate_mb": round(removed_count * 2048 / (1024 * 1024), 3)
+            },
+            "updated_cache_stats": {
+                "svg_cache_size": updated_stats["svg"]["size"],
+                "estimated_memory_mb": updated_stats["memory_estimate_mb"]
+            }
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to cleanup cache: {str(e)}"
         )
 
 
@@ -619,31 +872,16 @@ async def clear_cache(
 @router.get(
     "/statistics",
     summary="Get comprehensive statistics",
-    description="Retrieve detailed statistics about icon packs, usage patterns, and system metrics"
+    description="Retrieve detailed statistics about icon packs, usage patterns, document analysis, and system metrics"
 )
 async def get_icon_statistics(
     current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service)
 ):
-    """Get comprehensive icon usage statistics."""
+    """Get comprehensive icon usage statistics with document analysis."""
     try:
-        packs = await icon_service.get_icon_packs()
-        total_icons = sum(pack.icon_count for pack in packs)
-
-        stats = {
-            "total_packs": len(packs),
-            "total_icons": total_icons,
-            "categories": list(set(pack.category for pack in packs if pack.category)),
-            "packs": [
-                {
-                    "name": pack.name,
-                    "icon_count": pack.icon_count,
-                    "category": pack.category
-                }
-                for pack in packs
-            ]
-        }
-        return stats
+        # Use enhanced statistics service with document analysis
+        return await icon_service.get_pack_statistics(user_id=current_user.id)
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -654,21 +892,26 @@ async def get_icon_statistics(
 @router.get(
     "/statistics/popular",
     summary="Get popular icons",
-    description="Get a list of the most frequently accessed icons across all packs"
+    description="Get a list of the most frequently accessed icons from API usage and document analysis"
 )
 async def get_popular_icons(
     limit: int = 50,
     current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service)
 ):
-    """Get most popular icons by access count."""
+    """Get most popular icons by access count and document usage."""
     try:
-        # For now, return empty list - will be implemented when usage tracking is added
+        # Get comprehensive statistics which includes popular icons
+        stats = await icon_service.get_pack_statistics(user_id=current_user.id)
+
+        popular_icons = stats.get('top_icons', [])
+        doc_popular = stats.get('document_usage', {}).get('most_used_in_documents', [])
+
         return {
-            "popular_icons": [],
-            "limit": limit,
-            "total_returned": 0,
-            "note": "Usage tracking not yet implemented"
+            "api_popular_icons": popular_icons[:limit],
+            "document_popular_icons": doc_popular[:limit],
+            "total_api_accesses": sum(icon.get('access_count', 0) for icon in popular_icons),
+            "document_usage_summary": stats.get('document_usage', {})
         }
     except Exception as e:
         raise HTTPException(
@@ -708,4 +951,152 @@ async def get_pack_statistics(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to get pack statistics: {str(e)}"
+        )
+
+
+@router.get(
+    "/statistics/packs/{pack_name}/usage",
+    summary="Get pack document usage details",
+    description="Get detailed document usage statistics for a specific icon pack"
+)
+async def get_pack_document_usage(
+    pack_name: str,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get detailed document usage for a specific pack."""
+    try:
+        return await icon_service.get_pack_document_usage(pack_name, current_user.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get pack usage: {str(e)}"
+        )
+
+
+@router.get(
+    "/statistics/documents/{document_id}/analysis",
+    summary="Analyze icon usage in a specific document",
+    description="Get detailed analysis of icon usage within a specific document"
+)
+async def get_document_icon_analysis(
+    document_id: int,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Analyze icon usage in a specific document."""
+    try:
+        return await icon_service.get_document_icon_analysis(document_id, current_user.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze document: {str(e)}"
+        )
+
+
+@router.get(
+    "/statistics/trends",
+    summary="Get usage trends over time",
+    description="Get icon usage trends and patterns over a specified time period"
+)
+async def get_usage_trends(
+    days: int = 30,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get icon usage trends over time."""
+    try:
+        return await icon_service.get_usage_trends(current_user.id, days)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get usage trends: {str(e)}"
+        )
+
+
+# ============================================================================
+# PHASE 4: REAL-TIME DOCUMENT ANALYSIS ENDPOINTS
+# ============================================================================
+
+@router.get(
+    "/analysis/documents/{document_id}/realtime",
+    summary="Real-time document analysis",
+    description="Perform comprehensive real-time analysis of a single document"
+)
+async def analyze_document_realtime(
+    document_id: int,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Perform real-time analysis of a single document."""
+    try:
+        return await icon_service.analyze_document_realtime(document_id, current_user.id)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to analyze document: {str(e)}"
+        )
+
+
+@router.get(
+    "/analysis/trends/realtime",
+    summary="Real-time usage trends",
+    description="Get real-time usage trends with comprehensive analysis of document changes and icon usage patterns"
+)
+async def get_usage_trends_realtime(
+    days: int = 30,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Get real-time usage trends over a specified period."""
+    try:
+        return await icon_service.get_usage_trends_realtime(current_user.id, days)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get real-time trends: {str(e)}"
+        )
+
+
+@router.post(
+    "/analysis/cache/warm",
+    summary="Warm analysis cache",
+    description="Pre-load analysis cache for frequently accessed documents to improve performance"
+)
+async def warm_analysis_cache(
+    document_ids: Optional[List[int]] = None,
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Warm the analysis cache for frequently accessed documents."""
+    try:
+        return await icon_service.warm_analysis_cache(current_user.id, document_ids)
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to warm analysis cache: {str(e)}"
+        )
+
+
+@router.delete(
+    "/analysis/cache/clear",
+    summary="Clear analysis cache",
+    description="Clear the real-time analysis cache to free memory and force fresh analysis"
+)
+async def clear_analysis_cache(
+    current_user: User = Depends(get_admin_user),
+    icon_service: IconService = Depends(get_icon_service)
+):
+    """Clear the real-time analysis cache."""
+    try:
+        cleared_count = await icon_service.clear_analysis_cache()
+        return {
+            "success": True,
+            "message": f"Cleared {cleared_count} cached analysis entries",
+            "cleared_entries": cleared_count
+        }
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to clear analysis cache: {str(e)}"
         )

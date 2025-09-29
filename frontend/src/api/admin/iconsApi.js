@@ -158,6 +158,30 @@ export class AdminIconsApi extends Api {
     return response.data;
   }
 
+  /**
+   * Get cache analysis and performance recommendations
+   */
+  async getCacheAnalysis() {
+    const response = await this.apiCall('/admin/icons/cache/analysis', 'GET');
+    return response.data;
+  }
+
+  /**
+   * Cleanup expired cache entries
+   */
+  async cleanupExpiredCache() {
+    const response = await this.apiCall('/admin/icons/cache/cleanup', 'POST');
+    return response.data;
+  }
+
+  /**
+   * Invalidate cache for specific pack
+   */
+  async invalidatePackCache(packName) {
+    const response = await this.apiCall(`/admin/icons/cache/packs/${encodeURIComponent(packName)}`, 'DELETE');
+    return response.data;
+  }
+
   // ============================================================================
   // STATISTICS
   // ============================================================================
@@ -183,6 +207,43 @@ export class AdminIconsApi extends Api {
    */
   async getPackStatistics() {
     const response = await this.apiCall('/admin/icons/statistics/packs', 'GET');
+    return response.data;
+  }
+
+  // ============================================================================
+  // PHASE 4: REAL-TIME DOCUMENT ANALYSIS
+  // ============================================================================
+
+  /**
+   * Perform real-time analysis of a single document
+   */
+  async analyzeDocumentRealtime(documentId) {
+    const response = await this.apiCall(`/admin/icons/analysis/documents/${documentId}/realtime`, 'GET');
+    return response.data;
+  }
+
+  /**
+   * Get real-time usage trends
+   */
+  async getUsageTrendsRealtime(days = 30) {
+    const response = await this.apiCall(`/admin/icons/analysis/trends/realtime?days=${days}`, 'GET');
+    return response.data;
+  }
+
+  /**
+   * Warm analysis cache for frequently accessed documents
+   */
+  async warmAnalysisCache(documentIds = null) {
+    const body = documentIds ? { document_ids: documentIds } : {};
+    const response = await this.apiCall('/admin/icons/analysis/cache/warm', 'POST', body);
+    return response.data;
+  }
+
+  /**
+   * Clear analysis cache
+   */
+  async clearAnalysisCache() {
+    const response = await this.apiCall('/admin/icons/analysis/cache/clear', 'DELETE');
     return response.data;
   }
 }

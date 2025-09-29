@@ -43,19 +43,17 @@ async def get_cache_stats(icon_service: IconService = Depends(get_icon_service))
 @router.post(
     "/warm",
     summary="Warm cache with popular icons",
-    description="Pre-load the cache with the most popular icons for improved performance."
+    description="Pre-load cache with popular icons from API usage and document analysis."
 )
 async def warm_cache(
     current_user: User = Depends(get_admin_user),
     icon_service: IconService = Depends(get_icon_service)
 ):
-    """Pre-load the cache with the most popular icons for improved performance."""
+    """Pre-load the cache with popular icons including document analysis."""
     try:
-        # For now, return success message
-        return {
-            "success": True,
-            "message": "Cache warming initiated for popular icons"
-        }
+        # Use enhanced warm cache with user document analysis
+        result = await icon_service.warm_cache(user_id=current_user.id)
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=500,

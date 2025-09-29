@@ -19,6 +19,7 @@ from .pack_management import IconPackService
 from .svg import IconSVGService
 from .statistics import IconStatisticsService
 from .creation import IconCreationService
+from .realtime_analysis import RealtimeDocumentAnalyzer
 
 
 class IconService(BaseIconService):
@@ -35,6 +36,7 @@ class IconService(BaseIconService):
         self._svg_service = IconSVGService(db_session)
         self._statistics_service = IconStatisticsService(db_session)
         self._creation_service = IconCreationService(db_session)
+        self._realtime_analyzer = RealtimeDocumentAnalyzer(db_session)
 
     # Metadata operations
     async def get_icon_metadata(self, pack_name: str, key: str) -> Optional[IconMetadataResponse]:
@@ -105,17 +107,71 @@ class IconService(BaseIconService):
         return await self._svg_service.track_usage(pack_name, key, user_id)
 
     # Statistics operations
-    async def get_pack_statistics(self) -> Dict[str, Any]:
-        """Get comprehensive icon pack statistics."""
-        return await self._statistics_service.get_pack_statistics()
+    async def get_pack_statistics(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Get comprehensive icon pack statistics with optional document analysis."""
+        return await self._statistics_service.get_pack_statistics(user_id)
 
-    async def warm_cache(self) -> Dict[str, Any]:
-        """Warm the cache with popular icons."""
-        return await self._statistics_service.warm_cache()
+    async def get_pack_document_usage(self, pack_name: str, user_id: int) -> Dict[str, Any]:
+        """Get detailed document usage statistics for a specific pack."""
+        return await self._statistics_service.get_pack_document_usage(pack_name, user_id)
+
+    async def get_document_icon_analysis(self, document_id: int, user_id: int) -> Dict[str, Any]:
+        """Analyze icon usage in a specific document."""
+        return await self._statistics_service.get_document_icon_analysis(document_id, user_id)
+
+    async def get_usage_trends(self, user_id: int, days: int = 30) -> Dict[str, Any]:
+        """Get icon usage trends over time."""
+        return await self._statistics_service.get_usage_trends(user_id, days)
+
+    async def warm_cache(self, user_id: Optional[int] = None) -> Dict[str, Any]:
+        """Warm the cache with popular icons from API usage and document analysis."""
+        return await self._statistics_service.warm_cache(user_id)
 
     async def health_check(self) -> Dict[str, Any]:
         """Perform a health check on the icon service."""
         return await self._statistics_service.health_check()
+
+    # Cache management operations
+    def get_cache_stats(self) -> Dict[str, Any]:
+        """Get comprehensive cache performance statistics."""
+        return self.cache.get_cache_stats()
+
+    def get_pack_cache_info(self, pack_name: str) -> Dict[str, Any]:
+        """Get cache information for a specific pack."""
+        return self.cache.get_pack_cache_info(pack_name)
+
+    def get_expired_entries(self) -> Dict[str, Any]:
+        """Get information about expired cache entries."""
+        return self.cache.get_expired_entries()
+
+    def cleanup_expired_entries(self) -> int:
+        """Remove expired entries from cache and return count of removed entries."""
+        return self.cache.cleanup_expired_entries()
+
+    def invalidate_pack_cache(self, pack_name: str) -> int:
+        """Invalidate cache entries for a specific pack."""
+        return self.cache.invalidate_pack(pack_name)
+
+    def clear_all_cache(self) -> None:
+        """Clear all cache entries."""
+        return self.cache.clear_all()
+
+    # Real-time analysis operations (Phase 4)
+    async def analyze_document_realtime(self, document_id: int, user_id: int) -> Dict[str, Any]:
+        """Perform real-time analysis of a single document."""
+        return await self._realtime_analyzer.analyze_document_realtime(document_id, user_id)
+
+    async def get_usage_trends_realtime(self, user_id: int, days: int = 30) -> Dict[str, Any]:
+        """Get real-time usage trends for the user over a specified period."""
+        return await self._realtime_analyzer.get_usage_trends_realtime(user_id, days)
+
+    async def warm_analysis_cache(self, user_id: int, document_ids: Optional[List[int]] = None) -> Dict[str, Any]:
+        """Warm the analysis cache for frequently accessed documents."""
+        return await self._realtime_analyzer.warm_analysis_cache(user_id, document_ids)
+
+    async def clear_analysis_cache(self) -> int:
+        """Clear the real-time analysis cache."""
+        return await self._realtime_analyzer.clear_cache()
 
     # Creation operations
     async def add_icon_to_pack(

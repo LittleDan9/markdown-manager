@@ -251,7 +251,110 @@ class IconCache:
                     "ttl_seconds": self.svg_ttl_seconds,
                 },
                 "memory_estimate_mb": self._estimate_memory_usage(),
+                "performance_metrics": self._get_performance_metrics(),
             }
+
+    def _get_performance_metrics(self) -> Dict[str, Any]:
+        """Calculate additional performance metrics."""
+        total_requests = (self.stats.metadata_hits + self.stats.metadata_misses +
+                          self.stats.svg_hits + self.stats.svg_misses)
+
+        return {
+            "total_requests": total_requests,
+            "cache_effectiveness": round(
+                ((self.stats.metadata_hits + self.stats.svg_hits) / max(total_requests, 1)) * 100, 2
+            ),
+            "eviction_pressure": {
+                "metadata": round((self.stats.metadata_size / self.metadata_cache.max_size) * 100, 1),
+                "svg": round((self.stats.svg_size / self.svg_cache.max_size) * 100, 1)
+            },
+            "memory_efficiency": {
+                "bytes_per_metadata_entry": round(
+                    (self._estimate_memory_usage() * 1024 * 1024 * 0.3) / max(self.stats.metadata_size, 1), 0
+                ),
+                "bytes_per_svg_entry": round(
+                    (self._estimate_memory_usage() * 1024 * 1024 * 0.7) / max(self.stats.svg_size, 1), 0
+                )
+            }
+        }
+
+    def get_pack_cache_info(self, pack_name: str) -> Dict[str, Any]:
+        """Get cache information for a specific pack."""
+        metadata_entries = []
+        svg_entries = []
+
+        # Check metadata cache
+        with self.metadata_cache.lock:
+            for key in self.metadata_cache.cache.keys():
+                if key.startswith(f"{pack_name}:"):
+                    entry = self.metadata_cache.cache[key]
+                    metadata_entries.append({
+                        "key": key,
+                        "access_count": entry.access_count,
+                        "last_accessed": entry.timestamp
+                    })
+
+        # Check SVG cache
+        with self.svg_cache.lock:
+            for key in self.svg_cache.cache.keys():
+                if key.startswith(f"svg:{pack_name}:"):
+                    entry = self.svg_cache.cache[key]
+                    svg_entries.append({
+                        "key": key,
+                        "access_count": entry.access_count,
+                        "last_accessed": entry.timestamp,
+                        "is_expired": entry.is_expired(self.svg_ttl_seconds)
+                    })
+
+        return {
+            "pack_name": pack_name,
+            "metadata_entries": metadata_entries,
+            "svg_entries": svg_entries,
+            "total_entries": len(metadata_entries) + len(svg_entries),
+            "estimated_pack_memory_mb": round(
+                (len(metadata_entries) * 1024 + len(svg_entries) * 2048) / (1024 * 1024), 3
+            )
+        }
+
+    def get_expired_entries(self) -> Dict[str, Any]:
+        """Get information about expired cache entries."""
+        expired_svg_keys = []
+
+        with self.svg_cache.lock:
+            for key, entry in self.svg_cache.cache.items():
+                if entry.is_expired(self.svg_ttl_seconds):
+                    expired_svg_keys.append({
+                        "key": key,
+                        "expired_for_seconds": int(time.time() - entry.timestamp - self.svg_ttl_seconds),
+                        "access_count": entry.access_count
+                    })
+
+        return {
+            "expired_svg_entries": expired_svg_keys,
+            "expired_count": len(expired_svg_keys),
+            "cleanup_recommended": len(expired_svg_keys) > 10
+        }
+
+    def cleanup_expired_entries(self) -> int:
+        """Remove expired entries from cache and return count of removed entries."""
+        removed_count = 0
+
+        # Clean up expired SVG entries
+        with self.svg_cache.lock:
+            expired_keys = []
+            for key, entry in self.svg_cache.cache.items():
+                if entry.is_expired(self.svg_ttl_seconds):
+                    expired_keys.append(key)
+
+            for key in expired_keys:
+                if self.svg_cache._remove_key(key):
+                    removed_count += 1
+
+        # Update stats
+        with self.lock:
+            self.stats.svg_size = self.svg_cache.size()
+
+        return removed_count
 
     def _estimate_memory_usage(self) -> float:
         """Estimate memory usage in MB (rough calculation)."""
