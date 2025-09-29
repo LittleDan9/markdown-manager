@@ -13,13 +13,14 @@ import {
 import { useNotification } from '../NotificationProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import gitHubApi from '../../api/gitHubApi';
+import documentsApi from '../../api/documentsApi';
 import GitHubPullModal from '../github/modals/GitHubPullModal';
 import GitHubConflictModal from '../github/modals/GitHubConflictModal';
 import GitHubPRModal from '../github/modals/GitHubPRModal';
 import DocumentService from '../../services/core/DocumentService';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
-const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }) => {
+const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }) => {
   // Always call ALL hooks - never do conditional returns
   const { isAuthenticated } = useAuth();
   const { syncWithBackend } = useDocumentContext();
@@ -72,7 +73,45 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
       setLoading(false);
       onStatusChange?.(localStatus);
     } else if (!document?.github_repository_id) {
-      // For backend documents that are NOT linked to GitHub, set local status
+      // For backend documents that are NOT linked to GitHub, check git status for local repo
+      checkLocalGitStatus();
+    } else {
+      // For backend documents that ARE linked to GitHub, check GitHub status
+      checkStatus();
+    }
+  }, [documentId, document?.github_repository_id, document?.updated_at, isAuthenticated]);
+
+  const checkLocalGitStatus = async () => {
+    setLoading(true);
+    try {
+      const gitStatusResponse = await documentsApi.getDocumentGitStatus(documentId);
+      const hasChanges = gitStatusResponse.has_uncommitted_changes ||
+                        gitStatusResponse.has_staged_changes ||
+                        gitStatusResponse.has_untracked_files;
+
+      const localStatus = {
+        is_github_document: false,
+        sync_status: hasChanges ? "local_changes" : "clean",
+        has_local_changes: hasChanges,
+        has_remote_changes: false,
+        github_repository: null,
+        github_branch: gitStatusResponse.current_branch,
+        github_file_path: null,
+        last_sync: null,
+        current_branch: gitStatusResponse.current_branch,
+        repository_type: gitStatusResponse.repository_type,
+        status_info: {
+          type: hasChanges ? "local_changes" : "clean",
+          message: hasChanges ? "Local changes" : "Up to date",
+          icon: hasChanges ? "📝" : "✅",
+          color: hasChanges ? "warning" : "success"
+        }
+      };
+      setStatus(localStatus);
+      onStatusChange?.(localStatus);
+    } catch (error) {
+      console.error('Failed to get git status for local repo:', error);
+      // Fall back to basic local status
       const localStatus = {
         is_github_document: false,
         sync_status: "local",
@@ -90,13 +129,11 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
         }
       };
       setStatus(localStatus);
-      setLoading(false);
       onStatusChange?.(localStatus);
-    } else {
-      // For backend documents that ARE linked to GitHub, check GitHub status
-      checkStatus();
+    } finally {
+      setLoading(false);
     }
-  }, [documentId, document?.github_repository_id, document?.updated_at, isAuthenticated]);
+  };
 
   const checkStatus = async (bustCache = false) => {
     if (!documentId) return;
@@ -134,83 +171,95 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
     try {
       setLoading(true);
 
-      // Ensure clean data with no circular references
-      const commitData = {
-        commit_message: String(commitMessage).trim(),
-        force_commit: Boolean(forceCommit),
-        create_new_branch: Boolean(branchMode === 'new'),
-        new_branch_name: branchMode === 'new' ? String(newBranchName).trim() : undefined
-      };
+      if (status?.is_github_document) {
+        // GitHub document commit
+        const commitData = {
+          commit_message: String(commitMessage).trim(),
+          force_commit: Boolean(forceCommit),
+          create_new_branch: Boolean(branchMode === 'new'),
+          new_branch_name: branchMode === 'new' ? String(newBranchName).trim() : undefined
+        };
 
-      console.log('GitHub Commit Request:', {
-        documentId,
-        commitData,
-        documentSHA: document?.github_sha,
-        documentLocalSHA: document?.local_sha
-      });
+        console.log('GitHub Commit Request:', {
+          documentId,
+          commitData,
+          documentSHA: document?.github_sha,
+          documentLocalSHA: document?.local_sha
+        });
 
-      const response = await gitHubApi.commitDocument(documentId, commitData);
+        const response = await gitHubApi.commitDocument(documentId, commitData);
+        console.log('GitHub Commit Response:', response);
 
-      console.log('GitHub Commit Response:', response);
+        showSuccess('Changes committed successfully to GitHub');
 
-      showSuccess('Changes committed successfully to GitHub');
+        // Handle PR creation if needed
+        if (branchMode === 'new' && autoCreatePR && response.success && response.branch) {
+          try {
+            if (status?.github_repository && status?.github_account_id) {
+              const repositories = await gitHubApi.getRepositories(status.github_account_id);
+              const repo = repositories.find(r => r.full_name === status.github_repository);
+
+              if (repo) {
+                setCurrentRepository(repo);
+                const prData = {
+                  title: commitMessage.trim(),
+                  body: `Auto-generated PR for changes in ${status.github_file_path}`,
+                  head: response.branch,
+                  base: 'main'
+                };
+
+                const prResponse = await gitHubApi.createPullRequest(repo.id, prData);
+                showSuccess(`Pull request #${prResponse.number} created successfully`);
+              }
+            }
+          } catch (prError) {
+            console.error('Failed to auto-create PR:', prError);
+            showError('Commit successful, but failed to create pull request. You can create it manually.');
+          }
+        }
+      } else {
+        // Local repository commit
+        console.log('Local Commit Request:', {
+          documentId,
+          commitMessage: commitMessage.trim()
+        });
+
+        const response = await documentsApi.commitDocumentChanges(documentId, commitMessage.trim());
+        console.log('Local Commit Response:', response);
+
+        showSuccess('Changes committed successfully to local repository');
+      }
+
       setCommitModalVisible(false);
       setCommitMessage('');
       setBranchMode('current');
       setNewBranchName('');
 
-      // If we created a new branch and auto-create PR is enabled, create the PR
-      if (branchMode === 'new' && autoCreatePR && response.success && response.branch) {
-        try {
-          // Get repository details for PR creation
-          if (status?.github_repository && status?.github_account_id) {
-            const repositories = await gitHubApi.getRepositories(status.github_account_id);
-            const repo = repositories.find(r => r.full_name === status.github_repository);
-            
-            if (repo) {
-              setCurrentRepository(repo);
-              
-              // Auto-create PR with the commit message as PR title
-              const prData = {
-                title: commitMessage.trim(),
-                body: `Auto-generated PR for changes in ${status.github_file_path}`,
-                head: response.branch,
-                base: 'main'
-              };
-              
-              const prResponse = await gitHubApi.createPullRequest(repo.id, prData);
-              showSuccess(`Pull request #${prResponse.number} created successfully`);
-            }
-          }
-        } catch (prError) {
-          console.error('Failed to auto-create PR:', prError);
-          showError('Commit successful, but failed to create pull request. You can create it manually.');
-        }
-      }
-
-      // After successful commit, sync with backend to update localStorage
+      // Sync with backend to update localStorage
       try {
         await syncWithBackend();
-        // Force reload the current document from storage
         const updatedDoc = DocumentService.loadDocument(documentId);
         if (updatedDoc && onDocumentUpdate) {
           onDocumentUpdate(updatedDoc);
         }
-        
-        // Force refresh status to ensure we get latest data from backend
+
+        // Refresh status
         setTimeout(() => {
-          checkStatus(true); // Force refresh after a brief delay
+          if (status?.is_github_document) {
+            checkStatus(true);
+          } else {
+            checkLocalGitStatus();
+          }
         }, 500);
       } catch (error) {
         console.error('Failed to sync after commit:', error);
       }
 
     } catch (error) {
-      console.error('GitHub Commit Error:', error);
+      console.error('Commit Error:', error);
       console.error('Error Response:', error.response?.data);
 
       if (error.response?.status === 409) {
-        // Show conflict modal instead of auto-retry
         setConflictData({
           error: error.response.data,
           documentId,
@@ -219,12 +268,13 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
         setCommitModalVisible(false);
         setConflictModalVisible(true);
       } else {
-        const errorMessage = error.response?.data?.detail || 'Failed to commit changes to GitHub';
-        showError(errorMessage);
+        const errorMessage = error.response?.data?.detail || 'Failed to commit changes';
+        const errorType = status?.is_github_document ? 'system' : 'git';
+        showError(errorMessage, null, error.response?.data, errorType);
       }
     } finally {
       setLoading(false);
-      setAutoCreatePR(false); // Reset for next time
+      setAutoCreatePR(false);
     }
   };
 
@@ -237,6 +287,20 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
     } catch (error) {
       console.error('Failed to load sync history:', error);
       showError('Failed to load sync history');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const showGitHistory = async () => {
+    try {
+      setLoading(true);
+      const history = await documentsApi.getDocumentGitHistory(documentId, 20);
+      setSyncHistory(history.commits || []);
+      setHistoryModalVisible(true);
+    } catch (error) {
+      console.error('Failed to load git history:', error);
+      showError('Failed to load git history', null, error.response?.data, 'git');
     } finally {
       setLoading(false);
     }
@@ -318,12 +382,20 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
   };
 
   const getStatusIcon = () => {
-    if (!status || !status.is_github_document) {
-      return <i className="bi bi-github" style={{ color: '#6c757d' }}></i>;
+    if (!status) {
+      return <i className="bi bi-git" style={{ color: '#6c757d' }}></i>;
+    }
+
+    if (!status.is_github_document) {
+      // Local repository icons
+      if (status.has_local_changes) {
+        return <span style={{ color: '#fd7e14' }}>🟡</span>; // Orange for changes
+      } else {
+        return <span style={{ color: '#198754' }}>🟢</span>; // Green for clean
+      }
     }
 
     const { status_info } = status;
-
     switch (status_info.type) {
       case 'synced':
         return <span style={{ color: '#198754' }}>🟢</span>;
@@ -339,8 +411,15 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
   };
 
   const getStatusBadge = () => {
-    if (!status || !status.is_github_document) {
-      return <Badge bg="secondary">Local</Badge>;
+    if (!status) {
+      return <Badge bg="secondary">Loading...</Badge>;
+    }
+
+    if (!status.is_github_document) {
+      // Local repository badges
+      return <Badge bg={status.status_info?.color || "secondary"}>
+        {status.status_info?.message || "Local"}
+      </Badge>;
     }
 
     const { status_info } = status;
@@ -402,21 +481,27 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
                 {status.github_repository}/{status.github_branch}
               </small>
             )}
+            {!status.is_github_document && status.current_branch && (
+              <small className="text-muted">
+                <i className="bi bi-git me-1"></i>
+                {status.current_branch}
+              </small>
+            )}
           </div>
 
-          {status.is_github_document && (
+          {(status.is_github_document || status.has_local_changes) && (
             <ButtonGroup size="sm">
               {canCommit && (
                 <OverlayTrigger
                   placement="top"
-                  overlay={<Tooltip>Commit local changes to GitHub</Tooltip>}
+                  overlay={<Tooltip>{status.is_github_document ? "Commit local changes to GitHub" : "Commit local changes"}</Tooltip>}
                 >
                   <Button
                     variant="primary"
                     onClick={() => setCommitModalVisible(true)}
                     disabled={loading}
                   >
-                    <i className="bi bi-cloud-upload me-1"></i>
+                    <i className={`bi ${status.is_github_document ? 'bi-cloud-upload' : 'bi-check2'} me-1`}></i>
                     Commit
                   </Button>
                 </OverlayTrigger>
@@ -454,7 +539,7 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
               )}
 
               {/* PR button should only show when on a feature branch, not main */}
-              {status.sync_status === 'synced' && status.github_branch && status.github_branch !== 'main' && (
+              {status.is_github_document && status.sync_status === 'synced' && status.github_branch && status.github_branch !== 'main' && (
                 <OverlayTrigger
                   placement="top"
                   overlay={<Tooltip>Create pull request</Tooltip>}
@@ -472,11 +557,11 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
 
               <OverlayTrigger
                 placement="top"
-                overlay={<Tooltip>View sync history</Tooltip>}
+                overlay={<Tooltip>{status.is_github_document ? "View sync history" : "View git history"}</Tooltip>}
               >
                 <Button
                   variant="outline-secondary"
-                  onClick={showSyncHistory}
+                  onClick={status.is_github_document ? showSyncHistory : showGitHistory}
                   disabled={loading}
                 >
                   <i className="bi bi-clock-history"></i>
@@ -489,7 +574,7 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
               >
                 <Button
                   variant="outline-secondary"
-                  onClick={checkStatus}
+                  onClick={status.is_github_document ? checkStatus : checkLocalGitStatus}
                   disabled={loading}
                 >
                   {loading ? (
@@ -518,16 +603,24 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
       >
         <Modal.Header closeButton>
           <Modal.Title>
-            <i className="bi bi-github me-2"></i>
-            Commit to GitHub
+            <i className={`bi ${status?.is_github_document ? 'bi-github' : 'bi-git'} me-2`}></i>
+            {status?.is_github_document ? 'Commit to GitHub' : 'Commit Changes'}
           </Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          <div className="mb-3">
-            <strong>Repository:</strong> {status?.github_repository}<br />
-            <strong>Current Branch:</strong> {status?.github_branch}<br />
-            <strong>File:</strong> {status?.github_file_path}
-          </div>
+          {status?.is_github_document ? (
+            <div className="mb-3">
+              <strong>Repository:</strong> {status?.github_repository}<br />
+              <strong>Current Branch:</strong> {status?.github_branch}<br />
+              <strong>File:</strong> {status?.github_file_path}
+            </div>
+          ) : (
+            <div className="mb-3">
+              <strong>Repository:</strong> Local repository<br />
+              <strong>Current Branch:</strong> {status?.current_branch || 'main'}<br />
+              <strong>Document:</strong> {document?.name || 'Untitled Document'}
+            </div>
+          )}
 
           <Form.Group className="mb-3">
             <Form.Label>Commit Message</Form.Label>
@@ -544,74 +637,76 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
             </Form.Text>
           </Form.Group>
 
-          {/* Branch Selection */}
-          <div className="mb-3">
-            <Form.Label className="fw-bold">Target Branch</Form.Label>
-            
-            <Form.Check
-              type="radio"
-              id="branch-current"
-              name="branchMode"
-              label={
-                <span>
-                  <i className="bi bi-git me-2"></i>
-                  Commit to current branch <code>{status?.github_branch}</code>
-                  <small className="text-muted d-block">Changes will be immediately available</small>
-                </span>
-              }
-              checked={branchMode === 'current'}
-              onChange={() => setBranchMode('current')}
-              className="mb-2"
-            />
-            
-            <Form.Check
-              type="radio"
-              id="branch-new"
-              name="branchMode"
-              label={
-                <span>
-                  <i className="bi bi-git me-2"></i>
-                  Create new branch for these changes
-                  <small className="text-muted d-block">Recommended for collaborative development</small>
-                </span>
-              }
-              checked={branchMode === 'new'}
-              onChange={() => setBranchMode('new')}
-              className="mb-3"
-            />
+          {/* Only show branch creation options for GitHub repos for now */}
+          {status?.is_github_document && (
+            <div className="mb-3">
+              <Form.Label className="fw-bold">Target Branch</Form.Label>
 
-            {branchMode === 'new' && (
-              <div className="ms-4 mb-3">
-                <Form.Group className="mb-3">
-                  <Form.Label>New Branch Name</Form.Label>
-                  <Form.Control
-                    type="text"
-                    placeholder="feature/my-changes"
-                    value={newBranchName}
-                    onChange={(e) => setNewBranchName(e.target.value)}
-                    pattern="[a-zA-Z0-9._/-]+"
+              <Form.Check
+                type="radio"
+                id="branch-current"
+                name="branchMode"
+                label={
+                  <span>
+                    <i className="bi bi-git me-2"></i>
+                    Commit to current branch <code>{status?.github_branch}</code>
+                    <small className="text-muted d-block">Changes will be immediately available</small>
+                  </span>
+                }
+                checked={branchMode === 'current'}
+                onChange={() => setBranchMode('current')}
+                className="mb-2"
+              />
+
+              <Form.Check
+                type="radio"
+                id="branch-new"
+                name="branchMode"
+                label={
+                  <span>
+                    <i className="bi bi-git me-2"></i>
+                    Create new branch for these changes
+                    <small className="text-muted d-block">Recommended for collaborative development</small>
+                  </span>
+                }
+                checked={branchMode === 'new'}
+                onChange={() => setBranchMode('new')}
+                className="mb-3"
+              />
+
+              {branchMode === 'new' && (
+                <div className="ms-4 mb-3">
+                  <Form.Group className="mb-3">
+                    <Form.Label>New Branch Name</Form.Label>
+                    <Form.Control
+                      type="text"
+                      placeholder="feature/my-changes"
+                      value={newBranchName}
+                      onChange={(e) => setNewBranchName(e.target.value)}
+                      pattern="[a-zA-Z0-9._/-]+"
+                    />
+                    <Form.Text className="text-muted">
+                      Use lowercase letters, numbers, hyphens, and forward slashes
+                    </Form.Text>
+                  </Form.Group>
+
+                  <Form.Check
+                    type="checkbox"
+                    id="auto-create-pr"
+                    label={
+                      <span>
+                        <i className="bi bi-git me-2"></i>
+                        Automatically create Pull Request to <code>{status?.github_branch}</code>
+                        <small className="text-muted d-block">Opens PR immediately after commit</small>
+                      </span>
+                    }
+                    checked={autoCreatePR}
+                    onChange={(e) => setAutoCreatePR(e.target.checked)}
                   />
-                  <Form.Text className="text-muted">
-                    Use lowercase letters, numbers, hyphens, and forward slashes
-                  </Form.Text>
-                </Form.Group>
-
-                <Form.Check
-                  type="checkbox"
-                  id="auto-create-pr"
-                  label={
-                    <span>
-                      <i className="bi bi-git me-2"></i>
-                      Automatically create Pull Request to <code>{status?.github_branch}</code>
-                      <small className="text-muted d-block">Opens PR immediately after commit</small>
-                    </span>
-                  }
-                  checked={autoCreatePR}
-                  onChange={(e) => setAutoCreatePR(e.target.checked)}
-                />
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </div>
+          )}
         </Modal.Body>
         <Modal.Footer>
           <Button
@@ -630,8 +725,8 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
             variant="primary"
             onClick={handleCommit}
             disabled={
-              loading || 
-              !commitMessage.trim() || 
+              loading ||
+              !commitMessage.trim() ||
               (branchMode === 'new' && !newBranchName.trim())
             }
           >
@@ -759,4 +854,4 @@ const GitHubStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdat
   );
 };
 
-export default GitHubStatusBar;
+export default GitStatusBar;

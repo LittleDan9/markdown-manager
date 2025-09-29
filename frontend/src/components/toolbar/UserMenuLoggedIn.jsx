@@ -8,15 +8,17 @@ import UserSettingsModal from "../user/modals/UserSettingsModal";
 import GitHubModal from "../github/modals/GitHubModal";
 import IconManagementModal from "../icons/modals/IconManagementModal";
 import AdminModal from "../admin/AdminModal";
+import GitManagementModal from "../git/GitManagementModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError } = useNotification();
-  const { user, setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled } = useAuth();
+  const { user, setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, autoCommitEnabled, setAutoCommitEnabled } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [showIconModal, setShowIconModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
+  const [showGitModal, setShowGitModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
 
@@ -63,6 +65,10 @@ function UserMenuLoggedIn() {
 
   const handleGitHub = () => {
     setShowGitHubModal(true);
+  };
+
+  const handleGitManagement = () => {
+    setShowGitModal(true);
   };
 
   const handleIconManagement = () => {
@@ -131,9 +137,24 @@ function UserMenuLoggedIn() {
           )}
           Sync Preview Scroll
         </Dropdown.Item>
+        <Dropdown.Item
+          onClick={() => setAutoCommitEnabled((prev) => !prev)}
+          aria-checked={autoCommitEnabled}
+          role="menuitemcheckbox"
+        >
+          {autoCommitEnabled ? (
+            <i className="bi bi-toggle-on text-success me-2"></i>
+          ) : (
+            <i className="bi bi-toggle-off text-secondary me-2"></i>
+          )}
+          Auto-commit on Save
+        </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>
           <i className="bi bi-github me-2"></i>GitHub
+        </Dropdown.Item>
+        <Dropdown.Item id="gitManagementBtn" onClick={handleGitManagement}>
+          <i className="bi bi-git me-2"></i>Git Management
         </Dropdown.Item>
         {user.is_admin && (
           <Dropdown.Item id="iconManagementBtn" onClick={handleIconManagement}>
@@ -165,6 +186,10 @@ function UserMenuLoggedIn() {
       <GitHubModal
         show={showGitHubModal}
         onHide={() => setShowGitHubModal(false)}
+      />
+      <GitManagementModal
+        show={showGitModal}
+        onHide={() => setShowGitModal(false)}
       />
       <IconManagementModal
         show={showIconModal}

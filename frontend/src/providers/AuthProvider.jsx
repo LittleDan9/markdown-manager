@@ -45,6 +45,10 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem("syncPreviewScrollEnabled");
     return saved === null ? true : saved === "true";
   });
+  const [autoCommitEnabled, setAutoCommitEnabledState] = useState(() => {
+    const saved = localStorage.getItem("autoCommitEnabled");
+    return saved === null ? true : saved === "true";
+  });
 
   // Update auth state when service state changes
   const updateAuthState = useCallback(() => {
@@ -193,6 +197,20 @@ export function AuthProvider({ children }) {
     await AuthService.updateSetting('syncPreviewScrollEnabled', value);
   }, []);
 
+  const setAutoCommitEnabled = useCallback(async (value) => {
+    setAutoCommitEnabledState(value);
+    await AuthService.updateSetting('autoCommitEnabled', value);
+    // Also update the git settings via the API
+    try {
+      const documentsApi = (await import('../api/documentsApi')).default;
+      await documentsApi.updateGitSettings({
+        auto_commit_on_save: value
+      });
+    } catch (error) {
+      console.error('Failed to update git auto-commit setting:', error);
+    }
+  }, []);
+
   // Password reset API for modal
   const passwordResetApi = {
     request: requestPasswordReset,
@@ -228,6 +246,8 @@ export function AuthProvider({ children }) {
     setAutosaveEnabled,
     syncPreviewScrollEnabled,
     setSyncPreviewScrollEnabled,
+    autoCommitEnabled,
+    setAutoCommitEnabled,
 
     // Modal controls
     showLoginModal,

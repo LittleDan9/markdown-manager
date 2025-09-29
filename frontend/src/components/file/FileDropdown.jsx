@@ -16,6 +16,7 @@ import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
 import DocumentService from "@/services/core/DocumentService";
 import gitHubApi from "@/api/gitHubApi";
+import documentsApi from "@/api/documentsApi";
 
 function FileDropdown({ setDocumentTitle, setContent }) {
   const { isAuthenticated } = useAuth();
@@ -65,15 +66,18 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     }
   }, [currentDocument]);
 
-  const loadGitStatus = async (documentId) => {
-    if (!documentId) return;
+    const loadGitStatus = async (documentId) => {
+    if (!documentId || String(documentId).startsWith('doc_')) {
+      setGitStatus(null);
+      return;
+    }
 
-    setGitLoading(true);
     try {
-      const status = await gitHubApi.getDocumentGitStatus(documentId);
+      setGitLoading(true);
+      const status = await documentsApi.getDocumentGitStatus(documentId);
       setGitStatus(status);
     } catch (error) {
-      console.warn('Failed to load git status:', error.message);
+      console.error('Failed to load git status:', error);
       setGitStatus(null);
     } finally {
       setGitLoading(false);
@@ -155,12 +159,69 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     }
   };
 
-  const handleCreateBranch = () => {
-    showInfo('Branch management: Full branch creation and switching functionality coming soon');
+  const handleCreateBranch = async () => {
+    if (!currentDocument?.id) {
+      showError('No document selected');
+      return;
+    }
+
+    const branchName = prompt('Enter new branch name:');
+    if (!branchName || !branchName.trim()) {
+      return; // User cancelled or empty name
+    }
+
+    setGitLoading(true);
+    try {
+      const response = await documentsApi.createDocumentBranch(currentDocument.id, {
+        branch_name: branchName.trim(),
+        switch_to_branch: true
+      });
+
+      if (response.success) {
+        showSuccess(`Branch '${response.branch_name}' created and switched to successfully!`);
+        await loadGitStatus(currentDocument.id);
+      } else {
+        showError(`Failed to create branch: ${response.message || 'Unknown error'}`, null, null, 'git');
+      }
+    } catch (error) {
+      console.error('Failed to create branch:', error);
+      showError(`Failed to create branch: ${error.message}`, null, error.response?.data, 'git');
+    } finally {
+      setGitLoading(false);
+    }
   };
 
-  const handleStashChanges = () => {
-    showInfo('Stash management: Stash save, apply, and management functionality coming soon');
+  const handleStashChanges = async () => {
+    if (!currentDocument?.id) {
+      showError('No document selected');
+      return;
+    }
+
+    const stashMessage = prompt('Enter stash message (optional):');
+    // Don't return on empty message - it's optional
+
+    setGitLoading(true);
+    try {
+      const response = await documentsApi.stashDocumentChanges(currentDocument.id, {
+        message: stashMessage?.trim() || null,
+        include_untracked: true
+      });
+
+      if (response.success) {
+        const message = response.stash_id
+          ? `Changes stashed successfully as ${response.stash_id}`
+          : response.message || 'Changes stashed successfully';
+        showSuccess(message);
+        await loadGitStatus(currentDocument.id);
+      } else {
+        showError(`Failed to stash changes: ${response.message || 'Unknown error'}`, null, null, 'git');
+      }
+    } catch (error) {
+      console.error('Failed to stash changes:', error);
+      showError(`Failed to stash changes: ${error.message}`, null, error.response?.data, 'git');
+    } finally {
+      setGitLoading(false);
+    }
   };
 
   // File operation handlers
@@ -367,12 +428,10 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 <>
                   <Dropdown.Item onClick={handleCreateBranch} disabled={gitLoading}>
                     <i className="bi bi-diagram-3 me-2"></i>Create Branch
-                    <small className="text-muted ms-2">(coming soon)</small>
                   </Dropdown.Item>
 
                   <Dropdown.Item onClick={handleStashChanges} disabled={gitLoading}>
                     <i className="bi bi-archive me-2"></i>Stash Changes
-                    <small className="text-muted ms-2">(coming soon)</small>
                   </Dropdown.Item>
                 </>
               )}

@@ -83,6 +83,11 @@ class User(BaseModel):
         "GitHubAccount", back_populates="user", cascade="all, delete-orphan"
     )
 
+    # Git operation logs
+    git_operation_logs = relationship(
+        "GitOperationLog", back_populates="user", cascade="all, delete-orphan"
+    )
+
     @property
     def full_name(self) -> str:
         """Get the user's full name."""

@@ -310,24 +310,6 @@ class GitHubAPI extends Api {
     return res.data;
   }
 
-  // Document-based Git Operations (unified for all documents)
-  async getDocumentGitStatus(documentId) {
-    const res = await this.apiCall(`/documents/${documentId}/git/status`, "GET");
-    return res.data;
-  }
-
-  async commitDocumentChanges(documentId, commitMessage) {
-    const res = await this.apiCall(`/documents/${documentId}/git/commit`, "POST", {
-      commit_message: commitMessage
-    });
-    return res.data;
-  }
-
-  async getDocumentGitHistory(documentId, limit = 20) {
-    const res = await this.apiCall(`/documents/${documentId}/git/history?limit=${limit}`, "GET");
-    return res.data;
-  }
-
   // Admin methods have been moved to api/admin/githubApi.js
   // Use adminGitHubApi for admin operations like orphaned document management
 }

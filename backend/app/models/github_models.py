@@ -21,6 +21,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .document import Document
     from .user import User
+    from .git_operations import GitOperationLog
 
 
 def utc_now():
@@ -111,6 +112,9 @@ class GitHubRepository(BaseModel):
     )
     sync_history: Mapped[list["GitHubSyncHistory"]] = relationship(
         "GitHubSyncHistory", back_populates="repository", cascade="all, delete-orphan"
+    )
+    git_operation_logs: Mapped[list["GitOperationLog"]] = relationship(
+        "GitOperationLog", back_populates="github_repository", cascade="all, delete-orphan"
     )
 
     # Computed properties for folder path generation
