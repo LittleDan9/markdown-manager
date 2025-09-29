@@ -3,6 +3,7 @@ from .base import Base, BaseModel
 from .category import Category
 from .custom_dictionary import CustomDictionary
 from .document import Document
+from .git_operations import GitOperationLog
 from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
 from .icon_models import IconMetadata, IconPack
 from .markdown_lint_rule import MarkdownLintRule
@@ -14,6 +15,7 @@ __all__ = [
     "Category",
     "CustomDictionary",
     "Document",
+    "GitOperationLog",
     "GitHubAccount",
     "GitHubRepository",
     "GitHubSyncHistory",

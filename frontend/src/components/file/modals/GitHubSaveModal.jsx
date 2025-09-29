@@ -53,7 +53,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
       setError('');
       const repos = await gitHubApi.getUserRepositoriesForSave();
       setRepositories(repos);
-      
+
       if (repos.length > 0) {
         // Auto-select first repository
         setSelectedRepository(repos[0].id.toString());
@@ -71,10 +71,10 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
       setLoadingBranches(true);
       const branchData = await gitHubApi.getRepositoryBranchesForSave(repoId);
       setBranches(branchData);
-      
+
       // Set default branch
-      const defaultBranch = branchData.find(b => b.name === 'main') || 
-                           branchData.find(b => b.name === 'master') || 
+      const defaultBranch = branchData.find(b => b.name === 'main') ||
+                           branchData.find(b => b.name === 'master') ||
                            branchData[0];
       if (defaultBranch) {
         setSelectedBranch(defaultBranch.name);
@@ -109,7 +109,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
     }
 
     const targetBranch = createNewBranch ? newBranchName.trim() : selectedBranch;
-    
+
     if (!targetBranch) {
       setError(createNewBranch ? 'Please enter a new branch name' : 'Please select a branch');
       return;
@@ -134,13 +134,13 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
       };
 
       const result = await gitHubApi.saveDocumentToGitHub(document.id, saveData);
-      
+
       showSuccess(`Document saved to GitHub successfully`);
-      
+
       if (onSaveSuccess) {
         onSaveSuccess(result);
       }
-      
+
       onHide();
     } catch (err) {
       const errorMessage = err.message || 'Failed to save document to GitHub';
@@ -175,17 +175,17 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
           Save to GitHub
         </Modal.Title>
       </Modal.Header>
-      
+
       <Modal.Body>
         {error && <Alert variant="danger">{error}</Alert>}
-        
+
         <Form>
           <Form.Group className="mb-3">
             <Form.Label>Source Document</Form.Label>
-            <Form.Control 
-              type="text" 
-              value={document?.name || 'Untitled Document'} 
-              disabled 
+            <Form.Control
+              type="text"
+              value={document?.name || 'Untitled Document'}
+              disabled
             />
             <Form.Text className="text-muted">
               The local document that will be saved to GitHub
@@ -263,7 +263,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
                     disabled={!selectedRepository}
                   />
                 </div>
-                
+
                 {!createNewBranch ? (
                   <Form.Select
                     value={selectedBranch}
@@ -375,48 +375,66 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
           </Form.Group>
 
           {selectedRepo && (
-            <div className="github-save-repo-info">
-              <Row className="g-0">
-                <Col>
-                  <div className="text-muted small mb-1">
-                    <strong>Repository:</strong> <span className="text-body">{selectedRepo.full_name}</span>
+            <div className="github-save-repo-info mt-3">
+              <div className="card">
+                <div className="card-header py-2">
+                  <h6 className="card-title mb-0 d-flex align-items-center">
+                    <i className="bi bi-info-circle text-primary me-2"></i>
+                    Save Summary
+                  </h6>
+                </div>
+                <div className="card-body py-2">
+                  <div className="row g-2 small">
+                    <div className="col-6">
+                      <div className="d-flex align-items-center mb-1">
+                        <i className="bi bi-github me-2"></i>
+                        <strong>{selectedRepo.name}</strong>
+                      </div>
+                      <div className="d-flex align-items-center">
+                        <i className={`bi ${selectedRepo.is_private ? 'bi-lock' : 'bi-globe'} me-2`}></i>
+                        <span className={`badge ${selectedRepo.is_private ? 'bg-warning' : 'bg-success'}`}>
+                          {selectedRepo.is_private ? 'Private' : 'Public'}
+                        </span>
+                      </div>
+                    </div>
+                    <div className="col-6">
+                      <div className="d-flex align-items-center mb-1">
+                        <i className="bi bi-git me-2"></i>
+                        <code className="small">
+                          {createNewBranch
+                            ? `${newBranchName || 'new-branch'}`
+                            : selectedBranch || 'main'
+                          }
+                        </code>
+                      </div>
+                      {filePath && (
+                        <div className="d-flex align-items-center">
+                          <i className="bi bi-file-earmark-text me-2"></i>
+                          <code className="small text-truncate">
+                            {filePath.endsWith('.md') ? filePath : `${filePath}.md`}
+                          </code>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <div className="text-muted small mb-1">
-                    <strong>Owner:</strong> <span className="text-body">{selectedRepo.owner}</span>
-                  </div>
-                  <div className="text-muted small mb-1">
-                    <strong>Visibility:</strong>{' '}
-                    <span className={`badge ${selectedRepo.is_private ? 'bg-warning' : 'bg-success'} text-dark`}>
-                      {selectedRepo.is_private ? 'Private' : 'Public'}
-                    </span>
-                  </div>
-                  <div className="text-muted small">
-                    <strong>Target Branch:</strong>{' '}
-                    <code className="github-save-target-branch">
-                      {createNewBranch 
-                        ? `${newBranchName || 'new-branch'} (new, from ${baseBranch})`
-                        : selectedBranch || 'main'
-                      }
-                    </code>
-                  </div>
-                </Col>
-              </Row>
+                </div>
+              </div>
             </div>
           )}
         </Form>
       </Modal.Body>
-      
+
       <Modal.Footer>
         <Button variant="secondary" onClick={handleClose} disabled={loading}>
           Cancel
         </Button>
-        <Button 
-          variant="success" 
-          onClick={handleSave} 
+        <Button
+          variant="success"
+          onClick={handleSave}
           disabled={
-            loading || 
-            !selectedRepository || 
-            !filePath.trim() || 
+            loading ||
+            !selectedRepository ||
+            !filePath.trim() ||
             (createNewBranch ? (!newBranchName.trim() || !baseBranch) : !selectedBranch)
           }
         >

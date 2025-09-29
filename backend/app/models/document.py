@@ -14,6 +14,7 @@ if TYPE_CHECKING:
     from app.models.category import Category
     from app.models.user import User
     from app.models.github_models import GitHubRepository, GitHubSyncHistory
+    from app.models.git_operations import GitOperationLog
 
 
 from sqlalchemy import UniqueConstraint
@@ -131,6 +132,11 @@ class Document(Base):  # type: ignore[misc]
     )
     github_sync_history: Mapped[list["GitHubSyncHistory"]] = relationship(
         "GitHubSyncHistory", back_populates="document"
+    )
+
+    # Git operation logs
+    git_operation_logs: Mapped[list["GitOperationLog"]] = relationship(
+        "GitOperationLog", back_populates="document"
     )
 
     def __repr__(self) -> str:

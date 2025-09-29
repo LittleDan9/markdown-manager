@@ -10,11 +10,14 @@ Admin operations for icon management:
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Optional, Dict, Any
 import re
+import xml.etree.ElementTree as ET
+import logging
 
 from ...database import get_db
 from ...services.icon_service import IconService
+from ...services.icons.svg import IconSVGService
 from ...services.standardized_icon_installer import StandardizedIconPackInstaller
 from ...schemas.icon_schemas import (
     IconPackResponse,
@@ -26,8 +29,178 @@ from ...schemas.icon_schemas import (
 from ...core.auth import get_admin_user
 from ...models.user import User
 
-# Create router without prefix - will be added by parent router
 router = APIRouter(tags=["Icon Administration"])
+
+
+def _inline_svg_styles(svg_content: str) -> str:
+    """Convert CSS styles in <style> tags to inline style attributes."""
+    try:
+        style_pattern = r'<style[^>]*>(.*?)</style>'
+        style_match = re.search(style_pattern, svg_content, re.DOTALL | re.IGNORECASE)
+
+        if not style_match:
+            return svg_content
+
+        style_content = style_match.group(1)
+
+        # Parse simple CSS rules like .s0 { fill: #16325b }
+        class_styles = {}
+        rule_pattern = r'\.([^{]+)\s*\{\s*([^}]+)\s*\}'
+
+        for match in re.finditer(rule_pattern, style_content):
+            class_name = match.group(1).strip()
+            style_props = match.group(2).strip()
+            class_styles[class_name] = style_props
+
+        # Apply styles to elements with matching classes
+        result = svg_content
+        for class_name, style_props in class_styles.items():
+            class_pattern = rf'class="{re.escape(class_name)}"'
+            style_replacement = f'style="{style_props}"'
+            result = re.sub(class_pattern, style_replacement, result)
+
+        # Remove the <style> tag
+        result = re.sub(style_pattern, '', result, flags=re.DOTALL | re.IGNORECASE)
+        return result
+    except Exception:
+        return svg_content
+
+
+def _parse_svg_with_xml(svg_content: str) -> dict:
+    """Parse SVG using XML ElementTree for robust handling."""
+    root = ET.fromstring(svg_content)
+
+    # Default values
+    width = 24
+    height = 24
+    viewBox = "0 0 24 24"
+
+    # Extract viewBox
+    if 'viewBox' in root.attrib:
+        viewBox = root.attrib['viewBox']
+        try:
+            vb_parts = viewBox.split()
+            if len(vb_parts) == 4:
+                vb_width = float(vb_parts[2])
+                vb_height = float(vb_parts[3])
+                width = int(vb_width) if vb_width.is_integer() else vb_width
+                height = int(vb_height) if vb_height.is_integer() else vb_height
+        except (ValueError, IndexError):
+            pass
+
+    # Extract explicit dimensions (take precedence over viewBox)
+    for attr, var_name in [('width', 'width'), ('height', 'height')]:
+        if attr in root.attrib:
+            try:
+                val = root.attrib[attr]
+                num_match = re.search(r'([0-9.]+)', val)
+                if num_match:
+                    parsed_val = float(num_match.group(1))
+                    if var_name == 'width':
+                        width = int(parsed_val) if parsed_val.is_integer() else parsed_val
+                    else:
+                        height = int(parsed_val) if parsed_val.is_integer() else parsed_val
+            except (ValueError, AttributeError):
+                pass
+
+    # Extract body content (serialize all child elements)
+    body_parts = [ET.tostring(child, encoding='unicode', method='xml') for child in root]
+    body = ''.join(body_parts).strip()
+
+    return {"body": body, "width": width, "height": height, "viewBox": viewBox}
+
+
+def _parse_svg_with_regex(svg_content: str) -> dict:
+    """Fallback regex-based SVG parsing for malformed XML."""
+    width = 24
+    height = 24
+    viewBox = "0 0 24 24"
+
+    # Find SVG opening tag (multi-line support)
+    svg_start_pattern = r'<svg[^>]*?(?:>|\s*>)'
+    svg_start_match = re.search(svg_start_pattern, svg_content, re.DOTALL | re.IGNORECASE)
+
+    if svg_start_match:
+        svg_tag = svg_start_match.group(0)
+
+        # Extract viewBox
+        viewbox_match = re.search(r'viewBox=["\']([^"\']+)["\']', svg_tag)
+        if viewbox_match:
+            viewBox = viewbox_match.group(1)
+            try:
+                vb_parts = viewBox.split()
+                if len(vb_parts) == 4:
+                    vb_width = float(vb_parts[2])
+                    vb_height = float(vb_parts[3])
+                    width = int(vb_width) if vb_width.is_integer() else vb_width
+                    height = int(vb_height) if vb_height.is_integer() else vb_height
+            except (ValueError, IndexError):
+                pass
+
+        # Extract explicit dimensions
+        for pattern, var_name in [(r'width=["\']([0-9.]+)["\']', 'width'),
+                                  (r'height=["\']([0-9.]+)["\']', 'height')]:
+            match = re.search(pattern, svg_tag)
+            if match:
+                try:
+                    parsed_val = float(match.group(1))
+                    val = int(parsed_val) if parsed_val.is_integer() else parsed_val
+                    if var_name == 'width':
+                        width = val
+                    else:
+                        height = val
+                except ValueError:
+                    pass
+
+    # Extract body content
+    content_pattern = r'<svg[^>]*?>\s*(.*?)\s*</svg\s*>'
+    content_match = re.search(content_pattern, svg_content, re.DOTALL | re.IGNORECASE)
+    if content_match:
+        body = content_match.group(1).strip()
+    else:
+        # Last resort: remove XML/SVG tags
+        body = re.sub(r'<\?xml[^>]*\?>|<!--.*?-->|</?svg[^>]*>', '', svg_content, flags=re.DOTALL).strip()
+
+    return {"body": body, "width": width, "height": height, "viewBox": viewBox}
+
+
+async def _process_svg_content(svg_text: str) -> Dict[str, Any]:
+    """
+    Process SVG content to extract metadata using improved XML parsing.
+
+    Uses proper XML parsing to handle complex SVGs with multi-line tags,
+    namespaces, and metadata sections like the firewall icon.
+    """
+    try:
+        # First, inline any CSS styles to prevent them from being stripped
+        svg_content = _inline_svg_styles(svg_text)
+
+        try:
+            # Try XML parsing first for robust handling
+            result = _parse_svg_with_xml(svg_content)
+        except ET.ParseError:
+            # Fallback to regex-based extraction for malformed XML
+            logging.getLogger(__name__).warning("XML parsing failed, falling back to regex extraction")
+            result = _parse_svg_with_regex(svg_content)
+
+        # Clean the body content to remove namespaces for better browser compatibility
+        cleaned_body = IconSVGService.clean_body_for_mermaid(result["body"])
+
+        return {
+            "body": cleaned_body,
+            "width": result["width"],
+            "height": result["height"],
+            "viewBox": result["viewBox"]
+        }
+    except Exception as e:
+        logging.getLogger(__name__).error(f"SVG processing failed: {e}")
+        # Return minimal fallback
+        return {
+            "body": svg_text,
+            "width": 24,
+            "height": 24,
+            "viewBox": "0 0 24 24"
+        }
 
 
 async def get_icon_service(db: AsyncSession = Depends(get_db)) -> IconService:
@@ -199,7 +372,6 @@ async def upload_single_icon(
     installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
 ):
     """Upload a single icon to a pack."""
-    import logging
     logger = logging.getLogger(__name__)
 
     try:
@@ -223,41 +395,59 @@ async def upload_single_icon(
         svg_content = await svg_file.read()
         svg_text = svg_content.decode('utf-8')
 
-        if not svg_text.strip().startswith('<svg'):
+        # More robust SVG validation - check if it contains an SVG element
+        if '<svg' not in svg_text.lower():
             raise HTTPException(status_code=400, detail="Invalid SVG file")
+
+        # Process SVG content to extract metadata and determine storage method
+        parsed_svg_data = await _process_svg_content(svg_text)
 
         # Create or update the pack with the new icon
         result = await icon_service.add_icon_to_pack(
             pack_name=pack_name,
             key=icon_name,
             search_terms=search_terms or "",
-            icon_data={"body": svg_text},
+            icon_data=parsed_svg_data,
             file_path=None
         )
 
         if not result:
             # Try to create a new pack if it doesn't exist
-            from ...schemas.icon_schemas import StandardizedIconData
+            from ...schemas.icon_schemas import StandardizedIconPackRequest, IconifyIconData
 
-            icon_data = StandardizedIconData(
-                body=svg_text,
+            # Use the properly parsed SVG data with body content
+            try:
+                icon_data = IconifyIconData(
+                    body=parsed_svg_data.get("body", ""),
+                    width=parsed_svg_data.get("width", 24),
+                    height=parsed_svg_data.get("height", 24),
+                    viewBox=parsed_svg_data.get("viewBox", "0 0 24 24")
+                )
+            except Exception:
+                # Ultimate fallback
+                icon_data = IconifyIconData(
+                    body="<!-- Complex SVG -->",
+                    width=24,
+                    height=24,
+                    viewBox="0 0 24 24"
+                )
+
+            # Create the pack request
+            standardized_pack_data = StandardizedIconPackRequest(
+                info={
+                    "name": pack_name,
+                    "displayName": pack_name.replace('-', ' ').title(),  # camelCase for schema
+                    "category": category,
+                    "description": description or f"Custom pack for {pack_name} icons"
+                },
+                icons={
+                    icon_name: icon_data
+                },
                 width=24,
                 height=24
             )
 
-            pack_data = {
-                "info": {
-                    "name": pack_name,
-                    "display_name": pack_name.replace('-', ' ').title(),
-                    "category": category,
-                    "description": description or f"Custom pack for {pack_name} icons"
-                },
-                "icons": {
-                    icon_name: icon_data.model_dump()
-                }
-            }
-
-            pack_request = IconPackInstallRequest(pack_data=pack_data)
+            pack_request = IconPackInstallRequest(pack_data=standardized_pack_data)
             return await install_icon_pack(pack_request, current_user, installer)
 
         # Convert icon result to pack response (for consistency)
@@ -279,11 +469,11 @@ async def upload_single_icon(
 
 
 # ============================================================================
-# ICON MANAGEMENT
+# INDIVIDUAL ICON MANAGEMENT
 # ============================================================================
 
 @router.patch(
-    "/icons/{icon_id}",
+    "/{icon_id}",
     summary="Update icon metadata",
     description="Update metadata for a specific icon"
 )
@@ -323,7 +513,7 @@ async def update_icon_metadata(
 
 
 @router.delete(
-    "/icons/{icon_id}",
+    "/{icon_id}",
     summary="Delete icon",
     description="Delete a specific icon"
 )
@@ -409,6 +599,8 @@ async def clear_cache(
 ):
     """Clear all cached icon data to free memory or force fresh data loading."""
     try:
+        # Clear the icon cache
+        icon_service.cache.clear_all()
         return {
             "success": True,
             "message": "Cache cleared successfully"

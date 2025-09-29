@@ -82,9 +82,12 @@ class DocumentInDB(DocumentBase):
     github_sync_status: Optional[str] = None
     last_github_sync_at: Optional[datetime] = None
 
+    # Recent documents tracking
+    last_opened_at: Optional[datetime] = None
+
     model_config = ConfigDict(from_attributes=True)
 
-    @field_serializer("created_at", "updated_at", "last_github_sync_at")
+    @field_serializer("created_at", "updated_at", "last_github_sync_at", "last_opened_at")
     def serialize_datetime(self, dt: Optional[datetime]) -> Optional[str]:
         """Serialize datetime to ISO format with Z suffix."""
         if dt is None:

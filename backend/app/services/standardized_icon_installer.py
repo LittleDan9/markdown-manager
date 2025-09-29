@@ -30,7 +30,7 @@ class StandardizedIconPackInstaller:
             IconPackResponse: The created icon pack
         """
         pack_info = pack_request.info
-        
+
         # Check if pack already exists
         existing_pack = await self._get_existing_pack(pack_info["name"])
         if existing_pack:
@@ -98,9 +98,9 @@ class StandardizedIconPackInstaller:
             icons_query = select(IconMetadata).where(IconMetadata.pack_id == existing_pack.id)
             icons_result = await self.db.execute(icons_query)
             icons = icons_result.scalars().all()
-            
-            for icon in icons:
-                icon.full_key = f"{new_pack_name}:{icon.key}"
+
+            # Note: full_key is computed automatically from pack.name and icon.key
+            # No need to set it manually as it's a @hybrid_property
 
             # Update documents that reference this pack
             document_updater = DocumentIconUpdater(self.db)
@@ -199,33 +199,32 @@ class StandardizedIconPackInstaller:
         pack_name: str
     ) -> int:
         """Install icons from standardized format.
-        
+
         Args:
             pack_id: The pack ID
             icons_data: Dictionary of {icon_key: IconifyIconData}
             pack_name: Pack name for generating full_key
-            
+
         Returns:
             Number of icons installed
         """
         import logging
         logger = logging.getLogger(__name__)
-        
+
         installed_count = 0
-        
+
         for icon_key, icon_data in icons_data.items():
             # Generate search terms from icon key
             search_terms = self._generate_search_terms(icon_key)
-            
+
             # Create icon metadata with standardized data
             width = getattr(icon_data, 'width', 24)
             height = getattr(icon_data, 'height', width)
             viewBox = getattr(icon_data, 'viewBox', f"0 0 {width} {height}")
-            
+
             icon_metadata = IconMetadata(
                 pack_id=pack_id,
                 key=icon_key,
-                full_key=f"{pack_name}:{icon_key}",
                 search_terms=search_terms,
                 icon_data={
                     "body": icon_data.body,
@@ -236,10 +235,10 @@ class StandardizedIconPackInstaller:
                 file_path=None,
                 access_count=0
             )
-            
+
             self.db.add(icon_metadata)
             installed_count += 1
-            
+
             if installed_count % 100 == 0:
                 logger.info(f"Installed {installed_count} icons...")
 
@@ -250,17 +249,17 @@ class StandardizedIconPackInstaller:
         """Generate search terms from an icon key."""
         # Convert kebab-case, snake_case, and camelCase to space-separated terms
         import re
-        
+
         # Replace hyphens and underscores with spaces
         terms = re.sub(r'[-_]', ' ', icon_key)
-        
+
         # Split camelCase
         terms = re.sub(r'([a-z])([A-Z])', r'\1 \2', terms)
-        
+
         # Convert to lowercase and normalize spaces
         terms = re.sub(r'\s+', ' ', terms.lower()).strip()
-        
+
         # Include the original key as well
         all_terms = f"{icon_key} {terms}".strip()
-        
+
         return all_terms

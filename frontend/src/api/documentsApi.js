@@ -306,6 +306,207 @@ class DocumentsApi extends Api {
     const res = await this.apiCall(`/github/accounts/${accountId}/repositories/statistics`, 'GET');
     return res.data;
   }
+
+  // ========================================
+  // DOCUMENT-BASED GIT OPERATIONS
+  // ========================================
+
+  /**
+   * Get git status for a document's repository (local or GitHub)
+   * @param {number} documentId - Document ID
+   * @returns {Promise<Object>} - Git status information
+   */
+  async getDocumentGitStatus(documentId) {
+    const res = await this.apiCall(`/documents/${documentId}/git/status`, "GET");
+    return res.data;
+  }
+
+  /**
+   * Commit changes for a document's repository
+   * @param {number} documentId - Document ID
+   * @param {string} commitMessage - Commit message
+   * @returns {Promise<Object>} - Commit result
+   */
+  async commitDocumentChanges(documentId, commitMessage) {
+    const res = await this.apiCall(`/documents/${documentId}/git/commit`, "POST", {
+      commit_message: commitMessage
+    });
+    return res.data;
+  }
+
+  /**
+   * Get git history for a document's repository
+   * @param {number} documentId - Document ID
+   * @param {number} limit - Number of commits to retrieve (default: 20)
+   * @returns {Promise<Object>} - Git history with commits
+   */
+  async getDocumentGitHistory(documentId, limit = 20) {
+    const res = await this.apiCall(`/documents/${documentId}/git/history?limit=${limit}`, "GET");
+    return res.data;
+  }
+
+  /**
+   * Stash changes in a document's repository
+   * @param {number} documentId - Document ID
+   * @param {Object} stashData - Stash configuration
+   * @param {string} stashData.message - Optional stash message
+   * @param {boolean} stashData.include_untracked - Include untracked files
+   * @returns {Promise<Object>} - Stash result
+   */
+  async stashDocumentChanges(documentId, stashData) {
+    const res = await this.apiCall(`/documents/${documentId}/git/stash`, "POST", stashData);
+    return res.data;
+  }
+
+  /**
+   * Create a new branch for a document's repository
+   * @param {number} documentId - Document ID
+   * @param {Object} branchData - Branch configuration
+   * @param {string} branchData.branch_name - Name of new branch
+   * @param {string} branchData.base_branch - Base branch (optional)
+   * @param {boolean} branchData.switch_to_branch - Switch to new branch
+   * @returns {Promise<Object>} - Branch creation result
+   */
+  async createDocumentBranch(documentId, branchData) {
+    const res = await this.apiCall(`/documents/${documentId}/git/branches`, "POST", branchData);
+    return res.data;
+  }
+
+  /**
+   * Get branch information for a document's repository
+   * @param {number} documentId - Document ID
+   * @param {boolean} includeRemote - Include remote branches (default: false)
+   * @returns {Promise<Object>} - Branch information
+   */
+  async getDocumentBranches(documentId, includeRemote = false) {
+    const res = await this.apiCall(`/documents/${documentId}/git/branches?include_remote=${includeRemote}`, "GET");
+    return res.data;
+  }
+
+  // ========================================
+  // GIT MANAGEMENT MODAL ENDPOINTS
+  // ========================================
+
+  /**
+   * Get overview of all user repositories for git management modal
+   * @returns {Promise<Object>} - Repository overview
+   */
+  async getGitOverview() {
+    const res = await this.apiCall('/documents/git/overview', 'GET');
+    return res.data;
+  }
+
+  /**
+   * Get git operation logs for the current user
+   * @param {Object} options - Filter options
+   * @param {number} options.limit - Number of logs to retrieve (default: 50)
+   * @param {string} options.operationType - Filter by operation type
+   * @param {boolean} options.success - Filter by success status
+   * @returns {Promise<Object>} - Operation logs
+   */
+  async getGitOperationLogs(options = {}) {
+    const { limit = 50, operationType, success } = options;
+    const params = { limit };
+    if (operationType) params.operation_type = operationType;
+    if (success !== undefined) params.success = success;
+
+    const res = await this.apiCall('/documents/git/operation-logs', 'GET', null, params);
+    return res.data;
+  }
+
+  /**
+   * Get git stashes from all user repositories
+   * @returns {Promise<Object>} - All git stashes
+   */
+  async getAllGitStashes() {
+    const res = await this.apiCall('/documents/git/stashes', 'GET');
+    return res.data;
+  }
+
+  /**
+   * Get branches from all user repositories
+   * @returns {Promise<Object>} - All repository branches
+   */
+  async getAllGitBranches() {
+    const res = await this.apiCall('/documents/git/branches/all', 'GET');
+    return res.data;
+  }
+
+  /**
+   * Apply a git stash
+   * @param {number} documentId - Document ID
+   * @param {Object} stashData - Stash configuration
+   * @param {string} stashData.stashId - Stash ID to apply (default: "stash@{0}")
+   * @param {boolean} stashData.pop - Whether to pop the stash (remove after applying)
+   * @returns {Promise<Object>} - Stash apply result
+   */
+  async applyDocumentStash(documentId, stashData = {}) {
+    const res = await this.apiCall(`/documents/${documentId}/git/stash/apply`, "POST", stashData);
+    return res.data;
+  }
+
+  /**
+   * Switch git branch for a document's repository
+   * @param {number} documentId - Document ID
+   * @param {Object} branchData - Branch switch configuration
+   * @param {string} branchData.branchName - Name of branch to switch to
+   * @param {boolean} branchData.createIfNotExists - Create branch if it doesn't exist
+   * @returns {Promise<Object>} - Branch switch result
+   */
+  async switchDocumentBranch(documentId, branchData) {
+    const res = await this.apiCall(`/documents/${documentId}/git/branch/switch`, "POST", branchData);
+    return res.data;
+  }
+
+  /**
+   * Apply a git stash from any repository
+   * @param {Object} stashData - Stash apply configuration
+   * @param {string} stashData.repository_path - Repository path
+   * @param {string} stashData.stash_id - Stash ID to apply (default: "stash@{0}")
+   * @param {boolean} stashData.pop - Whether to pop the stash (remove after applying)
+   * @returns {Promise<Object>} - Stash apply result
+   */
+  async applyGitStash(stashData) {
+    const res = await this.apiCall('/documents/git/stash/apply', 'POST', stashData);
+    return res.data;
+  }
+
+  /**
+   * Create a git stash in a specific repository
+   * @param {Object} stashData - Stash creation configuration
+   * @param {string} stashData.repository_path - Repository path
+   * @param {string} stashData.message - Stash message
+   * @param {boolean} stashData.include_untracked - Include untracked files
+   * @returns {Promise<Object>} - Stash creation result
+   */
+  async createGitStash(stashData) {
+    const res = await this.apiCall('/documents/git/stash/create', 'POST', stashData);
+    return res.data;
+  }
+
+  /**
+   * Get git configuration settings
+   * @returns {Promise<Object>} - Git configuration settings
+   */
+  async getGitSettings() {
+    const res = await this.apiCall('/documents/git/settings', 'GET');
+    return res.data;
+  }
+
+  /**
+   * Update git configuration settings
+   * @param {Object} settings - Git settings to update
+   * @param {string} settings.user_name - Git user name
+   * @param {string} settings.user_email - Git user email
+   * @param {boolean} settings.auto_commit_on_save - Auto-commit on save
+   * @param {boolean} settings.auto_init_repos - Auto-initialize repositories
+   * @param {boolean} settings.operation_logging - Enable operation logging
+   * @returns {Promise<Object>} - Update result
+   */
+  async updateGitSettings(settings) {
+    const res = await this.apiCall('/documents/git/settings', 'POST', { settings });
+    return res.data;
+  }
 }
 
 export default new DocumentsApi();

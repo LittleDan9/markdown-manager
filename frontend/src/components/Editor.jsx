@@ -2,7 +2,7 @@
 import React, { useRef } from 'react';
 import MarkdownToolbar from './editor/MarkdownToolbar';
 import ProgressIndicator from './ProgressIndicator';
-import { GitHubStatusBar } from './editor';
+import { GitStatusBar } from './editor';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
@@ -78,12 +78,12 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
       />
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
         <div ref={containerRef} className="monaco-container" style={{ flex: 1, width: "100%" }} />
-        <GitHubStatusBar
+        <GitStatusBar
           documentId={currentDocument?.id}
           document={currentDocument}
           onStatusChange={(status) => {
             // Optional: handle status changes globally
-            console.log('GitHub status updated:', status);
+            console.log('Git status updated:', status);
           }}
           onDocumentUpdate={handleDocumentUpdate}
         />

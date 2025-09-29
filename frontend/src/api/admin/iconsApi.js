@@ -79,7 +79,7 @@ export class AdminIconsApi extends Api {
    */
   async updateIconMetadata(iconId, metadata) {
     const response = await this.apiCall(
-      `/admin/icons/icons/${iconId}`,
+      `/admin/icons/${iconId}`,
       'PATCH',
       metadata
     );
@@ -91,7 +91,7 @@ export class AdminIconsApi extends Api {
    */
   async deleteIcon(iconId) {
     const response = await this.apiCall(
-      `/admin/icons/icons/${iconId}`,
+      `/admin/icons/${iconId}`,
       'DELETE'
     );
     return response.data;

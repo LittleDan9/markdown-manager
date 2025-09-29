@@ -146,7 +146,7 @@ class IconPackInstaller:
         """Extract icons data based on package type and mapping config."""
         import logging
         logger = logging.getLogger(__name__)
-        
+
         logger.info(f"Extracting icons data with package_type='{package_type}'")
         logger.info(f"Mapping config: {mapping_config}")
 
@@ -158,7 +158,7 @@ class IconPackInstaller:
             result = self._extract_mixed_icons(pack_data, mapping_config)
         else:
             raise ValueError(f"Unsupported package type: {package_type}")
-            
+
         logger.info(f"Extracted {len(result)} icons")
         return result
 
@@ -166,13 +166,13 @@ class IconPackInstaller:
         """Extract icons from JSON-based packages (like Iconify)."""
         import logging
         logger = logging.getLogger(__name__)
-        
+
         icons_path = mapping_config.get("icons_data", "icons")
         icons_data = self._get_nested_value(pack_data, icons_path)
-        
+
         logger.info(f"Extracting JSON icons from path '{icons_path}'")
         logger.info(f"Icons data type: {type(icons_data)}")
-        
+
         if icons_data:
             logger.info(f"Found {len(icons_data)} icons")
         else:
@@ -180,16 +180,16 @@ class IconPackInstaller:
             return []
 
         icons = []
-        
+
         # Handle both dictionary and list formats
         if isinstance(icons_data, dict):
             # Dictionary format: {icon_name: {body: "...", width: 24, height: 24}}
             for icon_key, icon_data in icons_data.items():
                 logger.debug(f"Processing icon: {icon_key}")
-                
+
                 # Process Iconify-style data to create proper icon structure
                 processed_icon_data = self._process_iconify_icon_data(icon_data, pack_data)
-                
+
                 icon_info = {
                     "key": icon_key,
                     "search_terms": self._generate_search_terms(icon_key, mapping_config.get("search_terms")),
@@ -206,19 +206,19 @@ class IconPackInstaller:
                     icon_info["body"] = self._get_nested_value(icon_data, mapping_config["body"])
 
                 icons.append(icon_info)
-        
+
         elif isinstance(icons_data, list):
             # List format: [{key: "name", ...}, ...]
             for icon_item in icons_data:
                 if not isinstance(icon_item, dict):
                     logger.warning(f"Skipping non-dict icon item: {icon_item}")
                     continue
-                    
+
                 key = icon_item.get("key")
                 if not key:
                     logger.warning(f"Skipping icon without key: {icon_item}")
                     continue
-                    
+
                 icon_info = {
                     "key": key,
                     "search_terms": icon_item.get("search_terms", ""),
@@ -227,7 +227,7 @@ class IconPackInstaller:
                 }
 
                 icons.append(icon_info)
-        
+
         else:
             logger.error(f"Unexpected icons_data type: {type(icons_data)}")
             return []
@@ -239,13 +239,13 @@ class IconPackInstaller:
         """Extract icons from SVG file-based packages (like AWS icons)."""
         import logging
         logger = logging.getLogger(__name__)
-        
+
         files_path = mapping_config.get("files_path", "files")
         base_path = mapping_config.get("base_path", "")
-        
+
         logger.info(f"Extracting SVG file icons with files_path='{files_path}', base_path='{base_path}'")
         logger.info(f"Pack data keys: {list(pack_data.keys())}")
-        
+
         files_list = self._get_nested_value(pack_data, files_path) or []
         files_length = len(files_list) if hasattr(files_list, '__len__') else 'N/A'
         logger.info(f"Files list type: {type(files_list)}, length: {files_length}")
@@ -280,7 +280,7 @@ class IconPackInstaller:
                             viewbox_match = re.search(r'viewBox\s*=\s*["\']([^"\']+)["\']', svg_content)
                             width_match = re.search(r'width\s*=\s*["\']([^"\']+)["\']', svg_content)
                             height_match = re.search(r'height\s*=\s*["\']([^"\']+)["\']', svg_content)
-                            
+
                             # Store complete SVG and metadata
                             icon_info["icon_data"] = {
                                 "svg": svg_content,
@@ -317,32 +317,31 @@ class IconPackInstaller:
         """Install icons into the database."""
         import logging
         logger = logging.getLogger(__name__)
-        
+
         logger.info(f"Installing icons for pack '{pack_name}' (pack_id={pack_id})")
         logger.info(f"Icons data length: {len(icons_data)}")
-        
+
         if not icons_data:
             logger.warning("No icons data provided for installation")
             return 0
-            
+
         # Log first few icons for debugging
         for i, icon_info in enumerate(icons_data[:3]):
             logger.info(f"Icon {i}: {icon_info}")
-        
+
         icon_count = 0
 
         for icon_info in icons_data:
             if 'key' not in icon_info:
                 logger.warning(f"Skipping icon without 'key': {icon_info}")
                 continue
-                
+
             full_key = f"{pack_name}:{icon_info['key']}"
             logger.debug(f"Creating icon: {full_key}")
 
             icon = IconMetadata(
                 pack_id=pack_id,
                 key=icon_info["key"],
-                full_key=full_key,
                 search_terms=icon_info["search_terms"],
                 icon_data=icon_info.get("icon_data"),
                 file_path=icon_info.get("file_path"),
@@ -384,10 +383,10 @@ class IconPackInstaller:
         top = int(icon_data.get("top", 0))
         width = int(icon_data.get("width", pack_data.get("width", 24)))
         height = int(icon_data.get("height", pack_data.get("height", 24)))
-        
+
         # Construct viewBox from dimensions
         view_box = f"{left} {top} {width} {height}"
-        
+
         # Create processed icon data with proper structure
         processed_data = {
             "body": icon_data.get("body", ""),
@@ -395,12 +394,12 @@ class IconPackInstaller:
             "width": width,
             "height": height
         }
-        
+
         # Preserve any additional fields that might be useful
         for key, value in icon_data.items():
             if key not in ["body", "left", "top", "width", "height"]:
                 processed_data[key] = value
-                
+
         return processed_data
 
     def _generate_search_terms(self, key: str, search_config: Optional[str] = None) -> str:

@@ -4,6 +4,7 @@ import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
 import { useNotification } from '../../NotificationProvider';
 import IconViewModal from './IconViewModal';
+import { cleanSvgBodyForBrowser } from '../../../utils/svgUtils';
 
 export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoading = false }) {
   const [selectedPack, setSelectedPack] = useState('all');
@@ -186,6 +187,9 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
     const { body, width = 24, height = 24, viewBox } = icon.icon_data;
 
+    // Clean the body content to remove namespaces for browser compatibility
+    const cleanedBody = cleanSvgBodyForBrowser(body);
+
     return (
       <svg
         width="32"
@@ -194,7 +198,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
         fill="currentColor"
         className="icon-svg"
       >
-        <g dangerouslySetInnerHTML={{ __html: body }} />
+        <g dangerouslySetInnerHTML={{ __html: cleanedBody }} />
       </svg>
     );
   };
@@ -573,6 +577,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
       {/* Icon View Modal */}
       <IconViewModal
+        key={`${selectedIcon?.id}-${selectedIcon?.key}`} // Force re-mount when icon changes
         icon={selectedIcon}
         show={showViewModal}
         initialEditMode={showEditMode}

@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react'
 import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
 import { useLogger } from '../../providers/LoggerProvider';
 import { IconService } from '@/services/icons';
+import { cleanSvgBodyForBrowser } from '@/utils/svgUtils';
 
 const ITEMS_PER_ROW = 4;
 const INITIAL_LOAD_SIZE = 24; // 6 rows
@@ -243,9 +244,12 @@ export default function IconBrowser() {
       );
     }
 
+    // Clean the body content to remove namespaces for browser compatibility
+    const cleanedBody = cleanSvgBodyForBrowser(iconData.body);
+
     // Create complete SVG with proper styling support
     const viewBox = iconData.viewBox || '0 0 24 24';
-    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="${viewBox}" class="border rounded bg-body-secondary" style="padding: 4px;">${iconData.body}</svg>`;
+    const svgContent = `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="${viewBox}" class="border rounded bg-body-secondary" style="padding: 4px;">${cleanedBody}</svg>`;
 
     return (
       <div
