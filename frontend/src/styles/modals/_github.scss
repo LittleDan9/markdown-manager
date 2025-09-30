@@ -524,3 +524,204 @@
     }
   }
 }
+
+// ─── GITHUB MODAL (Main Integration Modal) ───
+.github-modal {
+  .modal-dialog {
+    max-width: 800px;
+    max-height: 90vh;
+  }
+
+  .modal-content {
+    height: auto;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-header {
+    flex-shrink: 0;
+    border-bottom: 1px solid #dee2e6;
+
+    [data-bs-theme="dark"] & {
+      border-bottom-color: #495057;
+    }
+  }
+
+  .modal-body {
+    flex: 1;
+    min-height: 0; // Important for flex children to be scrollable
+    padding: 0;
+    overflow: hidden;
+  }
+
+  .modal-footer {
+    flex-shrink: 0;
+    border-top: 1px solid #dee2e6;
+
+    [data-bs-theme="dark"] & {
+      border-top-color: #495057;
+    }
+  }
+
+  // Tab navigation
+  .nav-tabs {
+    flex-shrink: 0;
+    border-bottom: 1px solid #dee2e6;
+    margin: 0;
+    padding: 0 1.5rem;
+    background: #f8f9fa;
+
+    [data-bs-theme="dark"] & {
+      background: #2a2a2a;
+      border-bottom-color: #495057;
+    }
+
+    .nav-link {
+      border: none;
+      border-radius: 0;
+      padding: 1rem 1.5rem;
+      color: #6c757d;
+
+      &:hover {
+        color: #007bff;
+        border-color: transparent;
+      }
+
+      &.active {
+        color: #007bff;
+        background: transparent;
+        border-bottom: 3px solid #007bff;
+      }
+
+      [data-bs-theme="dark"] & {
+        color: #adb5bd;
+
+        &:hover {
+          color: #007bff;
+        }
+
+        &.active {
+          color: #007bff;
+        }
+      }
+    }
+  }
+
+  // Tab content with proper scrolling
+  .tab-content {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
+
+    .tab-pane {
+      height: auto;
+      overflow: hidden;
+      padding: 1.5rem; // Add padding back to tab pane
+    }
+  }
+}
+
+// ─── GITHUB SETTINGS TAB SPECIFIC STYLES ───
+.github-settings-tab {
+  // Error alert should not scroll
+  > .alert {
+    margin-bottom: 1.5rem;
+  }
+
+  .card {
+    border: none;
+    box-shadow: none;
+
+    .card-header {
+      background: #f8f9fa;
+      border-bottom: 1px solid #dee2e6;
+
+      [data-bs-theme="dark"] & {
+        background: #2a2a2a;
+        border-bottom-color: #495057;
+      }
+    }
+
+    .card-body {
+      overflow-y: auto; // Only the card body scrolls
+      padding: 1.5rem;
+      max-height: 500px; // Simple fixed constraint for scrolling
+    }
+  }
+
+  // Form sections with proper spacing
+  h6 {
+    color: #495057;
+    font-size: 1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+
+    [data-bs-theme="dark"] & {
+      color: #adb5bd;
+    }
+
+    &.border-bottom {
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid #dee2e6 !important;
+
+      [data-bs-theme="dark"] & {
+        border-bottom-color: #495057 !important;
+      }
+    }
+
+    i {
+      color: #007bff;
+      margin-right: 0.5rem;
+    }
+  }
+
+  // Form controls styling
+  .form-check {
+    margin-bottom: 1rem;
+
+    .form-check-input:checked {
+      background-color: #007bff;
+      border-color: #007bff;
+    }
+
+    .form-check-label {
+      font-weight: 500;
+      cursor: pointer;
+    }
+  }
+
+  .form-text {
+    font-size: 0.875rem;
+    line-height: 1.4;
+    margin-top: 0.5rem;
+  }
+
+  // Alert styling
+  .alert {
+    margin-bottom: 1.5rem;
+
+    ul {
+      margin-bottom: 0;
+      padding-left: 1.2rem;
+
+      li {
+        margin-bottom: 0.5rem;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+      }
+    }
+  }
+
+  // Button group in header
+  .card-header .btn {
+    font-size: 0.875rem;
+  }
+
+  // Row spacing
+  .mb-4:last-child {
+    margin-bottom: 1.5rem !important;
+  }
+}

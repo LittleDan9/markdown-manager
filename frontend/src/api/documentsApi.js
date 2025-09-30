@@ -2,6 +2,10 @@ import { Api } from "./api";
 
 class DocumentsApi extends Api {
   async svgToPngDataUri(svgEl) {
+    // Client-side SVG to PNG conversion using Canvas API
+    // Note: For higher quality conversion, consider using exportDiagramAsPNG()
+    // which uses the server-side export service with Chromium rendering
+
     // 1) Serialize the SVG node to a string
     const serializer = new XMLSerializer();
     const svgString = serializer.serializeToString(svgEl);
@@ -38,6 +42,18 @@ class DocumentsApi extends Api {
     // Use the dedicated export service for PDF generation
     const exportServiceApi = (await import('./exportServiceApi')).default;
     return await exportServiceApi.exportAsPDF(htmlContent, documentName, isDarkMode);
+  }
+
+  async exportDiagramAsSVG(htmlContent, options = {}) {
+    // Use the dedicated export service for SVG diagram generation
+    const exportServiceApi = (await import('./exportServiceApi')).default;
+    return await exportServiceApi.exportDiagramAsSVG(htmlContent, options);
+  }
+
+  async exportDiagramAsPNG(htmlContent, options = {}) {
+    // Use the dedicated export service for PNG diagram generation
+    const exportServiceApi = (await import('./exportServiceApi')).default;
+    return await exportServiceApi.exportDiagramAsPNG(htmlContent, options);
   }
 
   async getAllDocuments(category = null) {
@@ -254,6 +270,37 @@ class DocumentsApi extends Api {
    */
   async markDocumentOpened(documentId) {
     const res = await this.apiCall(`/documents/${documentId}/mark-opened`, 'PUT');
+    return res.data;
+  }
+
+  /**
+   * Save document to GitHub with optional diagram conversion
+   * @param {number} documentId - Document ID
+   * @param {Object} options - Save options
+   * @param {string} options.commitMessage - Commit message
+   * @param {string} options.branch - Target branch (default: 'main')
+   * @param {boolean} options.convertDiagrams - Convert advanced diagrams for GitHub compatibility
+   * @param {string} options.diagramFormat - Export format for diagrams ('svg' or 'png')
+   * @param {Array} options.renderedDiagrams - Pre-rendered diagram data
+   * @returns {Promise<Object>} - Save result
+   */
+  async saveToGitHubWithDiagrams(documentId, options = {}) {
+    const {
+      commitMessage,
+      branch = 'main',
+      convertDiagrams = false,
+      diagramFormat = 'svg',
+      renderedDiagrams = []
+    } = options;
+
+    const res = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', {
+      commit_message: commitMessage,
+      branch,
+      convert_diagrams: convertDiagrams,
+      diagram_format: diagramFormat,
+      rendered_diagrams: renderedDiagrams
+    });
+
     return res.data;
   }
 

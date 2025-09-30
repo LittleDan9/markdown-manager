@@ -22,6 +22,7 @@ if TYPE_CHECKING:
     from .document import Document
     from .user import User
     from .git_operations import GitOperationLog
+    from .github_settings import GitHubSettings
 
 
 def utc_now():
@@ -70,6 +71,9 @@ class GitHubAccount(BaseModel):
     )
     repository_selections: Mapped[list["GitHubRepositorySelection"]] = relationship(
         "GitHubRepositorySelection", back_populates="github_account", cascade="all, delete-orphan"
+    )
+    settings: Mapped[list["GitHubSettings"]] = relationship(
+        "GitHubSettings", back_populates="github_account"
     )
 
 

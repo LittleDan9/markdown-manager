@@ -22,6 +22,7 @@ from app.routers import (
     default,
     documents,
     github,
+    github_settings,
     icons,
     iconify_router,
     markdown_lint,
@@ -143,6 +144,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         github.router, prefix="/github", tags=["github"]
+    )
+    app.include_router(
+        github_settings.router, prefix="/github/settings", tags=["github-settings"]
     )
 
     # Static file serving

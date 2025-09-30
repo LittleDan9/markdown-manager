@@ -1,0 +1,223 @@
+/* Diagram Controls Styling */
+.mermaid-container {
+  position: relative;
+
+  &:hover .diagram-controls {
+    opacity: 1;
+  }
+}
+
+.diagram-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+
+  .diagram-control-btn {
+    background-color: rgba(255, 255, 255, 0.9);
+    border-color: rgba(0, 0, 0, 0.2);
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 1);
+      border-color: rgba(0, 0, 0, 0.3);
+    }
+
+    .spinner-border {
+      width: 0.8rem;
+      height: 0.8rem;
+    }
+  }
+
+  .github-indicator {
+    background-color: rgba(255, 243, 205, 0.9);
+    border-color: rgba(255, 193, 7, 0.3);
+    color: #856404;
+
+    &:hover {
+      background-color: rgba(255, 243, 205, 1);
+      border-color: rgba(255, 193, 7, 0.5);
+    }
+  }
+
+  .dropdown-menu {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+
+    .dropdown-item {
+      font-size: 0.875rem;
+
+      &:hover {
+        background-color: #f8f9fa;
+      }
+
+      &.text-muted {
+        font-size: 0.8rem;
+
+        &:hover {
+          background-color: transparent;
+        }
+      }
+    }
+  }
+}
+
+/* Dark mode adjustments */
+[data-bs-theme="dark"] {
+  .diagram-controls {
+    .diagram-control-btn {
+      background-color: rgba(33, 37, 41, 0.9);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #fff;
+
+      &:hover {
+        background-color: rgba(33, 37, 41, 1);
+        border-color: rgba(255, 255, 255, 0.3);
+      }
+    }
+
+    .github-indicator {
+      background-color: rgba(102, 77, 3, 0.9);
+      border-color: rgba(255, 193, 7, 0.3);
+      color: #ffecb5;
+
+      &:hover {
+        background-color: rgba(102, 77, 3, 1);
+        border-color: rgba(255, 193, 7, 0.5);
+      }
+    }
+
+    .dropdown-menu {
+      background-color: #212529;
+      border-color: rgba(255, 255, 255, 0.15);
+
+      .dropdown-item {
+        color: #fff;
+
+        &:hover {
+          background-color: #343a40;
+        }
+
+        &.text-muted {
+          color: #6c757d;
+
+          &:hover {
+            background-color: transparent;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .diagram-controls {
+    position: static;
+    opacity: 1;
+    margin-bottom: 10px;
+
+    .btn-group {
+      width: 100%;
+
+      .diagram-control-btn {
+        flex: 1;
+      }
+    }
+  }
+}
+
+/* Print styles */
+@media print {
+  .diagram-controls {
+    display: none !important;
+  }
+}
+
+/* Fullscreen modal styles */
+.diagram-fullscreen-modal {
+  .modal-dialog {
+    max-width: 95vw;
+    max-height: 95vh;
+    margin: 2.5vh auto;
+  }
+
+  .modal-content {
+    height: 95vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: auto;
+
+    .mermaid-container.fullscreen-diagram {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+
+      > div {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      svg {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto !important;
+        height: auto !important;
+        display: block;
+      }
+    }
+  }
+
+  .modal-header {
+    border-bottom: 1px solid #dee2e6;
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+  }
+
+  .modal-footer {
+    border-top: 1px solid #dee2e6;
+    justify-content: space-between;
+
+    .diagram-metadata {
+      font-size: 0.875rem;
+      color: #6c757d;
+    }
+  }
+}
+
+/* Dark mode for fullscreen modal */
+[data-bs-theme="dark"] {
+  .diagram-fullscreen-modal {
+    .modal-content {
+      background-color: #212529;
+      border-color: #495057;
+    }
+
+    .modal-header,
+    .modal-footer {
+      border-color: #495057;
+    }
+
+    .diagram-metadata {
+      color: #adb5bd;
+    }
+  }
+}

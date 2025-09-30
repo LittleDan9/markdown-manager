@@ -4,111 +4,324 @@
 
 This document provides comprehensive instructions for implementing automatic GitHub-compatible diagram export features in Markdown Manager. The system will detect advanced Mermaid diagrams (architecture-beta, custom icons) and automatically convert them to static images when saving to GitHub repositories.
 
+## Phase 2 Implementation Summary (COMPLETED)
+
+**Phase 2: Frontend Export Service Implementation** has been successfully completed with the following key achievements:
+
+### ✅ Export Service Architecture Refactor
+- **App Factory Pattern**: Successfully refactored export service from monolithic structure to proper app factory pattern matching backend architecture
+- **Modular Router Structure**:
+  - `app/app_factory.py` - Central application factory with `create_app()` function and lifespan management
+  - `app/routers/default.py` - Health check and root endpoints (`/health`, `/`)
+  - `app/routers/pdf.py` - PDF export functionality (`/document/pdf`)
+  - `app/routers/diagram.py` - SVG/PNG diagram export (`/diagram/svg`, `/diagram/png`)
+- **Clean Endpoint Structure**: Removed redundant "export-" prefixes, using clean RESTful endpoints
+- **Consistent Patterns**: Now follows the same architectural patterns as the backend service with proper dependency injection and error handling
+
+### ✅ Frontend API Integration
+- **exportServiceApi.js**: Complete API client for export service communication
+  - Clean method names: `exportDiagramAsSVG()`, `exportDiagramAsPNG()`, `exportAsPDF()`
+  - Nginx routing integration through `/api/export/` prefix
+  - Proper error handling and blob management for binary data
+  - Base64 to Blob conversion for PNG exports
+  - Backward compatibility aliases for existing code
+- **documentsApi.js**: Enhanced with diagram export methods
+  - `exportDiagramAsSVG()` and `exportDiagramAsPNG()` methods added
+  - `saveToGitHubWithDiagrams()` method prepared for GitHub integration
+  - Dynamic import pattern maintains lazy loading of export service API
+  - Enhanced documentation noting client-side vs server-side conversion options
+
+### ✅ Infrastructure Integration
+- **Nginx Routing**: Both development and production configurations updated
+  - `nginx-dev.conf` and `littledan.com.conf` include `/api/export/` location blocks
+  - Proper precedence handling with `/api/export/` before general `/api/` catch-all
+  - Correct proxy settings with timeout and header configurations
+- **Docker Integration**: Export service properly integrated with Docker Compose
+  - App factory pattern works seamlessly in containerized environment
+  - Volume mounts and environment configurations maintained
+  - Health checks functional across all deployment methods
+
+### ✅ Verified Functionality
+All endpoints tested and confirmed working:
+- **Health Check**: `GET /api/export/health` ✅
+- **Diagram SVG Export**: `POST /api/export/diagram/svg` ✅
+- **Diagram PNG Export**: `POST /api/export/diagram/png` ✅
+- **PDF Export**: `POST /api/export/document/pdf` ✅
+- **Nginx Routing**: All endpoints accessible through nginx proxy ✅
+- **App Factory Pattern**: Proper initialization and lifespan management ✅
+
+### ✅ Technical Implementation Details
+- **CSS Service Enhancement**: `get_diagram_css()` method provides optimized styling for diagram exports (no page breaks, centered layout)
+- **Chromium Rendering**: High-quality SVG extraction and PNG rasterization using Playwright
+- **Error Handling**: Comprehensive error handling with structured logging and HTTP status codes
+- **Performance**: Efficient viewport management and resource cleanup in browser automation
+- **Security**: Proper SVG namespace handling and sanitization
+
+### 📋 Architecture Consistency Achieved
+The export service now properly follows the established patterns:
+- **App Factory**: `create_app()` function with proper lifecycle management matching backend
+- **Router Organization**: Separated concerns with domain-specific routers
+- **Service Boundaries**: Clean separation between PDF and diagram export functionality
+- **Dependency Injection**: Proper service initialization and dependency management
+- **Logging**: Structured logging matching backend patterns
+
+### 🔧 Ready for Phase 3
+Phase 2 has established the foundation for Phase 3 implementation:
+- Export service can handle diagram rendering with high quality
+- Frontend APIs are prepared for GitHub integration features
+- nginx routing supports the full export service functionality
+- Architecture is consistent and maintainable for future enhancements
+
 ## Core Requirements
 
 ### User Story
 - Users with GitHub integration enabled can toggle a setting to auto-convert advanced diagrams for GitHub compatibility
 - When saving to GitHub, advanced diagrams are automatically converted to SVG/PNG images with fallback source code
 - Users can manually export individual diagrams via overlay controls in the renderer
-- Each diagram gets expand/download controls for fullscreen viewing and manual expor5. Implement diagram detection and conversion logic
-3. Add GitHub-compatible markdown generation
-4. Integrate with export service for image generation## Architecture Components
+- Each diagram gets expand/download controls for fullscreen viewing and manual export
 
-### Frontend Components (React/JavaScript)
+## Phase 3: Settings Integration & Diagram Controls (COMPLETED)
 
-#### 1. MermaidExportService (`frontend/src/services/rendering/MermaidExportService.js`)
+**Phase 3: Settings Integration & Diagram Controls** has been successfully completed with the following key achievements:
 
-**Purpose**: Service for exporting Mermaid diagrams to SVG/PNG using the existing export service infrastructure
+### ✅ Phase 3 Implementation Summary
 
-```javascript
-import exportServiceApi from '@/api/exportServiceApi';
+Phase 3 built on the completed export service infrastructure to add user-facing features for diagram interaction and export:
 
-export class MermaidExportService {
-  /**
-   * Export diagram to image format using the export service for high-quality rendering
-   * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
-   * @param {string} format - 'svg' or 'png'
-   * @returns {Promise<string|Blob>} - SVG string or PNG blob
-   */
-  static async exportDiagramToImage(diagramElement, format = 'svg') {
-    const diagramHTML = this.prepareDiagramHTML(diagramElement);
+### ✅ MermaidExportService Implementation
+- **Location**: `frontend/src/services/rendering/MermaidExportService.js`
+- **Purpose**: High-quality diagram export using Phase 2 export service APIs
+- **Key Features**:
+  - `exportAsSVG()` and `exportAsPNG()` methods using export service endpoints
+  - `needsGitHubConversion()` method for detecting advanced Mermaid features
+  - `generateFilename()` method for consistent file naming
+  - `extractDiagramMetadata()` method for diagram information extraction
+  - Integration with `exportServiceApi` for Chromium-based rendering
+  - Proper error handling with user-friendly messages
+  - Support for export options (width, height, dark mode)
 
-    if (format === 'svg') {
-      return await this.exportToSVG(diagramHTML);
-    } else {
-      return await this.exportToPNG(diagramHTML);
-    }
-  }
+### ✅ DiagramControls Component Implementation
+- **Location**: `frontend/src/components/renderer/DiagramControls.jsx`
+- **Purpose**: Overlay controls for individual diagrams with hover interaction
+- **Key Features**:
+  - Fullscreen button for enhanced diagram viewing
+  - Export dropdown with SVG/PNG options
+  - GitHub compatibility indicators for advanced diagrams
+  - Hover-based visibility with smooth transitions
+  - Context provider integration (Theme and Notification)
+  - ReactDOM portal rendering for dynamic attachment to diagrams
+  - Proper cleanup and memory management
 
-  /**
-   * Prepare diagram HTML for export service rendering
-   * @param {HTMLElement} diagramElement - The diagram element
-   * @returns {string} - Isolated diagram HTML with rendered SVG
-   */
-  static prepareDiagramHTML(diagramElement) {
-    // Extract the SVG content from the rendered Mermaid diagram
-    const svgElement = diagramElement.querySelector('svg');
-    if (!svgElement) {
-      throw new Error('No SVG found in diagram element');
-    }
+### ✅ DiagramFullscreenModal Implementation
+- **Location**: `frontend/src/components/renderer/DiagramFullscreenModal.jsx`
+- **Purpose**: Enhanced fullscreen diagram viewing with export controls
+- **Key Features**:
+  - Modal-based fullscreen diagram display
+  - Integrated export controls within modal
+  - SVG content rendering with proper styling
+  - Diagram metadata display
+  - Export progress indicators
+  - Responsive design for different screen sizes
+  - Dark mode support
 
-    // Clone the SVG to avoid DOM manipulation
-    const svgClone = svgElement.cloneNode(true);
+### ✅ CSS Styling System
+- **Location**: `frontend/src/styles/components/_diagram-controls.scss`
+- **Purpose**: Complete styling system for diagram controls and interactions
+- **Key Features**:
+  - Hover-based control visibility with opacity transitions
+  - Responsive design for mobile and desktop
+  - Dark mode support with theme-aware styling
+  - Fullscreen modal styling with proper layout
+  - Print-friendly styles (controls hidden in print)
+  - Bootstrap 5.3 integration with custom overrides
+  - Proper z-index management for overlay controls
 
-    // Wrap in a minimal HTML structure for export service
-    return `
-      <div class="diagram-export">
-        ${svgClone.outerHTML}
-      </div>
-    `;
-  }
+### ✅ Renderer Integration Enhancement
+- **Location**: `frontend/src/components/renderer/Renderer.jsx`
+- **Purpose**: Automatic diagram controls integration with Mermaid rendering
+- **Key Features**:
+  - `addDiagramControls()` function using ReactDOM portals
+  - Automatic detection of rendered Mermaid diagrams
+  - Dynamic control attachment after diagram processing
+  - Proper provider context wrapping for portal components
+  - Cleanup functionality to prevent memory leaks
+  - Integration with existing Mermaid rendering pipeline
 
-  /**
-   * Export to SVG using export service's Chromium rendering
-   * @param {string} diagramHTML - The diagram HTML
-   * @returns {Promise<string>} - SVG string
-   */
-  static async exportToSVG(diagramHTML) {
-    const response = await exportServiceApi.renderDiagramToSVG({
-      html_content: diagramHTML,
-      format: 'svg'
-    });
+### ✅ Provider Context Integration
+- **ThemeProvider Enhancement**: Added `isDarkMode` property for easier theme detection
+- **NotificationProvider Integration**: Proper context access for diagram export notifications
+- **Context Fallback Handling**: Safe destructuring and fallback values for portal components
+- **Provider Wrapping**: Explicit provider wrapping for ReactDOM portal components
 
-    return response.svg_content;
-  }
+### ✅ Technical Implementation Details
+- **ReactDOM Portals**: Used for dynamic component rendering without DOM manipulation
+- **Context Provider Access**: Solved portal context access issues with explicit wrapping
+- **SVG Content Extraction**: Direct DOM querying for SVG elements from rendered diagrams
+- **Export Service Integration**: Full integration with Phase 2 export service APIs
+- **Error Handling**: Comprehensive error handling with user notifications
+- **Memory Management**: Proper cleanup of portal components and event listeners
 
-  /**
-   * Export to PNG using export service's Chromium rendering
-   * @param {string} diagramHTML - The diagram HTML
-   * @returns {Promise<Blob>} - PNG blob
-   */
-  static async exportToPNG(diagramHTML) {
-    const response = await exportServiceApi.renderDiagramToImage({
-      html_content: diagramHTML,
-      format: 'png',
-      width: 1200,
-      height: 800
-    });
+### ✅ Verified Functionality
+All Phase 3 features tested and confirmed working:
+- **Diagram Controls Overlay**: Controls appear on hover over Mermaid diagrams ✅
+- **Export Functionality**: SVG and PNG export working via export service ✅
+- **Fullscreen Modal**: Diagrams display properly in fullscreen modal ✅
+- **GitHub Indicators**: Advanced diagrams show GitHub compatibility warnings ✅
+- **CSS Styling**: Responsive design and dark mode support functional ✅
+- **Context Integration**: Theme and notification providers working in portals ✅
+- **ReactDOM Portals**: Dynamic component attachment successful ✅
 
-    // Convert base64 response to blob
-    const binaryString = atob(response.image_data);
-    const bytes = new Uint8Array(binaryString.length);
-    for (let i = 0; i < binaryString.length; i++) {
-      bytes[i] = binaryString.charCodeAt(i);
-    }
+### 🔧 Ready for Phase 4: Renderer Enhancement
+Phase 3 has established the UI foundation for Phase 4 implementation:
+- Diagram controls are functional and properly styled
+- Export service integration is complete and tested
+- Fullscreen modal provides enhanced viewing experience
+- CSS framework supports responsive and accessible design
+- Component architecture is ready for settings integration
 
-    return new Blob([bytes], { type: 'image/png' });
-  }
+## Phase 4: Renderer Enhancement (📋 NEXT)
+
+**Phase 4 builds on the completed diagram controls to add settings integration and GitHub workflow preparation:**
+
+### Phase 4 Goals
+1. **GitHub Integration Settings**: User preferences for auto-conversion
+2. **Settings Panel Integration**: Add diagram settings to main settings
+3. **Settings Persistence**: Store user preferences for diagram export
+4. **Workflow Preparation**: Prepare for Phase 5 backend integration
+
+### Phase 4 Implementation Requirements
+Based on completed Phase 3, the following components need implementation:
+
+#### 1. ✅ MermaidExportService (COMPLETED)
+**Location**: `frontend/src/services/rendering/MermaidExportService.js`
+**Status**: Fully implemented in Phase 3
+**Key Methods Implemented**:
+- `exportAsSVG()` - Export diagrams as SVG using export service
+- `exportAsPNG()` - Export diagrams as PNG using export service
+- `needsGitHubConversion()` - Detect advanced Mermaid features
+- `generateFilename()` - Generate consistent filenames
+- `extractDiagramMetadata()` - Extract diagram information
+
+#### 2. ✅ DiagramControls Component (COMPLETED)
+**Location**: `frontend/src/components/renderer/DiagramControls.jsx`
+**Status**: Fully implemented in Phase 3
+**Features Implemented**:
+- Overlay controls with hover interaction
+- Export dropdown (SVG/PNG options)
+- Fullscreen button integration
+- GitHub compatibility indicators
+- Context provider integration
+
+#### 3. ✅ DiagramFullscreenModal Component (COMPLETED)
+**Location**: `frontend/src/components/renderer/DiagramFullscreenModal.jsx`
+**Status**: Fully implemented in Phase 3
+**Features Implemented**:
+- Modal-based fullscreen display
+- Integrated export controls
+- SVG content rendering
+- Responsive design with dark mode support
+
+#### 4. ✅ CSS Styling System (COMPLETED)
+**Location**: `frontend/src/styles/components/_diagram-controls.scss`
+**Status**: Fully implemented in Phase 3
+**Features Implemented**:
+- Hover-based control visibility
+- Responsive design for all screen sizes
+- Dark mode support
+- Print-friendly styles
+
+#### 5. ✅ Renderer Integration (COMPLETED)
+**Location**: `frontend/src/components/renderer/Renderer.jsx`
+**Status**: Enhanced in Phase 3
+**Features Implemented**:
+- Automatic diagram controls attachment via ReactDOM portals
+- Provider context wrapping for portal components
+- Cleanup functionality for memory management
+
+### Phase 4 Required Components
+
+#### 📋 GitHubIntegrationSettings Component (NEW - Phase 4)
+**Purpose**: User settings for auto-conversion preferences
+**Location**: `frontend/src/components/settings/GitHubIntegrationSettings.jsx`
+
+```jsx
+function GitHubIntegrationSettings() {
+  const { settings, updateSettings } = useSettings();
+
+  return (
+    <div className="github-integration-settings">
+      <Form.Check
+        type="switch"
+        id="auto-convert-diagrams"
+        label="Auto-convert advanced diagrams for GitHub compatibility"
+        checked={settings.github?.autoConvertDiagrams || false}
+        onChange={(e) => updateSettings({
+          github: {
+            ...settings.github,
+            autoConvertDiagrams: e.target.checked
+          }
+        })}
+      />
+
+      <Form.Group className="mt-3">
+        <Form.Label>Diagram Export Format</Form.Label>
+        <Form.Select
+          value={settings.github?.diagramFormat || 'svg'}
+          onChange={(e) => updateSettings({
+            github: {
+              ...settings.github,
+              diagramFormat: e.target.value
+            }
+          })}
+        >
+          <option value="svg">SVG (Vector, smaller files)</option>
+          <option value="png">PNG (Raster, better compatibility)</option>
+        </Form.Select>
+      </Form.Group>
+    </div>
+  );
+}
+```
+
+#### 📋 Enhanced Settings Integration (NEW - Phase 4)
+**Purpose**: Integrate GitHub diagram settings into main settings panel
+**Modifications Required**:
+1. Update main settings component to include GitHubIntegrationSettings
+2. Add settings schema for GitHub diagram preferences
+3. Implement settings persistence and retrieval
+
+### Backend Components for Phase 5 Preparation
+
+#### 📋 Settings Schema Updates (Phase 4 Backend)
+**Purpose**: Backend support for GitHub diagram settings
+**Location**: `backend/app/schemas/settings.py`
+
+```python
+class GitHubSettings(BaseModel):
+    """GitHub integration settings."""
+    auto_convert_diagrams: bool = Field(False, description="Auto-convert advanced diagrams for GitHub")
+    diagram_format: str = Field('svg', description="Export format for diagrams", regex='^(svg|png)$')
+    fallback_to_standard: bool = Field(True, description="Convert architecture-beta to standard flowcharts")
+```
+
+### Export Service Enhancement (✅ COMPLETED IN PHASE 2)
+
+All export service components are fully implemented and tested:
+- ✅ **Diagram Export Endpoints**: `/api/export/diagram/svg` and `/api/export/diagram/png`
+- ✅ **CSS Service Enhancement**: Optimized styling for diagram exports
+- ✅ **Chromium Rendering**: High-quality SVG and PNG generation
+- ✅ **Frontend API Integration**: Complete `exportServiceApi.js` client
 
   /**
    * Download diagram as file
    * @param {HTMLElement} diagramElement - The diagram element
    * @param {string} filename - Target filename without extension
    * @param {string} format - 'svg' or 'png'
+   * @param {Object} options - Export options
    */
-  static async downloadDiagram(diagramElement, filename, format = 'svg') {
+  static async downloadDiagram(diagramElement, filename, format = 'svg', options = {}) {
     try {
-      const exportedData = await this.exportDiagramToImage(diagramElement, format);
+      const exportedData = await this.exportDiagramToImage(diagramElement, format, options);
 
       let blob, mimeType;
       if (format === 'svg') {
@@ -137,11 +350,12 @@ export class MermaidExportService {
 ```
 
 **Key Implementation Details**:
-- Leverages existing export service's Chromium rendering engine
-- Uses the same CSS and styling as PDF exports for consistency
-- High-quality SVG extraction and PNG rasterization
-- Proper error handling and cleanup
-- Maintains existing export service architecture patterns
+- ✅ **Updated for Phase 2**: Uses the implemented `exportServiceApi` with clean endpoint structure
+- ✅ **Export Service Integration**: Leverages `/api/export/diagram/svg` and `/api/export/diagram/png` endpoints
+- ✅ **High-Quality Rendering**: Uses export service's Chromium rendering for consistent quality
+- ✅ **Proper Options Handling**: Supports width, height, and dark mode options
+- ✅ **Error Handling**: Comprehensive error handling with user-friendly messages
+- ✅ **Blob Management**: Proper handling of SVG strings and PNG blobs
 
 #### 2. DiagramControls Component (`frontend/src/components/renderer/DiagramControls.jsx`)
 
@@ -299,138 +513,51 @@ useEffect(() => {
 }, [previewHTML]);
 ```
 
-### Export Service Enhancement
+### Export Service Enhancement (✅ COMPLETED IN PHASE 2)
 
-#### 1. Diagram Export Endpoints (`export-service/app/main.py`)
+#### 1. Diagram Export Endpoints (✅ IMPLEMENTED)
 
-**Enhancement Required**: Add diagram-specific export endpoints to the export service (formerly pdf-service)
+**Status**: Successfully implemented in `export-service/app/routers/diagram.py`
+
+The export service now provides clean RESTful endpoints:
 
 ```python
-from pydantic import BaseModel
-from fastapi.responses import Response
-import base64
+# Implemented endpoints:
+POST /diagram/svg     # Export diagram as SVG using Chromium rendering
+POST /diagram/png     # Export diagram as PNG using Chromium rendering
 
-class DiagramExportRequest(BaseModel):
-    """Diagram export request model."""
-    html_content: str
-    format: str = "svg"  # svg or png
-    width: int = 1200
-    height: int = 800
-    is_dark_mode: bool = False
+# Router structure:
+from fastapi import APIRouter
+from app.services.css_service import css_service
 
-@app.post("/export-diagram-svg")
+router = APIRouter()
+
+@router.post("/svg")
 async def export_diagram_svg(request: DiagramExportRequest) -> dict:
     """Export diagram as SVG using Chromium rendering."""
-    try:
-        logger.info(f"Exporting diagram as SVG")
+    # Implementation uses Playwright for high-quality SVG extraction
+    # Returns: {"svg_content": "<svg>...</svg>"}
 
-        # Get CSS styles optimized for diagrams
-        css_styles = css_service.get_diagram_css(request.is_dark_mode)
-
-        # Create minimal HTML for diagram
-        diagram_html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Diagram Export</title>
-        </head>
-        <body>
-            {request.html_content}
-        </body>
-        </html>
-        """
-
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch()
-            page = await browser.new_page()
-
-            # Set viewport for consistent rendering
-            await page.set_viewport_size({"width": request.width, "height": request.height})
-
-            await page.set_content(f"<style>{css_styles}</style>{diagram_html}", wait_until="networkidle")
-
-            # Find the SVG element and extract it
-            svg_content = await page.evaluate("""
-                () => {
-                    const svg = document.querySelector('svg');
-                    if (!svg) return null;
-
-                    // Ensure proper SVG attributes
-                    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-                    svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-
-                    return svg.outerHTML;
-                }
-            """)
-
-            await browser.close()
-
-            if not svg_content:
-                raise HTTPException(status_code=400, detail="No SVG content found in diagram")
-
-            return {"svg_content": svg_content}
-
-    except Exception as e:
-        logger.error(f"Failed to export diagram as SVG: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to export diagram: {str(e)}")
-
-@app.post("/export-diagram-png")
+@router.post("/png")
 async def export_diagram_png(request: DiagramExportRequest) -> dict:
     """Export diagram as PNG using Chromium rendering."""
-    try:
-        logger.info(f"Exporting diagram as PNG ({request.width}x{request.height})")
-
-        css_styles = css_service.get_diagram_css(request.is_dark_mode)
-
-        diagram_html = f"""
-        <!DOCTYPE html>
-        <html lang="en">
-        <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Diagram Export</title>
-        </head>
-        <body>
-            {request.html_content}
-        </body>
-        </html>
-        """
-
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch()
-            page = await browser.new_page()
-
-            await page.set_viewport_size({"width": request.width, "height": request.height})
-            await page.set_content(f"<style>{css_styles}</style>{diagram_html}", wait_until="networkidle")
-
-            # Take screenshot of the diagram area
-            png_bytes = await page.screenshot(
-                type="png",
-                full_page=False,
-                clip={
-                    "x": 0,
-                    "y": 0,
-                    "width": request.width,
-                    "height": request.height
-                }
-            )
-
-            await browser.close()
-
-            # Return base64 encoded image
-            image_data = base64.b64encode(png_bytes).decode('utf-8')
-            return {"image_data": image_data}
-
-    except Exception as e:
-        logger.error(f"Failed to export diagram as PNG: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to export diagram: {str(e)}")
+    # Implementation uses Playwright for high-quality PNG rasterization
+    # Returns: {"image_data": "base64_encoded_png_data"}
 ```
 
-#### 2. Enhanced CSS Service (`export-service/app/services/css_service.py`)
+**Key Features Implemented**:
+- ✅ **Chromium Rendering**: High-quality diagram rendering using Playwright
+- ✅ **CSS Integration**: Uses `css_service.get_diagram_css()` for consistent styling
+- ✅ **Viewport Management**: Configurable width/height for export dimensions
+- ✅ **SVG Namespace Handling**: Proper SVG attributes for compatibility
+- ✅ **Error Handling**: Comprehensive error handling with structured logging
+- ✅ **Base64 Encoding**: PNG exports properly encoded for frontend consumption
 
-**Enhancement Required**: Add diagram-specific CSS method
+#### 2. Enhanced CSS Service (✅ IMPLEMENTED)
+
+**Status**: Successfully implemented in `export-service/app/services/css_service.py`
+
+The CSS service now includes diagram-specific styling:
 
 ```python
 def get_diagram_css(self, is_dark_mode: bool = False) -> str:
@@ -460,52 +587,85 @@ def get_diagram_css(self, is_dark_mode: bool = False) -> str:
     return "\n\n".join(filter(None, css_parts))
 ```
 
+**CSS Optimizations**:
+- ✅ **No Page Breaks**: Removes PDF page break styles for single diagram export
+- ✅ **Centered Layout**: Diagrams are centered for optimal presentation
+- ✅ **Responsive Sizing**: Diagrams scale properly within viewport
+- ✅ **Theme Support**: Supports both light and dark mode styling
+
 ### Backend Integration
 
-#### 1. Export Service API Client (`frontend/src/api/exportServiceApi.js`)
+#### 1. Export Service API Client (✅ COMPLETED IN PHASE 2)
 
-**Purpose**: API client for communicating with the enhanced export service (formerly PDF service)
+**Status**: Successfully implemented in `frontend/src/api/exportServiceApi.js`
+
+The API client provides clean access to the export service:
 
 ```javascript
-import { Api } from './Api';
-
 class ExportServiceApi extends Api {
   constructor() {
-    super(process.env.REACT_APP_EXPORT_SERVICE_URL || 'http://localhost:8001');
+    super();
+    // Uses standard base URL - nginx routes /api/export/ to export service
   }
 
-  async generatePDF(pdfData) {
-    const response = await this.apiCall('/generate-pdf', {
-      method: 'POST',
-      data: pdfData
-    });
-    return response.data;
+  /**
+   * Export diagram as SVG using the export service
+   * @param {string} htmlContent - HTML content containing the rendered diagram
+   * @param {Object} options - Export options (width, height, isDarkMode)
+   * @returns {Promise<string>} - SVG content as string
+   */
+  async exportDiagramAsSVG(htmlContent, options = {}) {
+    const requestData = {
+      html_content: htmlContent,
+      format: 'svg',
+      width: options.width || 1200,
+      height: options.height || 800,
+      is_dark_mode: options.isDarkMode || false
+    };
+
+    const res = await this.apiCall('/export/diagram/svg', 'POST', requestData);
+    return res.data.svg_content;
   }
 
-  async renderDiagramToSVG(diagramData) {
-    const response = await this.apiCall('/export-diagram-svg', {
-      method: 'POST',
-      data: diagramData
-    });
-    return response.data;
+  /**
+   * Export diagram as PNG using the export service
+   * @param {string} htmlContent - HTML content containing the rendered diagram
+   * @param {Object} options - Export options (width, height, isDarkMode)
+   * @returns {Promise<Blob>} - PNG blob
+   */
+  async exportDiagramAsPNG(htmlContent, options = {}) {
+    const requestData = {
+      html_content: htmlContent,
+      format: 'png',
+      width: options.width || 1200,
+      height: options.height || 800,
+      is_dark_mode: options.isDarkMode || false
+    };
+
+    const res = await this.apiCall('/export/diagram/png', 'POST', requestData);
+
+    // Convert base64 response to blob
+    const binaryString = atob(res.data.image_data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    return new Blob([bytes], { type: 'image/png' });
   }
 
-  async renderDiagramToImage(diagramData) {
-    const response = await this.apiCall('/export-diagram-png', {
-      method: 'POST',
-      data: diagramData
-    });
-    return response.data;
-  }
-
-  async checkHealth() {
-    const response = await this.apiCall('/health');
-    return response.data;
-  }
+  // Additional methods: exportAsPDF(), checkHealth(), renderDiagramToSVG(), renderDiagramToImage()
 }
 
 export default new ExportServiceApi();
 ```
+
+**Key Features Implemented**:
+- ✅ **Clean API Methods**: Intuitive method names with proper parameter handling
+- ✅ **Nginx Routing**: Automatically routes through `/api/export/` prefix
+- ✅ **Binary Data Handling**: Proper blob conversion for PNG exports
+- ✅ **Error Handling**: Comprehensive error handling with structured responses
+- ✅ **Backward Compatibility**: Includes alias methods for existing code
 
 #### 2. Enhanced GitHub Service (`backend/app/services/github/conversion.py`)
 
@@ -804,35 +964,39 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
 
 ## Implementation Workflow
 
-### Phase 1: Export Service Enhancement
-1. Add diagram export endpoints to export service (`/export-diagram-svg`, `/export-diagram-png`)
-2. Enhance CSS service with diagram-specific styling
-3. Test export service diagram export functionality
-4. Validate SVG and PNG output quality
+### Phase 1: Export Service Enhancement (✅ COMPLETED)
+1. ✅ Add diagram export endpoints to export service (`/diagram/svg`, `/diagram/png`)
+2. ✅ Enhance CSS service with diagram-specific styling
+3. ✅ Test export service diagram export functionality
+4. ✅ Validate SVG and PNG output quality
 
-### Phase 2: Frontend Export Service
-1. Create `exportServiceApi.js` client for export service communication
-2. Update `MermaidExportService.js` to use export service instead of browser APIs
-3. Implement `DiagramControls.jsx` component with overlay controls
-4. Add SCSS styles for diagram controls
+### Phase 2: Frontend Export Service (✅ COMPLETED)
+1. ✅ Create `exportServiceApi.js` client for export service communication
+2. ✅ Update `documentsApi.js` with diagram export methods
+3. ✅ Establish nginx routing for `/api/export/` endpoints
+4. ✅ Verify all endpoints working through nginx proxy
 
-### Phase 3: Settings Integration
-1. Create `GitHubIntegrationSettings.jsx` component
-2. Update settings schema and API endpoints
-3. Integrate settings into main settings panel
-4. Test settings persistence and retrieval
+### Phase 3: Settings Integration & Diagram Controls (✅ COMPLETED)
+1. ✅ Create `MermaidExportService.js` to use export service APIs
+2. ✅ Implement `DiagramControls.jsx` component with overlay controls
+3. ✅ Create `DiagramFullscreenModal.jsx` for enhanced viewing
+4. ✅ Enhance `Renderer.jsx` to add diagram controls via ReactDOM portals
+5. ✅ Add SCSS styles for diagram controls and fullscreen modal
+6. ✅ Integrate with theme and notification providers
+7. ✅ Test diagram controls, export functionality, and fullscreen modal
 
-### Phase 4: Renderer Enhancement
-1. Modify `RendererSection.jsx` to add diagram controls
-2. Implement diagram container wrapping
-3. Add fullscreen modal for diagram viewing
-4. Test control visibility and interaction
+### Phase 4: GitHub Settings Integration (📋 CURRENT)
+1. 📋 Create `GitHubIntegrationSettings.jsx` component
+2. 📋 Update backend settings schema for GitHub diagram preferences
+3. 📋 Integrate settings into main settings panel
+4. 📋 Test settings persistence and retrieval
+5. 📋 Prepare workflow for Phase 5 backend integration
 
-### Phase 5: Backend Conversion Service
+### Phase 5: Backend Conversion Service (📋 NEXT)
 1. Create `GitHubDiagramConversionService` class
 2. Implement diagram detection and conversion logic
 3. Add GitHub-compatible markdown generation
-4. Integrate with PDF service for image generation
+4. Integrate with export service for image generation
 
 ### Phase 6: Frontend-Backend Integration
 1. Update `GitHubSaveModal.jsx` with conversion options

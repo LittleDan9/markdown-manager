@@ -14,6 +14,13 @@ from .github import (
     GitHubSyncRequest,
     GitHubSyncResponse,
 )
+from .github_settings import (
+    GitHubSettingsBase,
+    GitHubSettingsCreate,
+    GitHubSettingsDefaults,
+    GitHubSettingsResponse,
+    GitHubSettingsUpdate,
+)
 from .icon_schemas import (
     IconBatchRequest,
     IconBatchResponse,
@@ -59,6 +66,11 @@ __all__ = [
     "GitHubRepository",
     "GitHubRepositoryCreate",
     "GitHubRepositoryUpdate",
+    "GitHubSettingsBase",
+    "GitHubSettingsCreate",
+    "GitHubSettingsDefaults",
+    "GitHubSettingsResponse",
+    "GitHubSettingsUpdate",
     "GitHubSyncRequest",
     "GitHubSyncResponse",
     "IconBatchRequest",

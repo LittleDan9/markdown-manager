@@ -5,25 +5,69 @@ export class MermaidExportService {
    * Export diagram to image format using the export service for high-quality rendering
    * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
    * @param {string} format - 'svg' or 'png'
+   * @param {Object} options - Export options (width, height, isDarkMode)
+   * @returns {Promise<string|Blob>} - SVG string or PNG blob
+   */
+  static async exportDiagram(diagramElement, format = 'svg', options = {}) {
+    try {
+      // Validate inputs
+      if (!diagramElement) {
+        throw new Error('Diagram element is required');
+      }
+
+      if (!['svg', 'png'].includes(format)) {
+        throw new Error('Format must be "svg" or "png"');
+      }
+
+      const diagramHTML = this.prepareDiagramHTML(diagramElement, options);
+
+      if (format === 'svg') {
+        return await this.exportToSVG(diagramHTML, options);
+      } else {
+        return await this.exportToPNG(diagramHTML, options);
+      }
+
+    } catch (error) {
+      console.error(`Failed to export diagram as ${format}:`, error);
+      throw new Error(`Export failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Export diagram as SVG
+   * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
    * @param {Object} options - Export options
-   * @returns {Promise<string|Blob>} - SVG string or PNG data URI
+   * @returns {Promise<string>} - SVG content as string
+   */
+  static async exportAsSVG(diagramElement, options = {}) {
+    return await this.exportDiagram(diagramElement, 'svg', options);
+  }
+
+  /**
+   * Export diagram as PNG
+   * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
+   * @param {Object} options - Export options
+   * @returns {Promise<Blob>} - PNG blob
+   */
+  static async exportAsPNG(diagramElement, options = {}) {
+    return await this.exportDiagram(diagramElement, 'png', options);
+  }
+
+  /**
+   * Legacy method for backwards compatibility
+   * @deprecated Use exportDiagram instead
    */
   static async exportDiagramToImage(diagramElement, format = 'svg', options = {}) {
-    const diagramHTML = this.prepareDiagramHTML(diagramElement);
-
-    if (format === 'svg') {
-      return await this.exportToSVG(diagramHTML, options);
-    } else {
-      return await this.exportToPNG(diagramHTML, options);
-    }
+    return await this.exportDiagram(diagramElement, format, options);
   }
 
   /**
    * Prepare diagram HTML for export service rendering
    * @param {HTMLElement} diagramElement - The diagram element
-   * @returns {string} - Isolated diagram HTML with rendered SVG
+   * @param {Object} options - Export options
+   * @returns {string} - HTML content ready for export
    */
-  static prepareDiagramHTML(diagramElement) {
+  static prepareDiagramHTML(diagramElement, options = {}) {
     // Extract the SVG content from the rendered Mermaid diagram
     const svgElement = diagramElement.querySelector('svg');
     if (!svgElement) {
@@ -33,25 +77,26 @@ export class MermaidExportService {
     // Clone the SVG to avoid modifying the original
     const clonedSVG = svgElement.cloneNode(true);
 
-    // Create minimal HTML wrapper for the diagram
-    return `
-      <div class="mermaid-export-container">
-        ${clonedSVG.outerHTML}
-      </div>
-      <style>
-        .mermaid-export-container {
-          display: flex;
-          justify-content: center;
-          align-items: center;
-          min-height: 100vh;
-          padding: 20px;
-        }
-        .mermaid-export-container svg {
-          max-width: 100%;
-          height: auto;
-        }
-      </style>
-    `;
+    // Remove any controls or overlays that shouldn't be in the export
+    const controlSelectors = ['.diagram-controls', '.mermaid-controls', '.export-controls'];
+    controlSelectors.forEach(selector => {
+      const controls = clonedSVG.querySelectorAll(selector);
+      controls.forEach(control => control.remove());
+    });
+
+    // Create wrapper with proper sizing
+    const wrapper = document.createElement('div');
+    wrapper.className = 'mermaid-export-container';
+    wrapper.style.width = `${options.width || 1200}px`;
+    wrapper.style.height = `${options.height || 800}px`;
+    wrapper.style.display = 'flex';
+    wrapper.style.alignItems = 'center';
+    wrapper.style.justifyContent = 'center';
+    wrapper.style.background = options.isDarkMode ? '#1a1a1a' : '#ffffff';
+
+    wrapper.appendChild(clonedSVG);
+
+    return wrapper.outerHTML;
   }
 
   /**
@@ -73,7 +118,7 @@ export class MermaidExportService {
    * Export diagram as PNG using export service
    * @param {string} diagramHTML - Prepared diagram HTML
    * @param {Object} options - Export options
-   * @returns {Promise<string>} - PNG data URI
+   * @returns {Promise<Blob>} - PNG blob
    */
   static async exportToPNG(diagramHTML, options = {}) {
     try {
@@ -88,27 +133,30 @@ export class MermaidExportService {
    * Download diagram as file
    * @param {HTMLElement} diagramElement - The diagram element
    * @param {string} format - 'svg' or 'png'
-   * @param {string} filename - Optional filename (auto-generated if not provided)
+   * @param {string} filename - Desired filename (without extension)
    * @param {Object} options - Export options
    */
   static async downloadDiagram(diagramElement, format = 'svg', filename = null, options = {}) {
     try {
-      const content = await this.exportDiagramToImage(diagramElement, format, options);
+      const content = await this.exportDiagram(diagramElement, format, options);
 
+      // Generate filename if not provided
       if (!filename) {
-        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:.]/g, '-');
-        filename = `mermaid-diagram-${timestamp}.${format}`;
+        filename = this.generateFilename(diagramElement, 'diagram');
       }
 
-      if (format === 'svg') {
-        // For SVG, create blob and download
-        const blob = new Blob([content], { type: 'image/svg+xml' });
-        this.triggerDownload(blob, filename);
-      } else {
-        // For PNG, convert data URI to blob and download
-        const blob = this.dataURItoBlob(content);
-        this.triggerDownload(blob, filename);
+      // Ensure filename has proper extension
+      if (!filename.endsWith(`.${format}`)) {
+        filename = `${filename}.${format}`;
       }
+
+      // Create download
+      const blob = format === 'svg'
+        ? new Blob([content], { type: 'image/svg+xml' })
+        : content; // PNG is already a blob
+
+      this.triggerDownload(blob, filename);
+
     } catch (error) {
       console.error('Download failed:', error);
       throw error;
@@ -171,6 +219,85 @@ export class MermaidExportService {
     ];
 
     return advancedPatterns.some(pattern => pattern.test(diagramSource));
+  }
+
+  /**
+   * Extract diagram metadata for GitHub conversion
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @returns {Object} - Diagram metadata
+   */
+  static extractDiagramMetadata(diagramElement) {
+    try {
+      // Look for data attributes or classes that indicate diagram type
+      const classList = Array.from(diagramElement.classList || []);
+      const dataType = diagramElement.getAttribute('data-type');
+
+      // Try to find the original mermaid source if it's stored
+      const sourceElement = diagramElement.querySelector('[data-mermaid-source]');
+      const source = sourceElement?.getAttribute('data-mermaid-source') || '';
+
+      // Detect advanced features that need conversion for GitHub
+      const hasArchitectureBeta = source.includes('architecture-beta') || classList.includes('architecture-beta');
+      const hasCustomIcons = source.includes('icon:') || source.includes('fa:');
+      const needsConversion = hasArchitectureBeta || hasCustomIcons;
+
+      return {
+        type: dataType || 'mermaid',
+        source: source,
+        hasAdvancedFeatures: needsConversion,
+        hasArchitectureBeta,
+        hasCustomIcons,
+        classList: classList
+      };
+
+    } catch (error) {
+      console.warn('Failed to extract diagram metadata:', error);
+      return {
+        type: 'mermaid',
+        source: '',
+        hasAdvancedFeatures: false,
+        hasArchitectureBeta: false,
+        hasCustomIcons: false,
+        classList: []
+      };
+    }
+  }
+
+  /**
+   * Check if a diagram needs GitHub-compatible conversion
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @returns {boolean} - True if conversion is needed
+   */
+  static needsGitHubConversion(diagramElement) {
+    const metadata = this.extractDiagramMetadata(diagramElement);
+    return metadata.hasAdvancedFeatures;
+  }
+
+  /**
+   * Get appropriate filename for diagram export
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @param {string} baseFilename - Base filename to use
+   * @returns {string} - Generated filename
+   */
+  static generateFilename(diagramElement, baseFilename = 'diagram') {
+    const metadata = this.extractDiagramMetadata(diagramElement);
+
+    // Create a descriptive filename based on diagram type
+    let filename = baseFilename;
+
+    if (metadata.type && metadata.type !== 'mermaid') {
+      filename += `-${metadata.type}`;
+    }
+
+    if (metadata.hasArchitectureBeta) {
+      filename += '-architecture';
+    }
+
+    // Add timestamp to ensure uniqueness
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:-]/g, '');
+    filename += `-${timestamp}`;
+
+    return filename;
   }
 
   /**

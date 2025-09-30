@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
+import ReactDOM from "react-dom/client";
 import { render } from "@/services/rendering";
-import { useTheme } from "@/providers/ThemeProvider";
+import { useTheme, ThemeProvider } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { HighlightService } from "@/services/editor";
 import { useMermaid } from "@/services/rendering";
 import { useCodeCopy } from "@/hooks/ui/useCodeCopy";
+import { NotificationProvider } from "./NotificationProvider";
+import DiagramControls from "./renderer/DiagramControls";
 
 /**
  * Modern Renderer component using the new useMermaid hook architecture
@@ -26,6 +29,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   const [isRendering, setIsRendering] = useState(false);
   const previewScrollRef = useRef(null);
   const hasCalledFirstRender = useRef(false);
+  const diagramControlsRefs = useRef(new Map());
 
   // Setup copy functionality for code blocks
   const setCodeCopyRef = useCodeCopy(previewHTML, true);
@@ -48,6 +52,74 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   useEffect(() => {
     hasCalledFirstRender.current = false;
   }, [currentDocument?.id]);
+
+  /**
+   * Add diagram controls to rendered Mermaid diagrams
+   * @param {HTMLElement} previewElement - The preview container element
+   */
+  const addDiagramControls = (previewElement) => {
+    if (!previewElement) return;
+
+    // Find all processed Mermaid diagrams
+    const diagrams = previewElement.querySelectorAll('.mermaid[data-processed="true"]');
+
+    diagrams.forEach((diagram, index) => {
+      const diagramId = `diagram-${index}`;
+
+      // Skip if controls already added
+      if (diagram.querySelector('.diagram-controls')) return;
+
+      // Get diagram source from data attribute
+      const encodedSource = diagram.getAttribute('data-mermaid-source') || '';
+      const diagramSource = encodedSource ? decodeURIComponent(encodedSource) : '';
+
+      // Add mermaid-container class if not present
+      if (!diagram.classList.contains('mermaid-container')) {
+        diagram.classList.add('mermaid-container');
+      }
+
+      // Create a container for the controls
+      const controlsContainer = document.createElement('div');
+      controlsContainer.className = 'diagram-controls-container';
+      diagram.appendChild(controlsContainer);
+
+      // Create React root and render controls with providers
+      const root = ReactDOM.createRoot(controlsContainer);
+      root.render(
+        <ThemeProvider>
+          <NotificationProvider>
+            <DiagramControls
+              diagramElement={diagram}
+              diagramId={diagramId}
+              diagramSource={diagramSource}
+            />
+          </NotificationProvider>
+        </ThemeProvider>
+      );
+
+      // Store the root for cleanup
+      diagramControlsRefs.current.set(diagram, root);
+    });
+  };
+
+  /**
+   * Clean up diagram controls
+   */
+  const cleanupDiagramControls = () => {
+    diagramControlsRefs.current.forEach((root, diagram) => {
+      try {
+        root.unmount();
+      } catch (error) {
+        console.warn('Error unmounting diagram controls:', error);
+      }
+    });
+    diagramControlsRefs.current.clear();
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return cleanupDiagramControls;
+  }, []);
 
   // Render Markdown to HTML (when content changes or component mounts)
   useEffect(() => {
@@ -155,6 +227,19 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
     processMermaidDiagrams();
   }, [html, theme, renderDiagrams]);
+
+  // Add diagram controls after preview HTML is updated
+  useEffect(() => {
+    if (previewHTML && previewScrollRef.current && !isRendering) {
+      // Clean up existing controls first
+      cleanupDiagramControls();
+
+      // Add controls to new diagrams
+      setTimeout(() => {
+        addDiagramControls(previewScrollRef.current);
+      }, 100); // Small delay to ensure DOM is fully updated
+    }
+  }, [previewHTML, isRendering]);
 
   // Scroll to line functionality
   useEffect(() => {
