@@ -75,14 +75,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      pdf-service:
+      export-service:
         condition: service_healthy
 
-  pdf-service:
+  export-service:
     build:
-      context: ./pdf-service
+      context: ./export-service
       dockerfile: Dockerfile
-    image: pdf-service
+    image: littledan9/markdown-manager-export:latest
     ports:
       - "8001:8001"
     environment:

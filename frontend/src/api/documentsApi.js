@@ -35,13 +35,9 @@ class DocumentsApi extends Api {
   }
 
   async exportAsPDF(htmlContent, documentName, isDarkMode = false) {
-    const requestData = {
-      html_content: htmlContent,
-      document_name: documentName,
-      is_dark_mode: isDarkMode,
-    };
-    const res = await this.apiCall(`/pdf/export`, "POST", requestData, {}, { responseType: 'blob' });
-    return res.data; // PDF binary or blob
+    // Use the dedicated export service for PDF generation
+    const exportServiceApi = (await import('./exportServiceApi')).default;
+    return await exportServiceApi.exportAsPDF(htmlContent, documentName, isDarkMode);
   }
 
   async getAllDocuments(category = null) {

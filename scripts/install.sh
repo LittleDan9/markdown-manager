@@ -53,7 +53,7 @@ FROM_EMAIL=no-reply@example.com
 SMTP_USE_TLS=True
 DEFAULT_PAGE_SIZE=20
 MAX_PAGE_SIZE=100
-PDF_SERVICE_URL=http://pdf-service:8001
+EXPORT_SERVICE_URL=http://export-service:8001
 MARKDOWN_LINT_SERVICE_URL=http://markdown-lint-service:8002
 EOF
 

@@ -6,7 +6,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.services.pdf_processor import PDFContentProcessor
-from app.services.pdf_service_client import pdf_service_client
+from app.services.export_service_client import export_service_client
 
 router = APIRouter()
 
@@ -52,7 +52,7 @@ async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
 
         # Generate PDF via PDF service
         try:
-            pdf_bytes = await pdf_service_client.generate_pdf(
+            pdf_bytes = await export_service_client.generate_pdf(
                 html_content=full_html,
                 document_name=request.document_name,
                 is_dark_mode=request.is_dark_mode,
