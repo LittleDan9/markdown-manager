@@ -91,11 +91,24 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     markInteractionActive(); // Keep controls visible during and after export
 
     try {
-      const exportOptions = {
-        width: 1200,
-        height: 800,
-        isDarkMode: isDarkMode
-      };
+      let exportOptions;
+
+      if (format === 'png') {
+        // For PNG, use high-resolution natural dimensions for crisp quality
+        exportOptions = {
+          useNaturalDimensions: true,
+          maxWidth: 2400,  // High resolution for crisp output
+          maxHeight: 1800,
+          isDarkMode: isDarkMode
+        };
+      } else {
+        // For SVG, use standard container dimensions
+        exportOptions = {
+          width: 1200,
+          height: 800,
+          isDarkMode: isDarkMode
+        };
+      }
 
       const filename = MermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
 

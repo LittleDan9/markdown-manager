@@ -19,8 +19,11 @@ export class MermaidExportService {
         throw new Error('Format must be "svg" or "png"');
       }
 
+      // Pass format information to prepareDiagramHTML for proper sizing
+      const prepareOptions = { ...options, format };
+
       // Use the rendered HTML content from the diagram element
-      const diagramHTML = this.prepareDiagramHTML(diagramElement, options);
+      const diagramHTML = this.prepareDiagramHTML(diagramElement, prepareOptions);
 
       if (format === 'svg') {
         return await this.exportToSVG(diagramHTML, options);
@@ -52,6 +55,36 @@ export class MermaidExportService {
    */
   static async exportAsPNG(diagramElement, options = {}) {
     return await this.exportDiagram(diagramElement, 'png', options);
+  }
+
+  /**
+   * Export diagram as PNG with natural dimensions (no excess background)
+   * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
+   * @param {Object} options - Export options
+   * @returns {Promise<Blob>} - PNG blob
+   */
+  static async exportAsPNGNaturalSize(diagramElement, options = {}) {
+    const naturalOptions = {
+      ...options,
+      useNaturalDimensions: true
+    };
+    return await this.exportDiagram(diagramElement, 'png', naturalOptions);
+  }
+
+  /**
+   * Export diagram as high-resolution PNG for crisp quality
+   * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
+   * @param {Object} options - Export options
+   * @returns {Promise<Blob>} - High-resolution PNG blob
+   */
+  static async exportAsHighResPNG(diagramElement, options = {}) {
+    const hiResOptions = {
+      ...options,
+      useNaturalDimensions: true,
+      maxWidth: 3200,  // 4K-ready resolution
+      maxHeight: 2400
+    };
+    return await this.exportDiagram(diagramElement, 'png', hiResOptions);
   }
 
   /**
@@ -133,31 +166,101 @@ export class MermaidExportService {
     clonedSVG.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
     clonedSVG.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
 
+    // Clean up SVG styles that interfere with export sizing
+    // Remove responsive web styles that constrain the SVG
+    clonedSVG.removeAttribute('style');
+    clonedSVG.style.cssText = '';
+
+    // For PNG exports with natural dimensions, scale up for high quality
+    const useNaturalDimensions = options.format === 'png' || options.useNaturalDimensions;
+
+    if (useNaturalDimensions) {
+      // Get the viewBox or natural dimensions for aspect ratio
+      const viewBox = clonedSVG.getAttribute('viewBox');
+      let baseWidth, baseHeight;
+
+      if (viewBox) {
+        // Parse viewBox: "minX minY width height"
+        const [minX, minY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+        baseWidth = vbWidth;
+        baseHeight = vbHeight;
+      } else {
+        // Try to get dimensions from attributes or computed values
+        const svgRect = svgElement.getBoundingClientRect();
+        baseWidth = parseFloat(svgElement.getAttribute('width')) || svgRect.width || 800;
+        baseHeight = parseFloat(svgElement.getAttribute('height')) || svgRect.height || 600;
+      }
+
+      // Calculate high-resolution dimensions while maintaining aspect ratio
+      const maxWidth = options.maxWidth || 2400;  // High resolution for crisp PNG
+      const maxHeight = options.maxHeight || 1800;
+
+      const aspectRatio = baseWidth / baseHeight;
+      let finalWidth, finalHeight;
+
+      // Scale up to maximum size while maintaining aspect ratio
+      if (aspectRatio > maxWidth / maxHeight) {
+        // Width is the limiting factor
+        finalWidth = Math.min(maxWidth, baseWidth * 2); // At least 2x scale up unless already large
+        finalHeight = finalWidth / aspectRatio;
+      } else {
+        // Height is the limiting factor
+        finalHeight = Math.min(maxHeight, baseHeight * 2); // At least 2x scale up unless already large
+        finalWidth = finalHeight * aspectRatio;
+      }
+
+      // Ensure we don't go below the original size (unless it's already very large)
+      if (baseWidth > maxWidth * 0.8 || baseHeight > maxHeight * 0.8) {
+        // If original is already quite large, don't scale up much
+        finalWidth = Math.min(finalWidth, baseWidth * 1.2);
+        finalHeight = Math.min(finalHeight, baseHeight * 1.2);
+      } else {
+        // For smaller diagrams, ensure we scale up for quality
+        const minScaleFactor = 2;
+        finalWidth = Math.max(finalWidth, baseWidth * minScaleFactor);
+        finalHeight = Math.max(finalHeight, baseHeight * minScaleFactor);
+      }
+
+      // Round to avoid sub-pixel issues
+      finalWidth = Math.round(finalWidth);
+      finalHeight = Math.round(finalHeight);
+
+      clonedSVG.setAttribute('width', finalWidth.toString());
+      clonedSVG.setAttribute('height', finalHeight.toString());
+
+      // Return just the SVG without wrapper for natural sizing
+      return clonedSVG.outerHTML;
+    }
+
+    // For SVG exports or fixed-size PNG exports, use a container wrapper
+    const containerWidth = options.width || 1200;
+    const containerHeight = options.height || 800;
+    const padding = 20;
+
     // Create wrapper with proper sizing and styling
     const wrapper = document.createElement('div');
     wrapper.className = 'mermaid-export-container';
     wrapper.style.cssText = `
-      width: ${options.width || 1200}px;
-      height: ${options.height || 800}px;
+      width: ${containerWidth}px;
+      height: ${containerHeight}px;
       display: flex;
       align-items: center;
       justify-content: center;
       background: ${options.isDarkMode ? '#1a1a1a' : '#ffffff'};
       margin: 0;
-      padding: 20px;
+      padding: ${padding}px;
       box-sizing: border-box;
     `;
 
-    // Ensure the SVG is properly sized
-    if (!clonedSVG.getAttribute('width') && !clonedSVG.getAttribute('height')) {
-      clonedSVG.style.maxWidth = '100%';
-      clonedSVG.style.maxHeight = '100%';
-      clonedSVG.style.height = 'auto';
-      clonedSVG.style.width = 'auto';
-    }
+    // For SVG, allow responsive sizing with max constraints
+    clonedSVG.removeAttribute('width');
+    clonedSVG.removeAttribute('height');
+    clonedSVG.style.maxWidth = '100%';
+    clonedSVG.style.maxHeight = '100%';
+    clonedSVG.style.width = 'auto';
+    clonedSVG.style.height = 'auto';
 
     wrapper.appendChild(clonedSVG);
-
     return wrapper.outerHTML;
   }
 
@@ -374,17 +477,33 @@ export class MermaidExportService {
   /**
    * Get export options for GitHub compatibility
    * @param {boolean} isDarkMode - Dark mode flag
+   * @param {string} format - Export format ('svg' or 'png')
    * @returns {Object} - Export options optimized for GitHub
    */
-  static getGitHubExportOptions(isDarkMode = false) {
-    return {
-      width: 1200,
-      height: 800,
+  static getGitHubExportOptions(isDarkMode = false, format = 'svg') {
+    const baseOptions = {
       isDarkMode: isDarkMode,
-      // Additional options for GitHub compatibility
       backgroundColor: isDarkMode ? '#0d1117' : '#ffffff',
       quality: 95 // High quality for clear text rendering
     };
+
+    if (format === 'png') {
+      // For PNG, use natural dimensions with high resolution for crisp output
+      return {
+        ...baseOptions,
+        useNaturalDimensions: true,
+        maxWidth: 3200,  // High resolution for GitHub display
+        maxHeight: 2400,
+        transparentBackground: false // Use solid background for GitHub
+      };
+    } else {
+      // For SVG, use standard container dimensions
+      return {
+        ...baseOptions,
+        width: 1200,
+        height: 800
+      };
+    }
   }
 }
 

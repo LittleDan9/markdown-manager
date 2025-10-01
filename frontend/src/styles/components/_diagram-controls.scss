@@ -124,6 +124,9 @@
   }
 
   /* Tooltip wrapper for disabled buttons */
+  .tooltip-wrapper {
+    display: inline-flex;
+  }
 
 
   .dropdown-menu {
@@ -183,6 +186,9 @@
     }
 
     /* Tooltip wrapper for disabled buttons in dark mode */
+    .tooltip-wrapper {
+      display: inline-flex;
+    }
 
     .dropdown-menu {
       background-color: #212529;

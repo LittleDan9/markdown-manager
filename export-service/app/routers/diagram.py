@@ -23,8 +23,8 @@ class DiagramExportRequest(BaseModel):
 class PNGExportRequest(BaseModel):
     """PNG export request model for SVG conversion."""
     svg_content: str
-    width: int = None  # Optional - will use SVG's natural width
-    height: int = None  # Optional - will use SVG's natural height
+    width: int | None = None  # Optional - will use SVG's natural width
+    height: int | None = None  # Optional - will use SVG's natural height
     transparent_background: bool = True
 
 
@@ -108,6 +108,7 @@ async def export_diagram_png(request: PNGExportRequest) -> dict:
                 }}
                 svg {{
                     display: block;
+                    margin: 0 auto;
                 }}
             </style>
         </head>
@@ -130,24 +131,34 @@ async def export_diagram_png(request: PNGExportRequest) -> dict:
                     const svg = document.querySelector('svg');
                     if (!svg) return null;
 
-                    const bbox = svg.getBBox();
+                    // Try to get dimensions from viewBox first, then attributes, then computed
                     const viewBox = svg.getAttribute('viewBox');
                     let width, height;
 
                     if (viewBox) {
-                        const [, , vw, vh] = viewBox.split(' ').map(Number);
-                        width = vw;
-                        height = vh;
+                        const [minX, minY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+                        width = vbWidth;
+                        height = vbHeight;
                     } else {
-                        width = svg.getAttribute('width') || bbox.width || 800;
-                        height = svg.getAttribute('height') || bbox.height || 600;
+                        // Try explicit width/height attributes
+                        width = svg.getAttribute('width');
+                        height = svg.getAttribute('height');
+
+                        if (width) width = parseFloat(width);
+                        if (height) height = parseFloat(height);
+
+                        // Fallback to computed dimensions
+                        if (!width || !height) {
+                            const rect = svg.getBoundingClientRect();
+                            width = width || rect.width || 800;
+                            height = height || rect.height || 600;
+                        }
                     }
 
-                    // Parse width/height if they have units
-                    width = parseFloat(width);
-                    height = parseFloat(height);
-
-                    return { width, height };
+                    return {
+                        width: Math.max(width, 100),  // Minimum reasonable size
+                        height: Math.max(height, 100)
+                    };
                 }
             """)
 
@@ -158,19 +169,17 @@ async def export_diagram_png(request: PNGExportRequest) -> dict:
             width = request.width or svg_info['width']
             height = request.height or svg_info['height']
 
+            # Ensure reasonable minimum dimensions
+            width = max(width, 100)
+            height = max(height, 100)
+
             await page.set_viewport_size({"width": int(width), "height": int(height)})
 
-            # Take screenshot with transparent background
+            # Take screenshot with transparent background, capturing the full SVG
             png_bytes = await page.screenshot(
                 type="png",
-                full_page=False,
+                full_page=True,  # Capture the full page to avoid clipping
                 omit_background=request.transparent_background,
-                clip={
-                    "x": 0,
-                    "y": 0,
-                    "width": int(width),
-                    "height": int(height)
-                }
             )
 
             await browser.close()

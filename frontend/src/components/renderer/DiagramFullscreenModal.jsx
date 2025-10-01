@@ -48,11 +48,24 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
     setExportFormat(format);
 
     try {
-      const exportOptions = {
-        width: 2400, // Higher resolution for fullscreen export
-        height: 1800,
-        isDarkMode: isDarkMode
-      };
+      let exportOptions;
+
+      if (format === 'png') {
+        // For PNG, use high-resolution natural dimensions for ultra-crisp fullscreen export
+        exportOptions = {
+          useNaturalDimensions: true,
+          maxWidth: 3200,  // Ultra-high resolution for fullscreen export
+          maxHeight: 2400,
+          isDarkMode: isDarkMode
+        };
+      } else {
+        // For SVG, use high resolution container
+        exportOptions = {
+          width: 2400,
+          height: 1800,
+          isDarkMode: isDarkMode
+        };
+      }
 
       const filename = MermaidExportService.generateFilename(
         diagramElement,

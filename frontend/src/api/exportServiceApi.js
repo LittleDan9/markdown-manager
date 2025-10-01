@@ -44,10 +44,16 @@ class ExportServiceApi extends Api {
 
     const requestData = {
       svg_content: svgContent,
-      width: options.width || 1200,
-      height: options.height || 800,
       transparent_background: options.transparentBackground !== false
     };
+
+    // Only include width/height if explicitly provided (not when using natural dimensions)
+    if (options.width && !options.useNaturalDimensions) {
+      requestData.width = options.width;
+    }
+    if (options.height && !options.useNaturalDimensions) {
+      requestData.height = options.height;
+    }
 
     const res = await this.apiCall('/export/diagram/png', 'POST', requestData);
 
