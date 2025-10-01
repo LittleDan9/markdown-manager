@@ -1,10 +1,13 @@
 import React, { useEffect, useState, useRef } from "react";
+import ReactDOM from "react-dom/client";
 import { render } from "@/services/rendering";
-import { useTheme } from "@/providers/ThemeProvider";
+import { useTheme, ThemeProvider } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { HighlightService } from "@/services/editor";
 import { useMermaid } from "@/services/rendering";
 import { useCodeCopy } from "@/hooks/ui/useCodeCopy";
+import { NotificationProvider } from "./NotificationProvider";
+import DiagramControls from "./renderer/DiagramControls";
 
 /**
  * Modern Renderer component using the new useMermaid hook architecture
@@ -26,6 +29,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   const [isRendering, setIsRendering] = useState(false);
   const previewScrollRef = useRef(null);
   const hasCalledFirstRender = useRef(false);
+  const diagramControlsRefs = useRef(new Map());
 
   // Setup copy functionality for code blocks
   const setCodeCopyRef = useCodeCopy(previewHTML, true);
@@ -48,6 +52,108 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   useEffect(() => {
     hasCalledFirstRender.current = false;
   }, [currentDocument?.id]);
+
+  /**
+   * Add diagram controls to rendered Mermaid diagrams
+   * Only adds controls to NEW diagrams that don't already have them
+   * @param {HTMLElement} previewElement - The preview container element
+   */
+  const addDiagramControls = (previewElement) => {
+    if (!previewElement) return;
+
+    // Find all processed Mermaid diagrams
+    const diagrams = previewElement.querySelectorAll('.mermaid[data-processed="true"]');
+
+    diagrams.forEach((diagram, index) => {
+      const diagramId = `diagram-${index}`;
+
+      // Skip if controls already added and still in DOM
+      const existingControls = diagram.querySelector('.diagram-controls-container');
+      if (existingControls && existingControls.isConnected) return;
+
+      // Get diagram source from data attribute
+      const encodedSource = diagram.getAttribute('data-mermaid-source') || '';
+      const diagramSource = encodedSource ? decodeURIComponent(encodedSource) : '';
+
+      // Add mermaid-container class if not present
+      if (!diagram.classList.contains('mermaid-container')) {
+        diagram.classList.add('mermaid-container');
+      }
+
+      // Remove any orphaned controls first
+      const orphanedControls = diagram.querySelectorAll('.diagram-controls-container');
+      orphanedControls.forEach(control => control.remove());
+
+      // Create a container for the controls
+      const controlsContainer = document.createElement('div');
+      controlsContainer.className = 'diagram-controls-container';
+      controlsContainer.style.position = 'absolute';
+      controlsContainer.style.top = '0';
+      controlsContainer.style.left = '0';
+      controlsContainer.style.width = '100%';
+      controlsContainer.style.height = '100%';
+      controlsContainer.style.pointerEvents = 'none'; // Allow clicks to pass through to diagram
+      diagram.appendChild(controlsContainer);
+
+      // Create React root and render controls with providers
+      const root = ReactDOM.createRoot(controlsContainer);
+      root.render(
+        <ThemeProvider>
+          <DiagramControls
+            diagramElement={diagram}
+            diagramId={diagramId}
+            diagramSource={diagramSource}
+          />
+        </ThemeProvider>
+      );
+
+      // Store the root for cleanup
+      diagramControlsRefs.current.set(diagram, root);
+    });
+  };
+
+  /**
+   * Clean up diagram controls that are no longer in the DOM
+   * Uses asynchronous cleanup to avoid React race conditions
+   */
+  const cleanupStaleControls = () => {
+    const validDiagrams = new Set();
+    if (previewScrollRef.current) {
+      const currentDiagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
+      currentDiagrams.forEach(diagram => validDiagrams.add(diagram));
+    }
+
+    // Async cleanup to avoid race conditions
+    setTimeout(() => {
+      diagramControlsRefs.current.forEach((root, diagram) => {
+        if (!validDiagrams.has(diagram)) {
+          try {
+            root.unmount();
+            diagramControlsRefs.current.delete(diagram);
+          } catch (error) {
+            console.warn('Error unmounting stale diagram controls:', error);
+          }
+        }
+      });
+    }, 0);
+  };
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      // Use async cleanup on unmount to avoid race conditions
+      setTimeout(() => {
+        diagramControlsRefs.current.forEach((root, diagram) => {
+          try {
+            root.unmount();
+          } catch (error) {
+            console.warn('Error unmounting diagram controls on cleanup:', error);
+          }
+        });
+        diagramControlsRefs.current.clear();
+      }, 0);
+    };
+  }, []);
 
   // Render Markdown to HTML (when content changes or component mounts)
   useEffect(() => {
@@ -156,6 +262,21 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     processMermaidDiagrams();
   }, [html, theme, renderDiagrams]);
 
+  // Add diagram controls after preview HTML is updated
+  useEffect(() => {
+    if (previewHTML && previewScrollRef.current && !isRendering) {
+      // Clean up stale controls (async to avoid race conditions)
+      cleanupStaleControls();
+
+      // Add controls to new diagrams (with small delay to ensure DOM is updated)
+      setTimeout(() => {
+        if (previewScrollRef.current) {
+          addDiagramControls(previewScrollRef.current);
+        }
+      }, 150); // Increased timeout slightly for better stability
+    }
+  }, [previewHTML, isRendering]);
+
   // Scroll to line functionality
   useEffect(() => {
     if (scrollToLine && previewScrollRef.current) {
@@ -181,6 +302,71 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       onFirstRender();
     }
   }, [onFirstRender, isRendering, previewHTML]);
+
+  // Listen for diagram export completion events to ensure controls remain visible
+  useEffect(() => {
+    const handleExportComplete = (event) => {
+      console.log('Diagram export completed:', event.detail);
+      
+      // Re-validate diagram controls after export to ensure they remain visible
+      if (previewScrollRef.current && !isRendering) {
+        setTimeout(() => {
+          // Check if controls are still present for all diagrams
+          const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
+          let needsRevalidation = false;
+          
+          diagrams.forEach((diagram) => {
+            const existingControls = diagram.querySelector('.diagram-controls-container');
+            if (!existingControls || !existingControls.isConnected) {
+              needsRevalidation = true;
+            }
+          });
+          
+          if (needsRevalidation) {
+            console.log('Re-adding diagram controls after export');
+            addDiagramControls(previewScrollRef.current);
+          }
+        }, 100); // Small delay to ensure export process is fully complete
+      }
+    };
+
+    window.addEventListener('diagramExportComplete', handleExportComplete);
+    
+    return () => {
+      window.removeEventListener('diagramExportComplete', handleExportComplete);
+    };
+  }, [previewHTML, isRendering]);
+
+  // Defensive mechanism: Periodically check if diagram controls are missing and restore them
+  useEffect(() => {
+    if (!previewHTML || isRendering) return;
+
+    const checkAndRestoreControls = () => {
+      if (!previewScrollRef.current) return;
+
+      const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
+      let missingControls = false;
+
+      diagrams.forEach((diagram) => {
+        const existingControls = diagram.querySelector('.diagram-controls-container');
+        if (!existingControls || !existingControls.isConnected) {
+          missingControls = true;
+        }
+      });
+
+      if (missingControls && diagrams.length > 0) {
+        console.log('Detected missing diagram controls, restoring...');
+        addDiagramControls(previewScrollRef.current);
+      }
+    };
+
+    // Check every 10 seconds for missing controls
+    const interval = setInterval(checkAndRestoreControls, 10000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [previewHTML, isRendering]);
 
   return (
     <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>

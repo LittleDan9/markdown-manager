@@ -58,8 +58,8 @@ class UnifiedDocumentService:
         if not document or document.user_id != user_id:
             raise ValueError("Document not found or access denied")
 
-        # Update last opened timestamp
-        await self._update_last_opened(db, document)
+        # Update last opened timestamp - disabled due to greenlet issue
+        # await self._update_last_opened(db, document)
 
         # Get content based on repository type
         if document.repository_type == "github":

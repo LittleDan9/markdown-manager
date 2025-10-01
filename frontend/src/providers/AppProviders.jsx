@@ -11,6 +11,7 @@ import { NotificationProvider } from '../components/NotificationProvider.jsx';
 import { AuthProvider } from './AuthProvider';
 import { UserSettingsProvider } from './UserSettingsProvider';
 import { DocumentContextProvider } from './DocumentContextProvider.jsx';
+import { GitHubSettingsProvider } from '../contexts/GitHubSettingsProvider.jsx';
 
 /**
  * AppProviders - Centralized provider composition for the entire application
@@ -18,11 +19,12 @@ import { DocumentContextProvider } from './DocumentContextProvider.jsx';
  * Provider order is critical for dependencies:
  * 1. Infrastructure Layer (Logger, ErrorBoundary, Theme, Notifications)
  * 2. Core Application Layer (Auth, UserSettings)
- * 3. Feature Layer (SharedView, Document, PreviewHTML)
+ * 3. Feature Layer (Document, GitHubSettings)
  *
  * Dependencies:
  * - UserSettingsProvider depends on: AuthProvider
- * - DocumentProvider depends on: AuthProvider, SharedViewProvider, NotificationProvider
+ * - GitHubSettingsProvider depends on: AuthProvider
+ * - DocumentProvider depends on: AuthProvider, NotificationProvider
  * - All others are independent
  */
 function AppProviders({ children }) {
@@ -33,9 +35,11 @@ function AppProviders({ children }) {
           <NotificationProvider>
             <AuthProvider>
               <UserSettingsProvider>
-                <DocumentContextProvider>
-                  {children}
-                </DocumentContextProvider>
+                <GitHubSettingsProvider>
+                  <DocumentContextProvider>
+                    {children}
+                  </DocumentContextProvider>
+                </GitHubSettingsProvider>
               </UserSettingsProvider>
             </AuthProvider>
           </NotificationProvider>

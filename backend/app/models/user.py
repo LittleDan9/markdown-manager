@@ -12,6 +12,7 @@ from .base import BaseModel
 if TYPE_CHECKING:
     from .document import Document
     from .github_models import GitHubAccount
+    from .github_settings import GitHubSettings
 
 
 class User(BaseModel):
@@ -86,6 +87,11 @@ class User(BaseModel):
     # Git operation logs
     git_operation_logs = relationship(
         "GitOperationLog", back_populates="user", cascade="all, delete-orphan"
+    )
+
+    # GitHub settings relationship
+    github_settings: Mapped[Optional["GitHubSettings"]] = relationship(
+        "GitHubSettings", back_populates="user", uselist=False
     )
 
     @property

@@ -51,7 +51,7 @@ endif
 FRONTEND_DIR   := frontend
 FRONT_DIST_DIR := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,frontend/dist)
 BACKEND_DIR    := backend
-PDF_DIR        := pdf-service
+EXPORT_DIR     := export-service
 
 FRONTEND_PORT      := 3000
 BACKEND_DEV_PORT   := 8000
@@ -95,7 +95,7 @@ quality: ## Run pre-commit hooks
 	@echo "$(GREEN)✅ Quality checks complete$(NC)"
 
 install: ## Install frontend + backend deps
-	@./scripts/install.sh $(FRONTEND_DIR) $(BACKEND_DIR) $(PDF_DIR)
+	@./scripts/install.sh $(FRONTEND_DIR) $(BACKEND_DIR) $(EXPORT_DIR)
 
 clean: ## Clean build artifacts
 	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
@@ -166,7 +166,7 @@ deploy-front: build ## Build and deploy frontend (includes nginx config)
 	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
 
 deploy-back: ## Deploy backend services (includes nginx config)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) pdf-service markdown-lint-service $(REMOTE_USER_HOST) 5000
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service $(REMOTE_USER_HOST) 5000
 
 # Nginx-only deployment targets
 deploy-nginx-frontend: ## Deploy only frontend nginx config

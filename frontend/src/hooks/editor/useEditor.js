@@ -36,6 +36,10 @@ export default function useEditor({
   const editorRef = useRef(null);
   const lastEditorValue = useRef(value);
 
+  // Typing detection state to prevent external updates during active typing
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef(null);
+
   // Spell check state
   const [progress, setProgress] = useState(null);
   const suggestionsMap = useRef(new Map());
@@ -66,21 +70,52 @@ export default function useEditor({
         // Content changes
         editor.onDidChangeModelContent(() => {
           const newValue = editor.getValue();
+
+          // CRITICAL: Mark user as typing and reset typing timeout
+          setIsTyping(true);
+          if (typingTimeoutRef.current) {
+            clearTimeout(typingTimeoutRef.current);
+          }
+          typingTimeoutRef.current = setTimeout(() => {
+            setIsTyping(false);
+          }, 500); // Stop considering as "typing" after 500ms of inactivity
+
+          // Update tracking reference immediately
           lastEditorValue.current = newValue;
+
+          // Call onChange callback
           if (onChange) onChange(newValue);
 
-          // Trigger markdown linting on content change
+          // Trigger markdown linting on content change with very conservative timing
+          // Users can manually trigger linting via toolbar when needed
           if (enableMarkdownLint && newValue !== lintPreviousValueRef.current) {
             // Clear existing timeouts
             if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
             if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
 
-            // Set debounced lint timeout
+            // Very conservative delays since manual trigger is available
+            const docSize = newValue.length;
+            const prevSize = lintPreviousValueRef.current?.length || 0;
+            const changeSize = Math.abs(docSize - prevSize);
+
+            let delay;
+            if (docSize < 2000) {
+              // Small documents - 10 seconds, longer for big changes
+              delay = changeSize < 100 ? 10000 : 15000;
+            } else if (docSize < 10000) {
+              // Medium documents - 20 seconds, longer for big changes
+              delay = changeSize < 200 ? 20000 : 30000;
+            } else {
+              // Large documents - 45 seconds, longer for big changes
+              delay = changeSize < 500 ? 45000 : 60000;
+            }
+
+            // Set debounced lint timeout with very conservative delay
             lintDebounceTimeout.current = setTimeout(() => {
               lintDocument(newValue, 0);
               lintPreviousValueRef.current = newValue;
               lastLintTime.current = Date.now();
-            }, 1000); // 1 second debounce
+            }, delay);
           }
         });
         // Cursor position changes
@@ -104,6 +139,7 @@ export default function useEditor({
       if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
       if (lintDebounceTimeout.current) clearTimeout(lintDebounceTimeout.current);
       if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
   }, [containerRef]);
 
@@ -120,7 +156,20 @@ export default function useEditor({
     const editor = editorRef.current;
     if (!editor || value === lastEditorValue.current) return;
 
-    // Save current cursor position before updating value
+    // CRITICAL: Do not interfere with editor content while user is actively typing
+    if (isTyping) {
+      console.log('EXTERNAL VALUE EFFECT: Skipping setValue - user is typing');
+      return;
+    }
+
+    // Check if value actually differs from current editor content
+    const currentEditorValue = editor.getValue();
+    if (value === currentEditorValue) {
+      lastEditorValue.current = value;
+      return;
+    }
+
+    // Safe to update editor content (user not typing)
     const currentPosition = editor.getPosition();
     const currentScrollTop = editor.getScrollTop();
 
@@ -148,7 +197,7 @@ export default function useEditor({
         editor.setScrollTop(currentScrollTop);
       }, 0);
     }
-  }, [value]);
+  }, [value, isTyping]); // Add isTyping to dependencies
 
   // SPELL CHECK
   useEffect(() => {
@@ -390,16 +439,16 @@ export default function useEditor({
 
   // MARKDOWN LINTING LOGIC
 
-  // Initial markdown lint when editor is ready
+  // Initial markdown lint when editor is ready - very delayed start
   useEffect(() => {
     if (enableMarkdownLint && editorRef.current) {
       setTimeout(() => {
         lintDocument(null, 0);
-      }, 500); // Delay more than spell check to avoid conflict
+      }, 5000); // 5 second delay - users can manually trigger if needed sooner
     }
   }, [enableMarkdownLint, editorRef.current]);
 
-  // Periodic markdown lint
+  // Periodic markdown lint - very infrequent checks
   useEffect(() => {
     if (!enableMarkdownLint || !editorRef.current) return;
 
@@ -407,13 +456,14 @@ export default function useEditor({
       const timeSinceLastLint = Date.now() - lastLintTime.current;
       const currentContent = editorRef.current?.getValue() || '';
 
-      if (timeSinceLastLint > 30000 && currentContent !== lintPreviousValueRef.current) {
+      // Only run if it's been more than 5 minutes since last lint AND content changed
+      if (timeSinceLastLint > 300000 && currentContent !== lintPreviousValueRef.current) {
         console.log('[MarkdownLint] Periodic lint check - content changed, running check');
         lintDocument(currentContent, 0);
         lintPreviousValueRef.current = currentContent;
         lastLintTime.current = Date.now();
       }
-    }, 20000); // Check every 20 seconds
+    }, 120000); // Check every 2 minutes (but only lint if 5+ minutes passed)
 
     return () => {
       clearInterval(periodicLintInterval);
@@ -427,7 +477,17 @@ export default function useEditor({
 
     if (!currentText || currentText.length === 0) return;
 
-    const isLarge = currentText.length > 1000;
+    // Skip linting for very small changes unless forced
+    if (!forceProgress && currentText.length < 50) return;
+
+    // Rate limiting: don't lint more than once every 5 seconds
+    const timeSinceLastLint = Date.now() - lastLintTime.current;
+    if (!forceProgress && timeSinceLastLint < 5000) {
+      console.log('[MarkdownLint] Skipping lint - too frequent (rate limited)');
+      return;
+    }
+
+    const isLarge = currentText.length > 2000; // Increased threshold for progress indicator
     const shouldShowProgress = isLarge || forceProgress;
     const progressCb = shouldShowProgress ? (processObj) => {
       lastLintProgressRef.current = processObj;
@@ -693,6 +753,7 @@ export default function useEditor({
     },
     runMarkdownLint: () => {
       if (editorRef.current) {
+        console.log('[MarkdownLint] Manual lint triggered by user');
         // Show initial progress
         setLintProgress({ progress: 0 });
         lintDocument(null, 0, true); // Force progress for manual lint check

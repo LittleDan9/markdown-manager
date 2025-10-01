@@ -77,9 +77,9 @@ class Settings(BaseSettings):
         default=constants.MAX_PAGE_SIZE, description="Maximum pagination page size"
     )
 
-    # PDF Service configuration
-    pdf_service_url: str = Field(
-        default="http://pdf-service:8001", description="PDF service URL"
+    # Export Service configuration
+    export_service_url: str = Field(
+        default="http://export-service:8001", description="Export service URL"
     )
 
     # Markdown Lint Service configuration

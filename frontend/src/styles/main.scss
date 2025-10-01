@@ -21,6 +21,7 @@
 @use "storage";
 @use "admin";
 @use "fileBrowser/index" as fileBrowser;
+@use "components/index" as components;
 
 // // 4. Responsive design (should come last to override other styles)
 // @use "responsive";

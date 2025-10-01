@@ -1,6 +1,7 @@
-"""PDF Generation Service - Main Application."""
+"""Export Service - Main Application."""
 import io
 import logging
+import base64
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -20,6 +21,15 @@ class PDFExportRequest(BaseModel):
 
     html_content: str
     document_name: str
+    is_dark_mode: bool = False
+
+
+class DiagramExportRequest(BaseModel):
+    """Diagram export request model."""
+    html_content: str
+    format: str = "svg"  # svg or png
+    width: int = 1200
+    height: int = 800
     is_dark_mode: bool = False
 
 
@@ -57,18 +67,18 @@ async def render_html_to_pdf(html: str, css: str) -> bytes:
 async def lifespan(app: FastAPI):
     """Manage application lifecycle."""
     # Startup
-    logger.info("Initializing PDF service...")
+    logger.info("Initializing Export service...")
     await css_service.initialize()
-    logger.info("PDF service initialized successfully")
+    logger.info("Export service initialized successfully")
     yield
     # Shutdown
-    logger.info("PDF service shutting down")
+    logger.info("Export service shutting down")
 
 
 app = FastAPI(
-    title="PDF Generation Service",
-    description="Standalone service for generating PDFs from HTML content using Playwright",
-    version="1.0.0",
+    title="Export Service",
+    description="Service for generating PDFs and exporting diagrams from HTML content using Playwright",
+    version="2.0.0",
     lifespan=lifespan,
 )
 
@@ -133,18 +143,134 @@ async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
         raise HTTPException(status_code=500, detail=f"Failed to generate PDF: {str(e)}")
 
 
+@app.post("/export-diagram-svg")
+async def export_diagram_svg(request: DiagramExportRequest) -> dict:
+    """Export diagram as SVG using Chromium rendering."""
+    try:
+        logger.info("Exporting diagram as SVG")
+
+        # Get CSS styles optimized for diagrams
+        css_styles = css_service.get_diagram_css(request.is_dark_mode)
+
+        # Create minimal HTML for diagram
+        diagram_html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Diagram Export</title>
+        </head>
+        <body>
+            {request.html_content}
+        </body>
+        </html>
+        """
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            page = await browser.new_page()
+
+            # Set viewport for consistent rendering
+            await page.set_viewport_size({"width": request.width, "height": request.height})
+
+            await page.set_content(f"<style>{css_styles}</style>{diagram_html}", wait_until="networkidle")
+
+            # Find the SVG element and extract it
+            svg_content = await page.evaluate("""
+                () => {
+                    const svg = document.querySelector('svg');
+                    if (!svg) return null;
+
+                    // Ensure proper SVG attributes
+                    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+                    svg.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+                    return svg.outerHTML;
+                }
+            """)
+
+            await browser.close()
+
+            if not svg_content:
+                raise HTTPException(status_code=400, detail="No SVG content found in diagram")
+
+            return {"svg_content": svg_content}
+
+    except Exception as e:
+        logger.error(f"Failed to export diagram as SVG: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export diagram: {str(e)}")
+
+
+@app.post("/export-diagram-png")
+async def export_diagram_png(request: DiagramExportRequest) -> dict:
+    """Export diagram as PNG using Chromium rendering."""
+    try:
+        logger.info(f"Exporting diagram as PNG ({request.width}x{request.height})")
+
+        css_styles = css_service.get_diagram_css(request.is_dark_mode)
+
+        diagram_html = f"""
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Diagram Export</title>
+        </head>
+        <body>
+            {request.html_content}
+        </body>
+        </html>
+        """
+
+        async with async_playwright() as pw:
+            browser = await pw.chromium.launch()
+            page = await browser.new_page()
+
+            await page.set_viewport_size({"width": request.width, "height": request.height})
+            await page.set_content(f"<style>{css_styles}</style>{diagram_html}", wait_until="networkidle")
+
+            # Take screenshot of the diagram area
+            png_bytes = await page.screenshot(
+                type="png",
+                full_page=False,
+                clip={
+                    "x": 0,
+                    "y": 0,
+                    "width": request.width,
+                    "height": request.height
+                }
+            )
+
+            await browser.close()
+
+            # Return base64 encoded image
+            image_data = base64.b64encode(png_bytes).decode('utf-8')
+            return {"image_data": image_data}
+
+    except Exception as e:
+        logger.error(f"Failed to export diagram as PNG: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to export diagram: {str(e)}")
+
+
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    return {"status": "healthy", "service": "pdf-generator", "version": "1.0.0"}
+    return {"status": "healthy", "service": "export-service", "version": "2.0.0"}
 
 
 @app.get("/")
 async def root():
     """Root endpoint with service info."""
     return {
-        "service": "PDF Generation Service",
-        "version": "1.0.0",
-        "description": "Standalone PDF generation service using Playwright",
-        "endpoints": {"generate_pdf": "/generate-pdf", "health": "/health"},
+        "service": "Export Service",
+        "version": "2.0.0",
+        "description": "Service for generating PDFs and exporting diagrams using Playwright",
+        "endpoints": {
+            "generate_pdf": "/generate-pdf",
+            "export_diagram_svg": "/export-diagram-svg",
+            "export_diagram_png": "/export-diagram-png",
+            "health": "/health"
+        },
     }

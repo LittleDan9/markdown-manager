@@ -1,0 +1,333 @@
+/* Diagram Controls Styling */
+.mermaid-container {
+  position: relative;
+
+  &:hover .diagram-controls,
+  &:focus-within .diagram-controls {
+    opacity: 1;
+  }
+  
+  /* Shorter visibility period for modal interactions */
+  &.modal-interaction .diagram-controls {
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+  }
+}
+
+.diagram-controls {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
+  opacity: 0;
+  transition: opacity 0.2s ease-in-out;
+  pointer-events: auto; /* Re-enable pointer events for the controls themselves */
+
+  /* Keep controls visible when they themselves are hovered or focused */
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
+
+  /* Keep controls visible longer after interaction */
+  &.interaction-active {
+    opacity: 1 !important; /* Force visibility to prevent hiding during DOM changes */
+    transition: opacity 0.2s ease-in-out 2s; /* Stay visible for 2 seconds after interaction */
+  }
+
+  .btn-group {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    /* Ensure continuous visual appearance across wrapper spans */
+    > * {
+      border-radius: 0;
+
+      &:first-child,
+      &:first-child .btn {
+        border-top-left-radius: var(--bs-btn-border-radius);
+        border-bottom-left-radius: var(--bs-btn-border-radius);
+      }
+
+      &:last-child,
+      &:last-child .btn {
+        border-top-right-radius: var(--bs-btn-border-radius);
+        border-bottom-right-radius: var(--bs-btn-border-radius);
+      }
+    }
+  }
+
+  .btn {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.15);
+
+    &:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 1);
+      border-color: rgba(0, 0, 0, 0.25);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    /* Maintain proper border width during loading state */
+    &:disabled {
+      border-width: 1px !important;
+      border-color: rgba(0, 0, 0, 0.2) !important;
+    }
+
+    .spinner-border {
+      width: 0.75rem;
+      height: 0.75rem;
+      border-width: 0.1em;
+    }
+  }
+
+  .btn-outline-info:disabled {
+    opacity: 0.85;
+    background-color: rgba(217, 236, 255, 0.9);
+    border-color: rgba(13, 110, 253, 0.4);
+    color: #0a58ca;
+
+    &:hover {
+      background-color: rgba(217, 236, 255, 0.95);
+      border-color: rgba(13, 110, 253, 0.5);
+    }
+  }
+
+  /* OverlayTrigger wrapper integration with ButtonGroup */
+  .btn-group > span {
+    display: inline-flex !important;
+
+    .btn {
+      border-radius: 0 !important;
+
+      &:first-child {
+        border-top-left-radius: var(--bs-btn-border-radius) !important;
+        border-bottom-left-radius: var(--bs-btn-border-radius) !important;
+      }
+
+      &:last-child {
+        border-top-right-radius: var(--bs-btn-border-radius) !important;
+        border-bottom-right-radius: var(--bs-btn-border-radius) !important;
+      }
+    }
+  }
+
+  /* Fix button borders in groups with wrapper spans */
+  .btn-group > span + span .btn,
+  .btn-group > .btn + span .btn,
+  .btn-group > span + .btn,
+  .btn-group > .dropdown + span .btn {
+    border-left: 0;
+  }
+
+  /* Ensure last span child (GitHub button) has no left radius */
+  .btn-group > span:last-child .btn {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-top-right-radius: var(--bs-btn-border-radius) !important;
+    border-bottom-right-radius: var(--bs-btn-border-radius) !important;
+  }
+
+  /* Tooltip wrapper for disabled buttons */
+  .tooltip-wrapper {
+    display: inline-flex;
+  }
+
+
+  .dropdown-menu {
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+
+    .dropdown-item {
+      font-size: 0.875rem;
+
+      &.small {
+        font-size: 0.8rem;
+      }
+
+      i {
+        width: 16px;
+        text-align: center;
+      }
+    }
+  }
+}
+
+/* Dark mode adjustments */
+[data-bs-theme="dark"] {
+  .diagram-controls {
+    .btn {
+      background-color: rgba(33, 37, 41, 0.95);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #f8f9fa;
+
+      &:hover:not(:disabled) {
+        background-color: rgba(33, 37, 41, 1);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+
+      &:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+      }
+
+      /* Maintain proper border width during loading state in dark mode */
+      &:disabled {
+        border-width: 1px !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
+      }
+    }
+
+    .btn-outline-info:disabled {
+      opacity: 0.85;
+      background-color: rgba(25, 57, 96, 0.9);
+      border-color: rgba(13, 110, 253, 0.4);
+      color: #9ec5fe;
+
+      &:hover {
+        background-color: rgba(25, 57, 96, 0.95);
+        border-color: rgba(13, 110, 253, 0.5);
+      }
+    }
+
+    /* Tooltip wrapper for disabled buttons in dark mode */
+    .tooltip-wrapper {
+      display: inline-flex;
+    }
+
+    .dropdown-menu {
+      background-color: #212529;
+      border-color: rgba(255, 255, 255, 0.15);
+
+      .dropdown-item {
+        color: #f8f9fa;
+
+        &:hover:not(:disabled) {
+          background-color: #343a40;
+          color: #fff;
+        }
+
+        &.text-muted {
+          color: #6c757d;
+
+          &:hover {
+            background-color: transparent;
+            color: #6c757d;
+          }
+        }
+      }
+    }
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .diagram-controls {
+    position: static;
+    opacity: 1;
+    margin-bottom: 10px;
+
+    .btn-group {
+      width: 100%;
+
+      .diagram-control-btn {
+        flex: 1;
+      }
+    }
+  }
+}
+
+/* Print styles */
+@media print {
+  .diagram-controls {
+    display: none !important;
+  }
+}
+
+/* Fullscreen modal styles */
+.diagram-fullscreen-modal {
+  .modal-dialog {
+    max-width: 95vw;
+    max-height: 95vh;
+    margin: 2.5vh auto;
+  }
+
+  .modal-content {
+    height: 95vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-body {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    overflow: auto;
+
+    .mermaid-container.fullscreen-diagram {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 400px;
+
+      > div {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      svg {
+        max-width: 100%;
+        max-height: 100%;
+        width: auto !important;
+        height: auto !important;
+        display: block;
+      }
+    }
+  }
+
+  .modal-header {
+    border-bottom: 1px solid #dee2e6;
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 500;
+    }
+  }
+
+  .modal-footer {
+    border-top: 1px solid #dee2e6;
+    justify-content: space-between;
+
+    .diagram-metadata {
+      font-size: 0.875rem;
+      color: #6c757d;
+    }
+  }
+}
+
+/* Dark mode for fullscreen modal */
+[data-bs-theme="dark"] {
+  .diagram-fullscreen-modal {
+    .modal-content {
+      background-color: #212529;
+      border-color: #495057;
+    }
+
+    .modal-header,
+    .modal-footer {
+      border-color: #495057;
+    }
+
+    .diagram-metadata {
+      color: #adb5bd;
+    }
+  }
+}

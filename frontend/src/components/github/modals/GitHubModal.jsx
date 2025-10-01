@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Nav, Tab } from 'react-bootstrap';
 import { GitHubAccountsTab, GitHubRepositoriesTab, GitHubCacheSyncTab } from '../index';
+import GitHubSettingsTab from '../tabs/GitHubSettingsTab';
 import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
 import useFileModal from '../../../hooks/ui/useFileModal';
 
@@ -53,11 +54,17 @@ export default function GitHubModal({ show, onHide }) {
       </Modal.Header>
       <Modal.Body>
         <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
-          <Nav variant="tabs" className="mb-3">
+          <Nav variant="tabs">
             <Nav.Item>
               <Nav.Link eventKey="accounts">
                 <i className="bi bi-person-circle me-2"></i>
                 Accounts
+              </Nav.Link>
+            </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="settings">
+                <i className="bi bi-gear me-2"></i>
+                Settings
               </Nav.Link>
             </Nav.Item>
             {hasAccounts && (
@@ -81,6 +88,9 @@ export default function GitHubModal({ show, onHide }) {
           <Tab.Content>
             <Tab.Pane eventKey="accounts">
               <GitHubAccountsTab onAccountsChange={handleAccountsChange} />
+            </Tab.Pane>
+            <Tab.Pane eventKey="settings" className="github-settings-tab">
+              <GitHubSettingsTab />
             </Tab.Pane>
             {hasAccounts && (
               <Tab.Pane eventKey="repositories">

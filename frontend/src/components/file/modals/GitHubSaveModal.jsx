@@ -1,10 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Button, Form, Alert, Spinner, Row, Col, InputGroup } from 'react-bootstrap';
+import { Modal, Button, Form, Alert, Spinner, Row, Col, InputGroup, Badge, ProgressBar } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import { useNotification } from '@/components/NotificationProvider';
+import { useGitHubSettings } from '@/contexts/GitHubSettingsProvider';
+import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import gitHubApi from '@/api/gitHubApi';
+import documentsApi from '@/api/documentsApi';
 
 function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
+  const { currentDocument } = useDocumentContext();
   const [repositories, setRepositories] = useState([]);
   const [branches, setBranches] = useState([]);
   const [selectedRepository, setSelectedRepository] = useState('');
@@ -20,7 +24,14 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [error, setError] = useState('');
-  const { showSuccess, showError } = useNotification();
+
+  // Phase 6: Diagram conversion state
+  const [convertDiagrams, setConvertDiagrams] = useState(null); // null = use settings default
+  const [conversionProgress, setConversionProgress] = useState(null);
+  const [conversionResult, setConversionResult] = useState(null);
+
+  const { showSuccess, showError, showInfo } = useNotification();
+  const { settings: githubSettings, loading: settingsLoading } = useGitHubSettings();
 
   // Load repositories on modal open
   useEffect(() => {
@@ -36,6 +47,11 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
       setCreateNewBranch(false);
       setNewBranchName('');
       setBaseBranch('main');
+
+      // Phase 6: Reset diagram conversion state
+      setConvertDiagrams(null); // Use settings default
+      setConversionProgress(null);
+      setConversionResult(null);
     }
   }, [show, document]);
 
@@ -123,6 +139,10 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
     try {
       setLoading(true);
       setError('');
+      setConversionProgress({ stage: 'preparing', message: 'Preparing document...' });
+
+      // Determine if we should convert diagrams
+      const shouldConvert = convertDiagrams !== null ? convertDiagrams : githubSettings?.auto_convert_diagrams;
 
       const saveData = {
         repository_id: parseInt(selectedRepository),
@@ -130,24 +150,55 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
         branch: targetBranch,
         commit_message: commitMessage.trim() || `Add ${document.name || 'document'}`,
         create_branch: createNewBranch,
-        base_branch: createNewBranch ? baseBranch : undefined
+        base_branch: createNewBranch ? baseBranch : undefined,
+        auto_convert_diagrams: shouldConvert
       };
 
-      const result = await gitHubApi.saveDocumentToGitHub(document.id, saveData);
-
-      showSuccess(`Document saved to GitHub successfully`);
-
-      if (onSaveSuccess) {
-        onSaveSuccess(result);
+      if (shouldConvert) {
+        setConversionProgress({
+          stage: 'converting',
+          message: 'Converting advanced diagrams to GitHub-compatible format...'
+        });
       }
 
-      onHide();
+      // Use the new documentsApi method that supports diagram conversion
+      const result = await documentsApi.saveToGitHubWithDiagrams(document.id, {
+        ...saveData,
+        convertDiagrams: shouldConvert,
+        diagramFormat: githubSettings?.diagram_format || 'png',
+        document_content: currentDocument?.content || ''
+      });
+
+      setConversionResult(result);
+
+      if (result.success) {
+        let successMessage = 'Document saved to GitHub successfully';
+        if (result.diagrams_converted > 0) {
+          successMessage += ` with ${result.diagrams_converted} diagram${result.diagrams_converted !== 1 ? 's' : ''} converted`;
+        }
+        showSuccess(successMessage);
+
+        if (result.errors && result.errors.length > 0) {
+          showInfo(`Note: ${result.errors.length} warning(s) occurred during save`);
+        }
+
+        if (onSaveSuccess) {
+          onSaveSuccess(result);
+        }
+
+        onHide();
+      } else {
+        const errorMessage = result.errors?.join('; ') || 'Failed to save document to GitHub';
+        setError(errorMessage);
+        showError(errorMessage);
+      }
     } catch (err) {
       const errorMessage = err.message || 'Failed to save document to GitHub';
       setError(errorMessage);
       showError(errorMessage);
     } finally {
       setLoading(false);
+      setConversionProgress(null);
     }
   };
 
@@ -162,6 +213,12 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
     setCommitMessage('');
     setBranches([]);
     setRepositoryStatus(null);
+
+    // Phase 6: Reset diagram conversion state
+    setConvertDiagrams(null);
+    setConversionProgress(null);
+    setConversionResult(null);
+
     onHide();
   };
 
@@ -374,6 +431,123 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
             </Form.Text>
           </Form.Group>
 
+          {/* Phase 6: Diagram Conversion Settings */}
+          <Form.Group className="mb-3">
+            <div className="d-flex align-items-center justify-content-between mb-2">
+              <Form.Label className="mb-0">
+                <i className="bi bi-diagram-3 me-2"></i>
+                Diagram Conversion
+              </Form.Label>
+              {!settingsLoading && githubSettings && (
+                <Badge bg={githubSettings.auto_convert_diagrams ? 'success' : 'secondary'} className="ms-2">
+                  Default: {githubSettings.auto_convert_diagrams ? 'Enabled' : 'Disabled'}
+                </Badge>
+              )}
+            </div>
+
+            <div className="diagram-conversion-options">
+              <Form.Check
+                type="radio"
+                id="convert-auto"
+                name="diagram-conversion"
+                label={
+                  <span>
+                    Use my default setting
+                    {githubSettings && (
+                      <small className="text-muted d-block">
+                        {githubSettings.auto_convert_diagrams
+                          ? `Auto-convert to ${githubSettings.diagram_format?.toUpperCase() || 'PNG'}`
+                          : 'Keep original Mermaid syntax'
+                        }
+                      </small>
+                    )}
+                  </span>
+                }
+                checked={convertDiagrams === null}
+                onChange={() => setConvertDiagrams(null)}
+                className="mb-2"
+              />
+              <Form.Check
+                type="radio"
+                id="convert-enable"
+                name="diagram-conversion"
+                label={
+                  <span>
+                    Convert advanced diagrams
+                    <small className="text-muted d-block">
+                      Convert architecture-beta and custom icons to static images for GitHub compatibility
+                    </small>
+                  </span>
+                }
+                checked={convertDiagrams === true}
+                onChange={() => setConvertDiagrams(true)}
+                className="mb-2"
+              />
+              <Form.Check
+                type="radio"
+                id="convert-disable"
+                name="diagram-conversion"
+                label={
+                  <span>
+                    Keep original syntax
+                    <small className="text-muted d-block">
+                      Save Mermaid diagrams as-is (may not render properly on GitHub)
+                    </small>
+                  </span>
+                }
+                checked={convertDiagrams === false}
+                onChange={() => setConvertDiagrams(false)}
+              />
+            </div>
+          </Form.Group>
+
+          {/* Phase 6: Conversion Progress */}
+          {conversionProgress && (
+            <Alert variant="info" className="mb-3">
+              <div className="d-flex align-items-center">
+                <Spinner animation="border" size="sm" className="me-3" />
+                <div className="flex-grow-1">
+                  <div className="fw-semibold">{conversionProgress.stage === 'preparing' ? 'Preparing' : 'Converting Diagrams'}</div>
+                  <div className="small text-muted">{conversionProgress.message}</div>
+                  {conversionProgress.stage === 'converting' && (
+                    <ProgressBar animated now={100} className="mt-2" style={{ height: '4px' }} />
+                  )}
+                </div>
+              </div>
+            </Alert>
+          )}
+
+          {/* Phase 6: Conversion Result Summary */}
+          {conversionResult && conversionResult.diagrams_converted > 0 && (
+            <Alert variant="success" className="mb-3">
+              <div className="d-flex align-items-start">
+                <i className="bi bi-check-circle-fill text-success me-2 mt-1"></i>
+                <div>
+                  <div className="fw-semibold">
+                    {conversionResult.diagrams_converted} diagram{conversionResult.diagrams_converted !== 1 ? 's' : ''} converted successfully
+                  </div>
+                  {conversionResult.converted_diagrams && conversionResult.converted_diagrams.length > 0 && (
+                    <div className="mt-2">
+                      <small className="text-muted">Converted files:</small>
+                      <ul className="list-unstyled mt-1 mb-0">
+                        {conversionResult.converted_diagrams.slice(0, 3).map((diagram, index) => (
+                          <li key={index} className="small">
+                            <code>{diagram.filename}</code> ({diagram.format.toUpperCase()}, {(diagram.size / 1024).toFixed(1)}KB)
+                          </li>
+                        ))}
+                        {conversionResult.converted_diagrams.length > 3 && (
+                          <li className="small text-muted">
+                            ...and {conversionResult.converted_diagrams.length - 3} more
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </Alert>
+          )}
+
           {selectedRepo && (
             <div className="github-save-repo-info mt-3">
               <div className="card">
@@ -441,12 +615,19 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
           {loading ? (
             <>
               <Spinner animation="border" size="sm" className="me-2" />
-              Saving...
+              {conversionProgress ? (
+                conversionProgress.stage === 'preparing' ? 'Preparing...' : 'Converting & Saving...'
+              ) : (
+                'Saving...'
+              )}
             </>
           ) : (
             <>
               <i className="bi bi-cloud-upload me-2"></i>
               Save to GitHub
+              {convertDiagrams === true || (convertDiagrams === null && githubSettings?.auto_convert_diagrams) ? (
+                <Badge bg="light" text="dark" className="ms-2">+Convert</Badge>
+              ) : null}
             </>
           )}
         </Button>
