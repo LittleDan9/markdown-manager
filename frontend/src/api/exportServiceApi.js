@@ -38,12 +38,15 @@ class ExportServiceApi extends Api {
    * @returns {Promise<Blob>} - PNG blob
    */
   async exportDiagramAsPNG(htmlContent, options = {}) {
+    // For PNG, we need to extract the SVG from the rendered HTML first
+    // Then send that SVG content to the PNG endpoint
+    const svgContent = this.extractSVGFromHTML(htmlContent);
+
     const requestData = {
-      html_content: htmlContent,
-      format: 'png',
+      svg_content: svgContent,
       width: options.width || 1200,
       height: options.height || 800,
-      is_dark_mode: options.isDarkMode || false
+      transparent_background: options.transparentBackground !== false
     };
 
     const res = await this.apiCall('/export/diagram/png', 'POST', requestData);
@@ -56,6 +59,29 @@ class ExportServiceApi extends Api {
     }
 
     return new Blob([bytes], { type: 'image/png' });
+  }
+
+  /**
+   * Extract SVG content from rendered HTML
+   * @param {string} htmlContent - HTML content containing SVG
+   * @returns {string} - SVG content
+   */
+  extractSVGFromHTML(htmlContent) {
+    // Create a temporary DOM element to parse the HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+
+    // Find the SVG element
+    const svgElement = tempDiv.querySelector('svg');
+    if (!svgElement) {
+      throw new Error('No SVG found in provided HTML content');
+    }
+
+    // Ensure proper SVG attributes
+    svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    return svgElement.outerHTML;
   }
 
   /**

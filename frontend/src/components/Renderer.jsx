@@ -67,8 +67,9 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     diagrams.forEach((diagram, index) => {
       const diagramId = `diagram-${index}`;
 
-      // Skip if controls already added
-      if (diagram.querySelector('.diagram-controls-container')) return;
+      // Skip if controls already added and still in DOM
+      const existingControls = diagram.querySelector('.diagram-controls-container');
+      if (existingControls && existingControls.isConnected) return;
 
       // Get diagram source from data attribute
       const encodedSource = diagram.getAttribute('data-mermaid-source') || '';
@@ -79,22 +80,30 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
         diagram.classList.add('mermaid-container');
       }
 
+      // Remove any orphaned controls first
+      const orphanedControls = diagram.querySelectorAll('.diagram-controls-container');
+      orphanedControls.forEach(control => control.remove());
+
       // Create a container for the controls
       const controlsContainer = document.createElement('div');
       controlsContainer.className = 'diagram-controls-container';
+      controlsContainer.style.position = 'absolute';
+      controlsContainer.style.top = '0';
+      controlsContainer.style.left = '0';
+      controlsContainer.style.width = '100%';
+      controlsContainer.style.height = '100%';
+      controlsContainer.style.pointerEvents = 'none'; // Allow clicks to pass through to diagram
       diagram.appendChild(controlsContainer);
 
       // Create React root and render controls with providers
       const root = ReactDOM.createRoot(controlsContainer);
       root.render(
         <ThemeProvider>
-          <NotificationProvider>
-            <DiagramControls
-              diagramElement={diagram}
-              diagramId={diagramId}
-              diagramSource={diagramSource}
-            />
-          </NotificationProvider>
+          <DiagramControls
+            diagramElement={diagram}
+            diagramId={diagramId}
+            diagramSource={diagramSource}
+          />
         </ThemeProvider>
       );
 
@@ -261,8 +270,10 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
       // Add controls to new diagrams (with small delay to ensure DOM is updated)
       setTimeout(() => {
-        addDiagramControls(previewScrollRef.current);
-      }, 100);
+        if (previewScrollRef.current) {
+          addDiagramControls(previewScrollRef.current);
+        }
+      }, 150); // Increased timeout slightly for better stability
     }
   }, [previewHTML, isRendering]);
 

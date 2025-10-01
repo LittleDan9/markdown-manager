@@ -1,7 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Button, ButtonGroup, Dropdown, Spinner } from 'react-bootstrap';
-import { useNotification } from '../NotificationProvider';
+import { Button, ButtonGroup, Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
 import MermaidExportService from '../../services/rendering/MermaidExportService';
 import DiagramFullscreenModal from './DiagramFullscreenModal';
@@ -18,19 +17,30 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const controlsRef = useRef(null);
+  const interactionTimeoutRef = useRef(null);
 
   // Use context with fallback values
-  const notificationContext = useNotification();
   const themeContext = useTheme();
 
-  const showSuccess = notificationContext?.showSuccess || ((msg) => console.log(`Success: ${msg}`));
-  const showError = notificationContext?.showError || ((msg) => console.error(`Error: ${msg}`));
+  // Use event-based notifications to avoid portal context issues
+  const showSuccess = (message) => {
+    window.dispatchEvent(new CustomEvent('notification', {
+      detail: { message, type: 'success', duration: 5000 }
+    }));
+  };
+
+  const showError = (message) => {
+    window.dispatchEvent(new CustomEvent('notification', {
+      detail: { message, type: 'danger', duration: 8000 }
+    }));
+  };
   const theme = themeContext?.theme || 'light';
   const isDarkMode = theme === 'dark';
 
   // Check if diagram needs GitHub conversion
   const needsConversion = diagramElement ?
-    MermaidExportService.needsGitHubConversion(diagramElement) : false;
+    MermaidExportService.needsGitHubConversion(diagramElement, diagramSource) : false;
 
   // Extract SVG content for fullscreen modal
   const getSvgContent = () => {
@@ -42,6 +52,34 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     return svgContent;
   };
 
+  // Manage interaction visibility
+  const markInteractionActive = () => {
+    if (controlsRef.current) {
+      controlsRef.current.classList.add('interaction-active');
+
+      // Clear any existing timeout
+      if (interactionTimeoutRef.current) {
+        clearTimeout(interactionTimeoutRef.current);
+      }
+
+      // Set timeout to remove the class after interaction is complete
+      interactionTimeoutRef.current = setTimeout(() => {
+        if (controlsRef.current) {
+          controlsRef.current.classList.remove('interaction-active');
+        }
+      }, 3000); // Stay visible for 3 seconds after interaction
+    }
+  };
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (interactionTimeoutRef.current) {
+        clearTimeout(interactionTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const handleExport = async (format) => {
     if (!diagramElement) {
       showError('Diagram element not found');
@@ -50,6 +88,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
     setIsExporting(true);
     setExportFormat(format);
+    markInteractionActive(); // Keep controls visible during and after export
 
     try {
       const exportOptions = {
@@ -75,10 +114,12 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     } finally {
       setIsExporting(false);
       setExportFormat(null);
+      markInteractionActive(); // Keep controls visible after export completes
     }
   };
 
   const handleFullscreen = () => {
+    markInteractionActive(); // Keep controls visible during fullscreen interaction
     const svgContent = getSvgContent();
 
     if (onFullscreen) {
@@ -90,76 +131,75 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
   return (
     <>
-      <div className="diagram-controls">
+      <div className="diagram-controls" ref={controlsRef}>
         <ButtonGroup size="sm">
           {/* Fullscreen Button */}
           <Button
             variant="outline-secondary"
             onClick={handleFullscreen}
             title="View fullscreen"
-            className="diagram-control-btn"
           >
-            <i className="bi bi-fullscreen"></i>
+            <i className="bi bi-arrows-fullscreen"></i>
           </Button>
 
           {/* Export Dropdown */}
-          <Dropdown>
+          <Dropdown as={ButtonGroup}>
             <Dropdown.Toggle
               variant="outline-secondary"
               size="sm"
               disabled={isExporting}
-              className="diagram-control-btn"
               title="Export diagram"
+              id={`export-dropdown-${diagramId}`}
             >
               {isExporting ? (
                 <>
                   <Spinner animation="border" size="sm" className="me-1" />
-                  {exportFormat?.toUpperCase()}
+                  <span className="visually-hidden">Exporting...</span>
                 </>
               ) : (
                 <i className="bi bi-download"></i>
               )}
             </Dropdown.Toggle>
 
-            <Dropdown.Menu>
+            <Dropdown.Menu align="end">
               <Dropdown.Item
                 onClick={() => handleExport('svg')}
                 disabled={isExporting}
               >
-                <i className="bi bi-file-earmark-image me-2"></i>
+                <i className="bi bi-file-earmark-code me-2"></i>
                 Export as SVG
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => handleExport('png')}
                 disabled={isExporting}
               >
-                <i className="bi bi-file-earmark-image-fill me-2"></i>
+                <i className="bi bi-file-earmark-image me-2"></i>
                 Export as PNG
               </Dropdown.Item>
-
-              {needsConversion && (
-                <>
-                  <Dropdown.Divider />
-                  <Dropdown.Item disabled className="text-muted">
-                    <i className="bi bi-github me-2"></i>
-                    GitHub conversion available
-                  </Dropdown.Item>
-                </>
-              )}
             </Dropdown.Menu>
           </Dropdown>
 
           {/* GitHub Conversion Indicator */}
           {needsConversion && (
-            <Button
-              variant="outline-warning"
-              size="sm"
-              title="This diagram uses advanced features that need conversion for GitHub compatibility"
-              className="diagram-control-btn github-indicator"
-              disabled
+            <OverlayTrigger
+              placement="bottom"
+              overlay={
+                <Tooltip id={`github-tooltip-${diagramId}`}>
+                  <strong>GitHub conversion available</strong><br />
+                  This diagram uses advanced features that can be automatically converted to static images when saving to GitHub repositories.
+                </Tooltip>
+              }
             >
-              <i className="bi bi-exclamation-triangle"></i>
-            </Button>
+              <span className="d-inline-flex">
+                <Button
+                  variant="outline-info"
+                  size="sm"
+                  disabled
+                >
+                  <i className="bi bi-github"></i>
+                </Button>
+              </span>
+            </OverlayTrigger>
           )}
         </ButtonGroup>
       </div>

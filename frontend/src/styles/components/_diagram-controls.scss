@@ -2,7 +2,8 @@
 .mermaid-container {
   position: relative;
 
-  &:hover .diagram-controls {
+  &:hover .diagram-controls,
+  &:focus-within .diagram-controls {
     opacity: 1;
   }
 }
@@ -14,50 +15,131 @@
   z-index: 10;
   opacity: 0;
   transition: opacity 0.2s ease-in-out;
+  pointer-events: auto; /* Re-enable pointer events for the controls themselves */
 
-  .diagram-control-btn {
-    background-color: rgba(255, 255, 255, 0.9);
-    border-color: rgba(0, 0, 0, 0.2);
+  /* Keep controls visible when they themselves are hovered or focused */
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
 
-    &:hover {
+  /* Keep controls visible longer after interaction */
+  &.interaction-active {
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out 2s; /* Stay visible for 2 seconds after interaction */
+  }
+
+  .btn-group {
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+    /* Ensure continuous visual appearance across wrapper spans */
+    > * {
+      border-radius: 0;
+
+      &:first-child,
+      &:first-child .btn {
+        border-top-left-radius: var(--bs-btn-border-radius);
+        border-bottom-left-radius: var(--bs-btn-border-radius);
+      }
+
+      &:last-child,
+      &:last-child .btn {
+        border-top-right-radius: var(--bs-btn-border-radius);
+        border-bottom-right-radius: var(--bs-btn-border-radius);
+      }
+    }
+  }
+
+  .btn {
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.15);
+
+    &:hover:not(:disabled) {
       background-color: rgba(255, 255, 255, 1);
-      border-color: rgba(0, 0, 0, 0.3);
+      border-color: rgba(0, 0, 0, 0.25);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+
+    /* Maintain proper border width during loading state */
+    &:disabled {
+      border-width: 1px !important;
+      border-color: rgba(0, 0, 0, 0.2) !important;
     }
 
     .spinner-border {
-      width: 0.8rem;
-      height: 0.8rem;
+      width: 0.75rem;
+      height: 0.75rem;
+      border-width: 0.1em;
     }
   }
 
-  .github-indicator {
-    background-color: rgba(255, 243, 205, 0.9);
-    border-color: rgba(255, 193, 7, 0.3);
-    color: #856404;
+  .btn-outline-info:disabled {
+    opacity: 0.85;
+    background-color: rgba(217, 236, 255, 0.9);
+    border-color: rgba(13, 110, 253, 0.4);
+    color: #0a58ca;
 
     &:hover {
-      background-color: rgba(255, 243, 205, 1);
-      border-color: rgba(255, 193, 7, 0.5);
+      background-color: rgba(217, 236, 255, 0.95);
+      border-color: rgba(13, 110, 253, 0.5);
     }
   }
+
+  /* OverlayTrigger wrapper integration with ButtonGroup */
+  .btn-group > span {
+    display: inline-flex !important;
+
+    .btn {
+      border-radius: 0 !important;
+
+      &:first-child {
+        border-top-left-radius: var(--bs-btn-border-radius) !important;
+        border-bottom-left-radius: var(--bs-btn-border-radius) !important;
+      }
+
+      &:last-child {
+        border-top-right-radius: var(--bs-btn-border-radius) !important;
+        border-bottom-right-radius: var(--bs-btn-border-radius) !important;
+      }
+    }
+  }
+
+  /* Fix button borders in groups with wrapper spans */
+  .btn-group > span + span .btn,
+  .btn-group > .btn + span .btn,
+  .btn-group > span + .btn,
+  .btn-group > .dropdown + span .btn {
+    border-left: 0;
+  }
+
+  /* Ensure last span child (GitHub button) has no left radius */
+  .btn-group > span:last-child .btn {
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    border-top-right-radius: var(--bs-btn-border-radius) !important;
+    border-bottom-right-radius: var(--bs-btn-border-radius) !important;
+  }
+
+  /* Tooltip wrapper for disabled buttons */
+
 
   .dropdown-menu {
     border: 1px solid rgba(0, 0, 0, 0.15);
-    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 
     .dropdown-item {
       font-size: 0.875rem;
 
-      &:hover {
-        background-color: #f8f9fa;
+      &.small {
+        font-size: 0.8rem;
       }
 
-      &.text-muted {
-        font-size: 0.8rem;
-
-        &:hover {
-          background-color: transparent;
-        }
+      i {
+        width: 16px;
+        text-align: center;
       }
     }
   }
@@ -66,37 +148,52 @@
 /* Dark mode adjustments */
 [data-bs-theme="dark"] {
   .diagram-controls {
-    .diagram-control-btn {
-      background-color: rgba(33, 37, 41, 0.9);
-      border-color: rgba(255, 255, 255, 0.2);
-      color: #fff;
+    .btn {
+      background-color: rgba(33, 37, 41, 0.95);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #f8f9fa;
 
-      &:hover {
+      &:hover:not(:disabled) {
         background-color: rgba(33, 37, 41, 1);
-        border-color: rgba(255, 255, 255, 0.3);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+
+      &:focus {
+        box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+      }
+
+      /* Maintain proper border width during loading state in dark mode */
+      &:disabled {
+        border-width: 1px !important;
+        border-color: rgba(255, 255, 255, 0.2) !important;
       }
     }
 
-    .github-indicator {
-      background-color: rgba(102, 77, 3, 0.9);
-      border-color: rgba(255, 193, 7, 0.3);
-      color: #ffecb5;
+    .btn-outline-info:disabled {
+      opacity: 0.85;
+      background-color: rgba(25, 57, 96, 0.9);
+      border-color: rgba(13, 110, 253, 0.4);
+      color: #9ec5fe;
 
       &:hover {
-        background-color: rgba(102, 77, 3, 1);
-        border-color: rgba(255, 193, 7, 0.5);
+        background-color: rgba(25, 57, 96, 0.95);
+        border-color: rgba(13, 110, 253, 0.5);
       }
     }
+
+    /* Tooltip wrapper for disabled buttons in dark mode */
 
     .dropdown-menu {
       background-color: #212529;
       border-color: rgba(255, 255, 255, 0.15);
 
       .dropdown-item {
-        color: #fff;
+        color: #f8f9fa;
 
-        &:hover {
+        &:hover:not(:disabled) {
           background-color: #343a40;
+          color: #fff;
         }
 
         &.text-muted {
@@ -104,6 +201,7 @@
 
           &:hover {
             background-color: transparent;
+            color: #6c757d;
           }
         }
       }

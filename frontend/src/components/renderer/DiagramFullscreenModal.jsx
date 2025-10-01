@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Button, ButtonGroup, Badge } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
-import { useNotification } from '../NotificationProvider';
 import MermaidExportService from '../../services/rendering/MermaidExportService';
 
 /**
@@ -18,11 +17,21 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
   const [exportFormat, setExportFormat] = useState(null);
 
   // Use context with fallback values
-  const notificationContext = useNotification();
   const themeContext = useTheme();
 
-  const showSuccess = notificationContext?.showSuccess || ((msg) => console.log(`Success: ${msg}`));
-  const showError = notificationContext?.showError || ((msg) => console.error(`Error: ${msg}`));
+  // Use event-based notifications to avoid portal context issues
+  const showSuccess = (message) => {
+    window.dispatchEvent(new CustomEvent('notification', {
+      detail: { message, type: 'success', duration: 5000 }
+    }));
+  };
+
+  const showError = (message) => {
+    window.dispatchEvent(new CustomEvent('notification', {
+      detail: { message, type: 'danger', duration: 8000 }
+    }));
+  };
+
   const theme = themeContext?.theme || 'light';
   const isDarkMode = theme === 'dark';
 

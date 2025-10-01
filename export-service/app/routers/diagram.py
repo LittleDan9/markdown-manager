@@ -37,7 +37,7 @@ async def export_diagram_svg(request: DiagramExportRequest) -> dict:
         # Get CSS styles optimized for diagrams
         css_styles = css_service.get_diagram_css(request.is_dark_mode)
 
-        # Create minimal HTML for diagram
+        # Create minimal HTML for already-rendered diagram
         diagram_html = f"""
         <!DOCTYPE html>
         <html lang="en">
@@ -45,6 +45,7 @@ async def export_diagram_svg(request: DiagramExportRequest) -> dict:
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <title>Diagram Export</title>
+            <style>{css_styles}</style>
         </head>
         <body>
             {request.html_content}
@@ -59,7 +60,7 @@ async def export_diagram_svg(request: DiagramExportRequest) -> dict:
             # Set viewport for consistent rendering
             await page.set_viewport_size({"width": request.width, "height": request.height})
 
-            await page.set_content(f"<style>{css_styles}</style>{diagram_html}", wait_until="networkidle")
+            await page.set_content(diagram_html, wait_until="networkidle")
 
             # Find the SVG element and extract it
             svg_content = await page.evaluate("""

@@ -19,6 +19,7 @@ export class MermaidExportService {
         throw new Error('Format must be "svg" or "png"');
       }
 
+      // Use the rendered HTML content from the diagram element
       const diagramHTML = this.prepareDiagramHTML(diagramElement, options);
 
       if (format === 'svg') {
@@ -62,7 +63,51 @@ export class MermaidExportService {
   }
 
   /**
-   * Prepare diagram HTML for export service rendering
+   * Extract original Mermaid source code from diagram element
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @returns {string|null} - Original Mermaid source or null if not found
+   */
+  static extractDiagramSource(diagramElement) {
+    try {
+      // Try multiple methods to find the original source
+
+      // Method 1: Look for data-mermaid-source attribute
+      const sourceAttr = diagramElement.getAttribute('data-mermaid-source');
+      if (sourceAttr) {
+        return decodeURIComponent(sourceAttr);
+      }
+
+      // Method 2: Look for source in child elements
+      const sourceElement = diagramElement.querySelector('[data-mermaid-source]');
+      if (sourceElement) {
+        const source = sourceElement.getAttribute('data-mermaid-source');
+        if (source) {
+          return decodeURIComponent(source);
+        }
+      }
+
+      // Method 3: Look for the original text content before Mermaid processing
+      const textContent = diagramElement.textContent || diagramElement.innerText;
+      if (textContent && textContent.trim() && !textContent.includes('<svg')) {
+        return textContent.trim();
+      }
+
+      return null;
+
+    } catch (error) {
+      console.warn('Failed to extract diagram source:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Extract diagram metadata for GitHub conversion
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @returns {Object} - Diagram metadata
+   */
+
+  /**
+   * Prepare diagram HTML for export service rendering from already-rendered diagram
    * @param {HTMLElement} diagramElement - The diagram element
    * @param {Object} options - Export options
    * @returns {string} - HTML content ready for export
@@ -84,15 +129,32 @@ export class MermaidExportService {
       controls.forEach(control => control.remove());
     });
 
-    // Create wrapper with proper sizing
+    // Ensure proper SVG attributes for export
+    clonedSVG.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    clonedSVG.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    // Create wrapper with proper sizing and styling
     const wrapper = document.createElement('div');
     wrapper.className = 'mermaid-export-container';
-    wrapper.style.width = `${options.width || 1200}px`;
-    wrapper.style.height = `${options.height || 800}px`;
-    wrapper.style.display = 'flex';
-    wrapper.style.alignItems = 'center';
-    wrapper.style.justifyContent = 'center';
-    wrapper.style.background = options.isDarkMode ? '#1a1a1a' : '#ffffff';
+    wrapper.style.cssText = `
+      width: ${options.width || 1200}px;
+      height: ${options.height || 800}px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: ${options.isDarkMode ? '#1a1a1a' : '#ffffff'};
+      margin: 0;
+      padding: 20px;
+      box-sizing: border-box;
+    `;
+
+    // Ensure the SVG is properly sized
+    if (!clonedSVG.getAttribute('width') && !clonedSVG.getAttribute('height')) {
+      clonedSVG.style.maxWidth = '100%';
+      clonedSVG.style.maxHeight = '100%';
+      clonedSVG.style.height = 'auto';
+      clonedSVG.style.width = 'auto';
+    }
 
     wrapper.appendChild(clonedSVG);
 
@@ -145,17 +207,15 @@ export class MermaidExportService {
         filename = this.generateFilename(diagramElement, 'diagram');
       }
 
-      // Ensure filename has proper extension
-      if (!filename.endsWith(`.${format}`)) {
-        filename = `${filename}.${format}`;
-      }
+      // Remove extension if it already exists to avoid double extensions
+      const baseFilename = filename.replace(/\.(svg|png)$/i, '');
 
       // Create download
       const blob = format === 'svg'
         ? new Blob([content], { type: 'image/svg+xml' })
         : content; // PNG is already a blob
 
-      this.triggerDownload(blob, filename);
+      this.triggerDownload(blob, `${baseFilename}.${format}`);
 
     } catch (error) {
       console.error('Download failed:', error);
@@ -199,10 +259,19 @@ export class MermaidExportService {
 
   /**
    * Check if a Mermaid diagram uses advanced features (architecture-beta, custom icons)
-   * @param {string} diagramSource - Mermaid diagram source code
+   * @param {string|HTMLElement} diagramSourceOrElement - Mermaid diagram source code or diagram element
    * @returns {boolean} - True if diagram uses advanced features
    */
-  static hasAdvancedFeatures(diagramSource) {
+  static hasAdvancedFeatures(diagramSourceOrElement) {
+    let diagramSource;
+
+    if (typeof diagramSourceOrElement === 'string') {
+      diagramSource = diagramSourceOrElement;
+    } else if (diagramSourceOrElement && typeof diagramSourceOrElement === 'object') {
+      // Try to extract source from element
+      diagramSource = this.extractDiagramSource(diagramSourceOrElement);
+    }
+
     if (!diagramSource) return false;
 
     const advancedPatterns = [
@@ -266,11 +335,13 @@ export class MermaidExportService {
   /**
    * Check if a diagram needs GitHub-compatible conversion
    * @param {HTMLElement} diagramElement - The diagram element
+   * @param {string} diagramSource - Optional diagram source code
    * @returns {boolean} - True if conversion is needed
    */
-  static needsGitHubConversion(diagramElement) {
-    const metadata = this.extractDiagramMetadata(diagramElement);
-    return metadata.hasAdvancedFeatures;
+  static needsGitHubConversion(diagramElement, diagramSource = null) {
+    // Try using provided source first, then extract from element
+    const source = diagramSource || this.extractDiagramSource(diagramElement);
+    return this.hasAdvancedFeatures(source || diagramElement);
   }
 
   /**
