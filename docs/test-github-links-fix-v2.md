@@ -10,8 +10,9 @@ architecture-beta
     
     service db(database)[Database] in api
     service cache(disk)[Cache] in api
-    
+    service myservice(logos:100tb)[My Service]
     db:L -- R:cache
+    db:R --> L:myservice
 ```
 
 ## Custom Icon Diagram
