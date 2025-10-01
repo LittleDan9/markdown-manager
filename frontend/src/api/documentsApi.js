@@ -550,6 +550,34 @@ class DocumentsApi extends Api {
     const res = await this.apiCall('/documents/git/settings', 'POST', { settings });
     return res.data;
   }
+
+  /**
+   * Save document to GitHub with automatic diagram conversion
+   * @param {number} documentId - Document ID to save
+   * @param {Object} options - Save options
+   * @param {number} options.repository_id - GitHub repository ID
+   * @param {string} options.file_path - Path within repository for the file
+   * @param {string} options.commit_message - Commit message for the save operation
+   * @param {string} [options.branch="main"] - Target branch for the commit
+   * @param {boolean} [options.create_branch=false] - Create branch if it doesn't exist
+   * @param {string} [options.base_branch] - Base branch for new branch creation
+   * @param {boolean} [options.auto_convert_diagrams] - Override user settings for diagram conversion
+   * @returns {Promise<Object>} - Save result with conversion details
+   */
+  async saveToGitHubWithDiagrams(documentId, options = {}) {
+    const payload = {
+      repository_id: options.repository_id,
+      file_path: options.file_path,
+      commit_message: options.commit_message,
+      branch: options.branch || "main",
+      create_branch: options.create_branch || false,
+      base_branch: options.base_branch,
+      auto_convert_diagrams: options.auto_convert_diagrams
+    };
+
+    const res = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', payload);
+    return res.data;
+  }
 }
 
 export default new DocumentsApi();

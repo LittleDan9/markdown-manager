@@ -179,130 +179,597 @@ Phase 3 has established the UI foundation for Phase 4 implementation:
 - CSS framework supports responsive and accessible design
 - Component architecture is ready for settings integration
 
-## Phase 4: Renderer Enhancement (📋 NEXT)
+## Phase 4: GitHub Settings Integration (✅ COMPLETED)
 
-**Phase 4 builds on the completed diagram controls to add settings integration and GitHub workflow preparation:**
+**Phase 4: GitHub Settings Integration** has been successfully completed with comprehensive backend and frontend implementation:
 
-### Phase 4 Goals
-1. **GitHub Integration Settings**: User preferences for auto-conversion
-2. **Settings Panel Integration**: Add diagram settings to main settings
-3. **Settings Persistence**: Store user preferences for diagram export
-4. **Workflow Preparation**: Prepare for Phase 5 backend integration
+### ✅ Phase 4 Goals Achieved
+1. ✅ **GitHub Integration Settings**: User preferences for auto-conversion implemented
+2. ✅ **Settings Panel Integration**: Settings tab added to GitHub modal
+3. ✅ **Settings Persistence**: Full database model and API persistence implemented
+4. ✅ **Workflow Preparation**: Foundation complete for Phase 5 backend integration
 
-### Phase 4 Implementation Requirements
-Based on completed Phase 3, the following components need implementation:
+### ✅ Backend Implementation Complete
+- **GitHubSettings Database Model**: `backend/app/models/github_settings.py`
+  - Complete model with user relationships and diagram export preferences
+  - Fields: `auto_convert_diagrams`, `diagram_format`, `fallback_to_standard`, `auto_sync_enabled`, etc.
+  - Foreign key relationships to User and GitHubAccount models
+- **Alembic Migration**: `backend/migrations/versions/25784be2625f_add_github_settings_table.py`
+  - Successfully applied migration for github_settings table
+  - Proper indexes and constraints implemented
+- **CRUD Operations**: `backend/app/crud/github_settings.py`
+  - Complete CRUD with `create_user_settings`, `get_by_user_id`, `update_settings`
+  - Default settings handling with auto-creation
+  - Proper error handling and validation
+- **API Endpoints**: `backend/app/routers/github_settings.py`
+  - RESTful endpoints at `/api/github/settings/`
+  - GET, POST, PUT, PATCH, DELETE operations implemented
+  - JWT authentication integration
+  - Proper HTTP status codes and error responses
+- **Pydantic Schemas**: `backend/app/schemas/github_settings.py`
+  - `GitHubSettingsCreate`, `GitHubSettingsUpdate`, `GitHubSettingsResponse`
+  - Proper validation and default values
+  - DateTime handling for created_at/updated_at fields
 
-#### 1. ✅ MermaidExportService (COMPLETED)
-**Location**: `frontend/src/services/rendering/MermaidExportService.js`
-**Status**: Fully implemented in Phase 3
-**Key Methods Implemented**:
-- `exportAsSVG()` - Export diagrams as SVG using export service
-- `exportAsPNG()` - Export diagrams as PNG using export service
-- `needsGitHubConversion()` - Detect advanced Mermaid features
-- `generateFilename()` - Generate consistent filenames
-- `extractDiagramMetadata()` - Extract diagram information
+### ✅ Frontend Implementation Complete
+- **GitHubSettingsProvider**: `frontend/src/contexts/GitHubSettingsProvider.jsx`
+  - React context for settings state management
+  - `loadSettings`, `updateSettings`, `getOrCreateSettings` methods
+  - Default settings fallback and error handling
+  - Integration with API client
+- **GitHubSettingsTab Component**: `frontend/src/components/github/tabs/GitHubSettingsTab.jsx`
+  - Complete form UI with diagram export preferences
+  - Auto-convert toggle, format dropdown, sync settings
+  - Real-time save functionality with change detection
+  - Responsive design with Bootstrap 5.3 styling
+  - Error handling and user notifications
+- **GitHub Modal Integration**: `frontend/src/components/github/modals/GitHubModal.jsx`
+  - Settings tab added as second tab (after Accounts, before Repositories)
+  - Proper tab navigation and state management
+  - Settings tab always visible regardless of account status
+- **API Integration**: `frontend/src/api/githubSettingsApi.js`
+  - Complete API client extending base Api class
+  - Methods: `getSettings`, `createSettings`, `updateSettings`, `patchSettings`
+  - Proper error handling and response validation
+- **Provider Integration**: Settings provider integrated into AppProviders chain
 
-#### 2. ✅ DiagramControls Component (COMPLETED)
-**Location**: `frontend/src/components/renderer/DiagramControls.jsx`
-**Status**: Fully implemented in Phase 3
-**Features Implemented**:
-- Overlay controls with hover interaction
-- Export dropdown (SVG/PNG options)
-- Fullscreen button integration
-- GitHub compatibility indicators
-- Context provider integration
+### ✅ CSS and Styling Complete
+- **GitHub Modal Styles**: `frontend/src/styles/modals/_github.scss`
+  - Proper modal height constraints and flexbox layout
+  - Tab content scrolling within card body
+  - Custom scrollbar styling for better visibility
+  - Responsive design with dark mode support
+  - Fixed header, scrollable body pattern implemented
 
-#### 3. ✅ DiagramFullscreenModal Component (COMPLETED)
-**Location**: `frontend/src/components/renderer/DiagramFullscreenModal.jsx`
-**Status**: Fully implemented in Phase 3
-**Features Implemented**:
-- Modal-based fullscreen display
-- Integrated export controls
-- SVG content rendering
-- Responsive design with dark mode support
+### ✅ Infrastructure Integration Complete
+- **Database**: PostgreSQL github_settings table with proper relationships
+- **Authentication**: JWT Bearer token security implemented and tested
+- **API Testing**: All endpoints verified working with proper authentication
+- **Frontend Compilation**: All components successfully integrated and compiling
+- **Docker Integration**: Full hot-reload development environment working
 
-#### 4. ✅ CSS Styling System (COMPLETED)
-**Location**: `frontend/src/styles/components/_diagram-controls.scss`
-**Status**: Fully implemented in Phase 3
-**Features Implemented**:
-- Hover-based control visibility
-- Responsive design for all screen sizes
-- Dark mode support
-- Print-friendly styles
+### ✅ Verified Functionality
+All Phase 4 features tested and confirmed working:
+- **API Endpoints**: CRUD operations tested with curl and authentication ✅
+- **Settings Persistence**: Database storage and retrieval working ✅
+- **Frontend UI**: Settings tab functional with form controls ✅
+- **Modal Integration**: Settings tab properly integrated in GitHub modal ✅
+- **Scrolling**: Card body scrolling working with visible scrollbar ✅
+- **Responsive Design**: Layout working across different screen sizes ✅
+- **Error Handling**: Proper validation and user feedback implemented ✅
 
-#### 5. ✅ Renderer Integration (COMPLETED)
-**Location**: `frontend/src/components/renderer/Renderer.jsx`
-**Status**: Enhanced in Phase 3
-**Features Implemented**:
-- Automatic diagram controls attachment via ReactDOM portals
-- Provider context wrapping for portal components
-- Cleanup functionality for memory management
+### 🎯 Phase 4 Achievement Summary
+**COMPLETE** - Full settings infrastructure implemented with:
+- ✅ Database model and migrations
+- ✅ Backend API with authentication
+- ✅ Frontend UI components and state management
+- ✅ Modal integration with proper UX
+- ✅ Responsive styling and accessibility
+- ✅ Error handling and validation
+- ✅ Hot-reload development environment
 
-### Phase 4 Required Components
+### 🔧 Ready for Phase 5: Backend Conversion Service
+Phase 4 has established the complete foundation for Phase 5 implementation:
+- ✅ **Settings Infrastructure**: User preferences stored and accessible via API
+- ✅ **Export Service**: Diagram rendering capabilities fully functional
+- ✅ **Frontend Components**: UI ready for conversion workflow integration
+- ✅ **Authentication**: Security and access control implemented
+- ✅ **Database Schema**: All required models and relationships in place
 
-#### 📋 GitHubIntegrationSettings Component (NEW - Phase 4)
-**Purpose**: User settings for auto-conversion preferences
-**Location**: `frontend/src/components/settings/GitHubIntegrationSettings.jsx`
+## Phase 5: Backend Conversion Service (📋 NEXT PRIORITY)
 
-```jsx
-function GitHubIntegrationSettings() {
-  const { settings, updateSettings } = useSettings();
+**Phase 5 builds on the completed settings infrastructure to implement the core diagram conversion logic:**
 
-  return (
-    <div className="github-integration-settings">
-      <Form.Check
-        type="switch"
-        id="auto-convert-diagrams"
-        label="Auto-convert advanced diagrams for GitHub compatibility"
-        checked={settings.github?.autoConvertDiagrams || false}
-        onChange={(e) => updateSettings({
-          github: {
-            ...settings.github,
-            autoConvertDiagrams: e.target.checked
-          }
-        })}
-      />
+### 🎯 Phase 5 Goals
+1. **GitHubDiagramConversionService**: Server-side logic for detecting and converting advanced Mermaid diagrams
+2. **Integration with Export Service**: Use existing export service to render diagrams as images
+3. **GitHub-Compatible Markdown**: Generate markdown with image references and collapsible source
+4. **Workflow Integration**: Connect user settings to actual conversion process
 
-      <Form.Group className="mt-3">
-        <Form.Label>Diagram Export Format</Form.Label>
-        <Form.Select
-          value={settings.github?.diagramFormat || 'svg'}
-          onChange={(e) => updateSettings({
-            github: {
-              ...settings.github,
-              diagramFormat: e.target.value
-            }
-          })}
-        >
-          <option value="svg">SVG (Vector, smaller files)</option>
-          <option value="png">PNG (Raster, better compatibility)</option>
-        </Form.Select>
-      </Form.Group>
-    </div>
-  );
+### 📋 Phase 5 Implementation Requirements
+
+#### 1. **GitHubDiagramConversionService** (NEW - HIGH PRIORITY)
+**Location**: `backend/app/services/github/conversion.py`
+**Purpose**: Core service for detecting and converting advanced Mermaid diagrams
+
+```python
+from typing import Dict, List, Tuple, Optional
+import re
+import hashlib
+import httpx
+import base64
+from pathlib import Path
+
+class GitHubDiagramConversionService:
+    """Service for converting advanced Mermaid diagrams for GitHub compatibility."""
+
+    def __init__(self):
+        # Patterns to detect advanced Mermaid features incompatible with GitHub
+        self.advanced_patterns = [
+            r'architecture-beta',                              # Architecture diagrams
+            r'service\s+\w+\([^)]*:[^)]*\)',                  # Services with icons
+            r'group\s+\w+\([^)]*:[^)]*\)',                    # Groups with icons
+            r'\b(awssvg|awsgrp|logos|devicon|flat-color-icons):', # Icon references
+            r'junction\s+\w+',                                # Architecture junctions
+            r'database\s+\w+\([^)]*:[^)]*\)',                # Databases with icons
+        ]
+
+        # Export service configuration
+        self.export_service_url = "http://export-service:8001"
+
+    def has_advanced_features(self, diagram_source: str) -> bool:
+        """Check if diagram uses advanced features incompatible with GitHub."""
+        return any(re.search(pattern, diagram_source, re.IGNORECASE | re.MULTILINE)
+                  for pattern in self.advanced_patterns)
+
+    def extract_mermaid_blocks(self, content: str) -> List[Dict]:
+        """Extract Mermaid code blocks from markdown content with metadata."""
+        pattern = r'```mermaid\n(.*?)\n```'
+        blocks = []
+
+        for match in re.finditer(pattern, content, re.DOTALL):
+            diagram_source = match.group(1).strip()
+            source_hash = hashlib.md5(diagram_source.encode()).hexdigest()[:8]
+
+            blocks.append({
+                'original': match.group(0),
+                'code': diagram_source,
+                'hash': source_hash,
+                'start': match.start(),
+                'end': match.end(),
+                'needs_conversion': self.has_advanced_features(diagram_source),
+                'line_number': content[:match.start()].count('\n') + 1
+            })
+
+        return blocks
+
+    def create_github_compatible_block(self, image_path: str, original_code: str,
+                                     diagram_hash: str) -> str:
+        """Create GitHub-compatible markdown with image and collapsible source."""
+        return f"""![Diagram {diagram_hash}]({image_path})
+
+<details>
+<summary>📊 View diagram source (best viewed in Markdown Manager)</summary>
+
+```mermaid
+{original_code}
+```
+</details>"""
+
+    async def render_diagram_via_export_service(self, diagram_source: str,
+                                               format: str = 'svg',
+                                               options: Dict = None) -> str:
+        """Render diagram using export service and return as base64."""
+        if options is None:
+            options = {'width': 1200, 'height': 800, 'is_dark_mode': False}
+
+        # Create minimal HTML for the diagram
+        diagram_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+            <script src="https://cdn.jsdelivr.net/npm/mermaid/dist/mermaid.min.js"></script>
+        </head>
+        <body>
+            <div class="mermaid">
+{diagram_source}
+            </div>
+            <script>
+                mermaid.initialize({{ startOnLoad: true }});
+            </script>
+        </body>
+        </html>
+        """
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            try:
+                if format == 'svg':
+                    response = await client.post(
+                        f"{self.export_service_url}/diagram/svg",
+                        json={
+                            "html_content": diagram_html,
+                            "format": "svg",
+                            **options
+                        }
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    return base64.b64encode(result['svg_content'].encode()).decode()
+
+                else:  # PNG format
+                    response = await client.post(
+                        f"{self.export_service_url}/diagram/png",
+                        json={
+                            "html_content": diagram_html,
+                            "format": "png",
+                            **options
+                        }
+                    )
+                    response.raise_for_status()
+                    result = response.json()
+                    return result['image_data']  # Already base64 encoded
+
+            except httpx.HTTPError as e:
+                raise RuntimeError(f"Failed to render diagram via export service: {e}")
+            except Exception as e:
+                raise RuntimeError(f"Unexpected error rendering diagram: {e}")
+
+    async def convert_content_for_github(
+        self,
+        content: str,
+        format: str = 'svg',
+        settings: Dict = None
+    ) -> Tuple[str, List[Dict]]:
+        """
+        Convert markdown content for GitHub compatibility.
+
+        Args:
+            content: Original markdown content
+            format: Export format ('svg' or 'png')
+            settings: User GitHub settings (from Phase 4 implementation)
+
+        Returns:
+            Tuple of (converted_content, image_files_to_upload)
+        """
+        if settings is None:
+            settings = {'auto_convert_diagrams': True, 'diagram_format': format}
+
+        # Only convert if auto-conversion is enabled
+        if not settings.get('auto_convert_diagrams', False):
+            return content, []
+
+        mermaid_blocks = self.extract_mermaid_blocks(content)
+        image_files = []
+        converted_content = content
+
+        # Process blocks in reverse order to maintain string positions
+        for block in reversed(mermaid_blocks):
+            if block['needs_conversion']:
+                try:
+                    # Generate image via export service
+                    image_data = await self.render_diagram_via_export_service(
+                        block['code'],
+                        settings.get('diagram_format', format)
+                    )
+
+                    # Create filename and path
+                    filename = f"diagram-{block['hash']}.{settings.get('diagram_format', format)}"
+                    image_path = f"diagrams/{filename}"
+
+                    # Replace in content
+                    replacement = self.create_github_compatible_block(
+                        image_path, block['code'], block['hash']
+                    )
+
+                    converted_content = (
+                        converted_content[:block['start']] +
+                        replacement +
+                        converted_content[block['end']:]
+                    )
+
+                    # Add to upload queue
+                    image_files.append({
+                        'path': image_path,
+                        'filename': filename,
+                        'diagram_source': block['code'],
+                        'format': settings.get('diagram_format', format),
+                        'image_data': image_data,
+                        'hash': block['hash'],
+                        'original_line': block['line_number']
+                    })
+
+                except Exception as e:
+                    # Log error but continue with original diagram
+                    print(f"Failed to convert diagram {block['hash']}: {e}")
+                    continue
+
+        return converted_content, image_files
+```
+
+#### 2. **Enhanced GitHub API Service** (MODIFY EXISTING)
+**Location**: `backend/app/services/github/api.py`
+**Purpose**: Add diagram upload capabilities to existing GitHub service
+
+```python
+# Add this method to existing GitHubApiService class
+
+async def commit_file_with_diagrams(
+    self,
+    access_token: str,
+    owner: str,
+    repo: str,
+    file_path: str,
+    content: str,
+    message: str,
+    branch: str = 'main',
+    sha: Optional[str] = None,
+    user_settings: Optional[Dict] = None
+) -> Dict[str, Any]:
+    """Commit file with optional diagram conversion based on user settings."""
+
+    if user_settings and user_settings.get('auto_convert_diagrams', False):
+        from .conversion import GitHubDiagramConversionService
+
+        converter = GitHubDiagramConversionService()
+
+        try:
+            # Convert content and get image files to upload
+            converted_content, image_files = await converter.convert_content_for_github(
+                content,
+                user_settings.get('diagram_format', 'svg'),
+                user_settings
+            )
+
+            # Upload diagram images first
+            uploaded_files = []
+            for image_file in image_files:
+                try:
+                    upload_result = await self.create_or_update_file(
+                        access_token, owner, repo,
+                        image_file['path'],
+                        image_file['image_data'],
+                        f"Add diagram: {image_file['filename']}",
+                        branch=branch
+                    )
+                    uploaded_files.append({
+                        'path': image_file['path'],
+                        'filename': image_file['filename'],
+                        'upload_result': upload_result
+                    })
+                except Exception as e:
+                    # Log error but continue
+                    print(f"Failed to upload diagram {image_file['filename']}: {e}")
+                    continue
+
+            # Use converted content for main file
+            content = converted_content
+
+            # Add upload summary to commit message
+            if uploaded_files:
+                diagram_count = len(uploaded_files)
+                message = f"{message}\n\n📊 Auto-converted {diagram_count} diagram(s) for GitHub compatibility"
+
+        except Exception as e:
+            # Log error but proceed with original content
+            print(f"Diagram conversion failed, proceeding with original content: {e}")
+
+    # Proceed with normal file commit
+    return await self.create_or_update_file(
+        access_token, owner, repo, file_path, content, message, sha, branch
+    )
+```
+
+#### 3. **Document API Enhancement** (MODIFY EXISTING)
+**Location**: `backend/app/routers/documents.py`
+**Purpose**: Add GitHub save endpoint with diagram conversion
+
+```python
+# Add this endpoint to existing documents router
+
+@router.post("/{document_id}/github/save")
+async def save_document_to_github(
+    document_id: int,
+    github_save_request: GitHubSaveRequest,  # New Pydantic model needed
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Save document to GitHub with optional diagram conversion."""
+
+    # Get document
+    document = await documents_crud.get_by_id(db, document_id, current_user.id)
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Get user's GitHub settings (from Phase 4 implementation)
+    from app.crud.github_settings import github_settings_crud
+    user_settings = await github_settings_crud.get_by_user_id(db, current_user.id)
+    settings_dict = None
+    if user_settings:
+        settings_dict = {
+            'auto_convert_diagrams': user_settings.auto_convert_diagrams,
+            'diagram_format': user_settings.diagram_format,
+            'fallback_to_standard': user_settings.fallback_to_standard
+        }
+
+    # Get GitHub API service
+    github_service = GitHubApiService()
+
+    try:
+        # Commit with diagram conversion
+        result = await github_service.commit_file_with_diagrams(
+            access_token=github_save_request.access_token,
+            owner=github_save_request.owner,
+            repo=github_save_request.repo,
+            file_path=github_save_request.file_path,
+            content=document.content,
+            message=github_save_request.commit_message,
+            branch=github_save_request.branch,
+            sha=github_save_request.sha,
+            user_settings=settings_dict
+        )
+
+        return {
+            "message": "Document saved to GitHub successfully",
+            "github_result": result,
+            "diagrams_converted": settings_dict.get('auto_convert_diagrams', False) if settings_dict else False
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to save to GitHub: {str(e)}"
+        )
+```
+
+#### 4. **New Pydantic Schemas** (NEW FILE)
+**Location**: `backend/app/schemas/github_save.py`
+
+```python
+from pydantic import BaseModel, Field
+from typing import Optional
+
+class GitHubSaveRequest(BaseModel):
+    """Request model for saving documents to GitHub."""
+    access_token: str = Field(..., description="GitHub access token")
+    owner: str = Field(..., description="Repository owner")
+    repo: str = Field(..., description="Repository name")
+    file_path: str = Field(..., description="File path in repository")
+    commit_message: str = Field(..., description="Commit message")
+    branch: str = Field(default="main", description="Target branch")
+    sha: Optional[str] = Field(None, description="File SHA for updates")
+
+class GitHubSaveResponse(BaseModel):
+    """Response model for GitHub save operations."""
+    message: str
+    github_result: dict
+    diagrams_converted: bool
+    converted_diagrams: Optional[list] = None
+```
+
+### 🔧 Frontend Integration Requirements (Phase 5)
+
+#### 1. **Enhanced Document API Client** (MODIFY EXISTING)
+**Location**: `frontend/src/api/documentsApi.js`
+
+```javascript
+// Add this method to existing DocumentsApi class
+
+async saveToGitHubWithDiagrams(documentId, options = {}) {
+  const {
+    accessToken,
+    owner,
+    repo,
+    filePath,
+    commitMessage,
+    branch = 'main',
+    sha = null
+  } = options;
+
+  const response = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', {
+    access_token: accessToken,
+    owner,
+    repo,
+    file_path: filePath,
+    commit_message: commitMessage,
+    branch,
+    sha
+  });
+
+  return response.data;
 }
 ```
 
-#### 📋 Enhanced Settings Integration (NEW - Phase 4)
-**Purpose**: Integrate GitHub diagram settings into main settings panel
-**Modifications Required**:
-1. Update main settings component to include GitHubIntegrationSettings
-2. Add settings schema for GitHub diagram preferences
-3. Implement settings persistence and retrieval
+#### 2. **GitHub Save Modal Enhancement** (MODIFY EXISTING)
+**Location**: `frontend/src/components/github/modals/GitHubSaveModal.jsx`
+**Purpose**: Update existing modal to use new API with diagram conversion
 
-### Backend Components for Phase 5 Preparation
+```jsx
+// Update existing handleSave method
 
-#### 📋 Settings Schema Updates (Phase 4 Backend)
-**Purpose**: Backend support for GitHub diagram settings
-**Location**: `backend/app/schemas/settings.py`
+const handleSave = async () => {
+  try {
+    setSaving(true);
 
-```python
-class GitHubSettings(BaseModel):
-    """GitHub integration settings."""
-    auto_convert_diagrams: bool = Field(False, description="Auto-convert advanced diagrams for GitHub")
-    diagram_format: str = Field('svg', description="Export format for diagrams", regex='^(svg|png)$')
-    fallback_to_standard: bool = Field(True, description="Convert architecture-beta to standard flowcharts")
+    const result = await documentsApi.saveToGitHubWithDiagrams(document.id, {
+      accessToken: selectedAccount.access_token,
+      owner: selectedRepository.owner.login,
+      repo: selectedRepository.name,
+      filePath: `${document.title}.md`,
+      commitMessage,
+      branch: selectedBranch,
+      sha: existingFile?.sha
+    });
+
+    // Show success with diagram conversion info
+    if (result.diagrams_converted) {
+      addNotification(
+        `Document saved to GitHub with ${result.converted_diagrams?.length || 0} diagrams converted`,
+        'success'
+      );
+    } else {
+      addNotification('Document saved to GitHub successfully', 'success');
+    }
+
+    onSaveSuccess(result);
+
+  } catch (error) {
+    console.error('Failed to save to GitHub:', error);
+    addNotification('Failed to save to GitHub', 'error');
+  } finally {
+    setSaving(false);
+  }
+};
 ```
+
+### 🧪 Phase 5 Testing Strategy
+
+#### **Unit Tests** (NEW FILES)
+- `test_github_conversion_service.py`: Test diagram detection and conversion logic
+- `test_github_api_enhancement.py`: Test enhanced GitHub API with diagram upload
+- `test_document_github_save.py`: Test document save endpoint with conversion
+
+#### **Integration Tests** (NEW FILES)
+- Test complete save-to-GitHub workflow with diagram conversion
+- Test settings integration affecting conversion behavior
+- Test error handling for failed diagram conversion
+- Test export service integration
+
+#### **End-to-End Tests** (NEW FILES)
+- User creates document with architecture-beta diagrams
+- User saves to GitHub with auto-conversion enabled
+- Verify GitHub repository contains converted images
+- Verify markdown shows images with collapsible source
+
+### 🚀 Phase 5 Implementation Order
+
+1. **Create GitHubDiagramConversionService** (Day 1)
+2. **Enhance GitHub API Service** (Day 1-2)
+3. **Add Document GitHub Save Endpoint** (Day 2)
+4. **Create Pydantic Schemas** (Day 2)
+5. **Update Frontend API Client** (Day 3)
+6. **Enhance GitHub Save Modal** (Day 3)
+7. **Write Unit Tests** (Day 4)
+8. **Integration Testing** (Day 4-5)
+9. **End-to-End Testing** (Day 5)
+
+### ⚠️ Critical Dependencies for Phase 5
+
+1. **Phase 4 Settings**: User settings must be accessible via API ✅ COMPLETE
+2. **Export Service**: Diagram rendering endpoints must be functional ✅ COMPLETE
+3. **GitHub API**: Existing GitHub integration must work ✅ COMPLETE
+4. **Authentication**: JWT token system must be working ✅ COMPLETE
+5. **Database**: All models and relationships must be in place ✅ COMPLETE
+
+### 🎯 Phase 5 Success Criteria
+
+- [📋] GitHubDiagramConversionService detects advanced diagrams correctly
+- [📋] Export service integration renders diagrams as base64 images
+- [📋] GitHub API uploads diagram images to repositories
+- [📋] Document save endpoint converts content based on user settings
+- [📋] Frontend modal shows conversion status and results
+- [📋] End-to-end workflow: create → save → verify on GitHub
+- [📋] Error handling gracefully degrades to original content
+- [📋] Performance acceptable for documents with multiple diagrams
 
 ### Export Service Enhancement (✅ COMPLETED IN PHASE 2)
 
@@ -985,30 +1452,63 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
 6. ✅ Integrate with theme and notification providers
 7. ✅ Test diagram controls, export functionality, and fullscreen modal
 
-### Phase 4: GitHub Settings Integration (📋 CURRENT)
-1. 📋 Create `GitHubIntegrationSettings.jsx` component
-2. 📋 Update backend settings schema for GitHub diagram preferences
-3. 📋 Integrate settings into main settings panel
-4. 📋 Test settings persistence and retrieval
-5. 📋 Prepare workflow for Phase 5 backend integration
+## Implementation Workflow
 
-### Phase 5: Backend Conversion Service (📋 NEXT)
-1. Create `GitHubDiagramConversionService` class
-2. Implement diagram detection and conversion logic
-3. Add GitHub-compatible markdown generation
-4. Integrate with export service for image generation
+### Phase 1: Export Service Enhancement (✅ COMPLETED)
+1. ✅ Add diagram export endpoints to export service (`/diagram/svg`, `/diagram/png`)
+2. ✅ Enhance CSS service with diagram-specific styling
+3. ✅ Test export service diagram export functionality
+4. ✅ Validate SVG and PNG output quality
 
-### Phase 6: Frontend-Backend Integration
-1. Update `GitHubSaveModal.jsx` with conversion options
-2. Enhance document API with diagram conversion
-3. Implement diagram data extraction from rendered preview
-4. Test end-to-end conversion workflow
+### Phase 2: Frontend Export Service (✅ COMPLETED)
+1. ✅ Create `exportServiceApi.js` client for export service communication
+2. ✅ Update `documentsApi.js` with diagram export methods
+3. ✅ Establish nginx routing for `/api/export/` endpoints
+4. ✅ Verify all endpoints working through nginx proxy
 
-### Phase 7: GitHub API Enhancement
-1. Update GitHub API service with diagram upload
-2. Implement batch file upload for diagrams
-3. Add proper error handling and rollback
-4. Test GitHub repository integration
+### Phase 3: Settings Integration & Diagram Controls (✅ COMPLETED)
+1. ✅ Create `MermaidExportService.js` to use export service APIs
+2. ✅ Implement `DiagramControls.jsx` component with overlay controls
+3. ✅ Create `DiagramFullscreenModal.jsx` for enhanced viewing
+4. ✅ Enhance `Renderer.jsx` to add diagram controls via ReactDOM portals
+5. ✅ Add SCSS styles for diagram controls and fullscreen modal
+6. ✅ Integrate with theme and notification providers
+7. ✅ Test diagram controls, export functionality, and fullscreen modal
+
+### Phase 4: GitHub Settings Integration (✅ COMPLETED)
+1. ✅ Create GitHubSettings database model and migration
+2. ✅ Implement CRUD operations and API endpoints
+3. ✅ Create GitHubSettingsProvider React context
+4. ✅ Implement GitHubSettingsTab UI component
+5. ✅ Integrate settings tab into GitHub modal
+6. ✅ Add responsive CSS and scrolling fix
+7. ✅ Test settings persistence and API functionality
+8. ✅ Verify authentication and error handling
+
+### Phase 5: Backend Conversion Service (📋 CURRENT PRIORITY)
+1. 📋 Create `GitHubDiagramConversionService` class
+2. 📋 Implement diagram detection and conversion logic
+3. 📋 Add GitHub-compatible markdown generation
+4. 📋 Integrate with export service for image generation
+5. 📋 Enhance GitHub API service with diagram upload
+6. 📋 Add document save endpoint with conversion
+7. 📋 Create required Pydantic schemas
+8. 📋 Write comprehensive unit tests
+9. 📋 Perform integration testing
+
+### Phase 6: Frontend-Backend Integration (📋 NEXT)
+1. 📋 Update `documentsApi.js` with new GitHub save method
+2. 📋 Enhance `GitHubSaveModal.jsx` with conversion status
+3. 📋 Add conversion progress indicators
+4. 📋 Implement error handling and user feedback
+5. 📋 Test end-to-end workflow
+
+### Phase 7: GitHub API Enhancement & Testing (📋 FINAL)
+1. 📋 Complete GitHub repository integration testing
+2. 📋 Implement batch file upload optimization
+3. 📋 Add comprehensive error handling and rollback
+4. 📋 Perform end-to-end testing with real GitHub repositories
+5. 📋 Validate diagram conversion quality and GitHub compatibility
 
 ## Testing Strategy
 
@@ -1087,3 +1587,187 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
 - Testing procedures and examples
 
 This implementation provides a comprehensive solution for GitHub-compatible diagram export while maintaining the full power of Markdown Manager's advanced Mermaid features for local use.
+
+---
+
+## 🎯 CRITICAL INFORMATION FOR PHASE 5 IMPLEMENTATION
+
+### 📋 Current Project Status (September 30, 2025)
+- **Branch**: `github-mermaid`
+- **Last Commit**: `efd6dc6` - "feat: Implement Phase 4 GitHub Settings Integration for Diagram Export"
+- **Files Changed**: 37 files, 3,182+ lines added
+- **Environment**: Docker Compose hybrid development with hot-reload
+- **Status**: All Phase 1-4 components tested and functional
+
+### 🔑 Key Architecture Decisions Made
+
+#### **Backend Architecture**:
+- **FastAPI + SQLAlchemy**: Async patterns with dependency injection
+- **App Factory Pattern**: Both backend and export-service use `create_app()` pattern
+- **Database**: PostgreSQL with Alembic migrations, `github_settings` table implemented
+- **Authentication**: JWT Bearer tokens with proper validation
+- **Service Communication**: HTTP between services using Docker service names
+
+#### **Frontend Architecture**:
+- **React + Bootstrap 5.3**: Component-based with context providers
+- **State Management**: GitHubSettingsProvider for settings, DocumentProvider for documents
+- **Styling**: SCSS modules with responsive design and dark mode support
+- **Export Integration**: exportServiceApi client with nginx routing
+
+#### **Export Service Architecture**:
+- **Playwright + Chromium**: High-quality rendering for diagrams
+- **Endpoints**: `/diagram/svg`, `/diagram/png` with clean RESTful design
+- **CSS Service**: Optimized styling for different export formats
+- **Error Handling**: Comprehensive logging and structured responses
+
+### 🗂️ Key Files & Locations
+
+#### **Phase 4 Completed Files**:
+```
+backend/app/models/github_settings.py          # Database model
+backend/app/crud/github_settings.py            # CRUD operations
+backend/app/routers/github_settings.py         # API endpoints
+backend/app/schemas/github_settings.py         # Pydantic schemas
+backend/migrations/versions/25784be2625f_*.py  # Database migration
+
+frontend/src/contexts/GitHubSettingsProvider.jsx     # React context
+frontend/src/components/github/tabs/GitHubSettingsTab.jsx  # UI component
+frontend/src/api/githubSettingsApi.js                # API client
+frontend/src/styles/modals/_github.scss              # Responsive styling
+```
+
+#### **Export Service Files** (Phase 2):
+```
+export-service/app/app_factory.py              # App factory pattern
+export-service/app/routers/diagram.py          # SVG/PNG endpoints
+export-service/app/services/css_service.py     # Enhanced CSS service
+```
+
+#### **Diagram Controls Files** (Phase 3):
+```
+frontend/src/services/rendering/MermaidExportService.js  # Export logic
+frontend/src/components/renderer/DiagramControls.jsx    # Overlay controls
+frontend/src/components/renderer/DiagramFullscreenModal.jsx  # Modal viewer
+frontend/src/styles/components/_diagram-controls.scss   # Control styling
+```
+
+### 🔧 Development Environment Setup
+
+#### **Required Services Running**:
+```bash
+# Backend + Database + Nginx
+docker compose up -d backend db nginx
+
+# Frontend (separate terminal for logs)
+docker compose up frontend
+
+# Verify services
+curl http://localhost:80/api/health                    # Backend health
+curl http://localhost:80/api/export/health            # Export service health
+curl http://localhost:80/                             # Frontend accessible
+```
+
+#### **Database State**:
+- **Migration Applied**: `25784be2625f_add_github_settings_table.py`
+- **Tables**: `github_settings` with proper relationships to `users`
+- **Test Data**: Settings can be created via API endpoints
+
+#### **Authentication Testing**:
+```bash
+# Get JWT token (test user: dan@littledan.com)
+TOKEN="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJkYW5AbGl0dGxlZGFuLmNvbSIsImV4cCI6MTc1OTI1MDMwOX0.kgDzICxlVLCgoVzyvW1WyPnDK7pmEwbZJv3PAqprVqI"
+
+# Test settings API
+curl -H "Authorization: Bearer $TOKEN" http://localhost:80/api/github/settings/
+```
+
+### 🎯 Phase 5 Implementation Priorities
+
+#### **Day 1**: Core Service Implementation
+1. **Create `GitHubDiagramConversionService`** - Pattern detection and content processing
+2. **Implement pattern detection** - Architecture-beta, custom icons, advanced features
+3. **Add export service integration** - HTTP calls to render diagrams as images
+
+#### **Day 2**: GitHub Integration
+1. **Enhance GitHub API service** - Add diagram upload capabilities
+2. **Create document save endpoint** - Integrate conversion with user settings
+3. **Add Pydantic schemas** - Request/response models for GitHub save
+
+#### **Day 3**: Frontend Integration
+1. **Update documents API client** - New GitHub save method
+2. **Enhance GitHub save modal** - Show conversion status and progress
+3. **Add user feedback** - Notifications for conversion success/failure
+
+#### **Day 4-5**: Testing & Validation
+1. **Unit tests** - Conversion service, API endpoints, frontend components
+2. **Integration tests** - End-to-end workflow with real GitHub repositories
+3. **Performance testing** - Multiple diagrams, large documents
+
+### ⚠️ Critical Implementation Notes
+
+#### **Export Service Integration**:
+- **Service URL**: `http://export-service:8001` (Docker internal)
+- **Endpoints**: `/diagram/svg`, `/diagram/png` (already implemented)
+- **Authentication**: No auth required for internal service calls
+- **Timeout**: Use 60+ second timeout for complex diagrams
+
+#### **GitHub API Patterns**:
+- **Existing Service**: `backend/app/services/github/api.py` has base GitHub functionality
+- **File Upload**: Use `create_or_update_file` method for images
+- **Base64 Encoding**: All file content must be base64 encoded
+- **Batch Operations**: Upload diagrams first, then main file
+
+#### **User Settings Integration**:
+- **Settings Access**: Use `github_settings_crud.get_by_user_id(db, user_id)`
+- **Default Behavior**: If no settings, assume `auto_convert_diagrams: False`
+- **Settings Fields**: `auto_convert_diagrams`, `diagram_format`, `fallback_to_standard`
+
+#### **Error Handling Strategy**:
+- **Graceful Degradation**: If conversion fails, save original content
+- **User Feedback**: Clear notifications about conversion status
+- **Logging**: Comprehensive logging for debugging conversion issues
+- **Rollback**: No rollback needed - diagrams are additive to repositories
+
+### 🧪 Testing Strategy for Phase 5
+
+#### **Unit Tests Required**:
+```python
+# backend/tests/test_github_conversion_service.py
+test_pattern_detection()
+test_mermaid_block_extraction()
+test_github_compatible_markdown_generation()
+test_export_service_integration()
+
+# backend/tests/test_document_github_save.py
+test_save_with_conversion_enabled()
+test_save_with_conversion_disabled()
+test_conversion_failure_handling()
+```
+
+#### **Integration Tests Required**:
+- Settings retrieval and application during conversion
+- Export service communication and image generation
+- GitHub API file upload with proper authentication
+- End-to-end document save with diagram conversion
+
+#### **Manual Testing Checklist**:
+- [ ] Create document with architecture-beta diagrams
+- [ ] Enable auto-conversion in GitHub settings
+- [ ] Save document to GitHub repository
+- [ ] Verify images uploaded to `diagrams/` folder
+- [ ] Verify markdown shows images with collapsible source
+- [ ] Test with both SVG and PNG formats
+- [ ] Test error handling when conversion fails
+
+### 🚀 Success Criteria for Phase 5
+
+1. **✅ Service Implementation**: GitHubDiagramConversionService detects and converts advanced diagrams
+2. **✅ Export Integration**: Successfully renders diagrams via export service
+3. **✅ GitHub Upload**: Images uploaded to repository with proper paths
+4. **✅ Content Conversion**: Markdown properly converted with image references
+5. **✅ Settings Integration**: User preferences properly applied during conversion
+6. **✅ Error Handling**: Graceful degradation when conversion fails
+7. **✅ Performance**: Acceptable performance for documents with multiple diagrams
+8. **✅ User Experience**: Clear feedback about conversion status and results
+
+**Target Completion**: Phase 5 backend conversion service fully functional and tested, ready for Phase 6 frontend-backend integration.

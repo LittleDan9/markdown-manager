@@ -528,3 +528,147 @@ class GitHubAPIService(BaseGitHubService):
                 
         except Exception:
             return "unknown"
+
+    async def commit_file_with_diagrams(
+        self,
+        access_token: str,
+        owner: str,
+        repo: str,
+        file_path: str,
+        content: str,
+        message: str,
+        branch: str,
+        diagrams: List[Dict[str, Any]],
+        sha: Optional[str] = None,
+        create_branch: bool = False,
+        base_branch: Optional[str] = None,
+        diagram_path: str = "/.markdown-manager/diagrams/"
+    ) -> Dict[str, Any]:
+        """
+        Commit file changes with associated diagram images to GitHub repository.
+        
+        Args:
+            access_token: GitHub access token
+            owner: Repository owner
+            repo: Repository name
+            file_path: Path to the main file being committed
+            content: File content (already converted)
+            message: Commit message
+            branch: Target branch
+            diagrams: List of diagram conversion objects
+            sha: Current file SHA (for updates)
+            create_branch: Whether to create branch if it doesn't exist
+            base_branch: Base branch for new branch creation
+            diagram_path: Path in repository for diagram images
+            
+        Returns:
+            Dict containing commit information and uploaded diagram details
+        """
+        async with httpx.AsyncClient() as client:
+            headers = {
+                "Authorization": f"token {access_token}",
+                "Accept": "application/vnd.github.v3+json",
+                "User-Agent": "Markdown-Manager/1.0"
+            }
+            
+            uploaded_diagrams = []
+            errors = []
+            
+            try:
+                # Create branch if requested
+                if create_branch and base_branch:
+                    await self._create_branch(client, headers, owner, repo, branch, base_branch)
+                
+                # Upload diagram images first
+                for diagram in diagrams:
+                    try:
+                        if diagram.get('needs_upload', True):
+                            diagram_file_path = f"{diagram_path.rstrip('/')}/{diagram['filename']}"
+                            
+                            # Convert image data to base64 if it's bytes
+                            if isinstance(diagram['image_data'], bytes):
+                                image_content = base64.b64encode(diagram['image_data']).decode('utf-8')
+                            else:
+                                image_content = diagram['image_data']
+                            
+                            # Check if diagram file already exists
+                            existing_sha = await self._get_file_sha(
+                                client, headers, owner, repo, diagram_file_path, branch
+                            )
+                            
+                            # Upload diagram image
+                            upload_result = await self.create_or_update_file(
+                                access_token, owner, repo, diagram_file_path,
+                                image_content, f"Add diagram image: {diagram['filename']}",
+                                existing_sha, branch
+                            )
+                            
+                            # Calculate size
+                            if isinstance(diagram['image_data'], bytes):
+                                size = len(diagram['image_data'])
+                            else:
+                                size = len(diagram['image_data'].encode())
+                            
+                            uploaded_diagrams.append({
+                                'filename': diagram['filename'],
+                                'path': diagram_file_path,
+                                'hash': diagram['hash'],
+                                'format': diagram['image_format'],
+                                'sha': upload_result.get('content', {}).get('sha'),
+                                'size': size
+                            })
+                            
+                    except Exception as e:
+                        error_msg = f"Failed to upload diagram {diagram.get('filename', 'unknown')}: {str(e)}"
+                        errors.append(error_msg)
+                        continue
+                
+                # Commit the main file
+                main_commit = await self.create_or_update_file(
+                    access_token, owner, repo, file_path, content, message, sha, branch
+                )
+                
+                return {
+                    'commit': main_commit,
+                    'uploaded_diagrams': uploaded_diagrams,
+                    'errors': errors,
+                    'success': True,
+                    'diagrams_uploaded': len(uploaded_diagrams),
+                    'total_diagrams': len(diagrams)
+                }
+                
+            except Exception as e:
+                return {
+                    'commit': None,
+                    'uploaded_diagrams': uploaded_diagrams,
+                    'errors': errors + [f"Main commit failed: {str(e)}"],
+                    'success': False,
+                    'diagrams_uploaded': len(uploaded_diagrams),
+                    'total_diagrams': len(diagrams)
+                }
+    
+    async def _get_file_sha(
+        self,
+        client: httpx.AsyncClient,
+        headers: Dict[str, str],
+        owner: str,
+        repo: str,
+        file_path: str,
+        branch: str
+    ) -> Optional[str]:
+        """Get SHA of existing file, return None if file doesn't exist"""
+        try:
+            response = await client.get(
+                f"{self.BASE_URL}/repos/{owner}/{repo}/contents/{file_path}",
+                headers=headers,
+                params={"ref": branch}
+            )
+            
+            if response.status_code == 200:
+                content = response.json()
+                return content.get('sha')
+            else:
+                return None
+                
+        except Exception:
+            return None

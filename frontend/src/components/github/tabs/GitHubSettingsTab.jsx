@@ -165,6 +165,9 @@ export default function GitHubSettingsTab() {
                   <Form.Text className="text-muted">
                     Automatically convert architecture-beta diagrams and custom icons to static images when saving to GitHub.
                     This ensures your diagrams display correctly on GitHub, which doesn't support all Mermaid features.
+                    <br />
+                    <strong>When enabled:</strong> Advanced diagrams will be replaced with image references and the original source 
+                    will be preserved in collapsible details sections (e.g., "📊 View diagram source (click to expand)").
                   </Form.Text>
                 </Form.Group>
 
