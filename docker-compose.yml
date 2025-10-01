@@ -85,6 +85,9 @@ services:
     image: littledan9/markdown-manager-export:latest
     ports:
       - "8001:8001"
+    volumes:
+      - ./export-service/app:/export-service/app
+      - ./export-service/static:/export-service/static
     environment:
       - PYTHONUNBUFFERED=1
     healthcheck:

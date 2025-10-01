@@ -237,20 +237,46 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
 
       // Sync with backend to update localStorage
       try {
+        // Wait a moment for backend to complete metadata updates
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         await syncWithBackend();
-        const updatedDoc = DocumentService.loadDocument(documentId);
-        if (updatedDoc && onDocumentUpdate) {
-          onDocumentUpdate(updatedDoc);
+        
+        // Force reload the document from backend to ensure we have latest metadata
+        if (status?.is_github_document && response.commit_sha) {
+          try {
+            // Get the fresh document data from backend
+            const freshDocumentData = await documentsApi.getDocument(documentId);
+            if (freshDocumentData && onDocumentUpdate) {
+              // Ensure the fresh document has the updated commit SHA
+              console.log('Fresh document GitHub SHA:', freshDocumentData.github_sha);
+              console.log('Expected commit SHA:', response.commit_sha);
+              onDocumentUpdate(freshDocumentData);
+            }
+          } catch (error) {
+            console.error('Failed to reload fresh document data:', error);
+            // Fallback to localStorage version
+            const updatedDoc = DocumentService.loadDocument(documentId);
+            if (updatedDoc && onDocumentUpdate) {
+              onDocumentUpdate(updatedDoc);
+            }
+          }
+        } else {
+          // For local documents, use localStorage version
+          const updatedDoc = DocumentService.loadDocument(documentId);
+          if (updatedDoc && onDocumentUpdate) {
+            onDocumentUpdate(updatedDoc);
+          }
         }
 
-        // Refresh status
+        // Refresh status with a delay to ensure all updates are complete
         setTimeout(() => {
           if (status?.is_github_document) {
             checkStatus(true);
           } else {
             checkLocalGitStatus();
           }
-        }, 500);
+        }, 1000);
       } catch (error) {
         console.error('Failed to sync after commit:', error);
       }

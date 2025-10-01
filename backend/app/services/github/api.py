@@ -250,12 +250,18 @@ class GitHubAPIService(BaseGitHubService):
         content: str,
         message: str,
         sha: Optional[str] = None,
-        branch: str = "main"
+        branch: str = "main",
+        is_binary: bool = False
     ) -> Dict[str, Any]:
         """Create or update a file in the repository."""
         async with httpx.AsyncClient() as client:
-            # Encode content to base64
-            encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+            # Handle binary vs text content encoding
+            if is_binary:
+                # Content is already base64 encoded for binary files
+                encoded_content = content
+            else:
+                # Encode text content to base64
+                encoded_content = base64.b64encode(content.encode("utf-8")).decode("utf-8")
 
             data = {
                 "message": message,
@@ -449,7 +455,7 @@ class GitHubAPIService(BaseGitHubService):
                 "path": file_path,
                 "per_page": min(limit, 100)  # GitHub API max is 100
             }
-            
+
             response = await client.get(
                 f"{self.BASE_URL}/repos/{owner}/{repo}/commits",
                 params=params,
@@ -467,7 +473,7 @@ class GitHubAPIService(BaseGitHubService):
                 )
 
             commits_data = response.json()
-            
+
             # Transform GitHub API response to our format
             commits = []
             for commit in commits_data:
@@ -487,13 +493,13 @@ class GitHubAPIService(BaseGitHubService):
                         "files": commit.get("files", [])
                     }
                 })
-            
+
             return commits
 
     def _format_relative_date(self, iso_date: str) -> str:
         """Format ISO date to relative date string."""
         from datetime import datetime, timezone
-        
+
         # Parse ISO date
         try:
             # Handle both with and without timezone info
@@ -503,14 +509,14 @@ class GitHubAPIService(BaseGitHubService):
                 date = datetime.fromisoformat(iso_date)
             else:
                 date = datetime.fromisoformat(iso_date).replace(tzinfo=timezone.utc)
-            
+
             now = datetime.now(timezone.utc)
             diff = now - date
-            
+
             days = diff.days
             hours = diff.seconds // 3600
             minutes = (diff.seconds % 3600) // 60
-            
+
             if days > 365:
                 years = days // 365
                 return f"{years} year{'s' if years > 1 else ''} ago"
@@ -525,7 +531,7 @@ class GitHubAPIService(BaseGitHubService):
                 return f"{minutes} minute{'s' if minutes > 1 else ''} ago"
             else:
                 return "just now"
-                
+
         except Exception:
             return "unknown"
 
@@ -542,11 +548,11 @@ class GitHubAPIService(BaseGitHubService):
         sha: Optional[str] = None,
         create_branch: bool = False,
         base_branch: Optional[str] = None,
-        diagram_path: str = "/.markdown-manager/diagrams/"
+        diagram_path: str = ".markdown-manager/diagrams/"
     ) -> Dict[str, Any]:
         """
         Commit file changes with associated diagram images to GitHub repository.
-        
+
         Args:
             access_token: GitHub access token
             owner: Repository owner
@@ -560,7 +566,7 @@ class GitHubAPIService(BaseGitHubService):
             create_branch: Whether to create branch if it doesn't exist
             base_branch: Base branch for new branch creation
             diagram_path: Path in repository for diagram images
-            
+
         Returns:
             Dict containing commit information and uploaded diagram details
         """
@@ -570,45 +576,45 @@ class GitHubAPIService(BaseGitHubService):
                 "Accept": "application/vnd.github.v3+json",
                 "User-Agent": "Markdown-Manager/1.0"
             }
-            
+
             uploaded_diagrams = []
             errors = []
-            
+
             try:
                 # Create branch if requested
                 if create_branch and base_branch:
                     await self._create_branch(client, headers, owner, repo, branch, base_branch)
-                
+
                 # Upload diagram images first
                 for diagram in diagrams:
                     try:
                         if diagram.get('needs_upload', True):
                             diagram_file_path = f"{diagram_path.rstrip('/')}/{diagram['filename']}"
-                            
+
                             # Convert image data to base64 if it's bytes
                             if isinstance(diagram['image_data'], bytes):
                                 image_content = base64.b64encode(diagram['image_data']).decode('utf-8')
                             else:
                                 image_content = diagram['image_data']
-                            
+
                             # Check if diagram file already exists
                             existing_sha = await self._get_file_sha(
                                 client, headers, owner, repo, diagram_file_path, branch
                             )
-                            
+
                             # Upload diagram image
                             upload_result = await self.create_or_update_file(
                                 access_token, owner, repo, diagram_file_path,
                                 image_content, f"Add diagram image: {diagram['filename']}",
-                                existing_sha, branch
+                                existing_sha, branch, is_binary=True
                             )
-                            
+
                             # Calculate size
                             if isinstance(diagram['image_data'], bytes):
                                 size = len(diagram['image_data'])
                             else:
                                 size = len(diagram['image_data'].encode())
-                            
+
                             uploaded_diagrams.append({
                                 'filename': diagram['filename'],
                                 'path': diagram_file_path,
@@ -617,17 +623,17 @@ class GitHubAPIService(BaseGitHubService):
                                 'sha': upload_result.get('content', {}).get('sha'),
                                 'size': size
                             })
-                            
+
                     except Exception as e:
                         error_msg = f"Failed to upload diagram {diagram.get('filename', 'unknown')}: {str(e)}"
                         errors.append(error_msg)
                         continue
-                
+
                 # Commit the main file
                 main_commit = await self.create_or_update_file(
                     access_token, owner, repo, file_path, content, message, sha, branch
                 )
-                
+
                 return {
                     'commit': main_commit,
                     'uploaded_diagrams': uploaded_diagrams,
@@ -636,7 +642,7 @@ class GitHubAPIService(BaseGitHubService):
                     'diagrams_uploaded': len(uploaded_diagrams),
                     'total_diagrams': len(diagrams)
                 }
-                
+
             except Exception as e:
                 return {
                     'commit': None,
@@ -646,7 +652,7 @@ class GitHubAPIService(BaseGitHubService):
                     'diagrams_uploaded': len(uploaded_diagrams),
                     'total_diagrams': len(diagrams)
                 }
-    
+
     async def _get_file_sha(
         self,
         client: httpx.AsyncClient,
@@ -663,12 +669,12 @@ class GitHubAPIService(BaseGitHubService):
                 headers=headers,
                 params={"ref": branch}
             )
-            
+
             if response.status_code == 200:
                 content = response.json()
                 return content.get('sha')
             else:
                 return None
-                
+
         except Exception:
             return None

@@ -277,28 +277,36 @@ class DocumentsApi extends Api {
    * Save document to GitHub with optional diagram conversion
    * @param {number} documentId - Document ID
    * @param {Object} options - Save options
-   * @param {string} options.commitMessage - Commit message
+   * @param {number} options.repository_id - Repository ID
+   * @param {string} options.file_path - File path in repository
+   * @param {string} options.commit_message - Commit message
    * @param {string} options.branch - Target branch (default: 'main')
+   * @param {boolean} options.create_branch - Create branch if it doesn't exist
+   * @param {string} options.base_branch - Base branch for new branch creation
    * @param {boolean} options.convertDiagrams - Convert advanced diagrams for GitHub compatibility
    * @param {string} options.diagramFormat - Export format for diagrams ('svg' or 'png')
-   * @param {Array} options.renderedDiagrams - Pre-rendered diagram data
-   * @returns {Promise<Object>} - Save result
+   * @returns {Promise<Object>} - Save result with conversion info
    */
   async saveToGitHubWithDiagrams(documentId, options = {}) {
     const {
-      commitMessage,
+      repository_id,
+      file_path,
+      commit_message,
       branch = 'main',
+      create_branch = false,
+      base_branch,
       convertDiagrams = false,
-      diagramFormat = 'svg',
-      renderedDiagrams = []
+      diagramFormat = 'png'
     } = options;
 
     const res = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', {
-      commit_message: commitMessage,
+      repository_id,
+      file_path,
+      commit_message,
       branch,
-      convert_diagrams: convertDiagrams,
-      diagram_format: diagramFormat,
-      rendered_diagrams: renderedDiagrams
+      create_branch,
+      base_branch,
+      auto_convert_diagrams: convertDiagrams
     });
 
     return res.data;
@@ -575,8 +583,107 @@ class DocumentsApi extends Api {
       auto_convert_diagrams: options.auto_convert_diagrams
     };
 
+    // If diagram conversion is enabled, extract rendered diagrams from cache
+    if (options.auto_convert_diagrams && options.document_content) {
+      try {
+        const renderedDiagrams = await this.extractRenderedDiagramsFromCache(options.document_content);
+        if (renderedDiagrams.length > 0) {
+          payload.rendered_diagrams = renderedDiagrams;
+        }
+      } catch (error) {
+        console.warn('Failed to extract rendered diagrams from cache:', error);
+        // Continue with the request even if diagram extraction fails
+      }
+    }
+
     const res = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', payload);
     return res.data;
+  }
+
+  /**
+   * Extract rendered diagrams from the frontend mermaid cache
+   * @param {string} content - Markdown content
+   * @returns {Promise<Array>} - Array of rendered diagram objects from cache
+   */
+  async extractRenderedDiagramsFromCache(content) {
+    // Import the mermaid renderer to access the cache
+    const { MermaidRenderer } = await import('@/services/rendering/mermaid');
+
+    // Create a renderer instance to access the cache
+    // Note: This should ideally be the same instance used by the Renderer component
+    const renderer = new MermaidRenderer();
+
+    // Extract mermaid code blocks from content
+    const mermaidPattern = /```mermaid\n([\s\S]*?)\n```/g;
+    const diagrams = [];
+    let match;
+
+    while ((match = mermaidPattern.exec(content)) !== null) {
+      const diagramCode = match[1].trim();
+
+      // Check if this diagram is in the cache
+      if (renderer.cache.has(diagramCode)) {
+        try {
+          // Get the cached SVG HTML
+          const cachedSvgHtml = renderer.cache.get(diagramCode);
+
+          // Extract the raw SVG from the formatted HTML
+          const svgContent = this.extractSvgFromFormattedHtml(cachedSvgHtml);
+
+          if (svgContent) {
+            // Generate hash for consistent matching with backend
+            const hash = await this.generateDiagramHash(diagramCode);
+
+            diagrams.push({
+              diagram_code: diagramCode,
+              svg_content: svgContent,
+              hash: hash
+            });
+          }
+        } catch (error) {
+          console.warn('Failed to extract SVG from cached diagram:', diagramCode, error);
+          // Continue with other diagrams
+        }
+      } else {
+        console.warn('Diagram not found in cache, may need to wait for rendering:', diagramCode.substring(0, 50) + '...');
+        // Diagram hasn't been rendered yet or cache was cleared
+        // Could fallback to rendering here if needed
+      }
+    }
+
+    return diagrams;
+  }
+
+  /**
+   * Extract raw SVG content from the formatted HTML stored in cache
+   * @param {string} formattedHtml - Formatted HTML containing SVG
+   * @returns {string|null} - Raw SVG content or null if not found
+   */
+  extractSvgFromFormattedHtml(formattedHtml) {
+    // The cache stores formatted HTML like: <div class="d-flex justify-content-center"><svg>...</svg></div>
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = formattedHtml;
+
+    const svgElement = tempDiv.querySelector('svg');
+    if (svgElement) {
+      return svgElement.outerHTML;
+    }
+
+    return null;
+  }
+
+  /**
+   * Generate hash for diagram code (matches backend implementation)
+   * @param {string} code - Diagram code
+   * @returns {Promise<string>} - SHA256 hash (first 12 characters)
+   */
+  async generateDiagramHash(code) {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(code);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    return hashHex.substring(0, 12);
   }
 }
 

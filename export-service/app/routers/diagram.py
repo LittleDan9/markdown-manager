@@ -20,6 +20,14 @@ class DiagramExportRequest(BaseModel):
     is_dark_mode: bool = False
 
 
+class PNGExportRequest(BaseModel):
+    """PNG export request model for SVG conversion."""
+    svg_content: str
+    width: int = None  # Optional - will use SVG's natural width
+    height: int = None  # Optional - will use SVG's natural height
+    transparent_background: bool = True
+
+
 @router.post("/svg")
 async def export_diagram_svg(request: DiagramExportRequest) -> dict:
     """Export diagram as SVG using Chromium rendering."""
@@ -80,23 +88,30 @@ async def export_diagram_svg(request: DiagramExportRequest) -> dict:
 
 
 @router.post("/png")
-async def export_diagram_png(request: DiagramExportRequest) -> dict:
-    """Export diagram as PNG using Chromium rendering."""
+async def export_diagram_png(request: PNGExportRequest) -> dict:
+    """Convert SVG to PNG with transparent background."""
     try:
-        logger.info(f"Exporting diagram as PNG ({request.width}x{request.height})")
+        logger.info("Converting SVG to PNG with transparent background")
 
-        css_styles = css_service.get_diagram_css(request.is_dark_mode)
-
-        diagram_html = f"""
+        # Create HTML wrapper for SVG
+        html_content = f"""
         <!DOCTYPE html>
-        <html lang="en">
+        <html>
         <head>
             <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Diagram Export</title>
+            <style>
+                body {{
+                    margin: 0;
+                    padding: 0;
+                    background: transparent;
+                }}
+                svg {{
+                    display: block;
+                }}
+            </style>
         </head>
         <body>
-            {request.html_content}
+            {request.svg_content}
         </body>
         </html>
         """
@@ -105,18 +120,55 @@ async def export_diagram_png(request: DiagramExportRequest) -> dict:
             browser = await pw.chromium.launch()
             page = await browser.new_page()
 
-            await page.set_viewport_size({"width": request.width, "height": request.height})
-            await page.set_content(f"<style>{css_styles}</style>{diagram_html}", wait_until="networkidle")
+            # Set transparent background
+            await page.set_content(html_content, wait_until="networkidle")
 
-            # Take screenshot of the diagram area
+            # Get SVG dimensions if not provided
+            svg_info = await page.evaluate("""
+                () => {
+                    const svg = document.querySelector('svg');
+                    if (!svg) return null;
+
+                    const bbox = svg.getBBox();
+                    const viewBox = svg.getAttribute('viewBox');
+                    let width, height;
+
+                    if (viewBox) {
+                        const [, , vw, vh] = viewBox.split(' ').map(Number);
+                        width = vw;
+                        height = vh;
+                    } else {
+                        width = svg.getAttribute('width') || bbox.width || 800;
+                        height = svg.getAttribute('height') || bbox.height || 600;
+                    }
+
+                    // Parse width/height if they have units
+                    width = parseFloat(width);
+                    height = parseFloat(height);
+
+                    return { width, height };
+                }
+            """)
+
+            if not svg_info:
+                raise HTTPException(status_code=400, detail="No SVG content found")
+
+            # Use provided dimensions or SVG's natural dimensions
+            width = request.width or svg_info['width']
+            height = request.height or svg_info['height']
+
+            await page.set_viewport_size({"width": int(width), "height": int(height)})
+
+            # Take screenshot with transparent background
             png_bytes = await page.screenshot(
                 type="png",
                 full_page=False,
+                omit_background=request.transparent_background,
                 clip={
                     "x": 0,
                     "y": 0,
-                    "width": request.width,
-                    "height": request.height
+                    "width": int(width),
+                    "height": int(height)
                 }
             )
 
@@ -124,8 +176,12 @@ async def export_diagram_png(request: DiagramExportRequest) -> dict:
 
             # Return base64 encoded image
             image_data = base64.b64encode(png_bytes).decode('utf-8')
-            return {"image_data": image_data}
+            return {
+                "image_data": image_data,
+                "width": int(width),
+                "height": int(height)
+            }
 
     except Exception as e:
-        logger.error(f"Failed to export diagram as PNG: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Failed to export diagram: {str(e)}")
+        logger.error(f"Failed to convert SVG to PNG: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to convert SVG to PNG: {str(e)}")

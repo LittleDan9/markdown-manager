@@ -19,7 +19,7 @@ from app.schemas.document import (
 )
 from app.schemas.github_save import GitHubSaveRequest, GitHubSaveResponse, DiagramConversionInfo
 from app.services.github.filesystem import github_filesystem_service
-from app.services.github.conversion import GitHubDiagramConversionService
+from app.services.github.conversion import get_diagram_conversion_service
 from app.services.github.api import GitHubAPIService
 from app.services.unified_document import unified_document_service
 from . import categories, crud, current, sharing, folders, recents, github_open
@@ -1409,23 +1409,29 @@ async def save_document_to_github(
 ):
     """
     Save document to GitHub with automatic diagram conversion.
-    
+
     This endpoint:
     1. Retrieves the document and user's GitHub settings
     2. Converts advanced diagrams to GitHub-compatible format if enabled
     3. Uploads diagram images to the repository
     4. Commits the converted document content
     """
-    
+
     # Get the document
     document = await document_crud.document.get(db=db, id=document_id)
     if not document or document.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Document not found")
-    
-    # For now, use a simple content placeholder to test the endpoint
-    # TODO: Implement proper content loading once we resolve the async issue
-    document_content = f"# Document {document.name}\n\nContent placeholder for testing."
-    
+
+    # Load the actual document content using the unified document service
+    try:
+        document_with_content = await unified_document_service.get_document_with_content(
+            db, document_id, current_user.id
+        )
+        document_content = document_with_content.get("content", f"# {document.name}\n\nThis document has no content yet.")
+    except Exception as e:
+        # Fallback to empty content if loading fails
+        document_content = f"# {document.name}\n\nFailed to load content: {str(e)}"
+
     # Get user's GitHub settings
     github_settings = await github_settings_crud.get_github_settings_by_user_id(db, current_user.id)
     if not github_settings:
@@ -1433,7 +1439,7 @@ async def save_document_to_github(
             status_code=400,
             detail="GitHub settings not configured. Please configure GitHub integration first."
         )
-    
+
     # Get GitHub account for the repository
     result = await db.execute(
         select(GitHubAccount).where(GitHubAccount.user_id == current_user.id)
@@ -1444,44 +1450,76 @@ async def save_document_to_github(
             status_code=400,
             detail="GitHub account not connected. Please connect your GitHub account first."
         )
-    
+
     # Use the first GitHub account (in a real implementation,
     # you'd want to select based on the repository)
     github_account = github_accounts[0]
-    
+
     # Initialize services outside try block for cleanup
     conversion_service = None
-    
+
     try:
         # Initialize services
-        conversion_service = GitHubDiagramConversionService()
+        conversion_service = await get_diagram_conversion_service()
         github_api_service = GitHubAPIService()
-        
+
         # Determine if we should convert diagrams
         should_convert = request.auto_convert_diagrams
         if should_convert is None:
             should_convert = github_settings.auto_convert_diagrams
-        
+
         # Prepare settings for conversion
         conversion_settings = {
             'auto_convert_diagrams': should_convert,
             'diagram_format': github_settings.diagram_format,
             'fallback_to_standard': github_settings.fallback_to_standard
         }
-        
+
         converted_content = document_content
         converted_diagrams = []
         conversion_errors = []
-        
+        converted_content = document_content
+        converted_diagrams = []
+
+        # Get repository info first to have owner/name for conversion
+        from app.models.github_models import GitHubRepository
+        repository_result = await db.execute(
+            select(GitHubRepository).where(GitHubRepository.id == request.repository_id)
+        )
+        repository = repository_result.scalar_one_or_none()
+        if not repository:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Repository with ID {request.repository_id} not found"
+            )
+
+        # Extract owner and repo name from repo_full_name (format: "owner/repo")
+        if '/' not in repository.repo_full_name:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid repository repo_full_name format: {repository.repo_full_name}"
+            )
+
+        repository_owner, repository_name = repository.repo_full_name.split('/', 1)
+
         # Convert diagrams if enabled
         if should_convert:
             try:
+                rendered_diagrams_dict = (
+                    [diagram.dict() for diagram in request.rendered_diagrams]
+                    if request.rendered_diagrams else None
+                )
+
                 conversion_result = await conversion_service.convert_document(
                     document_content,
                     conversion_settings,
-                    repository_path="/.markdown-manager/diagrams/"
+                    repository_path=".markdown-manager/diagrams/",
+                    repository_owner=repository_owner,
+                    repository_name=repository_name,
+                    branch=request.branch,
+                    rendered_diagrams=rendered_diagrams_dict
                 )
-                
+
                 converted_content = conversion_result.converted_content
                 converted_diagrams = [
                     {
@@ -1494,10 +1532,10 @@ async def save_document_to_github(
                     for d in conversion_result.diagrams
                 ]
                 conversion_errors = conversion_result.errors
-                
+
             except Exception as e:
                 conversion_errors.append(f"Diagram conversion failed: {str(e)}")
-        
+
         # If there are conversion errors and user wants strict conversion, fail
         if conversion_errors and should_convert:
             return GitHubSaveResponse(
@@ -1506,13 +1544,7 @@ async def save_document_to_github(
                 diagrams_converted=0,
                 total_diagrams=len(converted_diagrams)
             )
-        
-        # TODO: Get repository info from database
-        # For now, we'll need to implement repository lookup
-        # This would typically come from a github_repositories table
-        repository_owner = "example_owner"  # Replace with actual lookup
-        repository_name = "example_repo"    # Replace with actual lookup
-        
+
         # Save to GitHub
         if converted_diagrams:
             # Use the enhanced commit method with diagrams
@@ -1541,7 +1573,7 @@ async def save_document_to_github(
                 create_branch=request.create_branch,
                 base_branch=request.base_branch
             )
-            
+
             # Format result to match our expected structure
             result = {
                 'commit': result,
@@ -1551,20 +1583,20 @@ async def save_document_to_github(
                 'diagrams_uploaded': 0,
                 'total_diagrams': 0
             }
-        
+
         # Format response
         commit_info = result.get('commit', {})
         commit_sha = None
         commit_url = None
         file_url = None
-        
+
         if commit_info and 'commit' in commit_info:
             commit_sha = commit_info['commit'].get('sha')
             if commit_sha:
                 commit_url = f"https://github.com/{repository_owner}/{repository_name}/commit/{commit_sha}"
                 file_url = (f"https://github.com/{repository_owner}/{repository_name}/"
                             f"blob/{request.branch}/{request.file_path}")
-        
+
         # Format diagram info
         diagram_info = []
         for uploaded in result.get('uploaded_diagrams', []):
@@ -1577,7 +1609,7 @@ async def save_document_to_github(
                 size=uploaded['size'],
                 original_code=""  # We'd need to store this from conversion
             ))
-        
+
         return GitHubSaveResponse(
             success=result.get('success', False),
             commit_sha=commit_sha,
@@ -1588,13 +1620,13 @@ async def save_document_to_github(
             diagrams_converted=result.get('diagrams_uploaded', 0),
             total_diagrams=result.get('total_diagrams', 0)
         )
-        
+
     except Exception as e:
         raise HTTPException(
             status_code=500,
             detail=f"Failed to save document to GitHub: {str(e)}"
         )
-    
+
     finally:
         # Clean up the conversion service
         if conversion_service is not None:

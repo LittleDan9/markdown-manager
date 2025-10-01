@@ -55,6 +55,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
   /**
    * Add diagram controls to rendered Mermaid diagrams
+   * Only adds controls to NEW diagrams that don't already have them
    * @param {HTMLElement} previewElement - The preview container element
    */
   const addDiagramControls = (previewElement) => {
@@ -67,7 +68,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       const diagramId = `diagram-${index}`;
 
       // Skip if controls already added
-      if (diagram.querySelector('.diagram-controls')) return;
+      if (diagram.querySelector('.diagram-controls-container')) return;
 
       // Get diagram source from data attribute
       const encodedSource = diagram.getAttribute('data-mermaid-source') || '';
@@ -103,22 +104,46 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   };
 
   /**
-   * Clean up diagram controls
+   * Clean up diagram controls that are no longer in the DOM
+   * Uses asynchronous cleanup to avoid React race conditions
    */
-  const cleanupDiagramControls = () => {
-    diagramControlsRefs.current.forEach((root, diagram) => {
-      try {
-        root.unmount();
-      } catch (error) {
-        console.warn('Error unmounting diagram controls:', error);
-      }
-    });
-    diagramControlsRefs.current.clear();
+  const cleanupStaleControls = () => {
+    const validDiagrams = new Set();
+    if (previewScrollRef.current) {
+      const currentDiagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
+      currentDiagrams.forEach(diagram => validDiagrams.add(diagram));
+    }
+
+    // Async cleanup to avoid race conditions
+    setTimeout(() => {
+      diagramControlsRefs.current.forEach((root, diagram) => {
+        if (!validDiagrams.has(diagram)) {
+          try {
+            root.unmount();
+            diagramControlsRefs.current.delete(diagram);
+          } catch (error) {
+            console.warn('Error unmounting stale diagram controls:', error);
+          }
+        }
+      });
+    }, 0);
   };
 
   // Cleanup on unmount
   useEffect(() => {
-    return cleanupDiagramControls;
+    return () => {
+      // Use async cleanup on unmount to avoid race conditions
+      setTimeout(() => {
+        diagramControlsRefs.current.forEach((root, diagram) => {
+          try {
+            root.unmount();
+          } catch (error) {
+            console.warn('Error unmounting diagram controls on cleanup:', error);
+          }
+        });
+        diagramControlsRefs.current.clear();
+      }, 0);
+    };
   }, []);
 
   // Render Markdown to HTML (when content changes or component mounts)
@@ -231,13 +256,13 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   // Add diagram controls after preview HTML is updated
   useEffect(() => {
     if (previewHTML && previewScrollRef.current && !isRendering) {
-      // Clean up existing controls first
-      cleanupDiagramControls();
+      // Clean up stale controls (async to avoid race conditions)
+      cleanupStaleControls();
 
-      // Add controls to new diagrams
+      // Add controls to new diagrams (with small delay to ensure DOM is updated)
       setTimeout(() => {
         addDiagramControls(previewScrollRef.current);
-      }, 100); // Small delay to ensure DOM is fully updated
+      }, 100);
     }
   }, [previewHTML, isRendering]);
 

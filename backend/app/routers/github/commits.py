@@ -12,6 +12,8 @@ from app.services.github_service import GitHubService
 from app.services.github.cache import github_cache_service
 from app.services.storage.user import UserStorage
 from app.crud.github_crud import GitHubCRUD
+from app.services.github.conversion import get_diagram_conversion_service
+from app.crud import github_settings as github_settings_crud
 
 router = APIRouter()
 github_service = GitHubService()
@@ -129,9 +131,77 @@ async def _perform_commit(
     account,
     repository,
     target_branch: str,
-    document_content: str
+    document_content: str,
+    current_user: User,
+    db: AsyncSession
 ) -> dict:
-    """Perform the actual commit to GitHub."""
+    """Perform the actual commit to GitHub with diagram conversion."""
+
+    # Get user's GitHub settings for diagram conversion
+    github_settings = await github_settings_crud.get_github_settings_by_user_id(db, current_user.id)
+
+    # Determine if we should convert diagrams
+    should_convert_diagrams = False
+    if github_settings:
+        should_convert_diagrams = github_settings.auto_convert_diagrams
+
+    # Initialize conversion variables
+    converted_content = document_content
+    converted_diagrams = []
+    conversion_service = None
+
+    # Convert diagrams if enabled
+    if should_convert_diagrams:
+        try:
+            conversion_service = await get_diagram_conversion_service()
+
+            # Prepare settings for conversion
+            conversion_settings = {
+                'auto_convert_diagrams': True,
+                'diagram_format': github_settings.diagram_format if github_settings else 'png',
+                'fallback_to_standard': github_settings.fallback_to_standard if github_settings else True
+            }
+
+            # Extract owner and repo name from repository
+            repo_owner = repository.repo_owner
+            repo_name = repository.repo_name
+
+            # Convert document with diagram conversion
+            conversion_result = await conversion_service.convert_document(
+                document_content,
+                conversion_settings,
+                repository_path=".markdown-manager/diagrams/",
+                repository_owner=repo_owner,
+                repository_name=repo_name,
+                branch=target_branch
+            )
+
+            converted_content = conversion_result.converted_content
+            converted_diagrams = [
+                {
+                    'filename': d.filename,
+                    'image_data': d.image_data,
+                    'image_format': d.image_format,
+                    'hash': d.hash,
+                    'needs_upload': d.needs_upload
+                }
+                for d in conversion_result.diagrams
+            ]
+
+            print(f"Diagram conversion completed: {len(converted_diagrams)} diagrams converted")
+
+        except Exception as e:
+            print(f"Diagram conversion failed: {str(e)}")
+            # Continue with original content if conversion fails
+            converted_content = document_content
+            converted_diagrams = []
+        finally:
+            if conversion_service:
+                try:
+                    await conversion_service.cleanup()
+                except Exception:
+                    pass
+
     # Create new branch if requested
     if commit_request.create_new_branch and commit_request.new_branch_name:
         print(f"Creating new branch: {commit_request.new_branch_name}")
@@ -174,19 +244,41 @@ async def _perform_commit(
 
     print(f"Committing with SHA: {sha_to_use}")
 
-    # Commit the file
-    commit_result = await github_service.commit_file(
-        account.access_token,
-        repository.repo_owner,
-        repository.repo_name,
-        document.github_file_path or "",
-        document_content,
-        commit_request.commit_message,
-        branch=target_branch,
-        sha=sha_to_use,
-        create_branch=commit_request.create_new_branch,
-        base_branch=document.github_branch or repository.default_branch if commit_request.create_new_branch else None
-    )
+    # Commit the file with diagrams if any were converted
+    if converted_diagrams:
+        # Use the enhanced commit method with diagrams
+        from app.services.github.api import GitHubAPIService
+        github_api_service = GitHubAPIService()
+
+        commit_result = await github_api_service.commit_file_with_diagrams(
+            access_token=account.access_token,
+            owner=repository.repo_owner,
+            repo=repository.repo_name,
+            file_path=document.github_file_path or "",
+            content=converted_content,
+            message=commit_request.commit_message,
+            branch=target_branch,
+            diagrams=converted_diagrams,
+            create_branch=commit_request.create_new_branch,
+            base_branch=document.github_branch or repository.default_branch if commit_request.create_new_branch else None
+        )
+
+        # Extract the commit info from the enhanced response
+        commit_result = commit_result.get('commit', commit_result)
+    else:
+        # Use the standard commit method
+        commit_result = await github_service.commit_file(
+            account.access_token,
+            repository.repo_owner,
+            repository.repo_name,
+            document.github_file_path or "",
+            converted_content,
+            commit_request.commit_message,
+            branch=target_branch,
+            sha=sha_to_use,
+            create_branch=commit_request.create_new_branch,
+            base_branch=document.github_branch or repository.default_branch if commit_request.create_new_branch else None
+        )
 
     return commit_result
 
@@ -302,7 +394,7 @@ async def commit_document_to_github(
     try:
         # Perform the commit
         commit_result = await _perform_commit(
-            commit_request, document, account, repository, target_branch, document_content
+            commit_request, document, account, repository, target_branch, document_content, current_user, db
         )
 
         # Update document metadata with calculated SHA

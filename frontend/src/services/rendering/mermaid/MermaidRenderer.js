@@ -99,27 +99,12 @@ class MermaidRenderer {
   }
 
   /**
-   * Render a single diagram
+   * Render a single diagram (assumes icons are already loaded and diagram is not cached)
    * @param {HTMLElement} block - The Mermaid block element
    * @param {string} diagramSource - The diagram source code
    * @returns {Promise<boolean>} - True if rendered successfully, false otherwise
    */
   async renderSingleDiagram(block, diagramSource) {
-    // Validate diagram source
-    const validationError = this.validator.validateDiagramSource(diagramSource);
-    if (validationError) {
-      const errorHtml = this.validator.showError(block, validationError);
-      this.cache.set(diagramSource, errorHtml);
-      return false;
-    }
-
-    // Check cache
-    if (this.cache.has(diagramSource)) {
-      block.innerHTML = this.cache.get(diagramSource);
-      block.setAttribute("data-processed", "true");
-      return true;
-    }
-
     try {
       const { svg } = await mermaid.render(
         `mermaid-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
@@ -214,13 +199,41 @@ class MermaidRenderer {
       return tempDiv.innerHTML;
     }
 
-    // STEP 1: Load ALL icons ONCE before any rendering
-    const diagramSources = diagramData.map(d => d.diagramSource);
-    await this.iconLoader.loadAndRegisterIcons(diagramSources, mermaid.registerIconPacks.bind(mermaid));
+    // STEP 1: Separate cached vs uncached diagrams
+    const cachedDiagrams = [];
+    const uncachedDiagrams = [];
 
-    // STEP 2: Render all diagrams (icons are already loaded)
     for (const { block, diagramSource } of diagramData) {
-      await this.renderSingleDiagram(block, diagramSource);
+      // Validate diagram source first
+      const validationError = this.validator.validateDiagramSource(diagramSource);
+      if (validationError) {
+        const errorHtml = this.validator.showError(block, validationError);
+        this.cache.set(diagramSource, errorHtml);
+        continue;
+      }
+
+      if (this.cache.has(diagramSource)) {
+        cachedDiagrams.push({ block, diagramSource });
+      } else {
+        uncachedDiagrams.push({ block, diagramSource });
+      }
+    }
+
+    // STEP 2: Render cached diagrams immediately (no icon loading needed)
+    for (const { block, diagramSource } of cachedDiagrams) {
+      block.innerHTML = this.cache.get(diagramSource);
+      block.setAttribute("data-processed", "true");
+    }
+
+    // STEP 3: Load icons ONLY for uncached diagrams that need to be rendered
+    if (uncachedDiagrams.length > 0) {
+      const uncachedSources = uncachedDiagrams.map(d => d.diagramSource);
+      await this.iconLoader.loadAndRegisterIcons(uncachedSources, mermaid.registerIconPacks.bind(mermaid));
+
+      // STEP 4: Render uncached diagrams (icons are now loaded)
+      for (const { block, diagramSource } of uncachedDiagrams) {
+        await this.renderSingleDiagram(block, diagramSource);
+      }
     }
 
     return tempDiv.innerHTML;
