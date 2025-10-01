@@ -55,19 +55,32 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   // Manage interaction visibility
   const markInteractionActive = () => {
     if (controlsRef.current) {
-      controlsRef.current.classList.add('interaction-active');
-
-      // Clear any existing timeout
+      // Clear any existing timeout first
       if (interactionTimeoutRef.current) {
         clearTimeout(interactionTimeoutRef.current);
       }
+
+      // Reset styles before applying new ones to avoid conflicts
+      controlsRef.current.style.transition = '';
+      controlsRef.current.style.opacity = '';
+      
+      // Add the interaction class
+      controlsRef.current.classList.add('interaction-active');
+      
+      // Force visibility immediately to prevent flickering
+      controlsRef.current.style.opacity = '1';
+      controlsRef.current.style.transition = 'opacity 0.2s ease-in-out 2s';
 
       // Set timeout to remove the class after interaction is complete
       interactionTimeoutRef.current = setTimeout(() => {
         if (controlsRef.current) {
           controlsRef.current.classList.remove('interaction-active');
+          // Reset to CSS-controlled transition
+          controlsRef.current.style.transition = '';
+          controlsRef.current.style.opacity = '';
         }
-      }, 3000); // Stay visible for 3 seconds after interaction
+        interactionTimeoutRef.current = null;
+      }, 3000); // 3 seconds for export operations
     }
   };
 
@@ -77,6 +90,75 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       if (interactionTimeoutRef.current) {
         clearTimeout(interactionTimeoutRef.current);
       }
+    };
+  }, []);
+
+  // Add a helper function to debug control state (can be called from browser console)
+  useEffect(() => {
+    if (controlsRef.current) {
+      controlsRef.current._debugControlState = () => {
+        console.log('DiagramControls Debug State:', {
+          diagramId,
+          hasInteractionClass: controlsRef.current?.classList.contains('interaction-active'),
+          opacity: window.getComputedStyle(controlsRef.current).opacity,
+          isExporting,
+          showFullscreen,
+          timeoutActive: !!interactionTimeoutRef.current
+        });
+      };
+    }
+  }, [diagramId, isExporting, showFullscreen]);
+
+  // Monitor controls visibility after interactions to prevent disappearing
+  useEffect(() => {
+    if (!controlsRef.current) return;
+
+    let visibilityInterval;
+
+    const checkVisibility = () => {
+      if (controlsRef.current && controlsRef.current.classList.contains('interaction-active')) {
+        const computedStyle = window.getComputedStyle(controlsRef.current);
+        const opacity = parseFloat(computedStyle.opacity);
+        
+        // If controls are supposed to be visible but aren't, force visibility
+        if (opacity < 0.5) {
+          console.log('Detected invisible controls, forcing visibility');
+          controlsRef.current.style.opacity = '1';
+          controlsRef.current.style.transition = 'opacity 0.2s ease-in-out';
+        }
+      }
+    };
+
+    const startMonitoring = () => {
+      if (visibilityInterval) clearInterval(visibilityInterval);
+      visibilityInterval = setInterval(checkVisibility, 2000); // Check every 2 seconds instead of 1
+    };
+
+    const stopMonitoring = () => {
+      if (visibilityInterval) {
+        clearInterval(visibilityInterval);
+        visibilityInterval = null;
+      }
+    };
+
+    // Start monitoring when interaction becomes active
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          if (controlsRef.current.classList.contains('interaction-active')) {
+            startMonitoring();
+          } else {
+            stopMonitoring();
+          }
+        }
+      });
+    });
+
+    observer.observe(controlsRef.current, { attributes: true });
+
+    return () => {
+      observer.disconnect();
+      stopMonitoring();
     };
   }, []);
 
@@ -128,17 +210,58 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       setIsExporting(false);
       setExportFormat(null);
       markInteractionActive(); // Keep controls visible after export completes
+      
+      // Dispatch event to notify parent that controls need to be re-validated
+      // This helps ensure controls remain available after export
+      window.dispatchEvent(new CustomEvent('diagramExportComplete', {
+        detail: { diagramId, format }
+      }));
     }
   };
 
   const handleFullscreen = () => {
-    markInteractionActive(); // Keep controls visible during fullscreen interaction
     const svgContent = getSvgContent();
+
+    // Add modal interaction class to parent container to keep controls visible
+    if (diagramElement) {
+      diagramElement.classList.add('modal-interaction');
+      // Remove the class after a short delay and ensure controls reset properly
+      setTimeout(() => {
+        if (diagramElement) {
+          diagramElement.classList.remove('modal-interaction');
+          // Clear any forced styles to ensure natural hover behavior returns
+          if (controlsRef.current) {
+            controlsRef.current.style.opacity = '';
+            controlsRef.current.style.transition = '';
+            controlsRef.current.classList.remove('interaction-active');
+          }
+        }
+      }, 2000); // Reduced to 2 seconds for quicker return to normal behavior
+    }
 
     if (onFullscreen) {
       onFullscreen(diagramElement, diagramId, diagramSource);
     } else {
       setShowFullscreen(true);
+    }
+  };
+
+  // Handle modal close to ensure controls reset properly
+  const handleModalClose = () => {
+    setShowFullscreen(false);
+    
+    // Immediately clear any forced interaction states when modal closes
+    if (controlsRef.current) {
+      // Clear the interaction-active class and styles immediately
+      controlsRef.current.classList.remove('interaction-active');
+      controlsRef.current.style.opacity = '';
+      controlsRef.current.style.transition = '';
+    }
+    
+    // Clear any existing timeout
+    if (interactionTimeoutRef.current) {
+      clearTimeout(interactionTimeoutRef.current);
+      interactionTimeoutRef.current = null;
     }
   };
 
@@ -220,7 +343,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       {/* Fullscreen Modal */}
       <DiagramFullscreenModal
         show={showFullscreen}
-        onHide={() => setShowFullscreen(false)}
+        onHide={handleModalClose}
         diagramElement={diagramElement}
         diagramId={diagramId}
         diagramSource={diagramSource}

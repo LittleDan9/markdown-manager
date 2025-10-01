@@ -303,6 +303,71 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     }
   }, [onFirstRender, isRendering, previewHTML]);
 
+  // Listen for diagram export completion events to ensure controls remain visible
+  useEffect(() => {
+    const handleExportComplete = (event) => {
+      console.log('Diagram export completed:', event.detail);
+      
+      // Re-validate diagram controls after export to ensure they remain visible
+      if (previewScrollRef.current && !isRendering) {
+        setTimeout(() => {
+          // Check if controls are still present for all diagrams
+          const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
+          let needsRevalidation = false;
+          
+          diagrams.forEach((diagram) => {
+            const existingControls = diagram.querySelector('.diagram-controls-container');
+            if (!existingControls || !existingControls.isConnected) {
+              needsRevalidation = true;
+            }
+          });
+          
+          if (needsRevalidation) {
+            console.log('Re-adding diagram controls after export');
+            addDiagramControls(previewScrollRef.current);
+          }
+        }, 100); // Small delay to ensure export process is fully complete
+      }
+    };
+
+    window.addEventListener('diagramExportComplete', handleExportComplete);
+    
+    return () => {
+      window.removeEventListener('diagramExportComplete', handleExportComplete);
+    };
+  }, [previewHTML, isRendering]);
+
+  // Defensive mechanism: Periodically check if diagram controls are missing and restore them
+  useEffect(() => {
+    if (!previewHTML || isRendering) return;
+
+    const checkAndRestoreControls = () => {
+      if (!previewScrollRef.current) return;
+
+      const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
+      let missingControls = false;
+
+      diagrams.forEach((diagram) => {
+        const existingControls = diagram.querySelector('.diagram-controls-container');
+        if (!existingControls || !existingControls.isConnected) {
+          missingControls = true;
+        }
+      });
+
+      if (missingControls && diagrams.length > 0) {
+        console.log('Detected missing diagram controls, restoring...');
+        addDiagramControls(previewScrollRef.current);
+      }
+    };
+
+    // Check every 10 seconds for missing controls
+    const interval = setInterval(checkAndRestoreControls, 10000);
+
+    return () => {
+      clearInterval(interval);
+    };
+  }, [previewHTML, isRendering]);
+
   return (
     <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>
       <div id="preview" className="position-relative">

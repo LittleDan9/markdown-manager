@@ -6,6 +6,12 @@
   &:focus-within .diagram-controls {
     opacity: 1;
   }
+  
+  /* Shorter visibility period for modal interactions */
+  &.modal-interaction .diagram-controls {
+    opacity: 1;
+    transition: opacity 0.2s ease-in-out;
+  }
 }
 
 .diagram-controls {
@@ -25,7 +31,7 @@
 
   /* Keep controls visible longer after interaction */
   &.interaction-active {
-    opacity: 1;
+    opacity: 1 !important; /* Force visibility to prevent hiding during DOM changes */
     transition: opacity 0.2s ease-in-out 2s; /* Stay visible for 2 seconds after interaction */
   }
 
