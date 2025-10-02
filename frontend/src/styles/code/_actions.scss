@@ -1,0 +1,225 @@
+// Code Actions Component Styles
+// Copy buttons and code block actions
+
+@use "../variables";
+@use "../mixins";
+
+.code-block {
+  &-copy-btn {
+    background: none;
+    border: none;
+    padding: 0.25rem 0.5rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    color: #333;
+    transition: all 0.2s ease;
+    border-radius: 0.25rem;
+    font-size: 0.8rem;
+
+    &:hover {
+      color: variables.$color-primary;
+      background-color: rgba(var(--bs-primary-rgb), 0.1);
+      transform: scale(1.05);
+    }
+
+    &:active {
+      transform: scale(0.95);
+    }
+
+    [data-bs-theme="dark"] & {
+      color: variables.$color-text-dark;
+
+      &:hover {
+        color: variables.$color-primary-dark-hover;
+        background-color: rgba(var(--bs-primary-rgb), 0.2);
+      }
+    }
+
+    i {
+      font-size: 1rem;
+      margin-right: 0.25rem;
+    }
+
+    .copy-text {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      font-weight: 500;
+    }
+
+    // Success state after copying
+    &.copied {
+      color: var(--bs-success);
+
+      i::before {
+        content: "\f00c"; // Check icon
+      }
+
+      .copy-text::after {
+        content: "ed!";
+      }
+    }
+  }
+
+  // Action toolbar for code blocks
+  &-actions {
+    position: absolute;
+    top: 0.5rem;
+    right: 0.5rem;
+    display: flex;
+    gap: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 10;
+
+    .action-btn {
+      background: rgba(var(--bs-body-bg-rgb), 0.9);
+      border: 1px solid var(--bs-border-color);
+      border-radius: 0.25rem;
+      padding: 0.25rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      color: var(--bs-body-color);
+      font-size: 0.8rem;
+
+      &:hover {
+        background: var(--bs-primary);
+        color: var(--bs-white);
+        transform: scale(1.1);
+      }
+
+      i {
+        width: 12px;
+        height: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+    }
+  }
+
+  &:hover &-actions {
+    opacity: 1;
+  }
+}
+
+// Floating action menu for complex code blocks
+.code-floating-menu {
+  position: absolute;
+  top: 0;
+  right: 0;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.375rem;
+  box-shadow: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.1);
+  padding: 0.25rem;
+  display: flex;
+  gap: 0.125rem;
+  z-index: 20;
+  margin: 0.5rem;
+
+  .menu-btn {
+    background: none;
+    border: none;
+    padding: 0.375rem 0.5rem;
+    border-radius: 0.25rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    color: var(--bs-body-color);
+    font-size: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+
+    &:hover {
+      background-color: var(--bs-secondary-bg);
+    }
+
+    &.active {
+      background-color: var(--bs-primary-bg-subtle);
+      color: var(--bs-primary-text-emphasis);
+    }
+
+    i {
+      font-size: 0.8rem;
+    }
+  }
+}
+
+// Copy feedback animations
+@keyframes copySuccess {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+@keyframes copyPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.copy-feedback {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: var(--bs-success);
+  color: var(--bs-white);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  z-index: 1000;
+  animation: copySuccess 0.6s ease;
+  pointer-events: none;
+
+  &::before {
+    content: "✓ ";
+    font-weight: bold;
+  }
+}
+
+// Language-specific action customization
+.code-block {
+  &[data-language="javascript"],
+  &[data-language="typescript"] {
+    .code-block-actions {
+      .run-btn {
+        background: #f7df1e;
+        color: #000;
+
+        &:hover {
+          background: #e6cc00;
+        }
+      }
+    }
+  }
+
+  &[data-language="python"] {
+    .code-block-actions {
+      .run-btn {
+        background: #3776ab;
+        color: #fff;
+
+        &:hover {
+          background: #2d5d8e;
+        }
+      }
+    }
+  }
+
+  &[data-language="shell"],
+  &[data-language="bash"] {
+    .code-block-actions {
+      .run-btn {
+        background: #4eaa25;
+        color: #fff;
+
+        &:hover {
+          background: #3e8a1e;
+        }
+      }
+    }
+  }
+}

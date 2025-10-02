@@ -1,0 +1,54 @@
+// GitHub Repository Browser Container Styles
+// Modal and main browser container styling
+
+.github-repository-browser {
+  .modal-90w {
+    width: 90%;
+    max-width: none;
+  }
+
+  // Ensure modal content stays within bounds
+  .modal-body {
+    position: relative;
+    z-index: 1;
+    overflow: hidden; // Prevent content from overflowing modal bounds
+  }
+
+  // Ensure footer stays on top
+  .modal-footer {
+    position: relative;
+    z-index: 10;
+    background-color: var(--bs-modal-bg);
+    border-top: var(--bs-modal-border-width) solid var(--bs-modal-border-color);
+  }
+}
+
+// Account Cards
+.github-account-list {
+  .card {
+    transition: box-shadow 0.15s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+  }
+}
+
+// Repository Cards
+.github-repo-card {
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+}
+
+// Performance Panel
+.github-performance-tab {
+  .performance-metrics {
+    .badge {
+      font-size: 0.9em;
+    }
+  }
+}

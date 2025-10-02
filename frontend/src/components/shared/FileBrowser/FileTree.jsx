@@ -8,7 +8,7 @@ import { Spinner } from 'react-bootstrap';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
 import { sortRepositoryItems } from '../../../utils/fileBrowserUtils';
 // Import existing GitHub styles for consistency
-import '../../../styles/_github.scss';
+import '../../../styles/github/index.scss';
 
 export default forwardRef(function FileTree({
   treeData,
@@ -86,19 +86,19 @@ export default forwardRef(function FileTree({
 
   const handleFolderToggle = async (folder, event) => {
     event?.stopPropagation();
-    
+
     const isExpanded = expandedFolders.has(folder.path);
-    
+
     if (!isExpanded) {
       await loadFolderContents(folder.path);
     }
-    
+
     onFolderToggle(folder.path, !isExpanded);
   };
 
   const handleItemClick = (item) => {
     onFileSelect(item);
-    
+
     if (item.type === 'folder' || item.type === 'dir') {
       onPathChange(item.path);
       handleFolderToggle(item);
@@ -110,7 +110,7 @@ export default forwardRef(function FileTree({
   const buildTreeWithContents = (nodes, depth = 0) => {
     // If no tree data but we have root contents, use root contents
     const nodesToProcess = nodes.length > 0 ? nodes : (folderContents.get('/') || []);
-    
+
     return nodesToProcess.map(node => {
       const isExpanded = expandedFolders.has(node.path);
       const children = isExpanded && (node.type === 'folder' || node.type === 'dir') && folderContents.has(node.path)
@@ -183,7 +183,7 @@ export default forwardRef(function FileTree({
         </small>
       </div>
 
-      <div 
+      <div
         ref={treeContainerRef}
         className="tree-content flex-grow-1 overflow-auto"
       >

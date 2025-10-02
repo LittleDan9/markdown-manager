@@ -1,0 +1,127 @@
+// GitHub Utilities and File Preview Styles
+// Custom utility classes and file preview components
+
+// Custom utility classes
+.text-purple {
+  color: #6f42c1 !important;
+
+  [data-bs-theme="dark"] & {
+    color: #a855f7 !important;
+  }
+}
+
+// File Preview
+.file-preview-content {
+  pre {
+    background-color: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+
+    code {
+      color: var(--bs-body-color);
+      background-color: transparent;
+    }
+  }
+
+  .file-content {
+    max-height: 60vh;
+    overflow-y: auto;
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    background-color: var(--bs-body-bg);
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: var(--bs-tertiary-bg);
+      border-radius: 4px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: var(--bs-border-color);
+      border-radius: 4px;
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        background: var(--bs-secondary);
+      }
+    }
+  }
+
+  .file-meta {
+    padding: 0.5rem;
+    background-color: var(--bs-tertiary-bg);
+    border-bottom: 1px solid var(--bs-border-color);
+    font-size: 0.875rem;
+    color: var(--bs-text-muted);
+
+    .file-size {
+      font-weight: 500;
+    }
+
+    .file-modified {
+      font-style: italic;
+    }
+  }
+}
+
+// Loading states
+.github-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem;
+  color: var(--bs-text-muted);
+
+  .spinner-border {
+    margin-right: 1rem;
+  }
+}
+
+// Error states
+.github-error {
+  text-align: center;
+  padding: 3rem;
+  color: var(--bs-danger);
+
+  .error-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.7;
+  }
+
+  .error-message {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .error-details {
+    font-size: 0.9rem;
+    color: var(--bs-text-muted);
+  }
+}
+
+// Empty states
+.github-empty {
+  text-align: center;
+  padding: 3rem;
+  color: var(--bs-text-muted);
+
+  .empty-icon {
+    font-size: 4rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  .empty-message {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .empty-suggestion {
+    font-size: 0.9rem;
+    opacity: 0.8;
+  }
+}

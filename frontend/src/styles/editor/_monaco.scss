@@ -1,0 +1,134 @@
+// Monaco Editor Core Styles
+// Monaco editor integration and configuration
+
+@use "../variables";
+@use "../mixins";
+
+// ─── MONACO EDITOR STYLES ───
+
+// Monaco Editor border radius - COMPLETE override with high specificity
+// Monaco Editor default styling - border radius controlled by specific contexts
+.monaco-editor,
+.monaco-editor .overflow-guard {
+  border-radius: 0.5rem;
+}
+
+// Ensure Monaco editor context menus also appear above toolbar AND preview
+.monaco-menu-container {
+  z-index: 10000 !important;
+}
+
+// Allow hover widgets to escape the editor bounds while keeping editor scrolling intact
+#editorContainer {
+  // Allow the entire editor container to show overflow for tooltips
+  overflow: visible !important;
+  // Ensure editor container can layer above preview for tooltips
+  position: relative;
+  z-index: 10; // Higher than preview but lower than tooltips
+}
+
+#editor.has-toolbar {
+  // Allow overflow for the main editor container
+  overflow: visible !important;
+
+  .monaco-container {
+    // Allow overflow for the Monaco container
+    overflow: visible !important;
+
+    // Target all Monaco editor elements to allow overflow
+    .monaco-editor {
+      overflow: visible !important;
+
+      // But keep the view lines container with proper overflow for scrolling
+      .view-lines {
+        overflow: hidden;
+      }
+
+      // Ensure hover widgets can escape all containers
+      .monaco-hover-widget,
+      .monaco-hover,
+      .monaco-hover-content {
+        z-index: 10000 !important;
+        // Let Monaco handle positioning naturally
+      }
+    }
+  }
+}
+
+// When editor has a toolbar, we need to modify the border structure
+#editor.has-toolbar {
+  border-top: none !important; // Remove top border since toolbar provides it
+  border-radius: 0 0 0.5rem 0.5rem !important; // Bottom corners rounded
+
+  // Ensure proper flex layout to prevent Monaco from pushing status bar out
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+
+  .monaco-container {
+    flex: 1 1 auto !important;
+    min-height: 0 !important; // Allow shrinking
+    overflow: visible !important;
+    border: none !important;
+    border-radius: 0 !important; // No radius for Monaco itself
+
+    .monaco-editor {
+      height: 100% !important;
+    }
+
+    .monaco-editor,
+    .monaco-editor .overflow-guard {
+      border-radius: 0; // Remove all border radius for Monaco editor
+    }
+  }
+}
+
+// Monaco editor configuration
+.monaco-editor {
+  .minimap {
+    background-color: var(--bs-tertiary-bg);
+  }
+
+  .scroll-decoration {
+    display: none !important; // Hide scroll decorations
+  }
+
+  .overflowingContentWidgets {
+    z-index: 10000 !important;
+  }
+
+  // Scrollbar styling
+  .monaco-scrollable-element {
+    .scrollbar {
+      .slider {
+        background-color: rgba(var(--bs-secondary-rgb), 0.3);
+
+        &:hover {
+          background-color: rgba(var(--bs-secondary-rgb), 0.5);
+        }
+
+        &.active {
+          background-color: rgba(var(--bs-secondary-rgb), 0.7);
+        }
+      }
+    }
+  }
+
+}
+
+// Editor loading state
+.editor-loading-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 200px;
+  color: var(--bs-text-muted);
+
+  .spinner-border {
+    margin-right: 0.75rem;
+  }
+
+  .loading-text {
+    font-size: 0.9rem;
+  }
+}

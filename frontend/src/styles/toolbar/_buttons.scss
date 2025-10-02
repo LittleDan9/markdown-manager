@@ -1,0 +1,190 @@
+// Toolbar Buttons Component Styles
+// Utility buttons and dropdown controls
+
+@use "../variables";
+@use "../mixins";
+
+// Utility controls styling - remove borders for clean look
+#utilityControls {
+  .btn {
+    min-width: 40px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none !important;
+    background: transparent !important;
+    color: var(--bs-body-color);
+
+    &:hover {
+      background-color: var(--bs-secondary-bg) !important;
+      color: var(--bs-body-color);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+
+      &:hover {
+        background: transparent !important;
+      }
+    }
+
+    // Specific button states
+    &.active {
+      background-color: var(--bs-primary-bg-subtle) !important;
+      color: var(--bs-primary-text-emphasis);
+    }
+
+    // Icon sizing
+    i {
+      font-size: 1rem;
+    }
+
+    // Button variants
+    &.btn-save {
+      &:hover {
+        background-color: var(--bs-success-bg-subtle) !important;
+        color: var(--bs-success-text-emphasis);
+      }
+    }
+
+    &.btn-sync {
+      &:hover {
+        background-color: var(--bs-info-bg-subtle) !important;
+        color: var(--bs-info-text-emphasis);
+      }
+    }
+
+    &.btn-settings {
+      &:hover {
+        background-color: var(--bs-secondary-bg-subtle) !important;
+        color: var(--bs-secondary-text-emphasis);
+      }
+    }
+  }
+
+  // Loading states
+  .btn-loading {
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      border: 2px solid transparent;
+      border-top: 2px solid currentColor;
+      border-radius: 50%;
+      animation: btn-spin 1s linear infinite;
+    }
+
+    i {
+      opacity: 0;
+    }
+  }
+
+  @keyframes btn-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
+}
+
+// User dropdown improvements
+#userDropdown {
+  .dropdown-toggle {
+    border: none !important;
+    background: transparent !important;
+    color: var(--bs-body-color);
+
+    &:hover {
+      background-color: var(--bs-secondary-bg) !important;
+      color: var(--bs-body-color);
+    }
+
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    }
+
+    // Remove caret
+    &::after {
+      display: none;
+    }
+  }
+
+  .dropdown-menu {
+    min-width: 200px;
+    box-shadow:
+      0 4px 6px -1px rgba(0, 0, 0, 0.1),
+      0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    border: 1px solid var(--bs-border-color);
+  }
+
+  .dropdown-item {
+    padding: 0.5rem 1rem;
+
+    &:hover {
+      background-color: var(--bs-secondary-bg);
+    }
+
+    i {
+      width: 16px;
+      text-align: center;
+      margin-right: 0.5rem;
+    }
+  }
+
+  .dropdown-divider {
+    margin: 0.25rem 0;
+  }
+
+  .dropdown-header {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bs-text-muted);
+    font-weight: 600;
+  }
+}
+
+// Theme toggle in dropdown
+#themeToggleBtn {
+  cursor: pointer;
+
+  #themeIcon {
+    transition: transform 0.2s ease;
+  }
+
+  &:hover #themeIcon {
+    transform: rotate(180deg);
+  }
+}
+
+// Action buttons group
+.action-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+
+  .btn-group {
+    .btn {
+      border-radius: 0.375rem;
+
+      &:not(:last-child) {
+        margin-right: 0.25rem;
+      }
+    }
+  }
+
+  .separator {
+    width: 1px;
+    height: 20px;
+    background-color: var(--bs-border-color);
+    margin: 0 0.5rem;
+  }
+}

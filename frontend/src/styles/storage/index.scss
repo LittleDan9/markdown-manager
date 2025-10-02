@@ -1,0 +1,8 @@
+// Storage Management Styles Index
+// Imports all storage component styles in proper order
+
+@use 'tabs';        // Main storage tab interface
+@use 'stats';       // Statistics cards and metrics
+@use 'admin';       // Admin-specific storage styles
+@use 'themes';      // Dark/light theme adjustments
+@use 'responsive';  // Responsive design adjustments

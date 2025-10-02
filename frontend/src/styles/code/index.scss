@@ -1,0 +1,7 @@
+// Code Component Styles Index
+// Imports all code-related styles in proper order
+
+@use 'blocks';     // Code block containers and layout
+@use 'syntax';     // Syntax highlighting themes
+@use 'actions';    // Copy buttons and code actions
+@use 'languages';  // Language-specific styling

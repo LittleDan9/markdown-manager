@@ -1,0 +1,8 @@
+// Toolbar Component Styles Index
+// Imports all toolbar component styles in proper order
+
+@use 'header';       // App header and branding
+@use 'navigation';   // Navigation toolbar
+@use 'buttons';      // Utility buttons and controls
+@use 'dropdowns';    // Dropdown menus and submenus
+@use 'responsive';   // Responsive design adjustments

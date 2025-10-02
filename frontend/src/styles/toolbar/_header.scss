@@ -1,0 +1,70 @@
+// App Header Component Styles
+// Main application header and branding
+
+@use "../variables";
+@use "../mixins";
+
+// ─── APP HEADER ───
+#appHeader {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  h1 {
+    margin: 0;
+    font-weight: 600;
+    color: var(--bs-body-color);
+
+    i {
+      color: #0d6efd;
+    }
+  }
+
+  .app-brand {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    color: inherit;
+
+    &:hover {
+      text-decoration: none;
+      color: inherit;
+    }
+
+    .brand-icon {
+      font-size: 1.5rem;
+      color: var(--bs-primary);
+    }
+
+    .brand-text {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0;
+    }
+  }
+
+  .header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .btn {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+    }
+  }
+
+  // Dark theme adjustments
+  [data-bs-theme="dark"] & {
+    border-bottom: 1px solid var(--bs-border-color);
+    background-color: var(--bs-dark);
+
+    h1 {
+      color: var(--bs-light);
+    }
+
+    .brand-text {
+      color: var(--bs-light);
+    }
+  }
+}
