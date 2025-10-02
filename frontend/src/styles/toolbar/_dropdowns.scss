@@ -178,15 +178,13 @@
       display: block;
     }
 
-    // Submenu indicator
-    &::after {
-      content: "▶";
-      position: absolute;
-      right: 1rem;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 0.75rem;
-      color: var(--bs-text-muted);
+    // Hover effect for the submenu trigger
+    &:hover > .dropdown-item {
+      background-color: var(--bs-secondary-bg);
+    }
+
+    .dropdown-toggle::after {
+      display: none; // Hide default Bootstrap caret
     }
   }
 }
