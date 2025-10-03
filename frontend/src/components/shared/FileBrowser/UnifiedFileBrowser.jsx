@@ -49,7 +49,25 @@ export default function UnifiedFileBrowser({
       setSelectedFile(null);
       setTreeData([]);
       setCurrentFiles([]);
-      setExpandedFolders(new Set(['/']));
+
+      // Properly expand folder hierarchy for the initial path
+      const newExpanded = new Set(['/']);
+      if (initialPath && initialPath !== '/') {
+        // Add root path
+        newExpanded.add('/');
+
+        // Add all parent paths step by step
+        const pathParts = initialPath.split('/').filter(p => p);
+        let buildPath = '';
+        pathParts.forEach(part => {
+          buildPath += '/' + part;
+          newExpanded.add(buildPath);
+        });
+
+        // Also add the current path itself (target folder)
+        newExpanded.add(initialPath);
+      }
+      setExpandedFolders(newExpanded);
 
       loadTreeData();
       // Load files for the initial path
