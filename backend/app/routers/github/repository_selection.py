@@ -236,8 +236,72 @@ async def add_repository_selection(
             db, account_id, repo_data
         )
 
+        # Auto-clone repository to workspace after selection
+        clone_success = False
+        clone_message = ""
+
+        try:
+            from app.services.storage.user_storage_service import UserStorageService
+
+            user_storage_service = UserStorageService()
+
+            # Check if repository is already cloned as a valid git repository
+            github_dir = user_storage_service.filesystem.get_github_directory(current_user.id)
+            repo_dir = github_dir / str(account_id) / repo_data["name"]
+
+            if not repo_dir.exists() or not (repo_dir / ".git").exists():
+                # Directory doesn't exist or is not a valid git repository - clone it
+                # Construct clone URL with access token for private repos
+                clone_url = f"https://{account.access_token}@github.com/{repo_data['full_name']}.git"
+
+                clone_success = await user_storage_service.clone_github_repo(
+                    user_id=current_user.id,
+                    account_id=account_id,
+                    repo_name=repo_data["name"],
+                    repo_url=clone_url,
+                    branch=repo_data.get("default_branch")
+                )
+
+                if clone_success:
+                    clone_message = "Repository cloned to workspace"
+
+                    # Create GitHubRepository record for tracking
+                    try:
+                        existing_repo = await github_crud.get_repository_by_github_id(
+                            db, repo_data["id"]
+                        )
+
+                        if not existing_repo:
+                            repo_create_data = {
+                                "account_id": account_id,
+                                "github_repo_id": repo_data["id"],
+                                "repo_full_name": repo_data["full_name"],
+                                "repo_name": repo_data["name"],
+                                "repo_owner": repo_data["owner"]["login"],
+                                "description": repo_data.get("description"),
+                                "default_branch": repo_data.get("default_branch", "main"),
+                                "is_private": repo_data.get("private", False),
+                                "is_enabled": True,
+                            }
+                            await github_crud.create_repository(db, repo_create_data)
+                    except Exception as repo_create_error:
+                        # Don't fail the entire operation if repo record creation fails
+                        print(f"Warning: Failed to create GitHubRepository record: {repo_create_error}")
+                else:
+                    clone_message = "Repository added but clone failed"
+            else:
+                clone_success = True
+                clone_message = "Repository already cloned in workspace"
+
+        except Exception as clone_error:
+            # Don't fail the entire operation if cloning fails
+            clone_message = f"Repository added but clone failed: {str(clone_error)}"
+            print(f"Clone error for {repo_data['full_name']}: {clone_error}")
+
         return {
-            "message": "Repository added to selections",
+            "message": "Repository added to workspace",
+            "clone_success": clone_success,
+            "clone_message": clone_message,
             "selection": {
                 "id": selection.id,
                 "repo_full_name": selection.repo_full_name,

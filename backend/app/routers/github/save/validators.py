@@ -38,6 +38,28 @@ async def validate_repository_access(
     repository = await github_crud.get_repository(db, repository_id)
 
     if repository and repository.account.user_id == current_user.id:
+        # Verify the repository has correct data by cross-checking with selections
+        from app.services.github.repository_selector import GitHubRepositorySelector
+        repository_selector = GitHubRepositorySelector()
+
+        # Get selections for this account to ensure consistency
+        selected_repos = await repository_selector.get_selected_repositories(
+            db, repository.account_id, active_only=True
+        )
+
+        # Find matching selection by github_repo_id
+        matching_selection = None
+        for selection in selected_repos:
+            if selection.github_repo_id == repository.github_repo_id:
+                matching_selection = selection
+                break
+
+        if matching_selection:
+            # Use selection data for consistency, but keep the repository record
+            repository.repo_name = matching_selection.repo_name
+            repository.repo_owner = matching_selection.repo_owner
+            repository.default_branch = matching_selection.default_branch
+
         return repository
 
     # If not found in GitHubRepository, check if it's a selected repository
@@ -54,7 +76,7 @@ async def validate_repository_access(
         )
 
         for selection in selected_repos:
-            # Check if this selection matches our repository_id
+            # Check if this selection matches our repository_id (could be selection.id or internal repo id)
             if selection.id == repository_id:
                 # Create a repository-like object from the selection data
                 class MockRepository:

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Button, Alert, Badge, Row, Col, Form, InputGroup, ProgressBar } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
@@ -20,6 +20,8 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
   const [loadingGitStatus, setLoadingGitStatus] = useState(false);
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
+
+  const repositoryListRef = useRef(null);
 
   useEffect(() => {
     loadAccounts();
@@ -72,42 +74,29 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
 
       setRepositories(transformedRepos);
       setError(null);
-      
-      // Load git status overview after repositories are loaded
+
+      // Git status overview will be updated by repository list component
+      // when it fetches individual repository statuses
       if (transformedRepos.length > 0) {
-        loadGitStatusOverview(transformedRepos);
+        console.log(`Loaded ${transformedRepos.length} repositories from ${accounts.length} accounts`);
       }
     } catch (err) {
-      setError('Failed to load selected repositories');
-      console.error('Error loading selected repositories:', err);
+      setError('Failed to load workspace repositories');
+      console.error('Error loading workspace repositories:', err);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadGitStatusOverview = async (repoList = repositories) => {
-    if (repoList.length === 0) return;
-    
-    setLoadingGitStatus(true);
-    
+    // Handle status updates from the repository list
+  const handleRepositoryStatusUpdate = (statusMap) => {
+    if (!statusMap || Object.keys(statusMap).length === 0) return;
+
     try {
-      const statusPromises = repoList.map(async (repo) => {
-        if (!repo.internal_repo_id && !repo.id) return null;
-        
-        const repoId = repo.internal_repo_id || repo.id;
-        try {
-          const status = await gitHubApi.getRepositoryStatus(repoId);
-          return { repo: repo.name, ...status };
-        } catch (error) {
-          return { repo: repo.name, error: error.message };
-        }
-      });
-      
-      const statuses = await Promise.all(statusPromises);
-      const validStatuses = statuses.filter(status => status && !status.error);
-      
+      const validStatuses = Object.values(statusMap).filter(status => status && !status.error);
+
       const overview = {
-        total: repoList.length,
+        total: repositories.length,
         cloned: validStatuses.length,
         withChanges: validStatuses.filter(s => s.has_changes).length,
         clean: validStatuses.filter(s => !s.has_changes).length,
@@ -116,14 +105,24 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
         totalStaged: validStatuses.reduce((sum, s) => sum + (s.staged_files?.length || 0), 0),
         totalUntracked: validStatuses.reduce((sum, s) => sum + (s.untracked_files?.length || 0), 0)
       };
-      
+
       setGitStatusOverview(overview);
     } catch (error) {
-      console.error('Failed to load git status overview:', error);
-    } finally {
-      setLoadingGitStatus(false);
+      console.error('Failed to process repository status updates:', error);
     }
   };
+
+  // Handle refresh status button click
+  const handleRefreshStatus = () => {
+    if (repositoryListRef.current && repositoryListRef.current.refreshStatuses) {
+      setLoadingGitStatus(true);
+      repositoryListRef.current.refreshStatuses().finally(() => {
+        setLoadingGitStatus(false);
+      });
+    }
+  };
+
+  // Remove the old loadGitStatusOverview function that was making duplicate API calls
 
   const filteredRepositories = sortRepositories(
     repositories.filter(repo =>
@@ -168,14 +167,14 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
             </Col>
             <Col md={6}>
               <Form.Group>
-                <Form.Label>Search Selected Repositories</Form.Label>
+                <Form.Label>Search Workspace Repositories</Form.Label>
                 <InputGroup>
                   <InputGroup.Text>
                     <i className="bi bi-search"></i>
                   </InputGroup.Text>
                   <Form.Control
                     type="text"
-                    placeholder="Search selected repositories by name or description..."
+                    placeholder="Search workspace repositories by name or description..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
@@ -193,7 +192,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
           {!selectedAccount && accounts.length > 0 && (
             <Alert variant="info">
               <i className="bi bi-info-circle me-2"></i>
-              Please select a GitHub account to view your selected repositories.
+              Please select a GitHub account to view your workspace repositories.
             </Alert>
           )}
 
@@ -214,7 +213,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                 <Button
                   variant="outline-secondary"
                   size="sm"
-                  onClick={() => loadGitStatusOverview()}
+                  onClick={handleRefreshStatus}
                   disabled={loadingGitStatus}
                 >
                   <i className={`bi ${loadingGitStatus ? 'bi-arrow-clockwise spinning' : 'bi-arrow-clockwise'} me-1`}></i>
@@ -227,10 +226,10 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                     <div className="text-center">
                       <div className="h4 mb-1 text-primary">{gitStatusOverview.cloned}</div>
                       <div className="small text-muted">Cloned Locally</div>
-                      <ProgressBar 
-                        now={(gitStatusOverview.cloned / gitStatusOverview.total) * 100} 
-                        variant="primary" 
-                        className="mt-1" 
+                      <ProgressBar
+                        now={(gitStatusOverview.cloned / gitStatusOverview.total) * 100}
+                        variant="primary"
+                        className="mt-1"
                         style={{ height: '4px' }}
                       />
                     </div>
@@ -239,10 +238,10 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                     <div className="text-center">
                       <div className="h4 mb-1 text-success">{gitStatusOverview.clean}</div>
                       <div className="small text-muted">Clean</div>
-                      <ProgressBar 
-                        now={gitStatusOverview.cloned > 0 ? (gitStatusOverview.clean / gitStatusOverview.cloned) * 100 : 0} 
-                        variant="success" 
-                        className="mt-1" 
+                      <ProgressBar
+                        now={gitStatusOverview.cloned > 0 ? (gitStatusOverview.clean / gitStatusOverview.cloned) * 100 : 0}
+                        variant="success"
+                        className="mt-1"
                         style={{ height: '4px' }}
                       />
                     </div>
@@ -251,10 +250,10 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                     <div className="text-center">
                       <div className="h4 mb-1 text-warning">{gitStatusOverview.withChanges}</div>
                       <div className="small text-muted">With Changes</div>
-                      <ProgressBar 
-                        now={gitStatusOverview.cloned > 0 ? (gitStatusOverview.withChanges / gitStatusOverview.cloned) * 100 : 0} 
-                        variant="warning" 
-                        className="mt-1" 
+                      <ProgressBar
+                        now={gitStatusOverview.cloned > 0 ? (gitStatusOverview.withChanges / gitStatusOverview.cloned) * 100 : 0}
+                        variant="warning"
+                        className="mt-1"
                         style={{ height: '4px' }}
                       />
                     </div>
@@ -303,7 +302,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
               <Card.Header className="d-flex align-items-center justify-content-between">
                 <div>
                   <i className="bi bi-folder-check me-2"></i>
-                  Selected Repositories
+                  Workspace Repositories
                   {searchTerm && (
                     <small className="text-muted ms-2">
                       (filtered by "{searchTerm}")
@@ -339,15 +338,15 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                 {loading ? (
                   <div className="d-flex justify-content-center p-4">
                     <div className="spinner-border text-primary" role="status">
-                      <span className="visually-hidden">Loading selected repositories...</span>
+                      <span className="visually-hidden">Loading workspace repositories...</span>
                     </div>
                   </div>
                 ) : filteredRepositories.length === 0 ? (
                   <Alert variant="info" className="text-center">
                     <i className="bi bi-info-circle me-2"></i>
-                    <strong>No repositories selected yet.</strong>
+                    <strong>No repositories in workspace yet.</strong>
                     <p className="mb-2 mt-2">
-                      Use the "Add Repositories" button above to select repositories from your GitHub account.
+                      Use the "Manage Repository Selection" button above to add repositories to your workspace.
                     </p>
                     <Button
                       variant="primary"
@@ -356,14 +355,17 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                       disabled={!selectedAccount}
                     >
                       <i className="bi bi-plus-circle me-1"></i>
-                      Select Repositories
+                      Add to Workspace
                     </Button>
                   </Alert>
                 ) : (
                   <GitHubRepositoryList
+                    ref={repositoryListRef}
                     repositories={filteredRepositories}
                     accountId={selectedAccount}
                     onRepositoryBrowse={onRepositoryBrowse}
+                    onRepositoryUpdate={loadRepositories}
+                    onStatusUpdate={handleRepositoryStatusUpdate}
                   />
                 )}
               </Card.Body>

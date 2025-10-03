@@ -1,14 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { Card, Badge, Button, Row, Col, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import useFileModal from '../../../hooks/ui/useFileModal';
 import gitHubApi from '../../../api/gitHubApi';
 
-export default function GitHubRepositoryList({ repositories, accountId, onRepositoryBrowse }) {
+const GitHubRepositoryList = forwardRef(({
+  repositories,
+  accountId,
+  onRepositoryBrowse,
+  onRepositoryUpdate,
+  onStatusUpdate
+}, ref) => {
   const { showSuccess, showError } = useNotification();
   const { openGitHubTab } = useFileModal();
   const [repositoryStatuses, setRepositoryStatuses] = useState({});
   const [loadingStatuses, setLoadingStatuses] = useState(new Set());
+
+  // Expose refresh method to parent component
+  useImperativeHandle(ref, () => ({
+    refreshStatuses: () => fetchRepositoryStatuses()
+  }));
 
   // Load git status for all repositories when component mounts or repositories change
   useEffect(() => {
@@ -21,12 +32,19 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
     const statusPromises = repositories.map(async (repo) => {
       // Only try to get status for repositories that have an internal repo ID
       if (!repo.internal_repo_id && !repo.id) return null;
-      
+
       const repoId = repo.internal_repo_id || repo.id;
+      console.log(`Loading status for repo ${repo.name}:`, {
+        github_repo_id: repo.github_repo_id,
+        internal_repo_id: repo.internal_repo_id,
+        id: repo.id,
+        using_repo_id: repoId
+      });
       setLoadingStatuses(prev => new Set(prev).add(repoId));
-      
+
       try {
         const status = await gitHubApi.getRepositoryStatus(repoId);
+        console.log(`Status for repo ${repo.name}:`, status);
         return { repoId, status };
       } catch (error) {
         // Status check is optional - don't show errors for this
@@ -43,14 +61,19 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
 
     const results = await Promise.all(statusPromises);
     const statusMap = {};
-    
+
     results.forEach(result => {
       if (result) {
         statusMap[result.repoId] = result.status;
       }
     });
-    
+
     setRepositoryStatuses(statusMap);
+
+    // Call the status update callback to update parent component's overview
+    if (onStatusUpdate) {
+      onStatusUpdate(statusMap);
+    }
   };
 
   const getLanguageColor = (language) => {
@@ -111,9 +134,36 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
   const handleSyncRepository = async (repo) => {
     try {
       console.log('Sync repository:', repo);
-      showSuccess(`Syncing ${repo.name} repository`);
+      showSuccess(`Syncing ${repo.name} with remote...`);
     } catch (error) {
       showError(`Failed to sync ${repo.name}`);
+    }
+  };
+
+  const handleRetryClone = async (repo) => {
+    try {
+      // We can call the add repository selection API again, which should attempt to re-clone
+      const gitHubRepositorySelectionApi = (await import('../../../api/gitHubRepositorySelectionApi')).default;
+      const result = await gitHubRepositorySelectionApi.addRepositorySelection(accountId, repo.github_repo_id);
+
+      if (result.clone_success) {
+        showSuccess(`${repo.name} cloned successfully`);
+        // Refresh repository data to get updated internal_repo_id and then refresh status
+        if (onRepositoryUpdate) {
+          await onRepositoryUpdate();
+          // Small delay to ensure repository data is updated before checking status
+          setTimeout(() => {
+            loadRepositoryStatuses();
+          }, 500);
+        } else {
+          // Fallback: just refresh status
+          loadRepositoryStatuses();
+        }
+      } else {
+        showError(`Clone retry failed: ${result.clone_message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      showError(`Failed to retry clone for ${repo.name}`);
     }
   };
 
@@ -134,9 +184,9 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
     if (!status) {
       return (
         <div className="git-status-indicator offline">
-          <Badge bg="secondary" className="me-1">
-            <i className="bi bi-cloud-slash me-1"></i>
-            Not Cloned
+          <Badge bg="secondary" className="me-1 d-flex align-items-center">
+            <i className="bi bi-question-circle me-1"></i>
+            Status Unknown
           </Badge>
         </div>
       );
@@ -145,20 +195,33 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
     return (
       <div className="git-status-indicator">
         <div className="d-flex align-items-center gap-2 mb-1">
-          <Badge bg="info" className="d-flex align-items-center">
-            <i className="bi bi-git me-1"></i>
-            {status.branch}
-          </Badge>
+          {/* Only show branch if it's actually available */}
+          {status.branch && status.branch !== 'unknown' && (
+            <Badge bg="info" className="d-flex align-items-center">
+              <i className="bi bi-git me-1"></i>
+              {status.branch}
+            </Badge>
+          )}
+
           {status.has_changes && (
             <Badge bg="warning" className="d-flex align-items-center">
               <i className="bi bi-exclamation-circle me-1"></i>
               Changes
             </Badge>
           )}
-          {!status.has_changes && (
+
+          {!status.has_changes && status.branch && status.branch !== 'unknown' && (
             <Badge bg="success" className="d-flex align-items-center">
               <i className="bi bi-check-circle me-1"></i>
               Clean
+            </Badge>
+          )}
+
+          {/* Show error/unavailable status if git status failed */}
+          {status.branch === 'unknown' && (
+            <Badge bg="warning" className="d-flex align-items-center">
+              <i className="bi bi-exclamation-triangle me-1"></i>
+              Clone Failed
             </Badge>
           )}
         </div>
@@ -192,10 +255,10 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
     return (
       <div className="text-center py-4">
         <i className="bi bi-folder-check fs-1 text-muted"></i>
-        <h5 className="mt-3 text-muted">No selected repositories</h5>
+        <h5 className="mt-3 text-muted">No repositories in workspace</h5>
         <p className="text-muted">
-          You haven't selected any repositories yet.
-          Use the "Manage Repository Selection" button to choose repositories to sync.
+          You haven't added any repositories to your workspace yet.
+          Use the "Manage Repository Selection" button to add repositories.
         </p>
       </div>
     );
@@ -208,31 +271,35 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
           <Col md={6} lg={4} key={repo.id} className="mb-3">
             <Card className="h-100 github-repo-card">
               <Card.Body className="d-flex flex-column">
-                <div className="d-flex align-items-start justify-content-between mb-2">
-                  <div className="flex-grow-1">
-                    <h6 className="card-title mb-1">
+                {/* Repository Header - Title and Badges */}
+                <div className="repo-header">
+                  {/* Repository Title Row */}
+                  <div className="repo-title-row">
+                    <h6 className="card-title">
                       <i className={`bi ${repo.private ? 'bi-lock' : 'bi-folder'} me-2`}></i>
                       {repo.name}
                     </h6>
-                    <small className="text-muted">{repo.full_name}</small>
                   </div>
-                  <div className="d-flex gap-1">
-                    <Badge bg={repo.private ? 'warning' : 'success'}>
+
+                  {/* Badges Row */}
+                  <div className="repo-badges-row">
+                    <Badge bg={repo.private ? 'warning' : 'success'} className="badge-status">
                       {repo.private ? 'Private' : 'Public'}
                     </Badge>
                     {repo.language && (
-                      <Badge bg={getLanguageColor(repo.language)}>
+                      <Badge bg={getLanguageColor(repo.language)} className="badge-language">
                         {repo.language}
                       </Badge>
                     )}
-                    <Badge bg="primary" className="d-flex align-items-center">
+                    <Badge bg="primary" className="badge-selected d-flex align-items-center">
                       <i className="bi bi-check-circle me-1" style={{ fontSize: '0.75em' }}></i>
-                      Selected
+                      In Workspace
                     </Badge>
                   </div>
                 </div>
 
-                <div className="flex-grow-1">
+                {/* Repository Content */}
+                <div className="repo-content flex-grow-1">
                   {repo.description && (
                     <p className="card-text small text-muted mb-2">
                       {repo.description}
@@ -267,12 +334,14 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
                   </div>
                 </div>
 
-                <div className="d-flex gap-2 mt-auto">
+                {/* Repository Actions */}
+                <div className="repo-actions d-flex gap-2 mt-auto">
                   <Button
                     variant="outline-primary"
                     size="sm"
                     onClick={() => handleBrowseRepository(repo)}
                     className="flex-grow-1"
+                    disabled={repositoryStatuses[repo.internal_repo_id || repo.id]?.branch === 'unknown'}
                   >
                     <i className="bi bi-folder-open me-1"></i>
                     Browse
@@ -281,18 +350,31 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
                     variant="outline-secondary"
                     size="sm"
                     onClick={() => loadRepositoryStatuses()}
-                    title="Refresh Git Status"
+                    title="Refresh Status"
                   >
                     <i className="bi bi-arrow-clockwise"></i>
                   </Button>
-                  <Button
-                    variant="outline-success"
-                    size="sm"
-                    onClick={() => handleSyncRepository(repo)}
-                    title="Sync Repository"
-                  >
-                    <i className="bi bi-cloud-download"></i>
-                  </Button>
+                  {/* Show different action based on repository status */}
+                  {repositoryStatuses[repo.internal_repo_id || repo.id]?.branch === 'unknown' ? (
+                    <Button
+                      variant="outline-warning"
+                      size="sm"
+                      onClick={() => handleRetryClone(repo)}
+                      title="Retry Clone"
+                    >
+                      <i className="bi bi-arrow-clockwise"></i>
+                      Retry
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="outline-success"
+                      size="sm"
+                      onClick={() => handleSyncRepository(repo)}
+                      title="Sync with Remote"
+                    >
+                      <i className="bi bi-cloud-download"></i>
+                    </Button>
+                  )}
                 </div>
               </Card.Body>
             </Card>
@@ -302,4 +384,6 @@ export default function GitHubRepositoryList({ repositories, accountId, onReposi
 
     </>
   );
-}
+});
+
+export default GitHubRepositoryList;

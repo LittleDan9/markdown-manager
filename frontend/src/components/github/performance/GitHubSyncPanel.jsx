@@ -4,7 +4,7 @@ import gitHubApi from "../../../api/gitHubApi";
 import { useNotification } from "../../NotificationProvider";
 import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
 
-export default function GitHubSyncPanel() {
+export default function GitHubSyncPanel({ isActive = false }) {
   const [cacheStats, setCacheStats] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -13,13 +13,13 @@ export default function GitHubSyncPanel() {
   const { accounts, loading: accountsLoading } = useGitHubAccounts();
 
   useEffect(() => {
-    // Only load stats if user has GitHub accounts
-    if (!accountsLoading && accounts.length > 0) {
+    // Only load stats if user has GitHub accounts and tab is active
+    if (!accountsLoading && accounts.length > 0 && isActive) {
       loadStats();
       const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [accounts, accountsLoading]);
+  }, [accounts, accountsLoading, isActive]); // Add isActive to dependencies
 
   const loadStats = async () => {
     if (accounts.length === 0) {

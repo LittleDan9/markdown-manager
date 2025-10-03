@@ -5,7 +5,7 @@ import gitHubApi from '../../../api/gitHubApi';
 import { useNotification } from '../../NotificationProvider';
 import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
 
-export default function GitHubCachePanel() {
+export default function GitHubCachePanel({ isActive = false }) {
   const [cacheStats, setCacheStats] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -53,9 +53,9 @@ export default function GitHubCachePanel() {
       fetchMetrics();
     }
 
-    // Refresh every 30 seconds only if accounts exist
+    // Only set up interval if tab is active and accounts exist
     let interval;
-    if (!accountsLoading && accounts.length > 0) {
+    if (!accountsLoading && accounts.length > 0 && isActive) {
       interval = setInterval(fetchMetrics, 30000);
     }
     return () => {
@@ -63,7 +63,7 @@ export default function GitHubCachePanel() {
         clearInterval(interval);
       }
     };
-  }, [accounts, accountsLoading]); // Dependencies: accounts and accountsLoading
+  }, [accounts, accountsLoading, isActive]); // Add isActive to dependencies
 
   const handleClearCache = async () => {
     if (accounts.length === 0) {
@@ -267,7 +267,7 @@ export default function GitHubCachePanel() {
 
         {/* Background Sync Section */}
         <Col md={6}>
-          <GitHubSyncPanel />
+          <GitHubSyncPanel isActive={isActive} />
         </Col>
       </Row>
     </div>

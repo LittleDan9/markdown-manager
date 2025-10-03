@@ -55,7 +55,7 @@ class GitHubFilesystemService(BaseGitHubService):
                 "-c", "safe.directory=*",  # Bypass ownership check
                 *command
             ]
-            
+
             process = await asyncio.create_subprocess_exec(
                 *git_command,
                 cwd=repo_path,
@@ -120,9 +120,17 @@ class GitHubFilesystemService(BaseGitHubService):
             stdout, stderr = await process.communicate()
 
             if process.returncode == 0:
-                # Post-clone cleanup for markdown-only systems
-                if settings.github_markdown_only:
-                    await self._cleanup_non_markdown_files(target_path)
+                # Ensure working directory is in sync with git index
+                reset_success, _, reset_error = await self._run_git_command(
+                    target_path,
+                    ["reset", "--hard", "HEAD"]
+                )
+
+                if not reset_success:
+                    logger.warning(f"Git reset failed after clone: {reset_error}")
+
+                # Skip markdown-only cleanup for GitHub repositories to maintain full repo structure
+                # Storage limits should be enforced at the user/account level instead
 
                 logger.info(f"Successfully cloned repository to {target_path} (depth: {settings.github_clone_depth})")
                 return True

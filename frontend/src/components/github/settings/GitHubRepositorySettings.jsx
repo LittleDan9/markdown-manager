@@ -122,8 +122,14 @@ export default function GitHubRepositorySettings({ account, onBack }) {
 
   const handleAddRepository = async (repo) => {
     try {
-      await gitHubRepositorySelectionApi.addRepositorySelection(account.id, repo.id);
-      showSuccess(`Added ${repo.full_name} to selections`);
+      const result = await gitHubRepositorySelectionApi.addRepositorySelection(account.id, repo.id);
+
+      // Show different messages based on clone success
+      if (result.clone_success) {
+        showSuccess(`${repo.full_name} added to workspace and cloned successfully`);
+      } else {
+        showSuccess(`${repo.full_name} added to workspace. ${result.clone_message || 'Clone may still be in progress.'}`);
+      }
 
       // Update local state
       setAvailableRepos(repos =>
@@ -133,14 +139,14 @@ export default function GitHubRepositorySettings({ account, onBack }) {
       await loadStatistics();
     } catch (error) {
       console.error('Failed to add repository:', error);
-      showError('Failed to add repository to selections');
+      showError('Failed to add repository to workspace');
     }
   };
 
   const handleRemoveRepository = async (repo) => {
     try {
       await gitHubRepositorySelectionApi.removeRepositorySelection(account.id, repo.github_repo_id);
-      showSuccess(`Removed ${repo.repo_full_name} from selections`);
+            showSuccess(`Removed ${repo.full_name} from workspace`);
 
       // Update local state
       setSelectedRepos(repos => repos.filter(r => r.github_repo_id !== repo.github_repo_id));
@@ -189,7 +195,7 @@ export default function GitHubRepositorySettings({ account, onBack }) {
     try {
       const repoIds = Array.from(bulkSelection);
       await gitHubRepositorySelectionApi.bulkAddRepositorySelections(account.id, repoIds);
-      showSuccess(`Added ${repoIds.length} repositories to selections`);
+      showSuccess(`Added ${repoIds.length} repositories to workspace`);
 
       setShowBulkModal(false);
       setBulkSelection(new Set());
@@ -299,14 +305,14 @@ export default function GitHubRepositorySettings({ account, onBack }) {
           // Bulk add all unselected repositories
           const repoIds = allRepos.map(repo => repo.id);
           await gitHubRepositorySelectionApi.bulkAddRepositorySelections(account.id, repoIds);
-          showSuccess(`Auto-sync enabled: Added ${allRepos.length} repositories`);
+          showSuccess(`Auto-sync enabled: Added ${allRepos.length} repositories to workspace`);
 
           // Refresh the data
           await loadSelectedRepositories();
           await loadStatistics();
           await searchRepositories();
         } else {
-          showSuccess('Auto-sync enabled: All repositories are already selected');
+          showSuccess('Auto-sync enabled: All repositories are already in workspace');
         }
       } else {
         showSuccess('Auto-sync disabled: Manual repository selection active');
