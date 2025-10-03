@@ -16,7 +16,9 @@ function InvisibleResizer({ fullscreenPreview = false }) {
   // Debug logging for fullscreen changes
   useEffect(() => {
     console.log('InvisibleResizer: fullscreenPreview changed to:', fullscreenPreview);
-  }, [fullscreenPreview]);
+    console.log('InvisibleResizer: Current editorWidthPercentage:', editorWidthPercentage);
+    console.log('InvisibleResizer: Current localEditorWidth:', localEditorWidth);
+  }, [fullscreenPreview, editorWidthPercentage, localEditorWidth]);
 
   // Sync local state with user settings
   useEffect(() => {
@@ -32,22 +34,50 @@ function InvisibleResizer({ fullscreenPreview = false }) {
     if (editorContainer && previewContainer) {
       // Apply or remove custom widths based on fullscreen state and screen size
       const applyCustomWidths = () => {
+        console.log('InvisibleResizer: applyCustomWidths called');
         console.log('InvisibleResizer: Applying styles, fullscreenPreview:', fullscreenPreview, 'windowWidth:', window.innerWidth);
+        console.log('InvisibleResizer: editorContainer exists:', !!editorContainer);
+        console.log('InvisibleResizer: previewContainer exists:', !!previewContainer);
 
-        if (window.innerWidth > 768 && !fullscreenPreview) {
-          // Apply custom widths for normal split view
+        if (fullscreenPreview) {
+          // In fullscreen mode, remove all custom styles to let CSS take over
+          console.log('InvisibleResizer: Removing custom styles for fullscreen - CSS will handle it');
+          editorContainer.style.removeProperty('flex');
+          previewContainer.style.removeProperty('flex');
+          editorContainer.style.removeProperty('width');
+          previewContainer.style.removeProperty('width');
+          editorContainer.style.removeProperty('padding');
+          editorContainer.style.removeProperty('border');
+          editorContainer.style.removeProperty('overflow');
+          previewContainer.style.removeProperty('padding');
+          previewContainer.style.removeProperty('border-radius');
+          previewContainer.style.removeProperty('box-shadow');
+        } else if (window.innerWidth > 768) {
+          // Apply custom widths for normal split view on desktop
           console.log('InvisibleResizer: Applying custom widths:', localEditorWidth + '%');
           editorContainer.style.setProperty('flex', `0 1 ${localEditorWidth}%`, 'important');
           previewContainer.style.setProperty('flex', `0 1 ${100 - localEditorWidth}%`, 'important');
           editorContainer.style.setProperty('width', `${localEditorWidth}%`, 'important');
           previewContainer.style.setProperty('width', `${100 - localEditorWidth}%`, 'important');
+
+          // Ensure other properties are reset in case they were set previously
+          editorContainer.style.removeProperty('padding');
+          editorContainer.style.removeProperty('border');
+          editorContainer.style.removeProperty('overflow');
+          previewContainer.style.removeProperty('border-radius');
+          previewContainer.style.removeProperty('box-shadow');
         } else {
-          // Remove custom styles to let CSS take over (mobile or fullscreen)
-          console.log('InvisibleResizer: Removing custom styles');
+          // Remove custom styles to let responsive CSS take over (mobile)
+          console.log('InvisibleResizer: Removing custom styles for mobile');
           editorContainer.style.removeProperty('flex');
           previewContainer.style.removeProperty('flex');
           editorContainer.style.removeProperty('width');
           previewContainer.style.removeProperty('width');
+          editorContainer.style.removeProperty('padding');
+          editorContainer.style.removeProperty('border');
+          editorContainer.style.removeProperty('overflow');
+          previewContainer.style.removeProperty('border-radius');
+          previewContainer.style.removeProperty('box-shadow');
 
           // Log current computed styles after removal
           console.log('InvisibleResizer: After removal - editor computed style:', window.getComputedStyle(editorContainer).width);
@@ -65,8 +95,12 @@ function InvisibleResizer({ fullscreenPreview = false }) {
       // Listen for window resize to adapt to responsive breakpoints
       window.addEventListener('resize', applyCustomWidths);
 
+      // Apply styles again after a short delay to ensure they're not overridden
+      const delayedApply = setTimeout(applyCustomWidths, 100);
+
       return () => {
         window.removeEventListener('resize', applyCustomWidths);
+        clearTimeout(delayedApply);
       };
     }
   }, [localEditorWidth, fullscreenPreview]); // Added fullscreenPreview as dependency
@@ -243,6 +277,7 @@ function InvisibleResizer({ fullscreenPreview = false }) {
               background-color: transparent;
               transition: background-color 0.2s ease;
               pointer-events: auto;
+              display: ${fullscreenPreview ? 'none' : 'block'};
             }
 
             /* Only show highlight on hover of the specific handle */
@@ -268,41 +303,48 @@ function InvisibleResizer({ fullscreenPreview = false }) {
 
         document.head.appendChild(style);
 
-        // Create the actual resize handle element
-        const resizeHandle = document.createElement('div');
-        resizeHandle.className = 'resize-handle';
-        resizeHandle.id = 'resize-handle';
-        editorContainer.appendChild(resizeHandle);
+        // Create the actual resize handle element only if not in fullscreen mode
+        if (!fullscreenPreview) {
+          const resizeHandle = document.createElement('div');
+          resizeHandle.className = 'resize-handle';
+          resizeHandle.id = 'resize-handle';
+          editorContainer.appendChild(resizeHandle);
 
-        // Mouse event handlers specifically for the resize handle
-        const handleResizeMouseDown = (e) => {
-          console.log('Resize handle clicked at:', e.clientX);
-          resizeHandle.classList.add('dragging');
-          handleMouseDown(e);
-        };
+          // Mouse event handlers specifically for the resize handle
+          const handleResizeMouseDown = (e) => {
+            console.log('Resize handle clicked at:', e.clientX);
+            resizeHandle.classList.add('dragging');
+            handleMouseDown(e);
+          };
 
-        const handleResizeMouseUp = () => {
-          resizeHandle.classList.remove('dragging');
-        };
+          const handleResizeMouseUp = () => {
+            resizeHandle.classList.remove('dragging');
+          };
 
-        // Add event listeners to the resize handle only
-        resizeHandle.addEventListener('mousedown', handleResizeMouseDown);
-        document.addEventListener('mouseup', handleResizeMouseUp);
+          // Add event listeners to the resize handle only
+          resizeHandle.addEventListener('mousedown', handleResizeMouseDown);
+          document.addEventListener('mouseup', handleResizeMouseUp);
 
-        return () => {
-          document.head.removeChild(style);
-          document.removeEventListener('mouseup', handleResizeMouseUp);
-          if (resizeHandle && resizeHandle.parentNode) {
-            resizeHandle.parentNode.removeChild(resizeHandle);
-          }
-        };
+          return () => {
+            document.head.removeChild(style);
+            document.removeEventListener('mouseup', handleResizeMouseUp);
+            if (resizeHandle && resizeHandle.parentNode) {
+              resizeHandle.parentNode.removeChild(resizeHandle);
+            }
+          };
+        } else {
+          // In fullscreen mode, just cleanup styles when component unmounts
+          return () => {
+            document.head.removeChild(style);
+          };
+        }
       }
     };
 
     // Wait for containers to be available
     const timer = setTimeout(addResizeCursor, 100);
     return () => clearTimeout(timer);
-  }, [handleMouseDown]);
+  }, [handleMouseDown, fullscreenPreview]); // Added fullscreenPreview as dependency
 
   // This component renders nothing - it just adds behavior
   return null;

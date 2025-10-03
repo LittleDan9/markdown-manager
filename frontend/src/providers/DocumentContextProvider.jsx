@@ -21,7 +21,14 @@ export function DocumentContextProvider({ children }) {
   const auth = useAuth();
   const sharedViewState = useSharedViewState();
   const previewHTMLState = usePreviewHTMLState();
-  const documentState = useDocumentState(notification, auth, previewHTMLState.setPreviewHTML);
+
+  // Pass shared view state to document state to prevent conflicts
+  const documentState = useDocumentState(
+    notification,
+    auth,
+    previewHTMLState.setPreviewHTML,
+    sharedViewState.isSharedView  // Add shared view flag
+  );
 
   const value = useMemo(() => ({
     ...documentState,

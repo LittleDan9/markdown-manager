@@ -7,6 +7,15 @@ import InvisibleResizer from './InvisibleResizer';
  * Simple layout structure with invisible resize functionality
  */
 function AppLayout({ header, toolbar, editorSection, rendererSection, fullscreenPreview }) {
+  // Debug logging for fullscreen state changes
+  React.useEffect(() => {
+    console.log('AppLayout: fullscreenPreview changed to:', fullscreenPreview);
+    const mainElement = document.getElementById('main');
+    if (mainElement) {
+      console.log('AppLayout: main element classes:', mainElement.className);
+    }
+  }, [fullscreenPreview]);
+
   return (
     <div id="appRoot" className="app-root">
       <div id="container">

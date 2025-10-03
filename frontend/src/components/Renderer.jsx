@@ -307,21 +307,21 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   useEffect(() => {
     const handleExportComplete = (event) => {
       console.log('Diagram export completed:', event.detail);
-      
+
       // Re-validate diagram controls after export to ensure they remain visible
       if (previewScrollRef.current && !isRendering) {
         setTimeout(() => {
           // Check if controls are still present for all diagrams
           const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
           let needsRevalidation = false;
-          
+
           diagrams.forEach((diagram) => {
             const existingControls = diagram.querySelector('.diagram-controls-container');
             if (!existingControls || !existingControls.isConnected) {
               needsRevalidation = true;
             }
           });
-          
+
           if (needsRevalidation) {
             console.log('Re-adding diagram controls after export');
             addDiagramControls(previewScrollRef.current);
@@ -331,7 +331,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     };
 
     window.addEventListener('diagramExportComplete', handleExportComplete);
-    
+
     return () => {
       window.removeEventListener('diagramExportComplete', handleExportComplete);
     };
@@ -369,7 +369,7 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   }, [previewHTML, isRendering]);
 
   return (
-    <div id="previewContainer" className={fullscreenPreview ? "fullscreen-preview" : ""}>
+    <div id="previewContainer">
       <div id="preview" className="position-relative">
         <div
           className="preview-scroll"
