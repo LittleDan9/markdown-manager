@@ -6,6 +6,7 @@ import FileSaveAsModal from "@/components/file/FileSaveAsModal";
 import FileOverwriteModal from "@/components/file/FileOverwriteModal";
 import GitHubSaveModal from "@/components/file/modals/GitHubSaveModal";
 import RecentFilesDropdown from "@/components/file/RecentFilesDropdown";
+import UnsavedDocumentsDropdown from "@/components/file/UnsavedDocumentsDropdown";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import GitHistoryModal from "@/components/shared/modals/GitHistoryModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
@@ -325,6 +326,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         </Dropdown.Toggle>
         <Dropdown.Menu>
           <RecentFilesDropdown onFileSelect={handleRecentFileSelect} onClose={closeDropdown} />
+          <UnsavedDocumentsDropdown onFileSelect={handleRecentFileSelect} onClose={closeDropdown} />
 
           {/* Core Operations - Always visible */}
           <Dropdown.Item onClick={handleNew}>

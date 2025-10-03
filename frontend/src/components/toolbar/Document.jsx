@@ -38,8 +38,13 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
     }, 1000);
   }, []);
 
-  // Save document immediately when changing category
+  // Save document immediately when changing category (only for local files)
   const handleCategorySelect = async (category) => {
+    // Don't allow category changes for GitHub files
+    if (currentDocument?.repository_type === 'github') {
+      return;
+    }
+
     setCurrentCategory(category);
     try {
       const updatedDoc = { ...currentDocument, category };
@@ -76,8 +81,13 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
     return formatDistanceToNow(utcDate, { addSuffix: true });
   };
 
-  // Sync category with currentDocument.category whenever document changes
+  // Sync category with currentDocument.category whenever document changes (local files only)
   useEffect(() => {
+    // Skip category management entirely for GitHub files
+    if (currentDocument?.repository_type === 'github') {
+      return;
+    }
+
     if (currentDocument && currentDocument.category) {
       // If currentDocument.category is missing from categories, fallback to 'General'
       if (!categories.includes(currentDocument.category)) {
@@ -86,7 +96,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         setCurrentCategory(currentDocument.category);
       }
     }
-  }, [currentDocument?.category, currentDocument?.updated_at, categories]);
+  }, [currentDocument?.category, currentDocument?.updated_at, currentDocument?.repository_type, categories]);
 
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");
@@ -146,6 +156,12 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const handleAddCategory = async (category) => {
     if (!category) return;
 
+    // Don't allow adding categories when viewing GitHub files
+    if (currentDocument?.repository_type === 'github') {
+      showError("Cannot create categories for GitHub files.");
+      return;
+    }
+
     // Call addCategory which will update the current document with the new category
     const updatedCats = await addCategory(category);
     setCategories(updatedCats);
@@ -157,6 +173,11 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
 
   // Category rename handlers
   const handleCategoryLabelClick = () => {
+    // Don't allow category editing for GitHub files
+    if (currentDocument?.repository_type === 'github') {
+      return;
+    }
+
     setEditingCategory(true);
     setCategoryInput(currentCategory);
     setCategoryError("");
@@ -206,97 +227,119 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   };
 
   // Categories are now managed by context
+  const isGitHubFile = currentDocument?.repository_type === 'github';
+
   return (
     <>
-      {/* Category dropdown with inline rename */}
-      <Dropdown as="span" className="me-1">
-        <Dropdown.Toggle
-          size="sm"
-          variant="secondary"
-          id="categoryDropdown"
-          className="dropdown-toggle d-flex align-items-center"
-        >
-          {editingCategory ? (
-            <input
-              type="text"
-              className="form-control form-control-sm d-inline w-auto"
-              style={{ maxWidth: 160 }}
-              value={categoryInput}
-              onChange={handleCategoryInputChange}
-              onBlur={handleCategoryInputBlur}
-              onKeyDown={handleCategoryInputKeyDown}
-              autoFocus
-            />
-          ) : (
-            <span
-              className="cursor-pointer"
-              title="Click to rename category"
-              onClick={handleCategoryLabelClick}
-              style={{ minWidth: 60, display: "inline-block" }}
-            >
-              {currentCategory}
-            </span>
+      {/* Show repository info for GitHub files, category dropdown for local files */}
+      {isGitHubFile ? (
+        <span className="me-1 d-flex align-items-center">
+          <span className="text-muted small fw-medium">
+            {currentDocument.github_repository?.name ||
+             currentDocument.repository_name ||
+             currentDocument.github_repository?.full_name ||
+             'Unknown Repository'}
+          </span>
+          {currentDocument.github_branch && currentDocument.github_branch !== 'main' && (
+            <>
+              <span className="text-muted mx-1">/</span>
+              <span className="badge bg-info text-dark" style={{ fontSize: '0.7em' }}>
+                {currentDocument.github_branch}
+              </span>
+            </>
           )}
-        </Dropdown.Toggle>
-        <Dropdown.Menu>
-          {categories.map((category) => (
-            <Dropdown.Item
-              key={category}
-              active={category === currentCategory}
-              onClick={() => handleCategorySelect(category)}
-              className={`d-flex justify-content-between align-items-center
-                  ${category === currentCategory ? "text-bg-secondary" : ""}`}
-            >
-              <span className="text-truncate">{category}</span>
-              {category !== "General" && category !== "Drafts" && (
-                <button
-                  type="button"
-                  className="btn btn-link btn-sm p-0 ms-2 text-danger"
-                  title={`Delete ${category}`}
-                  tabIndex={-1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteCategory(category);
-                  }}
-                  aria-label={`Delete ${category}`}
-                >
-                  <i className="bi bi-trash fw-bold"></i>
-                </button>
-              )}
-            </Dropdown.Item>
-          ))}
-          <Dropdown.Divider />
-          <div className="px-1 py-2">
-            <form
-              className="px-1 py-2"
-              autoComplete="off"
-              style={{ minWidth: "200px" }}
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (!newCategory) return;
-                handleAddCategory(newCategory);
-              }}
-            >
-              <div className="input-group input-group-sm">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="New category"
-                  aria-label="New category"
-                  value={newCategory}
-                  onChange={(e) => setNewCategory(e.target.value)}
-                />
-                <button className="btn btn-primary" type="submit">
-                  <i className="bi bi-plus"></i>
-                </button>
-              </div>
-            </form>
-            {categoryError && (
-              <div className="text-danger small mt-1">{categoryError}</div>
+        </span>
+      ) : (
+        /* Category dropdown with inline rename for local files */
+        <Dropdown as="span" className="me-1">
+          <Dropdown.Toggle
+            size="sm"
+            variant="secondary"
+            id="categoryDropdown"
+            className="dropdown-toggle d-flex align-items-center"
+          >
+            {editingCategory ? (
+              <input
+                type="text"
+                className="form-control form-control-sm d-inline w-auto"
+                style={{ maxWidth: 160 }}
+                value={categoryInput}
+                onChange={handleCategoryInputChange}
+                onBlur={handleCategoryInputBlur}
+                onKeyDown={handleCategoryInputKeyDown}
+                autoFocus
+              />
+            ) : (
+              <span
+                className="cursor-pointer"
+                title="Click to rename category"
+                onClick={handleCategoryLabelClick}
+                style={{ minWidth: 60, display: "inline-block" }}
+              >
+                {currentCategory}
+              </span>
             )}
-          </div>
-        </Dropdown.Menu>
-      </Dropdown>
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            {categories.map((category) => (
+              <Dropdown.Item
+                key={category}
+                active={category === currentCategory}
+                onClick={() => handleCategorySelect(category)}
+                className={`d-flex justify-content-between align-items-center
+                    ${category === currentCategory ? "text-bg-secondary" : ""}`}
+              >
+                <span className="text-truncate">{category}</span>
+                {category !== "General" && category !== "Drafts" && (
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 ms-2 text-danger"
+                    title={`Delete ${category}`}
+                    tabIndex={-1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteCategory(category);
+                    }}
+                    aria-label={`Delete ${category}`}
+                  >
+                    <i className="bi bi-trash fw-bold"></i>
+                  </button>
+                )}
+              </Dropdown.Item>
+            ))}
+            <Dropdown.Divider />
+            <div className="px-1 py-2">
+              <form
+                className="px-1 py-2"
+                autoComplete="off"
+                style={{ minWidth: "200px" }}
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  if (!newCategory) return;
+                  handleAddCategory(newCategory);
+                }}
+              >
+                <div className="input-group input-group-sm">
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="New category"
+                    aria-label="New category"
+                    value={newCategory}
+                    onChange={(e) => setNewCategory(e.target.value)}
+                  />
+                  <button className="btn btn-primary" type="submit">
+                    <i className="bi bi-plus"></i>
+                  </button>
+                </div>
+              </form>
+              {categoryError && (
+                <div className="text-danger small mt-1">{categoryError}</div>
+              )}
+            </div>
+          </Dropdown.Menu>
+        </Dropdown>
+      )}
       <span className="mx-1 text-muted">/</span>
       {editingTitle ? (
         <input
@@ -321,23 +364,48 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         </span>
       )}
       <span className="vr opacity-50 mx-2"></span>
-      {/^Untitled Document( \d+)?$/.test(currentDocument.name) ? (
-        <span
-          className="me-2"
-          title="This document will remain your current document but will not be saved until you provide a title."
-          style={{ cursor: "pointer" }}
-        >
-          <i className="bi bi-exclamation-diamond text-danger"></i>
-        </span>
-      ) : hasUnsavedChanges ? (
-        <span
-          className="me-2"
-          title="You have unsaved changes in this document. Don't forget to save!"
-          style={{ cursor: "pointer" }}
-        >
-          <i className="bi bi-exclamation-circle text-warning"></i>
-        </span>
-      ) : null}
+      {/* Storage type and status indicators */}
+      <div className="d-flex align-items-center">
+        {/* Storage location indicator */}
+        {currentDocument?.id && String(currentDocument.id).startsWith('doc_') ? (
+          <span
+            className="me-2 d-flex align-items-center"
+            title="Document stored in browser only - Save to backend to prevent data loss"
+            style={{ cursor: "pointer" }}
+          >
+            <i className="bi bi-exclamation-triangle text-warning me-1"></i>
+            <small className="text-warning">Browser Storage</small>
+          </span>
+        ) : currentDocument?.id && !String(currentDocument.id).startsWith('doc_') ? (
+          <span
+            className="me-2 d-flex align-items-center"
+            title="Document saved to server"
+            style={{ cursor: "pointer" }}
+          >
+            <i className="bi bi-cloud-check text-success me-1"></i>
+            <small className="text-success">Server</small>
+          </span>
+        ) : null}
+
+        {/* Document status indicators */}
+        {/^Untitled Document( \d+)?$/.test(currentDocument.name) ? (
+          <span
+            className="me-2"
+            title="This document will remain your current document but will not be saved until you provide a title."
+            style={{ cursor: "pointer" }}
+          >
+            <i className="bi bi-exclamation-diamond text-danger"></i>
+          </span>
+        ) : hasUnsavedChanges ? (
+          <span
+            className="me-2"
+            title="You have unsaved changes in this document. Don't forget to save!"
+            style={{ cursor: "pointer" }}
+          >
+            <i className="bi bi-exclamation-circle text-warning"></i>
+          </span>
+        ) : null}
+      </div>
       <span className="text-muted small">
         Last saved: {getLastSavedText()}
       </span>

@@ -56,11 +56,21 @@ class DocumentsApi extends Api {
     return await exportServiceApi.exportDiagramAsPNG(htmlContent, options);
   }
 
-  async getAllDocuments(category = null) {
+  async getAllDocuments(category = null, repositoryType = "local") {
     let endpoint = "/documents";
+    const params = new URLSearchParams();
+
     if (category && category !== "All") {
-      endpoint += `?category=${encodeURIComponent(category)}`;
+      params.append("category", category);
     }
+
+    // Add repository_type parameter - default to "local" to only get local documents
+    params.append("repository_type", repositoryType);
+
+    if (params.toString()) {
+      endpoint += `?${params.toString()}`;
+    }
+
     const res = await this.apiCall(endpoint);
     return res.data.documents || [];
   }

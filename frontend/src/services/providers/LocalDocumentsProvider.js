@@ -24,10 +24,13 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
 
   async getTreeStructure() {
     const { documents = [], categories = [] } = this.documentContext;
-    
+
+    // Filter out GitHub documents - only show local documents
+    const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
+
     // Ensure 'General' category exists
-    const safeCategories = categories.includes('General') 
-      ? categories 
+    const safeCategories = categories.includes('General')
+      ? categories
       : ['General', ...categories.filter(c => c !== 'General')];
 
     // Create a root "Documents" folder containing all categories
@@ -44,7 +47,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
         path: `/Documents/${category}`,
         source: SOURCE_TYPES.LOCAL,
         category: category,
-        children: documents
+        children: localDocuments
           .filter(doc => doc.category === category)
           .map(doc => ({
             id: doc.id,
@@ -63,10 +66,13 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
 
   async getFilesInPath(path) {
     const { documents = [] } = this.documentContext;
-    
+
+    // Filter out GitHub documents - only show local documents
+    const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
+
     // Parse path to determine level
     const pathParts = path.split('/').filter(p => p);
-    
+
     if (pathParts.length === 0) {
       // Root path - return Documents folder
       return [{
@@ -79,10 +85,10 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
     } else if (pathParts.length === 1 && pathParts[0] === 'Documents') {
       // Documents folder - return categories as folders
       const { categories = [] } = this.documentContext;
-      const safeCategories = categories.includes('General') 
-        ? categories 
+      const safeCategories = categories.includes('General')
+        ? categories
         : ['General', ...categories.filter(c => c !== 'General')];
-        
+
       return safeCategories.map(category => ({
         id: `category-${category}`,
         name: category,
@@ -94,7 +100,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
     } else if (pathParts.length === 2 && pathParts[0] === 'Documents') {
       // Category level - return documents in category
       const category = pathParts[1];
-      return documents
+      return localDocuments
         .filter(doc => doc.category === category)
         .map(doc => ({
           id: doc.id,
@@ -120,10 +126,13 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
 
   async searchFiles(query) {
     const { documents = [] } = this.documentContext;
+
+    // Filter out GitHub documents - only search local documents
+    const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
     const lowercaseQuery = query.toLowerCase();
-    
-    return documents
-      .filter(doc => 
+
+    return localDocuments
+      .filter(doc =>
         doc.name.toLowerCase().includes(lowercaseQuery) ||
         (doc.content && doc.content.toLowerCase().includes(lowercaseQuery))
       )
@@ -142,11 +151,14 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
 
   async getStats() {
     const { documents = [], categories = [] } = this.documentContext;
-    
+
+    // Filter out GitHub documents - only count local documents
+    const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
+
     return {
-      totalFiles: documents.length,
+      totalFiles: localDocuments.length,
       totalFolders: categories.length,
-      totalSize: documents.reduce((sum, doc) => sum + (doc.content?.length || 0), 0)
+      totalSize: localDocuments.reduce((sum, doc) => sum + (doc.content?.length || 0), 0)
     };
   }
 }

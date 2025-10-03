@@ -172,6 +172,33 @@
           background-color: var(--bs-tertiary-bg) !important;
         }
       }
+
+      // Unsaved documents specific styling
+      .unsaved-docs-list {
+        max-height: 400px;
+        overflow-y: auto;
+      }
+
+      .unsaved-doc-item {
+        transition: all 0.15s ease;
+        border-left: 3px solid transparent;
+
+        &:hover {
+          background-color: var(--bs-warning-bg-subtle) !important;
+          border-left-color: var(--bs-warning) !important;
+          transform: translateX(2px);
+        }
+
+        &:active {
+          background-color: var(--bs-warning-bg-subtle) !important;
+          transform: translateX(1px);
+        }
+
+        .badge {
+          font-size: 0.6em;
+          padding: 0.2em 0.4em;
+        }
+      }
     }
 
     &:hover .dropdown-submenu-menu {

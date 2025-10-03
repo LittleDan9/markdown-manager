@@ -81,6 +81,11 @@ class DocumentInDB(DocumentBase):
     github_sha: Optional[str] = None
     github_sync_status: Optional[str] = None
     last_github_sync_at: Optional[datetime] = None
+    github_branch: Optional[str] = None
+
+    # GitHub repository information (expanded from relationship)
+    github_repository: Optional[dict] = None
+    repository_name: Optional[str] = None
 
     # Recent documents tracking
     last_opened_at: Optional[datetime] = None

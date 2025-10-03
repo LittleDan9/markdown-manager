@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useCallback } from 'react';
 import { Table, Badge, Spinner } from 'react-bootstrap';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
@@ -25,7 +25,21 @@ export default function FileList({
   config
 }) {
   const { theme } = useTheme();
-  const sortedItems = sortRepositoryItems(files);
+
+  // Deduplicate files by creating a unique identifier and removing duplicates
+  const deduplicatedFiles = files.reduce((acc, file) => {
+    const fileKey = `${file.id || 'no-id'}-${file.path || 'no-path'}-${file.name || 'no-name'}`;
+    if (!acc.has(fileKey)) {
+      acc.set(fileKey, file);
+    } else {
+      console.warn(`[FileList] Duplicate file detected and removed:`, file.name, file);
+    }
+    return acc;
+  }, new Map());
+
+  const sortedItems = sortRepositoryItems(Array.from(deduplicatedFiles.values()));
+  const lastDoubleClickRef = useRef(0);
+  const DOUBLE_CLICK_THROTTLE = 300; // 300ms throttle
 
   const renderBreadcrumb = () => {
     if (!currentPath || currentPath === '/' || currentPath === '/Documents') {
@@ -138,7 +152,7 @@ export default function FileList({
     }
   };
 
-  const handleItemClick = (item) => {
+  const handleItemClick = useCallback((item) => {
     onFileSelect(item);
 
     // If it's a folder, expand it in the tree (but don't navigate to it)
@@ -148,9 +162,15 @@ export default function FileList({
       const folderPath = item.path;
       onFolderExpand(folderPath);
     }
-  };
+  }, [onFileSelect, onFolderExpand]);
 
-  const handleItemDoubleClick = (item) => {
+  const handleItemDoubleClick = useCallback((item) => {
+    const now = Date.now();
+    if (now - lastDoubleClickRef.current < DOUBLE_CLICK_THROTTLE) {
+      return;
+    }
+    lastDoubleClickRef.current = now;
+
     const isFolder = item.type === 'folder' || item.type === 'dir';
     if (isFolder && onPathChange) {
       // For folders, double-click navigates to the folder
@@ -161,7 +181,7 @@ export default function FileList({
       // For files, double-click opens the file
       onFileOpen(item);
     }
-  };
+  }, [onPathChange, onFileOpen]);
 
   const isSelected = (file) => {
     return selectedFile && selectedFile.id === file.id;
@@ -268,9 +288,12 @@ export default function FileList({
                 const isItemSelected = isSelected(item);
                 const isFolder = item.type === 'folder' || item.type === 'dir';
 
+                // Create a truly unique key by combining all available identifiers
+                const uniqueKey = `${item.id || 'no-id'}-${item.path || 'no-path'}-${item.name || 'no-name'}-${index}-${item.type || 'unknown'}-${item.source || 'no-source'}`;
+
                 return (
                   <tr
-                    key={item.id || item.path || index}
+                    key={uniqueKey}
                     className={`table-row-hover ${isItemSelected ? 'table-primary' : (theme === 'dark' ? 'table-dark' : '')}`}
                     onClick={() => handleItemClick(item)}
                     onDoubleClick={() => handleItemDoubleClick(item)}
@@ -295,6 +318,25 @@ export default function FileList({
                           getFileIconColor(item, false, isItemSelected)
                         }`}></i>
                         <span>{item.name}</span>
+
+                        {/* Storage location indicator for documents */}
+                        {!isFolder && item.documentId && (
+                          <span className="storage-indicator ms-2 d-flex align-items-center">
+                            {String(item.documentId).startsWith('doc_') ? (
+                              <i
+                                className="bi bi-exclamation-triangle text-warning"
+                                title="Browser storage only - Save to backend to prevent data loss"
+                                style={{ fontSize: '0.8em' }}
+                              />
+                            ) : (
+                              <i
+                                className="bi bi-cloud-check text-success"
+                                title="Saved to server"
+                                style={{ fontSize: '0.8em' }}
+                              />
+                            )}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td>

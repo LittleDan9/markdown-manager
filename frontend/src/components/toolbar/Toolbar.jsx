@@ -129,7 +129,7 @@ function Toolbar({
                     opacity: currentDocument?.id ? 1 : 0.6
                   }}
                 >
-                  <i className="bi bi-file-earmark-text"></i>
+                  <i className={`bi ${currentDocument?.repository_type === 'github' ? 'bi-github' : 'bi-file-earmark-text'}`}></i>
                 </button>
                 <DocumentToolbar
                   documentTitle={documentTitle}

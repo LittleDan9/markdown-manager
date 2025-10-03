@@ -77,7 +77,7 @@ async def create_document_response(
             category_name = document.folder_path.strip('/').split('/')[-1]
 
     # Manually construct the Document response schema
-    return DocumentSchema(
+    response = DocumentSchema(
         id=document.id,
         name=document.name,
         content=content,
@@ -96,8 +96,35 @@ async def create_document_response(
         github_sha=document.github_sha,
         github_sync_status=document.github_sync_status,
         last_github_sync_at=document.last_github_sync_at,
-        last_opened_at=document.last_opened_at  # Add the missing field
+        last_opened_at=document.last_opened_at,  # Add the missing field
+        # Add GitHub repository information if available
+        # Safely access github_repository relationship
+        github_repository=None,
+        repository_name=None,
+        github_branch=document.github_branch
     )
+
+    # Safely populate GitHub repository information after creating the base response
+    try:
+        if hasattr(document, 'github_repository') and document.github_repository:
+            github_repo = document.github_repository
+            response.github_repository = {
+                "id": github_repo.id,
+                "name": github_repo.repo_name,
+                "full_name": github_repo.repo_full_name,
+                "owner": github_repo.repo_owner,
+                "default_branch": github_repo.default_branch,
+                "is_private": github_repo.is_private,
+                "description": github_repo.description
+            }
+            response.repository_name = github_repo.repo_name
+    except Exception as e:
+        # Log error but don't fail the response
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Error accessing github_repository for document {document.id}: {e}")
+
+    return response
 
 
 async def create_document_list_response(
