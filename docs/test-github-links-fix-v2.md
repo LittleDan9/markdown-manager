@@ -22,10 +22,4 @@ flowchart LR
     A[Start] --> B{Decision}
     B -->|Yes| C[Action 1]
     B -->|No| D[Action 2]
-    
-    classDef startClass fill:#e1f5fe,stroke:#01579b,stroke-width:2px,icon:aws:compute
-    classDef actionClass fill:#f3e5f5,stroke:#4a148c,stroke-width:2px,icon:azure:storage
-    
-    class A startClass
-    class C,D actionClass
 ```
