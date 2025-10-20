@@ -1,0 +1,117 @@
+// GitHub Repository Browser Container Styles
+// Modal and main browser container styling
+
+.github-repository-browser {
+  .modal-90w {
+    width: 90%;
+    max-width: none;
+  }
+
+  // Ensure modal content stays within bounds
+  .modal-body {
+    position: relative;
+    z-index: 1;
+    overflow: hidden; // Prevent content from overflowing modal bounds
+  }
+
+  // Ensure footer stays on top
+  .modal-footer {
+    position: relative;
+    z-index: 10;
+    background-color: var(--bs-modal-bg);
+    border-top: var(--bs-modal-border-width) solid var(--bs-modal-border-color);
+  }
+}
+
+// Account Cards
+.github-account-list {
+  .card {
+    transition: box-shadow 0.15s ease-in-out;
+
+    &:hover {
+      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    }
+  }
+}
+
+// Repository Cards
+.github-repo-card {
+  transition: transform 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  }
+
+  // Ensure proper card layout structure
+  .card-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  // Repository header section with title and badges
+  .repo-header {
+    margin-bottom: 1rem;
+
+    // Repository title row
+    .repo-title-row {
+      margin-bottom: 0.5rem;
+
+      .card-title {
+        margin-bottom: 0;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+    }
+
+    // Badges row - separate row for better layout
+    .repo-badges-row {
+      display: flex;
+      gap: 0.375rem;
+      flex-wrap: wrap;
+
+      .badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        white-space: nowrap;
+
+        // Specific badge styling
+        &.badge-status {
+          font-weight: 500;
+        }
+
+        &.badge-language {
+          font-weight: 500;
+        }
+
+        &.badge-selected {
+          font-weight: 600;
+        }
+      }
+    }
+  }
+
+  // Ensure content area fills remaining space
+  .repo-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  // Actions should stay at bottom
+  .repo-actions {
+    margin-top: auto;
+    padding-top: 0.75rem;
+  }
+}
+
+// Performance Panel
+.github-performance-tab {
+  .performance-metrics {
+    .badge {
+      font-size: 0.9em;
+    }
+  }
+}

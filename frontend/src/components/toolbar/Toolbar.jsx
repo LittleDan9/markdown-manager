@@ -120,8 +120,8 @@ function Toolbar({
                   title={currentDocument?.id ? "View Document Information" : "No document loaded"}
                   data-bs-toggle="tooltip"
                   data-bs-placement="bottom"
-                  style={{ 
-                    border: 'none', 
+                  style={{
+                    border: 'none',
                     background: 'none',
                     fontSize: '1rem',
                     lineHeight: 1,
@@ -129,7 +129,7 @@ function Toolbar({
                     opacity: currentDocument?.id ? 1 : 0.6
                   }}
                 >
-                  <i className="bi bi-file-earmark-text"></i>
+                  <i className={`bi ${currentDocument?.repository_type === 'github' ? 'bi-github' : 'bi-file-earmark-text'}`}></i>
                 </button>
                 <DocumentToolbar
                   documentTitle={documentTitle}
@@ -179,7 +179,11 @@ function Toolbar({
             title={fullscreenPreview ? "Exit fullscreen preview" : "Open preview in fullscreen"}
             onClick={e => {
               e.preventDefault();
-              setFullscreenPreview(prev => !prev);
+              console.log('Fullscreen button clicked - current state:', fullscreenPreview);
+              setFullscreenPreview(prev => {
+                console.log('Setting fullscreen preview from', prev, 'to', !prev);
+                return !prev;
+              });
             }}
             style={{ display: isSharedView ? 'none' : 'inline-block' }}
           >

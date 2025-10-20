@@ -41,6 +41,7 @@
         padding: 0 !important;
         border: none !important;
         overflow: hidden !important;
+        display: none !important;  /* Extra enforcement */
       }
       #previewContainer {
         width: 100% !important;
@@ -48,6 +49,40 @@
         padding: 0.5rem !important;
         border-radius: 0 !important;
         box-shadow: none !important;
+
+        #preview {
+          width: 100% !important;
+
+          .preview-scroll {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 100% !important;
+          }
+        }
+      }
+    }
+
+    &.shared-view {
+      /* Shared view: single full-width preview container */
+      #previewContainer {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        padding: 0.5rem !important;
+        border-radius: 0.5rem !important;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+
+        #preview {
+          width: 100% !important;
+          border: #ced4da 1px solid;
+          border-radius: 0.5rem;
+
+          .preview-scroll {
+            width: 100% !important;
+            max-width: 100% !important;
+            min-width: 100% !important;
+            padding: 1rem !important; /* More generous padding for shared view */
+          }
+        }
       }
     }
 

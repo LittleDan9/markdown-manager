@@ -176,16 +176,8 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
                     {recentLocal.map((file) => (
                       <div
                         key={`local-${file.id}`}
-                        className="recent-file-item d-flex align-items-center justify-content-between p-2 rounded cursor-pointer"
+                        className="recent-file-item dropdown-item d-flex align-items-center justify-content-between p-2 rounded cursor-pointer"
                         onClick={() => handleFileSelect(file)}
-                        style={{
-                          transition: 'background-color 0.15s ease',
-                          ':hover': {
-                            backgroundColor: 'var(--bs-secondary-bg)'
-                          }
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bs-secondary-bg)'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {
@@ -220,13 +212,8 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
                     {recentGitHub.map((file) => (
                       <div
                         key={`github-${file.id}`}
-                        className="recent-file-item d-flex align-items-center justify-content-between p-2 rounded cursor-pointer"
+                        className="recent-file-item dropdown-item d-flex align-items-center justify-content-between p-2 rounded cursor-pointer"
                         onClick={() => handleFileSelect(file)}
-                        style={{
-                          transition: 'background-color 0.15s ease'
-                        }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = 'var(--bs-secondary-bg)'}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
                         role="button"
                         tabIndex={0}
                         onKeyDown={(e) => {

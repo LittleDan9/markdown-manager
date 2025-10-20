@@ -108,12 +108,13 @@ class DocumentCRUD:
         return int(exec_result.rowcount)
 
     async def get(self, db: AsyncSession, id: int) -> Optional[Document]:
-        """Get a document by ID with category name."""
+        """Get a document by ID with category name and GitHub repository information."""
         from app.models.category import Category
 
         result = await db.execute(
             select(Document, Category.name.label('category_name'))
             .outerjoin(Category, Document.category_id == Category.id)
+            .options(selectinload(Document.github_repository))
             .filter(Document.id == id)
         )
         row = result.first()
@@ -127,12 +128,13 @@ class DocumentCRUD:
     async def get_by_user(
         self, db: AsyncSession, user_id: int, skip: int = 0, limit: int = 100
     ) -> List[Document]:
-        """Get all documents for a user with category names."""
+        """Get all documents for a user with category names and GitHub repository information."""
         from app.models.category import Category
 
         result = await db.execute(
             select(Document, Category.name.label('category_name'))
             .outerjoin(Category, Document.category_id == Category.id)  # Use LEFT JOIN to include docs with null category_id
+            .options(selectinload(Document.github_repository))
             .filter(Document.user_id == user_id)
             .order_by(Document.updated_at.desc())
             .offset(skip)

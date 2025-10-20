@@ -23,7 +23,14 @@ export default function UnifiedFileBrowserTab({
 }) {
   const [currentDataSource, setCurrentDataSource] = useState('local'); // 'local' or 'github'
   const [currentProvider, setCurrentProvider] = useState(null);
-  const [initialPath, setInitialPath] = useState('/');
+    const [initialPath, setInitialPath] = React.useState('/');
+  const [currentPath, setCurrentPath] = React.useState('/');
+
+  // Path memory system - store last path for each provider
+  const [providerPaths, setProviderPaths] = useState({
+    local: '/Documents', // Default path for local documents
+    github: '/' // Default path for GitHub
+  });
 
   // GitHub-specific state
   const [selectedRepository, setSelectedRepository] = useState(initialRepository);
@@ -50,7 +57,13 @@ export default function UnifiedFileBrowserTab({
       console.log('🏠 Creating local documents provider');
       const provider = new LocalDocumentsProvider({ documents, categories }, { filters: { fileTypes: [] } });
       setCurrentProvider(provider);
-      setInitialPath(provider.getDefaultPath ? provider.getDefaultPath() : '/');
+
+      // Use stored path or provider default
+      const storedPath = providerPaths.local;
+      const defaultPath = provider.getDefaultPath ? provider.getDefaultPath() : '/Documents';
+      setInitialPath(storedPath || defaultPath);
+
+      console.log('📍 Restoring local path:', storedPath || defaultPath);
     } else if (currentDataSource === 'github' && selectedRepository) {
       console.log('🐙 Creating GitHub provider for:', selectedRepository.repo_name);
       const provider = createFileBrowserProvider({
@@ -60,12 +73,52 @@ export default function UnifiedFileBrowserTab({
         branch: selectedBranch
       });
       setCurrentProvider(provider);
-      setInitialPath('/');
+
+      // Use stored path for this specific repository, or default to root
+      const repoKey = `github-${selectedRepository.id}-${selectedBranch}`;
+      const storedPath = providerPaths[repoKey] || providerPaths.github;
+      setInitialPath(storedPath || '/');
+
+      console.log('📍 Restoring GitHub path:', storedPath || '/');
     }
-  }, [currentDataSource, documents, categories, selectedRepository, selectedBranch]);
+  }, [currentDataSource, documents, categories, selectedRepository, selectedBranch, providerPaths]);
+
+  // Function to track current path changes
+  const handlePathChange = (path) => {
+    setCurrentPath(path);
+    console.log('📍 Current path changed to:', path);
+  };
+
+  // Function to save current path before switching providers
+  const saveCurrentPath = () => {
+    if (!currentPath) return;
+
+    if (currentDataSource === 'local') {
+      setProviderPaths(prev => ({
+        ...prev,
+        local: currentPath
+      }));
+      console.log('💾 Saved local path:', currentPath);
+    } else if (currentDataSource === 'github' && selectedRepository) {
+      const repoKey = `github-${selectedRepository.id}-${selectedBranch}`;
+      setProviderPaths(prev => ({
+        ...prev,
+        github: currentPath, // General GitHub path
+        [repoKey]: currentPath // Specific repository path
+      }));
+      console.log('💾 Saved GitHub path:', currentPath, 'for repo:', repoKey);
+    }
+  };
 
   const handleDataSourceChange = (dataSource) => {
     console.log('📊 Switching data source to:', dataSource);
+
+    // Save current path before switching
+    saveCurrentPath();
+
+    // Reset provider state when switching
+    setCurrentProvider(null);
+
     setCurrentDataSource(dataSource);
 
     if (dataSource === 'github' && !selectedRepository) {
@@ -228,9 +281,11 @@ export default function UnifiedFileBrowserTab({
       {currentProvider && !showRepositorySelection && !showRepositorySettings && (
         <div className="file-browser-content">
           <UnifiedFileBrowser
+            key={`${currentDataSource}-${selectedRepository?.id || 'local'}-${selectedBranch || 'main'}`}
             dataProvider={currentProvider}
             onFileSelect={handleFileSelect}  // Single-click: Preview
             onFileOpen={handleFileOpen}      // Double-click: Open in editor
+            onPathChange={handlePathChange}   // Track path changes
             initialPath={initialPath}
             breadcrumbType={currentDataSource}
             breadcrumbData={{

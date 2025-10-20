@@ -12,13 +12,13 @@
 @use "layout";
 
 // 3. Component-specific styles
-@use "toolbar";
-@use "editor";
+@use "toolbar/index" as toolbar;
+@use "editor/index" as editor;
 @use "preview";
-@use "code";
+@use "code/index" as code;
 @use "modals/index" as modals;
-@use "github";
-@use "storage";
+@use "github/index" as github;
+@use "storage/index" as storage;
 @use "admin";
 @use "fileBrowser/index" as fileBrowser;
 @use "components/index" as components;

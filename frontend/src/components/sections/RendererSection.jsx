@@ -88,7 +88,7 @@ function RendererSection({
           content={content}
           onRenderHTML={onRenderHTML}
           scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
-          fullscreenPreview={isSharedView ? true : fullscreenPreview}
+          fullscreenPreview={fullscreenPreview}
           onFirstRender={handleFirstRender}
           showLoadingOverlay={showSpinner}
           loadingMessage={loadingMessage}

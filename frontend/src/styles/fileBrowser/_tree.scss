@@ -294,6 +294,30 @@
       }
     }
 
+    // Storage location indicators for documents
+    .storage-indicator {
+      margin-left: auto;
+      padding-left: 0.5rem;
+
+      i {
+        font-size: 0.8em;
+        transition: opacity 0.2s ease;
+        opacity: 0.7;
+
+        &.text-warning {
+          filter: drop-shadow(0 0 2px rgba(255, 193, 7, 0.3));
+        }
+
+        &.text-success {
+          filter: drop-shadow(0 0 2px rgba(25, 135, 84, 0.3));
+        }
+      }
+
+      .tree-item:hover & i {
+        opacity: 1;
+      }
+    }
+
     // Hover effects
     .tree-item:hover .tree-icon {
       transform: scale(1.1);

@@ -1,10 +1,10 @@
 import React from 'react';
 import { GitHubCachePanel } from '../index';
 
-export default function GitHubCacheSyncTab() {
+export default function GitHubCacheSyncTab({ isActive = false }) {
   return (
     <div className="github-cache-sync-tab">
-      <GitHubCachePanel />
+      <GitHubCachePanel isActive={isActive} />
     </div>
   );
 }

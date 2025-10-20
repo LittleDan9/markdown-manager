@@ -122,6 +122,18 @@ async def get_repository_status(
         / repository.repo_name
     )
 
+    # Debug logging
+    print(f"DEBUG: Checking repository status for ID {repository_id}")
+    print(f"DEBUG: Repository type: {type(repository).__name__}")
+    print(f"DEBUG: Repository name: {repository.repo_name}")
+    print(f"DEBUG: Account ID: {repository.account_id}")
+    print(f"DEBUG: User ID: {current_user.id}")
+    print(f"DEBUG: Expected path: {repo_path}")
+    print(f"DEBUG: Path exists: {repo_path.exists()}")
+    if repo_path.exists():
+        print(f"DEBUG: .git exists: {(repo_path / '.git').exists()}")
+        print(f"DEBUG: Directory contents: {list(repo_path.iterdir()) if repo_path.is_dir() else 'Not a directory'}")
+
     if not repo_path.exists() or not (repo_path / ".git").exists():
         return RepositoryStatusResponse(
             branch="unknown",

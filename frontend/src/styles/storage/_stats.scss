@@ -1,0 +1,158 @@
+// Storage Statistics Component Styles
+// Cards and metrics display for storage stats
+
+@use "../variables" as *;
+@use "../mixins" as *;
+
+.storage-stats-grid {
+  .stat-card {
+    transition: all 0.2s ease-in-out;
+    border: 1px solid $color-border;
+
+    // Remove default background - let theme handle it
+    &.bg-light {
+      background: transparent !important;
+    }
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .stat-value {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+
+    .stat-label {
+      color: var(--bs-secondary);
+      font-size: 0.875rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0;
+      font-weight: 500;
+    }
+
+    .stat-trend {
+      font-size: 0.75rem;
+      margin-top: 0.5rem;
+
+      &.positive {
+        color: var(--bs-success);
+      }
+
+      &.negative {
+        color: var(--bs-danger);
+      }
+
+      &.neutral {
+        color: var(--bs-text-muted);
+      }
+
+      .trend-icon {
+        margin-right: 0.25rem;
+      }
+    }
+
+    .stat-details {
+      margin-top: 0.75rem;
+      padding-top: 0.75rem;
+      border-top: 1px solid var(--bs-border-color);
+
+      .detail-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.8rem;
+        color: var(--bs-text-muted);
+        margin-bottom: 0.25rem;
+
+        &:last-child {
+          margin-bottom: 0;
+        }
+
+        .detail-value {
+          font-weight: 500;
+          color: var(--bs-body-color);
+        }
+      }
+    }
+  }
+
+  // Grid layout adjustments
+  @media (max-width: 768px) {
+    .stat-card {
+      margin-bottom: 1rem;
+
+      .stat-value {
+        font-size: 1.5rem;
+      }
+    }
+  }
+}
+
+.storage-metrics {
+  .metric-bar {
+    background: var(--bs-tertiary-bg);
+    border-radius: var(--bs-border-radius);
+    height: 8px;
+    overflow: hidden;
+    margin-top: 0.5rem;
+
+    .metric-fill {
+      height: 100%;
+      transition: width 0.3s ease;
+      border-radius: var(--bs-border-radius);
+
+      &.usage-low {
+        background: var(--bs-success);
+      }
+
+      &.usage-medium {
+        background: var(--bs-warning);
+      }
+
+      &.usage-high {
+        background: var(--bs-danger);
+      }
+    }
+  }
+
+  .metric-legend {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--bs-text-muted);
+  }
+}
+
+.usage-indicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+
+  .usage-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+
+    &.low {
+      background: var(--bs-success);
+    }
+
+    &.medium {
+      background: var(--bs-warning);
+    }
+
+    &.high {
+      background: var(--bs-danger);
+    }
+
+    &.unknown {
+      background: var(--bs-text-muted);
+    }
+  }
+}

@@ -1,0 +1,78 @@
+// GitHub File List Component Styles
+// Table-based file listing with theme support
+
+.github-file-list {
+  .table {
+    margin-bottom: 0;
+    --bs-table-bg: var(--bs-body-bg);
+    --bs-table-color: var(--bs-body-color);
+
+    tbody tr {
+      transition: background-color 0.15s ease;
+
+      &:hover {
+        --bs-table-accent-bg: var(--bs-secondary-bg);
+        background-color: var(--bs-table-accent-bg);
+      }
+
+      &.table-primary {
+        --bs-table-bg: var(--bs-primary-bg-subtle);
+        --bs-table-color: var(--bs-primary-text-emphasis);
+        background-color: var(--bs-table-bg);
+        color: var(--bs-table-color);
+      }
+    }
+
+    th {
+      border-bottom: 1px solid var(--bs-border-color);
+      font-weight: 600;
+      font-size: 0.875rem;
+      padding: 8px 12px;
+      background-color: var(--bs-tertiary-bg);
+      color: var(--bs-body-color);
+    }
+
+    td {
+      padding: 8px 12px;
+      vertical-align: middle;
+      border-top: 1px solid var(--bs-border-color-translucent);
+      color: var(--bs-body-color);
+
+      .badge {
+        &.bg-primary {
+          background-color: var(--bs-primary) !important;
+          color: var(--bs-primary-text-emphasis);
+        }
+
+        &.bg-secondary {
+          background-color: var(--bs-secondary) !important;
+          color: var(--bs-secondary-text-emphasis);
+        }
+      }
+
+      // File type icons in table
+      .bi-folder-fill {
+        color: var(--bs-primary);
+      }
+
+      .bi-file-text {
+        color: var(--bs-text-muted);
+      }
+
+      .bi-file-richtext {
+        color: var(--bs-success);
+      }
+    }
+  }
+
+  // Header styling
+  .p-2.border-bottom.bg-light {
+    background-color: var(--bs-light) !important;
+    border-bottom-color: var(--bs-border-color) !important;
+    color: var(--bs-body-color);
+
+    .text-muted {
+      color: var(--bs-text-muted) !important;
+    }
+  }
+}

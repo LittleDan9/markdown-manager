@@ -1,0 +1,170 @@
+// Editor Layout Component Styles
+// Split-view layout and editor container positioning
+
+@use "../variables";
+@use "../mixins";
+
+// Ensure preview container doesn't interfere with editor tooltips
+#previewContainer,
+#preview {
+  z-index: 1 !important; // Lower than tooltip z-index
+}
+
+// CRITICAL: Fix the split-view layout to allow tooltips to escape
+#main.split-view {
+  overflow: visible !important; // Allow tooltips to escape the main container
+
+  .editor-wrapper {
+    overflow: visible !important; // Allow tooltips to escape the editor wrapper
+    position: relative;
+    z-index: 10; // Higher than preview for tooltip display
+  }
+
+  .renderer-wrapper {
+    overflow: hidden; // Keep preview contained as normal
+    position: relative;
+    z-index: 1; // Lower than editor wrapper
+  }
+
+  // Split view responsive behavior
+  @media (max-width: 768px) {
+    flex-direction: column;
+
+    .editor-wrapper,
+    .renderer-wrapper {
+      width: 100% !important;
+      max-width: 100% !important;
+    }
+  }
+}
+
+// Editor container layout
+#editorContainer {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background-color: var(--bs-body-bg);
+  border-radius: 0.5rem;
+  overflow: hidden;
+
+  // When editor has no toolbar
+  &:not(.has-toolbar) {
+    .monaco-editor,
+    .monaco-editor .overflow-guard {
+      border-radius: 0.5rem;
+    }
+  }
+
+  // When editor has toolbar
+  &.has-toolbar {
+    .monaco-container {
+      border-top: none;
+      border-radius: 0 0 0.5rem 0.5rem;
+
+      .monaco-editor,
+      .monaco-editor .overflow-guard {
+        border-radius: 0 0 0.5rem 0.5rem;
+      }
+    }
+  }
+}
+
+// Editor wrapper responsive behavior
+.editor-wrapper {
+  transition: width 0.3s ease;
+
+  &.collapsed {
+    width: 0 !important;
+    min-width: 0 !important;
+    overflow: hidden;
+  }
+
+  &.expanded {
+    width: 100% !important;
+  }
+
+  // Full screen mode
+  &.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    z-index: 9999;
+    background-color: var(--bs-body-bg);
+    padding: 1rem;
+
+    #editorContainer {
+      height: 100%;
+    }
+  }
+}
+
+// Preview scroll synchronization
+.preview-scroll {
+  &.syncing {
+    scroll-behavior: smooth;
+  }
+
+  &:not(.syncing) {
+    scroll-behavior: auto;
+  }
+}
+
+// Resize handles for split view
+.resize-handle {
+  width: 4px;
+  background-color: var(--bs-border-color);
+  cursor: col-resize;
+  transition: background-color 0.15s ease;
+  position: relative;
+
+  &:hover {
+    background-color: var(--bs-primary);
+  }
+
+  &.dragging {
+    background-color: var(--bs-primary);
+  }
+
+  // Visual indicator
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 2px;
+    height: 20px;
+    background-color: var(--bs-text-muted);
+    border-radius: 1px;
+    opacity: 0.5;
+  }
+
+  &:hover::before {
+    opacity: 1;
+    background-color: var(--bs-white);
+  }
+}
+
+// Editor states
+.editor-state {
+  &.loading {
+    .monaco-editor {
+      opacity: 0.5;
+      pointer-events: none;
+    }
+  }
+
+  &.error {
+    .monaco-editor {
+      border-color: var(--bs-danger);
+    }
+  }
+
+  &.readonly {
+    .monaco-editor {
+      background-color: var(--bs-tertiary-bg);
+    }
+  }
+}

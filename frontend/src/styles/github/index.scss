@@ -1,0 +1,7 @@
+// GitHub Integration Styles Index
+// Imports all GitHub component styles in proper order
+
+@use 'file-tree';    // File tree navigation component
+@use 'file-list';    // Table-based file listing
+@use 'browser';      // Repository browser container
+@use 'utilities';    // Utilities, previews, and states

@@ -102,7 +102,10 @@ export default function GitHubModal({ show, onHide }) {
             )}
             {hasAccounts && (
               <Tab.Pane eventKey="performance">
-                <GitHubCacheSyncTab key={`performance-${accounts.length}`} />
+                <GitHubCacheSyncTab
+                  key={`performance-${accounts.length}`}
+                  isActive={activeTab === 'performance'}
+                />
               </Tab.Pane>
             )}
           </Tab.Content>

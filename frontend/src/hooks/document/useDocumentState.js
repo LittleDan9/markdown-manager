@@ -6,7 +6,7 @@ import { useEffect } from 'react';
 import documentsApi from '@/api/documentsApi.js';
 import useChangeTracker from './useChangeTracker';
 
-export default function useDocumentState(notification, auth, setPreviewHTML) {
+export default function useDocumentState(notification, auth, setPreviewHTML, isSharedView = false) {
   const { isAuthenticated, token, user, isInitializing } = auth;
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
@@ -120,6 +120,12 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
 
   // --- EFFECTS ---
   useEffect(() => {
+    // Skip normal document loading when in shared view mode
+    if (isSharedView) {
+      console.log('useDocumentState: Skipping initialization - in shared view mode');
+      return;
+    }
+
     if (isInitializing) return;
     if (isAuthenticated && token && migrationStatus === 'idle') {
       setHasSyncedOnMount(false);
@@ -207,7 +213,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
     loadCurrentDocument();
-  }, [isAuthenticated, token, isInitializing, migrationStatus]);
+  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView]);
 
   useEffect(() => {
     const newCategories = DocumentService.getCategories();
@@ -221,6 +227,11 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
   }, [currentDocument]);
 
   useEffect(() => {
+    // Skip authentication-based state changes when in shared view
+    if (isSharedView) {
+      return;
+    }
+
     if (!isAuthenticated && !token && !isInitializing) {
       const lastKnownAuth = localStorage.getItem('lastKnownAuthState');
       if (lastKnownAuth === 'authenticated') {
@@ -235,7 +246,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML) {
     } else if (isAuthenticated && token) {
       localStorage.setItem('lastKnownAuthState', 'authenticated');
     }
-  }, [isAuthenticated, token, isInitializing]);
+  }, [isAuthenticated, token, isInitializing, isSharedView]);
 
   // --- DOCUMENT OPERATIONS ---
   const updateCurrentDocument = useCallback(async (document) => {

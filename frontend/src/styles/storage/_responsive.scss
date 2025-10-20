@@ -1,0 +1,144 @@
+// Storage Responsive Design
+// Responsive adjustments for storage components
+
+@use "../variables" as *;
+
+// Responsive design for storage components
+@media (max-width: 992px) {
+  .storage-tab {
+    .storage-badges-row {
+      .badge-container {
+        margin-bottom: $spacing-sm;
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .storage-tab {
+    .storage-stats-grid {
+      .stat-card {
+        margin-bottom: $spacing-base;
+
+        .stat-value {
+          font-size: 1.5rem;
+        }
+      }
+    }
+
+    .storage-badges-row {
+      .badge-container {
+        margin-bottom: 0.75rem;
+      }
+    }
+  }
+
+  .admin-storage-tab {
+    .user-selection-card {
+      margin-bottom: $spacing-base;
+    }
+
+    .admin-actions {
+      .action-group {
+        .action-controls {
+          flex-direction: column;
+          align-items: stretch;
+
+          .btn {
+            width: 100%;
+          }
+        }
+      }
+    }
+
+    .user-stats-summary {
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  }
+}
+
+@media (max-width: 576px) {
+  .storage-tab {
+    .orphaned-docs-section {
+      .section-header {
+        padding: $spacing-sm 0.75rem;
+        flex-direction: column;
+        gap: $spacing-sm;
+
+        h5 {
+          font-size: 1rem;
+        }
+
+        .cleanup-button {
+          font-size: 0.875rem;
+          align-self: stretch;
+        }
+      }
+
+      .orphaned-table {
+        font-size: 0.875rem;
+
+        th, td {
+          padding: $spacing-sm 0.25rem;
+        }
+
+        // Stack table cells vertically on small screens
+        tbody tr {
+          td:before {
+            content: attr(data-label) ": ";
+            font-weight: bold;
+          }
+        }
+      }
+    }
+
+    .storage-badges-row {
+      .badge-container {
+        .badge {
+          font-size: 0.75rem;
+        }
+
+        .badge-label {
+          font-size: 0.6875rem;
+        }
+      }
+    }
+
+    .table-container {
+      .table {
+        font-size: 0.875rem;
+
+        th, td {
+          padding: 0.5rem 0.25rem;
+        }
+
+        .action-buttons {
+          flex-direction: column;
+          gap: 0.25rem;
+
+          .btn {
+            font-size: 0.7rem;
+            padding: 0.125rem 0.25rem;
+          }
+        }
+      }
+    }
+  }
+
+  .admin-storage-tab {
+    .bulk-operations {
+      .operation-panel {
+        padding: 0.75rem;
+
+        .operation-buttons {
+          .btn {
+            font-size: 0.75rem;
+            padding: 0.375rem 0.75rem;
+          }
+        }
+      }
+    }
+  }
+}

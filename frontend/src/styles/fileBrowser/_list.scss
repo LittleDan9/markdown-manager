@@ -90,7 +90,7 @@
 
     // Column width definitions - applied to both fixed header and scrollable body
     .col-name,
-    th.col-name, 
+    th.col-name,
     td.col-name {
       width: 50%;
     }
@@ -157,6 +157,28 @@
     [data-bs-theme="dark"] & {
       background-color: var(--bs-dark);
       border-bottom-color: var(--bs-border-color);
+    }
+  }
+
+  // Storage location indicators for documents
+  .storage-indicator {
+    i {
+      font-size: 0.8em;
+      transition: all 0.2s ease;
+      opacity: 0.8;
+
+      &.text-warning {
+        filter: drop-shadow(0 0 2px rgba(255, 193, 7, 0.3));
+      }
+
+      &.text-success {
+        filter: drop-shadow(0 0 2px rgba(25, 135, 84, 0.3));
+      }
+    }
+
+    tr:hover & i {
+      opacity: 1;
+      transform: scale(1.1);
     }
   }
 }

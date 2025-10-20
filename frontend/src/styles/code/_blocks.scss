@@ -1,0 +1,167 @@
+// Code Block Container Styles
+// Code block layout and structure
+
+@use "../variables";
+@use "../mixins";
+
+.code-block {
+  position: relative;
+  margin: 2rem 0;
+  border: 1px solid variables.$color-border;
+  border-radius: 4px;
+  overflow: hidden;
+
+  @include mixins.dark {
+    border-color: variables.$color-border-dark;
+  }
+
+  &-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    background-color: variables.$color-bg-light;
+    border-bottom: 1px solid variables.$color-border;
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin: 0;
+
+    [data-bs-theme="dark"] & {
+      background-color: variables.$color-bg-dark;
+      border-bottom-color: variables.$color-border-dark;
+      color: variables.$color-text-dark;
+    }
+  }
+
+  &-lang {
+    text-transform: uppercase;
+    color: variables.$color-text-light;
+    padding: 0;
+    font-family: var(--bs-font-monospace);
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+
+    [data-bs-theme="dark"] & {
+      color: variables.$color-text-dark;
+    }
+  }
+
+  &-content {
+    position: relative;
+    overflow: hidden;
+  }
+
+  &-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.75rem;
+    color: variables.$color-text-light;
+
+    [data-bs-theme="dark"] & {
+      color: variables.$color-text-dark;
+    }
+
+    .line-count {
+      opacity: 0.7;
+    }
+
+    .file-size {
+      opacity: 0.7;
+    }
+  }
+}
+
+// Style Prism.js code blocks
+div[class*="language-"] {
+  background: hsl(230, 1%, 98%);
+  color: hsl(230, 8%, 24%);
+  padding: 1rem;
+  position: relative;
+
+  [data-bs-theme="dark"] & {
+    background: hsl(220, 13%, 18%);
+    color: hsl(220, 14%, 71%);
+  }
+}
+
+pre[class*="language-"] {
+  margin: 0 !important;
+  padding: 1rem;
+  border-radius: 0 0 4px 4px;
+  background: transparent; // Let Prism.js theme handle background
+  overflow-x: auto;
+  max-width: 100%;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.875rem;
+  line-height: 1.5;
+
+  // Ensure code inside pre also wraps
+  code {
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    background: transparent;
+    border: none;
+    padding: 0;
+    font-size: inherit;
+    color: inherit;
+  }
+
+  // Line highlighting
+  .line-highlight {
+    background-color: rgba(var(--bs-warning-rgb), 0.1);
+    margin: 0 -1rem;
+    padding: 0 1rem;
+    border-left: 3px solid var(--bs-warning);
+  }
+
+  // Error highlighting
+  .error-line {
+    background-color: rgba(var(--bs-danger-rgb), 0.1);
+    margin: 0 -1rem;
+    padding: 0 1rem;
+    border-left: 3px solid var(--bs-danger);
+  }
+}
+
+// Inline code styling
+code:not(pre code) {
+  background-color: var(--bs-tertiary-bg);
+  color: var(--bs-body-color);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  font-family: var(--bs-font-monospace);
+  font-size: 0.85em;
+  border: 1px solid var(--bs-border-color);
+
+  [data-bs-theme="dark"] & {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.2);
+  }
+}
+
+// Responsive design
+@media (max-width: 768px) {
+  .code-block {
+    margin: 1rem 0;
+
+    &-header {
+      padding: 0.375rem 0.75rem;
+      font-size: 0.8rem;
+    }
+  }
+
+  pre[class*="language-"] {
+    padding: 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  div[class*="language-"] {
+    padding: 0.75rem;
+  }
+}

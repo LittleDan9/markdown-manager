@@ -106,7 +106,8 @@ class Settings(BaseSettings):
         default=30, description="Auto-prune unused repositories after N days"
     )
     github_markdown_only: bool = Field(
-        default=True, description="Only clone/sync markdown files from GitHub repos"
+        default=False,
+        description="Only clone/sync markdown files from GitHub repos (deprecated - use storage limits instead)"
     )
 
     # GitHub OAuth configuration

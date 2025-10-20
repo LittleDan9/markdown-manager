@@ -1,0 +1,173 @@
+// Admin Storage Component Styles
+// Admin-specific storage management interface
+
+@use "../variables" as *;
+@use "../mixins" as *;
+
+.admin-storage-tab {
+  .user-selection-card {
+    border: 1px solid $color-border;
+
+    .card-header {
+      border-bottom: 1px solid $color-border;
+
+      h5 {
+        margin-bottom: 0;
+        display: flex;
+        align-items: center;
+        gap: $spacing-sm;
+        font-weight: 600;
+      }
+    }
+
+    .user-select {
+      .form-select {
+        border-color: $color-border;
+        font-family: inherit;
+        // Ensure dropdown caret is visible
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+        background-repeat: no-repeat;
+        background-position: right 0.75rem center;
+        background-size: 16px 12px;
+        padding-right: 2.25rem;
+
+        &:focus {
+          border-color: $color-primary;
+          box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+        }
+      }
+
+      .form-text {
+        color: var(--bs-secondary);
+        font-size: 0.875rem;
+        margin-top: $spacing-xs;
+      }
+
+      .form-label {
+        font-weight: 600;
+        margin-bottom: $spacing-sm;
+      }
+    }
+  }
+
+  .admin-info-alert {
+    border-color: var(--bs-info);
+
+    .bi-info-circle {
+      color: var(--bs-info);
+    }
+  }
+
+  .admin-actions {
+    .action-group {
+      border: 1px solid $color-border;
+      border-radius: var(--bs-border-radius);
+      padding: 1rem;
+      margin-bottom: 1rem;
+
+      .action-header {
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: var(--bs-body-color);
+
+        .action-icon {
+          margin-right: 0.5rem;
+          color: var(--bs-primary);
+        }
+      }
+
+      .action-description {
+        font-size: 0.9rem;
+        color: var(--bs-text-muted);
+        margin-bottom: 1rem;
+      }
+
+      .action-controls {
+        display: flex;
+        gap: 0.75rem;
+        align-items: center;
+        flex-wrap: wrap;
+
+        .btn {
+          white-space: nowrap;
+        }
+      }
+    }
+  }
+
+  .user-stats-summary {
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+
+      .stat-item {
+        text-align: center;
+        padding: 1rem;
+        border: 1px solid $color-border;
+        border-radius: var(--bs-border-radius);
+        background: var(--bs-body-bg);
+
+        .stat-number {
+          font-size: 1.5rem;
+          font-weight: 600;
+          color: var(--bs-primary);
+          display: block;
+        }
+
+        .stat-label {
+          font-size: 0.8rem;
+          color: var(--bs-text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-top: 0.25rem;
+        }
+      }
+    }
+  }
+
+  .bulk-operations {
+    .operation-panel {
+      background: var(--bs-light);
+      border: 1px solid $color-border;
+      border-radius: var(--bs-border-radius);
+      padding: 1rem;
+
+      .panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: between;
+        margin-bottom: 1rem;
+
+        .panel-title {
+          font-weight: 600;
+          margin: 0;
+        }
+
+        .panel-actions {
+          margin-left: auto;
+        }
+      }
+
+      .selection-summary {
+        background: var(--bs-warning-bg-subtle);
+        border: 1px solid var(--bs-warning-border-subtle);
+        border-radius: var(--bs-border-radius-sm);
+        padding: 0.75rem;
+        margin-bottom: 1rem;
+        color: var(--bs-warning-text-emphasis);
+      }
+
+      .operation-buttons {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+
+        .btn {
+          font-size: 0.875rem;
+        }
+      }
+    }
+  }
+}

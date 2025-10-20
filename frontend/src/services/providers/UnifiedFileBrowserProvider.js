@@ -66,8 +66,8 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
 
       console.log(`📁 Found ${contents.length} items in GitHub path: ${githubPath}`);
 
-      // Convert GitHub items to file nodes
-      return contents
+      // Convert GitHub items to file nodes and deduplicate
+      const fileNodes = contents
         .filter(item => {
           // Include directories for navigation
           if (item.type === 'dir') return true;
@@ -84,6 +84,17 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
           }
         });
 
+      // Deduplicate by SHA (GitHub's unique identifier)
+      const deduplicatedNodes = fileNodes.reduce((acc, node) => {
+        const nodeKey = node._githubFile?.sha || `${node.name}-${node.type}`;
+        if (!acc.has(nodeKey)) {
+          acc.set(nodeKey, node);
+        }
+        return acc;
+      }, new Map());
+
+      return Array.from(deduplicatedNodes.values());
+
     } catch (error) {
       console.error('Error fetching GitHub files in path:', path, error);
       return [];
@@ -91,15 +102,42 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
   }
 
   _uiPathToGitHubPath(uiPath) {
-    // Convert UI path like "/GitHub/markdown-manager/main/docs" to GitHub API path "docs"
-    if (uiPath === '/' || uiPath === '') return '';
+    // Convert UI path to GitHub API path
+    console.log(`🔄 Converting UI path "${uiPath}" to GitHub path`);
 
-    // Remove the GitHub prefix (e.g., "/GitHub/markdown-manager/main/")
+    if (uiPath === '/' || uiPath === '') {
+      console.log(`📍 Root path converted to empty string`);
+      return '';
+    }
+
+    // Split path and filter empty parts
     const pathParts = uiPath.split('/').filter(p => p);
-    if (pathParts.length <= 3) return ''; // Root level
+    console.log(`📂 Path parts:`, pathParts);
 
-    // Return the actual GitHub path (everything after repo/branch)
-    return pathParts.slice(3).join('/');
+    // For GitHub provider, we need to handle different path formats:
+    // 1. /GitHub/markdown-manager/main/docs -> "docs"
+    // 2. /Documents/docs -> "docs" (legacy format)
+    // 3. /docs -> "docs" (simple format)
+
+    // If path starts with 'GitHub', skip the GitHub/repo/branch parts
+    if (pathParts[0] === 'GitHub' && pathParts.length >= 3) {
+      // Skip GitHub, repo name, and branch name
+      const githubPath = pathParts.slice(3).join('/');
+      console.log(`🔍 GitHub format converted to: "${githubPath}"`);
+      return githubPath;
+    }
+
+    // If path starts with 'Documents', remove it and return the rest
+    if (pathParts[0] === 'Documents') {
+      const githubPath = pathParts.slice(1).join('/');
+      console.log(`📁 Documents format converted to: "${githubPath}"`);
+      return githubPath;
+    }
+
+    // For paths that don't match expected formats, return as-is
+    const githubPath = pathParts.join('/');
+    console.log(`📄 Fallback format converted to: "${githubPath}"`);
+    return githubPath;
   }
 
   async getFileContent(fileNode) {
@@ -225,11 +263,28 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
 
   _githubDirToFileNode(githubDir, currentPath) {
     // Create a file node directly for directory browsing
+    // The GitHub API returns the full path relative to repo root
+    // We need to construct the UI path correctly without duplication
+
+    // For GitHub files, construct path using the GitHub/repo/branch format
+    const repoName = this.sourceConfig.repositoryName || 'repo';
+    const branch = this.sourceConfig.branch || 'main';
+
+    // Build the correct UI path: /GitHub/repo/branch/filepath
+    let uiPath;
+    if (githubDir.path) {
+      uiPath = `/GitHub/${repoName}/${branch}/${githubDir.path}`;
+    } else {
+      uiPath = `/GitHub/${repoName}/${branch}/${githubDir.name}`;
+    }
+
+    console.log(`📁 Created directory node: ${githubDir.name} -> ${uiPath}`);
+
     return {
       id: `github-dir-${this.sourceConfig.repositoryId}-${githubDir.sha}`,
       name: githubDir.name,
       type: NODE_TYPES.FOLDER,
-      path: currentPath === '/' ? `/${githubDir.name}` : `${currentPath}/${githubDir.name}`,
+      path: uiPath,
       source: this._getSourceType(),
       documentId: null, // Directories don't have document IDs
       githubFilePath: githubDir.path,
@@ -241,11 +296,27 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
 
   _githubFileToFileNode(githubFile, currentPath) {
     // Create a file node directly for file browsing
+    // Use GitHub file path to construct correct UI path, avoiding duplication
+
+    // For GitHub files, construct path using the GitHub/repo/branch format
+    const repoName = this.sourceConfig.repositoryName || 'repo';
+    const branch = this.sourceConfig.branch || 'main';
+
+    // Build the correct UI path: /GitHub/repo/branch/filepath
+    let uiPath;
+    if (githubFile.path) {
+      uiPath = `/GitHub/${repoName}/${branch}/${githubFile.path}`;
+    } else {
+      uiPath = `/GitHub/${repoName}/${branch}/${githubFile.name}`;
+    }
+
+    console.log(`📄 Created file node: ${githubFile.name} -> ${uiPath}`);
+
     return {
       id: `github-${this.sourceConfig.repositoryId}-${githubFile.sha}`,
       name: githubFile.name.replace('.md', ''),
       type: NODE_TYPES.FILE,
-      path: currentPath === '/' ? `/${githubFile.name}` : `${currentPath}/${githubFile.name}`,
+      path: uiPath,
       source: this._getSourceType(),
       documentId: null, // GitHub files don't have document IDs
       githubFilePath: githubFile.path,

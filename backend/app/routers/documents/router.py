@@ -723,6 +723,7 @@ async def get_document_branches(
 async def get_documents(
     category: Optional[str] = Query(None, description="Filter by category (legacy)"),
     folder_path: Optional[str] = Query(None, description="Filter by folder path"),
+    repository_type: Optional[str] = Query("local", description="Filter by repository type: 'local', 'github', or 'all'"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Number of records"),
     db: AsyncSession = Depends(get_db),
@@ -750,6 +751,15 @@ async def get_documents(
         orm_documents = await document_crud.document.get_by_user(
             db=db, user_id=current_user.id, skip=skip, limit=limit
         )
+
+    # Apply repository type filtering
+    if repository_type and repository_type != "all":
+        if repository_type == "local":
+            # Filter to only local documents (repository_type is None or not 'github')
+            orm_documents = [doc for doc in orm_documents if doc.repository_type != 'github']
+        elif repository_type == "github":
+            # Filter to only GitHub documents
+            orm_documents = [doc for doc in orm_documents if doc.repository_type == 'github']
 
     # Get categories for backward compatibility
     categories = await document_crud.document.get_categories_by_user(

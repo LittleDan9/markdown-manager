@@ -12,6 +12,7 @@ export default function UnifiedFileBrowser({
   onFileSelect,
   onFileOpen,
   onMultiSelect,
+  onPathChange, // Callback when path changes
   selectedFiles = [],
   initialPath = '/',
   breadcrumbType = 'github', // 'github' or 'local'
@@ -40,16 +41,46 @@ export default function UnifiedFileBrowser({
 
   const finalConfig = { ...defaultConfig, ...config };
 
-  // Load tree data on mount or provider change
+  // Reset state and load tree data when provider changes
   useEffect(() => {
     if (dataProvider) {
-      loadTreeData();
-      // Ensure root files are loaded when the component mounts
-      if (!currentPath || currentPath === '/') {
-        loadCurrentPathFiles();
+      // Reset state when provider changes
+      setCurrentPath(initialPath);
+      setSelectedFile(null);
+      setTreeData([]);
+      setCurrentFiles([]);
+
+      // Properly expand folder hierarchy for the initial path
+      const newExpanded = new Set(['/']);
+      if (initialPath && initialPath !== '/') {
+        // Add root path
+        newExpanded.add('/');
+
+        // Add all parent paths step by step
+        const pathParts = initialPath.split('/').filter(p => p);
+        let buildPath = '';
+        pathParts.forEach(part => {
+          buildPath += '/' + part;
+          newExpanded.add(buildPath);
+        });
+
+        // Also add the current path itself (target folder)
+        newExpanded.add(initialPath);
       }
+      setExpandedFolders(newExpanded);
+
+      loadTreeData();
+      // Load files for the initial path
+      loadCurrentPathFiles();
     }
   }, [dataProvider]);
+
+  // Sync currentPath with initialPath when initialPath changes
+  useEffect(() => {
+    if (initialPath !== currentPath) {
+      setCurrentPath(initialPath);
+    }
+  }, [initialPath]);
 
   // Load files for current path
   useEffect(() => {
@@ -86,6 +117,11 @@ export default function UnifiedFileBrowser({
     console.log('UnifiedFileBrowser handlePathChange called with:', newPath);
     setCurrentPath(newPath);
     setSelectedFile(null);
+
+    // Call parent's onPathChange callback
+    if (onPathChange) {
+      onPathChange(newPath);
+    }
 
     // Ensure the corresponding folder and all its parents are expanded in the tree
     if (newPath && newPath !== '/') {

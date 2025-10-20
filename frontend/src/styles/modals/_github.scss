@@ -528,7 +528,8 @@
 // ─── GITHUB MODAL (Main Integration Modal) ───
 .github-modal {
   .modal-dialog {
-    max-width: 800px;
+    // Don't override Bootstrap's size="xl" setting (1140px)
+    // max-width: 800px;
     max-height: 90vh;
   }
 

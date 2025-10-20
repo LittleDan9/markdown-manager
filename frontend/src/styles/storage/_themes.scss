@@ -1,0 +1,141 @@
+// Storage Theme Adjustments
+// Dark and light theme specific styling for storage components
+
+@use "sass:color";
+@use "../variables" as *;
+
+// Dark theme specific adjustments
+[data-bs-theme="dark"] {
+  .storage-tab {
+    .storage-stats-grid {
+      .stat-card {
+        background: $color-bg-dark !important;
+        border-color: $color-border-dark;
+        color: $color-text-dark;
+
+        &:hover {
+          box-shadow: 0 4px 8px rgba(255, 255, 255, 0.1);
+          background: color.adjust($color-bg-dark, $lightness: 5%) !important;
+        }
+
+        .stat-value {
+          color: inherit;
+        }
+
+        .stat-label {
+          color: $color-text-dark;
+          opacity: 0.8;
+        }
+      }
+    }
+
+    .orphaned-docs-section {
+      .section-header {
+        background: $color-bg-dark;
+        border-color: $color-border-dark;
+        color: $color-text-dark;
+      }
+
+      .orphaned-table {
+        code {
+          background: $color-code-inline-bg-dark;
+          color: $color-code-inline-text-dark;
+          border-color: $color-code-inline-border-dark;
+        }
+
+        th {
+          border-bottom-color: $color-border-dark;
+          color: $color-text-dark;
+        }
+
+        td {
+          color: $color-text-dark;
+        }
+
+        .text-muted {
+          color: rgba($color-text-dark, 0.7) !important;
+        }
+      }
+    }
+
+    .refresh-section {
+      border-top-color: $color-border-dark;
+    }
+  }
+
+  .admin-storage-tab {
+    .user-selection-card {
+      background: $color-bg-dark;
+      border-color: $color-border-dark;
+
+      .card-body {
+        background: $color-bg-dark;
+        color: $color-text-dark;
+      }
+
+      .card-header {
+        border-bottom-color: $color-border-dark;
+      }
+
+      .user-select {
+        .form-select {
+          background: $color-bg-dark;
+          border-color: $color-border-dark;
+          color: $color-text-dark;
+          // Ensure dropdown caret is visible in dark mode
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23adb5bd' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+          background-repeat: no-repeat;
+          background-position: right 0.75rem center;
+          background-size: 16px 12px;
+          padding-right: 2.25rem;
+
+          &:focus {
+            border-color: $color-primary;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+          }
+        }
+      }
+    }
+  }
+}
+
+// Light theme specific adjustments
+:not([data-bs-theme="dark"]) {
+  .storage-tab {
+    .storage-stats-grid {
+      .stat-card {
+        background: var(--bs-body-bg) !important;
+
+        &:hover {
+          background: var(--bs-secondary-bg) !important;
+        }
+      }
+    }
+
+    .orphaned-docs-section {
+      .orphaned-table {
+        code {
+          background: $color-code-inline-bg;
+          color: $color-code-inline-text;
+          border-color: $color-code-inline-border;
+        }
+      }
+    }
+  }
+
+  .admin-storage-tab {
+    .user-selection-card {
+      .user-select {
+        .form-select {
+          background: var(--bs-body-bg);
+          // Ensure dropdown caret is visible
+          background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m1 6 7 7 7-7'/%3e%3c/svg%3e");
+          background-repeat: no-repeat;
+          background-position: right 0.75rem center;
+          background-size: 16px 12px;
+          padding-right: 2.25rem;
+        }
+      }
+    }
+  }
+}

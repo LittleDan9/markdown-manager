@@ -1,0 +1,362 @@
+// Syntax Highlighting Themes
+// Prism.js token styling for light and dark themes
+
+@use "../variables";
+@use "../mixins";
+
+.token {
+  // Keywords (function, return, if, for, etc.)
+  &.k,
+  &.kd,
+  &.kn,
+  &.kp,
+  &.kr,
+  &.kt,
+  &.keyword {
+    color: #c678dd;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  // Operators (+, -, =, etc.)
+  &.o,
+  &.operator,
+  &.p,
+  &.punctuation {
+    color: #abb2bf;
+
+    [data-bs-theme="light"] & {
+      color: #383a42;
+    }
+  }
+
+  // Numbers
+  &.m,
+  &.mf,
+  &.mh,
+  &.mi,
+  &.mo,
+  &.number {
+    color: #d19a66;
+
+    [data-bs-theme="light"] & {
+      color: #986801;
+    }
+  }
+
+  // Strings
+  &.s,
+  &.sb,
+  &.sc,
+  &.sd,
+  &.s2,
+  &.se,
+  &.sh,
+  &.si,
+  &.sx,
+  &.sr,
+  &.s1,
+  &.ss,
+  &.string {
+    color: #98c379;
+
+    [data-bs-theme="light"] & {
+      color: #50a14f;
+    }
+  }
+
+  // Comments
+  &.c,
+  &.ch,
+  &.cm,
+  &.cp,
+  &.cpf,
+  &.c1,
+  &.cs,
+  &.comment {
+    color: #5c6370;
+    font-style: italic;
+
+    [data-bs-theme="light"] & {
+      color: #a0a1a7;
+    }
+  }
+
+  // Variables and identifiers
+  &.n,
+  &.na,
+  &.nb,
+  &.nc,
+  &.no,
+  &.nd,
+  &.ni,
+  &.ne,
+  &.nf,
+  &.nl,
+  &.nn,
+  &.nx,
+  &.py,
+  &.nt,
+  &.nv,
+  &.vc,
+  &.vg,
+  &.vi,
+  &.vm,
+  &.name {
+    color: #e06c75;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  // Built-in functions and constants
+  &.nb,
+  &.builtin,
+  &.kc,
+  &.constant {
+    color: #e5c07b;
+
+    [data-bs-theme="light"] & {
+      color: #c18401;
+    }
+  }
+
+  // Function names
+  &.nf,
+  &.function {
+    color: #61afef;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+
+  // Class names
+  &.nc,
+  &.class-name {
+    color: #e5c07b;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #c18401;
+    }
+  }
+
+  // Attributes
+  &.na,
+  &.attribute,
+  &.attr-name {
+    color: #d19a66;
+
+    [data-bs-theme="light"] & {
+      color: #986801;
+    }
+  }
+
+  // Attribute values
+  &.attr-value {
+    color: #98c379;
+
+    [data-bs-theme="light"] & {
+      color: #50a14f;
+    }
+  }
+
+  // Tags (HTML/XML)
+  &.nt,
+  &.tag {
+    color: #e06c75;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  // Imports
+  &.kn,
+  &.import {
+    color: #c678dd;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  // Whitespace (usually invisible)
+  &.w,
+  &.whitespace {
+    color: transparent;
+  }
+
+  // Generic tokens
+  &.g,
+  &.generic {
+    color: #abb2bf;
+
+    [data-bs-theme="light"] & {
+      color: #383a42;
+    }
+  }
+
+  // Error tokens
+  &.err,
+  &.error {
+    color: #e06c75;
+    background-color: rgba(224, 108, 117, 0.1);
+    border-radius: 0.125rem;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+      background-color: rgba(228, 86, 73, 0.1);
+    }
+  }
+
+  // Regex patterns
+  &.regex {
+    color: #56b6c2;
+
+    [data-bs-theme="light"] & {
+      color: #0184bc;
+    }
+  }
+
+  // Decorators (Python)
+  &.decorator {
+    color: #e5c07b;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #c18401;
+    }
+  }
+
+  // Property names
+  &.property {
+    color: #e06c75;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  // Boolean values
+  &.boolean {
+    color: #d19a66;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #986801;
+    }
+  }
+
+  // Null/undefined
+  &.null,
+  &.undefined {
+    color: #c678dd;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  // Important/emphasis
+  &.important {
+    color: #e06c75;
+    font-weight: bold;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  // Bold text
+  &.bold {
+    font-weight: bold;
+  }
+
+  // Italic text
+  &.italic {
+    font-style: italic;
+  }
+
+  // Namespace
+  &.namespace {
+    opacity: 0.7;
+  }
+
+  // URL/URI
+  &.url {
+    color: #56b6c2;
+    text-decoration: underline;
+
+    [data-bs-theme="light"] & {
+      color: #0184bc;
+    }
+  }
+}
+
+// Language-specific token styling
+.language-css {
+  .token.selector {
+    color: #e06c75;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  .token.property {
+    color: #61afef;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+}
+
+.language-json {
+  .token.property {
+    color: #e06c75;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+}
+
+.language-markdown {
+  .token.title {
+    color: #61afef;
+    font-weight: bold;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+
+  .token.code {
+    color: #e5c07b;
+
+    [data-bs-theme="light"] & {
+      color: #c18401;
+    }
+  }
+}
+
+.language-yaml {
+  .token.key {
+    color: #e06c75;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+}

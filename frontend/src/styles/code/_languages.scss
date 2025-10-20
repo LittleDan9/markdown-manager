@@ -1,0 +1,336 @@
+// Language-Specific Code Styling
+// Special styling for different programming languages
+
+@use "../variables";
+@use "../mixins";
+
+// JavaScript/TypeScript specific styling
+.language-javascript,
+.language-typescript,
+.language-js,
+.language-ts {
+  .token.template-string {
+    color: #98c379;
+
+    [data-bs-theme="light"] & {
+      color: #50a14f;
+    }
+
+    .token.interpolation {
+      color: #e06c75;
+
+      [data-bs-theme="light"] & {
+        color: #e45649;
+      }
+    }
+  }
+
+  .token.console {
+    color: #61afef;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+}
+
+// Python specific styling
+.language-python,
+.language-py {
+  .token.triple-quoted-string {
+    color: #98c379;
+    font-style: italic;
+
+    [data-bs-theme="light"] & {
+      color: #50a14f;
+    }
+  }
+
+  .token.decorator {
+    color: #e5c07b;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #c18401;
+    }
+  }
+
+  .token.self {
+    color: #c678dd;
+    font-style: italic;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+}
+
+// CSS/SCSS specific styling
+.language-css,
+.language-scss,
+.language-sass {
+  .token.selector {
+    color: #e06c75;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  .token.property {
+    color: #61afef;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+
+  .token.atrule {
+    color: #c678dd;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  .token.important {
+    color: #e06c75;
+    font-weight: bold;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+}
+
+// HTML/XML specific styling
+.language-html,
+.language-xml {
+  .token.tag {
+    .token.tag {
+      color: #e06c75;
+
+      [data-bs-theme="light"] & {
+        color: #e45649;
+      }
+    }
+
+    .token.punctuation {
+      color: #abb2bf;
+
+      [data-bs-theme="light"] & {
+        color: #383a42;
+      }
+    }
+  }
+
+  .token.attr-name {
+    color: #d19a66;
+    font-style: italic;
+
+    [data-bs-theme="light"] & {
+      color: #986801;
+    }
+  }
+
+  .token.attr-value {
+    color: #98c379;
+
+    [data-bs-theme="light"] & {
+      color: #50a14f;
+    }
+  }
+}
+
+// JSON specific styling
+.language-json {
+  .token.property {
+    color: #e06c75;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  .token.string {
+    color: #98c379;
+
+    [data-bs-theme="light"] & {
+      color: #50a14f;
+    }
+  }
+
+  .token.number {
+    color: #d19a66;
+
+    [data-bs-theme="light"] & {
+      color: #986801;
+    }
+  }
+
+  .token.boolean {
+    color: #c678dd;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  .token.null {
+    color: #c678dd;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+}
+
+// YAML specific styling
+.language-yaml,
+.language-yml {
+  .token.key {
+    color: #e06c75;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  .token.anchor {
+    color: #61afef;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+
+  .token.alias {
+    color: #61afef;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+}
+
+// Markdown specific styling
+.language-markdown,
+.language-md {
+  .token.title {
+    color: #61afef;
+    font-weight: bold;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+
+  .token.code {
+    color: #e5c07b;
+    background-color: rgba(229, 192, 123, 0.1);
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.125rem;
+
+    [data-bs-theme="light"] & {
+      color: #c18401;
+      background-color: rgba(193, 132, 1, 0.1);
+    }
+  }
+
+  .token.bold {
+    color: #e06c75;
+    font-weight: bold;
+
+    [data-bs-theme="light"] & {
+      color: #e45649;
+    }
+  }
+
+  .token.italic {
+    color: #c678dd;
+    font-style: italic;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  .token.url {
+    color: #56b6c2;
+    text-decoration: underline;
+
+    [data-bs-theme="light"] & {
+      color: #0184bc;
+    }
+  }
+}
+
+// SQL specific styling
+.language-sql {
+  .token.keyword {
+    color: #c678dd;
+    text-transform: uppercase;
+    font-weight: 600;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+
+  .token.function {
+    color: #61afef;
+    text-transform: uppercase;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+}
+
+// Shell/Bash specific styling
+.language-shell,
+.language-bash,
+.language-sh {
+  .token.command {
+    color: #61afef;
+    font-weight: 500;
+
+    [data-bs-theme="light"] & {
+      color: #4078f2;
+    }
+  }
+
+  .token.parameter {
+    color: #d19a66;
+
+    [data-bs-theme="light"] & {
+      color: #986801;
+    }
+  }
+
+  .token.shebang {
+    color: #5c6370;
+    font-style: italic;
+
+    [data-bs-theme="light"] & {
+      color: #a0a1a7;
+    }
+  }
+}
+
+// Docker specific styling
+.language-dockerfile {
+  .token.instruction {
+    color: #c678dd;
+    font-weight: 600;
+    text-transform: uppercase;
+
+    [data-bs-theme="light"] & {
+      color: #a626a4;
+    }
+  }
+}
