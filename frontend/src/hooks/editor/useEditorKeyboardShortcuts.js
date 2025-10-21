@@ -27,6 +27,12 @@ export default function useEditorKeyboardShortcuts(
   useEffect(() => {
     if (!enabled || !editor) return;
 
+    // Ensure Monaco is fully loaded before registering actions
+    if (!window.monaco) {
+      console.warn('Monaco not fully loaded, skipping keyboard shortcuts registration');
+      return;
+    }
+
     // Store spell check function globally for SpellCheckActions to use
     window.editorSpellCheckTrigger = triggerSpellCheck;
 
@@ -67,10 +73,14 @@ export default function useEditorKeyboardShortcuts(
       }
     );
 
-    // Register quick fix actions
+    // Register quick fix actions - only if editor is ready
     // IMPORTANT: getCategoryId should be memoized in the parent with useCallback
-    SpellCheckActions.registerQuickFixActions(editor, suggestionsMap, getCategoryId, getFolderPath);
-    MarkdownLintActions.registerQuickFixActions(editor, markersMap, getCategoryId, getFolderPath);
+    try {
+      SpellCheckActions.registerQuickFixActions(editor, suggestionsMap, getCategoryId, getFolderPath);
+      MarkdownLintActions.registerQuickFixActions(editor, markersMap, getCategoryId, getFolderPath);
+    } catch (error) {
+      console.warn('Failed to register quick fix actions:', error);
+    }
 
     // Expose services globally
     window.CommentService = CommentService;
@@ -84,7 +94,7 @@ export default function useEditorKeyboardShortcuts(
       delete window.editorSpellCheckTrigger;
       delete window.editorMarkdownLintTrigger;
     };
-  }, [enabled, editor, suggestionsMap, markersMap, getCategoryId, getFolderPath, triggerSpellCheck, triggerMarkdownLint]);
+  }, [enabled, editor]); // Simplified dependencies to prevent re-runs
 
   return {};
 }

@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { EditorService } from '@/services/editor';
 import { useTheme } from '@/providers/ThemeProvider';
 import { useTypingDetection } from './shared';
@@ -15,8 +15,15 @@ import { useTypingDetection } from './shared';
 export default function useEditorCore({ containerRef, value, onChange, onCursorLineChange }) {
   const { theme } = useTheme();
   const editorRef = useRef(null);
+  const [editor, setEditor] = useState(null); // Use state for ready editor
   const lastEditorValue = useRef(value);
-  const { isTyping, markAsTyping, cleanup: cleanupTyping } = useTypingDetection();
+  const changeTimeoutRef = useRef(null);
+  const onChangeRef = useRef(onChange);
+  const isSettingValueRef = useRef(false); // Track when WE are setting the value
+  // No typing detection hook - keep it simple to avoid re-renders
+
+  // Keep onChange ref up to date without causing re-renders
+  onChangeRef.current = onChange;
 
   // Monaco editor setup
   useEffect(() => {
@@ -24,16 +31,19 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
 
     EditorService
       .setup(containerRef.current, value, theme)
-      .then(editor => {
-        editorRef.current = editor;
-        editor.setValue(value);
+      .then(editorInstance => {
+        editorRef.current = editorInstance;
+        setEditor(editorInstance); // Set state when ready
+        editorInstance.setValue(value);
 
         // Content changes
-        editor.onDidChangeModelContent(() => {
-          const newValue = editor.getValue();
+        editorInstance.onDidChangeModelContent(() => {
+          const newValue = editorInstance.getValue();
 
-          // Mark user as typing and reset typing timeout
-          markAsTyping();
+          // Skip onChange if we're the ones setting the value (prevents loops)
+          if (isSettingValueRef.current) {
+            return;
+          }
 
           // Update tracking reference immediately
           lastEditorValue.current = newValue;
@@ -44,25 +54,29 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
 
         // Cursor position changes
         if (onCursorLineChange) {
-          editor.onDidChangeCursorPosition((e) => {
+          editorInstance.onDidChangeCursorPosition((e) => {
             onCursorLineChange(e.position.lineNumber);
           });
         }
 
         // Expose editor globally for debugging
-        window.editorInstance = editor;
+        window.editorInstance = editorInstance;
       })
       .catch(console.error);
 
     // Cleanup
     return () => {
+      if (changeTimeoutRef.current) {
+        clearTimeout(changeTimeoutRef.current);
+      }
       if (editorRef.current) {
         editorRef.current.dispose();
         editorRef.current = null;
+        setEditor(null); // Clear state
       }
-      cleanupTyping();
+      // No cleanup needed
     };
-  }, [containerRef, markAsTyping, cleanupTyping]);
+  }, [containerRef]); // Simplified dependencies
 
   // Theme changes
   useEffect(() => {
@@ -71,16 +85,10 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     }
   }, [theme]);
 
-  // External value changes
+  // External value changes - Only for genuine external changes (document loading, etc.)
   useEffect(() => {
     const editor = editorRef.current;
-    if (!editor || value === lastEditorValue.current) return;
-
-    // Do not interfere with editor content while user is actively typing
-    if (isTyping) {
-      console.log('EXTERNAL VALUE EFFECT: Skipping setValue - user is typing');
-      return;
-    }
+    if (!editor) return;
 
     // Check if value actually differs from current editor content
     const currentEditorValue = editor.getValue();
@@ -89,6 +97,28 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
       return;
     }
 
+    // Key insight: If lastEditorValue matches the current editor content,
+    // then this value change came from user typing (our onChange callback updated the parent).
+    // BUT: On initial load, currentEditorValue might be empty while value has content
+    const isInitialLoad = currentEditorValue === '' && value !== '';
+    const isUserTypingChange = currentEditorValue === lastEditorValue.current && !isInitialLoad;
+
+    if (isUserTypingChange) {
+      // This value change came from our own onChange callback - ignore it
+      lastEditorValue.current = value; // Keep tracking in sync
+      return;
+    }
+
+    console.log('EXTERNAL VALUE EFFECT: External change detected', {
+      type: isInitialLoad ? 'initial-load' : 'external-change',
+      incomingLength: value.length,
+      currentLength: currentEditorValue.length,
+      lastEditorLength: lastEditorValue.current.length
+    });
+
+    // Mark that we're setting the value to prevent onChange loop
+    isSettingValueRef.current = true;
+
     // Safe to update editor content
     const currentPosition = editor.getPosition();
     const currentScrollTop = editor.getScrollTop();
@@ -96,8 +126,11 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     editor.setValue(value);
     lastEditorValue.current = value;
 
-    // Restore cursor position and scroll after setValue
-    if (currentPosition) {
+    // Clear the flag after setValue completes
+    isSettingValueRef.current = false;
+
+    // Only restore position if not initial load
+    if (!isInitialLoad && currentPosition) {
       const model = editor.getModel();
       const lineCount = model.getLineCount();
 
@@ -117,11 +150,10 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
         editor.setScrollTop(currentScrollTop);
       }, 0);
     }
-  }, [value, isTyping]);
+  }, [value]);
 
   return {
-    editor: editorRef.current,
-    isTyping,
-    markAsTyping
+    editor // Return state-based editor (null until ready)
+    // Simplified: no typing detection to avoid re-renders
   };
 }

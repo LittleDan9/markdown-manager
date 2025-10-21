@@ -22,7 +22,7 @@ export default function useEditor({
   categoryId,
   getCategoryId,
   getFolderPath,
-  
+
   // Support for new config object approach (for future)
   config
 }) {
@@ -40,10 +40,10 @@ export default function useEditor({
   };
 
   // Core editor setup
-  const { editor, isTyping, markAsTyping } = useEditorCore({
+  const { editor } = useEditorCore({
     containerRef,
     value,
-    onChange,
+    onChange, // Pass onChange callback normally
     onCursorLineChange
   });
 
@@ -81,23 +81,23 @@ export default function useEditor({
   // Return interface compatible with original useEditor
   return {
     editor,
-    
+
     // Spell check interface (only if enabled)
     spellCheck: finalConfig.spellCheck.enabled ? {
       progress: spellCheckResult.progress,
       suggestionsMap: spellCheckResult.suggestionsMap
     } : undefined,
-    
+
     // Markdown lint interface (only if enabled)
     markdownLint: finalConfig.markdownLint.enabled ? {
       lintProgress: markdownLintResult.lintProgress,
       markersMap: markdownLintResult.markersMap
     } : undefined,
-    
+
     // Manual trigger functions
     runSpellCheck: spellCheckResult.runSpellCheck,
     runMarkdownLint: markdownLintResult.runMarkdownLint,
-    
+
     // External trigger functions (for services)
     triggerSpellCheck: spellCheckResult.triggerSpellCheck,
     triggerMarkdownLint: markdownLintResult.triggerMarkdownLint

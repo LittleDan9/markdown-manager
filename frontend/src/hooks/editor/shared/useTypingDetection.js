@@ -1,22 +1,26 @@
-import { useState, useRef } from 'react';
+import { useRef, useCallback } from 'react';
 
 /**
  * Hook for detecting when user is actively typing vs. external value changes
- * Used by spell check and markdown lint to prevent interference during typing
+ * Uses refs to avoid re-renders that could interfere with editor focus
  * @returns {Object} { isTyping, setIsTyping, typingTimeoutRef }
  */
 export function useTypingDetection() {
-  const [isTyping, setIsTyping] = useState(false);
+  const isTypingRef = useRef(false);
   const typingTimeoutRef = useRef(null);
 
   const markAsTyping = () => {
-    setIsTyping(true);
+    isTypingRef.current = true;
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     typingTimeoutRef.current = setTimeout(() => {
-      setIsTyping(false);
+      isTypingRef.current = false;
     }, 500); // Stop considering as "typing" after 500ms of inactivity
+  };
+
+  const getIsTyping = () => {
+    return isTypingRef.current;
   };
 
   const cleanup = () => {
@@ -26,8 +30,8 @@ export function useTypingDetection() {
   };
 
   return {
-    isTyping,
-    setIsTyping,
+    isTyping: isTypingRef, // Return ref instead of state
+    getIsTyping, // Function to get current typing state
     typingTimeoutRef,
     markAsTyping,
     cleanup
@@ -44,23 +48,23 @@ export function useTypingDetection() {
 export function useDebounce() {
   const timeoutRef = useRef(null);
 
-  const debounce = (callback, delay) => {
+  const debounce = useCallback((callback, delay) => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
     }
     timeoutRef.current = setTimeout(callback, delay);
-  };
+  }, []);
 
-  const cancel = () => {
+  const cancel = useCallback(() => {
     if (timeoutRef.current) {
       clearTimeout(timeoutRef.current);
       timeoutRef.current = null;
     }
-  };
+  }, []);
 
-  const cleanup = () => {
+  const cleanup = useCallback(() => {
     cancel();
-  };
+  }, [cancel]);
 
   return {
     debounce,
