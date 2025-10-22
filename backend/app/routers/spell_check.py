@@ -1,28 +1,80 @@
 """
-Spell Check Router - Phase 1 API Integration
+Spell Check Router - Phase 3 API Integration
 Created: October 22, 2025 by AI Agent
-Purpose: FastAPI endpoints for spell-check-service
-Dependencies: spell_check_service.py, FastAPI
-Integration: Main API routing for spell check functionality
+Purpose: FastAPI endpoints for spell-check-service with custom dictionary integration
+Dependencies: spell_check_service.py, custom_dictionary.py, FastAPI
+Integration: Main API routing for spell check functionality with backend-provided custom words
 """
 
 import logging
 from typing import Dict, List, Optional, Any
 from fastapi import APIRouter, HTTPException, Depends, status
 from pydantic import BaseModel, Field, validator
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..services.spell_check_service import (
     spell_check_client,
     SpellIssue,
-    check_spelling,
-    check_document_spelling
+    check_spelling
 )
 from ..core.auth import get_current_user_optional
-from app.models.user import User
+from ..database import get_db
+from ..models.user import User
+from ..crud import custom_dictionary
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/spell-check", tags=["spell-check"])
+
+
+async def get_combined_custom_words(
+    user: Optional[User],
+    db: Optional[AsyncSession],
+    additional_words: List[str] = None,
+    category_id: Optional[int] = None,
+    folder_path: Optional[str] = None
+) -> List[str]:
+    """
+    Get combined custom words from database and additional words provided
+    
+    Args:
+        user: Current user (if authenticated)
+        db: Database session
+        additional_words: Additional custom words provided in request
+        category_id: Category ID for scoped words
+        folder_path: Folder path for scoped words
+        
+    Returns:
+        Combined list of unique custom words
+    """
+    all_words = set()
+    
+    # Add words provided in request
+    if additional_words:
+        all_words.update(word.lower().strip() for word in additional_words if word.strip())
+    
+    # Add words from database if user is authenticated
+    if user and db:
+        try:
+            # Get user-level words (always included)
+            user_words = await custom_dictionary.get_user_level_dictionary_words(db, int(user.id))
+            all_words.update(word.lower() for word in user_words)
+            
+            # Get category-specific words if category_id provided
+            if category_id:
+                category_words = await custom_dictionary.get_category_dictionary_words(db, int(user.id), category_id)
+                all_words.update(word.lower() for word in category_words)
+            
+            # Get folder-specific words if folder_path provided
+            if folder_path:
+                folder_words = await custom_dictionary.get_folder_dictionary_words(db, int(user.id), folder_path)
+                all_words.update(word.lower() for word in folder_words)
+                
+        except Exception as e:
+            logger.warning(f"Failed to fetch custom dictionary words for user {user.id}: {e}")
+            # Continue with just the additional words
+    
+    return list(all_words)
 
 
 # Request/Response Models for API
@@ -56,12 +108,14 @@ class SpellCheckApiResponse(BaseModel):
 @router.post("/", response_model=SpellCheckApiResponse)
 async def check_text_spelling(
     request: SpellCheckApiRequest,
-    current_user: Optional[User] = Depends(get_current_user_optional)
+    current_user: Optional[User] = Depends(get_current_user_optional),
+    db: AsyncSession = Depends(get_db)
 ) -> SpellCheckApiResponse:
     """
     Check text for spelling errors
     
     This endpoint accepts text and returns spelling issues found by the spell-check service.
+    It integrates user-specific custom dictionary words from the database.
     
     - **text**: The text content to check for spelling errors
     - **customWords**: Optional list of custom words to ignore during checking
@@ -72,49 +126,54 @@ async def check_text_spelling(
     try:
         logger.info(f"Spell check request - text length: {len(request.text)}, "
                     f"custom words: {len(request.customWords)}, "
-                    f"user: {current_user.username if current_user else 'anonymous'}")
+                    f"user: {current_user.email if current_user else 'anonymous'}")
         
-        # Call spell check service
+        # Get combined custom words from database and request
+        combined_custom_words = await get_combined_custom_words(
+            user=current_user,
+            db=db,
+            additional_words=request.customWords
+        )
+        
+        # Call spell check service with combined custom words
         response = await check_spelling(
             text=request.text,
-            custom_words=request.customWords,
+            custom_words=combined_custom_words,
             options=request.options
         )
         
-        # Format response for API
+        # Format response for API - simplified for Phase 4 compatibility
+        spelling_issues = []
+        if hasattr(response, 'results') and hasattr(response.results, 'spelling'):
+            spelling_issues = response.results.spelling
+            
         api_response = SpellCheckApiResponse(
             results={
-                "spelling": response.results.spelling
+                "spelling": spelling_issues
             },
             statistics={
-                "issuesFound": len(response.results.spelling),
-                "processingTime": response.processingTime,
-                "textLength": len(request.text),
-                "customWordsCount": len(request.customWords),
-                "language": response.language
+                "words_checked": len(request.text.split()) if request.text else 0,
+                "custom_words_applied": len(combined_custom_words),
+                "issues_found": len(spelling_issues),
+                "processing_time": response.processingTime if hasattr(response, 'processingTime') else None
             },
             metadata={
-                "service": response.service,
-                "version": response.version,
-                "timestamp": response.statistics.get("timestamp"),
-                "performance": response.statistics
+                "service": "spell-check-service",
+                "version": "phase3",
+                "custom_dictionary_enabled": bool(current_user),
+                "language": response.language if hasattr(response, 'language') else None,
+                "service_response": "simplified_for_phase4_migration"
             }
         )
         
-        logger.info(f"Spell check completed - found {len(response.results.spelling)} issues")
+        logger.info(f"Spell check completed - found {api_response.statistics['issues_found']} issues")
         return api_response
         
-    except ValueError as e:
-        logger.warning(f"Invalid spell check request: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid request: {str(e)}"
-        )
     except Exception as e:
-        logger.error(f"Spell check service error: {e}")
+        logger.error(f"Error in spell check endpoint: {e}")
         raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Spell check service is currently unavailable"
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Spell check failed: {str(e)}"
         )
 
 
@@ -126,18 +185,19 @@ async def check_spell_service_health() -> Dict[str, Any]:
     Returns health information and service capabilities.
     """
     try:
-        health_data = await spell_check_client.health_check()
+        health_info = await spell_check_client.health_check()
         return {
             "status": "healthy",
-            "service": health_data,
-            "timestamp": health_data.get("timestamp")
+            "service": health_info,
+            "backend_integration": "active"
         }
     except Exception as e:
-        logger.error(f"Spell check service health check failed: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Spell check service is unhealthy"
-        )
+        logger.error(f"Health check failed: {e}")
+        return {
+            "status": "unhealthy",
+            "error": str(e),
+            "backend_integration": "error"
+        }
 
 
 @router.get("/info")
@@ -145,85 +205,21 @@ async def get_spell_service_info() -> Dict[str, Any]:
     """
     Get information about the spell-check service capabilities
     
-    Returns service information, supported languages, and configuration.
+    Returns service version, features, and configuration.
     """
     try:
-        info_data = await spell_check_client.get_service_info()
-        return info_data
-    except Exception as e:
-        logger.error(f"Failed to get spell check service info: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Unable to retrieve spell check service information"
-        )
-
-
-# Document-specific endpoints
-@router.post("/document", response_model=SpellCheckApiResponse)
-async def check_document_content_spelling(
-    request: SpellCheckApiRequest,
-    current_user: Optional[User] = Depends(get_current_user_optional)
-) -> SpellCheckApiResponse:
-    """
-    Check document content for spelling errors with optimized chunking
-    
-    This endpoint is optimized for longer documents and uses intelligent
-    chunking to process large content efficiently.
-    
-    - **text**: The document content to check
-    - **customWords**: Custom words to ignore (useful for technical documents)
-    - **options**: Additional options including chunking preferences
-    
-    Returns comprehensive spelling analysis with performance metadata.
-    """
-    try:
-        logger.info(f"Document spell check request - content length: {len(request.text)}, "
-                    f"user: {current_user.username if current_user else 'anonymous'}")
-        
-        # Extract chunking options
-        enable_chunking = request.options.get("enableChunking", True)
-        chunk_size = min(request.options.get("chunkSize", 10000), 50000)  # Cap at 50KB chunks
-        
-        # Call document spell check service
-        spelling_issues = await check_document_spelling(
-            content=request.text,
-            custom_words=request.customWords,
-            enable_chunking=enable_chunking,
-            chunk_size=chunk_size
-        )
-        
-        # Format response
-        api_response = SpellCheckApiResponse(
-            results={
-                "spelling": spelling_issues
-            },
-            statistics={
-                "issuesFound": len(spelling_issues),
-                "textLength": len(request.text),
-                "customWordsCount": len(request.customWords),
-                "chunksProcessed": max(1, len(request.text) // chunk_size) if enable_chunking else 1,
-                "chunkingEnabled": enable_chunking
-            },
-            metadata={
-                "service": "spell-check-service",
-                "processingType": "document",
-                "chunkSize": chunk_size if enable_chunking else len(request.text)
+        info = await spell_check_client.get_service_info()
+        return {
+            "service": info,
+            "integration": {
+                "custom_dictionary": True,
+                "phase": "3",
+                "features": ["spelling", "contextual_suggestions", "style_guides", "readability"]
             }
-        )
-        
-        logger.info(f"Document spell check completed - found {len(spelling_issues)} issues "
-                    f"across {api_response.statistics['chunksProcessed']} chunks")
-        return api_response
-        
-    except ValueError as e:
-        logger.warning(f"Invalid document spell check request: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid request: {str(e)}"
-        )
+        }
     except Exception as e:
-        logger.error(f"Document spell check service error: {e}")
+        logger.error(f"Info request failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Document spell check service is currently unavailable"
+            detail="Unable to retrieve service information"
         )

@@ -1,4 +1,4 @@
 """CRUD operations."""
-from . import document, user
+from . import document, user, custom_dictionary
 
-__all__ = ["document", "user"]
+__all__ = ["document", "user", "custom_dictionary"]

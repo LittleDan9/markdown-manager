@@ -92,6 +92,347 @@ class StyleAnalyzer {
   }
 
   /**
+   * Calculate comprehensive readability metrics - Phase 3 Enhancement
+   * @param {string} text - Text to analyze
+   * @returns {Object} Comprehensive readability metrics
+   */
+  calculateReadabilityMetrics(text) {
+    const stats = this.getTextStatistics(text);
+    
+    // Calculate various readability metrics
+    const fleschKincaid = this.calculateFleschKincaid(stats);
+    const fleschReadingEase = this.calculateFleschReadingEase(stats);
+    const gunningFog = this.calculateGunningFog(stats);
+    const smogIndex = this.calculateSMOGIndex(stats);
+    const automatedReadabilityIndex = this.calculateARI(stats);
+    const colemanLiauIndex = this.calculateColemanLiau(stats);
+    
+    // Calculate average grade level from multiple metrics
+    const gradeMetrics = [fleschKincaid, gunningFog, automatedReadabilityIndex, colemanLiauIndex];
+    const averageGradeLevel = gradeMetrics.reduce((sum, metric) => sum + metric, 0) / gradeMetrics.length;
+    
+    return {
+      // Raw statistics
+      characters: stats.characters,
+      charactersWithoutSpaces: stats.charactersWithoutSpaces,
+      words: stats.words,
+      sentences: stats.sentences,
+      paragraphs: stats.paragraphs,
+      syllables: stats.syllables,
+      complexWords: stats.complexWords,
+      
+      // Readability scores
+      fleschKincaid: Math.round(fleschKincaid * 10) / 10,
+      fleschReadingEase: Math.round(fleschReadingEase * 10) / 10,
+      gunningFog: Math.round(gunningFog * 10) / 10,
+      smogIndex: Math.round(smogIndex * 10) / 10,
+      automatedReadabilityIndex: Math.round(automatedReadabilityIndex * 10) / 10,
+      colemanLiauIndex: Math.round(colemanLiauIndex * 10) / 10,
+      
+      // Averages
+      averageWordsPerSentence: Math.round((stats.words / stats.sentences) * 10) / 10,
+      averageSyllablesPerWord: Math.round((stats.syllables / stats.words) * 10) / 10,
+      averageSentencesPerParagraph: Math.round((stats.sentences / stats.paragraphs) * 10) / 10,
+      
+      // Grade level interpretation
+      averageGradeLevel: Math.round(averageGradeLevel * 10) / 10,
+      gradeLevel: this.interpretGradeLevel(averageGradeLevel),
+      readingEaseLevel: this.interpretReadingEase(fleschReadingEase),
+      
+      // Complexity indicators
+      complexWordPercentage: Math.round((stats.complexWords / stats.words * 100) * 10) / 10,
+      longSentenceCount: stats.longSentences,
+      longWordCount: stats.longWords
+    };
+  }
+
+  /**
+   * Get comprehensive text statistics
+   * @param {string} text - Text to analyze
+   * @returns {Object} Text statistics
+   */
+  getTextStatistics(text) {
+    // Clean text for analysis
+    const cleanText = text.replace(/\s+/g, ' ').trim();
+    
+    // Basic counts
+    const characters = cleanText.length;
+    const charactersWithoutSpaces = cleanText.replace(/\s/g, '').length;
+    const words = this.countWords(cleanText);
+    const sentences = this.countSentences(cleanText);
+    const paragraphs = this.countParagraphs(text);
+    
+    // Advanced counts
+    const syllables = this.countSyllables(cleanText);
+    const complexWords = this.countComplexWords(cleanText);
+    const longSentences = this.countLongSentences(cleanText);
+    const longWords = this.countLongWords(cleanText);
+    
+    return {
+      characters,
+      charactersWithoutSpaces,
+      words,
+      sentences: Math.max(1, sentences), // Avoid division by zero
+      paragraphs: Math.max(1, paragraphs),
+      syllables,
+      complexWords,
+      longSentences,
+      longWords
+    };
+  }
+
+  /**
+   * Count words in text
+   * @param {string} text - Text to analyze
+   * @returns {number} Word count
+   */
+  countWords(text) {
+    return text.split(/\s+/).filter(word => word.length > 0).length;
+  }
+
+  /**
+   * Count sentences in text
+   * @param {string} text - Text to analyze
+   * @returns {number} Sentence count
+   */
+  countSentences(text) {
+    // Split on sentence endings, but be careful with abbreviations
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    return Math.max(1, sentences.length);
+  }
+
+  /**
+   * Count paragraphs in text
+   * @param {string} text - Text to analyze
+   * @returns {number} Paragraph count
+   */
+  countParagraphs(text) {
+    const paragraphs = text.split(/\n\s*\n/).filter(p => p.trim().length > 0);
+    return Math.max(1, paragraphs.length);
+  }
+
+  /**
+   * Count syllables in text using improved algorithm
+   * @param {string} text - Text to analyze
+   * @returns {number} Syllable count
+   */
+  countSyllables(text) {
+    const words = text.toLowerCase().split(/\s+/);
+    let totalSyllables = 0;
+    
+    for (const word of words) {
+      // Remove non-letters
+      const cleanWord = word.replace(/[^a-z]/g, '');
+      if (cleanWord.length === 0) continue;
+      
+      totalSyllables += this.countWordSyllables(cleanWord);
+    }
+    
+    return Math.max(1, totalSyllables);
+  }
+
+  /**
+   * Count syllables in a single word
+   * @param {string} word - Word to analyze
+   * @returns {number} Syllable count
+   */
+  countWordSyllables(word) {
+    if (word.length <= 3) return 1;
+    
+    // Count vowel groups
+    let syllables = 0;
+    let previousWasVowel = false;
+    
+    for (let i = 0; i < word.length; i++) {
+      const isVowel = 'aeiouy'.includes(word[i]);
+      
+      if (isVowel && !previousWasVowel) {
+        syllables++;
+      }
+      
+      previousWasVowel = isVowel;
+    }
+    
+    // Adjust for silent e
+    if (word.endsWith('e') && syllables > 1) {
+      syllables--;
+    }
+    
+    // Adjust for some common patterns
+    if (word.endsWith('le') && word.length > 2 && !'aeiou'.includes(word[word.length - 3])) {
+      syllables++;
+    }
+    
+    return Math.max(1, syllables);
+  }
+
+  /**
+   * Count complex words (3+ syllables)
+   * @param {string} text - Text to analyze
+   * @returns {number} Complex word count
+   */
+  countComplexWords(text) {
+    const words = text.toLowerCase().split(/\s+/);
+    let complexCount = 0;
+    
+    for (const word of words) {
+      const cleanWord = word.replace(/[^a-z]/g, '');
+      if (cleanWord.length === 0) continue;
+      
+      const syllables = this.countWordSyllables(cleanWord);
+      if (syllables >= 3) {
+        complexCount++;
+      }
+    }
+    
+    return complexCount;
+  }
+
+  /**
+   * Count long sentences (25+ words)
+   * @param {string} text - Text to analyze
+   * @returns {number} Long sentence count
+   */
+  countLongSentences(text) {
+    const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 0);
+    let longCount = 0;
+    
+    for (const sentence of sentences) {
+      const wordCount = sentence.split(/\s+/).filter(word => word.length > 0).length;
+      if (wordCount >= 25) {
+        longCount++;
+      }
+    }
+    
+    return longCount;
+  }
+
+  /**
+   * Count long words (6+ characters)
+   * @param {string} text - Text to analyze
+   * @returns {number} Long word count
+   */
+  countLongWords(text) {
+    const words = text.toLowerCase().split(/\s+/);
+    let longCount = 0;
+    
+    for (const word of words) {
+      const cleanWord = word.replace(/[^a-z]/g, '');
+      if (cleanWord.length >= 6) {
+        longCount++;
+      }
+    }
+    
+    return longCount;
+  }
+
+  /**
+   * Calculate Flesch-Kincaid Grade Level
+   * @param {Object} stats - Text statistics
+   * @returns {number} Grade level
+   */
+  calculateFleschKincaid(stats) {
+    const avgSentenceLength = stats.words / stats.sentences;
+    const avgSyllablesPerWord = stats.syllables / stats.words;
+    
+    return (0.39 * avgSentenceLength) + (11.8 * avgSyllablesPerWord) - 15.59;
+  }
+
+  /**
+   * Calculate Flesch Reading Ease Score
+   * @param {Object} stats - Text statistics
+   * @returns {number} Reading ease score
+   */
+  calculateFleschReadingEase(stats) {
+    const avgSentenceLength = stats.words / stats.sentences;
+    const avgSyllablesPerWord = stats.syllables / stats.words;
+    
+    return 206.835 - (1.015 * avgSentenceLength) - (84.6 * avgSyllablesPerWord);
+  }
+
+  /**
+   * Calculate Gunning Fog Index
+   * @param {Object} stats - Text statistics
+   * @returns {number} Fog index
+   */
+  calculateGunningFog(stats) {
+    const avgSentenceLength = stats.words / stats.sentences;
+    const complexWordPercentage = (stats.complexWords / stats.words) * 100;
+    
+    return 0.4 * (avgSentenceLength + complexWordPercentage);
+  }
+
+  /**
+   * Calculate SMOG Index
+   * @param {Object} stats - Text statistics
+   * @returns {number} SMOG index
+   */
+  calculateSMOGIndex(stats) {
+    if (stats.sentences < 30) {
+      // For short texts, use simplified SMOG
+      const complexWordPercentage = (stats.complexWords / stats.words);
+      return 3 + Math.sqrt(30 * complexWordPercentage);
+    }
+    
+    // Standard SMOG calculation
+    const complexWordsPerSentence = stats.complexWords / stats.sentences;
+    return 3 + Math.sqrt(30 * complexWordsPerSentence);
+  }
+
+  /**
+   * Calculate Automated Readability Index (ARI)
+   * @param {Object} stats - Text statistics
+   * @returns {number} ARI score
+   */
+  calculateARI(stats) {
+    const avgCharsPerWord = stats.charactersWithoutSpaces / stats.words;
+    const avgWordsPerSentence = stats.words / stats.sentences;
+    
+    return (4.71 * avgCharsPerWord) + (0.5 * avgWordsPerSentence) - 21.43;
+  }
+
+  /**
+   * Calculate Coleman-Liau Index
+   * @param {Object} stats - Text statistics
+   * @returns {number} Coleman-Liau index
+   */
+  calculateColemanLiau(stats) {
+    const avgCharsPerWord = (stats.charactersWithoutSpaces / stats.words) * 100;
+    const avgSentencesPer100Words = (stats.sentences / stats.words) * 100;
+    
+    return (0.0588 * avgCharsPerWord) - (0.296 * avgSentencesPer100Words) - 15.8;
+  }
+
+  /**
+   * Interpret grade level as readable description
+   * @param {number} gradeLevel - Numeric grade level
+   * @returns {string} Grade level description
+   */
+  interpretGradeLevel(gradeLevel) {
+    if (gradeLevel < 6) return 'Elementary school (5th grade and below)';
+    if (gradeLevel < 9) return 'Middle school (6th-8th grade)';
+    if (gradeLevel < 13) return 'High school (9th-12th grade)';
+    if (gradeLevel < 16) return 'College level (13th-15th grade)';
+    if (gradeLevel < 18) return 'College graduate level (16th-17th grade)';
+    return 'Graduate level (18th grade and above)';
+  }
+
+  /**
+   * Interpret Flesch Reading Ease score
+   * @param {number} score - Reading ease score
+   * @returns {string} Reading ease description
+   */
+  interpretReadingEase(score) {
+    if (score >= 90) return 'Very Easy (5th grade level)';
+    if (score >= 80) return 'Easy (6th grade level)';
+    if (score >= 70) return 'Fairly Easy (7th grade level)';
+    if (score >= 60) return 'Standard (8th-9th grade level)';
+    if (score >= 50) return 'Fairly Difficult (10th-12th grade level)';
+    if (score >= 30) return 'Difficult (college level)';
+    return 'Very Difficult (graduate level)';
+  }
+
+  /**
    * Perform custom style checks beyond write-good
    * @param {string} text - Text to analyze
    * @returns {Array} Array of style issues

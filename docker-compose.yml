@@ -125,6 +125,7 @@ services:
     environment:
       - SPELL_CHECK_PORT=8003
       - NODE_ENV=development
+      - BACKEND_URL=http://backend:8000
     ports:
       - "8003:8003"
     volumes:
