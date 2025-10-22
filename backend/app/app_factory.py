@@ -29,6 +29,7 @@ from app.routers import (
     monitoring,
     pdf,
     public,
+    spell_check,
     syntax_highlighting,
     third_party_router,
     users,
@@ -141,6 +142,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         markdown_lint.router, tags=["markdown-lint"]
+    )
+    app.include_router(
+        spell_check.router, tags=["spell-check"]
     )
     app.include_router(
         github.router, prefix="/github", tags=["github"]

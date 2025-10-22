@@ -1,0 +1,49 @@
+# Systemd service configuration for spell-check-service
+# Place in /etc/systemd/system/markdown-manager-spell-check.service
+
+[Unit]
+Description=Spell Check Service for Markdown Manager
+After=network.target docker.service
+Wants=network.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=dlittle
+Group=dlittle
+WorkingDirectory=/home/dlittle
+EnvironmentFile=-/etc/markdown-manager.env
+ExecStartPre=-/usr/bin/docker stop markdown-manager-spell-check
+ExecStartPre=-/usr/bin/docker rm markdown-manager-spell-check
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-spell-check \
+    --publish ${SPELL_CHECK_PORT:-8003}:8003 \
+    -e NODE_ENV=${NODE_ENV:-production} \
+    -e NODE_OPTIONS=${NODE_OPTIONS:---max-old-space-size=512} \
+    --health-cmd="curl -f http://localhost:8003/health || exit 1" \
+    --health-interval=30s \
+    --health-timeout=10s \
+    --health-retries=3 \
+    --health-start-period=40s \
+    --restart=unless-stopped \
+    littledan9/markdown-manager-spell-check:latest
+ExecStop=/usr/bin/docker stop markdown-manager-spell-check
+Restart=always
+RestartSec=5
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=512M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=markdown-manager-spell-check
+
+[Install]
+WantedBy=multi-user.target

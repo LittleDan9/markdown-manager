@@ -66,7 +66,9 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 # ────────────────────────────────────────────────────────────────────────────
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
-.PHONY: deploy deploy-front deploy-back deploy-nginx deploy-nginx-frontend deploy-nginx-api deploy-nginx-all setup-remote-ops
+.PHONY: deploy deploy-front deploy-back deploy-nginx deploy-nginx-frontend deploy-nginx-api deploy-nginx-all
+.PHONY: deploy-backend-only deploy-export-only deploy-lint-only deploy-spell-check-only
+.PHONY: deploy-build-only deploy-remote-only deploy-cleanup-only deploy-infra-only
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -79,8 +81,17 @@ help: ## Show this help
 	@echo "$(BLUE)Build & Development:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^dev|dev-frontend|dev-backend/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(BLUE)Deployment:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo "$(BLUE)Deployment - Full:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^deploy[^-]|^deploy-front|^deploy-back|^deploy-nginx[^-]/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "$(BLUE)Deployment - Individual Services:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^deploy-.*-only/ && !/deploy-(build|remote|cleanup|infra)-only/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "$(BLUE)Deployment - Phases:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^deploy-(build|remote|cleanup|infra)-only/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo ""
+	@echo "$(BLUE)Deployment - Nginx:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^deploy-nginx-/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Utilities:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^test|test-backend|status|stop/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -166,7 +177,7 @@ deploy-front: build ## Build and deploy frontend (includes nginx config)
 	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
 
 deploy-back: ## Deploy backend services (includes nginx config)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service $(REMOTE_USER_HOST) 5000
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000
 
 # Nginx-only deployment targets
 deploy-nginx-frontend: ## Deploy only frontend nginx config
@@ -179,6 +190,32 @@ deploy-nginx-all: ## Deploy all nginx configs
 	@./scripts/deploy-nginx.sh deploy_all $(REMOTE_USER_HOST)
 
 deploy-nginx: deploy-nginx-all ## Alias for deploy-nginx-all
+
+# Individual service deployment targets
+deploy-backend-only: ## Deploy only the main backend API service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 backend
+
+deploy-export-only: ## Deploy only the export service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 export
+
+deploy-lint-only: ## Deploy only the markdown lint service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 lint
+
+deploy-spell-check-only: ## Deploy only the spell check service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 spell-check
+
+# Deployment phase targets
+deploy-infra-only: ## Setup deployment infrastructure (SSH tunnels, registry)
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 infra
+
+deploy-build-only: ## Build and push images to registry only
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 build
+
+deploy-remote-only: ## Deploy to remote servers only (assumes images exist)
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 remote
+
+deploy-cleanup-only: ## Run cleanup operations only
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 cleanup
 
 # ────────────────────────────────────────────────────────────────────────────
 # DATABASE OPERATIONS

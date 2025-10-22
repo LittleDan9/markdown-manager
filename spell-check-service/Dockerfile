@@ -1,0 +1,37 @@
+# Spell Check Service Dockerfile
+FROM node:18-alpine
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies for better performance
+RUN apk add --no-cache \
+    curl \
+    && rm -rf /var/cache/apk/*
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy application code
+COPY . .
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S spellcheck -u 1001
+
+# Change ownership of the app directory
+RUN chown -R spellcheck:nodejs /app
+USER spellcheck
+
+# Expose the port
+EXPOSE 8003
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+  CMD curl -f http://localhost:8003/health || exit 1
+
+# Start the service
+CMD ["npm", "start"]
