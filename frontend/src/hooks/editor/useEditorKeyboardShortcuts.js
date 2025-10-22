@@ -28,7 +28,9 @@ export default function useEditorKeyboardShortcuts(
     if (!enabled || !editor) return;
 
     // Ensure Monaco is fully loaded before registering actions
-    if (!window.monaco) {
+    // Check for Monaco availability through multiple paths
+    const monacoRef = monaco || editor.constructor?.monaco || window.monaco;
+    if (!monacoRef) {
       console.warn('Monaco not fully loaded, skipping keyboard shortcuts registration');
       return;
     }
@@ -41,7 +43,7 @@ export default function useEditorKeyboardShortcuts(
 
     // Bold shortcut
     const boldCommand = editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyB,
+      monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyB,
       () => {
         const toolbarButton = document.querySelector('[title="Bold (Ctrl+B)"]');
         if (toolbarButton) toolbarButton.click();
@@ -50,7 +52,7 @@ export default function useEditorKeyboardShortcuts(
 
     // Italic shortcut
     const italicCommand = editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyI,
+      monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyI,
       () => {
         const toolbarButton = document.querySelector('[title="Italic (Ctrl+I)"]');
         if (toolbarButton) toolbarButton.click();
@@ -59,7 +61,7 @@ export default function useEditorKeyboardShortcuts(
 
     // Quick fix shortcut
     const quickFixCommand = editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.US_DOT,
+      monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.US_DOT,
       () => {
         editor.trigger('', 'editor.action.quickFix', {});
       }
@@ -67,7 +69,7 @@ export default function useEditorKeyboardShortcuts(
 
     // Comment toggle shortcut
     const commentCommand = editor.addCommand(
-      monaco.KeyMod.CtrlCmd | monaco.KeyCode.Slash,
+      monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.Slash,
       () => {
         CommentService.handleCommentToggle(editor);
       }

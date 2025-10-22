@@ -5,6 +5,8 @@
  * and integrating linting controls into the editor UI.
  */
 
+import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+
 export class MarkdownLintActions {
   constructor() {
     this.registeredActions = new Set();
@@ -23,8 +25,9 @@ export class MarkdownLintActions {
       return [];
     }
 
-    const monaco = editor.constructor.monaco || window.monaco;
-    if (!monaco) {
+    // Check for Monaco availability through multiple paths (same pattern as useEditorKeyboardShortcuts)
+    const monacoRef = monaco || editor.constructor?.monaco || window.monaco;
+    if (!monacoRef) {
       console.warn('MarkdownLintActions: Monaco reference not available');
       return [];
     }
@@ -34,16 +37,16 @@ export class MarkdownLintActions {
 
     try {
       // Register code action provider for context-sensitive quick fixes
-      const codeActionProvider = this._registerCodeActionProvider(markersMapRef, monaco);
+      const codeActionProvider = this._registerCodeActionProvider(markersMapRef, monacoRef);
       disposables.push(codeActionProvider);
 
       // Register global command for applying markdown lint fixes
-      if (!monaco.editor._markdownLintApplyFixRegistered) {
-        monaco.editor.registerCommand('markdownlint.applyFix', async (accessor, ...args) => {
+      if (!monacoRef.editor._markdownLintApplyFixRegistered) {
+        monacoRef.editor.registerCommand('markdownlint.applyFix', async (accessor, ...args) => {
           const [fixInfo, range, editorInstance] = args;
           await this._applyMarkdownLintFix(fixInfo, range, editorInstance);
         });
-        monaco.editor._markdownLintApplyFixRegistered = true;
+        monacoRef.editor._markdownLintApplyFixRegistered = true;
       }
 
       // Register fix trailing spaces action
@@ -51,7 +54,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: fixTrailingSpacesId,
         label: 'Fix: Remove Trailing Spaces',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyT],
+        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyT],
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 1,
         precondition: null,
@@ -64,7 +67,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: fixBlankLinesId,
         label: 'Fix: Remove Multiple Blank Lines',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyB],
+        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyB],
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 2,
         precondition: null,
@@ -77,7 +80,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: fixHeadingSpacingId,
         label: 'Fix: Add Space After Heading Hash',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyH],
+        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyH],
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 3,
         precondition: null,
@@ -90,7 +93,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: showRuleDocsId,
         label: 'Markdown Lint: Show Rule Documentation',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyK, monaco.KeyCode.KeyD],
+        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyD],
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 4,
         precondition: null,
@@ -103,7 +106,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: toggleLintingId,
         label: 'Markdown Lint: Toggle Linting',
-        keybindings: [monaco.KeyMod.CtrlCmd | monaco.KeyMod.Shift | monaco.KeyCode.KeyL],
+        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyMod.Shift | monacoRef.KeyCode.KeyL],
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 5,
         precondition: null,
@@ -365,13 +368,13 @@ export class MarkdownLintActions {
    * @returns {Object} Disposable registration
    * @private
    */
-  static _registerCodeActionProvider(markersMapRef, monaco) {
-    return monaco.languages.registerCodeActionProvider('markdown', {
+  static _registerCodeActionProvider(markersMapRef, monacoRef) {
+    return monacoRef.languages.registerCodeActionProvider('markdown', {
       provideCodeActions(model, range, context) {
         const actions = [];
 
         // Get markers at the current position
-        const markers = monaco.editor.getModelMarkers({
+        const markers = monacoRef.editor.getModelMarkers({
           resource: model.uri,
           owner: 'markdownlint'
         });
@@ -396,7 +399,7 @@ export class MarkdownLintActions {
 
               actions.push({
                 title: `🔧 Fix ${rule}: ${MarkdownLintActions._getFixDescription(rule, issueData.fixInfo)}`,
-                kind: monaco.languages.CodeActionKind.QuickFix,
+                kind: monacoRef.languages.CodeActionKind.QuickFix,
                 isPreferred: true,
                 command: {
                   id: 'markdownlint.applyFix',
