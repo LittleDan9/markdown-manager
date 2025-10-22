@@ -54,7 +54,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: fixTrailingSpacesId,
         label: 'Fix: Remove Trailing Spaces',
-        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyT],
+        keybindings: [], // Removed chord shortcut that was interfering with typing
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 1,
         precondition: null,
@@ -67,7 +67,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: fixBlankLinesId,
         label: 'Fix: Remove Multiple Blank Lines',
-        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyB],
+        keybindings: [], // Removed chord shortcut that was interfering with typing
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 2,
         precondition: null,
@@ -80,7 +80,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: fixHeadingSpacingId,
         label: 'Fix: Add Space After Heading Hash',
-        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyH],
+        keybindings: [], // Removed chord shortcut that was interfering with typing
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 3,
         precondition: null,
@@ -93,7 +93,7 @@ export class MarkdownLintActions {
       editor.addAction({
         id: showRuleDocsId,
         label: 'Markdown Lint: Show Rule Documentation',
-        keybindings: [monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyK, monacoRef.KeyCode.KeyD],
+        keybindings: [], // Removed chord shortcut that was interfering with typing
         contextMenuGroupId: 'markdownlint',
         contextMenuOrder: 4,
         precondition: null,
@@ -399,7 +399,7 @@ export class MarkdownLintActions {
 
               actions.push({
                 title: `🔧 Fix ${rule}: ${MarkdownLintActions._getFixDescription(rule, issueData.fixInfo)}`,
-                kind: monacoRef.languages.CodeActionKind.QuickFix,
+                kind: 'quickfix', // Use string instead of CodeActionKind enum which may be undefined
                 isPreferred: true,
                 command: {
                   id: 'markdownlint.applyFix',
