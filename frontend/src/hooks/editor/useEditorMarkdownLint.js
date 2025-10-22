@@ -72,10 +72,14 @@ export default function useEditorMarkdownLint(editor, enabled = true, categoryId
         );
       }
 
-      if (lastLintProgressRef.current && lastLintProgressRef.current.progress >= 100) {
-        setTimeout(() => setLintProgress(null), 500);
+      if (lastLintProgressRef.current && lastLintProgressRef.current.percentComplete >= 100) {
+        // Ensure 100% is visible before clearing
+        setLintProgress({ percentComplete: 100 });
+        setTimeout(() => setLintProgress(null), 1500); // Show completion for 1.5 seconds
       } else {
-        setLintProgress(null);
+        // Ensure 100% is shown briefly even if we don't have progress tracking
+        setLintProgress({ percentComplete: 100 });
+        setTimeout(() => setLintProgress(null), 1500);
       }
     } catch (error) {
       console.error('MarkdownLint: Failed to lint document:', error);
@@ -90,40 +94,49 @@ export default function useEditorMarkdownLint(editor, enabled = true, categoryId
     const handleContentChange = () => {
       const newValue = editor.getValue();
 
-      if (newValue !== lintPreviousValueRef.current) {
-        // Clear existing timeouts
-        if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
+      // Only proceed if content actually changed
+      if (newValue === lintPreviousValueRef.current) return;
 
-        // Very conservative delays since manual trigger is available
-        const docSize = newValue.length;
-        const prevSize = lintPreviousValueRef.current?.length || 0;
-        const changeSize = Math.abs(docSize - prevSize);
+      // Clear existing timeouts
+      if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
 
-        let delay;
-        if (docSize < 2000) {
-          delay = changeSize < 100 ? 10000 : 15000;
-        } else if (docSize < 10000) {
-          delay = changeSize < 200 ? 20000 : 30000;
-        } else {
-          delay = changeSize < 500 ? 45000 : 60000;
-        }
-
-        // Set debounced lint timeout with very conservative delay
-        debounceLint(() => {
-          lintDocument(newValue, 0);
-          lintPreviousValueRef.current = newValue;
-          lastLintTime.current = Date.now();
-        }, delay);
+      // Rate limiting: don't lint more than once every 10 seconds
+      const timeSinceLastLint = Date.now() - lastLintTime.current;
+      if (timeSinceLastLint < 10000) {
+        console.log('[MarkdownLint] Skipping lint - too frequent (rate limited)');
+        return;
       }
+
+      // Very conservative delays since manual trigger is available
+      const docSize = newValue.length;
+      const prevSize = lintPreviousValueRef.current?.length || 0;
+      const changeSize = Math.abs(docSize - prevSize);
+
+      let delay;
+      if (docSize < 2000) {
+        delay = changeSize < 100 ? 15000 : 20000; // Increased from 10-15s
+      } else if (docSize < 10000) {
+        delay = changeSize < 200 ? 30000 : 45000; // Increased from 20-30s
+      } else {
+        delay = changeSize < 500 ? 60000 : 90000; // Increased from 45-60s
+      }
+
+      // Set debounced lint timeout with very conservative delay
+      debounceLint(() => {
+        lintDocument(newValue, 0);
+        lintPreviousValueRef.current = newValue;
+        lastLintTime.current = Date.now();
+      }, delay);
     };
 
+    // Use Monaco's content change listener instead of useEffect dependency
     const contentDisposable = editor.onDidChangeModelContent(handleContentChange);
 
     return () => {
       contentDisposable.dispose();
       if (autoLintTimeout.current) clearTimeout(autoLintTimeout.current);
     };
-  }, [enabled, editor, debounceLint]);
+  }, [enabled, editor]); // Removed debounceLint from dependencies
 
   // Initial markdown lint when editor is ready - very delayed start
   useEffect(() => {
@@ -134,27 +147,17 @@ export default function useEditorMarkdownLint(editor, enabled = true, categoryId
     }
   }, [enabled, editor]);
 
-  // Periodic markdown lint - very infrequent checks
-  useEffect(() => {
-    if (!enabled || !editor) return;
-
-    const periodicLintInterval = setInterval(() => {
-      const timeSinceLastLint = Date.now() - lastLintTime.current;
-      const currentContent = editor?.getValue() || '';
-
-      // Only run if it's been more than 5 minutes since last lint AND content changed
-      if (timeSinceLastLint > 300000 && currentContent !== lintPreviousValueRef.current) {
-        console.log('[MarkdownLint] Periodic lint check - content changed, running check');
-        lintDocument(currentContent, 0);
-        lintPreviousValueRef.current = currentContent;
-        lastLintTime.current = Date.now();
-      }
-    }, 120000); // Check every 2 minutes
-
-    return () => {
-      clearInterval(periodicLintInterval);
-    };
-  }, [enabled, editor]);
+  // Periodic markdown lint - DISABLED to prevent excessive checking
+  // Content change detection with debouncing is sufficient
+  // useEffect(() => {
+  //   if (!enabled || !editor) return;
+  //   const periodicLintInterval = setInterval(() => {
+  //     // ... periodic check logic disabled
+  //   }, 300000); // 5 minutes - very infrequent if ever re-enabled
+  //   return () => {
+  //     clearInterval(periodicLintInterval);
+  //   };
+  // }, [enabled, editor]);
 
   // Window resize handling
   useEffect(() => {
@@ -185,23 +188,84 @@ export default function useEditorMarkdownLint(editor, enabled = true, categoryId
     };
   }, [enabled, editor]);
 
-  // Editor layout change handling
+  // Editor layout change handling - authentication-aware throttling
   useEffect(() => {
     if (!enabled || !editor) return;
 
+    let layoutChangeTimeout = null;
+    let lastLayoutChangeTime = 0;
+    let layoutChangeCount = 0;
+    let suppressLayoutChanges = false;
+
+    // Get authentication status
+    const isAuthenticated = localStorage.getItem('authToken') !== null;
+
+    // More lenient throttling for authenticated users
+    const LAYOUT_THROTTLE_DELAY = isAuthenticated ? 3000 : 10000; // 3s vs 10s
+    const MAX_RAPID_CHANGES = isAuthenticated ? 5 : 3; // 5 vs 3 changes
+    const SUPPRESSION_DURATION = isAuthenticated ? 15000 : 30000; // 15s vs 30s
+
     const layoutDisposable = editor.onDidLayoutChange(() => {
-      MarkdownLintMarkerAdapter.clearMarkers(editor, monaco);
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
-      resizeTimeoutRef.current = setTimeout(() => {
-        if (editor) {
+      const now = Date.now();
+
+      // Track rapid layout changes
+      const timeSinceLastChange = now - lastLayoutChangeTime;
+      if (timeSinceLastChange < 2000) { // Changes within 2 seconds
+        layoutChangeCount++;
+      } else {
+        layoutChangeCount = 0; // Reset counter for slower changes
+      }
+
+      // If we're getting too many rapid changes, suppress completely for a while
+      if (layoutChangeCount > MAX_RAPID_CHANGES) {
+        const suppressionText = isAuthenticated ? '15 seconds' : '30 seconds';
+        console.log(`[MarkdownLint] Too many rapid layout changes, suppressing for ${suppressionText}`);
+        suppressLayoutChanges = true;
+        setTimeout(() => {
+          suppressLayoutChanges = false;
+          layoutChangeCount = 0;
+          console.log('[MarkdownLint] Layout change suppression lifted');
+        }, SUPPRESSION_DURATION);
+        return;
+      }
+
+      // If suppressed, ignore all layout changes
+      if (suppressLayoutChanges) {
+        return;
+      }
+
+      // Only clear markers if we're going to process the change
+      if (timeSinceLastChange >= LAYOUT_THROTTLE_DELAY) {
+        MarkdownLintMarkerAdapter.clearMarkers(editor, monaco);
+      }
+
+      // Clear existing timeout
+      if (layoutChangeTimeout) {
+        clearTimeout(layoutChangeTimeout);
+        layoutChangeTimeout = null;
+      }
+
+      // Authentication-aware throttling
+      if (timeSinceLastChange < LAYOUT_THROTTLE_DELAY) {
+        console.log('[MarkdownLint] Layout change throttled, too frequent');
+        return;
+      }
+
+      layoutChangeTimeout = setTimeout(() => {
+        if (editor && !suppressLayoutChanges) {
+          lastLayoutChangeTime = Date.now();
+          console.log('[MarkdownLint] Running lint after layout change');
           lintDocument(null, 0);
         }
-      }, 1000);
+        layoutChangeTimeout = null;
+      }, 2000); // 2 second debounce after throttle check
     });
 
     return () => {
       layoutDisposable.dispose();
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+      if (layoutChangeTimeout) {
+        clearTimeout(layoutChangeTimeout);
+      }
     };
   }, [enabled, editor]);
 
@@ -218,7 +282,7 @@ export default function useEditorMarkdownLint(editor, enabled = true, categoryId
   const runMarkdownLint = () => {
     if (editor) {
       console.log('[MarkdownLint] Manual lint triggered by user');
-      setLintProgress({ progress: 0 });
+      setLintProgress({ percentComplete: 0 });
       lintDocument(null, 0, true);
     }
   };

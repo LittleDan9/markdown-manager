@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button, ButtonGroup } from 'react-bootstrap';
-import { useTheme } from '@/providers/ThemeProvider';
 
 /**
  * Analysis Tools toolbar group with spell check and markdown lint buttons
@@ -13,63 +12,73 @@ export function SpellCheckGroup({
   spellCheckProgress,
   markdownLintProgress
 }) {
-  const { theme } = useTheme();
+  const [isSpellCheckVisible, setIsSpellCheckVisible] = useState(false);
+  const [isMarkdownLintVisible, setIsMarkdownLintVisible] = useState(false);
 
-  const progressBarColor = theme === 'dark' ? '#fff' : '#000';
-  const progressTextColor = theme === 'dark' ? '#adb5bd' : '#6c757d';
+  // Handle spell check progress with minimum visible duration
+  useEffect(() => {
+    if (spellCheckProgress && spellCheckProgress.percentComplete >= 0 && spellCheckProgress.percentComplete < 100) {
+      setIsSpellCheckVisible(true);
+    } else if (spellCheckProgress && spellCheckProgress.percentComplete >= 100) {
+      // Keep spinner visible for at least 1000ms (1.25 full rotations at 0.6s each)
+      setTimeout(() => setIsSpellCheckVisible(false), 1000);
+    } else if (!spellCheckProgress) {
+      // If no progress at all, clear immediately
+      setIsSpellCheckVisible(false);
+    }
+  }, [spellCheckProgress]);
 
-  // Show progress for whichever tool is active
-  const activeProgress = spellCheckProgress || markdownLintProgress;
-  const progressLabel = spellCheckProgress ? 'Spell' : markdownLintProgress ? 'Lint' : '';
+  // Handle markdown lint progress with minimum visible duration
+  useEffect(() => {
+    if (markdownLintProgress && markdownLintProgress.percentComplete >= 0 && markdownLintProgress.percentComplete < 100) {
+      setIsMarkdownLintVisible(true);
+    } else if (markdownLintProgress && markdownLintProgress.percentComplete >= 100) {
+      // Keep spinner visible for at least 1000ms (1.25 full rotations at 0.6s each)
+      setTimeout(() => setIsMarkdownLintVisible(false), 1000);
+    } else if (!markdownLintProgress) {
+      // If no progress at all, clear immediately
+      setIsMarkdownLintVisible(false);
+    }
+  }, [markdownLintProgress]);
+
+  const isSpellCheckRunning = isSpellCheckVisible;
+  const isMarkdownLintRunning = isMarkdownLintVisible;
+
+  const handleSpellCheckClick = () => {
+    onSpellCheck();
+  };
+
+  const handleMarkdownLintClick = () => {
+    onMarkdownLint();
+  };
 
   return (
-    <div className="d-flex align-items-center">
+    <div className="analysis-tools">
       <ButtonGroup size="sm">
+        {/* Spell Check Button */}
         <Button
           variant={buttonVariant}
           style={buttonStyle}
-          onClick={onSpellCheck}
-          title="Run Spell Check"
-          disabled={!!(spellCheckProgress || markdownLintProgress)}
+          onClick={handleSpellCheckClick}
+          title={isSpellCheckRunning ? "Running Spell Check..." : "Run Spell Check"}
+          disabled={isSpellCheckRunning || isMarkdownLintRunning}
         >
-          <i className="bi bi-spellcheck"></i>
+          <i
+            className={isSpellCheckRunning ? "bi bi-arrow-repeat spin" : "bi bi-spellcheck"}
+          ></i>
         </Button>
+
+        {/* Markdown Lint Button */}
         <Button
           variant={buttonVariant}
           style={buttonStyle}
-          onClick={onMarkdownLint}
-          title="Run Markdown Lint"
-          disabled={!!(spellCheckProgress || markdownLintProgress)}
+          onClick={handleMarkdownLintClick}
+          title={isMarkdownLintRunning ? "Running Markdown Lint..." : "Run Markdown Lint"}
+          disabled={isSpellCheckRunning || isMarkdownLintRunning}
         >
-          <i className="bi bi-file-text-fill"></i>
+          <i className={isMarkdownLintRunning ? "bi bi-arrow-repeat spin" : "bi bi-file-text-fill"}></i>
         </Button>
       </ButtonGroup>
-
-      {activeProgress && (
-        <div className="ms-2 d-flex align-items-center">
-          <div style={{ fontSize: '8px', width: '35px' }}>
-            <div
-              className="progress"
-              style={{
-                height: '2px',
-                width: '30px',
-                backgroundColor: theme === 'dark' ? '#495057' : '#e9ecef'
-              }}
-            >
-              <div
-                className="progress-bar"
-                style={{
-                  width: `${Math.min(activeProgress.percentComplete || activeProgress.progress || 0, 100)}%`,
-                  backgroundColor: progressBarColor
-                }}
-              ></div>
-            </div>
-            <div style={{ color: progressTextColor, lineHeight: '1', marginTop: '1px' }}>
-              {progressLabel} {Math.round(activeProgress.percentComplete || activeProgress.progress || 0)}%
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

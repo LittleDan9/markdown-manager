@@ -73,6 +73,16 @@ class LintingApi extends Api {
    */
   async getEffectiveRules() {
     try {
+      // Check if user has a token (simple authentication check)
+      const token = this.getToken();
+
+      if (!token) {
+        // User not authenticated, use recommended defaults
+        console.log('User not authenticated, using recommended defaults for markdown lint');
+        return await this.getRecommendedDefaults();
+      }
+
+      // User is authenticated, try to get their configuration
       const userConfig = await this.getUserConfig();
 
       if (userConfig === null) {
@@ -89,6 +99,7 @@ class LintingApi extends Api {
       return userConfig.rules || {};
 
     } catch (error) {
+      // On any error (including 403), fall back to public defaults
       console.warn('Failed to get effective rules, falling back to defaults:', error);
       try {
         return await this.getRecommendedDefaults();
