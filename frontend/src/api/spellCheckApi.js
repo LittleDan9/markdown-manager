@@ -27,7 +27,18 @@ class SpellCheckApi extends Api {
       const response = await this.apiCall('/spell-check/', 'POST', {
         text: text,
         customWords: customWords,
-        options: options
+        options: {
+          ...options,
+          // Phase 5: Advanced settings support
+          analysisTypes: options.analysisTypes || {
+            spelling: true,
+            grammar: true,
+            style: true,
+            readability: true
+          },
+          styleGuide: options.styleGuide || 'none',
+          language: options.language || 'en-US'
+        }
       });
       return response.data;
     } catch (error) {
@@ -183,35 +194,49 @@ class SpellCheckApi extends Api {
    * @param {Function} onProgress - Progress callback
    * @param {string} categoryId - Category ID for custom words
    * @param {string} folderPath - Folder path for custom words
+   * @param {Object} settings - Phase 5: Advanced analysis settings
    * @returns {Promise<Array>} All analysis issues (spelling, grammar, style)
    */
-  async scan(text, onProgress = () => {}, categoryId = null, folderPath = null) {
+  async scan(text, onProgress = () => {}, categoryId = null, folderPath = null, settings = {}) {
     try {
-      // For Phase 4, custom words are handled by the backend
-      // The backend will automatically include user/category/folder words
-      const result = await this.checkText(text, [], {
+      // For Phase 5, apply analysis type filters
+      const options = {
         categoryId: categoryId,
-        folderPath: folderPath
-      });
+        folderPath: folderPath,
+        analysisTypes: {
+          spelling: settings.spelling ?? true,
+          grammar: settings.grammar ?? true,
+          style: settings.style ?? true,
+          readability: settings.readability ?? true
+        },
+        styleGuide: settings.styleGuide || 'none',
+        language: settings.language || 'en-US'
+      };
 
-      // Combine all issue types (backend already includes type field)
+      const result = await this.checkText(text, [], options);
+
+      // Filter results based on enabled analysis types
       const allIssues = [];
 
-      if (result.results?.spelling) {
+      if (settings.spelling !== false && result.results?.spelling) {
         allIssues.push(...result.results.spelling);
       }
 
-      if (result.results?.grammar) {
+      if (settings.grammar !== false && result.results?.grammar) {
         allIssues.push(...result.results.grammar);
       }
 
-      if (result.results?.style) {
+      if (settings.style !== false && result.results?.style) {
         allIssues.push(...result.results.style);
       }
 
       // Call progress callback to maintain compatibility
       if (onProgress) {
-        onProgress(100, allIssues);
+        onProgress(100, allIssues, {
+          readability: settings.readability !== false ? result.analysis?.readability : null,
+          statistics: result.analysis?.statistics,
+          language: result.analysis?.language
+        });
       }
 
       return allIssues;

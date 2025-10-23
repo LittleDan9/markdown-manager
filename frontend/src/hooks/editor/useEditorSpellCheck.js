@@ -4,14 +4,20 @@ import { useTypingDetection, useDebounce } from './shared';
 
 /**
  * Hook for managing spell check functionality
+ * Phase 5: Enhanced with advanced settings support
  * @param {Object} editor - Monaco editor instance
  * @param {boolean} enabled - Whether spell check is enabled
  * @param {string} categoryId - Category ID for context
  * @param {Function} getFolderPath - Function to get folder path
- * @returns {Object} { progress, suggestionsMap, runSpellCheck, triggerSpellCheck }
+ * @param {Object} settings - Phase 5: Advanced spell check settings
+ * @returns {Object} { progress, suggestionsMap, runSpellCheck, triggerSpellCheck, readabilityData, serviceInfo }
  */
-export default function useEditorSpellCheck(editor, enabled = true, categoryId, getFolderPath) {
+export default function useEditorSpellCheck(editor, enabled = true, categoryId, getFolderPath, settings = {}) {
   const [progress, setProgress] = useState(null);
+  const [readabilityData, setReadabilityData] = useState(null);
+  const [serviceInfo, setServiceInfo] = useState(null);
+  const [allIssues, setAllIssues] = useState([]);
+  
   const suggestionsMap = useRef(new Map());
   const { debounce: debounceSpellCheck, cleanup: cleanupDebounce } = useDebounce();
   const { isTyping } = useTypingDetection(); // Get typing state from parent
@@ -23,10 +29,21 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   const autoCheckTimeout = useRef(null);
   const resizeTimeoutRef = useRef(null);
 
-  // Initialize spell check service
+  // Initialize spell check service and load service info
   useEffect(() => {
     if (!enabled) return;
-    SpellCheckService.init().catch(console.error);
+    
+    const initializeService = async () => {
+      try {
+        await SpellCheckService.init();
+        const info = await SpellCheckService.getServiceInfo();
+        setServiceInfo(info);
+      } catch (error) {
+        console.error('Failed to initialize spell check service:', error);
+      }
+    };
+    
+    initializeService();
   }, [enabled]);
 
   // Main spell check function
@@ -56,12 +73,30 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     // Only show progress for larger documents or when forced
     const isLarge = currentText.length > 2000; // Increased threshold from 100
     const shouldShowProgress = isLarge || forceProgress;
-    const progressCb = shouldShowProgress ? (processObj) => {
+    const progressCb = shouldShowProgress ? (percent, issues, metadata) => {
+      const processObj = { percentComplete: percent };
       lastProgressRef.current = processObj;
       setProgress(processObj);
-    } : (processObj) => {
+      
+      // Phase 5: Update readability data and all issues
+      if (metadata?.readability) {
+        setReadabilityData(metadata.readability);
+      }
+      if (issues) {
+        setAllIssues(issues);
+      }
+    } : (percent, issues, metadata) => {
       // Still track progress internally but don't show UI
+      const processObj = { percentComplete: percent };
       lastProgressRef.current = processObj;
+      
+      // Phase 5: Update readability data and all issues even when not showing progress
+      if (metadata?.readability) {
+        setReadabilityData(metadata.readability);
+      }
+      if (issues) {
+        setAllIssues(issues);
+      }
     };
 
     try {
@@ -69,13 +104,28 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         currentText,
         progressCb,
         categoryId,
-        typeof getFolderPath === 'function' ? getFolderPath() : null
+        typeof getFolderPath === 'function' ? getFolderPath() : null,
+        settings // Phase 5: Pass settings to service
       );
+
+      // Phase 5: Filter issues based on settings before applying markers
+      const filteredIssues = issues.filter(issue => {
+        switch (issue.type) {
+          case 'spelling':
+            return settings.spelling !== false;
+          case 'grammar':
+            return settings.grammar !== false;
+          case 'style':
+            return settings.style !== false;
+          default:
+            return true;
+        }
+      });
 
       if (editor) {
         suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
           editor,
-          issues,
+          filteredIssues, // Use filtered issues
           startOffset,
           suggestionsMap.current
         );
@@ -184,7 +234,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         }
       }, 3000); // Increased from 100ms to 3 seconds
     }
-  }, [enabled, editor]);
+  }, [enabled, editor, settings]); // Phase 5: Re-run when settings change
 
   // Periodic spell check - DISABLED to prevent excessive checking
   // Content change detection with debouncing is sufficient
@@ -322,9 +372,10 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   }, [cleanupDebounce]);
 
   // Manual spell check function
-  const runSpellCheck = () => {
+  const runSpellCheck = (customSettings = null) => {
     if (editor) {
       setProgress({ percentComplete: 0 });
+      const effectiveSettings = customSettings || settings;
       spellCheckDocument(null, 0, true);
     }
   };
@@ -340,6 +391,9 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     progress,
     suggestionsMap,
     runSpellCheck,
-    triggerSpellCheck
+    triggerSpellCheck,
+    readabilityData, // Phase 5: Return readability data
+    serviceInfo,     // Phase 5: Return service information
+    allIssues        // Phase 5: Return all issues for filtering
   };
 }

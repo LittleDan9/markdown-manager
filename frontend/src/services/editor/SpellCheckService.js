@@ -55,13 +55,13 @@ export class SpellCheckService {
     }
   }
 
-  async scan(text, onProgress = () => {}, categoryId = null, folderPath = null) {
+  async scan(text, onProgress = () => {}, categoryId = null, folderPath = null, settings = {}) {
     await this.init();
 
     try {
       if (this.serviceAvailable && !this.fallbackToLocal) {
-        // Use backend API for spell checking
-        const issues = await spellCheckApi.scan(text, onProgress, categoryId, folderPath);
+        // Use backend API for spell checking with advanced settings
+        const issues = await spellCheckApi.scan(text, onProgress, categoryId, folderPath, settings);
         return issues;
       } else {
         // Fallback: Use local dictionary service for basic checking

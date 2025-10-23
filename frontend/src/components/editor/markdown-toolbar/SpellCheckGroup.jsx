@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Button, ButtonGroup } from 'react-bootstrap';
+import SpellCheckSettingsModal from '../spell-check/SpellCheckSettingsModal';
 
 /**
  * Analysis Tools toolbar group with spell check and markdown lint buttons
+ * Phase 5: Enhanced with modal-based settings following UserMenu pattern
  */
 export function SpellCheckGroup({
   onSpellCheck,
@@ -10,10 +12,18 @@ export function SpellCheckGroup({
   buttonVariant,
   buttonStyle,
   spellCheckProgress,
-  markdownLintProgress
+  markdownLintProgress,
+  // Phase 5 new props
+  onSpellCheckSettings = () => {},
+  spellCheckSettings = {},
+  readabilityData = null,
+  serviceInfo = null
 }) {
   const [isSpellCheckVisible, setIsSpellCheckVisible] = useState(false);
   const [isMarkdownLintVisible, setIsMarkdownLintVisible] = useState(false);
+  
+  // Phase 5: Settings modal visibility
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Handle spell check progress with minimum visible duration
   useEffect(() => {
@@ -45,40 +55,56 @@ export function SpellCheckGroup({
   const isMarkdownLintRunning = isMarkdownLintVisible;
 
   const handleSpellCheckClick = () => {
-    onSpellCheck();
+    onSpellCheck(spellCheckSettings);
   };
 
   const handleMarkdownLintClick = () => {
     onMarkdownLint();
   };
 
-  return (
-    <div className="analysis-tools">
-      <ButtonGroup size="sm">
-        {/* Spell Check Button */}
-        <Button
-          variant={buttonVariant}
-          style={buttonStyle}
-          onClick={handleSpellCheckClick}
-          title={isSpellCheckRunning ? "Running Spell Check..." : "Run Spell Check"}
-          disabled={isSpellCheckRunning || isMarkdownLintRunning}
-        >
-          <i
-            className={isSpellCheckRunning ? "bi bi-arrow-repeat spin" : "bi bi-spellcheck"}
-          ></i>
-        </Button>
+  const handleSettingsChange = (newSettings) => {
+    onSpellCheckSettings(newSettings);
+  };
 
-        {/* Markdown Lint Button */}
-        <Button
-          variant={buttonVariant}
-          style={buttonStyle}
-          onClick={handleMarkdownLintClick}
-          title={isMarkdownLintRunning ? "Running Markdown Lint..." : "Run Markdown Lint"}
-          disabled={isSpellCheckRunning || isMarkdownLintRunning}
-        >
-          <i className={isMarkdownLintRunning ? "bi bi-arrow-repeat spin" : "bi bi-file-text-fill"}></i>
-        </Button>
-      </ButtonGroup>
-    </div>
+  return (
+    <>
+      <div className="analysis-tools">
+        <ButtonGroup size="sm">
+          {/* Spell Check Button */}
+          <Button
+            variant={buttonVariant}
+            style={buttonStyle}
+            onClick={handleSpellCheckClick}
+            title={isSpellCheckRunning ? "Running Spell Check..." : "Run Spell Check"}
+            disabled={isSpellCheckRunning || isMarkdownLintRunning}
+          >
+            <i
+              className={isSpellCheckRunning ? "bi bi-arrow-repeat spin" : "bi bi-spellcheck"}
+            ></i>
+          </Button>
+
+          {/* Markdown Lint Button */}
+          <Button
+            variant={buttonVariant}
+            style={buttonStyle}
+            onClick={handleMarkdownLintClick}
+            title={isMarkdownLintRunning ? "Running Markdown Lint..." : "Run Markdown Lint"}
+            disabled={isSpellCheckRunning || isMarkdownLintRunning}
+          >
+            <i className={isMarkdownLintRunning ? "bi bi-arrow-repeat spin" : "bi bi-file-text-fill"}></i>
+          </Button>
+        </ButtonGroup>
+      </div>
+
+      {/* Settings Modal */}
+      <SpellCheckSettingsModal
+        show={showSettingsModal}
+        onHide={() => setShowSettingsModal(false)}
+        settings={spellCheckSettings}
+        onSettingsChange={handleSettingsChange}
+        readabilityData={readabilityData}
+        serviceInfo={serviceInfo}
+      />
+    </>
   );
 }
