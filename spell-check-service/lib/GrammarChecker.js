@@ -43,7 +43,7 @@ class GrammarChecker {
     }
 
     const issues = [];
-    
+
     try {
       // Perform custom grammar checks
       const customIssues = await this.performCustomChecks(text);
@@ -66,14 +66,25 @@ class GrammarChecker {
    */
   async performCustomChecks(text) {
     const issues = [];
+
+    // Get code regions to exclude from grammar analysis
+    const codeRegions = this.findCodeRegions(text);
+
     const lines = text.split('\n');
     let globalOffset = 0;
 
     for (let lineIndex = 0; lineIndex < lines.length; lineIndex++) {
       const line = lines[lineIndex];
-      
-      // Skip markdown code blocks and headers
-      if (this.shouldSkipLine(line)) {
+      const lineStart = globalOffset;
+      const lineEnd = globalOffset + line.length;
+
+      // Check if this line is within any code region
+      const isInCodeRegion = codeRegions.some(region =>
+        lineStart >= region.start && lineEnd <= region.end
+      );
+
+      // Skip lines in code regions or that should be skipped for other reasons
+      if (isInCodeRegion || this.shouldSkipLine(line)) {
         globalOffset += line.length + 1;
         continue;
       }
@@ -109,23 +120,158 @@ class GrammarChecker {
    */
   shouldSkipLine(line) {
     const trimmed = line.trim();
-    
+
     // Skip empty lines
     if (!trimmed) return true;
-    
+
     // Skip markdown headers
     if (trimmed.startsWith('#')) return true;
-    
-    // Skip code blocks
-    if (trimmed.startsWith('```') || trimmed.startsWith('    ')) return true;
-    
-    // Skip lists
+
+    // Skip lists (but let findCodeRegions handle code blocks)
     if (/^[-*+]\s/.test(trimmed) || /^\d+\.\s/.test(trimmed)) return true;
-    
+
     // Skip links and images
     if (trimmed.startsWith('![') || trimmed.startsWith('[')) return true;
-    
+
     return false;
+  }
+
+  /**
+   * Find code regions in Markdown text (fenced and indented)
+   * @param {string} text - The text to analyze
+   * @returns {Array<{start: number, end: number, type: string}>} Array of code regions
+   */
+  findCodeRegions(text) {
+    const regions = [];
+    const lines = text.split('\n');
+    let currentPos = 0;
+    let inCodeFence = false;
+    let fenceStart = 0;
+    let fencePattern = null;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      const lineStart = currentPos;
+      const lineEnd = currentPos + line.length;
+
+      // Check for fenced code blocks (``` or ~~~)
+      const fenceMatch = line.match(/^\s*(```|~~~)(.*)$/);
+      if (fenceMatch) {
+        if (!inCodeFence) {
+          inCodeFence = true;
+          fenceStart = lineStart;
+          fencePattern = fenceMatch[1];
+        } else if (fenceMatch[1] === fencePattern) {
+          inCodeFence = false;
+          regions.push({ start: fenceStart, end: lineEnd, type: 'fenced' });
+        }
+      }
+
+      // Check for indented code blocks (4+ spaces or tabs, not in lists)
+      else if (!inCodeFence && /^(?: {4,}|\t+)/.test(line) && line.trim()) {
+        // Make sure this isn't a list item with indentation
+        const trimmed = line.trim();
+        const isListItem = /^([-*+]|\d+\.)\s/.test(trimmed);
+
+        if (!isListItem) {
+          const indentStart = lineStart;
+          let indentEnd = lineEnd;
+
+          // Extend to include consecutive indented lines and blank lines
+          let j = i + 1;
+          while (j < lines.length) {
+            const nextLine = lines[j];
+            const nextLineStart = currentPos + line.length + 1;
+
+            // Include if it's indented or a blank line (continuation)
+            if (/^(?: {4,}|\t+)/.test(nextLine) || !nextLine.trim()) {
+              indentEnd = nextLineStart + nextLine.length;
+              currentPos = nextLineStart;
+              j++;
+            } else {
+              break;
+            }
+          }
+
+          regions.push({ start: indentStart, end: indentEnd, type: 'indented' });
+          i = j - 1; // Skip processed lines
+          continue;
+        }
+      }
+
+      currentPos = lineEnd + 1;
+    }
+
+    // Handle unclosed fence
+    if (inCodeFence) {
+      regions.push({ start: fenceStart, end: text.length, type: 'fenced' });
+    }
+
+    // Find inline code spans
+    const inlineCodeRegions = this.findInlineCodeRegions(text);
+    regions.push(...inlineCodeRegions);
+
+    // Sort regions by start position and merge overlapping ones
+    return this.mergeOverlappingRegions(regions.sort((a, b) => a.start - b.start));
+  }
+
+  /**
+   * Find inline code spans (`code` and ``code``)
+   * @param {string} text - The text to search
+   * @returns {Array<{start: number, end: number, type: string}>} Array of inline code regions
+   */
+  findInlineCodeRegions(text) {
+    const regions = [];
+
+    // Find single backtick code spans
+    const singleBacktickRegex = /`[^`\n]*`/g;
+    let match;
+    while ((match = singleBacktickRegex.exec(text)) !== null) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: 'inline'
+      });
+    }
+
+    // Find double backtick code spans
+    const doubleBacktickRegex = /``[^`\n]*``/g;
+    doubleBacktickRegex.lastIndex = 0;
+    while ((match = doubleBacktickRegex.exec(text)) !== null) {
+      regions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        type: 'inline'
+      });
+    }
+
+    return regions;
+  }
+
+  /**
+   * Merge overlapping code regions
+   * @param {Array} regions - Sorted array of regions
+   * @returns {Array} Array of merged regions
+   */
+  mergeOverlappingRegions(regions) {
+    if (regions.length <= 1) return regions;
+
+    const merged = [regions[0]];
+
+    for (let i = 1; i < regions.length; i++) {
+      const current = regions[i];
+      const last = merged[merged.length - 1];
+
+      if (current.start <= last.end) {
+        // Overlapping regions - merge them
+        last.end = Math.max(last.end, current.end);
+        last.type = last.type === current.type ? last.type : 'mixed';
+      } else {
+        merged.push(current);
+      }
+    }
+
+    return merged;
   }
 
   /**
@@ -142,11 +288,11 @@ class GrammarChecker {
 
     for (const sentence of sentences) {
       const wordCount = sentence.trim().split(/\s+/).length;
-      
+
       if (wordCount > 25) {
         const start = offset + sentenceOffset;
         const end = start + sentence.length;
-        
+
         issues.push({
           type: 'grammar',
           severity: 'warning',
@@ -159,7 +305,7 @@ class GrammarChecker {
           confidence: 0.8
         });
       }
-      
+
       sentenceOffset += sentence.length + 1; // +1 for the delimiter
     }
 
@@ -175,7 +321,7 @@ class GrammarChecker {
    */
   checkPassiveVoice(line, lineNumber, offset) {
     const issues = [];
-    
+
     // Simple passive voice detection patterns
     const passivePatterns = [
       /\b(was|were|is|are|am|be|been|being)\s+\w*ed\b/gi,
@@ -187,7 +333,7 @@ class GrammarChecker {
       while ((match = pattern.exec(line)) !== null) {
         const start = offset + match.index;
         const end = start + match[0].length;
-        
+
         issues.push({
           type: 'grammar',
           severity: 'suggestion',
@@ -215,17 +361,17 @@ class GrammarChecker {
   checkRepeatedWords(line, lineNumber, offset) {
     const issues = [];
     const words = line.toLowerCase().match(/\b\w+\b/g) || [];
-    
+
     for (let i = 0; i < words.length - 1; i++) {
       if (words[i] === words[i + 1] && words[i].length > 2) {
         // Find the position of the repeated word
         const wordRegex = new RegExp(`\\b${words[i]}\\s+${words[i]}\\b`, 'i');
         const match = wordRegex.exec(line);
-        
+
         if (match) {
           const start = offset + match.index;
           const end = start + match[0].length;
-          
+
           issues.push({
             type: 'grammar',
             severity: 'warning',

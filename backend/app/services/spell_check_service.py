@@ -45,6 +45,8 @@ class SpellIssue(BaseModel):
     type: str = "spelling"
     severity: str = "error"
     confidence: float
+    message: Optional[str] = Field(default=None, description="Issue description message")
+    rule: Optional[str] = Field(default=None, description="Rule or pattern that triggered this issue")
     enhanced: Optional[bool] = Field(default=None, description="Enhanced with contextual analysis")
     contextAnalysis: Optional[Dict[str, Any]] = Field(default=None, description="Context analysis results")
 
@@ -173,7 +175,7 @@ class BatchCheckRequest(BaseModel):
 
 class SpellCheckServiceClient:
     """HTTP client for spell-check-service - Phase 3 Enhanced"""
-    
+
     def __init__(self, base_url: Optional[str] = None):
         if base_url is None:
             base_url = os.getenv("SPELL_CHECK_SERVICE_URL", "http://localhost:8003")
@@ -181,7 +183,7 @@ class SpellCheckServiceClient:
         self.timeout = 30.0
         self.max_retries = 3
         self.retry_delay = 1.0
-        
+
     async def health_check(self) -> Dict[str, Any]:
         """Check if spell check service is healthy"""
         try:
@@ -256,16 +258,16 @@ class SpellCheckServiceClient:
                 f"Phase 3 spell check request - text length: {len(request_data.text)}, "
                 f"custom words: {len(request_data.customWords)}, attempt: {attempt + 1}"
             )
-            
+
             response = await client.post(
                 f"{self.base_url}/check",
                 json=request_data.dict(),
                 headers=headers
             )
-            
+
             response.raise_for_status()
             response_data = response.json()
-            
+
             # Validate response format
             return SpellCheckResponse(**response_data)
 
@@ -278,7 +280,7 @@ class SpellCheckServiceClient:
         for attempt in range(self.max_retries + 1):
             try:
                 spell_response = await self._make_spell_check_request(request_data, attempt)
-                
+
                 elapsed_time = time.time() - start_time
                 logger.info(
                     f"Phase 3 spell check completed - found {len(spell_response.results.spelling)} spelling, "
@@ -286,15 +288,15 @@ class SpellCheckServiceClient:
                     f"{len(spell_response.results.style)} style issues "
                     f"in {elapsed_time:.3f}s (service: {spell_response.processingTime}ms)"
                 )
-                
+
                 return spell_response
-                    
+
             except httpx.TimeoutException:
                 logger.warning(f"Spell check timeout on attempt {attempt + 1}")
                 if attempt == self.max_retries:
                     raise
                 await asyncio.sleep(self.retry_delay * (2 ** attempt))
-                
+
             except httpx.HTTPStatusError as e:
                 if e.response.status_code >= 500 and attempt < self.max_retries:
                     logger.warning(f"Server error {e.response.status_code} on attempt {attempt + 1}, retrying...")
@@ -305,7 +307,7 @@ class SpellCheckServiceClient:
                         f"Spell check HTTP error: {e.response.status_code} - {e.response.text}"
                     )
                     raise
-                    
+
             except Exception as e:
                 logger.error(f"Spell check request failed on attempt {attempt + 1}: {e}")
                 if attempt == self.max_retries:
@@ -331,7 +333,7 @@ class SpellCheckServiceClient:
     ) -> SpellCheckResponse:
         """
         Check text for spelling errors with Phase 3 enhanced features
-        
+
         Args:
             text: Text to check
             custom_words: List of custom words to ignore
@@ -347,27 +349,27 @@ class SpellCheckServiceClient:
             user_id: User ID for custom dictionary access
             category_id: Category ID for custom dictionary access
             folder_path: Folder path for custom dictionary access
-            
+
         Returns:
             SpellCheckResponse with spelling issues and metadata
-            
+
         Raises:
             httpx.HTTPError: If service request fails
             ValueError: If response format is invalid
         """
         if not text or not isinstance(text, str):
             raise ValueError("Text must be a non-empty string")
-            
+
         if len(text) > 1048576:  # 1MB limit
             raise ValueError("Text size exceeds maximum limit (1MB)")
-        
+
         request_data = self._build_check_request(
             text, custom_words, chunk_offset, options, language,
             enable_grammar, enable_style, enable_language_detection,
             enable_contextual_suggestions, style_guide, auth_token,
             user_id, category_id, folder_path
         )
-        
+
         start_time = time.time()
         return await self._execute_with_retry(request_data, start_time)
 
@@ -389,7 +391,7 @@ class SpellCheckServiceClient:
     ) -> Dict[str, Any]:
         """
         Process large documents with batch processing
-        
+
         Args:
             text: Text to check
             chunk_size: Size of chunks for processing
@@ -404,16 +406,16 @@ class SpellCheckServiceClient:
             user_id: User ID
             category_id: Category ID
             folder_path: Folder path
-            
+
         Returns:
             Batch processing results
         """
         if not text or not isinstance(text, str):
             raise ValueError("Text must be a non-empty string")
-            
+
         if len(text) > 2097152:  # 2MB limit for batch
             raise ValueError("Text size exceeds maximum limit for batch processing (2MB)")
-        
+
         request_data = BatchCheckRequest(
             text=text,
             chunkSize=chunk_size,
@@ -430,7 +432,7 @@ class SpellCheckServiceClient:
             categoryId=category_id,
             folderPath=folder_path
         )
-        
+
         try:
             headers = {
                 "Content-Type": "application/json",
@@ -440,16 +442,16 @@ class SpellCheckServiceClient:
                 logger.debug(
                     f"Batch spell check request - text length: {len(text)}, chunk size: {chunk_size}"
                 )
-                
+
                 response = await client.post(
                     f"{self.base_url}/check-batch",
                     json=request_data.dict(),
                     headers=headers
                 )
-                
+
                 response.raise_for_status()
                 return response.json()
-                
+
         except Exception as e:
             logger.error(f"Batch spell check request failed: {e}")
             raise
@@ -473,7 +475,7 @@ class SpellCheckServiceClient:
                 folderPath=folder_path,
                 notes=notes
             )
-            
+
             headers = {
                 "Content-Type": "application/json",
                 "User-Agent": "markdown-manager-backend/1.0"
@@ -484,10 +486,10 @@ class SpellCheckServiceClient:
                     json=request_data.dict(),
                     headers=headers
                 )
-                
+
                 response.raise_for_status()
                 return response.json()
-                
+
         except Exception as e:
             logger.error(f"Failed to add custom word: {e}")
             raise
@@ -507,7 +509,7 @@ class SpellCheckServiceClient:
                 "categoryId": category_id,
                 "folderPath": folder_path
             }
-            
+
             headers = {
                 "Content-Type": "application/json",
                 "User-Agent": "markdown-manager-backend/1.0"
@@ -518,10 +520,10 @@ class SpellCheckServiceClient:
                     json=request_data,
                     headers=headers
                 )
-                
+
                 response.raise_for_status()
                 return response.json()
-                
+
         except Exception as e:
             logger.error(f"Failed to remove custom word: {e}")
             raise
@@ -541,7 +543,7 @@ class SpellCheckServiceClient:
                 folderPath=folder_path,
                 includeGlobal=include_global
             )
-            
+
             headers = {
                 "Content-Type": "application/json",
                 "User-Agent": "markdown-manager-backend/1.0"
@@ -552,10 +554,10 @@ class SpellCheckServiceClient:
                     json=request_data.dict(),
                     headers=headers
                 )
-                
+
                 response.raise_for_status()
                 return response.json()
-                
+
         except Exception as e:
             logger.error(f"Failed to get custom words: {e}")
             raise
@@ -627,7 +629,7 @@ class SpellCheckServiceClient:
                 basicSuggestions=basic_suggestions or [],
                 options=options or {}
             )
-            
+
             headers = {
                 "Content-Type": "application/json",
                 "User-Agent": "markdown-manager-backend/1.0"
@@ -638,14 +640,14 @@ class SpellCheckServiceClient:
                     json=request_data.dict(),
                     headers=headers
                 )
-                
+
                 response.raise_for_status()
                 return response.json()
-                
+
         except Exception as e:
             logger.error(f"Failed to get contextual suggestions: {e}")
             raise
-    
+
     async def check_document_content(
         self,
         content: str,
@@ -655,13 +657,13 @@ class SpellCheckServiceClient:
     ) -> List[SpellIssue]:
         """
         Check a document's content for spelling errors with optional chunking
-        
+
         Args:
             content: Document content to check
             custom_words: Custom words to ignore
             enable_chunking: Whether to process in chunks for large documents
             chunk_size: Size of chunks in characters
-            
+
         Returns:
             List of spelling issues across all chunks
         """
@@ -669,27 +671,27 @@ class SpellCheckServiceClient:
             # Process as single chunk
             response = await self.check_spelling(content, custom_words)
             return response.results.spelling
-        
+
         # Process in chunks
         all_issues = []
         offset = 0
-        
+
         while offset < len(content):
             chunk_end = min(offset + chunk_size, len(content))
-            
+
             # Try to break at word boundary
             if chunk_end < len(content):
                 # Look for a space or newline within the last 200 characters
                 boundary_search = content[max(offset, chunk_end - 200):chunk_end]
                 last_space = boundary_search.rfind(' ')
                 last_newline = boundary_search.rfind('\n')
-                
+
                 if last_space > 0 or last_newline > 0:
                     boundary = max(last_space, last_newline)
                     chunk_end = max(offset, chunk_end - 200) + boundary + 1
-            
+
             chunk = content[offset:chunk_end]
-            
+
             if chunk.strip():  # Only process non-empty chunks
                 try:
                     response = await self.check_spelling(
@@ -701,9 +703,9 @@ class SpellCheckServiceClient:
                 except Exception as e:
                     logger.error(f"Error processing chunk at offset {offset}: {e}")
                     # Continue with next chunk rather than failing entirely
-            
+
             offset = chunk_end
-        
+
         return all_issues
 
 

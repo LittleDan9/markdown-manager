@@ -42,9 +42,9 @@ export default class MonacoMarkerAdapter {
 
       // Keep markers outside the scanned region
       filteredOld = SpellCheckMarkers.filterMarkersOutsideRegion(
-        oldMarkers, 
-        model, 
-        startOffset, 
+        oldMarkers,
+        model,
+        startOffset,
         regionEndOffset
       );
 
@@ -79,10 +79,15 @@ export default class MonacoMarkerAdapter {
         const marker = this._createMarkerFromIssue(model, issue, startOffset);
         if (marker) {
           markers.push(marker);
-          
-          // Store suggestions for this marker
+
+          // Store full issue information for quick fixes (includes type)
           const key = `${marker.startLineNumber}:${marker.startColumn}`;
-          suggestionsMap.set(key, issue.suggestions || []);
+          suggestionsMap.set(key, {
+            suggestions: issue.suggestions || [],
+            type: issue.type || 'spelling',
+            message: issue.message,
+            rule: issue.rule
+          });
         }
       } catch (error) {
         console.warn('Error creating marker for spell issue:', error, issue);
@@ -101,14 +106,87 @@ export default class MonacoMarkerAdapter {
    * @private
    */
   static _createMarkerFromIssue(model, issue, startOffset) {
-    const globalOffset = startOffset + issue.offset;
+    console.log('MonacoMarkerAdapter: Creating marker from issue:', JSON.stringify(issue, null, 2));
+
+    // Handle both old format (issue.offset) and new backend format (issue.position.start)
+    let globalOffset;
+    let wordLength;
+
+    if (issue.position && typeof issue.position.start === 'number') {
+      // New backend format - position already contains global offset
+      globalOffset = issue.position.start;
+      wordLength = issue.position.end - issue.position.start;
+      console.log('MonacoMarkerAdapter: Backend position data:', {
+        start: issue.position.start,
+        end: issue.position.end,
+        calculatedLength: wordLength
+      });
+    } else if (typeof issue.offset === 'number') {
+      // Old format - offset relative to startOffset
+      globalOffset = startOffset + issue.offset;
+      wordLength = issue.word ? issue.word.length : 1;
+    } else {
+      console.warn('Spell check issue missing position information:', issue);
+      return null;
+    }
+
     const pos = model.getPositionAt(globalOffset);
-    const wordLength = issue.word ? issue.word.length : 1;
-    const msg = `"${issue.word}" — ${issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions'}`;
+    console.log('MonacoMarkerAdapter: Position conversion:', {
+      globalOffset,
+      wordLength,
+      convertedPosition: pos,
+      endColumn: pos.column + wordLength
+    });
+
+    // Create appropriate message based on issue type
+    let msg;
+    switch (issue.type) {
+      case 'spelling':
+        // For spelling: "word" → suggestion1, suggestion2, suggestion3
+        const spellingSuggestions = issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions';
+        msg = `"${issue.word}" → ${spellingSuggestions}`;
+        break;
+      case 'grammar':
+        // For grammar: Use the descriptive message from backend, truncate if too long
+        if (issue.message && issue.message.length > 60) {
+          msg = issue.message.substring(0, 57) + '...';
+        } else {
+          msg = issue.message || `Grammar issue: "${issue.word}"`;
+        }
+        break;
+      case 'style':
+        // For style: Use the descriptive message from backend, truncate if too long
+        if (issue.message && issue.message.length > 60) {
+          msg = issue.message.substring(0, 57) + '...';
+        } else {
+          msg = issue.message || `Style suggestion: "${issue.word}"`;
+        }
+        break;
+      default:
+        // Legacy format
+        const defaultSuggestions = issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions';
+        msg = `"${issue.word}" → ${defaultSuggestions}`;
+    }
+
+    // Determine severity based on issue type
+    let severity;
+    switch (issue.type) {
+      case 'spelling':
+        severity = monaco.MarkerSeverity.Error; // Red squiggles for spelling errors
+        break;
+      case 'grammar':
+        severity = monaco.MarkerSeverity.Warning; // Yellow squiggles for grammar issues
+        break;
+      case 'style':
+        severity = monaco.MarkerSeverity.Info; // Blue squiggles for style suggestions
+        break;
+      default:
+        severity = monaco.MarkerSeverity.Warning;
+    }
 
     return {
       owner: 'spell',
-      severity: monaco.MarkerSeverity.Warning,
+      severity: severity,
       message: msg,
       startLineNumber: pos.lineNumber,
       startColumn: pos.column,
@@ -146,7 +224,17 @@ export default class MonacoMarkerAdapter {
     }
 
     return Math.max(
-      ...issues.map(i => startOffset + i.offset + (i.word ? i.word.length : 0))
+      ...issues.map(issue => {
+        if (issue.position && typeof issue.position.end === 'number') {
+          // New backend format - position contains global offset
+          return issue.position.end;
+        } else if (typeof issue.offset === 'number') {
+          // Old format - offset relative to startOffset
+          return startOffset + issue.offset + (issue.word ? issue.word.length : 0);
+        } else {
+          return startOffset;
+        }
+      })
     );
   }
 }

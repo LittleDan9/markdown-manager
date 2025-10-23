@@ -55,33 +55,151 @@ export default class SpellCheckActions {
         // Check for spell check actions
         const wordInfo = model.getWordAtPosition(range.getStartPosition());
         if (wordInfo && wordInfo.word) {
-          const trueRange = new monaco.Range(
-            range.startLineNumber,
-            wordInfo.startColumn,
-            range.endLineNumber,
-            wordInfo.startColumn + wordInfo.word.length
-          );
-
-          const suggestions = SpellCheckActions._findSuggestions(
+          let suggestions = SpellCheckActions._findSuggestions(
             suggestionsMapRef,
             range,
             model,
             wordInfo
           );
 
-          if (suggestions) {
-            // Add replacement suggestions
-            actions.push(...SpellCheckActions._createReplacementActions(suggestions, trueRange, model));
+          // For positions that might have multiple markers (spelling, grammar, style),
+          // prioritize grammar suggestions for quick fixes
+          if (suggestions && suggestions.type !== 'grammar') {
+            console.log('Found non-grammar suggestion, checking for grammar alternatives...');
+            const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
+            const grammarMarker = markers.find(m =>
+              m.startLineNumber === range.startLineNumber &&
+              range.startColumn >= m.startColumn &&
+              range.startColumn <= m.endColumn &&
+              m.message && m.message.includes('repeated')  // Look for grammar markers
+            );
 
-            // Add dictionary actions
-            actions.push(...SpellCheckActions._createDictionaryActions(
-              wordInfo.word,
-              range,
-              suggestionsMapRef,
-              folderPath,
-              categoryId,
-              model
-            ));
+            if (grammarMarker) {
+              const grammarKey = `${grammarMarker.startLineNumber}:${grammarMarker.startColumn}`;
+              const grammarSuggestions = suggestionsMapRef.current.get(grammarKey);
+              if (grammarSuggestions && grammarSuggestions.type === 'grammar') {
+                console.log('Found grammar suggestion, using instead:', grammarSuggestions.type);
+                suggestions = grammarSuggestions;
+              }
+            }
+          }
+
+          // For grammar issues, if we still didn't find suggestions using the word position,
+          // try to find them using any marker that contains the current position
+          if (!suggestions) {
+            console.log('Initial suggestion lookup failed, trying marker fallback...');
+            console.log('Cursor position:', {
+              line: range.startLineNumber,
+              column: range.startColumn,
+              wordInfo: wordInfo
+            });
+
+            const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
+            console.log('All spell markers:', markers.map(m => ({
+              line: m.startLineNumber,
+              startCol: m.startColumn,
+              endCol: m.endColumn,
+              message: m.message
+            })));
+
+            const containingMarker = markers.find(m =>
+              m.startLineNumber === range.startLineNumber &&
+              range.startColumn >= m.startColumn &&
+              range.startColumn <= m.endColumn
+            );
+
+            console.log('Found containing marker:', containingMarker);
+
+            if (containingMarker) {
+              const markerKey = `${containingMarker.startLineNumber}:${containingMarker.startColumn}`;
+              suggestions = suggestionsMapRef.current.get(markerKey);
+              console.log('Found suggestions using marker position:', {
+                markerKey,
+                suggestions: suggestions?.type,
+                cursorPosition: range.startColumn
+              });
+            }
+          } else {
+            console.log('Found suggestions immediately:', suggestions?.type);
+          }
+
+          if (suggestions) {
+            let trueRange;
+
+            // For grammar issues, we need to use the actual marker range, not just the word range
+            if (suggestions.type === 'grammar') {
+              // Find the marker that contains this position (cursor anywhere within the marker)
+              const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
+              const marker = markers.find(m =>
+                m.startLineNumber === range.startLineNumber &&
+                range.startColumn >= m.startColumn &&
+                range.startColumn <= m.endColumn
+              );
+
+              if (marker) {
+                trueRange = new monaco.Range(
+                  marker.startLineNumber,
+                  marker.startColumn,
+                  marker.endLineNumber,
+                  marker.endColumn
+                );
+                console.log('Using marker range for grammar issue:', {
+                  markerStart: marker.startColumn,
+                  markerEnd: marker.endColumn,
+                  cursorPosition: range.startColumn,
+                  trueRange
+                });
+              } else {
+                // Fallback to word range if marker not found
+                trueRange = new monaco.Range(
+                  range.startLineNumber,
+                  wordInfo.startColumn,
+                  range.endLineNumber,
+                  wordInfo.startColumn + wordInfo.word.length
+                );
+              }
+            } else {
+              // For spelling issues, use word range as before
+              trueRange = new monaco.Range(
+                range.startLineNumber,
+                wordInfo.startColumn,
+                range.endLineNumber,
+                wordInfo.startColumn + wordInfo.word.length
+              );
+            }
+            // Only add replacement suggestions for spelling issues
+            // Grammar and style suggestions are descriptive, not replacement text
+            if (suggestions.type === 'spelling' || (!suggestions.type && Array.isArray(suggestions))) {
+              // Handle both new format (with type) and legacy format (plain array)
+              const replacementActions = SpellCheckActions._createReplacementActions(
+                suggestions.suggestions || suggestions,
+                trueRange,
+                model
+              );
+              actions.push(...replacementActions);
+
+              // Add dictionary actions for spelling issues
+              actions.push(...SpellCheckActions._createDictionaryActions(
+                wordInfo.word,
+                range,
+                suggestionsMapRef,
+                folderPath,
+                categoryId,
+                model
+              ));
+            } else if (suggestions.type === 'grammar') {
+              // For grammar issues, try to provide intelligent fixes
+              console.log('SpellCheckActions: Creating grammar actions for:', suggestions);
+              console.log('Full issue object:', JSON.stringify(suggestions, null, 2));
+              const grammarActions = SpellCheckActions._createGrammarActions(
+                suggestions,
+                trueRange,
+                model
+              );
+              console.log('SpellCheckActions: Grammar actions created:', grammarActions);
+              actions.push(...grammarActions);
+            }
+            // Style issues don't get quick fixes as they're usually subjective suggestions
           }
         }
 
@@ -102,6 +220,13 @@ export default class SpellCheckActions {
   static _findSuggestions(suggestionsMapRef, range, model, wordInfo) {
     const wordKey = `${range.startLineNumber}:${wordInfo.startColumn}`;
     let suggestions = suggestionsMapRef.current.get(wordKey);
+
+    console.log('_findSuggestions called:', {
+      wordKey,
+      found: !!suggestions,
+      wordInfo,
+      availableKeys: Array.from(suggestionsMapRef.current.keys())
+    });
 
     // Fallback: legacy scan if still not found
     if (!suggestions) {
@@ -154,6 +279,81 @@ export default class SpellCheckActions {
   }
 
   /**
+   * Create grammar fix actions for specific grammar issues
+   * @param {Object} suggestions - Grammar suggestions object
+   * @param {Object} range - Monaco range
+   * @param {Object} model - Monaco model
+   * @returns {Array} Array of grammar fix actions
+   * @private
+   */
+  static _createGrammarActions(suggestions, range, model) {
+    const actions = [];
+
+    console.log('_createGrammarActions called with:', { suggestions, range });
+    console.log('Range details:', {
+      startLineNumber: range.startLineNumber,
+      startColumn: range.startColumn,
+      endLineNumber: range.endLineNumber,
+      endColumn: range.endColumn
+    });
+
+    // Handle repeated words
+    if (suggestions.rule === 'repeated-words') {
+      console.log('Detected repeated words issue');
+      const text = model.getValueInRange(range);
+      console.log('Text in range:', JSON.stringify(text));
+      const words = text.toLowerCase().split(/\s+/);
+      console.log('Words split:', words);
+
+      // Check for duplicate consecutive words
+      const duplicates = [];
+      for (let i = 0; i < words.length - 1; i++) {
+        if (words[i] === words[i + 1] && words[i].length > 2) {
+          duplicates.push(words[i]);
+        }
+      }
+
+      if (duplicates.length > 0) {
+        console.log('Found duplicate words:', duplicates);
+        // Create action to remove the duplicate while preserving capitalization
+        const duplicateWord = duplicates[0];
+
+        // Use a more sophisticated replacement that preserves the first word's capitalization
+        const regex = new RegExp(`\\b(\\w+)\\s+${duplicateWord}\\b`, 'i');
+        const match = text.match(regex);
+
+        let cleanedText;
+        if (match) {
+          // Replace with the first occurrence (which preserves original capitalization)
+          cleanedText = text.replace(regex, match[1]);
+        } else {
+          // Fallback to simple replacement
+          cleanedText = text.replace(new RegExp(`\\b${duplicateWord}\\s+${duplicateWord}\\b`, 'i'), duplicateWord);
+        }
+
+        actions.push({
+          title: `Remove duplicate "${duplicateWord}"`,
+          kind: 'quickfix',
+          edit: {
+            edits: [{
+              resource: model.uri,
+              textEdit: {
+                range: range,
+                text: cleanedText
+              }
+            }]
+          }
+        });
+      } else {
+        console.log('No duplicate words found in text');
+      }
+    }
+
+    console.log('Grammar actions created:', actions);
+    return actions;
+  }
+
+  /**
    * Create dictionary action suggestions
    * @param {string} word - Word to add to dictionary
    * @param {Object} range - Monaco range
@@ -171,7 +371,7 @@ export default class SpellCheckActions {
     if (folderPath) {
       // Add to folder dictionary
       actions.push({
-        title: `Add "${word}" to Folder Dictionary`,
+        title: `Add to Folder Dict`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToFolderDictionary',
@@ -182,7 +382,7 @@ export default class SpellCheckActions {
 
       // Add to user dictionary (global)
       actions.push({
-        title: `Add "${word}" to User Dictionary`,
+        title: `Add to User Dict`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToUserDictionary',
@@ -193,7 +393,7 @@ export default class SpellCheckActions {
     } else if (categoryId) {
       // Backward compatibility: Add to category dictionary
       actions.push({
-        title: `Add "${word}" to Category Dictionary`,
+        title: `Add to Category Dict`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToCategoryDictionary',
@@ -204,7 +404,7 @@ export default class SpellCheckActions {
 
       // Add to user dictionary (global)
       actions.push({
-        title: `Add "${word}" to User Dictionary`,
+        title: `Add to User Dict`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToUserDictionary',
@@ -215,7 +415,7 @@ export default class SpellCheckActions {
     } else {
       // Only user dictionary option when no folder or category
       actions.push({
-        title: `Add "${word}" to User Dictionary`,
+        title: `Add to Dict`,
         kind: 'quickfix',
         command: {
           id: 'spell.addToUserDictionary',
