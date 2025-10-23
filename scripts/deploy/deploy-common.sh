@@ -163,12 +163,13 @@ compare_image_ids() {
     local ssh_key=$4
     
     local local_id=$(get_image_id "$local_image")
-    local remote_id=$(ssh -q -T -i "$ssh_key" "$remote_host" "docker pull $registry_image >/dev/null 2>&1 && docker images -q $registry_image 2>/dev/null || echo 'none'")
+    # Get remote image ID without pulling - check what's already there
+    local remote_id=$(ssh -q -T -i "$ssh_key" "$remote_host" "docker images -q $registry_image 2>/dev/null || echo 'none'")
     
     if [[ "$local_id" = "$remote_id" ]] && [[ "$remote_id" != "none" ]]; then
         return 0  # Images are the same
     else
-        return 1  # Images are different
+        return 1  # Images are different or remote doesn't exist
     fi
 }
 

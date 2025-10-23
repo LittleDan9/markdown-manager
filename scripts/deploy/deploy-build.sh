@@ -23,7 +23,8 @@ deploy_service() {
     validate_directory "$service_dir" "$service_name service" >&2
     
     log_step "🚀" "Building $service_name image → $local_image" >&2
-    docker build -t $local_image -f $service_dir/$dockerfile_name $service_dir >&2
+    # Force rebuild without cache to ensure changes are detected
+    docker build --no-cache -t $local_image -f $service_dir/$dockerfile_name $service_dir >&2
     
     # Get local image ID
     local local_image_id=$(get_image_id "$local_image")
