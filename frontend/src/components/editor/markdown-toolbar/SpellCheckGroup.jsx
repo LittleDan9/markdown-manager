@@ -21,7 +21,7 @@ export function SpellCheckGroup({
 }) {
   const [isSpellCheckVisible, setIsSpellCheckVisible] = useState(false);
   const [isMarkdownLintVisible, setIsMarkdownLintVisible] = useState(false);
-  
+
   // Phase 5: Settings modal visibility
   const [showSettingsModal, setShowSettingsModal] = useState(false);
 
@@ -92,6 +92,17 @@ export function SpellCheckGroup({
             disabled={isSpellCheckRunning || isMarkdownLintRunning}
           >
             <i className={isMarkdownLintRunning ? "bi bi-arrow-repeat spin" : "bi bi-file-text-fill"}></i>
+          </Button>
+
+          {/* Settings Button */}
+          <Button
+            variant={buttonVariant}
+            style={buttonStyle}
+            onClick={() => setShowSettingsModal(true)}
+            title="Spell Check Settings"
+            disabled={isSpellCheckRunning || isMarkdownLintRunning}
+          >
+            <i className="bi bi-gear"></i>
           </Button>
         </ButtonGroup>
       </div>

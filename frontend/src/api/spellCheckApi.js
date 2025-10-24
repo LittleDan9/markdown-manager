@@ -24,7 +24,7 @@ class SpellCheckApi extends Api {
    */
   async checkText(text, customWords = [], options = {}) {
     try {
-      const response = await this.apiCall('/spell-check/', 'POST', {
+      const requestPayload = {
         text: text,
         customWords: customWords,
         options: {
@@ -39,7 +39,18 @@ class SpellCheckApi extends Api {
           styleGuide: options.styleGuide || 'none',
           language: options.language || 'en-US'
         }
-      });
+      };
+
+      // Phase 6: Code fence spell checking support
+      if (options.enableCodeSpellCheck) {
+        requestPayload.options.enableCodeSpellCheck = options.enableCodeSpellCheck;
+      }
+
+      if (options.codeSpellSettings) {
+        requestPayload.options.codeSpellSettings = options.codeSpellSettings;
+      }
+
+      const response = await this.apiCall('/spell-check/', 'POST', requestPayload);
       return response.data;
     } catch (error) {
       console.error('Spell check failed:', error);
@@ -63,6 +74,54 @@ class SpellCheckApi extends Api {
         error: error.message,
         backend_integration: 'error'
       };
+    }
+  }
+
+  /**
+   * Phase 6: Check code fences for spelling errors
+   * @param {string} text - Text containing code fences to analyze
+   * @param {Object} codeSpellSettings - Code spell checking settings
+   * @param {Array<string>} customWords - Additional custom words to ignore
+   * @returns {Promise<Object>} Analysis results with code spelling issues
+   */
+  async checkCodeSpelling(text, codeSpellSettings = {}, customWords = []) {
+    try {
+      const response = await this.checkText(text, customWords, {
+        enableCodeSpellCheck: true,
+        codeSpellSettings: {
+          codeLanguages: codeSpellSettings.codeLanguages || ['javascript', 'python', 'typescript'],
+          checkComments: codeSpellSettings.checkComments ?? true,
+          checkStrings: codeSpellSettings.checkStrings ?? true,
+          checkIdentifiers: codeSpellSettings.checkIdentifiers ?? false,
+          ...codeSpellSettings
+        }
+      });
+
+      return {
+        codeSpelling: response.results?.codeSpelling || [],
+        statistics: response.statistics || {},
+        metadata: response.metadata || {}
+      };
+    } catch (error) {
+      console.error('Code spell check failed:', error);
+      throw new Error(`Code spell check service unavailable: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get supported programming languages for code spell checking
+   * @returns {Promise<Array>} List of supported programming languages
+   */
+  async getSupportedCodeLanguages() {
+    try {
+      // For now, return hardcoded list - could be extended to fetch from backend
+      return [
+        'javascript', 'typescript', 'python', 'java', 'cpp', 'c', 'csharp',
+        'php', 'ruby', 'go', 'rust', 'kotlin', 'swift', 'sql', 'html', 'css'
+      ];
+    } catch (error) {
+      console.error('Failed to get supported code languages:', error);
+      return ['javascript', 'python', 'typescript']; // fallback
     }
   }
 
@@ -213,29 +272,51 @@ class SpellCheckApi extends Api {
         language: settings.language || 'en-US'
       };
 
+      // Phase 6: Code spell checking support
+      if (settings.enableCodeSpellCheck) {
+        options.enableCodeSpellCheck = settings.enableCodeSpellCheck;
+        options.codeSpellSettings = settings.codeSpellSettings || {
+          codeLanguages: ['javascript', 'python', 'typescript'],
+          checkComments: true,
+          checkStrings: true,
+          checkIdentifiers: false
+        };
+      }
+
       const result = await this.checkText(text, [], options);
 
-      // Filter results based on enabled analysis types
+      // Backend already filtered results based on settings, so combine all returned issues
       const allIssues = [];
 
-      if (settings.spelling !== false && result.results?.spelling) {
+      // Add all issue types returned by backend (already filtered)
+      if (result.results?.spelling) {
         allIssues.push(...result.results.spelling);
       }
 
-      if (settings.grammar !== false && result.results?.grammar) {
+      if (result.results?.grammar) {
         allIssues.push(...result.results.grammar);
       }
 
-      if (settings.style !== false && result.results?.style) {
+      if (result.results?.style) {
         allIssues.push(...result.results.style);
+      }
+
+      // Phase 6: Include code spelling issues (already filtered by backend)
+      if (result.results?.codeSpelling) {
+        allIssues.push(...result.results.codeSpelling);
       }
 
       // Call progress callback to maintain compatibility
       if (onProgress) {
         onProgress(100, allIssues, {
           readability: settings.readability !== false ? result.analysis?.readability : null,
-          statistics: result.analysis?.statistics,
-          language: result.analysis?.language
+          statistics: result.statistics,
+          language: result.analysis?.language,
+          // Phase 6: Include code spell statistics
+          codeSpellStatistics: result.statistics ? {
+            codeBlocksChecked: result.statistics.code_blocks_checked || 0,
+            codeLanguagesDetected: result.statistics.code_languages_detected || []
+          } : null
         });
       }
 

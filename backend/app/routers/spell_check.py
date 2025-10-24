@@ -143,13 +143,33 @@ async def check_text_spelling(
         service_url = os.getenv("SPELL_CHECK_SERVICE_URL", "http://localhost:8003")
 
         async with httpx.AsyncClient(timeout=30.0) as client:
+            # Prepare the request payload with code spell checking options
+            service_payload = {
+                "text": request.text,
+                "customWords": request.customWords,
+                "enableVerboseLogging": True
+            }
+
+            # DEBUG: Log the text being sent for spell checking
+            print(f"🔍 Sending text to spell-check service (length: {len(request.text)})")
+            print(f"🔍 First 200 chars: {request.text[:200]}...")
+            print(f"🔍 Code spell check enabled: {bool(request.options.get('enableCodeSpellCheck'))}")
+
+            # Forward code spell checking options if provided
+            if request.options.get("enableCodeSpellCheck"):
+                service_payload["enableCodeSpellCheck"] = request.options["enableCodeSpellCheck"]
+
+            if request.options.get("codeSpellSettings"):
+                service_payload["codeSpellSettings"] = request.options["codeSpellSettings"]
+
+            # Forward other options as well
+            for key, value in request.options.items():
+                if key not in ["enableCodeSpellCheck", "codeSpellSettings"]:
+                    service_payload[key] = value
+
             service_response = await client.post(
                 f"{service_url}/check",
-                json={
-                    "text": request.text,
-                    "customWords": combined_custom_words,
-                    "options": request.options
-                },
+                json=service_payload,
                 headers={
                     "Content-Type": "application/json",
                     "User-Agent": "markdown-manager-backend/1.0"
@@ -162,6 +182,7 @@ async def check_text_spelling(
         spelling_issues = []
         grammar_issues = []
         style_issues = []
+        code_spelling_issues = []
 
         if response_data.get('results', {}).get('spelling'):
             spelling_issues = response_data['results']['spelling']
@@ -208,26 +229,53 @@ async def check_text_spelling(
                     "rule": issue.get('rule', '')
                 })
 
-        total_issues = len(spelling_issues) + len(grammar_issues) + len(style_issues)
+        # Handle code spelling issues (Phase 6: Code Fence Spell Checking)
+        if response_data.get('results', {}).get('codeSpelling'):
+            for issue in response_data['results']['codeSpelling']:
+                # Transform code spelling issues to match expected format
+                code_spelling_issues.append({
+                    "word": issue.get('word', 'unknown'),
+                    "suggestions": issue.get('suggestions', []),
+                    "position": issue.get('position', {}),
+                    "lineNumber": issue.get('lineNumber', 1),
+                    "column": issue.get('column', 1),  # Fixed: use column field instead of lineNumber
+                    "type": issue.get('type', 'code-spelling'),
+                    "severity": issue.get('severity', 'info'),
+                    "confidence": issue.get('confidence', 0.8),
+                    "message": issue.get('message', ''),
+                    "rule": issue.get('rule', 'code-spell-check'),
+                    "enhanced": issue.get('enhanced', True),
+                    "contextAnalysis": {
+                        "language": issue.get('language', 'unknown'),
+                        "context": issue.get('context', {}),
+                        "source": issue.get('source', 'cspell')
+                    } if issue.get('language') or issue.get('context') else None
+                })
+
+        total_issues = len(spelling_issues) + len(grammar_issues) + len(style_issues) + len(code_spelling_issues)
 
         api_response = SpellCheckApiResponse(
             results={
                 "spelling": spelling_issues,
                 "grammar": grammar_issues,
-                "style": style_issues
+                "style": style_issues,
+                "codeSpelling": code_spelling_issues
             },
             statistics={
                 "words_checked": len(request.text.split()) if request.text else 0,
                 "custom_words_applied": len(combined_custom_words),
                 "issues_found": total_issues,
-                "processing_time": response_data.get('processingTime', 0)
+                "processing_time": response_data.get('processingTime', 0),
+                "code_blocks_checked": response_data.get('codeSpellStatistics', {}).get('codeBlocks', 0),
+                "code_languages_detected": response_data.get('codeSpellStatistics', {}).get('languagesDetected', [])
             },
             metadata={
                 "service": "spell-check-service",
-                "version": "phase4",
+                "version": "phase6",
                 "custom_dictionary_enabled": bool(current_user),
                 "language": response_data.get('language', 'en-US'),
-                "service_response": "phase4_direct_call"
+                "service_response": "phase6_with_code_spell_check",
+                "code_spell_enabled": bool(request.options.get("enableCodeSpellCheck"))
             }
         )
 

@@ -13,7 +13,7 @@ export default class SpellCheckMarkers {
    */
   static clearMarkers(editor, suggestionsMap = null) {
     if (!editor || typeof editor.getModel !== 'function') return;
-    
+
     // Guard against Monaco not being loaded
     if (!monaco || !monaco.editor) {
       console.warn('Monaco editor not fully loaded, skipping marker clearing');
@@ -26,7 +26,7 @@ export default class SpellCheckMarkers {
       monaco.editor.setModelMarkers(model, 'spell', []);
       monaco.editor.setModelMarkers(model, 'grammar', []);
       monaco.editor.setModelMarkers(model, 'style', []);
-      
+
       if (suggestionsMap) {
         suggestionsMap.clear();
       }
@@ -42,7 +42,7 @@ export default class SpellCheckMarkers {
     if (!monaco || !monaco.editor || !model) {
       return [];
     }
-    
+
     return monaco.editor.getModelMarkers({ resource: model.uri })
       .filter(m => ['spell', 'grammar', 'style'].includes(m.owner));
   }
@@ -57,13 +57,13 @@ export default class SpellCheckMarkers {
    */
   static filterMarkersOutsideRegion(markers, model, startOffset, endOffset) {
     return markers.filter(m => {
-      const markerStart = model.getOffsetAt({ 
-        lineNumber: m.startLineNumber, 
-        column: m.startColumn 
+      const markerStart = model.getOffsetAt({
+        lineNumber: m.startLineNumber,
+        column: m.startColumn
       });
-      const markerEnd = model.getOffsetAt({ 
-        lineNumber: m.endLineNumber, 
-        column: m.endColumn 
+      const markerEnd = model.getOffsetAt({
+        lineNumber: m.endLineNumber,
+        column: m.endColumn
       });
       return markerEnd < startOffset || markerStart > endOffset;
     });
@@ -88,6 +88,9 @@ export default class SpellCheckMarkers {
     markers.forEach(marker => {
       switch (marker.type) {
         case 'spelling':
+        case 'code-comment':    // Code spell checking issues are treated as spelling errors
+        case 'code-string':
+        case 'code-identifier':
           spellingMarkers.push(marker);
           break;
         case 'grammar':
@@ -186,7 +189,7 @@ export default class SpellCheckMarkers {
     if (!monaco || !monaco.editor || !model) {
       return [];
     }
-    
+
     return monaco.editor.getModelMarkers({ resource: model.uri })
       .filter(m => m.owner === type);
   }

@@ -17,7 +17,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   const [readabilityData, setReadabilityData] = useState(null);
   const [serviceInfo, setServiceInfo] = useState(null);
   const [allIssues, setAllIssues] = useState([]);
-  
+
   const suggestionsMap = useRef(new Map());
   const { debounce: debounceSpellCheck, cleanup: cleanupDebounce } = useDebounce();
   const { isTyping } = useTypingDetection(); // Get typing state from parent
@@ -32,7 +32,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   // Initialize spell check service and load service info
   useEffect(() => {
     if (!enabled) return;
-    
+
     const initializeService = async () => {
       try {
         await SpellCheckService.init();
@@ -42,19 +42,24 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         console.error('Failed to initialize spell check service:', error);
       }
     };
-    
+
     initializeService();
   }, [enabled]);
 
   // Main spell check function
-  const spellCheckDocument = async (textOverride = null, startOffset = 0, forceProgress = false) => {
+  const spellCheckDocument = async (textOverride = null, startOffset = 0, forceProgress = false, customSettings = null) => {
     if (!enabled || !editor) return;
+
+    // Use custom settings if provided, otherwise use default settings
+    const effectiveSettings = customSettings || settings;
 
     // Debug logging to track excessive calls
     console.log('[SpellCheck] spellCheckDocument called:', {
       textLength: (textOverride ?? editor.getValue()).length,
       startOffset,
       forceProgress,
+      customSettings: customSettings ? 'provided' : 'using default',
+      codeSpellEnabled: effectiveSettings.enableCodeSpellCheck,
       stackTrace: new Error().stack.split('\n').slice(1, 4).join('\n')
     });
 
@@ -77,25 +82,25 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       const processObj = { percentComplete: percent };
       lastProgressRef.current = processObj;
       setProgress(processObj);
-      
+
       // Phase 5: Update readability data and all issues
       if (metadata?.readability) {
         setReadabilityData(metadata.readability);
       }
       if (issues) {
-        setAllIssues(issues);
+        setAllIssues(issues); // Use issues directly from backend (already filtered)
       }
     } : (percent, issues, metadata) => {
       // Still track progress internally but don't show UI
       const processObj = { percentComplete: percent };
       lastProgressRef.current = processObj;
-      
+
       // Phase 5: Update readability data and all issues even when not showing progress
       if (metadata?.readability) {
         setReadabilityData(metadata.readability);
       }
       if (issues) {
-        setAllIssues(issues);
+        setAllIssues(issues); // Use issues directly from backend (already filtered)
       }
     };
 
@@ -105,30 +110,27 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         progressCb,
         categoryId,
         typeof getFolderPath === 'function' ? getFolderPath() : null,
-        settings // Phase 5: Pass settings to service
+        effectiveSettings // Phase 6: Use effective settings (custom or default)
       );
 
-      // Phase 5: Filter issues based on settings before applying markers
-      const filteredIssues = issues.filter(issue => {
-        switch (issue.type) {
-          case 'spelling':
-            return settings.spelling !== false;
-          case 'grammar':
-            return settings.grammar !== false;
-          case 'style':
-            return settings.style !== false;
-          default:
-            return true;
-        }
-      });
-
+      // Backend already filtered issues based on effectiveSettings, so use them directly
       if (editor) {
+        console.log('🚀 About to call MonacoMarkerAdapter.toMonacoMarkers:', {
+          editorPresent: !!editor,
+          issuesCount: issues?.length || 0,
+          startOffset,
+          issuesWithTypes: issues?.slice(0, 5).map(i => ({ type: i.type, word: i.word, position: i.position })) || [],
+          codeSpellIssues: issues?.filter(i => i.type?.includes('code'))?.length || 0
+        });
+
         suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
           editor,
-          filteredIssues, // Use filtered issues
+          issues, // Use all issues returned by backend (already filtered)
           startOffset,
           suggestionsMap.current
         );
+
+        console.log('✅ MonacoMarkerAdapter.toMonacoMarkers completed, suggestionsMap size:', suggestionsMap.current?.size || 0);
       }
 
       // Clear progress indicator after completion with visual feedback
@@ -170,15 +172,24 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
 
       const runAndHandleSpellCheck = () => {
-        const { regionText, startOffset } = TextRegionAnalyzer.getChangedRegion(
-          editor,
-          previousValueRef.current,
-          editor.getValue()
-        );
-        previousValueRef.current = editor.getValue();
-        lastSpellCheckTime.current = Date.now();
-        if (regionText.length > 0) {
-          spellCheckDocument(regionText, startOffset);
+        // For code spell checking, always use full document to ensure correct global positions
+        if (settings.enableCodeSpellCheck) {
+          const fullText = editor.getValue();
+          previousValueRef.current = fullText;
+          lastSpellCheckTime.current = Date.now();
+          spellCheckDocument(fullText, 0); // Always use startOffset 0 for full document
+        } else {
+          // For regular spell checking, use regional approach for performance
+          const { regionText, startOffset } = TextRegionAnalyzer.getChangedRegion(
+            editor,
+            previousValueRef.current,
+            editor.getValue()
+          );
+          previousValueRef.current = editor.getValue();
+          lastSpellCheckTime.current = Date.now();
+          if (regionText.length > 0) {
+            spellCheckDocument(regionText, startOffset);
+          }
         }
       };
 
@@ -375,8 +386,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   const runSpellCheck = (customSettings = null) => {
     if (editor) {
       setProgress({ percentComplete: 0 });
-      const effectiveSettings = customSettings || settings;
-      spellCheckDocument(null, 0, true);
+      spellCheckDocument(null, 0, true, customSettings);
     }
   };
 

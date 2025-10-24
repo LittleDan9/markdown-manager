@@ -25,6 +25,9 @@ const CustomDictionaryManager = require('./lib/CustomDictionaryManager');
 const ContextualAnalyzer = require('./lib/ContextualAnalyzer');
 const StyleGuideManager = require('./lib/StyleGuideManager');
 
+// Import CSpell integration
+const CSpellCodeChecker = require('./lib/CSpellCodeChecker');
+
 const app = express();
 const PORT = process.env.SPELL_CHECK_PORT || 8003;
 
@@ -36,6 +39,7 @@ let languageDetector = null;
 let customDictionaryManager = null;
 let contextualAnalyzer = null;
 let styleGuideManager = null;
+let cspellCodeChecker = null;
 
 // Middleware
 app.use(cors());
@@ -45,12 +49,12 @@ app.use(express.json({ limit: '10mb' })); // Support large documents
 app.use((req, res, next) => {
   const start = Date.now();
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - Request received`);
-  
+
   res.on('finish', () => {
     const duration = Date.now() - start;
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} - ${res.statusCode} (${duration}ms)`);
   });
-  
+
   next();
 });
 
@@ -102,10 +106,15 @@ app.get('/health', (req, res) => {
       styleGuideManager: styleGuideManager ? {
         loaded: true,
         availableGuides: styleGuideManager.getAvailableStyleGuides().length
+      } : { loaded: false },
+      cspellCodeChecker: cspellCodeChecker ? {
+        loaded: true,
+        supportedLanguages: cspellCodeChecker.getSupportedLanguages().length,
+        cacheStats: cspellCodeChecker.getCacheStats()
       } : { loaded: false }
     }
   };
-  
+
   res.json(health);
 });
 
@@ -113,21 +122,28 @@ app.get('/health', (req, res) => {
 app.post('/check', async (req, res) => {
   try {
     const startTime = Date.now();
-    const { 
-      text, 
-      customWords = [], 
-      chunk_offset = 0, 
+    const {
+      text,
+      customWords = [],
+      chunk_offset = 0,
       options = {},
       language = null,
       enableGrammar = true,
       enableStyle = true,
       enableLanguageDetection = true,
       enableContextualSuggestions = true,
+      enableCodeSpellCheck = false,
       styleGuide = null,
       authToken = null,
       userId = null,
       categoryId = null,
-      folderPath = null
+      folderPath = null,
+      codeSpellSettings = {
+        checkComments: true,
+        checkStrings: false,
+        checkIdentifiers: true,
+        severity: 'info'
+      }
     } = req.body;
 
     // Validate input
@@ -148,11 +164,19 @@ app.post('/check', async (req, res) => {
     console.log(`Processing Phase 3 enhanced check - text length: ${text.length}, language: ${language || 'auto'}`);
 
     // Ensure services are initialized
-    if (!spellChecker || !grammarChecker || !styleAnalyzer || !languageDetector || 
+    if (!spellChecker || !grammarChecker || !styleAnalyzer || !languageDetector ||
         !customDictionaryManager || !contextualAnalyzer || !styleGuideManager) {
       return res.status(503).json({
         error: 'Service unavailable',
         message: 'One or more analysis services not initialized'
+      });
+    }
+
+    // Check if CSpell is needed and available
+    if (enableCodeSpellCheck && !cspellCodeChecker) {
+      return res.status(503).json({
+        error: 'Service unavailable',
+        message: 'CSpell code checker not initialized but code spell check requested'
       });
     }
 
@@ -178,7 +202,7 @@ app.post('/check', async (req, res) => {
     // Detect language if not specified
     let detectedLanguage = language;
     let languageDetectionResult = null;
-    
+
     if (enableLanguageDetection && !language) {
       languageDetectionResult = await languageDetector.detectLanguage(text);
       detectedLanguage = languageDetectionResult.language;
@@ -195,7 +219,7 @@ app.post('/check', async (req, res) => {
     // Phase 3: Enhance suggestions with contextual analysis
     if (enableContextualSuggestions && spellResults.spelling && contextualAnalyzer) {
       console.log(`Enhancing ${spellResults.spelling.length} spelling suggestions with context analysis...`);
-      
+
       for (const issue of spellResults.spelling) {
         try {
           const contextualResult = await contextualAnalyzer.getContextualSuggestions(
@@ -205,7 +229,7 @@ app.post('/check', async (req, res) => {
             issue.suggestions || [],
             options
           );
-          
+
           // Replace basic suggestions with contextual ones
           issue.suggestions = contextualResult.suggestions.map(s => s.word);
           issue.confidence = contextualResult.suggestions[0]?.confidence || issue.confidence;
@@ -249,13 +273,33 @@ app.post('/check', async (req, res) => {
       }
     }
 
+    // CSpell: Check code fences if enabled
+    let codeSpellResults = { codeSpelling: [], codeSpellStatistics: { codeBlocks: 0, languagesDetected: [], issuesFound: 0 } };
+    if (enableCodeSpellCheck && cspellCodeChecker) {
+      try {
+        console.log('Performing CSpell code fence analysis...');
+        codeSpellResults = await cspellCodeChecker.checkCodeFences(text, {
+          enableCodeSpellCheck: true,
+          codeSpellSettings: {
+            ...codeSpellSettings,
+            customWords: allCustomWords
+          }
+        });
+        console.log(`CSpell found ${codeSpellResults.codeSpelling.length} issues in ${codeSpellResults.codeSpellStatistics.codeBlocks} code blocks`);
+      } catch (error) {
+        console.warn('CSpell code fence checking failed:', error.message);
+        // Continue without code spell checking
+      }
+    }
+
     const processingTime = Date.now() - startTime;
 
     // Combine all results
     const combinedResults = {
       spelling: spellResults.spelling || [],
       grammar: grammarResults.grammar || [],
-      style: [...(styleResults.style || []), ...styleGuideResults]
+      style: [...(styleResults.style || []), ...styleGuideResults],
+      codeSpelling: codeSpellResults.codeSpelling || []
     };
 
     // Add statistics
@@ -268,8 +312,14 @@ app.post('/check', async (req, res) => {
         spelling: combinedResults.spelling.length,
         grammar: combinedResults.grammar.length,
         style: combinedResults.style.length,
+        codeSpelling: combinedResults.codeSpelling.length,
         styleGuide: styleGuideResults.length,
-        total: combinedResults.spelling.length + combinedResults.grammar.length + combinedResults.style.length
+        total: combinedResults.spelling.length + combinedResults.grammar.length + combinedResults.style.length + combinedResults.codeSpelling.length
+      },
+      // Include engine information for transparency
+      engineInfo: {
+        spellEngine: spellChecker.spellEngine ? spellChecker.spellEngine.getStatistics() : null,
+        codeSpellEngine: cspellCodeChecker ? cspellCodeChecker.getStatistics() : null
       }
     };
 
@@ -293,11 +343,13 @@ app.post('/check', async (req, res) => {
         languageDetection: enableLanguageDetection,
         contextualSuggestions: enableContextualSuggestions,
         customDictionaries: !!authToken,
-        styleGuides: !!styleGuide
+        styleGuides: !!styleGuide,
+        codeSpellCheck: enableCodeSpellCheck
       },
       availableLanguages: spellChecker.dictionaryManager.getAvailableLanguages(),
       styleGuideApplied: styleGuide || null,
-      customWordsCount: allCustomWords.length
+      customWordsCount: allCustomWords.length,
+      codeSpellStatistics: codeSpellResults.codeSpellStatistics
     };
 
     res.json(response);
@@ -329,14 +381,18 @@ app.get('/info', (req, res) => {
       contextualSuggestions: true,
       customDictionaries: true,
       styleGuides: true,
-      batchProcessing: true
+      batchProcessing: true,
+      codeSpellCheck: !!cspellCodeChecker
     },
-    supportedLanguages: spellChecker ? 
-      spellChecker.dictionaryManager.getAvailableLanguages() : 
+    supportedLanguages: spellChecker ?
+      spellChecker.dictionaryManager.getAvailableLanguages() :
       ['en-US', 'en-GB', 'es-ES', 'fr-FR', 'de-DE'],
-    supportedStyleGuides: styleGuideManager ? 
+    supportedStyleGuides: styleGuideManager ?
       styleGuideManager.getAvailableStyleGuides().map(sg => sg.id) :
       ['ap', 'chicago', 'mla', 'apa', 'academic', 'technical'],
+    codeSpellSupportedLanguages: cspellCodeChecker ?
+      cspellCodeChecker.getSupportedLanguages() :
+      ['javascript', 'typescript', 'python', 'java', 'html', 'php', 'json', 'yaml', 'sql', 'cpp', 'rust', 'go'],
     maxTextSize: config.performance.maxTextSizeBytes,
     performance: {
       targetResponseTime: '200ms for 5KB text',
@@ -353,7 +409,7 @@ app.get('/info', (req, res) => {
 // Process large documents in chunks
 app.post('/check-batch', async (req, res) => {
   try {
-    const { 
+    const {
       text,
       chunkSize = 10000,
       customWords = [],
@@ -363,6 +419,7 @@ app.post('/check-batch', async (req, res) => {
       enableStyle = true,
       enableLanguageDetection = true,
       enableContextualSuggestions = true,
+      enableCodeSpellCheck = false,
       styleGuide = null,
       authToken = null,
       userId = null,
@@ -406,10 +463,10 @@ app.post('/check-batch', async (req, res) => {
     // Split text into chunks
     const chunks = [];
     let offset = 0;
-    
+
     while (offset < text.length) {
       const chunkEnd = Math.min(offset + chunkSize, text.length);
-      
+
       // Try to break at sentence boundary for better context
       let actualEnd = chunkEnd;
       if (chunkEnd < text.length) {
@@ -417,19 +474,19 @@ app.post('/check-batch', async (req, res) => {
         const searchText = text.substring(searchStart, chunkEnd);
         const lastSentence = searchText.lastIndexOf('.');
         const lastNewline = searchText.lastIndexOf('\n');
-        
+
         if (lastSentence > 0 || lastNewline > 0) {
           const boundary = Math.max(lastSentence, lastNewline);
           actualEnd = searchStart + boundary + 1;
         }
       }
-      
+
       chunks.push({
         text: text.substring(offset, actualEnd),
         offset: offset,
         length: actualEnd - offset
       });
-      
+
       offset = actualEnd;
     }
 
@@ -440,15 +497,16 @@ app.post('/check-batch', async (req, res) => {
     const allResults = {
       spelling: [],
       grammar: [],
-      style: []
+      style: [],
+      codeSpelling: []
     };
-    
+
     let processedChunks = 0;
     const startTime = Date.now();
 
     for (let i = 0; i < chunks.length; i += maxConcurrency) {
       const batch = chunks.slice(i, i + maxConcurrency);
-      
+
       const batchPromises = batch.map(async (chunk) => {
         try {
           // Process chunk with same logic as main endpoint
@@ -468,7 +526,7 @@ app.post('/check-batch', async (req, res) => {
 
           // Simulate calling our own check endpoint logic
           const chunkResults = await processTextChunk(chunkRequest);
-          
+
           // Adjust positions to global text
           if (chunkResults.spelling) {
             chunkResults.spelling.forEach(issue => {
@@ -477,7 +535,7 @@ app.post('/check-batch', async (req, res) => {
               issue.globalLineNumber = issue.lineNumber + getLineNumber(text, chunk.offset) - 1;
             });
           }
-          
+
           if (chunkResults.grammar) {
             chunkResults.grammar.forEach(issue => {
               issue.position.start += chunk.offset;
@@ -485,7 +543,7 @@ app.post('/check-batch', async (req, res) => {
               issue.globalLineNumber = issue.lineNumber + getLineNumber(text, chunk.offset) - 1;
             });
           }
-          
+
           if (chunkResults.style) {
             chunkResults.style.forEach(issue => {
               issue.position.start += chunk.offset;
@@ -502,15 +560,14 @@ app.post('/check-batch', async (req, res) => {
       });
 
       const batchResults = await Promise.all(batchPromises);
-      
-      // Combine results
-      batchResults.forEach(result => {
-        allResults.spelling.push(...(result.spelling || []));
-        allResults.grammar.push(...(result.grammar || []));
-        allResults.style.push(...(result.style || []));
-      });
 
-      processedChunks += batch.length;
+          // Combine results
+          batchResults.forEach(result => {
+            allResults.spelling.push(...(result.spelling || []));
+            allResults.grammar.push(...(result.grammar || []));
+            allResults.style.push(...(result.style || []));
+            allResults.codeSpelling.push(...(result.codeSpelling || []));
+          });      processedChunks += batch.length;
       console.log(`Processed ${processedChunks}/${chunks.length} chunks`);
     }
 
@@ -520,6 +577,7 @@ app.post('/check-batch', async (req, res) => {
     allResults.spelling.sort((a, b) => a.position.start - b.position.start);
     allResults.grammar.sort((a, b) => a.position.start - b.position.start);
     allResults.style.sort((a, b) => a.position.start - b.position.start);
+    allResults.codeSpelling.sort((a, b) => a.position.start - b.position.start);
 
     const statistics = {
       characters: text.length,
@@ -530,7 +588,8 @@ app.post('/check-batch', async (req, res) => {
         spelling: allResults.spelling.length,
         grammar: allResults.grammar.length,
         style: allResults.style.length,
-        total: allResults.spelling.length + allResults.grammar.length + allResults.style.length
+        codeSpelling: allResults.codeSpelling.length,
+        total: allResults.spelling.length + allResults.grammar.length + allResults.style.length + allResults.codeSpelling.length
       }
     };
 
@@ -565,7 +624,7 @@ app.post('/check-batch', async (req, res) => {
 app.post('/detect-language', async (req, res) => {
   try {
     const { text, options = {} } = req.body;
-    
+
     if (!text || typeof text !== 'string') {
       return res.status(400).json({
         error: 'Invalid input',
@@ -776,6 +835,12 @@ app.get('/health/detailed', (req, res) => {
         loaded: true,
         availableGuides: styleGuideManager.getAvailableStyleGuides(),
         totalRules: styleGuideManager.getAvailableStyleGuides().reduce((sum, sg) => sum + sg.ruleCount, 0)
+      } : { loaded: false },
+      cspellCodeChecker: cspellCodeChecker ? {
+        loaded: true,
+        supportedLanguages: cspellCodeChecker.getSupportedLanguages(),
+        cacheStats: cspellCodeChecker.getCacheStats(),
+        statistics: cspellCodeChecker.getStatistics()
       } : { loaded: false }
     },
     performance: {
@@ -794,10 +859,11 @@ app.get('/health/detailed', (req, res) => {
       contextualSuggestions: true,
       customDictionaries: true,
       styleGuides: true,
-      batchProcessing: true
+      batchProcessing: true,
+      codeSpellCheck: !!cspellCodeChecker
     }
   };
-  
+
   res.json(detailed);
 });
 
@@ -805,7 +871,7 @@ app.get('/health/detailed', (req, res) => {
 async function initializeService() {
   try {
     console.log('[Spell Check Service] Initializing Phase 3 advanced services...');
-    
+
     // Initialize all components in parallel for faster startup
     const initPromises = [];
 
@@ -830,7 +896,7 @@ async function initializeService() {
     initPromises.push(languageDetector.init());
 
     // Phase 3: Initialize new components
-    
+
     // Initialize custom dictionary manager
     console.log('[Spell Check Service] Loading custom dictionary manager...');
     customDictionaryManager = new CustomDictionaryManager();
@@ -846,11 +912,16 @@ async function initializeService() {
     styleGuideManager = new StyleGuideManager();
     initPromises.push(styleGuideManager.init());
 
+    // Initialize CSpell code checker
+    console.log('[Spell Check Service] Loading CSpell code checker...');
+    cspellCodeChecker = new CSpellCodeChecker();
+    initPromises.push(cspellCodeChecker.init());
+
     // Wait for all components to initialize
     await Promise.all(initPromises);
-    
+
     console.log('[Spell Check Service] All Phase 3 components initialized successfully');
-    
+
     // Start server
     app.listen(PORT, '0.0.0.0', () => {
       console.log(`[Spell Check Service] Phase 3 server running on port ${PORT}`);
@@ -865,7 +936,7 @@ async function initializeService() {
       console.log(`[Spell Check Service] Phase 3 - Advanced analysis ready`);
       console.log(`[Spell Check Service] Features: Spell + Grammar + Style + Multi-language + Contextual + Custom Dictionaries + Style Guides`);
     });
-    
+
   } catch (error) {
     console.error('[Spell Check Service] Failed to initialize Phase 3 services:', error);
     process.exit(1);
@@ -874,14 +945,15 @@ async function initializeService() {
 
 // Helper function to process a text chunk (for batch processing)
 async function processTextChunk(chunkRequest) {
-  const { 
-    text, 
-    customWords = [], 
+  const {
+    text,
+    customWords = [],
     options = {},
     language = null,
     enableGrammar = true,
     enableStyle = true,
     enableContextualSuggestions = true,
+    enableCodeSpellCheck = false,
     styleGuide = null
   } = chunkRequest;
 
@@ -903,7 +975,7 @@ async function processTextChunk(chunkRequest) {
           issue.suggestions || [],
           options
         );
-        
+
         issue.suggestions = contextualResult.suggestions.map(s => s.word);
         issue.confidence = contextualResult.suggestions[0]?.confidence || issue.confidence;
         issue.enhanced = true;
@@ -943,10 +1015,30 @@ async function processTextChunk(chunkRequest) {
     }
   }
 
+  // CSpell code checking for chunk
+  let codeSpellResults = [];
+  if (enableCodeSpellCheck && cspellCodeChecker) {
+    try {
+      const codeResults = await cspellCodeChecker.checkCodeFences(text, {
+        enableCodeSpellCheck: true,
+        codeSpellSettings: {
+          checkComments: true,
+          checkStrings: false,
+          checkIdentifiers: true,
+          customWords
+        }
+      });
+      codeSpellResults = codeResults.codeSpelling || [];
+    } catch (error) {
+      console.warn('CSpell failed for chunk:', error.message);
+    }
+  }
+
   return {
     spelling: spellResults.spelling || [],
     grammar: grammarResults.grammar || [],
-    style: [...(styleResults.style || []), ...styleGuideResults]
+    style: [...(styleResults.style || []), ...styleGuideResults],
+    codeSpelling: codeSpellResults
   };
 }
 

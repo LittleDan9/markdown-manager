@@ -1,5 +1,5 @@
 
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import MarkdownToolbar from './editor/MarkdownToolbar';
 import ProgressIndicator from './ProgressIndicator';
 import { GitStatusBar } from './editor';
@@ -20,8 +20,38 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
     style: true,
     readability: true,
     styleGuide: 'none',
-    language: 'en-US'
+    language: 'en-US',
+    enableCodeSpellCheck: false, // Phase 6: Default code spell check to disabled
+    codeSpellSettings: {
+      checkComments: true,
+      checkStrings: true,
+      checkIdentifiers: false
+    }
   });
+
+  // Phase 6: Load spell check settings from localStorage on mount
+  useEffect(() => {
+    try {
+      const storedSettings = localStorage.getItem('spellCheckSettings');
+      if (storedSettings) {
+        const parsed = JSON.parse(storedSettings);
+        setSpellCheckSettings(prev => ({
+          ...prev,
+          ...parsed.analysisTypes,
+          enableCodeSpellCheck: parsed.codeSpellSettings?.enabled || false,
+          codeSpellSettings: {
+            checkComments: parsed.codeSpellSettings?.checkComments ?? true,
+            checkStrings: parsed.codeSpellSettings?.checkStrings ?? true,
+            checkIdentifiers: parsed.codeSpellSettings?.checkIdentifiers ?? false
+          },
+          styleGuide: parsed.styleGuide || 'none',
+          language: parsed.language || 'en-US'
+        }));
+      }
+    } catch (error) {
+      console.error('Failed to load spell check settings:', error);
+    }
+  }, []);
 
   // Phase 5: Readability display state
   const [showReadability, setShowReadability] = useState(false);
@@ -54,7 +84,7 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
   const debouncedLineChange = useDebouncedCursorChange(onCursorLineChange, 300);
 
 
-  // Use consolidated editor hook with Phase 5 settings
+    // Use consolidated editor hook with Phase 5 settings
   const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
     value,
@@ -64,10 +94,9 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
     enableMarkdownLint: true,
     enableKeyboardShortcuts: true,
     enableListBehavior: true,
-    categoryId,
-    getCategoryId: () => categoryIdRef.current,
+    categoryId: () => categoryIdRef.current,
     getFolderPath: () => folderPathRef.current,
-    spellCheckSettings // Phase 5: Pass settings to hook
+    spellCheckSettings // Phase 6: Pass current spell check settings
   });
 
   const progress = spellCheck?.progress;
@@ -114,7 +143,7 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
       />
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
         <div ref={containerRef} className="monaco-container" style={{ flex: 1, width: "100%" }} />
-        
+
         {/* Phase 5: Readability metrics display */}
         {spellCheckSettings.readability && readabilityData && (
           <ReadabilityMetricsDisplay
@@ -123,7 +152,7 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
             className="mt-2"
           />
         )}
-        
+
         <GitStatusBar
           documentId={currentDocument?.id}
           document={currentDocument}
