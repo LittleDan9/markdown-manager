@@ -24,7 +24,7 @@ class SpellCheckWorkerPool {
     for (let i = 0; i < this.maxWorkers; i++) {
       try {
         // Use worker-loader import pattern
-        const SpellCheckWorker = require('../../workers/spellCheck.worker.js').default;
+        const SpellCheckWorker = require('../../../workers/spellCheck.worker.js').default;
         const worker = new SpellCheckWorker();
         worker.onmessage = (e) => this._handleWorkerMessage(worker, e);
         worker.onerror = (err) => {

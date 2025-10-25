@@ -4,8 +4,8 @@
 // Maintains compatibility with existing frontend interface
 
 import spellCheckApi from '@/api/spellCheckApi';
-import DictionaryService from '../dictionary';
-import MarkdownParser from './MarkdownParser';
+import DictionaryService from '../../dictionary';
+import MarkdownParser from '../MarkdownParser';
 
 export class SpellCheckService {
   constructor(chunkSize = 1000) {

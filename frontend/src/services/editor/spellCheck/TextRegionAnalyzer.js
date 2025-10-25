@@ -1,4 +1,4 @@
-// src/services/editor/TextRegionAnalyzer.js
+// src/services/editor/spellCheck/TextRegionAnalyzer.js
 
 /**
  * Service for analyzing text changes and determining regions for spell checking
@@ -10,7 +10,7 @@ export default class TextRegionAnalyzer {
    * - If only a small region changed, scan from a few words before the change to the end of the line.
    * - If editor is provided, use its selection/cursor to refine the region.
    * Returns { regionText, startOffset } for spell checking.
-   * 
+   *
    * @param {Object} editor - Monaco editor instance
    * @param {string} prevValue - Previous text value
    * @param {string} newValue - New text value
@@ -105,9 +105,9 @@ export default class TextRegionAnalyzer {
     const expandEndLine = Math.min(model.getLineCount(), endPos.lineNumber + expandLines);
 
     const selStartOffset = model.getOffsetAt({ lineNumber: expandStartLine, column: 1 });
-    const selEndOffset = model.getOffsetAt({ 
-      lineNumber: expandEndLine, 
-      column: model.getLineMaxColumn(expandEndLine) 
+    const selEndOffset = model.getOffsetAt({
+      lineNumber: expandEndLine,
+      column: model.getLineMaxColumn(expandEndLine)
     });
 
     // Use the expanded selection if it makes sense

@@ -5,7 +5,7 @@
  * Uses lintingApi for all backend communication.
  */
 
-import lintingApi from '../../api/lintingApi';
+import lintingApi from '../../../api/lintingApi';
 
 export class MarkdownLintService {
   constructor(chunkSize = 1000000) { // 1MB - align with PerformanceOptimizer thresholds

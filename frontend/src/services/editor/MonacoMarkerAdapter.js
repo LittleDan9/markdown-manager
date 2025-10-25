@@ -1,6 +1,6 @@
 // src/services/editor/MonacoMarkerAdapter.js
 import * as monaco from 'monaco-editor';
-import SpellCheckMarkers from './SpellCheckMarkers';
+import SpellCheckMarkers from './spellCheck/SpellCheckMarkers';
 
 /**
  * Service for converting spell check issues to Monaco markers

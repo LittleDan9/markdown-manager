@@ -2,7 +2,7 @@
 import * as monaco from 'monaco-editor';
 import DictionaryService from '@/services/dictionary';
 import SpellCheckService from './SpellCheckService';
-import MonacoMarkerAdapter from './MonacoMarkerAdapter';
+import MonacoMarkerAdapter from '../MonacoMarkerAdapter';
 
 /**
  * Service for managing spell check quick fix actions and commands in Monaco editor
