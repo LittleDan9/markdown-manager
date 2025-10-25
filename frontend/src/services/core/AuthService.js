@@ -243,6 +243,11 @@ class AuthService {
   async login(email, password) {
     const loginResponse = await UserAPI.login(email, password);
 
+    // Handle null or undefined responses
+    if (!loginResponse) {
+      return { success: false, error: 'Invalid server response' };
+    }
+
     if (loginResponse.mfa_required) {
       return { mfaRequired: true, email, password };
     }

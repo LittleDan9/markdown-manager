@@ -1,11 +1,11 @@
 // SpellCheckWorkerPool.js
 // Manages a pool of spell check workers for parallel chunk processing
-const DEFAULT_MAX_WORKERS = 6;
+const DEFAULT_MAX_WORKERS = 6; // Restored original value - caching prevents redundant dictionary loading
 
 class SpellCheckWorkerPool {
   constructor(maxWorkers) {
     this.maxWorkers = Math.min(
-      maxWorkers || navigator.hardwareConcurrency || 2,
+      maxWorkers || navigator.hardwareConcurrency || 2, // Restored original logic
       DEFAULT_MAX_WORKERS
     );
     this.workers = [];

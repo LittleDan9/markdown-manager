@@ -78,23 +78,28 @@ export function AuthProvider({ children }) {
 
   // Auth actions
   const login = useCallback(async (email, password) => {
-    const result = await AuthService.login(email, password);
+    try {
+      const result = await AuthService.login(email, password);
 
-    if (result.mfaRequired) {
-      setShowLoginModal(false);
-      setPendingEmail(email);
-      setPendingPassword(password);
-      setShowMFAModal(true);
+      if (result.mfaRequired) {
+        setShowLoginModal(false);
+        setPendingEmail(email);
+        setPendingPassword(password);
+        setShowMFAModal(true);
+        return result;
+      }
+
+      if (result.success) {
+        setShowLoginModal(false);
+        setLoginEmail("");
+        updateAuthState();
+      }
+
       return result;
+    } catch (error) {
+      console.error('Login error:', error);
+      return { success: false, error: error.message };
     }
-
-    if (result.success) {
-      setShowLoginModal(false);
-      setLoginEmail("");
-      updateAuthState();
-    }
-
-    return result;
   }, [updateAuthState]);
 
   const verifyMFA = useCallback(async (code) => {

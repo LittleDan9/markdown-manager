@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form, Alert } from "react-bootstrap";
+import { Modal, Button, Form, Alert, InputGroup } from "react-bootstrap";
 
 function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp }) {
   const [email, setEmail] = useState(emailProp || "");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   // Update email field if emailProp changes while modal is open
@@ -59,22 +60,39 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
         <Modal.Body>
           <Form.Group className="mb-3" controlId="loginEmail">
             <Form.Label>Email</Form.Label>
-            <Form.Control
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              autoFocus
-            />
+            <InputGroup>
+              <InputGroup.Text>
+                <i className="bi bi-envelope"></i>
+              </InputGroup.Text>
+              <Form.Control
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoFocus
+              />
+            </InputGroup>
           </Form.Group>
           <Form.Group className="mb-3" controlId="loginPassword">
             <Form.Label>Password</Form.Label>
-            <Form.Control
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-            />
+            <InputGroup>
+              <InputGroup.Text>
+                <i className="bi bi-key"></i>
+              </InputGroup.Text>
+              <Form.Control
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+              <Button
+                variant="outline-secondary"
+                onClick={() => setShowPassword(!showPassword)}
+                type="button"
+              >
+                <i className={`bi bi-eye${showPassword ? '-slash' : ''}`}></i>
+              </Button>
+            </InputGroup>
           </Form.Group>
           <div className="mb-3 text-end">
             <a
@@ -83,21 +101,31 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
               className="text-decoration-none"
               onClick={handleForgot}
             >
-              <i className="bi bi-key me-1"></i>Forgot Password?
+              <i className="bi bi-question-circle me-1"></i>Forgot Password?
             </a>
           </div>
           {error && (
             <Alert variant="danger" id="loginError">
+              <i className="bi bi-exclamation-triangle me-2"></i>
               {error}
             </Alert>
           )}
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={handleClose} disabled={loading}>
-            Cancel
+            <i className="bi bi-x-lg me-2"></i>Cancel
           </Button>
           <Button type="submit" variant="primary" disabled={loading}>
-            {loading ? "Logging in..." : "Login"}
+            {loading ? (
+              <>
+                <i className="bi bi-arrow-clockwise me-2 spin"></i>
+                Logging in...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-box-arrow-in-right me-2"></i>Login
+              </>
+            )}
           </Button>
         </Modal.Footer>
       </Form>

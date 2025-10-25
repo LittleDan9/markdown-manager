@@ -115,6 +115,12 @@ export class MarkdownLintService {
    * @returns {Promise<Array>} Array of issues for this chunk
    */
   async lintChunk(text, rules, offset = 0) {
+    // Check if we have any rules to apply - if empty, skip processing
+    if (!rules || Object.keys(rules).length === 0) {
+      console.log('MarkdownLintService: No rules configured, skipping lint processing');
+      return [];
+    }
+
     try {
       const result = await lintingApi.processText(text, {
         rules,
@@ -124,7 +130,10 @@ export class MarkdownLintService {
       return result.issues || [];
     } catch (error) {
       console.error('MarkdownLintService: Chunk processing failed:', error);
-      throw error;
+
+      // For any errors, return empty to prevent blocking the UI
+      console.warn('MarkdownLintService: Returning empty results due to error');
+      return [];
     }
   }
 

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createGitHubSettingsApi } from '../api/githubSettingsApi';
+import { useAuth } from '../providers/AuthProvider';
 
 const GitHubSettingsContext = createContext(null);
 
@@ -14,6 +15,7 @@ const DEFAULT_SETTINGS = {
 };
 
 export function GitHubSettingsProvider({ children }) {
+  const { isAuthenticated, isInitializing } = useAuth();
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -78,10 +80,16 @@ export function GitHubSettingsProvider({ children }) {
     setSettings(DEFAULT_SETTINGS);
   }, []);
 
-  // Load settings on mount
+  // Load settings on mount - only if authenticated
   useEffect(() => {
+    // Don't load settings if still initializing or not authenticated
+    if (isInitializing || !isAuthenticated) {
+      setLoading(false); // Not loading if not authenticated
+      return;
+    }
+
     loadSettings();
-  }, [loadSettings]);
+  }, [loadSettings, isAuthenticated, isInitializing]);
 
   const value = {
     settings,
@@ -92,6 +100,8 @@ export function GitHubSettingsProvider({ children }) {
     getOrCreateSettings,
     resetToDefaults,
     DEFAULT_SETTINGS,
+    isAuthenticated,
+    isInitializing,
   };
 
   return (

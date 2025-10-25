@@ -10,7 +10,7 @@ import MarkdownParser from './MarkdownParser';
 export class SpellCheckService {
   constructor(chunkSize = 1000) {
     this.speller = null;
-    this.poolSize = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2));
+    this.poolSize = Math.max(1, Math.min(4, navigator.hardwareConcurrency || 2)); // Restored original logic - caching prevents redundant loading
     this.workerPool = new SpellCheckWorkerPool(this.poolSize);
     this.chunkSize = chunkSize;
     this.progressiveCheckState = {
@@ -26,14 +26,9 @@ export class SpellCheckService {
   async init() {
     if (this.speller) return;
     try {
-      const [affResponse, dicResponse] = await Promise.all([
-        fetch('/dictionary/index.aff'),
-        fetch('/dictionary/index.dic')
-      ]);
-      const aff = await affResponse.text();
-      const dic = await dicResponse.text();
-
+      // Only initialize the worker pool - workers will handle dictionary loading
       await this.workerPool.init();
+      this.speller = true; // Mark as initialized to prevent re-initialization
     } catch (err) {
       console.error('SpellCheckService init error', err);
     }

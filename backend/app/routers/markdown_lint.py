@@ -1,7 +1,7 @@
 """Markdown Lint API Router - Proxy to markdown-lint-service."""
 
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 from urllib.parse import unquote
 
 import httpx
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_current_user_optional
 from app.database import get_db
 from app.models import User
 from app.services.markdown_lint_rule import MarkdownLintRuleService
@@ -57,18 +57,20 @@ class RuleConfigurationResponse(BaseModel):
 @router.post("/process", response_model=LintResponse)
 async def process_markdown(
     request: LintRequest,
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Process markdown text for linting issues.
 
     Proxies the request to the internal markdown-lint-service.
-    Adds user context and forwards the request.
+    Authentication is optional - authenticated users get full access,
+    unauthenticated users are rate-limited by nginx.
     """
     settings = get_settings()
     lint_service_url = settings.markdown_lint_service_url + "/lint"
 
-    logger.info(f"Processing markdown lint request for user {current_user.id}, text length: {len(request.text)}")
+    user_context = f"user {current_user.id}" if current_user else "unauthenticated user"
+    logger.info(f"Processing markdown lint request for {user_context}, text length: {len(request.text)}")
 
     try:
         async with httpx.AsyncClient(timeout=30.0) as client:

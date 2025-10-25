@@ -101,6 +101,30 @@ async def get_current_user(
     return user
 
 
+async def get_current_user_optional(
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+    db: AsyncSession = Depends(get_db),
+) -> Optional[User]:
+    """Get current authenticated user, or None if not authenticated."""
+    if not credentials:
+        return None
+
+    try:
+        payload = jwt.decode(
+            credentials.credentials,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+        )
+        email = payload.get("sub")
+        if not isinstance(email, str) or not email:
+            return None
+    except JWTError:
+        return None
+
+    user = await get_user_by_email(db, email=email)
+    return user
+
+
 async def get_current_active_user(
     current_user: User = Depends(get_current_user),
 ) -> User:

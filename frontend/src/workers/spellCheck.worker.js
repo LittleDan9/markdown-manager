@@ -5,10 +5,34 @@ let speller = null;
 let customWordSet = new Set();
 let affData = null;
 let dicData = null;
+let isLoading = false;
+let loadPromise = null;
 
 async function loadDictionary() {
-    if (speller) return;
+    // Return existing promise if already loading
+    if (isLoading && loadPromise) {
+      return loadPromise;
+    }
+
+    // Return immediately if already loaded
+    if (speller) return Promise.resolve();
+
+    // Set loading flag and create promise
+    isLoading = true;
+    loadPromise = loadDictionaryInternal();
+
     try {
+      await loadPromise;
+    } finally {
+      isLoading = false;
+      loadPromise = null;
+    }
+}
+
+async function loadDictionaryInternal() {
+    try {
+      console.log('[SpellCheckWorker] Loading dictionary files...');
+
       if (!affData) {
         // Use self.location to get the correct base URL in worker context
         const baseUrl = self.location.origin;
@@ -17,7 +41,9 @@ async function loadDictionary() {
           throw new Error(`Failed to load .aff file: ${affResponse.status} ${affResponse.statusText}`);
         }
         affData = await affResponse.text();
+        console.log('[SpellCheckWorker] Loaded .aff file');
       }
+
       if (!dicData) {
         const baseUrl = self.location.origin;
         const dicResponse = await fetch(`${baseUrl}/dictionary/index.dic`);
@@ -25,10 +51,17 @@ async function loadDictionary() {
           throw new Error(`Failed to load .dic file: ${dicResponse.status} ${dicResponse.statusText}`);
         }
         dicData = await dicResponse.text();
+        console.log('[SpellCheckWorker] Loaded .dic file');
       }
+
       speller = nspell(affData, dicData);
+      console.log('[SpellCheckWorker] Dictionary initialized successfully');
     } catch (err) {
       console.error('[SpellCheckWorker] Error loading dictionary:', err);
+      // Reset state on error to allow retry
+      affData = null;
+      dicData = null;
+      speller = null;
       throw err;
     }
 }
