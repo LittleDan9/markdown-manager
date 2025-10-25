@@ -1,0 +1,18 @@
+{
+  "service": "spell-check",
+  "version": "1.0.0",
+  "performance": {
+    "maxTextSizeBytes": 1048576,
+    "timeoutMs": 30000,
+    "maxConcurrentRequests": 10
+  },
+  "dictionary": {
+    "defaultLanguage": "en-US",
+    "cacheSize": 1000,
+    "preloadDictionaries": ["en-US"]
+  },
+  "logging": {
+    "level": "info",
+    "includePerformanceMetrics": true
+  }
+}

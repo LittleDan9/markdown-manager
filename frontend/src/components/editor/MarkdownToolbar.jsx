@@ -14,7 +14,12 @@ const MarkdownToolbar = ({
   onSpellCheck,
   spellCheckProgress,
   onMarkdownLint,
-  markdownLintProgress
+  markdownLintProgress,
+  // Phase 5: New props for advanced spell check features
+  onSpellCheckSettings = () => {},
+  spellCheckSettings = {},
+  readabilityData = null,
+  serviceInfo = null
 }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
@@ -66,6 +71,11 @@ const MarkdownToolbar = ({
         buttonStyle={styles.button}
         spellCheckProgress={spellCheckProgress}
         markdownLintProgress={markdownLintProgress}
+        // Phase 5: Pass new props
+        onSpellCheckSettings={onSpellCheckSettings}
+        spellCheckSettings={spellCheckSettings}
+        readabilityData={readabilityData}
+        serviceInfo={serviceInfo}
       />
     </div>
   );

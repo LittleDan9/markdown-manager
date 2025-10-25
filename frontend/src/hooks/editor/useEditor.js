@@ -7,6 +7,7 @@ import useEditorListBehavior from './useEditorListBehavior';
 /**
  * Main orchestrating editor hook that composes all domain-specific hooks
  * Maintains backwards compatibility with the original useEditor API
+ * Phase 5: Enhanced with advanced spell check settings support
  * @param {Object} config - Configuration object
  * @returns {Object} Complete editor interface
  */
@@ -22,6 +23,16 @@ export default function useEditor({
   categoryId,
   getCategoryId,
   getFolderPath,
+
+  // Phase 5: Advanced spell check settings
+  spellCheckSettings = {
+    spelling: true,
+    grammar: true,
+    style: true,
+    readability: true,
+    styleGuide: 'none',
+    language: 'en-US'
+  },
 
   // Support for new config object approach (for future)
   config
@@ -47,12 +58,13 @@ export default function useEditor({
     onCursorLineChange
   });
 
-  // Spell check functionality
+  // Spell check functionality with Phase 5 settings
   const spellCheckResult = useEditorSpellCheck(
     editor,
     finalConfig.spellCheck.enabled,
     categoryId,
-    getFolderPath
+    getFolderPath,
+    spellCheckSettings
   );
 
   // Markdown linting functionality
@@ -82,10 +94,13 @@ export default function useEditor({
   return {
     editor,
 
-    // Spell check interface (only if enabled)
+    // Spell check interface (only if enabled) - Phase 5 enhanced
     spellCheck: finalConfig.spellCheck.enabled ? {
       progress: spellCheckResult.progress,
-      suggestionsMap: spellCheckResult.suggestionsMap
+      suggestionsMap: spellCheckResult.suggestionsMap,
+      readabilityData: spellCheckResult.readabilityData,
+      serviceInfo: spellCheckResult.serviceInfo,
+      allIssues: spellCheckResult.allIssues
     } : undefined,
 
     // Markdown lint interface (only if enabled)

@@ -1,0 +1,37 @@
+# Systemd service configuration for spell-check-service
+# Place in /etc/systemd/system/spell-check-service.service
+
+[Unit]
+Description=Spell Check Service for Markdown Manager
+After=network.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=spellcheck
+Group=spellcheck
+WorkingDirectory=/opt/markdown-manager/spell-check-service
+ExecStart=/usr/bin/node server.js
+Restart=always
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=SPELL_CHECK_PORT=8003
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/opt/markdown-manager/spell-check-service
+PrivateTmp=yes
+
+# Resource limits
+LimitNOFILE=65536
+MemoryLimit=512M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=spell-check-service
+
+[Install]
+WantedBy=multi-user.target
