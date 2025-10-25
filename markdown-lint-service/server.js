@@ -48,11 +48,30 @@ app.post('/lint', async (req, res) => {
         console.log(`Processing lint request - text length: ${text.length}, rules: ${Object.keys(rules).length}`);
 
         // Configure markdownlint options
+        // CRITICAL: markdownlint enables ALL rules by default when a config is provided
+        // We need to explicitly disable rules that aren't in the user's configuration
+        const allKnownRules = Object.keys(ruleDefinitions);
+        const processedConfig = {};
+
+        // Set all known rules to false first
+        for (const ruleId of allKnownRules) {
+            processedConfig[ruleId] = false;
+        }
+
+        // Then enable only the rules that the user wants
+        for (const [ruleId, ruleConfig] of Object.entries(rules)) {
+            if (ruleConfig !== false) {
+                processedConfig[ruleId] = ruleConfig;
+            }
+        }
+
+        console.log(`Processed config - enabled rules: ${Object.keys(rules).filter(key => rules[key] !== false).join(', ')}`);
+
         const options = {
             strings: {
                 'content': text  // markdownlint expects content as named string
             },
-            config: rules
+            config: processedConfig
         };
 
         // Run markdownlint
