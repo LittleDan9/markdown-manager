@@ -1,0 +1,23 @@
+{
+    "timestamp": "2025-10-25T10:08:34-04:00",
+    "config": {
+        "concurrent_users": 30,
+        "duration_seconds": 60,
+        "service_url": "http://localhost:8003"
+    },
+    "results": {
+        "total_requests": 11104,
+        "total_errors": 0,
+        "error_rate_percent": 0,
+        "requests_per_second": 185,
+        "average_response_time_ms": 47,
+        "workers_completed": 30
+    },
+    "performance_assessment": {
+        "latency": "Excellent
+Good",
+        "throughput": "Good",
+        "reliability": "Excellent
+Good"
+    }
+}
