@@ -1,12 +1,15 @@
 """PDF export endpoints."""
 import io
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.services.pdf_processor import PDFContentProcessor
 from app.services.export_service_client import export_service_client
+from app.services.pdf_image_processor import get_pdf_image_processor, PDFImageProcessor
 
 router = APIRouter()
 
@@ -20,13 +23,25 @@ class PDFExportRequest(BaseModel):
 
 
 @router.post("/export")
-async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
+async def export_pdf(
+    request: PDFExportRequest,
+    current_user: User = Depends(get_current_user),
+    pdf_image_processor: PDFImageProcessor = Depends(get_pdf_image_processor),
+) -> StreamingResponse:
     """Export HTML content as PDF using PDF service."""
     try:
         print(f"Exporting PDF for document: {request.document_name}")
 
-        # Use original content without processing for now to avoid corruption
-        processed_content = request.html_content
+        # Process images in HTML content for PDF embedding
+        try:
+            processed_content = await pdf_image_processor.process_html_for_pdf(
+                request.html_content, current_user.id
+            )
+            print("Successfully processed images for PDF export")
+        except Exception as e:
+            print(f"Error processing images for PDF: {e}")
+            # Continue with original content if image processing fails
+            processed_content = request.html_content
 
         # Still get document statistics for monitoring
         try:

@@ -94,6 +94,7 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
     enableMarkdownLint: true,
     enableKeyboardShortcuts: true,
     enableListBehavior: true,
+    enableImagePaste: true, // Explicitly enable image paste
     categoryId: () => categoryIdRef.current,
     getFolderPath: () => folderPathRef.current,
     spellCheckSettings // Phase 6: Pass current spell check settings

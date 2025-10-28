@@ -336,12 +336,8 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         return;
       }
 
+      // More aggressive throttling to reduce interference with scroll-to-line
       console.log('[SpellCheck] Editor layout change detected');
-
-      // Only clear markers if we're going to process the change
-      if (timeSinceLastChange >= LAYOUT_THROTTLE_DELAY) {
-        SpellCheckMarkers.clearMarkers(editor, suggestionsMap.current);
-      }
 
       // Clear existing timeout
       if (layoutChangeTimeout) {
@@ -349,8 +345,9 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         layoutChangeTimeout = null;
       }
 
-      // Authentication-aware throttling
-      if (timeSinceLastChange < LAYOUT_THROTTLE_DELAY) {
+      // Increased throttling delay to reduce frequency
+      const ENHANCED_THROTTLE_DELAY = LAYOUT_THROTTLE_DELAY * 2; // Double the delay
+      if (timeSinceLastChange < ENHANCED_THROTTLE_DELAY) {
         console.log('[SpellCheck] Layout change throttled, too frequent');
         return;
       }
@@ -362,7 +359,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
           spellCheckDocument(null, 0);
         }
         layoutChangeTimeout = null;
-      }, 2000); // 2 second debounce after throttle check
+      }, 3000); // Increased debounce delay from 2s to 3s
     });
 
     return () => {

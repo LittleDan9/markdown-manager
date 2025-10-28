@@ -121,6 +121,59 @@ md.renderer.rules.ordered_list_open = (tokens, idx, options, env, self) => {
   return `<${token.tag} ${lineAttr}>`;
 };
 
+// Images with enhanced handling for user images
+md.renderer.rules.image = (tokens, idx, options, env, self) => {
+  const token = tokens[idx];
+  const lineAttr = getLineAttr(tokens, idx);
+  
+  // Get image attributes
+  const src = token.attrGet('src') || '';
+  const alt = token.content || '';
+  const title = token.attrGet('title') || '';
+  
+  // Check if this is a user-uploaded image
+  const isUserImage = src.includes('/api/images/') || src.includes('/images/');
+  
+  // Build attributes
+  const titleAttr = title ? `title="${MarkdownIt().utils.escapeHtml(title)}"` : '';
+  const altAttr = `alt="${MarkdownIt().utils.escapeHtml(alt)}"`;
+  
+  if (isUserImage) {
+    // Enhanced handling for user images with lazy loading and responsive behavior
+    return `
+      <div class="user-image-container" ${lineAttr}>
+        <img 
+          src="${MarkdownIt().utils.escapeHtml(src)}" 
+          ${altAttr} 
+          ${titleAttr}
+          class="user-image img-fluid" 
+          loading="lazy"
+          style="max-width: 100%; height: auto; cursor: pointer;"
+          onclick="window.openImageModal && window.openImageModal(this)"
+          onerror="this.style.filter='grayscale(100%)'; this.title='Image failed to load';"
+        />
+        ${title ? `<div class="image-caption text-muted text-center mt-1 small">${MarkdownIt().utils.escapeHtml(title)}</div>` : ''}
+      </div>
+    `;
+  } else {
+    // Standard image handling for external images
+    return `
+      <div class="image-container" ${lineAttr}>
+        <img 
+          src="${MarkdownIt().utils.escapeHtml(src)}" 
+          ${altAttr} 
+          ${titleAttr}
+          class="external-image img-fluid" 
+          loading="lazy"
+          style="max-width: 100%; height: auto;"
+          onerror="this.style.filter='grayscale(100%)'; this.title='Image failed to load';"
+        />
+        ${title ? `<div class="image-caption text-muted text-center mt-1 small">${MarkdownIt().utils.escapeHtml(title)}</div>` : ''}
+      </div>
+    `;
+  }
+};
+
 export function render(content) {
   return md.render(content)
 }

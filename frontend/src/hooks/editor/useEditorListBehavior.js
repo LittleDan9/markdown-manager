@@ -147,52 +147,60 @@ export default function useEditorListBehavior(editor, enabled = true) {
     });
 
     // Tab key handler for list indentation
-    const tabKeyHandler = editor.addCommand(
-      monaco.KeyCode.Tab,
-      () => {
-        const model = editor.getModel();
-        const position = editor.getPosition();
-        const lineNumber = position.lineNumber;
-        const currentLine = model.getLineContent(lineNumber);
+    let tabKeyHandler = null;
+    try {
+      tabKeyHandler = editor.addCommand(
+        monaco.KeyCode.Tab,
+        () => {
+          const model = editor.getModel();
+          const position = editor.getPosition();
+          const lineNumber = position.lineNumber;
+          const currentLine = model.getLineContent(lineNumber);
 
-        // Don't interfere if we're in a code fence
-        if (isInCodeFence(model, lineNumber)) {
-          return false; // Let default behavior handle it
-        }
-
-        const listPattern = getListPattern(currentLine);
-
-        if (listPattern) {
-          // Add one level of indentation (2 spaces)
-          let newPrefix;
-          if (listPattern.type === 'ordered') {
-            // For ordered lists, reset to 1 at the new indentation level
-            newPrefix = `${listPattern.indentation}  1. `;
-          } else {
-            // For unordered lists, keep the same marker
-            newPrefix = `${listPattern.indentation}  ${listPattern.marker} `;
+          // Don't interfere if we're in a code fence
+          if (isInCodeFence(model, lineNumber)) {
+            return false; // Let default behavior handle it
           }
-          const newLine = `${newPrefix}${listPattern.content}`;
 
-          const range = new monaco.Range(lineNumber, 1, lineNumber, currentLine.length + 1);
-          editor.executeEdits('listBehavior', [{
-            range,
-            text: newLine
-          }]);
+          const listPattern = getListPattern(currentLine);
 
-          // Move cursor to maintain position relative to content
-          const newPosition = new monaco.Position(lineNumber, newPrefix.length + 1);
-          editor.setPosition(newPosition);
+          if (listPattern) {
+            // Add one level of indentation (2 spaces)
+            let newPrefix;
+            if (listPattern.type === 'ordered') {
+              // For ordered lists, reset to 1 at the new indentation level
+              newPrefix = `${listPattern.indentation}  1. `;
+            } else {
+              // For unordered lists, keep the same marker
+              newPrefix = `${listPattern.indentation}  ${listPattern.marker} `;
+            }
+            const newLine = `${newPrefix}${listPattern.content}`;
 
-          return true;
+            const range = new monaco.Range(lineNumber, 1, lineNumber, currentLine.length + 1);
+            editor.executeEdits('listBehavior', [{
+              range,
+              text: newLine
+            }]);
+
+            // Move cursor to maintain position relative to content
+            const newPosition = new monaco.Position(lineNumber, newPrefix.length + 1);
+            editor.setPosition(newPosition);
+
+            return true;
+          }
+
+          return false; // Let default behavior handle non-list lines
         }
-
-        return false; // Let default behavior handle non-list lines
-      }
-    );
+      );
+    } catch (error) {
+      console.warn('Failed to register tab key handler:', error);
+      tabKeyHandler = null;
+    }
 
     // Shift+Tab key handler for list outdentation
-    const shiftTabKeyHandler = editor.addCommand(
+    let shiftTabKeyHandler = null;
+    try {
+      shiftTabKeyHandler = editor.addCommand(
       monaco.KeyMod.Shift | monaco.KeyCode.Tab,
       () => {
         const model = editor.getModel();
@@ -241,16 +249,20 @@ export default function useEditorListBehavior(editor, enabled = true) {
         return false; // Let default behavior handle non-list lines or when can't outdent
       }
     );
+    } catch (error) {
+      console.warn('Failed to register shift+tab key handler:', error);
+      shiftTabKeyHandler = null;
+    }
 
     // Cleanup function
     return () => {
-      if (keyDownDisposable) {
+      if (keyDownDisposable && typeof keyDownDisposable.dispose === 'function') {
         keyDownDisposable.dispose();
       }
-      if (tabKeyHandler) {
+      if (tabKeyHandler && typeof tabKeyHandler.dispose === 'function') {
         tabKeyHandler.dispose();
       }
-      if (shiftTabKeyHandler) {
+      if (shiftTabKeyHandler && typeof shiftTabKeyHandler.dispose === 'function') {
         shiftTabKeyHandler.dispose();
       }
     };

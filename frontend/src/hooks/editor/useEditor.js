@@ -3,6 +3,7 @@ import useEditorSpellCheck from './useEditorSpellCheck';
 import useEditorMarkdownLint from './useEditorMarkdownLint';
 import useEditorKeyboardShortcuts from './useEditorKeyboardShortcuts';
 import useEditorListBehavior from './useEditorListBehavior';
+import useEditorImagePaste from './useEditorImagePaste';
 
 /**
  * Main orchestrating editor hook that composes all domain-specific hooks
@@ -20,6 +21,7 @@ export default function useEditor({
   enableMarkdownLint = true,
   enableKeyboardShortcuts = true,
   enableListBehavior = true,
+  enableImagePaste = true,
   categoryId,
   getCategoryId,
   getFolderPath,
@@ -42,12 +44,14 @@ export default function useEditor({
     spellCheck: { enabled: enableSpellCheck, ...(config.spellCheck || {}) },
     markdownLint: { enabled: enableMarkdownLint, ...(config.markdownLint || {}) },
     keyboardShortcuts: { enabled: enableKeyboardShortcuts, ...(config.keyboardShortcuts || {}) },
-    listBehavior: { enabled: enableListBehavior, ...(config.listBehavior || {}) }
+    listBehavior: { enabled: enableListBehavior, ...(config.listBehavior || {}) },
+    imagePaste: { enabled: enableImagePaste, ...(config.imagePaste || {}) }
   } : {
     spellCheck: { enabled: enableSpellCheck },
     markdownLint: { enabled: enableMarkdownLint },
     keyboardShortcuts: { enabled: enableKeyboardShortcuts },
-    listBehavior: { enabled: enableListBehavior }
+    listBehavior: { enabled: enableListBehavior },
+    imagePaste: { enabled: enableImagePaste }
   };
 
   // Core editor setup
@@ -77,6 +81,9 @@ export default function useEditor({
 
   // List behavior
   useEditorListBehavior(editor, finalConfig.listBehavior.enabled);
+
+  // Image paste functionality
+  const imagePasteResult = useEditorImagePaste(editor, finalConfig.imagePaste.enabled);
 
   // Keyboard shortcuts (depends on other hooks' trigger functions)
   useEditorKeyboardShortcuts(
@@ -115,6 +122,11 @@ export default function useEditor({
 
     // External trigger functions (for services)
     triggerSpellCheck: spellCheckResult.triggerSpellCheck,
-    triggerMarkdownLint: markdownLintResult.triggerMarkdownLint
+    triggerMarkdownLint: markdownLintResult.triggerMarkdownLint,
+
+    // Image paste interface
+    imagePaste: finalConfig.imagePaste.enabled ? {
+      handlePaste: imagePasteResult.handlePaste
+    } : undefined
   };
 }

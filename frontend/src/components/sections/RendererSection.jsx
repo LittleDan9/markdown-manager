@@ -63,6 +63,8 @@ function RendererSection({
   // Only show spinner for document operations, not content changes
   const showSpinner = (isInitializing || sharedLoading || documentLoading) && !hasRendered;
 
+  const scrollToLineValue = isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null);
+
   return (
     <>
       {isSharedView && !sharedDocument && !sharedLoading ? (
@@ -87,7 +89,7 @@ function RendererSection({
         <Renderer
           content={content}
           onRenderHTML={onRenderHTML}
-          scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
+          scrollToLine={scrollToLineValue}
           fullscreenPreview={fullscreenPreview}
           onFirstRender={handleFirstRender}
           showLoadingOverlay={showSpinner}

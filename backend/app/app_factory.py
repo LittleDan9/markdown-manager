@@ -25,6 +25,7 @@ from app.routers import (
     github_settings,
     icons,
     iconify_router,
+    images,
     markdown_lint,
     monitoring,
     pdf,
@@ -117,6 +118,9 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(admin_router, tags=["admin"])  # Already has /admin prefix
     app.include_router(
         icons.router  # Icon service endpoints - tags already defined in router
+    )
+    app.include_router(
+        images.router, tags=["images"]  # Image management endpoints - nginx handles /api prefix
     )
     app.include_router(
         iconify_router.router  # Iconify browser endpoints

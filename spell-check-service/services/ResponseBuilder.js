@@ -195,6 +195,38 @@ class ResponseBuilder {
   }
 
   /**
+   * Summarize component health status
+   */
+  summarizeComponentHealth(services = {}) {
+    const components = {};
+
+    Object.entries(services).forEach(([name, service]) => {
+      try {
+        if (service && typeof service === 'object') {
+          // Check if service has health check method
+          if (typeof service.getHealth === 'function') {
+            components[name] = service.getHealth();
+          } else if (typeof service.isReady === 'function') {
+            components[name] = { status: service.isReady() ? 'healthy' : 'unhealthy' };
+          } else {
+            // Assume healthy if service exists and initialized
+            components[name] = { status: 'healthy' };
+          }
+        } else {
+          components[name] = { status: 'unavailable' };
+        }
+      } catch (error) {
+        components[name] = { 
+          status: 'error', 
+          error: error.message 
+        };
+      }
+    });
+
+    return components;
+  }
+
+  /**
    * Build error response
    */
   buildErrorResponse(error, statusCode, req = null) {

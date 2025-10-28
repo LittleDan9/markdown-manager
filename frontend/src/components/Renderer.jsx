@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import ReactDOM from "react-dom/client";
+import { Modal, Button } from 'react-bootstrap';
 import { render } from "@/services/rendering";
 import { useTheme, ThemeProvider } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
@@ -27,6 +28,8 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
   const { highlightedBlocks, setHighlightedBlocks, previewHTML, setPreviewHTML, currentDocument } = useDocumentContext();
   const [html, setHtml] = useState("");
   const [isRendering, setIsRendering] = useState(false);
+  const [showImageModal, setShowImageModal] = useState(false);
+  const [selectedImage, setSelectedImage] = useState(null);
   const previewScrollRef = useRef(null);
   const hasCalledFirstRender = useRef(false);
   const diagramControlsRefs = useRef(new Map());
@@ -40,6 +43,22 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
     updateTheme,
     currentTheme: mermaidTheme
   } = useMermaid(theme);
+
+  // Setup global image modal function
+  useEffect(() => {
+    window.openImageModal = (imageElement) => {
+      setSelectedImage({
+        src: imageElement.src,
+        alt: imageElement.alt,
+        title: imageElement.title
+      });
+      setShowImageModal(true);
+    };
+
+    return () => {
+      delete window.openImageModal;
+    };
+  }, []);
 
   // Automatic theme updates - no manual checking needed
   useEffect(() => {
@@ -157,6 +176,12 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
   // Render Markdown to HTML (when content changes or component mounts)
   useEffect(() => {
+    console.log("MARKDOWN RENDER TRIGGERED - cursor change causing re-render?", {
+      contentLength: content?.length,
+      documentId: currentDocument?.id,
+      timestamp: new Date().toISOString()
+    });
+
     setIsRendering(true);
     // Reset the first render flag when content changes or document changes
     hasCalledFirstRender.current = false;
@@ -279,13 +304,51 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
 
   // Scroll to line functionality
   useEffect(() => {
-    if (scrollToLine && previewScrollRef.current) {
-      const el = previewScrollRef.current.querySelector(`[data-line='${scrollToLine}']`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
+    if (scrollToLine && previewScrollRef.current && !isRendering && previewHTML) {
+      // Add a small delay to ensure DOM is fully updated
+      const scrollTimeout = setTimeout(() => {
+        let el = previewScrollRef.current?.querySelector(`[data-line='${scrollToLine}']`);
+
+        if (!el) {
+          // If exact line not found, find the closest line
+          const allDataLineElements = previewScrollRef.current?.querySelectorAll('[data-line]');
+          const availableLines = Array.from(allDataLineElements || [])
+            .map(element => ({
+              lineNumber: parseInt(element.getAttribute('data-line')),
+              element
+            }))
+            .filter(item => !isNaN(item.lineNumber))
+            .sort((a, b) => a.lineNumber - b.lineNumber);
+
+          if (availableLines.length > 0) {
+            // Find the closest line (looking both forward and backward)
+            let closestLine = availableLines[0];
+            let minDistance = Math.abs(availableLines[0].lineNumber - scrollToLine);
+
+            for (const line of availableLines) {
+              const distance = Math.abs(line.lineNumber - scrollToLine);
+              if (distance < minDistance) {
+                closestLine = line;
+                minDistance = distance;
+              }
+            }
+
+            el = closestLine.element;
+            console.log(`Line ${scrollToLine} not found, scrolling to closest line ${closestLine.lineNumber} (distance: ${minDistance})`);
+          }
+        }
+
+        if (el) {
+          console.log('Scrolling to line:', scrollToLine);
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        } else {
+          console.log('No elements with data-line attributes found');
+        }
+      }, 100);
+
+      return () => clearTimeout(scrollTimeout);
     }
-  }, [scrollToLine, previewHTML]);
+  }, [scrollToLine, isRendering, previewHTML]);
 
   // Call onFirstRender when ready
   useEffect(() => {
@@ -395,6 +458,50 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
           </div>
         )}
       </div>
+
+      {/* Image Modal */}
+      <Modal
+        show={showImageModal}
+        onHide={() => setShowImageModal(false)}
+        size="xl"
+        centered
+        backdrop="static"
+      >
+        <Modal.Header closeButton>
+          <Modal.Title>
+            {selectedImage?.title || selectedImage?.alt || 'Image'}
+          </Modal.Title>
+        </Modal.Header>
+        <Modal.Body className="text-center">
+          {selectedImage && (
+            <img
+              src={selectedImage.src}
+              alt={selectedImage.alt}
+              className="img-fluid"
+              style={{ maxHeight: '70vh', maxWidth: '100%' }}
+            />
+          )}
+        </Modal.Body>
+        <Modal.Footer>
+          <Button variant="secondary" onClick={() => setShowImageModal(false)}>
+            Close
+          </Button>
+          {selectedImage && (
+            <Button
+              variant="primary"
+              onClick={() => {
+                const link = document.createElement('a');
+                link.href = selectedImage.src;
+                link.download = selectedImage.alt || 'image';
+                link.click();
+              }}
+            >
+              <i className="bi bi-download me-2"></i>
+              Download
+            </Button>
+          )}
+        </Modal.Footer>
+      </Modal>
     </div>
   );
 }

@@ -59,6 +59,7 @@ const MarkdownToolbar = ({
         insertHorizontalRule={insertHorizontalRule}
         buttonVariant={buttonVariant}
         buttonStyle={styles.button}
+        editorRef={editorRef}
       />
 
       <ToolbarSeparator style={styles.separator} />
