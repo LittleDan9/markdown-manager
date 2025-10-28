@@ -38,12 +38,12 @@ export function useImageManagement() {
     try {
       const result = await imageApi.uploadImage(file, options);
       showSuccess(`Uploaded ${file.name}`);
-      
+
       // Add to local state
       if (result.image) {
         setImages(prev => [result.image, ...prev]);
       }
-      
+
       return result;
     } catch (error) {
       console.error('Failed to upload image:', error);
@@ -59,22 +59,22 @@ export function useImageManagement() {
     setUploading(true);
     try {
       const results = await imageApi.uploadMultipleImages(files, options);
-      
+
       if (results.successful_uploads > 0) {
         showSuccess(`Successfully uploaded ${results.successful_uploads} image${results.successful_uploads > 1 ? 's' : ''}`);
-        
+
         // Add successful uploads to local state
         const newImages = results.results
           .filter(r => r.success && r.image)
           .map(r => r.image);
-        
+
         setImages(prev => [...newImages, ...prev]);
       }
-      
+
       if (results.failed_uploads > 0) {
         showError(`Failed to upload ${results.failed_uploads} image${results.failed_uploads > 1 ? 's' : ''}`);
       }
-      
+
       return results;
     } catch (error) {
       console.error('Failed to upload images:', error);
@@ -91,12 +91,12 @@ export function useImageManagement() {
     try {
       const result = await imageApi.uploadFromClipboard(imageData, filename, options);
       showSuccess('Uploaded image from clipboard');
-      
+
       // Add to local state
       if (result.image) {
         setImages(prev => [result.image, ...prev]);
       }
-      
+
       return result;
     } catch (error) {
       console.error('Failed to upload from clipboard:', error);
@@ -105,17 +105,15 @@ export function useImageManagement() {
     } finally {
       setUploading(false);
     }
-  }, [showSuccess, showError]);
-
-  // Delete image
+  }, [showSuccess, showError]);  // Delete image
   const deleteImage = useCallback(async (filename) => {
     try {
       await imageApi.deleteImage(filename);
       showSuccess(`Deleted ${filename}`);
-      
+
       // Remove from local state
       setImages(prev => prev.filter(img => img.filename !== filename));
-      
+
       return true;
     } catch (error) {
       console.error('Failed to delete image:', error);
@@ -143,7 +141,7 @@ export function useImageManagement() {
 
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
-      
+
       // Check if item is an image
       if (item.type.startsWith('image/')) {
         const file = item.getAsFile();
@@ -172,7 +170,7 @@ export function useImageManagement() {
         }
       }
     }
-    
+
     return false;
   }, [uploadFromClipboard, showError]);
 
@@ -196,7 +194,7 @@ export function useImageManagement() {
     images,
     loading,
     uploading,
-    
+
     // Actions
     loadImages,
     uploadImage,
@@ -205,7 +203,7 @@ export function useImageManagement() {
     deleteImage,
     getImageMetadata,
     handlePasteImage,
-    
+
     // Utilities
     generateMarkdown,
     getImageUrl,

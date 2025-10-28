@@ -29,11 +29,11 @@ class ImageApi extends Api {
    */
   async uploadMultipleImages(imageFiles, options = {}) {
     const formData = new FormData();
-    
+
     imageFiles.forEach((file) => {
       formData.append('files', file);
     });
-    
+
     formData.append('optimize_for_pdf', options.optimizeForPdf !== false);
     formData.append('create_thumbnail', options.createThumbnail !== false);
 
@@ -125,13 +125,13 @@ class ImageApi extends Api {
       console.error('Cannot fetch image blob: userId is required');
       return null;
     }
-    
+
     try {
-      const response = await this.apiCall(`/images/${userId}/${filename}`, 'GET', null, {}, { 
+      const response = await this.apiCall(`/images/${userId}/${filename}`, 'GET', null, {}, {
         responseType: 'blob',
-        timeout: 30000 
+        timeout: 30000
       });
-      
+
       // Create a blob URL from the response
       const blob = response.data;
       return URL.createObjectURL(blob);
@@ -160,13 +160,13 @@ class ImageApi extends Api {
       console.error('Cannot fetch thumbnail blob: userId is required');
       return null;
     }
-    
+
     try {
-      const response = await this.apiCall(`/images/thumbnails/${userId}/${filename}`, 'GET', null, {}, { 
+      const response = await this.apiCall(`/images/thumbnails/${userId}/${filename}`, 'GET', null, {}, {
         responseType: 'blob',
-        timeout: 30000 
+        timeout: 30000
       });
-      
+
       // Create a blob URL from the response
       const blob = response.data;
       return URL.createObjectURL(blob);
@@ -181,12 +181,12 @@ class ImageApi extends Api {
    */
   generateMarkdown(image, altText = '', title = '', userId = null) {
     const url = this.getImageUrl(image.filename, userId);
-    
+
     if (!url) {
       console.error('Cannot generate markdown: failed to get image URL');
       return '';
     }
-    
+
     if (title) {
       return `![${altText}](${url} "${title}")`;
     }
