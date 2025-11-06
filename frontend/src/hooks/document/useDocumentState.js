@@ -203,6 +203,21 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         const localDocs = docs.filter(doc => String(doc.id).startsWith('doc_'));
         currentDoc = isAuthenticated ? docs[0] : (localDocs[0] || DocumentService.createNewDocument());
       }
+
+      // If we found a document by ID, load the full document with metadata
+      if (currentDoc && currentDoc.id) {
+        try {
+          const fullDoc = await documentsApi.getDocument(currentDoc.id);
+          if (fullDoc) {
+            currentDoc = fullDoc;
+            console.log('Loaded current document with metadata:', currentDoc.image_metadata ? 'has metadata' : 'no metadata');
+          }
+        } catch (error) {
+          console.warn('Failed to load full document, using basic version:', error);
+          // Continue with the basic document from the list
+        }
+      }
+
       setCurrentDocument(currentDoc);
       setContent(currentDoc.content || '');
       // Clear preview HTML and highlighted blocks when loading initial document
@@ -221,10 +236,64 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   }, [documents]);
 
   useEffect(() => {
-    if (currentDocument && currentDocument.content !== content) {
-      setContent(currentDocument.content || '');
+    // Sync content with currentDocument when there's a mismatch
+    // This ensures the content state stays in sync with the current document
+    if (currentDocument) {
+      const documentContent = currentDocument.content || '';
+      const currentContent = content || '';
+
+      console.log('useDocumentState: useEffect triggered', {
+        documentId: currentDocument.id,
+        documentName: currentDocument.name,
+        documentContent: documentContent.length,
+        currentContent: currentContent.length,
+        areEqual: documentContent === currentContent
+      });
+
+      // Always sync content when currentDocument changes, regardless of content equality
+      // This ensures the editor receives the correct content for the new document
+      if (documentContent !== currentContent) {
+        console.log('useDocumentState: Content mismatch detected, syncing', {
+          documentContent: documentContent.length,
+          currentContent: currentContent.length,
+          documentId: currentDocument.id,
+          documentName: currentDocument.name
+        });
+      } else {
+        console.log('useDocumentState: Content equal but forcing sync due to document change', {
+          documentId: currentDocument.id,
+          documentName: currentDocument.name
+        });
+      }
+
+      // Use immediate sync for document changes, but add timeout for potential
+      // race conditions during loadDocument operations
+      const shouldUseTimeout = currentDocument.id !== null; // Only use timeout for existing documents
+
+      if (shouldUseTimeout) {
+        // Add a small delay for existing documents to handle loadDocument race conditions
+        const timer = setTimeout(() => {
+          setContent(prevContent => {
+            const prevContentStr = prevContent || '';
+            const docContentStr = currentDocument.content || '';
+
+            console.log('useDocumentState: Delayed sync with currentDocument', {
+              documentContent: docContentStr.length,
+              previousContent: prevContentStr.length,
+              documentId: currentDocument.id
+            });
+            return docContentStr;
+          });
+        }, 0);
+
+        return () => clearTimeout(timer);
+      } else {
+        // Immediate sync for new documents (id: null) - always force update
+        console.log('useDocumentState: Immediate sync for new document');
+        setContent(documentContent);
+      }
     }
-  }, [currentDocument]);
+  }, [currentDocument]); // Remove content from dependencies to avoid sync loops
 
   useEffect(() => {
     // Skip authentication-based state changes when in shared view
@@ -258,9 +327,27 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   }, []);
 
   const createDocument = useCallback(() => {
+    console.log('createDocument: Starting new document creation');
     const newDoc = DocumentService.createNewDocument();
-    setCurrentDocument(newDoc);
+    console.log('createDocument: Created new document', {
+      id: newDoc.id,
+      name: newDoc.name,
+      content: newDoc.content?.length || 0,
+      contentValue: newDoc.content
+    });
+
+    console.log('createDocument: Current state before update', {
+      currentDocumentId: currentDocument?.id,
+      currentDocumentContent: currentDocument?.content?.length || 0,
+      contentState: content?.length || 0
+    });
+
+    // First clear the content explicitly
     setContent('');
+
+    // Then set the new document - this ensures content is empty when document changes
+    setCurrentDocument(newDoc);
+
     // Clear the preview HTML when creating a new document
     if (setPreviewHTML) {
       setPreviewHTML('');
@@ -269,13 +356,12 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     setHighlightedBlocks({});
     DocumentStorageService.setCurrentDocument(newDoc);
 
-    // Clear current document on backend if authenticated
-    if (isAuthenticated && token) {
-      documentsApi.setCurrentDocumentId(null).catch(err => {
-        console.warn('Failed to clear current document on backend:', err);
-      });
-    }
-  }, [setPreviewHTML, isAuthenticated, token]);
+    console.log('createDocument: Document creation completed, new state should be empty content');
+
+    // Note: We don't clear the current document on the backend when creating a new document
+    // because new documents don't have backend IDs, and the backend API doesn't support
+    // clearing the current document (it requires a valid doc_id)
+  }, [setPreviewHTML, isAuthenticated, token, currentDocument, content]);
 
   const loadDocument = useCallback(async (id) => {
     setLoading(true);
@@ -300,6 +386,11 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
 
       if (doc) {
+        console.log('loadDocument: Setting document and content', {
+          documentId: doc.id,
+          documentName: doc.name,
+          contentLength: doc.content?.length || 0
+        });
         setCurrentDocument(doc);
         setContent(doc.content || '');
         // Clear the preview HTML when loading a different document

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Index
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func, text
 
@@ -98,6 +98,12 @@ class Document(Base):  # type: ignore[misc]
         String(64), nullable=True, unique=True, index=True
     )
     is_shared: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Image metadata for crops and other image-specific settings
+    image_metadata: Mapped[dict | None] = mapped_column(
+        JSON, nullable=True,
+        comment="Image-specific metadata including crop information per document instance"
+    )
 
     # GitHub integration fields
     github_repository_id: Mapped[int | None] = mapped_column(

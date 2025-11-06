@@ -695,6 +695,22 @@ class DocumentsApi extends Api {
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex.substring(0, 12);
   }
+
+  /**
+   * Update image metadata for a document
+   * @param {number} documentId - Document ID
+   * @param {Object} metadata - Image metadata updates
+   * @returns {Promise<Object>} - Response from server
+   */
+  async updateImageMetadata(documentId, metadata) {
+    try {
+      const response = await this.apiCall(`/documents/${documentId}/image-metadata`, 'PATCH', metadata);
+      return response;
+    } catch (error) {
+      console.error('Failed to update image metadata:', error);
+      throw error;
+    }
+  }
 }
 
 export default new DocumentsApi();

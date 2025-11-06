@@ -92,8 +92,17 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
 
     // Check if value actually differs from current editor content
     const currentEditorValue = editor.getValue();
+
+    console.log('useEditorCore: External value effect triggered', {
+      incomingValue: value.length,
+      currentEditorValue: currentEditorValue.length,
+      lastEditorValue: lastEditorValue.current.length,
+      areEqual: value === currentEditorValue
+    });
+
     if (value === currentEditorValue) {
       lastEditorValue.current = value;
+      console.log('useEditorCore: Values are equal, skipping update');
       return;
     }
 
@@ -101,16 +110,28 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     // then this value change came from user typing (our onChange callback updated the parent).
     // BUT: On initial load, currentEditorValue might be empty while value has content
     const isInitialLoad = currentEditorValue === '' && value !== '';
-    const isUserTypingChange = currentEditorValue === lastEditorValue.current && !isInitialLoad;
+
+    // FIXED: Don't treat document clearing as user typing - when switching to empty content
+    // from non-empty content, this is always an external document change
+    const isDocumentClearing = currentEditorValue !== '' && value === '';
+    const isUserTypingChange = currentEditorValue === lastEditorValue.current && !isInitialLoad && !isDocumentClearing;
+
+    console.log('useEditorCore: Change analysis', {
+      isInitialLoad,
+      isDocumentClearing,
+      isUserTypingChange,
+      currentEqualsLast: currentEditorValue === lastEditorValue.current
+    });
 
     if (isUserTypingChange) {
       // This value change came from our own onChange callback - ignore it
       lastEditorValue.current = value; // Keep tracking in sync
+      console.log('useEditorCore: Detected user typing change, ignoring external value');
       return;
     }
 
     console.log('EXTERNAL VALUE EFFECT: External change detected', {
-      type: isInitialLoad ? 'initial-load' : 'external-change',
+      type: isInitialLoad ? 'initial-load' : isDocumentClearing ? 'document-clearing' : 'external-change',
       incomingLength: value.length,
       currentLength: currentEditorValue.length,
       lastEditorLength: lastEditorValue.current.length

@@ -19,13 +19,13 @@ import DocumentService from "@/services/core/DocumentService";
 import gitHubApi from "@/api/gitHubApi";
 import documentsApi from "@/api/documentsApi";
 
-function FileDropdown({ setDocumentTitle, setContent }) {
+function FileDropdown({ setDocumentTitle, setContent, renderedHTML }) {
   const { isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const {
     createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF,
-    categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
+    categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
@@ -56,7 +56,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   const [gitLoading, setGitLoading] = useState(false);
 
   // Consolidated file operations
-  const fileOps = useFileOperations({ setDocumentTitle, setContent, renderedHTML: previewHTML, theme });
+  const fileOps = useFileOperations({ setDocumentTitle, setContent, renderedHTML: renderedHTML, theme });
 
   // Load git status when document changes
   useEffect(() => {
@@ -483,7 +483,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={fileOps.handleExportPDF}
-                disabled={!previewHTML || previewHTML === ""}
+                disabled={!currentDocument || !content || content.trim() === ""}
               >
                 <i className="bi bi-filetype-pdf me-2"></i>Export PDF
               </Dropdown.Item>
@@ -502,7 +502,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={fileOps.handleExportPDF}
-                disabled={!previewHTML || previewHTML === ""}
+                disabled={!currentDocument || !content || content.trim() === ""}
               >
                 <i className="bi bi-filetype-pdf me-2"></i>Export PDF
               </Dropdown.Item>

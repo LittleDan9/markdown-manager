@@ -54,6 +54,7 @@ function App() {
       fullscreenPreview={fullscreenPreview}
       setFullscreenPreview={setFullscreenPreview}
       setShowIconBrowser={setShowIconBrowser}
+      renderedHTML={renderedHTML}
     />
   );
   const rendererComponent = (

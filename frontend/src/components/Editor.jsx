@@ -13,6 +13,15 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
   const { currentDocument, setCurrentDocument, setContent } = useDocumentContext();
   const { isAuthenticated } = useAuth();
 
+  // Debug: Log value prop changes
+  useEffect(() => {
+    console.log('Editor: value prop changed', {
+      valueLength: value?.length || 0,
+      documentId: currentDocument?.id,
+      documentName: currentDocument?.name
+    });
+  }, [value, currentDocument?.id]);
+
   // Phase 5: Advanced spell check settings state
   const [spellCheckSettings, setSpellCheckSettings] = useState({
     spelling: true,

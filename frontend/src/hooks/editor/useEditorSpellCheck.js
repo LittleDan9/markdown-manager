@@ -234,7 +234,9 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     };
   }, [enabled, editor]); // Removed debounceSpellCheck from dependencies
 
-  // Initial spell check when editor is ready - delayed to prevent immediate execution
+  // Initial spell check when editor is ready - DISABLED to prevent interference with crop operations
+  // The spell check will run on first content change or manual trigger instead
+  /*
   useEffect(() => {
     if (enabled && editor) {
       setTimeout(() => {
@@ -246,6 +248,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       }, 3000); // Increased from 100ms to 3 seconds
     }
   }, [enabled, editor, settings]); // Phase 5: Re-run when settings change
+  */
 
   // Periodic spell check - DISABLED to prevent excessive checking
   // Content change detection with debouncing is sufficient

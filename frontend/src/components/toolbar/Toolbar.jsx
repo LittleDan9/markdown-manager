@@ -13,7 +13,8 @@ function Toolbar({
   setFullscreenPreview,
   setContent,
   editorValue,
-  setShowIconBrowser
+  setShowIconBrowser,
+  renderedHTML
 }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error, isSharedView, sharedDocument, sharedLoading, sharedError } = useDocumentContext();
@@ -110,7 +111,7 @@ function Toolbar({
           ) : (
             // Normal document controls
             <>
-              <FileDropdown setDocumentTitle={setDocumentTitle} setContent={setContent} />
+              <FileDropdown setDocumentTitle={setDocumentTitle} setContent={setContent} renderedHTML={renderedHTML} />
               <div className="vr opacity-50"></div>
               <div className="d-flex align-items-center">
                 <button
