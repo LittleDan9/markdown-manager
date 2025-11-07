@@ -4,6 +4,7 @@ import DocumentToolbar from "@/components/toolbar/Document";
 import UserToolbar from "@/components/toolbar/User";
 import ShareButton from "@/components/shared/ShareButton";
 import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
+import { ActionButton } from "@/components/shared";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
@@ -113,24 +114,15 @@ function Toolbar({
               <FileDropdown setDocumentTitle={setDocumentTitle} setContent={setContent} />
               <div className="vr opacity-50"></div>
               <div className="d-flex align-items-center">
-                <button
-                  className="btn btn-link p-0 me-2 text-muted"
+                <ActionButton
+                  variant="link"
+                  size="sm"
+                  className="p-0 me-2 text-muted"
                   onClick={handleShowDocumentInfo}
                   disabled={!currentDocument?.id}
                   title={currentDocument?.id ? "View Document Information" : "No document loaded"}
-                  data-bs-toggle="tooltip"
-                  data-bs-placement="bottom"
-                  style={{
-                    border: 'none',
-                    background: 'none',
-                    fontSize: '1rem',
-                    lineHeight: 1,
-                    cursor: currentDocument?.id ? 'pointer' : 'default',
-                    opacity: currentDocument?.id ? 1 : 0.6
-                  }}
-                >
-                  <i className={`bi ${currentDocument?.repository_type === 'github' ? 'bi-github' : 'bi-file-earmark-text'}`}></i>
-                </button>
+                  icon={currentDocument?.repository_type === 'github' ? 'github' : 'file-earmark-text'}
+                />
                 <DocumentToolbar
                   documentTitle={documentTitle}
                   setDocumentTitle={setDocumentTitle}
@@ -145,37 +137,32 @@ function Toolbar({
             <ShareButton />
           )}
           {!isSharedView && (
-            <button
+            <ActionButton
               id="iconBrowserBtn"
-              className="btn btn-sm btn-outline-secondary"
-              data-bs-toggle="tooltip"
-              data-bs-placement="bottom"
+              variant="outline-secondary"
+              size="sm"
               title="Browse AWS Icons for Mermaid"
               onClick={(e) => {
                 e.preventDefault();
                 setShowIconBrowser(true);
               }}
-            >
-              <i className="bi bi-grid-3x3-gap"></i>
-            </button>
+              icon="grid-3x3-gap"
+            />
           )}
           {!isSharedView && (
-            <button
+            <ActionButton
               id="searchBtn"
-              className="btn btn-sm btn-outline-secondary"
-              data-bs-toggle="tooltip"
-              data-bs-placement="bottom"
+              variant="outline-secondary"
+              size="sm"
               title="Search (Coming Soon)"
               disabled
-            >
-              <i className="bi bi-search"></i>
-            </button>
+              icon="search"
+            />
           )}
-          <button
+          <ActionButton
             id="fullScreenBtn"
-            className="btn btn-sm btn-outline-secondary"
-            data-bs-toggle="tooltip"
-            data-bs-placement="bottom"
+            variant="outline-secondary"
+            size="sm"
             title={fullscreenPreview ? "Exit fullscreen preview" : "Open preview in fullscreen"}
             onClick={e => {
               e.preventDefault();
@@ -185,10 +172,9 @@ function Toolbar({
                 return !prev;
               });
             }}
+            icon={fullscreenPreview ? "fullscreen-exit" : "fullscreen"}
             style={{ display: isSharedView ? 'none' : 'inline-block' }}
-          >
-            <i className={fullscreenPreview ? "bi bi-fullscreen-exit" : "bi bi-fullscreen"}></i>
-          </button>
+          />
           {/* User Profile Dropdown (always show for login access) */}
           <UserToolbar
             handleThemeToggle={handleThemeToggle}

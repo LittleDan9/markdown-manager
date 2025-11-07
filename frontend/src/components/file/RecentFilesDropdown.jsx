@@ -2,12 +2,13 @@ import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNotification } from "@/components/NotificationProvider";
-import { DocumentStorageService } from "@/services/core";
+import { serviceFactory } from "@/services/injectors";
 import documentsApi from "@/api/documentsApi";
 
 function RecentFilesDropdown({ onFileSelect, onClose }) {
   const { isAuthenticated } = useAuth();
   const { showError } = useNotification();
+  const documentStorageService = serviceFactory.createDocumentStorageService();
   const [recentLocal, setRecentLocal] = useState([]);
   const [recentGitHub, setRecentGitHub] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -28,12 +29,12 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
           setRecentLocal(localFiles);
         } catch (error) {
           console.warn('Failed to load recent local documents from API, falling back to localStorage:', error);
-          const localFiles = DocumentStorageService.getRecentLocalDocuments(3);
+          const localFiles = documentStorageService.getRecentLocalDocuments(3);
           setRecentLocal(localFiles);
         }
       } else {
         // When not authenticated, use localStorage
-        const localFiles = DocumentStorageService.getRecentLocalDocuments(3);
+        const localFiles = documentStorageService.getRecentLocalDocuments(3);
         setRecentLocal(localFiles);
       }
 
@@ -68,7 +69,7 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
         }
       } else if (!isAuthenticated && file.id) {
         // For local documents when not authenticated, use local storage tracking
-        DocumentStorageService.markDocumentOpened(file.id);
+        documentStorageService.markDocumentOpened(file.id);
       }
 
       onFileSelect(file);

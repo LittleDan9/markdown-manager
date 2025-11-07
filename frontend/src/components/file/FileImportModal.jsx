@@ -1,6 +1,5 @@
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
-import { DocumentService } from "@/services/core";
 
 // ...existing code...
 

@@ -15,7 +15,6 @@ import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
-import DocumentService from "@/services/core/DocumentService";
 import gitHubApi from "@/api/gitHubApi";
 import documentsApi from "@/api/documentsApi";
 

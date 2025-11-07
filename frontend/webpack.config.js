@@ -327,8 +327,8 @@ module.exports = {
   // Performance hints
   performance: isProduction ? {
     hints: 'warning',
-    maxEntrypointSize: 1500000, // 1.5MB for production
-    maxAssetSize: 800000, // 800KB per asset
+    maxEntrypointSize: 8000000, // 8MB for production (increased from 1.5MB)
+    maxAssetSize: 2000000, // 2MB per asset (increased from 800KB)
     assetFilter: function(assetFilename) {
       return /\.(js|css)$/.test(assetFilename);
     }

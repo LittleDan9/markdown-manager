@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Button, ButtonGroup, Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
-import MermaidExportService from '../../services/rendering/MermaidExportService';
+import { serviceFactory } from '../../services/injectors';
 import DiagramFullscreenModal from './DiagramFullscreenModal';
 
 /**
@@ -19,6 +19,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   const [showFullscreen, setShowFullscreen] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
+  const mermaidExportService = serviceFactory.createMermaidExportService();
 
   // Use unified context system
   const { theme } = useTheme();
@@ -40,7 +41,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
   // Check if diagram needs GitHub conversion
   const needsConversion = diagramElement ?
-    MermaidExportService.needsGitHubConversion(diagramElement, diagramSource) : false;
+    mermaidExportService.needsGitHubConversion(diagramElement, diagramSource) : false;
 
   // Extract SVG content for fullscreen modal
   const getSvgContent = () => {
@@ -192,9 +193,9 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
         };
       }
 
-      const filename = MermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
+      const filename = mermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
 
-      await MermaidExportService.downloadDiagram(
+      await mermaidExportService.downloadDiagram(
         diagramElement,
         format,
         filename,

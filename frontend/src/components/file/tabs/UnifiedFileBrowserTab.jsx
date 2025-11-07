@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { Card, Dropdown, ButtonGroup } from "react-bootstrap";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
-import { LocalDocumentsProvider } from "../../../services/FileBrowserProviders";
-import { createFileBrowserProvider } from "../../../services/providers/UnifiedFileBrowserProvider";
+import { LocalDocumentsProvider } from "../../../services/fileBrowser/FileBrowserProviders";
+import { createFileBrowserProvider } from "../../../services/fileBrowser/providers/UnifiedFileBrowserProvider";
 import { useUnifiedFileOpening } from "../../../services/core/UnifiedFileOpeningService";
 import GitHubAccountList from "../../shared/GitHubAccountList";
 import GitHubRepositorySettings from "../../github/settings/GitHubRepositorySettings";

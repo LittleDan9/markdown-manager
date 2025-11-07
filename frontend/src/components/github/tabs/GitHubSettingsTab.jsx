@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Row, Col, Alert, Spinner, Card, Button } from 'react-bootstrap';
-import { useGitHubSettings } from '../../../contexts/GitHubSettingsProvider';
+import { useGitHubSettings } from '../../../providers/GitHubSettingsProvider';
 import { useNotification } from '../../NotificationProvider';
 
 export default function GitHubSettingsTab() {
@@ -166,7 +166,7 @@ export default function GitHubSettingsTab() {
                     Automatically convert architecture-beta diagrams and custom icons to static images when saving to GitHub.
                     This ensures your diagrams display correctly on GitHub, which doesn't support all Mermaid features.
                     <br />
-                    <strong>When enabled:</strong> Advanced diagrams will be replaced with image references and the original source 
+                    <strong>When enabled:</strong> Advanced diagrams will be replaced with image references and the original source
                     will be preserved in collapsible details sections (e.g., "📊 View diagram source (click to expand)").
                   </Form.Text>
                 </Form.Group>

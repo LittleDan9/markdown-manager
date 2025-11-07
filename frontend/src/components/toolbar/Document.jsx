@@ -5,7 +5,7 @@ import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
-import { DocumentService } from "@/services/core";
+import { serviceFactory } from "@/services/injectors";
 import { formatDistanceToNow } from "date-fns";
 
 function DocumentToolbar({ documentTitle, setDocumentTitle }) {
@@ -15,6 +15,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError } = useNotification();
+  const documentService = serviceFactory.createDocumentService();
   const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument } = useDocumentContext();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
@@ -434,7 +435,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
             const updatedCats = await deleteCategory(deleteTargetCategory, { deleteDocs, migrateTo });
             setCategories(updatedCats);
             setCurrentCategory("General");
-            setDocuments(DocumentService.getAllDocuments());
+            setDocuments(documentService.getAllDocuments());
             createDocument();
             setShowDeleteModal(false);
           } catch (err) {

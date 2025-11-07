@@ -11,7 +11,7 @@ import { NotificationProvider } from '../components/NotificationProvider.jsx';
 import { AuthProvider } from './AuthProvider';
 import { UserSettingsProvider } from './UserSettingsProvider';
 import { DocumentContextProvider } from './DocumentContextProvider.jsx';
-import { GitHubSettingsProvider } from '../contexts/GitHubSettingsProvider.jsx';
+import { GitHubSettingsProvider } from './GitHubSettingsProvider.jsx';
 
 /**
  * AppProviders - Centralized provider composition for the entire application

@@ -6,7 +6,7 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { Modal, Button } from 'react-bootstrap';
-import { useImageMetadata } from '../../services/ImageMetadataService';
+import { useImageMetadata } from '../../services/image/ImageMetadataService';
 import { useRendererContext } from '../renderer/RendererContext';
 import { applyCropStyles, getDefaultCropData } from '../renderer/utils/cropUtils';
 

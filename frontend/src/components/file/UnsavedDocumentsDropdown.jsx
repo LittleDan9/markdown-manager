@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
-import DocumentStorageService from "@/services/core/DocumentStorageService";
 
 function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
   const { documents } = useDocumentContext();

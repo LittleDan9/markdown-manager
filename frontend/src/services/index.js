@@ -13,6 +13,15 @@ export * from './rendering';
 // Icon services
 export * from './icons';
 
+// File browser services
+export * from './fileBrowser';
+
+// Image services
+export * from './image';
+
 // Pure utility services
 export * from './utilities';
+
+// Service injector for dependency injection
+export * from './injectors';
 

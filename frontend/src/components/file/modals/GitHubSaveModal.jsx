@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Form, Alert, Spinner, Row, Col, InputGroup, Badge, ProgressBar } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import { useNotification } from '@/components/NotificationProvider';
-import { useGitHubSettings } from '@/contexts/GitHubSettingsProvider';
+import { useGitHubSettings } from '@/providers/GitHubSettingsProvider';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import gitHubApi from '@/api/gitHubApi';
 import documentsApi from '@/api/documentsApi';

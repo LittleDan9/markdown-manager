@@ -4,10 +4,10 @@
     {
       "label": "dev-frontend",
       "type": "shell",
-      "command": "npm",
-      "args": ["run", "debug"],
+      "command": "docker",
+      "args": ["compose", "up", "frontend", "-d"],
       "options": {
-        "cwd": "${workspaceFolder}/frontend"
+        "cwd": "${workspaceFolder}"
       },
       "isBackground": true,
       "problemMatcher": {
@@ -22,7 +22,7 @@
         ],
         "background": {
           "activeOnStart": true,
-          "beginsPattern": ".*Starting.*webpack.*",
+          "beginsPattern": ".*frontend.*Starting.*",
           "endsPattern": ".*(Compiled successfully|Project is running at|webpack.*compiled).*"
         }
       },

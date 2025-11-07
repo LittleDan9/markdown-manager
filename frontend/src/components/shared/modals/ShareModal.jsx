@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Button, Form, InputGroup, Alert, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
-import CopyService from '@/services/ui/CopyService';
+import { serviceFactory } from '@/services/injectors';
 
 const ShareModal = ({ show, onHide, document, onShare, onUnshare }) => {
   const [isLoading, setIsLoading] = useState(false);
@@ -9,6 +9,7 @@ const ShareModal = ({ show, onHide, document, onShare, onUnshare }) => {
   const [localSharingEnabled, setLocalSharingEnabled] = useState(false);
   const { showSuccess, showError } = useNotification();
   const copyButtonRef = useRef(null);
+  const copyService = serviceFactory.createCopyService();
 
   /**
    * Generate share URL using current domain
@@ -85,8 +86,8 @@ const ShareModal = ({ show, onHide, document, onShare, onUnshare }) => {
       return;
     }
 
-    const success = await CopyService.copyToClipboard(shareUrl, copyButtonRef.current);
-    
+    const success = await copyService.copyToClipboard(shareUrl, copyButtonRef.current);
+
     if (!success) {
       showError('Failed to copy link to clipboard. Please copy manually.');
     }

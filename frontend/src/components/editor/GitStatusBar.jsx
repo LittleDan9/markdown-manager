@@ -17,13 +17,14 @@ import documentsApi from '../../api/documentsApi';
 import GitHubPullModal from '../github/modals/GitHubPullModal';
 import GitHubConflictModal from '../github/modals/GitHubConflictModal';
 import GitHubPRModal from '../github/modals/GitHubPRModal';
-import DocumentService from '../../services/core/DocumentService';
+import { serviceFactory } from '../../services/injectors';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
 const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }) => {
   // Always call ALL hooks - never do conditional returns
   const { isAuthenticated } = useAuth();
   const { syncWithBackend } = useDocumentContext();
+  const documentService = serviceFactory.createDocumentService();
   const [status, setStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [commitModalVisible, setCommitModalVisible] = useState(false);
@@ -238,7 +239,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
       // Sync with backend to update localStorage
       try {
         await syncWithBackend();
-        const updatedDoc = DocumentService.loadDocument(documentId);
+        const updatedDoc = documentService.loadDocument(documentId);
         if (updatedDoc && onDocumentUpdate) {
           onDocumentUpdate(updatedDoc);
         }
@@ -314,7 +315,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
     try {
       await syncWithBackend();
       // Force reload the current document from storage
-      const updatedDoc = DocumentService.loadDocument(documentId);
+      const updatedDoc = documentService.loadDocument(documentId);
       if (updatedDoc && onDocumentUpdate) {
         onDocumentUpdate(updatedDoc);
       }

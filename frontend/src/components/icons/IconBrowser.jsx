@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
 import { useLogger } from '../../providers/LoggerProvider';
-import { IconService } from '@/services/icons';
+import { serviceFactory } from '@/services/injectors';
+import { ActionButton } from '@/components/shared';
 import { cleanSvgBodyForBrowser } from '@/utils/svgUtils';
 
 const ITEMS_PER_ROW = 4;
@@ -21,6 +22,7 @@ const DIAGRAM_TYPES = {
 
 export default function IconBrowser() {
   const log = useLogger('IconBrowser');
+  const iconService = serviceFactory.createIconService();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
   const [selectedIconPack, setSelectedIconPack] = useState('all');
@@ -63,7 +65,7 @@ export default function IconBrowser() {
         setError(null);
 
         // Load only the icon packs metadata, not all icons
-        const response = await IconService.getIconPacks();
+        const response = await iconService.getIconPacks();
 
         if (!Array.isArray(response)) {
           setError('Invalid response format from icon packs API');
@@ -101,7 +103,7 @@ export default function IconBrowser() {
         setCurrentPage(0);
 
         // Use server-side search API with initial defaults
-        const response = await IconService.searchIcons(
+        const response = await iconService.searchIcons(
           '',           // empty search term
           'all',        // all categories
           'all',        // all packs
@@ -142,7 +144,7 @@ export default function IconBrowser() {
         setCurrentPage(0);
 
         // Use server-side search API
-        const response = await IconService.searchIcons(
+        const response = await iconService.searchIcons(
           searchTerm,
           selectedCategory,
           selectedIconPack,
@@ -173,7 +175,7 @@ export default function IconBrowser() {
     if (!allIcons || !Array.isArray(allIcons)) return [];
     return allIcons.map(icon => ({
       ...icon,
-      usage: IconService.generateUsageExample(icon.pack || 'unknown', icon.key, selectedDiagramType)
+      usage: iconService.generateUsageExample(icon.pack || 'unknown', icon.key, selectedDiagramType)
     }));
   }, [allIcons, selectedDiagramType]);
 
@@ -185,7 +187,7 @@ export default function IconBrowser() {
       setIsLoadingMore(true);
 
       const nextPage = currentPage + 1;
-      const response = await IconService.searchIcons(
+      const response = await iconService.searchIcons(
         searchTerm,
         selectedCategory,
         selectedIconPack,
@@ -277,9 +279,13 @@ export default function IconBrowser() {
         <Alert variant="danger">
           <Alert.Heading>Error Loading Icons</Alert.Heading>
           <p>{error}</p>
-          <Button variant="outline-danger" onClick={retryLoading}>
+          <ActionButton
+            variant="outline-danger"
+            onClick={retryLoading}
+            icon="arrow-clockwise"
+          >
             Retry
-          </Button>
+          </ActionButton>
         </Alert>
       </Container>
     );
@@ -300,7 +306,7 @@ export default function IconBrowser() {
             <div className="text-end" style={{ maxWidth: '50%' }}>
               <div className="d-flex flex-wrap justify-content-end gap-2">
                 {/* <Badge bg="primary">{totalIconCount} Total Icons</Badge>
-                {IconService.getBadgeInfo().map(b => (
+                {iconService.getBadgeInfo().map(b => (
                   <Badge key={b.name} bg={b.badgeColor} style={{ fontSize: '0.75rem' }}>
                     {(b.displayName.length > 15 ? `${b.displayName.slice(0, 12)}…` : b.displayName)}: {b.iconCount}
                   </Badge>
@@ -322,7 +328,14 @@ export default function IconBrowser() {
                     onChange={(e) => setSearchTerm(e.target.value)}
                   />
                   {searchTerm && (
-                    <Button variant="outline-secondary" onClick={() => setSearchTerm('')}>Clear</Button>
+                    <ActionButton
+                      variant="outline-secondary"
+                      onClick={() => setSearchTerm('')}
+                      icon="x"
+                      size="sm"
+                    >
+                      Clear
+                    </ActionButton>
                   )}
                 </InputGroup>
               </Form.Group>
@@ -374,16 +387,17 @@ export default function IconBrowser() {
             <Col md={2}>
               <div className="pt-4">
                 <small className="text-muted">Showing {displayedCount} of {totalIconCount} icons</small>
-                <Button
+                <ActionButton
                   variant="link"
                   size="sm"
                   className="p-0 ms-2"
                   onClick={() => setShowInstructions(s => !s)}
                   aria-controls="usage-instructions"
                   aria-expanded={showInstructions}
+                  icon={showInstructions ? "chevron-up" : "chevron-down"}
                 >
                   Usage Instructions
-                </Button>
+                </ActionButton>
               </div>
             </Col>
           </Row>
@@ -427,7 +441,7 @@ export default function IconBrowser() {
                         </h6>
                         <div className="mb-1">
                           <Badge
-                            bg={IconService.getPackBadgeColor(icon.pack)}
+                            bg={iconService.getPackBadgeColor(icon.pack)}
                             className="me-1"
                             style={{ fontSize: '0.7rem' }}
                           >
@@ -463,20 +477,28 @@ export default function IconBrowser() {
                     <div className="mt-auto">
                       <Row>
                         <Col>
-                          <Button
-                            variant="outline-primary" size="sm" className="w-100"
+                          <ActionButton
+                            variant="outline-primary"
+                            size="sm"
+                            className="w-100"
                             onClick={() => copyToClipboard(icon.fullName)}
+                            loading={copied === icon.fullName}
+                            icon={copied === icon.fullName ? "check" : "clipboard"}
                           >
                             {copied === icon.fullName ? 'Copied!' : 'Copy Name'}
-                          </Button>
+                          </ActionButton>
                         </Col>
                         <Col>
-                          <Button
-                            variant="primary" size="sm" className="w-100"
+                          <ActionButton
+                            variant="primary"
+                            size="sm"
+                            className="w-100"
                             onClick={() => copyToClipboard(icon.usage)}
+                            loading={copied === icon.usage}
+                            icon={copied === icon.usage ? "check" : "clipboard"}
                           >
                             {copied === icon.usage ? 'Copied!' : 'Copy Usage'}
-                          </Button>
+                          </ActionButton>
                         </Col>
                       </Row>
                     </div>

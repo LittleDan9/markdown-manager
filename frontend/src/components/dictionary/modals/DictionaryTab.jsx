@@ -5,6 +5,7 @@ import { useDictionaryState, useDictionaryOperations, useDictionaryUI } from "@/
 import { DictionaryScopeSelector } from "./DictionaryScopeSelector";
 import { DictionaryAddWordForm } from "./DictionaryAddWordForm";
 import { DictionaryWordList } from "./DictionaryWordList";
+import { ActionButton, FormField } from "@/components/shared";
 
 function DictionaryTab() {
   // State management hooks
@@ -327,12 +328,12 @@ function DictionaryTab() {
               />
             </Form.Group>
             <div className="mt-3">
-              <Button type="submit" variant="primary" disabled={isLoading} className="me-2">
-                {isLoading ? <Spinner size="sm" /> : "Save"}
-              </Button>
-              <Button variant="secondary" onClick={cancelEdit}>
+              <ActionButton type="submit" loading={isLoading} className="me-2">
+                Save
+              </ActionButton>
+              <ActionButton variant="secondary" onClick={cancelEdit}>
                 Cancel
-              </Button>
+              </ActionButton>
             </div>
           </Form>
         </Modal.Body>
