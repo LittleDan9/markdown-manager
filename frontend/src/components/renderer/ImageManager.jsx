@@ -459,4 +459,4 @@ const ImageManager = () => {
   );
 };
 
-export default ImageManager;
+export default React.memo(ImageManager);

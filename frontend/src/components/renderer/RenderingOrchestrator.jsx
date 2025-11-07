@@ -37,33 +37,29 @@ const RENDER_STATE = {
   ERROR: 'error'
 };
 
-const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
-  const { currentDocument, highlightedBlocks, setHighlightedBlocks } = useDocumentContext();
+const RenderingOrchestrator = ({ theme, onRenderComplete }) => {
+  const { currentDocument, highlightedBlocks, setHighlightedBlocks, isRendering, setIsRendering, renderState, setRenderState, isRapidTyping, setIsRapidTyping, content } = useDocumentContext();
   const {
     setHtml,
-    setIsRendering,
     resetFirstRenderFlag,
     isCropModeActive
   } = useRendererContext();
 
-  // Orchestrator state
-  const [renderState, setRenderState] = useState(RENDER_STATE.IDLE);
+  // Local state for render queue and active render tracking
   const [renderQueue, setRenderQueue] = useState([]);
   const [activeRender, setActiveRender] = useState(null);
 
-  // Refs for managing async operations
+  // Refs for tracking state across renders
   const renderIdRef = useRef(0);
-  const cancelTokenRef = useRef(null);
-  const debounceTimeoutRef = useRef(null);
   const lastProcessedContentRef = useRef('');
-  const lastProcessedThemeRef = useRef(theme);
-  const isFirstRenderRef = useRef(true);
-  const lastDocumentIdRef = useRef(currentDocument?.id);
-
-  // Rapid typing detection
-  const typingTimerRef = useRef(null);
+  const lastProcessedThemeRef = useRef('');
+  const cancelTokenRef = useRef(null);
   const lastTypingTimeRef = useRef(0);
-  const [isRapidTyping, setIsRapidTyping] = useState(false);
+  const typingTimerRef = useRef(null);
+  const debounceTimeoutRef = useRef(null);
+  const lastDocumentIdRef = useRef(null);
+  const isFirstRenderRef = useRef(true);
+  const renderQueueRef = useRef([]);
 
   /**
    * Create a new render request with cancellation support
@@ -121,11 +117,14 @@ const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
       if (reason === 'content-change' || reason === 'document-change') {
         prev.forEach(req => req.cancel());
         // High priority requests clear the queue
-        return [request];
+        const newQueue = [request];
+        renderQueueRef.current = newQueue;
+        return newQueue;
       }
 
       // Add to queue and sort by priority
       const newQueue = [...prev, request].sort((a, b) => a.priority - b.priority);
+      renderQueueRef.current = newQueue;
       return newQueue;
     });
   }, [createRenderRequest, renderQueue.length, isCropModeActive]);
@@ -157,6 +156,7 @@ const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
 
       if (validRequests.length === 0) {
         console.log(`📭 Queue empty - no requests to process`);
+        renderQueueRef.current = [];
         return [];
       }
 
@@ -180,6 +180,7 @@ const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
         }, 0);
       }
 
+      renderQueueRef.current = remaining;
       return remaining;
     });
   }, [renderState, isCropModeActive, isRapidTyping]);
@@ -410,6 +411,14 @@ const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
       immediate = false
     } = options;
 
+    // Performance guard: Skip if content and theme haven't changed
+    if (reason === 'content-change' &&
+        content === lastProcessedContentRef.current &&
+        theme === lastProcessedThemeRef.current) {
+      console.log(`⏭️ Skipping render - no changes detected (${reason})`);
+      return;
+    }
+
     if (immediate) {
       queueRender(content, theme, priority, reason);
     } else {
@@ -476,7 +485,7 @@ const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
     resetFirstRenderFlag();
 
     triggerRender(content, theme, { priority, reason });
-  }, [content, currentDocument?.id, resetFirstRenderFlag, triggerRender, theme, renderState]);
+  }, [content, currentDocument?.id, resetFirstRenderFlag, triggerRender, theme]); // Removed renderState dependency
 
   // Handle theme changes
   useEffect(() => {
@@ -507,14 +516,14 @@ const RenderingOrchestrator = ({ content, theme, onRenderComplete }) => {
       }
 
       // Cancel all queued requests
-      renderQueue.forEach(request => request.cancel());
+      renderQueueRef.current.forEach(request => request.cancel());
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Expose orchestrator state for debugging
   const orchestratorState = {
     state: renderState,
-    queueLength: renderQueue.length,
+    queueLength: renderQueueRef.current.length,
     activeRender: activeRender?.id || null,
     lastProcessedContent: lastProcessedContentRef.current.length,
     isRapidTyping,

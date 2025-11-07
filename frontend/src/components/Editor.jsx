@@ -8,9 +8,9 @@ import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
-export default function Editor({ value, onChange, onCursorLineChange, fullscreenPreview = false }) {
+export default function Editor({ value, fullscreenPreview = false }) {
   const containerRef = useRef(null);
-  const { currentDocument, setCurrentDocument, setContent } = useDocumentContext();
+  const { currentDocument, setCurrentDocument, setContent, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
 
   // Debug: Log value prop changes
@@ -82,22 +82,19 @@ export default function Editor({ value, onChange, onCursorLineChange, fullscreen
   const handleDocumentUpdate = (updatedDocument) => {
     if (updatedDocument) {
       setCurrentDocument(updatedDocument);
-      setContent(updatedDocument.content || '');
-      if (onChange) {
-        onChange(updatedDocument.content || '');
-      }
+      triggerContentUpdate(updatedDocument.content || '', { reason: 'document-update' });
     }
   };
 
   // Debounced cursor line change handler
-  const debouncedLineChange = useDebouncedCursorChange(onCursorLineChange, 300);
+  const debouncedLineChange = useDebouncedCursorChange(setCursorLine, 300);
 
 
     // Use consolidated editor hook with Phase 5 settings
   const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
     value,
-    onChange,
+    onChange: triggerContentUpdate,
     onCursorLineChange: debouncedLineChange,
     enableSpellCheck: true,
     enableMarkdownLint: true,

@@ -6,9 +6,11 @@
  */
 import React, { useEffect, useRef } from 'react';
 import { useRendererContext } from './RendererContext';
+import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
 const ScrollHandler = ({ scrollToLine }) => {
-  const { previewScrollRef, previewHTML, isRendering } = useRendererContext();
+  const { previewScrollRef } = useRendererContext();
+  const { previewHTML, isRendering } = useDocumentContext();
   const lastScrollLineRef = useRef(null);
   const scrollTimeoutRef = useRef(null);
 
@@ -97,4 +99,4 @@ const ScrollHandler = ({ scrollToLine }) => {
   return null;
 };
 
-export default ScrollHandler;
+export default React.memo(ScrollHandler);

@@ -18,8 +18,6 @@ export const useRendererContext = () => {
 
 export const RendererProvider = ({ children }) => {
   // Core rendering state
-  const [previewHTML, setPreviewHTML] = useState('');
-  const [isRendering, setIsRendering] = useState(false);
   const [html, setHtml] = useState('');
 
   // Modal states
@@ -88,10 +86,6 @@ export const RendererProvider = ({ children }) => {
 
   const value = {
     // State
-    previewHTML,
-    setPreviewHTML,
-    isRendering,
-    setIsRendering,
     html,
     setHtml,
     showImageModal,

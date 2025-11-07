@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { SpellCheckService, SpellCheckMarkers, TextRegionAnalyzer, MonacoMarkerAdapter } from '@/services/editor';
 import { useTypingDetection, useDebounce } from './shared';
+import { useDocumentContext } from '@/providers/DocumentContextProvider';
 
 /**
  * Hook for managing spell check functionality
@@ -21,6 +22,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   const suggestionsMap = useRef(new Map());
   const { debounce: debounceSpellCheck, cleanup: cleanupDebounce } = useDebounce();
   const { isTyping } = useTypingDetection(); // Get typing state from parent
+  const { isRapidTypingActive } = useDocumentContext(); // Get rapid typing state from orchestrator
 
   // Timing and state refs
   const lastSpellCheckTime = useRef(Date.now());
@@ -123,14 +125,24 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
           codeSpellIssues: issues?.filter(i => i.type?.includes('code'))?.length || 0
         });
 
-        suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
-          editor,
-          issues, // Use all issues returned by backend (already filtered)
-          startOffset,
-          suggestionsMap.current
-        );
+        // Use requestIdleCallback to make marker updates non-blocking
+        const updateMarkers = () => {
+          suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
+            editor,
+            issues, // Use all issues returned by backend (already filtered)
+            startOffset,
+            suggestionsMap.current
+          );
 
-        console.log('✅ MonacoMarkerAdapter.toMonacoMarkers completed, suggestionsMap size:', suggestionsMap.current?.size || 0);
+          console.log('✅ MonacoMarkerAdapter.toMonacoMarkers completed, suggestionsMap size:', suggestionsMap.current?.size || 0);
+        };
+
+        // Use requestIdleCallback if available, otherwise use setTimeout as fallback
+        if (typeof requestIdleCallback !== 'undefined') {
+          requestIdleCallback(updateMarkers, { timeout: 100 }); // 100ms timeout to ensure it runs even if idle time is scarce
+        } else {
+          setTimeout(updateMarkers, 0);
+        }
       }
 
       // Clear progress indicator after completion with visual feedback
@@ -159,8 +171,15 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       console.log('[SpellCheck] Content change detected:', {
         currentLength: currentValue.length,
         previousLength: previousValueRef.current?.length || 0,
-        hasChanged: currentValue !== previousValueRef.current
+        hasChanged: currentValue !== previousValueRef.current,
+        isRapidTyping: isRapidTypingActive
       });
+
+      // Skip spell checking during rapid typing to prevent blocking the editor
+      if (isRapidTypingActive) {
+        console.log('[SpellCheck] Skipping during rapid typing mode');
+        return;
+      }
 
       // Only proceed if content actually changed
       if (currentValue === previousValueRef.current) {
@@ -232,7 +251,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       contentDisposable.dispose();
       if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
     };
-  }, [enabled, editor]); // Removed debounceSpellCheck from dependencies
+  }, [enabled, editor, isRapidTypingActive]); // Added isRapidTypingActive dependency
 
   // Initial spell check when editor is ready - DISABLED to prevent interference with crop operations
   // The spell check will run on first content change or manual trigger instead

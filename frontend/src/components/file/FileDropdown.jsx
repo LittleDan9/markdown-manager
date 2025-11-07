@@ -19,13 +19,13 @@ import DocumentService from "@/services/core/DocumentService";
 import gitHubApi from "@/api/gitHubApi";
 import documentsApi from "@/api/documentsApi";
 
-function FileDropdown({ setDocumentTitle, setContent, renderedHTML }) {
+function FileDropdown({ setDocumentTitle, setContent }) {
   const { isAuthenticated } = useAuth();
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const {
     createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF,
-    categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content
+    categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
@@ -56,7 +56,7 @@ function FileDropdown({ setDocumentTitle, setContent, renderedHTML }) {
   const [gitLoading, setGitLoading] = useState(false);
 
   // Consolidated file operations
-  const fileOps = useFileOperations({ setDocumentTitle, setContent, renderedHTML: renderedHTML, theme });
+  const fileOps = useFileOperations({ setDocumentTitle, setContent, renderedHTML: previewHTML, theme });
 
   // Load git status when document changes
   useEffect(() => {

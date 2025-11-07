@@ -257,4 +257,4 @@ const FeatureManager = () => {
   );
 };
 
-export default FeatureManager;
+export default React.memo(FeatureManager);

@@ -256,4 +256,4 @@ const LifecycleManager = ({ onFirstRender }) => {
   return null;
 };
 
-export default LifecycleManager;
+export default React.memo(LifecycleManager);

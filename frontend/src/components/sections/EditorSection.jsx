@@ -1,6 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import Editor from '../Editor';
+import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
 /**
  * EditorSection - Wrapper component for the editor area
@@ -9,12 +10,10 @@ import Editor from '../Editor';
 function EditorSection({
   isSharedView,
   isInitializing,
-  content,
-  onContentChange,
-  onCursorLineChange,
   currentDocument,
   fullscreenPreview
 }) {
+  const { content } = useDocumentContext();
   // Don't render editor in shared view
   if (isSharedView) {
     return null;
@@ -25,8 +24,6 @@ function EditorSection({
       {!isInitializing ? (
         <Editor
           value={content}
-          onChange={onContentChange}
-          onCursorLineChange={onCursorLineChange}
           categoryId={currentDocument?.category_id}
           fullscreenPreview={fullscreenPreview}
         />
@@ -51,9 +48,6 @@ function EditorSection({
 EditorSection.propTypes = {
   isSharedView: PropTypes.bool.isRequired,
   isInitializing: PropTypes.bool.isRequired,
-  content: PropTypes.string.isRequired,
-  onContentChange: PropTypes.func.isRequired,
-  onCursorLineChange: PropTypes.func.isRequired,
   currentDocument: PropTypes.object,
   fullscreenPreview: PropTypes.bool.isRequired,
 };

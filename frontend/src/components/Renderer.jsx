@@ -16,21 +16,16 @@ import LifecycleManager from './renderer/LifecycleManager';
 import PreviewRenderer from './renderer/PreviewRenderer';
 
 const RendererContent = ({
-  content,
   scrollToLine,
   fullscreenPreview,
   onFirstRender,
-  onRenderHTML,
   showLoadingOverlay,
   loadingMessage
 }) => {
   const { theme } = useTheme();
-  const { currentDocument } = useDocumentContext();
+  const { currentDocument, previewHTML, setPreviewHTML, isRendering } = useDocumentContext();
   const {
-    previewHTML,
-    setPreviewHTML,
     html,
-    isRendering,
     setIsRendering,
     previewScrollRef,
     resetFirstRenderFlag,
@@ -90,9 +85,10 @@ const RendererContent = ({
       }
 
       // Update the App's renderedHTML state for PDF export
-      if (onRenderHTML) {
-        onRenderHTML(finalHtml);
-      }
+      // Note: Rendering is now centralized - previewHTML is updated directly in context
+      // if (onRenderHTML) {
+      //   onRenderHTML(finalHtml);
+      // }
 
       // The orchestrator will handle setting isRendering to false
 
@@ -102,17 +98,17 @@ const RendererContent = ({
       setPreviewHTML(htmlString);
 
       // Still update the App's renderedHTML state even on error
-      if (onRenderHTML) {
-        onRenderHTML(htmlString);
-      }
+      // Note: Rendering is now centralized - previewHTML is updated directly in context
+      // if (onRenderHTML) {
+      //   onRenderHTML(htmlString);
+      // }
     }
-  }, [renderDiagrams, theme, setPreviewHTML, onRenderHTML]);
+  }, [renderDiagrams, theme, setPreviewHTML]);
 
   return (
     <div id="previewContainer">
       {/* Central rendering orchestrator replaces MarkdownProcessor */}
       <RenderingOrchestrator
-        content={content}
         theme={theme}
         onRenderComplete={handleRenderComplete}
       />

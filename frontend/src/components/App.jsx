@@ -4,7 +4,7 @@ import Toolbar from "@/components/toolbar/Toolbar";
 import LogLevelController from "@/components/LogLevelController";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
-import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useAppUIState, useSharedViewEffects, useGitHubOAuth } from "@/hooks";
+import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useSharedViewEffects, useGitHubOAuth } from "@/hooks";
 import AppLayout from "@/components/layout/AppLayout";
 import SharedViewLayout from "@/components/layout/SharedViewLayout";
 import EditorSection from "@/components/sections/EditorSection";
@@ -13,23 +13,10 @@ import AppModals from "@/components/shared/modals/AppModals";
 
 function App() {
   const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading, saving } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading, saving, previewHTML, setPreviewHTML, triggerContentUpdate, cursorLine, setCursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser } = useDocumentContext();
 
   // Handle GitHub OAuth results from URL parameters (fallback for popup failures)
   useGitHubOAuth();
-
-  // UI state management via custom hook
-  const uiState = useAppUIState(isSharedView);
-  const {
-    renderedHTML,
-    cursorLine,
-    fullscreenPreview,
-    showIconBrowser,
-    setRenderedHTML,
-    setCursorLine,
-    setFullscreenPreview,
-    setShowIconBrowser,
-  } = uiState;
 
   // Setup global keyboard shortcuts (Ctrl+S, etc.)
   useGlobalKeyboardShortcuts();
@@ -43,24 +30,21 @@ function App() {
   useDocumentAutoSave(currentDocument, content, saveDocument, autosaveEnabled, isSharedView, 30000);
 
   // Handle shared view effects (no longer sets fullscreen in shared view)
-  useSharedViewEffects(isSharedView, sharedDocument, content, setContent);
+  useSharedViewEffects(isSharedView, sharedDocument, content, triggerContentUpdate);
 
   // Shared components
   const headerComponent = <Header />;
   const toolbarComponent = (
     <Toolbar
-      setContent={setContent}
+      setContent={triggerContentUpdate}
       editorValue={content}
       fullscreenPreview={fullscreenPreview}
       setFullscreenPreview={setFullscreenPreview}
       setShowIconBrowser={setShowIconBrowser}
-      renderedHTML={renderedHTML}
     />
   );
   const rendererComponent = (
     <RendererSection
-      content={content}
-      onRenderHTML={html => setRenderedHTML(html)}
       isSharedView={isSharedView}
       sharedDocument={sharedDocument}
       sharedLoading={sharedLoading}
@@ -90,9 +74,6 @@ function App() {
             <EditorSection
               isSharedView={isSharedView}
               isInitializing={isInitializing}
-              content={content}
-              onContentChange={setContent}
-              onCursorLineChange={setCursorLine}
               currentDocument={currentDocument}
               fullscreenPreview={fullscreenPreview}
             />

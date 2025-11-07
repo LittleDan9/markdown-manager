@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Container, Alert, Button } from 'react-bootstrap';
 import Renderer from '../Renderer';
+import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
 /**
  * RendererSection - Wrapper component for the renderer area
@@ -10,8 +11,6 @@ import Renderer from '../Renderer';
 
 // ...existing code...
 function RendererSection({
-  content,
-  onRenderHTML,
   isSharedView,
   sharedDocument,
   sharedLoading,
@@ -21,6 +20,7 @@ function RendererSection({
   cursorLine,
   fullscreenPreview
 }) {
+  const { content } = useDocumentContext();
   const [hasRendered, setHasRendered] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
 
@@ -87,8 +87,6 @@ function RendererSection({
         </div>
       ) : (
         <Renderer
-          content={content}
-          onRenderHTML={onRenderHTML}
           scrollToLine={scrollToLineValue}
           fullscreenPreview={fullscreenPreview}
           onFirstRender={handleFirstRender}
@@ -100,8 +98,6 @@ function RendererSection({
   );
 }
 RendererSection.propTypes = {
-  content: PropTypes.string.isRequired,
-  onRenderHTML: PropTypes.func.isRequired,
   isSharedView: PropTypes.bool.isRequired,
   sharedDocument: PropTypes.object,
   sharedLoading: PropTypes.bool.isRequired,
