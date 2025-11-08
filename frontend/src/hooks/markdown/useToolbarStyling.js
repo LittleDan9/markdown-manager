@@ -11,16 +11,20 @@ export function useToolbarStyling() {
     toolbar: {
       padding: '8px 12px',
       backgroundColor: theme === 'dark' ? 'var(--bs-dark)' : 'var(--bs-light)',
+      minWidth: 0, // Allow toolbar to shrink below content width
+      overflow: 'hidden' // Hide overflow to prevent horizontal scroll
     },
     button: {
       border: 'none',
-      padding: '4px 8px',
-      margin: '0 2px',
-      color: theme === 'dark' ? '#fff' : '#6c757d'
+      padding: '4px 6px', // Reduced padding for more compact buttons
+      margin: '0 1px',
+      color: theme === 'dark' ? '#fff' : '#6c757d',
+      flexShrink: 0 // Prevent buttons from shrinking
     },
     separator: {
       borderLeft: `1px solid ${theme === 'dark' ? '#495057' : '#dee2e6'}`,
-      height: '24px'
+      height: '24px',
+      flexShrink: 0 // Prevent separators from shrinking
     }
   }), [theme]);
 
@@ -50,6 +54,36 @@ export function useToolbarStyling() {
         color: #fff !important;
         background-color: #6c757d !important;
         border-color: #6c757d !important;
+      }
+
+      /* Responsive toolbar styles */
+      .markdown-toolbar {
+        container-type: inline-size;
+        container-name: toolbar;
+      }
+
+      .markdown-toolbar .analysis-tools {
+        flex-shrink: 1; /* Allow analysis tools to shrink */
+        min-width: 0; /* Allow shrinking below content width */
+      }
+
+      .markdown-toolbar .btn-group {
+        flex-wrap: nowrap; /* Keep buttons in group from wrapping */
+        gap: 0; /* Remove gap between grouped buttons */
+      }
+
+      /* Hide separators when space is tight */
+      @container toolbar (width < 600px) {
+        .markdown-toolbar .toolbar-separator {
+          display: none;
+        }
+      }
+
+      /* Reduce padding on very small screens */
+      @container toolbar (width < 400px) {
+        .markdown-toolbar {
+          padding: 4px 8px;
+        }
       }
     `;
 

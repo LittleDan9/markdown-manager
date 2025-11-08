@@ -1,7 +1,7 @@
 """Main documents router that aggregates all document sub-routers."""
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
@@ -778,9 +778,9 @@ async def get_documents(
     )
 
 
-@router.post("", response_model=Document, **DOCUMENT_CRUD_DOCS["create"])
+@router.post("", response_model=Document)
 async def create_document(
-    document_data: DocumentCreate,
+    document: DocumentCreate,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Document:
@@ -792,37 +792,41 @@ async def create_document(
 
     storage_service = UserStorage()
 
-    # Handle both folder_path and category_id during transition
-    folder_path = None
-    category_id = None
+    # Extract values from the validated document
+    name = document.name
+    content = document.content
 
-    if hasattr(document_data, 'folder_path') and document_data.folder_path:
+    # Handle both folder_path and category_id during transition
+    final_folder_path = None
+    final_category_id = None
+
+    if document.folder_path:
         # New folder-based approach
-        folder_path = DocumentModel.normalize_folder_path(document_data.folder_path)
-    elif hasattr(document_data, 'category_id') and document_data.category_id:
+        final_folder_path = DocumentModel.normalize_folder_path(document.folder_path)
+    elif document.category_id:
         # Legacy category-based approach
-        category_id = document_data.category_id
+        final_category_id = document.category_id
 
         # Convert category to folder path for storage
         from app.crud.category import get_user_categories
         categories = await get_user_categories(db, current_user.id)
-        category = next((cat for cat in categories if cat.id == category_id), None)
+        category = next((cat for cat in categories if cat.id == document.category_id), None)
         if category:
-            folder_path = f"/{category.name}"
+            final_folder_path = f"/{category.name}"
     else:
         # Default folder if neither provided
-        folder_path = "/General"
+        final_folder_path = "/General"
 
     # Ensure we have a folder path
-    folder_path = folder_path or "/General"
+    final_folder_path = final_folder_path or "/General"
 
     # Check for duplicate documents in folder
     existing_docs = await document_crud.document.get_documents_by_folder_path(
-        db, current_user.id, folder_path
+        db, current_user.id, final_folder_path
     )
 
     for existing_doc in existing_docs:
-        if existing_doc.name == document_data.name:
+        if existing_doc.name == name:
             existing_document_schema = Document.model_validate(
                 existing_doc, from_attributes=True
             )
@@ -837,18 +841,17 @@ async def create_document(
     # Determine file path for filesystem storage
     # For local categories, store in local/{category_name}/filename.md
     # Ensure filename has .md extension
-    filename = document_data.name if document_data.name.endswith('.md') else f"{document_data.name}.md"
-    category_name = folder_path.strip('/').split('/')[-1] if folder_path != '/' else 'General'
+    filename = name if name.endswith('.md') else f"{name}.md"
+    category_name = final_folder_path.strip('/').split('/')[-1] if final_folder_path != '/' else 'General'
     # File path relative to user directory
     file_path = f"local/{category_name}/{filename}"
 
     # Write content to filesystem
-    content = document_data.content or ""
     filesystem_success = await storage_service.write_document(
         user_id=current_user.id,
         file_path=file_path,
         content=content,
-        commit_message=f"Create document: {document_data.name}",
+        commit_message=f"Create document: {name}",
         auto_commit=True
     )
 
@@ -860,11 +863,11 @@ async def create_document(
 
     # Create database record with file_path reference
     document = DocumentModel(
-        name=document_data.name,
+        name=name,
         file_path=file_path,
         repository_type="local",
-        folder_path=folder_path,
-        category_id=category_id,  # Keep for transition
+        folder_path=final_folder_path,
+        category_id=final_category_id,  # Keep for transition
         user_id=current_user.id
     )
 

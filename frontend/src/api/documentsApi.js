@@ -106,9 +106,10 @@ class DocumentsApi extends Api {
       }
     }
 
-    const requestData = { name, content };
-    if (finalCategoryId) {
-      requestData.category_id = finalCategoryId;
+    const requestData = { name, content: content || "" };
+    if (finalCategoryId !== undefined && finalCategoryId !== null) {
+      // Ensure category_id is an integer
+      requestData.category_id = parseInt(finalCategoryId, 10);
     }
 
     const res = await this.apiCall(`/documents`, "POST", requestData);
@@ -134,7 +135,10 @@ class DocumentsApi extends Api {
     const requestData = {};
     if (name !== undefined) requestData.name = name;
     if (content !== undefined) requestData.content = content;
-    if (finalCategoryId) requestData.category_id = finalCategoryId;
+    if (finalCategoryId !== undefined && finalCategoryId !== null) {
+      // Ensure category_id is an integer
+      requestData.category_id = parseInt(finalCategoryId, 10);
+    }
 
     const res = await this.apiCall(`/documents/${id}`, "PUT", requestData);
     return res.data;

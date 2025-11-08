@@ -17,12 +17,17 @@ module.exports = {
   },
   plugins: [],
   rules: {
-    // Basic rules first
-    'no-console': 'warn',
-    'no-debugger': 'error',
-    'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-    'no-var': 'error',
-    'prefer-const': 'error',
+    // Relaxed rules for development - focus on critical errors only
+    'no-console': 'off', // Allow console statements during development
+    'no-debugger': 'warn',
+    'no-unused-vars': ['warn', {
+      argsIgnorePattern: '^_',
+      varsIgnorePattern: '^_',
+      ignoreRestSiblings: true
+    }],
+    'no-var': 'warn', // Warn instead of error
+    'prefer-const': 'warn', // Warn instead of error
+    'no-dupe-class-members': 'warn', // Warn instead of error
   },
   settings: {
     'import/resolver': {

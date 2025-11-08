@@ -32,8 +32,8 @@ function ActionButton({
         <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
       )}
       {icon && !loading && (
-        <span className={`me-1 ${typeof icon === 'string' ? icon : ''}`}>
-          {typeof icon === 'string' ? '' : icon}
+        <span className="me-1">
+          {typeof icon === 'string' ? <i className={icon}></i> : icon}
         </span>
       )}
       {children}

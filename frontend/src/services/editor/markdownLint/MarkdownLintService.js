@@ -7,7 +7,7 @@
 
 import lintingApi from '../../../api/lintingApi';
 
-export class MarkdownLintService {
+class MarkdownLintService {
   constructor(chunkSize = 1000000) { // 1MB - align with PerformanceOptimizer thresholds
     this.chunkSize = chunkSize;
     this._enabled = true;
@@ -322,4 +322,5 @@ export class MarkdownLintService {
 }
 
 // Export singleton instance for backwards compatibility
-export default new MarkdownLintService();
+const markdownLintServiceInstance = new MarkdownLintService();
+export { markdownLintServiceInstance as MarkdownLintService };

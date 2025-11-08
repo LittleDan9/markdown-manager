@@ -47,13 +47,14 @@ deploy_all_services() {
     
     # Phase 2: Build and registry push
     log_info "🚀" "Phase 2: Build and Registry Push"
-    "$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "all"
-    
-    # For now, assume all services will be skipped since they already exist
-    # In a production system, you would capture these properly
-    skip_statuses="true true true true"
-    
-    # Phase 3: Remote deployment
+    echo "Starting Docker image builds (this may take several minutes)..."
+    # Run build script and capture its output
+    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "all" 2>&1)
+    # Display the build output
+    echo "$build_output"
+    # Extract skip statuses from the last line
+    skip_statuses=$(echo "$build_output" | tail -1)
+    echo "Docker builds completed."    # Phase 3: Remote deployment
     log_info "🌐" "Phase 3: Remote Deployment"
     "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "all"
     
@@ -84,7 +85,13 @@ deploy_single_service() {
     
     # Phase 2: Build and registry push for specific service
     log_info "🚀" "Phase 2: Build and Registry Push ($service)"
-    skip_status=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service")
+    echo "Starting Docker image build for $service (this may take a few minutes)..."
+    # Run build script and capture its output
+    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
+    # Display the build output
+    echo "$build_output"
+    # Extract skip status from the last line
+    skip_status=$(echo "$build_output" | tail -1)
     
     # Phase 3: Remote deployment for specific service
     log_info "🌐" "Phase 3: Remote Deployment ($service)"
@@ -119,7 +126,9 @@ deploy_phase() {
                 log_error "SSH tunnel not active. Run 'infra' phase first."
                 exit 1
             fi
-            "$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY"
+            echo "Starting Docker image builds (this may take several minutes)..."
+            build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" 2>&1)
+            echo "$build_output"
             ;;
         "remote")
             log_step "🌐" "Deploying remote phase..."

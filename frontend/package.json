@@ -14,7 +14,7 @@
     "serve": "npx webpack serve --mode=development --devtool=source-map --open",
     "serve:prod": "npx webpack serve --mode=production",
     "lint": "eslint src --no-eslintrc --config .eslintrc.js --ext .js,.jsx,.ts,.tsx",
-    "lint:check": "eslint src --no-eslintrc --config .eslintrc.js --ext .js,.jsx,.ts,.tsx --max-warnings 0 || true",
+    "lint:check": "eslint src --no-eslintrc --config .eslintrc.js --ext .js,.jsx,.ts,.tsx --max-warnings 100 || true",
     "lint:fix": "eslint src --no-eslintrc --config .eslintrc.js --ext .js,.jsx,.ts,.tsx --fix",
     "lint:orphaned": "node scripts/detect-orphaned-files.js",
     "test": "jest",

@@ -29,7 +29,7 @@ router = APIRouter(prefix="/spell-check", tags=["spell-check"])
 async def get_combined_custom_words(
     user: Optional[User],
     db: Optional[AsyncSession],
-    additional_words: List[str] = None,
+    additional_words: Optional[List[str]] = None,
     category_id: Optional[int] = None,
     folder_path: Optional[str] = None
 ) -> List[str]:
@@ -335,4 +335,32 @@ async def get_spell_service_info() -> Dict[str, Any]:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Unable to retrieve service information"
+        )
+
+
+@router.get("/languages")
+async def get_available_languages() -> Dict[str, Any]:
+    """
+    Get available languages supported by the spell-check service
+
+    Returns list of supported languages with their codes, names, and status.
+    """
+    try:
+        # Make direct HTTP request to spell-check service
+        import httpx
+        import os
+
+        service_url = os.getenv("SPELL_CHECK_SERVICE_URL", "http://localhost:8003")
+        headers = {"User-Agent": "markdown-manager-backend/1.0"}
+
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(f"{service_url}/languages", headers=headers)
+            response.raise_for_status()
+            return response.json()
+
+    except Exception as e:
+        logger.error(f"Failed to get available languages: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Unable to retrieve available languages"
         )

@@ -25,7 +25,7 @@ const MarkdownToolbar = ({
   const { styles, buttonVariant } = useToolbarStyling();
 
   return (
-    <div className="markdown-toolbar d-flex align-items-center gap-2" style={styles.toolbar}>
+    <div className="markdown-toolbar d-flex align-items-center gap-1 flex-wrap" style={styles.toolbar}>
       {/* Text Formatting */}
       <TextFormattingGroup
         insertMarkdown={insertMarkdown}

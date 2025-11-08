@@ -26,6 +26,7 @@ services:
       - CHOKIDAR_USEPOLLING=true
     depends_on:
       - backend
+      - nginx
     init: true
 
   db:
@@ -80,6 +81,8 @@ services:
       export-service:
         condition: service_healthy
       spell-check-service:
+        condition: service_healthy
+      markdown-lint-service:
         condition: service_healthy
 
   export-service:

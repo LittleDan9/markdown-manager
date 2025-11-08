@@ -6,14 +6,15 @@ const { execSync } = require('child_process');
 
 // Configuration
 const SRC_DIR = path.join(__dirname, '..', 'src');
+const EXCEPTIONS_FILE = path.join(__dirname, '..', 'orphaned-files-exceptions.json');
 const IGNORE_PATTERNS = [
   /\.test\.js$/,
   /\.spec\.js$/,
   /__tests__/,
   /node_modules/,
   /\.worker\.js$/,
-  /setupTests\.js$/,
-  /index\.js$/
+  /setupTests\.js$/
+  // Note: We now analyze index.js files to catch barrel exports
 ];
 
 // Helper functions
@@ -52,6 +53,12 @@ function extractImports(content) {
   // Match dynamic imports
   const dynamicImportRegex = /import\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
   while ((match = dynamicImportRegex.exec(content)) !== null) {
+    imports.add(match[1]);
+  }
+
+  // Match re-exports (export * from, export { ... } from)
+  const reExportRegex = /export\s+(?:\*\s+from\s+|.*?from\s+)['"]([^'"]+)['"]/g;
+  while ((match = reExportRegex.exec(content)) !== null) {
     imports.add(match[1]);
   }
 
@@ -106,19 +113,44 @@ function findReferencedFiles() {
       for (const importPath of imports) {
         const resolvedPath = resolveImport(importPath, file);
         if (resolvedPath) {
-          // Try different extensions
-          const extensions = ['.js', '.jsx', '/index.js', '/index.jsx'];
-          for (const ext of extensions) {
-            const fullPath = resolvedPath + ext;
-            if (fs.existsSync(fullPath)) {
-              referencedFiles.add(fullPath);
-              if (!importMap.has(fullPath)) {
-                importMap.set(fullPath, []);
+          // Try different extensions, but also try the resolved path as-is
+          const extensions = ['', '.js', '.jsx', '/index.js', '/index.jsx'];
+          let found = false;
+          
+        if (resolvedPath) {
+          // Try different extensions, but also try the resolved path as-is
+          const extensions = ['', '.js', '.jsx', '/index.js', '/index.jsx'];
+          let found = false;
+          
+          // First try the path as-is (handles imports with explicit extensions)
+          if (fs.existsSync(resolvedPath)) {
+            const stat = fs.statSync(resolvedPath);
+            if (stat.isFile()) {
+              referencedFiles.add(resolvedPath);
+              if (!importMap.has(resolvedPath)) {
+                importMap.set(resolvedPath, []);
               }
-              importMap.get(fullPath).push(file);
-              break;
+              importMap.get(resolvedPath).push(file);
+              found = true;
             }
           }
+          
+          // Then try with extensions
+          if (!found) {
+            for (const ext of extensions.slice(1)) { // Skip empty string since we already tried
+              const fullPath = resolvedPath + ext;
+              if (fs.existsSync(fullPath)) {
+                referencedFiles.add(fullPath);
+                if (!importMap.has(fullPath)) {
+                  importMap.set(fullPath, []);
+                }
+                importMap.get(fullPath).push(file);
+                found = true;
+                break;
+              }
+            }
+          }
+        }
         }
       }
     } catch (error) {
@@ -129,16 +161,41 @@ function findReferencedFiles() {
   return { referencedFiles, importMap };
 }
 
+function loadExceptions() {
+  try {
+    if (fs.existsSync(EXCEPTIONS_FILE)) {
+      const data = JSON.parse(fs.readFileSync(EXCEPTIONS_FILE, 'utf8'));
+      return {
+        exceptions: new Set(data.exceptions?.map(e => e.file) || []),
+        safeToRemove: new Set(data.safeToRemove || [])
+      };
+    }
+  } catch (error) {
+    console.warn(`Error loading exceptions file: ${error.message}`);
+  }
+  return { exceptions: new Set(), safeToRemove: new Set() };
+}
+
 function findOrphanedFiles() {
   const allFiles = getAllJsFiles(SRC_DIR).filter(file => !isIgnored(file));
   const { referencedFiles, importMap } = findReferencedFiles();
+  const { exceptions, safeToRemove } = loadExceptions();
 
   console.log(`Found ${referencedFiles.size} referenced files`);
+  console.log(`Loaded ${exceptions.size} exception files`);
+  console.log(`Found ${safeToRemove.size} files marked as safe to remove`);
 
   const orphanedFiles = [];
 
   for (const file of allFiles) {
     if (!referencedFiles.has(file)) {
+      const relativePath = path.relative(SRC_DIR, file);
+      
+      // Skip files in exceptions list
+      if (exceptions.has(relativePath)) {
+        continue;
+      }
+      
       // Check if file has any exports (might be a utility or entry point)
       try {
         const content = fs.readFileSync(file, 'utf8');
@@ -146,10 +203,12 @@ function findOrphanedFiles() {
 
         // If file has exports but no imports reference it, it might be orphaned
         if (exports.size > 0) {
+          const isSafeToRemove = safeToRemove.has(relativePath);
           orphanedFiles.push({
-            file: path.relative(SRC_DIR, file),
+            file: relativePath,
             exports: Array.from(exports),
-            reason: 'Has exports but not imported anywhere'
+            reason: isSafeToRemove ? 'Safe to remove' : 'Has exports but not imported anywhere',
+            safeToRemove: isSafeToRemove
           });
         }
       } catch (error) {
@@ -169,19 +228,33 @@ const orphanedFiles = findOrphanedFiles();
 if (orphanedFiles.length === 0) {
   console.log('✅ No orphaned files found!');
 } else {
+  const safeToRemove = orphanedFiles.filter(f => f.safeToRemove);
+  const needsReview = orphanedFiles.filter(f => !f.safeToRemove);
+  
   console.log(`🚨 Found ${orphanedFiles.length} potentially orphaned files:\n`);
-
-  orphanedFiles.forEach(({ file, exports, reason }) => {
-    console.log(`📁 ${file}`);
-    console.log(`   Reason: ${reason}`);
-    if (exports.length > 0) {
-      console.log(`   Exports: ${exports.slice(0, 5).join(', ')}${exports.length > 5 ? '...' : ''}`);
-    }
+  
+  if (safeToRemove.length > 0) {
+    console.log(`🟢 ${safeToRemove.length} files marked as SAFE TO REMOVE:`);
+    safeToRemove.forEach(({ file, exports, reason }) => {
+      console.log(`   📁 ${file}`);
+    });
     console.log('');
-  });
+  }
+  
+  if (needsReview.length > 0) {
+    console.log(`🟡 ${needsReview.length} files NEED REVIEW:`);
+    needsReview.forEach(({ file, exports, reason }) => {
+      console.log(`   📁 ${file}`);
+      console.log(`      Reason: ${reason}`);
+      if (exports.length > 0) {
+        console.log(`      Exports: ${exports.slice(0, 3).join(', ')}${exports.length > 3 ? '...' : ''}`);
+      }
+      console.log('');
+    });
+  }
 
-  console.log('⚠️  Note: Some files may be entry points or dynamically imported.');
-  console.log('   Review each file before removing to ensure it\'s truly unused.');
+  console.log('⚠️  Note: Files marked as safe to remove are index.js files that are empty or incomplete.');
+  console.log('   Review "needs review" files before removing to ensure they\'re truly unused.');
 }
 
 console.log('\n✅ Orphaned file detection complete.');

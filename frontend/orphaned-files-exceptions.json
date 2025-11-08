@@ -1,0 +1,177 @@
+{
+  "exceptions": [
+    {
+      "file": "components/SharedRenderer.jsx",
+      "reason": "May be used for future shared document rendering features"
+    },
+    {
+      "file": "components/admin/OrphansTab.jsx",
+      "reason": "Admin interface component - may be conditionally loaded"
+    },
+    {
+      "file": "components/editor/markdown-toolbar/MarkdownLintGroup.jsx",
+      "reason": "Part of markdown toolbar system - may be dynamically loaded"
+    },
+    {
+      "file": "components/editor/spell-check/SpellCheckSettingsPanel.jsx",
+      "reason": "Spell check settings component - may be conditionally rendered"
+    },
+    {
+      "file": "components/file/tabs/DocumentListView.jsx",
+      "reason": "File browser tab component - may be dynamically loaded"
+    },
+    {
+      "file": "components/file/tabs/UnifiedGitHubTab.jsx",
+      "reason": "GitHub integration tab - may be conditionally loaded"
+    },
+    {
+      "file": "components/github/browser/GitHubBrowserHeader.jsx",
+      "reason": "GitHub browser component - may be dynamically loaded"
+    },
+    {
+      "file": "components/github/settings/UnifiedGitHubRepositorySettings.jsx",
+      "reason": "GitHub settings component - may be conditionally loaded"
+    },
+    {
+      "file": "components/icons/insights/DocumentUsageInsights.jsx",
+      "reason": "Icon usage analytics - may be conditionally loaded"
+    },
+    {
+      "file": "components/icons/modals/IconifyPackTab.jsx",
+      "reason": "Icon management modal - may be dynamically loaded"
+    },
+    {
+      "file": "components/icons/modals/index.js",
+      "reason": "Icon modals barrel export - exports are used individually"
+    },
+    {
+      "file": "components/image/UserImage.jsx",
+      "reason": "User image component - may be used in future features"
+    },
+    {
+      "file": "components/renderer/HoverControls.jsx",
+      "reason": "Renderer hover controls - may be conditionally rendered"
+    },
+    {
+      "file": "components/renderer/ImageManager.jsx",
+      "reason": "Image management component - may be dynamically loaded"
+    },
+    {
+      "file": "components/renderer/MarkdownProcessor.jsx",
+      "reason": "Markdown processing component - may be used in shared views"
+    },
+    {
+      "file": "components/renderer/ScrollHandler.jsx",
+      "reason": "Scroll handling component - may be conditionally loaded"
+    },
+    {
+      "file": "components/renderer/simpleCropUtils.js",
+      "reason": "Image cropping utilities - may be used in image editing features"
+    },
+    {
+      "file": "components/settings/GitHubIntegrationSettings.jsx",
+      "reason": "GitHub settings component - may be conditionally loaded"
+    },
+    {
+      "file": "components/shared/FileBrowser/FileBrowserHeader.jsx",
+      "reason": "File browser header - may be part of unified file browser"
+    },
+    {
+      "file": "components/ui/EditorWidthIndicator.jsx",
+      "reason": "UI indicator component - may be conditionally rendered"
+    },
+    {
+      "file": "hooks/editor/shared/editorUtils.js",
+      "reason": "Shared editor utilities - may be used by multiple editor components"
+    },
+    {
+      "file": "hooks/editor/useEditorContent.js",
+      "reason": "Editor content hook - may be used in editor initialization"
+    },
+    {
+      "file": "services/fileBrowser/providers/GitHubFolderProvider.js",
+      "reason": "GitHub file provider - may be dynamically loaded"
+    },
+    {
+      "file": "services/editor/markdownLint/MarkdownLintActions.js",
+      "reason": "Used through main services/editor/index.js barrel export"
+    },
+    {
+      "file": "services/editor/markdownLint/MarkdownLintMarkerAdapter.js",
+      "reason": "Used through main services/editor/index.js barrel export"
+    },
+    {
+      "file": "services/editor/markdownLint/MarkdownLintMarkers.js",
+      "reason": "Used through main services/editor/index.js barrel export"
+    },
+    {
+      "file": "services/editor/markdownLint/MarkdownLintService.js",
+      "reason": "Used through main services/editor/index.js barrel export"
+    },
+    {
+      "file": "services/editor/spellCheck/SpellCheckActions.js",
+      "reason": "Used through main services/editor/index.js barrel export"
+    },
+    {
+      "file": "services/editor/spellCheck/TextRegionAnalyzer.js",
+      "reason": "Used through main services/editor/index.js barrel export"
+    },
+    {
+      "file": "utils/authHelpers.js",
+      "reason": "Used by AuthService for localStorage operations"
+    }
+  ],
+  "dynamicImports": [
+    {
+      "pattern": "components/github/**/*.jsx",
+      "reason": "GitHub integration components may be dynamically imported"
+    },
+    {
+      "pattern": "components/admin/**/*.jsx",
+      "reason": "Admin components may be conditionally loaded"
+    },
+    {
+      "pattern": "components/icons/**/*.jsx",
+      "reason": "Icon management components may be dynamically loaded"
+    },
+    {
+      "pattern": "hooks/editor/**/*.js",
+      "reason": "Editor hooks may be used in different editor contexts"
+    }
+  ],
+  "safeToRemove": [
+    "components/auth/modals/index.js",
+    "components/dictionary/modals/index.js",
+    "components/document/modals/index.js",
+    "components/editor/index.js",
+    "components/editor/markdown-toolbar/index.js",
+    "components/file/index.js",
+    "components/github/modals/index.js",
+    "components/layout/index.js",
+    "components/linting/index.js",
+    "components/linting/modals/index.js",
+    "components/renderer/index.js",
+    "components/sections/index.js",
+    "components/security/modals/index.js",
+    "components/shared/index.js",
+    "components/shared/modals/index.js",
+    "components/toolbar/index.js",
+    "components/user/modals/index.js",
+    "hooks/dictionary/index.js",
+    "hooks/document/index.js",
+    "hooks/editor/index.js",
+    "hooks/github/index.js",
+    "hooks/icons/index.js",
+    "hooks/markdown/index.js",
+    "hooks/performance/index.js",
+    "hooks/ui/index.js",
+    "providers/index.js",
+    "services/core/index.js",
+    "services/dictionary/index.js",
+    "services/fileBrowser/index.js",
+    "services/icons/index.js",
+    "components/dictionary/modals/DictionaryCategorySelector.jsx",
+    "components/toolbar/GitMenu.jsx",
+    "services/utilities/index.js"
+  ]
+}

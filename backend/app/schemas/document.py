@@ -17,7 +17,7 @@ class DocumentCreate(BaseModel):
     """Schema for creating a document with folder or category support."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    content: str = Field("", description="Markdown content - defaults to empty string")
+    content: str = ""
 
     # Support both new and legacy request formats
     folder_path: Optional[str] = Field(None, min_length=1, max_length=1000)

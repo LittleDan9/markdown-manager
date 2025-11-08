@@ -36,28 +36,6 @@ function Toolbar({
   }, []);
 
   useEffect(() => {
-    // Update theme icons for both guest and user menus
-    const themeIcon = document.getElementById("themeIcon");
-    const themeText = document.getElementById("themeText");
-    const themeIconUser = document.getElementById("themeIconUser");
-    const themeTextUser = document.getElementById("themeTextUser");
-
-    const iconClass =
-      theme === "light" ? "bi bi-moon-fill me-2" : "bi bi-sun-fill me-2";
-    const textContent = theme === "light" ? "Dark Theme" : "Light Theme";
-
-    if (themeIcon && themeText) {
-      themeIcon.className = iconClass;
-      themeText.textContent = textContent;
-    }
-
-    if (themeIconUser && themeTextUser) {
-      themeIconUser.className = iconClass;
-      themeTextUser.textContent = textContent;
-    }
-  });
-
-  useEffect(() => {
     setDocumentTitleState(currentDocument?.name || "Untitled Document");
   }, [currentDocument?.name]);
 
@@ -121,7 +99,7 @@ function Toolbar({
                   onClick={handleShowDocumentInfo}
                   disabled={!currentDocument?.id}
                   title={currentDocument?.id ? "View Document Information" : "No document loaded"}
-                  icon={currentDocument?.repository_type === 'github' ? 'github' : 'file-earmark-text'}
+                  icon={`bi bi-${currentDocument?.repository_type === 'github' ? 'github' : 'file-earmark-text'}`}
                 />
                 <DocumentToolbar
                   documentTitle={documentTitle}
@@ -146,7 +124,7 @@ function Toolbar({
                 e.preventDefault();
                 setShowIconBrowser(true);
               }}
-              icon="grid-3x3-gap"
+              icon="bi bi-grid-3x3-gap"
             />
           )}
           {!isSharedView && (
@@ -156,7 +134,7 @@ function Toolbar({
               size="sm"
               title="Search (Coming Soon)"
               disabled
-              icon="search"
+              icon="bi bi-search"
             />
           )}
           <ActionButton
@@ -172,7 +150,7 @@ function Toolbar({
                 return !prev;
               });
             }}
-            icon={fullscreenPreview ? "fullscreen-exit" : "fullscreen"}
+            icon={fullscreenPreview ? "bi bi-fullscreen-exit" : "bi bi-fullscreen"}
             style={{ display: isSharedView ? 'none' : 'inline-block' }}
           />
           {/* User Profile Dropdown (always show for login access) */}
