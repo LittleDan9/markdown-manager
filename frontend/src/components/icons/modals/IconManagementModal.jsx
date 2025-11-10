@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Tab, Nav } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import UploadIconTab from './UploadIconTab';
@@ -16,17 +16,7 @@ export default function IconManagementModal({ show, onHide }) {
   const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false); // Track if we've loaded data for this session
 
-  // Load existing packs and categories on mount
-  useEffect(() => {
-    if (show && !dataLoaded) {
-      setLoading(true);
-      loadAllData()
-        .then(() => setDataLoaded(true))
-        .finally(() => setLoading(false));
-    }
-  }, [show, dataLoaded]);
-
-  const loadAllData = async () => {
+  const loadAllData = useCallback(async () => {
     // Load data sequentially to avoid hitting rate limits
     // Start with the most critical data first
     try {
@@ -39,7 +29,17 @@ export default function IconManagementModal({ show, onHide }) {
     } catch (error) {
       console.error('Error loading icon management data:', error);
     }
-  };
+  }, []);
+
+  // Load existing packs and categories on mount
+  useEffect(() => {
+    if (show && !dataLoaded) {
+      setLoading(true);
+      loadAllData()
+        .then(() => setDataLoaded(true))
+        .finally(() => setLoading(false));
+    }
+  }, [show, dataLoaded, loadAllData]);
 
   const handleReloadData = async () => {
     setDataLoaded(false); // Reset cache flag to force reload

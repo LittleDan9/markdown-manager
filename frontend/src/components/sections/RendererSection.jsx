@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Container, Alert, Button } from 'react-bootstrap';
 import Renderer from '../Renderer';
@@ -25,7 +25,7 @@ function RendererSection({
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
 
   // Reset hasRendered only when starting a document operation (not content changes)
-  React.useEffect(() => {
+  useEffect(() => {
     if (isInitializing || sharedLoading || documentLoading) {
       setHasRendered(false);
       if (isInitializing) {
@@ -39,14 +39,13 @@ function RendererSection({
   }, [isInitializing, sharedLoading, documentLoading]);
 
   // Handle empty content case - consider it "rendered" immediately
-  React.useEffect(() => {
+  useEffect(() => {
     console.log("RendererSection: Empty content check", {
       content: content.length,
       contentTrimmed: content.trim().length,
       isInitializing,
       sharedLoading,
-      documentLoading,
-      hasRendered
+      documentLoading
     });
 
     if (!content.trim() && !isInitializing && !sharedLoading && !documentLoading) {

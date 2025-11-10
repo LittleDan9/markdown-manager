@@ -31,13 +31,13 @@ function PasswordResetModal({ show, onHide, onReset, devMode }) {
     if (success) {
       showSuccess(success);
     }
-  }, [success]);
+  }, [success, showSuccess]);
 
   useEffect(() => {
     if (error) {
       showError(error);
     }
-  }, [error]);
+  }, [error, showError]);
 
   // Step 1: Request reset
   const handleRequest = async (e) => {

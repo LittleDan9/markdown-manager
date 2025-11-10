@@ -14,7 +14,7 @@ export function useDocumentContext() {
 
 export function DocumentContextProvider({ children }) {
   // Auth and notification
-  const { token, user, isAuthenticated, isInitializing } = useAuth();
+  const { token: _token, user: _user, isAuthenticated: _isAuthenticated, isInitializing: _isInitializing } = useAuth();
 
   // UI state for global app UI management
   const [cursorLine, setCursorLine] = useState(1);

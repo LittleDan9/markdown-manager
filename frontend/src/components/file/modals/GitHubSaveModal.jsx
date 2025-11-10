@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Modal, Button, Form, Alert, Spinner, Row, Col, InputGroup, Badge, ProgressBar } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import { useNotification } from '@/components/NotificationProvider';
@@ -19,7 +19,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
   const [filePath, setFilePath] = useState('');
   const [commitMessage, setCommitMessage] = useState('');
   const [repositoryStatus, setRepositoryStatus] = useState(null);
-  const [loadingStatus, setLoadingStatus] = useState(false);
+  const [_loadingStatus, setLoadingStatus] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingRepos, setLoadingRepos] = useState(false);
   const [loadingBranches, setLoadingBranches] = useState(false);
@@ -32,6 +32,61 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
 
   const { showSuccess, showError, showInfo } = useNotification();
   const { settings: githubSettings, loading: settingsLoading } = useGitHubSettings();
+
+  const loadRepositories = useCallback(async () => {
+    try {
+      setLoadingRepos(true);
+      setError('');
+      const repos = await gitHubApi.getUserRepositoriesForSave();
+      setRepositories(repos);
+
+      if (repos.length > 0) {
+        // Auto-select first repository
+        setSelectedRepository(repos[0].id.toString());
+      }
+    } catch (err) {
+      setError(`Failed to load repositories: ${err.message}`);
+      showError('Failed to load GitHub repositories');
+    } finally {
+      setLoadingRepos(false);
+    }
+  }, [showError]);
+
+  const loadBranches = useCallback(async (repoId) => {
+    try {
+      setLoadingBranches(true);
+      const branchData = await gitHubApi.getRepositoryBranchesForSave(repoId);
+      setBranches(branchData);
+
+      // Set default branch
+      const defaultBranch = branchData.find(b => b.name === 'main') ||
+                           branchData.find(b => b.name === 'master') ||
+                           branchData[0];
+      if (defaultBranch) {
+        setSelectedBranch(defaultBranch.name);
+        setBaseBranch(defaultBranch.name);
+      }
+    } catch (err) {
+      setError(`Failed to load branches: ${err.message}`);
+      showError('Failed to load repository branches');
+    } finally {
+      setLoadingBranches(false);
+    }
+  }, [showError]);
+
+  const loadRepositoryStatus = useCallback(async (repoId) => {
+    try {
+      setLoadingStatus(true);
+      const status = await gitHubApi.getRepositoryStatus(repoId);
+      setRepositoryStatus(status);
+    } catch (err) {
+      // Don't show error for status check - it's not critical
+      console.warn('Failed to load repository status:', err.message);
+      setRepositoryStatus(null);
+    } finally {
+      setLoadingStatus(false);
+    }
+  }, []);
 
   // Load repositories on modal open
   useEffect(() => {
@@ -53,7 +108,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
       setConversionProgress(null);
       setConversionResult(null);
     }
-  }, [show, document]);
+  }, [show, document, loadRepositories]);
 
   // Load branches when repository changes
   useEffect(() => {
@@ -61,62 +116,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
       loadBranches(selectedRepository);
       loadRepositoryStatus(selectedRepository);
     }
-  }, [selectedRepository]);
-
-  const loadRepositories = async () => {
-    try {
-      setLoadingRepos(true);
-      setError('');
-      const repos = await gitHubApi.getUserRepositoriesForSave();
-      setRepositories(repos);
-
-      if (repos.length > 0) {
-        // Auto-select first repository
-        setSelectedRepository(repos[0].id.toString());
-      }
-    } catch (err) {
-      setError(`Failed to load repositories: ${err.message}`);
-      showError('Failed to load GitHub repositories');
-    } finally {
-      setLoadingRepos(false);
-    }
-  };
-
-  const loadBranches = async (repoId) => {
-    try {
-      setLoadingBranches(true);
-      const branchData = await gitHubApi.getRepositoryBranchesForSave(repoId);
-      setBranches(branchData);
-
-      // Set default branch
-      const defaultBranch = branchData.find(b => b.name === 'main') ||
-                           branchData.find(b => b.name === 'master') ||
-                           branchData[0];
-      if (defaultBranch) {
-        setSelectedBranch(defaultBranch.name);
-        setBaseBranch(defaultBranch.name);
-      }
-    } catch (err) {
-      setError(`Failed to load branches: ${err.message}`);
-      showError('Failed to load repository branches');
-    } finally {
-      setLoadingBranches(false);
-    }
-  };
-
-  const loadRepositoryStatus = async (repoId) => {
-    try {
-      setLoadingStatus(true);
-      const status = await gitHubApi.getRepositoryStatus(repoId);
-      setRepositoryStatus(status);
-    } catch (err) {
-      // Don't show error for status check - it's not critical
-      console.warn('Failed to load repository status:', err.message);
-      setRepositoryStatus(null);
-    } finally {
-      setLoadingStatus(false);
-    }
-  };
+  }, [selectedRepository, loadBranches, loadRepositoryStatus]);
 
   const handleSave = async () => {
     if (!selectedRepository || !filePath.trim()) {
@@ -414,7 +414,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
               )}
             </InputGroup>
             <Form.Text className="text-muted">
-              Path where the file will be saved in the repository. Don't include leading slash.
+              Path where the file will be saved in the repository. Don&apos;t include leading slash.
             </Form.Text>
           </Form.Group>
 
@@ -427,7 +427,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
               onChange={(e) => setCommitMessage(e.target.value)}
             />
             <Form.Text className="text-muted">
-              Optional commit message (default: "Add {document?.name || 'document'}")
+              Optional commit message (default: &quot;Add {document?.name || 'document'}&quot;)
             </Form.Text>
           </Form.Group>
 
@@ -456,7 +456,7 @@ function GitHubSaveModal({ show, onHide, document, onSaveSuccess }) {
                     {githubSettings && (
                       <small className="text-muted d-block">
                         {githubSettings.auto_convert_diagrams
-                          ? `Auto-convert to ${githubSettings.diagram_format?.toUpperCase() || 'PNG'}`
+                          ? 'Auto-convert to ' + (githubSettings.diagram_format?.toUpperCase() || 'PNG')
                           : 'Keep original Mermaid syntax'
                         }
                       </small>

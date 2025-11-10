@@ -12,8 +12,8 @@ import RendererSection from "@/components/sections/RendererSection";
 import AppModals from "@/components/shared/modals/AppModals";
 
 function App() {
-  const { isAuthenticated, autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, setContent, isSharedView, sharedDocument, sharedLoading, sharedError, loading, saving, previewHTML, setPreviewHTML, triggerContentUpdate, cursorLine, setCursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser } = useDocumentContext();
+  const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
+  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser } = useDocumentContext();
 
   // Handle GitHub OAuth results from URL parameters (fallback for popup failures)
   useGitHubOAuth();

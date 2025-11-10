@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Alert } from "react-bootstrap";
 import MFAModal from "./MFAModal";
 import BackupCodesSection from "./BackupCodesSection";
@@ -14,11 +14,11 @@ function MFATab({ setActiveTab }) {
   const [error, setError] = useState("");
   const [step, setStep] = useState(1);
   const [backupCodes, setBackupCodes] = useState([]);
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess } = useNotification();
   const { user, setUser } = useAuth();
 
   // Enable MFA handler
-  const handleEnableMFA = async () => {
+  const _handleEnableMFA = async () => {
     setLoading(true);
     setError("");
     try {

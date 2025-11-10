@@ -1,5 +1,4 @@
 import React from 'react';
-import { Container, Row, Col } from 'react-bootstrap';
 import FileTree from './FileTree';
 import FileList from './FileList';
 import FilePreview from './FilePreview';

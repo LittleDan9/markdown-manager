@@ -61,7 +61,7 @@ export default function GitHubConflictModal({
     }
   };
 
-  const useVersion = (content) => {
+  const selectVersion = (content) => {
     setResolvedContent(content);
     setActiveTab("merged");
   };
@@ -110,7 +110,7 @@ export default function GitHubConflictModal({
                 <Button
                   variant="outline-primary"
                   size="sm"
-                  onClick={() => useVersion(conflictData.local_content)}
+                  onClick={() => selectVersion(conflictData.local_content)}
                 >
                   Use This Version
                 </Button>
@@ -133,7 +133,7 @@ export default function GitHubConflictModal({
                 <Button
                   variant="outline-primary"
                   size="sm"
-                  onClick={() => useVersion(conflictData.remote_content)}
+                  onClick={() => selectVersion(conflictData.remote_content)}
                 >
                   Use This Version
                 </Button>

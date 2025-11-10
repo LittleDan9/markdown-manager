@@ -17,19 +17,19 @@ import PreviewRenderer from './renderer/PreviewRenderer';
 
 const RendererContent = ({
   scrollToLine,
-  fullscreenPreview,
+  fullscreenPreview: _fullscreenPreview,
   onFirstRender,
   showLoadingOverlay,
   loadingMessage
 }) => {
-  const { theme } = useTheme();
-  const { currentDocument, previewHTML, setPreviewHTML, isRendering } = useDocumentContext();
+  const { theme: _theme } = useTheme();
+  const { currentDocument, previewHTML, setPreviewHTML, isRendering: _isRendering } = useDocumentContext();
   const {
-    html,
-    setIsRendering,
+    html: _html,
+    setIsRendering: _setIsRendering,
     previewScrollRef,
     resetFirstRenderFlag,
-    isCropModeActive
+    isCropModeActive: _isCropModeActive
   } = useRendererContext();  // Setup copy functionality for code blocks
   const setCodeCopyRef = useCodeCopy(previewHTML, true);
 
@@ -38,7 +38,7 @@ const RendererContent = ({
     renderDiagrams,
     updateTheme,
     currentTheme: mermaidTheme
-  } = useMermaid(theme);
+  } = useMermaid(_theme);
 
   // Setup global image modal function (fallback for external images)
   useEffect(() => {
@@ -54,10 +54,10 @@ const RendererContent = ({
 
   // Automatic theme updates for Mermaid
   useEffect(() => {
-    if (theme !== mermaidTheme) {
-      updateTheme(theme);
+    if (_theme !== mermaidTheme) {
+      updateTheme(_theme);
     }
-  }, [theme, mermaidTheme, updateTheme]);
+  }, [_theme, mermaidTheme, updateTheme]);
 
   // Reset render flag when document changes
   useEffect(() => {
@@ -77,7 +77,7 @@ const RendererContent = ({
       // Check if we need to process Mermaid diagrams
       if (htmlString.includes("data-mermaid-source")) {
         console.log(`🧜‍♀️ Processing Mermaid diagrams for render ${renderId}`);
-        finalHtml = await renderDiagrams(htmlString, theme);
+        finalHtml = await renderDiagrams(htmlString, _theme);
         setPreviewHTML(finalHtml);
       } else {
         console.log(`📄 Setting preview HTML for render ${renderId} (no Mermaid)`);
@@ -103,13 +103,13 @@ const RendererContent = ({
       //   onRenderHTML(htmlString);
       // }
     }
-  }, [renderDiagrams, theme, setPreviewHTML]);
+  }, [renderDiagrams, _theme, setPreviewHTML]);
 
   return (
     <div id="previewContainer">
       {/* Central rendering orchestrator replaces MarkdownProcessor */}
       <RenderingOrchestrator
-        theme={theme}
+        theme={_theme}
         onRenderComplete={handleRenderComplete}
       />
 

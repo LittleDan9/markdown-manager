@@ -7,15 +7,17 @@ module.exports = {
   },
   extends: [
     'eslint:recommended',
+    'plugin:react/recommended',
+    'plugin:react-hooks/recommended',
   ],
   parserOptions: {
     ecmaFeatures: {
       jsx: true,
     },
-    ecmaVersion: 12,
+    ecmaVersion: 'latest',
     sourceType: 'module',
   },
-  plugins: [],
+  plugins: ['react', 'react-hooks'],
   rules: {
     // Relaxed rules for development - focus on critical errors only
     'no-console': 'off', // Allow console statements during development
@@ -28,8 +30,14 @@ module.exports = {
     'no-var': 'warn', // Warn instead of error
     'prefer-const': 'warn', // Warn instead of error
     'no-dupe-class-members': 'warn', // Warn instead of error
+    'react/prop-types': 'off',
+    'react-hooks/rules-of-hooks': 'error',
+    'react-hooks/exhaustive-deps': 'warn',
   },
   settings: {
+    react: {
+      version: 'detect',
+    },
     'import/resolver': {
       alias: {
         map: [['@', './src']],

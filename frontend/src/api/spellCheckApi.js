@@ -113,16 +113,11 @@ class SpellCheckApi extends Api {
    * @returns {Promise<Array>} List of supported programming languages
    */
   async getSupportedCodeLanguages() {
-    try {
-      // For now, return hardcoded list - could be extended to fetch from backend
-      return [
-        'javascript', 'typescript', 'python', 'java', 'cpp', 'c', 'csharp',
-        'php', 'ruby', 'go', 'rust', 'kotlin', 'swift', 'sql', 'html', 'css'
-      ];
-    } catch (error) {
-      console.error('Failed to get supported code languages:', error);
-      return ['javascript', 'python', 'typescript']; // fallback
-    }
+    // For now, return hardcoded list - could be extended to fetch from backend
+    return [
+      'javascript', 'typescript', 'python', 'java', 'cpp', 'c', 'csharp',
+      'php', 'ruby', 'go', 'rust', 'kotlin', 'swift', 'sql', 'html', 'css'
+    ];
   }
 
   /**
@@ -339,6 +334,7 @@ class SpellCheckApi extends Api {
       if (!isAvailable) {
         console.warn('Spell check service not available, operating in degraded mode');
       }
+      // Always return true for successful initialization
       return true;
     } catch (error) {
       console.error('Spell check service initialization failed:', error);

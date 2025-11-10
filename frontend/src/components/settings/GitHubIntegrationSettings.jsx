@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Card, Form, Row, Col, Alert, Badge, Button } from 'react-bootstrap';
+import { Card, Form, Row, Col, Alert, Badge } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 
 /**

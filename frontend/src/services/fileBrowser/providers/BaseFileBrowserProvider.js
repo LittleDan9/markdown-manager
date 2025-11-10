@@ -34,7 +34,7 @@ export class BaseFileBrowserProvider {
    * @param {string} path - Path to get files from
    * @returns {Promise<FileTreeNode[]>}
    */
-  async getFilesInPath(path) {
+  async getFilesInPath(_path) {
     throw new Error('getFilesInPath must be implemented');
   }
 
@@ -43,7 +43,7 @@ export class BaseFileBrowserProvider {
    * @param {FileTreeNode} fileNode - File node to get content for
    * @returns {Promise<string>}
    */
-  async getFileContent(fileNode) {
+  async getFileContent(_fileNode) {
     throw new Error('getFileContent must be implemented');
   }
 
@@ -53,7 +53,7 @@ export class BaseFileBrowserProvider {
    * @param {string} folderName - Name of new folder
    * @returns {Promise<FileTreeNode>}
    */
-  async createFolder(parentPath, folderName) {
+  async createFolder(_parentPath, _folderName) {
     throw new Error('createFolder not supported by this provider');
   }
 
@@ -70,7 +70,7 @@ export class BaseFileBrowserProvider {
    * @param {string} query - Search query
    * @returns {Promise<FileTreeNode[]>}
    */
-  async searchFiles(query) {
+  async searchFiles(_query) {
     throw new Error('searchFiles not supported by this provider');
   }
 

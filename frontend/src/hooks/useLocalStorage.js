@@ -72,7 +72,7 @@ export function useLocalStorage(key, defaultValue) {
  * @returns {[width, setWidth, resetWidth]} - Current width, setter, and reset function
  */
 export function useEditorWidth(defaultWidth = 40) {
-  const [width, setWidth, removeWidth] = useLocalStorage('markdown-manager-editor-width', defaultWidth);
+  const [width, setWidth, _removeWidth] = useLocalStorage('markdown-manager-editor-width', defaultWidth);
 
   // Validated setter that ensures width is within bounds
   const setValidatedWidth = useCallback((newWidth) => {

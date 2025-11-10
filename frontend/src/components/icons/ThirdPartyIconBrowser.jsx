@@ -105,7 +105,7 @@ export default function ThirdPartyIconBrowser({
     } finally {
       setLoading(false);
     }
-  }, [selectedSource]); // Removed showError dependency to prevent infinite loops
+  }, [selectedSource, showError]);
 
   // Fetch categories
   // Note: Categories are now passed as props from IconManagementModal
@@ -143,7 +143,7 @@ export default function ThirdPartyIconBrowser({
     } finally {
       setIconsLoading(false);
     }
-  }, [selectedSource]); // Removed showError dependency to prevent infinite loops
+  }, [selectedSource, showError]);
 
   // Install selected icons
   const installIcons = async () => {
@@ -547,7 +547,7 @@ export default function ThirdPartyIconBrowser({
                         <>
                           <h6>No Icons Found</h6>
                           <p className="mb-0">
-                            No icons found for "{iconSearch}". Try a different search term.
+                            No icons found for &quot;{iconSearch}&quot;. Try a different search term.
                           </p>
                         </>
                       )}

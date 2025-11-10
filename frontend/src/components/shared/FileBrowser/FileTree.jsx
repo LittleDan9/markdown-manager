@@ -17,10 +17,10 @@ export default forwardRef(function FileTree({
   expandedFolders,
   onPathChange,
   onFileSelect,
-  onFileOpen,
+  onFileOpen: _onFileOpen,
   onFolderToggle,
   loading,
-  config,
+  config: _config,
   dataProvider
 }, ref) {
   const [folderContents, setFolderContents] = useState(new Map());
@@ -39,7 +39,7 @@ export default forwardRef(function FileTree({
       // Load root contents for new provider
       loadFolderContents('/');
     }
-  }, [dataProvider]);
+  }, [dataProvider, loadFolderContents]);
 
   // Load contents for current path when it changes
   useEffect(() => {
@@ -65,7 +65,7 @@ export default forwardRef(function FileTree({
         }
       });
     }
-  }, [currentPath, dataProvider]);
+  }, [currentPath, dataProvider, folderContents, loadFolderContents, loadingFolders]);
 
   // Load folder contents when folders are expanded
   useEffect(() => {
@@ -76,7 +76,7 @@ export default forwardRef(function FileTree({
         loadFolderContents(folderPath);
       }
     });
-  }, [expandedFolders]);
+  }, [expandedFolders, folderContents, loadFolderContents, loadingFolders]);
 
   // Handle tree data changes (when provider loads initial data)
   useEffect(() => {
@@ -89,7 +89,7 @@ export default forwardRef(function FileTree({
         loadFolderContents(currentPath);
       }
     }
-  }, [treeData, currentPath]);
+  }, [treeData, currentPath, folderContents, loadFolderContents]);
 
   // Scroll to a specific folder in the tree
   const scrollToFolder = (folderPath) => {

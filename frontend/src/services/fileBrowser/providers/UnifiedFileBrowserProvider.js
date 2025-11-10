@@ -261,7 +261,7 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
     };
   }
 
-  _githubDirToFileNode(githubDir, currentPath) {
+  _githubDirToFileNode(githubDir, _currentPath) {
     // Create a file node directly for directory browsing
     // The GitHub API returns the full path relative to repo root
     // We need to construct the UI path correctly without duplication
@@ -294,7 +294,7 @@ export class UnifiedFileBrowserProvider extends BaseFileBrowserProvider {
     };
   }
 
-  _githubFileToFileNode(githubFile, currentPath) {
+  _githubFileToFileNode(githubFile, _currentPath) {
     // Create a file node directly for file browsing
     // Use GitHub file path to construct correct UI path, avoiding duplication
 

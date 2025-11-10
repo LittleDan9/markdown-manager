@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Modal, Accordion, Card, Button, Alert, Spinner, Form, ProgressBar } from "react-bootstrap";
+import React from "react";
+import { Modal, Accordion, Button, Alert, Spinner, Form, ProgressBar } from "react-bootstrap";
 
 function MFAModal({ show, onHide, setupData, backupCodes = [], onVerify, onEnable, onComplete, loading, error, step, onStepChange }) {
   // step: 1=QR, 2=Verify, 3=Password, 4=Backup Codes
@@ -24,7 +24,7 @@ function MFAModal({ show, onHide, setupData, backupCodes = [], onVerify, onEnabl
                 </div>
                 <div className="col-md-6">
                   <Form.Group>
-                    <Form.Label>Can't scan? Enter this code manually:</Form.Label>
+                    <Form.Label>Can&apos;t scan? Enter this code manually:</Form.Label>
                     <Form.Control type="text" value={setupData?.secret || ""} readOnly className="font-monospace" />
                   </Form.Group>
                   <Alert variant="info" className="mt-2">

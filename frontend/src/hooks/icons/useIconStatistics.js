@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminIconsApi } from '../../api/admin';
 
 export function useIconStatistics() {
@@ -7,7 +7,7 @@ export function useIconStatistics() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const loadSystemStats = async () => {
+  const loadSystemStats = useCallback(async () => {
     try {
       setError(null);
       const stats = await adminIconsApi.getIconStatistics();
@@ -16,9 +16,9 @@ export function useIconStatistics() {
       console.error('Failed to load system statistics:', err);
       setError(err);
     }
-  };
+  }, []);
 
-  const loadPopularIcons = async () => {
+  const loadPopularIcons = useCallback(async () => {
     try {
       setError(null);
       const popular = await adminIconsApi.getPopularIcons(10);
@@ -27,9 +27,9 @@ export function useIconStatistics() {
       console.error('Failed to load popular icons:', err);
       setError(err);
     }
-  };
+  }, []);
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
       await Promise.all([
@@ -39,11 +39,11 @@ export function useIconStatistics() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadSystemStats, loadPopularIcons]);
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   return {
     systemStats,

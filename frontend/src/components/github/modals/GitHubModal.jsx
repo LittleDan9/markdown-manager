@@ -19,7 +19,7 @@ export default function GitHubModal({ show, onHide }) {
     }
   }, [accounts, accountsLoading, activeTab]);
 
-  const handleAccountsChange = (updatedAccounts) => {
+  const handleAccountsChange = (_updatedAccounts) => {
     // Refresh the accounts from the hook to keep them in sync
     loadAccounts();
   };

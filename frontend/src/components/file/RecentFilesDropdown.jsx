@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNotification } from "@/components/NotificationProvider";
@@ -16,9 +16,9 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
 
   useEffect(() => {
     loadRecentFiles();
-  }, [isAuthenticated]);
+  }, [isAuthenticated, loadRecentFiles]);
 
-  const loadRecentFiles = async () => {
+  const loadRecentFiles = useCallback(async () => {
     setLoading(true);
     try {
       // Get local recent files (3 most recent)
@@ -56,7 +56,7 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAuthenticated, showError, documentStorageService]);
 
   const handleFileSelect = async (file) => {
     if (onFileSelect) {

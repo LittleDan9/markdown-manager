@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-let globalFileModalState = {
+const globalFileModalState = {
   showFileModal: false,
   activeTab: 'local',
   selectedRepository: null,

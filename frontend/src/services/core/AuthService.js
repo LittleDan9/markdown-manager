@@ -4,14 +4,10 @@
  */
 
 import UserAPI from '@/api/userApi.js';
-import {
-  getLocalStorageData,
-  setLocalStorageData,
-  clearLocalStorageData
-} from '@/utils/authHelpers';
 import DocumentStorageService from './DocumentStorageService';
 import NotificationService from '../utilities/notifications.js';
 import DictionaryService from '../dictionary';
+import lintingApi from '@/api/lintingApi.js';
 
 const defaultUser = {
   bio: "",
@@ -257,6 +253,9 @@ class AuthService {
     this.setUser(loginResponse.user || defaultUser);
     this.isAuthenticated = true;
 
+    // Clear linting rules cache on login
+    lintingApi.clearRulesCache();
+
     try {
       await DictionaryService.syncAfterLogin();
     } catch (error) {
@@ -281,6 +280,9 @@ class AuthService {
         this.setUser(response.user || defaultUser);
         this.isAuthenticated = true;
         this.justLoggedIn = true;
+
+        // Clear linting rules cache on MFA login
+        lintingApi.clearRulesCache();
 
         try {
           await DictionaryService.syncAfterLogin();
@@ -336,6 +338,9 @@ class AuthService {
     this.isAuthenticated = false;
     localStorage.setItem('lastKnownAuthState', 'unauthenticated');
     DictionaryService.clearLocal();
+
+    // Clear linting rules cache on logout
+    lintingApi.clearRulesCache();
   }
 
   /**

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Badge } from 'react-bootstrap';
+import { Form } from 'react-bootstrap';
 
 /**
  * Scope selector component for dictionary scope selection
@@ -68,7 +68,7 @@ export function DictionaryScopeSelector({
         {availableScopes.map(scope => {
           const value = getScopeValue(scope);
           let icon = '👤';
-          let description = scope.displayName;
+          const description = scope.displayName;
 
           if (scope.type === 'folder') {
             icon = '📁';

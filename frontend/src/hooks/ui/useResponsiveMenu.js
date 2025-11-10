@@ -11,7 +11,7 @@ import { useState, useEffect, useCallback } from 'react';
 export const useResponsiveMenu = ({
   fullMenuHeight = 800,
   mediumMenuHeight = 600,
-  compactMenuHeight = 400
+  compactMenuHeight: _compactMenuHeight = 400
 } = {}) => {
   const [menuSize, setMenuSize] = useState('full');
   const [windowHeight, setWindowHeight] = useState(window.innerHeight);
@@ -27,17 +27,17 @@ export const useResponsiveMenu = ({
     } else {
       setMenuSize('compact');
     }
-  }, [fullMenuHeight, mediumMenuHeight, compactMenuHeight]);
+  }, [fullMenuHeight, mediumMenuHeight]);
 
   useEffect(() => {
     updateMenuSize();
-    
+
     const handleResize = () => {
       updateMenuSize();
     };
 
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
     };

@@ -4,7 +4,7 @@
  * Replaces ImageManager with a modular feature-based approach.
  * Handles feature registration, initialization, and coordinates between features.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { useImageMetadata } from '../../services/image/ImageMetadataService';
 import { useRendererContext } from '../renderer/RendererContext';
@@ -33,25 +33,92 @@ const FeatureManager = () => {
   const isInitialized = useRef(false);
 
   /**
-   * Register all features (only once)
+   * Handle crop button click
    */
-  useEffect(() => {
-    if (isInitialized.current) return;
+  const handleCropAction = useCallback((container, img, filename, lineNumber) => {
+    console.log('🔄 Starting crop mode for:', filename);
 
-    console.log('🏗️ Registering features...');
+    // Get existing crop data or defaults
+    const cropData = getCropData(filename, lineNumber) || getDefaultCropData();
 
-    // Register features
-    registerFeature('image-controls', ImageControlsFeature);
-    registerFeature('crop-overlay', CropOverlayFeature);
+    // Show the crop overlay
+    CropOverlayFeature.show(container, cropData);
 
-    isInitialized.current = true;
-    console.log('✅ Features registered');
-  }, []);
+    // Enter crop mode for render protection
+    enterCropMode(filename, lineNumber, {
+      width: img.naturalWidth || img.width,
+      height: img.naturalHeight || img.height
+    }, cropData);
+  }, [getCropData, enterCropMode]);
+
+  /**
+   * Handle expand button click
+   */
+  const handleExpandAction = useCallback((img, filename, lineNumber) => {
+    console.log('🔍 Expanding image:', filename);
+
+    const cropData = getCropData(filename, lineNumber);
+
+    setSelectedImage({
+      src: img.src,
+      alt: img.alt,
+      title: img.title,
+      filename: filename,
+      cropData: cropData
+    });
+    setShowImageModal(true);
+  }, [getCropData, setSelectedImage, setShowImageModal]);
+
+  /**
+   * Handle crop save action
+   */
+  const handleCropSaveAction = useCallback(async (container, filename, lineNumber) => {
+    console.log('💾 Saving crop for:', filename);
+
+    try {
+      // Get current crop data from overlay
+      const cropData = CropOverlayFeature.getCurrentCropData(container);
+
+      if (!cropData) {
+        console.error('Could not get crop data');
+        return;
+      }
+
+      // Save to metadata service
+      await updateCropData(filename, lineNumber, cropData);
+
+      // Apply crop styles to the image
+      const img = container.querySelector('img[data-is-user-image="true"]');
+      if (img) {
+        applyCropStyles(img, cropData);
+      }
+
+      // Hide overlay and exit crop mode
+      CropOverlayFeature.hide(container);
+      exitCropMode();
+
+      console.log('✅ Crop saved successfully');
+
+    } catch (error) {
+      console.error('❌ Failed to save crop:', error);
+    }
+  }, [updateCropData, exitCropMode]);
+
+  /**
+   * Handle crop cancel action
+   */
+  const handleCropCancelAction = useCallback((container, filename) => {
+    console.log('❌ Cancelling crop for:', filename);
+
+    // Hide overlay and exit crop mode
+    CropOverlayFeature.hide(container);
+    exitCropMode();
+  }, [exitCropMode]);
 
   /**
    * Global handler for all image control actions
    */
-  const handleImageControl = (action, filename, lineNumber) => {
+  const handleImageControl = useCallback((action, filename, lineNumber) => {
     console.log('🎯 Feature action triggered:', { action, filename, lineNumber });
 
     if (!previewScrollRef.current) {
@@ -84,90 +151,7 @@ const FeatureManager = () => {
       default:
         console.warn('Unknown action:', action);
     }
-  };
-
-  /**
-   * Handle crop button click
-   */
-  const handleCropAction = (container, img, filename, lineNumber) => {
-    console.log('🔄 Starting crop mode for:', filename);
-
-    // Get existing crop data or defaults
-    const cropData = getCropData(filename, lineNumber) || getDefaultCropData();
-
-    // Show the crop overlay
-    CropOverlayFeature.show(container, cropData);
-
-    // Enter crop mode for render protection
-    enterCropMode(filename, lineNumber, {
-      width: img.naturalWidth || img.width,
-      height: img.naturalHeight || img.height
-    }, cropData);
-  };
-
-  /**
-   * Handle expand button click
-   */
-  const handleExpandAction = (img, filename, lineNumber) => {
-    console.log('🔍 Expanding image:', filename);
-
-    const cropData = getCropData(filename, lineNumber);
-
-    setSelectedImage({
-      src: img.src,
-      alt: img.alt,
-      title: img.title,
-      filename: filename,
-      cropData: cropData
-    });
-    setShowImageModal(true);
-  };
-
-  /**
-   * Handle crop save action
-   */
-  const handleCropSaveAction = async (container, filename, lineNumber) => {
-    console.log('💾 Saving crop for:', filename);
-
-    try {
-      // Get current crop data from overlay
-      const cropData = CropOverlayFeature.getCurrentCropData(container);
-
-      if (!cropData) {
-        console.error('Could not get crop data');
-        return;
-      }
-
-      // Save to metadata service
-      await updateCropData(filename, lineNumber, cropData);
-
-      // Apply crop styles to the image
-      const img = container.querySelector('img[data-is-user-image="true"]');
-      if (img) {
-        applyCropStyles(img, cropData);
-      }
-
-      // Hide overlay and exit crop mode
-      CropOverlayFeature.hide(container);
-      exitCropMode();
-
-      console.log('✅ Crop saved successfully');
-
-    } catch (error) {
-      console.error('❌ Failed to save crop:', error);
-    }
-  };
-
-  /**
-   * Handle crop cancel action
-   */
-  const handleCropCancelAction = (container, filename) => {
-    console.log('❌ Cancelling crop for:', filename);
-
-    // Hide overlay and exit crop mode
-    CropOverlayFeature.hide(container);
-    exitCropMode();
-  };
+  }, [previewScrollRef, handleCropAction, handleExpandAction, handleCropSaveAction, handleCropCancelAction]);
 
   /**
    * Set up global handler and initialize features when content changes
@@ -197,22 +181,23 @@ const FeatureManager = () => {
         }
       }, 100);
     }
-  }, [previewHTML, isRendering, isInitialized.current]);
+  }, [previewHTML, isRendering, getCropData, handleImageControl, previewScrollRef, updateCropData]);
 
   /**
    * Cleanup on unmount
    */
   useEffect(() => {
+    const currentPreviewScrollRef = previewScrollRef.current;
     return () => {
       if (window.handleImageControl) {
         delete window.handleImageControl;
       }
 
-      if (previewScrollRef.current) {
-        cleanupFeatures(previewScrollRef.current);
+      if (currentPreviewScrollRef) {
+        cleanupFeatures(currentPreviewScrollRef);
       }
     };
-  }, []);
+  }, [previewScrollRef]);
 
   return (
     <>

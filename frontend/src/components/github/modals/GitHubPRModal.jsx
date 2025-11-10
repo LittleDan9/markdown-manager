@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal, Button, Form, Alert, Spinner } from "react-bootstrap";
 import gitHubApi from "../../../api/gitHubApi";
 import { useNotification } from "../../NotificationProvider";
@@ -18,17 +18,7 @@ export default function GitHubPRModal({
   const [loadingBranches, setLoadingBranches] = useState(false);
   const { showSuccess, showError } = useNotification();
 
-  useEffect(() => {
-    if (show && repository?.id) {
-      loadBranches();
-      setTitle(`Update documentation from ${headBranch}`);
-      setBody(`This pull request contains updates to documentation files.
-
-Changes made using Markdown Manager.`);
-    }
-  }, [show, repository, headBranch]);
-
-  const loadBranches = async () => {
+  const loadBranches = useCallback(async () => {
     setLoadingBranches(true);
     try {
       const branchesData = await gitHubApi.getRepositoryBranches(repository.id);
@@ -45,7 +35,17 @@ Changes made using Markdown Manager.`);
     } finally {
       setLoadingBranches(false);
     }
-  };
+  }, [repository?.id, showError]);
+
+  useEffect(() => {
+    if (show && repository?.id) {
+      loadBranches();
+      setTitle(`Update documentation from ${headBranch}`);
+      setBody(`This pull request contains updates to documentation files.
+
+Changes made using Markdown Manager.`);
+    }
+  }, [show, repository, headBranch, loadBranches]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

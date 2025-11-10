@@ -4,7 +4,7 @@
  * This component provides a consistent approach to hover controls across
  * different content types, ensuring unified styling and behavior.
  */
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useTheme } from '../../providers/ThemeProvider';
 
 const HoverControls = ({
@@ -16,7 +16,7 @@ const HoverControls = ({
   onControlsCreated,
   onControlsDestroyed
 }) => {
-  const { theme } = useTheme();
+  const { theme: _theme } = useTheme();
   const [isVisible, setIsVisible] = useState(false);
   const controlsRef = useRef(null);
   const themeObserverRef = useRef(null);
@@ -76,7 +76,7 @@ const HoverControls = ({
   };
 
   // Get position styles based on position prop
-  const getPositionStyles = () => {
+  const getPositionStyles = useCallback(() => {
     const baseStyles = {
       position: 'absolute',
       zIndex: '20',
@@ -107,7 +107,7 @@ const HoverControls = ({
       default:
         return { ...baseStyles, top: '8px', right: '8px' };
     }
-  };
+  }, [position]);
 
   // Setup controls
   useEffect(() => {
@@ -202,7 +202,7 @@ const HoverControls = ({
         }
       }
     };
-  }, [targetElement, controls, position, showCondition, className]);
+  }, [targetElement, controls, position, showCondition, className, getPositionStyles, onControlsCreated, onControlsDestroyed]);
 
   // Force show/hide based on showCondition
   useEffect(() => {

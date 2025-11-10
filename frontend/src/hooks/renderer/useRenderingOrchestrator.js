@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useRendererContext } from '../../components/renderer/RendererContext';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 import { render } from '../../services/rendering/MarkdownRenderer';
@@ -25,7 +25,7 @@ const RENDER_STATE = {
 };
 
 export function useRenderingOrchestrator({ theme, onRenderComplete }) {
-  const { currentDocument, highlightedBlocks, setHighlightedBlocks, isRendering, setIsRendering, renderState, setRenderState, isRapidTyping, setIsRapidTyping, content } = useDocumentContext();
+  const { currentDocument, highlightedBlocks, setHighlightedBlocks, isRendering: _isRendering, setIsRendering, renderState, setRenderState, isRapidTyping, setIsRapidTyping, content } = useDocumentContext();
   const {
     setHtml,
     resetFirstRenderFlag,
@@ -115,62 +115,6 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       return newQueue;
     });
   }, [createRenderRequest, renderQueue.length, isCropModeActive]);
-
-  /**
-   * Process the render queue
-   * Takes the next valid request and starts processing it
-   */
-  const processQueue = useCallback(async () => {
-    // Don't process if already processing or in crop mode
-    // In rapid typing mode, allow processing even when in COMPLETED state
-    const canProcess = renderState === RENDER_STATE.IDLE ||
-                      (isRapidTyping && renderState === RENDER_STATE.COMPLETED);
-
-    if (!canProcess || isCropModeActive()) {
-      console.log(`⏸️ Queue processing paused:`, {
-        renderState,
-        isCropModeActive: isCropModeActive(),
-        isRapidTyping,
-        canProcess
-      });
-      return;
-    }
-
-    // Use a ref to get current queue to avoid circular dependency
-    setRenderQueue(currentQueue => {
-      // Filter out cancelled requests
-      const validRequests = currentQueue.filter(req => !req.cancelToken.cancelled);
-
-      if (validRequests.length === 0) {
-        console.log(`📭 Queue empty - no requests to process`);
-        renderQueueRef.current = [];
-        return [];
-      }
-
-      const request = validRequests[0];
-      const remaining = validRequests.slice(1);
-
-      console.log(`🔄 Processing render request ${request.id}:`, {
-        reason: request.reason,
-        remaining: remaining.length
-      });
-
-      // For rapid typing, process immediately; otherwise use setTimeout to avoid setState during setState
-      if (isRapidTyping && request.reason === 'content-change') {
-        console.log(`🚀 Rapid typing: Synchronous processing for ${request.id}`);
-        // Use microtask to avoid any React state conflicts but still be immediate
-        queueMicrotask(() => processRenderRequest(request));
-      } else {
-        // Start processing this request asynchronously to avoid setState during setState
-        setTimeout(() => {
-          processRenderRequest(request);
-        }, 0);
-      }
-
-      renderQueueRef.current = remaining;
-      return remaining;
-    });
-  }, [renderState, isCropModeActive, isRapidTyping]);
 
   /**
    * Process a single render request through the full pipeline
@@ -329,7 +273,63 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         setRenderState(RENDER_STATE.IDLE);
       }, 100);
     }
-  }, [highlightedBlocks, setHighlightedBlocks, setHtml, setIsRendering, onRenderComplete, isRapidTyping]);
+  }, [highlightedBlocks, setHighlightedBlocks, setHtml, setIsRendering, onRenderComplete, setRenderState]);
+
+  /**
+   * Process the render queue
+   * Takes the next valid request and starts processing it
+   */
+  const processQueue = useCallback(async () => {
+    // Don't process if already processing or in crop mode
+    // In rapid typing mode, allow processing even when in COMPLETED state
+    const canProcess = renderState === RENDER_STATE.IDLE ||
+                      (isRapidTyping && renderState === RENDER_STATE.COMPLETED);
+
+    if (!canProcess || isCropModeActive()) {
+      console.log(`⏸️ Queue processing paused:`, {
+        renderState,
+        isCropModeActive: isCropModeActive(),
+        isRapidTyping,
+        canProcess
+      });
+      return;
+    }
+
+    // Use a ref to get current queue to avoid circular dependency
+    setRenderQueue(currentQueue => {
+      // Filter out cancelled requests
+      const validRequests = currentQueue.filter(req => !req.cancelToken.cancelled);
+
+      if (validRequests.length === 0) {
+        console.log(`📭 Queue empty - no requests to process`);
+        renderQueueRef.current = [];
+        return [];
+      }
+
+      const request = validRequests[0];
+      const remaining = validRequests.slice(1);
+
+      console.log(`🔄 Processing render request ${request.id}:`, {
+        reason: request.reason,
+        remaining: remaining.length
+      });
+
+      // For rapid typing, process immediately; otherwise use setTimeout to avoid setState during setState
+      if (isRapidTyping && request.reason === 'content-change') {
+        console.log(`🚀 Rapid typing: Synchronous processing for ${request.id}`);
+        // Use microtask to avoid any React state conflicts but still be immediate
+        queueMicrotask(() => processRenderRequest(request));
+      } else {
+        // Start processing this request asynchronously to avoid setState during setState
+        setTimeout(() => {
+          processRenderRequest(request);
+        }, 0);
+      }
+
+      renderQueueRef.current = remaining;
+      return remaining;
+    });
+  }, [renderState, isCropModeActive, isRapidTyping, processRenderRequest]);
 
   /**
    * Detect rapid typing patterns and enable instant rendering mode
@@ -359,7 +359,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         setIsRapidTyping(false);
       }
     }, 500);
-  }, [isRapidTyping]);
+  }, [isRapidTyping, setIsRapidTyping]);
 
   /**
    * Debounced render function for rapid content changes
@@ -386,7 +386,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     debounceTimeoutRef.current = setTimeout(() => {
       queueRender(content, theme, priority, reason);
     }, reason === 'content-change' ? 50 : 10); // Much faster: 50ms for typing, 10ms for other changes
-  }, [queueRender, detectRapidTyping, isRapidTyping, processQueue]);
+  }, [queueRender, detectRapidTyping, isRapidTyping]);
 
   /**
    * Public API for triggering renders
@@ -472,7 +472,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     resetFirstRenderFlag();
 
     triggerRender(content, theme, { priority, reason });
-  }, [content, currentDocument?.id, resetFirstRenderFlag, triggerRender, theme]); // Removed renderState dependency
+  }, [content, currentDocument?.id, resetFirstRenderFlag, triggerRender, theme, renderState]);
 
   // Handle theme changes
   useEffect(() => {
@@ -508,14 +508,14 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Expose orchestrator state for debugging
-  const orchestratorState = {
+  const orchestratorState = useMemo(() => ({
     state: renderState,
     queueLength: renderQueueRef.current.length,
     activeRender: activeRender?.id || null,
     lastProcessedContent: lastProcessedContentRef.current.length,
     isRapidTyping,
     triggerRender
-  };
+  }), [renderState, activeRender?.id, isRapidTyping, triggerRender]);
 
   // Attach to window for debugging
   useEffect(() => {

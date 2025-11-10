@@ -1,7 +1,6 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import MarkdownToolbar from './editor/MarkdownToolbar';
-import ProgressIndicator from './ProgressIndicator';
 import { GitStatusBar } from './editor';
 import ReadabilityMetricsDisplay from './editor/spell-check/ReadabilityMetricsDisplay';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
@@ -10,7 +9,7 @@ import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
 export default function Editor({ value, fullscreenPreview = false }) {
   const containerRef = useRef(null);
-  const { currentDocument, setCurrentDocument, setContent, triggerContentUpdate, setCursorLine } = useDocumentContext();
+  const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
 
   // Debug: Log value prop changes
@@ -20,7 +19,7 @@ export default function Editor({ value, fullscreenPreview = false }) {
       documentId: currentDocument?.id,
       documentName: currentDocument?.name
     });
-  }, [value, currentDocument?.id]);
+  }, [value, currentDocument?.id, currentDocument?.name]);
 
   // Phase 5: Advanced spell check settings state
   const [spellCheckSettings, setSpellCheckSettings] = useState({
@@ -63,18 +62,23 @@ export default function Editor({ value, fullscreenPreview = false }) {
   }, []);
 
   // Phase 5: Readability display state
-  const [showReadability, setShowReadability] = useState(false);
+  const [showReadability] = useState(false);
 
-  // Get the category from the current document (string name, not ID)
-  const categoryId = currentDocument?.category;
+  // Track current category and folder path in state
+  const [currentCategoryId, setCurrentCategoryId] = useState(currentDocument?.category);
+  const [currentFolderPath, setCurrentFolderPath] = useState(currentDocument?.folder_path);
 
-  // Create a ref to track current categoryId for dynamic access
-  const categoryIdRef = useRef(categoryId);
-  categoryIdRef.current = categoryId;
+  // Update state when document changes
+  useEffect(() => {
+    setCurrentCategoryId(currentDocument?.category);
+    setCurrentFolderPath(currentDocument?.folder_path);
+  }, [currentDocument?.category, currentDocument?.folder_path]);
 
-  // Create a ref to track current folder path for dynamic access
-  const folderPathRef = useRef(currentDocument?.folder_path);
-  folderPathRef.current = currentDocument?.folder_path;
+  // Memoize the category getter function to prevent unnecessary re-renders
+  const getCategoryId = useCallback(() => currentCategoryId, [currentCategoryId]);
+
+  // Memoize the folder path getter function to prevent unnecessary re-renders
+  const getFolderPath = useCallback(() => currentFolderPath, [currentFolderPath]);
 
   // Debug: Log the document structure to understand what we have
 
@@ -101,8 +105,8 @@ export default function Editor({ value, fullscreenPreview = false }) {
     enableKeyboardShortcuts: true,
     enableListBehavior: true,
     enableImagePaste: true, // Explicitly enable image paste
-    categoryId: () => categoryIdRef.current,
-    getFolderPath: () => folderPathRef.current,
+    categoryId: getCategoryId,
+    getFolderPath: getFolderPath,
     spellCheckSettings // Phase 6: Pass current spell check settings
   });
 

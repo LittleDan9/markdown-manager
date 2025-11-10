@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { Card, Dropdown, ButtonGroup } from "react-bootstrap";
+import { ButtonGroup } from "react-bootstrap";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
 import { LocalDocumentsProvider } from "../../../services/fileBrowser/FileBrowserProviders";
 import { createFileBrowserProvider } from "../../../services/fileBrowser/providers/UnifiedFileBrowserProvider";
 import { useUnifiedFileOpening } from "../../../services/core/UnifiedFileOpeningService";
 import GitHubAccountList from "../../shared/GitHubAccountList";
 import GitHubRepositorySettings from "../../github/settings/GitHubRepositorySettings";
-import config from '../../../config';
 
 export default function UnifiedFileBrowserTab({
   documents,
   categories,
   onFileOpen,
-  onDocumentDelete,
+  _onDocumentDelete,
   onModalHide,
   // GitHub-specific props
   initialRepository = null,
-  setContent = null,
-  setDocumentTitle = null,
+  _setContent = null,
+  _setDocumentTitle = null,
   showSuccess = null,
   showError = null
 }) {
@@ -128,7 +127,7 @@ export default function UnifiedFileBrowserTab({
     }
   };
 
-  const handleRepositorySelect = (repository, account) => {
+  const handleRepositorySelect = (repository, _account) => {
     console.log('🚀 Repository selected:', repository.repo_name);
     setSelectedRepository(repository);
     setSelectedBranch(repository.default_branch || 'main');

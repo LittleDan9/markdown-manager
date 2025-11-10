@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, ListGroup, Alert, Badge, Spinner, Accordion, Form } from 'react-bootstrap';
 import gitHubApi from '../../api/gitHubApi';
 import gitHubRepositorySelectionApi from '../../api/gitHubRepositorySelectionApi';
@@ -78,7 +78,7 @@ const GitHubAccountList = ({
     });
 
     return cleanup;
-  }, [passedAccounts, accounts]);
+  }, [passedAccounts, accounts, startSyncPolling]);
 
   // Cleanup polling interval on unmount
   useEffect(() => {
@@ -192,7 +192,7 @@ const GitHubAccountList = ({
     }
   };
 
-  const startSyncPolling = (newAccountIds) => {
+  const startSyncPolling = useCallback((newAccountIds) => {
     console.log('GitHubAccountList: Starting sync polling for accounts:', newAccountIds);
 
     // Mark these accounts as syncing
@@ -211,7 +211,7 @@ const GitHubAccountList = ({
 
     let pollCount = 0;
     const maxPolls = 30; // 1 minute maximum (30 * 2 seconds)
-    let lastRepositoryCount = {};
+    const lastRepositoryCount = {};
 
     // Initialize repository count tracking
     newAccountIds.forEach(id => {
@@ -326,9 +326,9 @@ const GitHubAccountList = ({
     }, 2000); // Check every 2 seconds
 
     setSyncPollingInterval(interval);
-  };
+  }, [syncPollingInterval]);
 
-  const handleDeleteClick = (accountId, accountName) => {
+  const _handleDeleteClick = (accountId, accountName) => {
     setAccountToDelete({ id: accountId, name: accountName });
     setShowConfirmModal(true);
   };
@@ -363,7 +363,7 @@ const GitHubAccountList = ({
   const handleCancelDelete = () => {
     setShowConfirmModal(false);
     setAccountToDelete(null);
-  };  const formatLastSync = (lastSync) => {
+  };  const _formatLastSync = (lastSync) => {
     if (!lastSync) return 'Never';
     const date = new Date(lastSync);
     const now = new Date();
@@ -522,7 +522,7 @@ const GitHubAccountList = ({
                           return (
                             <div className="text-center py-3 text-muted">
                               <i className="bi bi-search"></i>
-                              <div className="mt-2">No repositories match "{searchTerm}"</div>
+                              <div className="mt-2">No repositories match &quot;{searchTerm}&quot;</div>
                               <small>Try a different search term</small>
                             </div>
                           );
@@ -577,7 +577,7 @@ const GitHubAccountList = ({
                       return (
                         <div className="text-center py-3 text-muted">
                           <i className="bi bi-search"></i>
-                          <div className="mt-2">No repositories match "{searchTerm}"</div>
+                          <div className="mt-2">No repositories match &quot;{searchTerm}&quot;</div>
                           <small>Try a different search term</small>
                         </div>
                       );

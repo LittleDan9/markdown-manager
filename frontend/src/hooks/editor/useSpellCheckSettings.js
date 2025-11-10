@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import spellCheckApi from '@/api/spellCheckApi';
 
 const STYLE_GUIDES = [
@@ -43,37 +43,32 @@ export function useSpellCheckSettings({
     settings.language || 'en-US'
   );
 
-  // Available languages from service
+    // Available languages from service
   const [availableLanguages, setAvailableLanguages] = useState(['en-US']);
   const [supportedCodeLanguages, setSupportedCodeLanguages] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // Load available languages when modal opens
-  useEffect(() => {
-    if (show) {
-      loadAvailableLanguages();
-      loadSupportedCodeLanguages();
-      loadStoredSettings();
+  const loadStoredSettings = useCallback(() => {
+    try {
+      if (currentUser) {
+        // For logged-in users, settings should come from backend user profile
+        // This will be implemented when backend user settings are available
+        console.log('Loading settings from user profile for user:', currentUser.email);
+      } else {
+        // For non-logged-in users, load from localStorage
+        const storedSettings = localStorage.getItem('spellCheckSettings');
+        if (storedSettings) {
+          const parsed = JSON.parse(storedSettings);
+          setAnalysisTypes(prev => ({ ...prev, ...parsed.analysisTypes }));
+          setCodeSpellSettings(prev => ({ ...prev, ...parsed.codeSpellSettings }));
+          setSelectedStyleGuide(parsed.styleGuide || 'none');
+          setSelectedLanguage(parsed.language || 'en-US');
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load stored settings:', error);
     }
-  }, [show]);
-
-  // Update settings when props change
-  useEffect(() => {
-    setAnalysisTypes({
-      spelling: settings.spelling ?? true,
-      grammar: settings.grammar ?? true,
-      style: settings.style ?? true,
-      readability: settings.readability ?? true
-    });
-    setCodeSpellSettings({
-      enabled: settings.enableCodeSpellCheck ?? false,
-      checkComments: settings.codeSpellSettings?.checkComments ?? true,
-      checkStrings: settings.codeSpellSettings?.checkStrings ?? false,
-      checkIdentifiers: settings.codeSpellSettings?.checkIdentifiers ?? true
-    });
-    setSelectedStyleGuide(settings.styleGuide || 'none');
-    setSelectedLanguage(settings.language || 'en-US');
-  }, [settings]);
+  }, [currentUser, setAnalysisTypes, setCodeSpellSettings, setSelectedStyleGuide, setSelectedLanguage]);
 
   const loadAvailableLanguages = async () => {
     try {
@@ -105,27 +100,23 @@ export function useSpellCheckSettings({
     }
   };
 
-  const loadStoredSettings = () => {
-    try {
-      if (currentUser) {
-        // For logged-in users, settings should come from backend user profile
-        // This will be implemented when backend user settings are available
-        console.log('Loading settings from user profile for user:', currentUser.email);
-      } else {
-        // For non-logged-in users, load from localStorage
-        const storedSettings = localStorage.getItem('spellCheckSettings');
-        if (storedSettings) {
-          const parsed = JSON.parse(storedSettings);
-          setAnalysisTypes(prev => ({ ...prev, ...parsed.analysisTypes }));
-          setCodeSpellSettings(prev => ({ ...prev, ...parsed.codeSpellSettings }));
-          setSelectedStyleGuide(parsed.styleGuide || 'none');
-          setSelectedLanguage(parsed.language || 'en-US');
-        }
-      }
-    } catch (error) {
-      console.error('Failed to load stored settings:', error);
+  // Load available languages when modal opens
+  useEffect(() => {
+    if (show) {
+      loadAvailableLanguages();
+      loadSupportedCodeLanguages();
+      loadStoredSettings();
     }
-  };
+  }, [show, loadStoredSettings]);
+
+  // Load available languages when modal opens
+  useEffect(() => {
+    if (show) {
+      loadAvailableLanguages();
+      loadSupportedCodeLanguages();
+      loadStoredSettings();
+    }
+  }, [show, loadStoredSettings]);
 
   const saveSettings = (newSettings) => {
     try {

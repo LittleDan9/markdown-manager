@@ -12,7 +12,7 @@ import GitHistoryModal from "@/components/shared/modals/GitHistoryModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useConfirmModal, useFileModal, useResponsiveMenu } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
-import { useFileOperations } from "@/hooks/document";
+import { useFileOperations, useGitStatus } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
 import gitHubApi from "@/api/gitHubApi";
@@ -23,14 +23,14 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   const { theme } = useTheme();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const {
-    createDocument, saveDocument, currentDocument, documents, exportAsMarkdown, exportAsPDF,
-    categories, loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
+    createDocument, saveDocument, currentDocument,
+    loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
 
   // Responsive menu hook - adjusted thresholds for better UX
-  const { isFullMenu, isMediumMenu, isCompactMenu, showInFull, showInMedium, hideInCompact } = useResponsiveMenu({
+  const { isFullMenu, isMediumMenu, isCompactMenu, showInMedium } = useResponsiveMenu({
     fullMenuHeight: 900,  // 900px+ shows everything
     mediumMenuHeight: 700, // 700-899px shows most features
     compactMenuHeight: 500 // <700px shows minimal features
@@ -50,39 +50,14 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   // Git history modal state
   const [showGitHistoryModal, setShowGitHistoryModal] = useState(false);
 
-  // Git state management
-  const [gitStatus, setGitStatus] = useState(null);
+  // Local loading state for git operations
   const [gitLoading, setGitLoading] = useState(false);
+
+  // Use centralized git status hook
+  const { gitStatus, loading: gitStatusLoading, refreshGitStatus } = useGitStatus(currentDocument?.id, currentDocument);
 
   // Consolidated file operations
   const fileOps = useFileOperations({ setDocumentTitle, setContent, renderedHTML: previewHTML, theme });
-
-  // Load git status when document changes
-  useEffect(() => {
-    if (currentDocument?.id) {
-      loadGitStatus(currentDocument.id);
-    } else {
-      setGitStatus(null);
-    }
-  }, [currentDocument]);
-
-    const loadGitStatus = async (documentId) => {
-    if (!documentId || String(documentId).startsWith('doc_')) {
-      setGitStatus(null);
-      return;
-    }
-
-    try {
-      setGitLoading(true);
-      const status = await documentsApi.getDocumentGitStatus(documentId);
-      setGitStatus(status);
-    } catch (error) {
-      console.error('Failed to load git status:', error);
-      setGitStatus(null);
-    } finally {
-      setGitLoading(false);
-    }
-  };
 
   // Git operation handlers
   const handleCommit = async () => {
@@ -98,7 +73,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
       showSuccess(`Successfully committed changes: ${result.commit_hash?.substring(0, 7) || 'success'}`);
 
       // Reload status after commit
-      await loadGitStatus(currentDocument.id);
+      refreshGitStatus();
     } catch (error) {
       showError(`Failed to commit changes: ${error.message}`);
     } finally {
@@ -122,9 +97,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   };
 
   const handleRefreshGitStatus = () => {
-    if (currentDocument?.id) {
-      loadGitStatus(currentDocument.id);
-    }
+    refreshGitStatus();
   };
 
   const handleViewGitFiles = () => {
@@ -179,7 +152,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
 
       if (response.success) {
         showSuccess(`Branch '${response.branch_name}' created and switched to successfully!`);
-        await loadGitStatus(currentDocument.id);
+        refreshGitStatus();
       } else {
         showError(`Failed to create branch: ${response.message || 'Unknown error'}`, null, null, 'git');
       }
@@ -212,7 +185,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
           ? `Changes stashed successfully as ${response.stash_id}`
           : response.message || 'Changes stashed successfully';
         showSuccess(message);
-        await loadGitStatus(currentDocument.id);
+        refreshGitStatus();
       } else {
         showError(`Failed to stash changes: ${response.message || 'Unknown error'}`, null, null, 'git');
       }
@@ -390,7 +363,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                     <button
                       className="btn btn-sm btn-outline-secondary"
                       onClick={handleRefreshGitStatus}
-                      disabled={gitLoading}
+                      disabled={gitStatusLoading}
                       title="Refresh git status"
                       style={{ padding: '2px 6px', fontSize: '0.7em' }}
                     >

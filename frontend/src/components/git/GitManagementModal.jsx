@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Tab, Tabs, Alert, Button, Spinner, Table, Badge, Card, Row, Col, Accordion } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Tab, Tabs, Alert, Spinner, Table, Badge, Card, Row, Col, Accordion } from 'react-bootstrap';
 import { useAuth } from '../../providers/AuthProvider';
 import { useNotification } from '../NotificationProvider';
 import { ActionButton, StatusBadge } from '@/components/shared';
@@ -21,16 +21,6 @@ export default function GitManagementModal({ show, onHide }) {
   // Settings form state
   const [settingsForm, setSettingsForm] = useState({});
   const [settingsLoading, setSettingsLoading] = useState(false);
-
-  useEffect(() => {
-    if (show) {
-      loadDataForTab(activeTab);
-    }
-  }, [show]);
-
-  const loadData = async () => {
-    await loadDataForTab(activeTab);
-  };
 
   const loadOverview = async () => {
     try {
@@ -68,7 +58,7 @@ export default function GitManagementModal({ show, onHide }) {
     }
   };
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const data = await documentsApi.getGitSettings();
       setSettings(data.settings); // Extract settings from response
@@ -77,7 +67,7 @@ export default function GitManagementModal({ show, onHide }) {
       setSettings({ error: error.message });
       showError('Failed to load git settings', null, error.message, 'git');
     }
-  };
+  }, [showError]);
 
   const handleTabSelect = async (key) => {
     setActiveTab(key);
@@ -85,7 +75,7 @@ export default function GitManagementModal({ show, onHide }) {
     await loadDataForTab(key);
   };
 
-  const loadDataForTab = async (tabKey = activeTab) => {
+  const loadDataForTab = useCallback(async (tabKey = activeTab) => {
     setLoading(true);
     try {
       switch (tabKey) {
@@ -113,6 +103,16 @@ export default function GitManagementModal({ show, onHide }) {
     } finally {
       setLoading(false);
     }
+  }, [activeTab, showError, loadSettings]);
+
+  useEffect(() => {
+    if (show) {
+      loadDataForTab(activeTab);
+    }
+  }, [show, activeTab, loadDataForTab]);
+
+  const loadData = async () => {
+    await loadDataForTab(activeTab);
   };
 
   const formatDateTime = (dateString) => {
@@ -560,7 +560,7 @@ export default function GitManagementModal({ show, onHide }) {
               {!loading && !stashes.error && stashes.stashes.length === 0 && (
                 <Alert variant="info">
                   <i className="bi bi-info-circle me-2"></i>
-                  No stashes found. Use "Create Stash" to save uncommitted changes temporarily.
+                  No stashes found. Use &quot;Create Stash&quot; to save uncommitted changes temporarily.
                 </Alert>
               )}
             </div>

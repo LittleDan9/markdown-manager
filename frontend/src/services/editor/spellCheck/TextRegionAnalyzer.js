@@ -33,8 +33,8 @@ export default class TextRegionAnalyzer {
 
     // Find first and last changed indices
     let start = 0;
-    let endPrev = prevValue.length;
-    let endNew = newValue.length;
+    const endPrev = prevValue.length;
+    const endNew = newValue.length;
     while (start < endPrev && start < endNew && prevValue[start] === newValue[start]) {
       start++;
     }

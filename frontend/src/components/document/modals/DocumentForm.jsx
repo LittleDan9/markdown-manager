@@ -3,7 +3,7 @@ import { Dropdown, Form, Button } from "react-bootstrap";
 import { useDocumentContext } from "../../../providers/DocumentContextProvider.jsx";
 
 function DocumentForm({
-  defaultName = "",
+  defaultName: _defaultName = "",
   onCategoryChange,
   onFilenameChange,
   selectedCategory,

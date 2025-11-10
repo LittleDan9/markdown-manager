@@ -77,7 +77,7 @@ export class GitHubProvider extends BaseFileBrowserProvider {
       // For subfolder paths, extract the GitHub path and make API call
       if (path.startsWith(this.rootPath)) {
         // Extract GitHub path from our internal path
-        let githubPath = path.replace(this.rootPath, '').replace(/^\//, '');
+        const githubPath = path.replace(this.rootPath, '').replace(/^\//, '');
 
         // Get contents of specific folder
         const contents = await gitHubApi.getRepositoryContents(
@@ -99,7 +99,7 @@ export class GitHubProvider extends BaseFileBrowserProvider {
       // Handle paths that start with repository base but include subfolders
       if (path.startsWith(repoBasePath + '/')) {
         // Extract the part after the repository base
-        let githubPath = path.replace(repoBasePath + '/', '');
+        const githubPath = path.replace(repoBasePath + '/', '');
 
         // Get contents of specific folder
         const contents = await gitHubApi.getRepositoryContents(

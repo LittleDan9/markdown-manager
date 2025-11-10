@@ -120,7 +120,7 @@ describe('DocumentContextProvider - Basic Functionality', () => {
         <div data-testid="context-props">
           {expectedProperties.map(prop => (
             <div key={prop} data-testid={`prop-${prop}`}>
-              {prop}: {context && context.hasOwnProperty(prop) ? 'present' : 'missing'}
+              {prop}: {context && Object.prototype.hasOwnProperty.call(context, prop) ? 'present' : 'missing'}
             </div>
           ))}
         </div>

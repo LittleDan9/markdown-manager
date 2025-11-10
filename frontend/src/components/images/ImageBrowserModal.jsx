@@ -16,12 +16,12 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
   const [sortOrder, setSortOrder] = useState('desc');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [stats, setStats] = useState(null);
-  
+
   const { showSuccess, showError } = useNotification();
 
   const loadImages = useCallback(async () => {
     if (!show) return;
-    
+
     setLoading(true);
     try {
       const response = await imageApi.listImages();
@@ -47,7 +47,7 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
 
   // Filter and sort images
   useEffect(() => {
-    let filtered = images.filter(image => 
+    const filtered = images.filter(image =>
       image.filename.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (image.original_filename && image.original_filename.toLowerCase().includes(searchTerm.toLowerCase()))
     );
@@ -55,7 +55,7 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
     // Sort images
     filtered.sort((a, b) => {
       let valueA, valueB;
-      
+
       switch (sortBy) {
         case 'filename':
           valueA = a.filename.toLowerCase();
@@ -117,7 +117,7 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
     }
 
     const selectedImageObjects = images.filter(img => selectedImages.has(img.filename));
-    
+
     if (onImageSelected) {
       if (allowMultiple) {
         onImageSelected(selectedImageObjects);
@@ -125,13 +125,13 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
         onImageSelected(selectedImageObjects[0]);
       }
     }
-    
+
     onHide();
   }, [selectedImages, images, onImageSelected, allowMultiple, showError, onHide]);
 
   const handleDeleteImage = useCallback(async (image, event) => {
     event.stopPropagation();
-    
+
     if (!confirm(`Are you sure you want to delete "${image.filename}"?`)) {
       return;
     }
@@ -146,7 +146,7 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
     }
   }, [showSuccess, showError, loadImages]);
 
-  const handleImageUploaded = useCallback((newImage) => {
+  const handleImageUploaded = useCallback((_newImage) => {
     // Refresh the image list
     loadImages();
   }, [loadImages]);
@@ -179,7 +179,7 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
             )}
           </Modal.Title>
         </Modal.Header>
-        
+
         <Modal.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
           {/* Controls */}
           <Row className="mb-3">
@@ -257,7 +257,7 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
             <Row>
               {filteredImages.map((image) => (
                 <Col key={image.filename} xs={12} sm={6} md={4} lg={3} className="mb-3">
-                  <Card 
+                  <Card
                     className={`h-100 image-card ${selectedImages.has(image.filename) ? 'border-primary' : ''}`}
                     style={{ cursor: 'pointer' }}
                     onClick={() => handleImageClick(image)}
@@ -278,10 +278,10 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
                         }}
                         loading="lazy"
                       />
-                      
+
                       {/* Selection indicator */}
                       {allowMultiple && selectedImages.has(image.filename) && (
-                        <div 
+                        <div
                           style={{
                             position: 'absolute',
                             top: '8px',
@@ -339,14 +339,14 @@ export default function ImageBrowserModal({ show, onHide, onImageSelected, allow
               Upload Images
             </Button>
           </div>
-          
+
           <Button variant="secondary" onClick={onHide}>
             Cancel
           </Button>
-          
+
           {allowMultiple && (
-            <Button 
-              variant="primary" 
+            <Button
+              variant="primary"
               onClick={handleSelectImages}
               disabled={selectedImages.size === 0}
             >

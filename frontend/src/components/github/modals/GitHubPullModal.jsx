@@ -51,7 +51,7 @@ export default function GitHubPullModal({
           <div className="d-flex align-items-center">
             <i className="bi bi-cloud-download me-2"></i>
             <div>
-              <strong>Pull remote changes for:</strong> "{document.name}"<br />
+              <strong>Pull remote changes for:</strong> &quot;{document.name}&quot;<br />
               <small>
                 Repository: {document.github_repository?.full_name}<br />
                 Branch: {document.github_branch}

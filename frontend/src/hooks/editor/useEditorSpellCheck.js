@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { SpellCheckService, SpellCheckMarkers, TextRegionAnalyzer, MonacoMarkerAdapter } from '@/services/editor';
 import { useTypingDetection, useDebounce } from './shared';
 import { useDocumentContext } from '@/providers/DocumentContextProvider';
@@ -21,7 +21,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
 
   const suggestionsMap = useRef(new Map());
   const { debounce: debounceSpellCheck, cleanup: cleanupDebounce } = useDebounce();
-  const { isTyping } = useTypingDetection(); // Get typing state from parent
+  const { isTyping: _isTyping } = useTypingDetection(); // Get typing state from parent
   const { isRapidTypingActive } = useDocumentContext(); // Get rapid typing state from orchestrator
 
   // Timing and state refs
@@ -30,6 +30,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   const lastProgressRef = useRef(null);
   const autoCheckTimeout = useRef(null);
   const resizeTimeoutRef = useRef(null);
+  const initialCheckDoneRef = useRef(false);
 
   // Initialize spell check service and load service info
   useEffect(() => {
@@ -49,7 +50,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
   }, [enabled]);
 
   // Main spell check function
-  const spellCheckDocument = async (textOverride = null, startOffset = 0, forceProgress = false, customSettings = null) => {
+  const spellCheckDocument = useCallback(async (textOverride = null, startOffset = 0, forceProgress = false, customSettings = null) => {
     if (!enabled || !editor) return;
 
     // Use custom settings if provided, otherwise use default settings
@@ -159,7 +160,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       console.error('SpellCheck error:', error);
       setProgress(null);
     }
-  };
+  }, [enabled, editor, categoryId, getFolderPath, settings, setProgress, setReadabilityData, setAllIssues]);
 
   // Content change detection and debounced spell check
   useEffect(() => {
@@ -172,7 +173,8 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         currentLength: currentValue.length,
         previousLength: previousValueRef.current?.length || 0,
         hasChanged: currentValue !== previousValueRef.current,
-        isRapidTyping: isRapidTypingActive
+        isRapidTyping: isRapidTypingActive,
+        initialCheckDone: initialCheckDoneRef.current
       });
 
       // Skip spell checking during rapid typing to prevent blocking the editor
@@ -184,6 +186,13 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       // Only proceed if content actually changed
       if (currentValue === previousValueRef.current) {
         console.log('[SpellCheck] Content unchanged, skipping');
+        return;
+      }
+
+      // Skip the first content change if initial check was already done (prevents duplicate on mount)
+      if (initialCheckDoneRef.current && previousValueRef.current === '') {
+        console.log('[SpellCheck] Skipping first content change after initial check');
+        previousValueRef.current = currentValue;
         return;
       }
 
@@ -251,23 +260,44 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       contentDisposable.dispose();
       if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
     };
-  }, [enabled, editor, isRapidTypingActive]); // Added isRapidTypingActive dependency
+  }, [enabled, editor, isRapidTypingActive, debounceSpellCheck, settings.enableCodeSpellCheck, spellCheckDocument]);
 
-  // Initial spell check when editor is ready - DISABLED to prevent interference with crop operations
-  // The spell check will run on first content change or manual trigger instead
-  /*
+  // Initial spell check when editor is ready
   useEffect(() => {
-    if (enabled && editor) {
-      setTimeout(() => {
-        const initialContent = editor.getValue();
-        if (initialContent && initialContent.length > 0) {
+    if (enabled && editor && !initialCheckDoneRef.current) {
+      // Check if content is worth spell checking - use a lower threshold for initial check
+      const currentText = editor.getValue();
+      console.log('[SpellCheck] Initial spell check - content length:', currentText?.length || 0);
+
+      if (!currentText || currentText.length === 0) {
+        console.log('[SpellCheck] Skipping initial spell check - no content');
+        return;
+      }
+
+      // Mark that initial check is being done
+      initialCheckDoneRef.current = true;
+
+      // Run initial spell check immediately if there's meaningful content, or after a short delay
+      const runInitialSpellCheck = () => {
+        const textAtTime = editor.getValue();
+        console.log('[SpellCheck] Running initial spell check - content length:', textAtTime?.length || 0);
+        if (textAtTime && textAtTime.length > 0) {
           spellCheckDocument(null, 0);
-          previousValueRef.current = initialContent;
+          previousValueRef.current = textAtTime;
         }
-      }, 3000); // Increased from 100ms to 3 seconds
+      };
+
+      if (currentText.length >= 10) {
+        // If there's already meaningful content, spell check immediately
+        console.log('[SpellCheck] Content >= 10 chars, spell checking immediately');
+        runInitialSpellCheck();
+      } else {
+        // For very small content, wait a bit to see if more content loads
+        console.log('[SpellCheck] Content < 10 chars, waiting 500ms');
+        setTimeout(runInitialSpellCheck, 500);
+      }
     }
-  }, [enabled, editor, settings]); // Phase 5: Re-run when settings change
-  */
+  }, [enabled, editor, spellCheckDocument]);
 
   // Periodic spell check - DISABLED to prevent excessive checking
   // Content change detection with debouncing is sufficient
@@ -310,7 +340,7 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       window.removeEventListener('resize', handleResize);
       if (resizeStartTimeout) clearTimeout(resizeStartTimeout);
     };
-  }, [enabled, editor]);
+  }, [enabled, editor, spellCheckDocument]);
 
   // Editor layout change handling - authentication-aware throttling
   useEffect(() => {
@@ -390,14 +420,17 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         clearTimeout(layoutChangeTimeout);
       }
     };
-  }, [enabled, editor]);
+  }, [enabled, editor, spellCheckDocument]);
 
   // Cleanup
   useEffect(() => {
+    const currentAutoCheckTimeout = autoCheckTimeout.current;
+    const currentResizeTimeoutRef = resizeTimeoutRef.current;
+
     return () => {
       cleanupDebounce();
-      if (autoCheckTimeout.current) clearTimeout(autoCheckTimeout.current);
-      if (resizeTimeoutRef.current) clearTimeout(resizeTimeoutRef.current);
+      if (currentAutoCheckTimeout) clearTimeout(currentAutoCheckTimeout);
+      if (currentResizeTimeoutRef) clearTimeout(currentResizeTimeoutRef);
     };
   }, [cleanupDebounce]);
 

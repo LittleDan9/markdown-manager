@@ -8,7 +8,7 @@ import { Row, Col } from 'react-bootstrap';
 
 export default function FileBrowserHeader({
   selectedFiles,
-  config
+  config: _config
 }) {
   return (
     <div className="file-browser-header p-2 border-bottom">

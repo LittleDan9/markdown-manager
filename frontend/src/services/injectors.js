@@ -19,7 +19,7 @@ const serviceInstances = new Map();
  * @param {Object} dependencies - Optional dependencies to inject
  * @returns {Object} Service instance
  */
-export function getService(serviceName, dependencies = {}) {
+export function getService(serviceName, _dependencies = {}) {
   if (serviceInstances.has(serviceName)) {
     return serviceInstances.get(serviceName);
   }

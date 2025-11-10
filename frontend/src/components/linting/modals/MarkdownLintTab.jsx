@@ -6,15 +6,62 @@
 
 import React, { useState, useEffect } from 'react';
 import { Card, Form, Button, Alert, Spinner, Accordion } from 'react-bootstrap';
-import PropTypes from 'prop-types';
 import { useAuth } from '../../../providers/AuthProvider';
 import useMarkdownLintRules from '../../../hooks/useMarkdownLintRules';
-import RuleConfigInput from '../RuleConfigInput';
 import RuleImportExport from '../RuleImportExport';
 import { useNotification } from '../../NotificationProvider';
 
+// Fallback rule definitions if not available from the API
+const fallbackDefinitions = {
+  'MD001': { description: 'Heading levels should only increment by one level at a time', configurable: false },
+  'MD003': { description: 'Heading style should be consistent', configurable: true },
+  'MD004': { description: 'Unordered list style should be consistent', configurable: true },
+  'MD005': { description: 'Inconsistent indentation for list items at the same level', configurable: false },
+  'MD007': { description: 'Unordered list indentation should be consistent', configurable: true },
+  'MD009': { description: 'Trailing spaces should not be present', configurable: false },
+  'MD010': { description: 'Hard tabs should not be used', configurable: false },
+  'MD012': { description: 'Multiple consecutive blank lines should not be present', configurable: true },
+  'MD013': { description: 'Line length should not exceed configured limit', configurable: true },
+  'MD018': { description: 'No space after hash on atx style heading', configurable: false },
+  'MD019': { description: 'Multiple spaces after hash on atx style heading', configurable: false },
+  'MD020': { description: 'No space inside hashes on closed atx style heading', configurable: false },
+  'MD021': { description: 'Multiple spaces inside hashes on closed atx style heading', configurable: false },
+  'MD022': { description: 'Headings should be surrounded by blank lines', configurable: false },
+  'MD023': { description: 'Headings must start at the beginning of the line', configurable: false },
+  'MD024': { description: 'Multiple headings with the same content', configurable: false },
+  'MD025': { description: 'Multiple top level headings in the same document', configurable: false },
+  'MD026': { description: 'Trailing punctuation in heading', configurable: false },
+  'MD027': { description: 'Multiple spaces after blockquote symbol', configurable: false },
+  'MD029': { description: 'Ordered list item prefix should be consistent', configurable: true },
+  'MD030': { description: 'Spaces after list markers should be consistent', configurable: false },
+  'MD031': { description: 'Fenced code blocks should be surrounded by blank lines', configurable: false },
+  'MD032': { description: 'Lists should be surrounded by blank lines', configurable: false },
+  'MD033': { description: 'Inline HTML should not be used', configurable: false },
+  'MD034': { description: 'Bare URL used instead of link syntax', configurable: false },
+  'MD035': { description: 'Horizontal rule style should be consistent', configurable: false },
+  'MD036': { description: 'Emphasis used instead of a heading', configurable: false },
+  'MD037': { description: 'Spaces inside emphasis markers', configurable: false },
+  'MD038': { description: 'Spaces inside code span elements', configurable: false },
+  'MD039': { description: 'Spaces inside link text', configurable: false },
+  'MD040': { description: 'Fenced code blocks should have a language specified', configurable: false },
+  'MD042': { description: 'No empty links', configurable: false },
+  'MD045': { description: 'Images should have alternate text (alt text)', configurable: false },
+  'MD046': { description: 'Code block style should be consistent', configurable: true },
+  'MD047': { description: 'File should end with a single newline character', configurable: false },
+  'MD048': { description: 'Code fence style should be consistent', configurable: true },
+  'MD049': { description: 'Emphasis style should be consistent', configurable: true },
+  'MD050': { description: 'Strong style should be consistent', configurable: true },
+  'MD051': { description: 'Link fragments should be valid', configurable: false },
+  'MD052': { description: 'Reference links and images should use a label that is defined', configurable: false },
+  'MD053': { description: 'Link and image reference definitions should be needed', configurable: false },
+  'MD054': { description: 'Link and image style should be consistent', configurable: false },
+  'MD055': { description: 'Table row should have a pipe character at the beginning and end', configurable: false },
+  'MD056': { description: 'Table column count should be consistent', configurable: false },
+  'MD058': { description: 'Table rows should have the same number of cells', configurable: false }
+};
+
 const MarkdownLintTab = () => {
-  const { user } = useAuth();
+  const { _user } = useAuth();
   const { showSuccess, showError } = useNotification();
 
   const {
@@ -80,59 +127,12 @@ const MarkdownLintTab = () => {
   }, [loadRules, getRuleDefinitions]);
 
   // Get rule definitions for descriptions and configuration options
-  // Fallback rule definitions if not available from the API
-  const fallbackDefinitions = {
-    'MD001': { description: 'Heading levels should only increment by one level at a time', configurable: false },
-    'MD003': { description: 'Heading style should be consistent', configurable: true },
-    'MD004': { description: 'Unordered list style should be consistent', configurable: true },
-    'MD005': { description: 'Inconsistent indentation for list items at the same level', configurable: false },
-    'MD007': { description: 'Unordered list indentation should be consistent', configurable: true },
-    'MD009': { description: 'Trailing spaces should not be present', configurable: false },
-    'MD010': { description: 'Hard tabs should not be used', configurable: false },
-    'MD012': { description: 'Multiple consecutive blank lines should not be present', configurable: true },
-    'MD013': { description: 'Line length should not exceed configured limit', configurable: true },
-    'MD018': { description: 'No space after hash on atx style heading', configurable: false },
-    'MD019': { description: 'Multiple spaces after hash on atx style heading', configurable: false },
-    'MD020': { description: 'No space inside hashes on closed atx style heading', configurable: false },
-    'MD021': { description: 'Multiple spaces inside hashes on closed atx style heading', configurable: false },
-    'MD022': { description: 'Headings should be surrounded by blank lines', configurable: false },
-    'MD023': { description: 'Headings must start at the beginning of the line', configurable: false },
-    'MD024': { description: 'Multiple headings with the same content', configurable: false },
-    'MD025': { description: 'Multiple top level headings in the same document', configurable: false },
-    'MD026': { description: 'Trailing punctuation in heading', configurable: false },
-    'MD027': { description: 'Multiple spaces after blockquote symbol', configurable: false },
-    'MD029': { description: 'Ordered list item prefix should be consistent', configurable: true },
-    'MD030': { description: 'Spaces after list markers should be consistent', configurable: false },
-    'MD031': { description: 'Fenced code blocks should be surrounded by blank lines', configurable: false },
-    'MD032': { description: 'Lists should be surrounded by blank lines', configurable: false },
-    'MD033': { description: 'Inline HTML should not be used', configurable: false },
-    'MD034': { description: 'Bare URL used instead of link syntax', configurable: false },
-    'MD035': { description: 'Horizontal rule style should be consistent', configurable: false },
-    'MD036': { description: 'Emphasis used instead of a heading', configurable: false },
-    'MD037': { description: 'Spaces inside emphasis markers', configurable: false },
-    'MD038': { description: 'Spaces inside code span elements', configurable: false },
-    'MD039': { description: 'Spaces inside link text', configurable: false },
-    'MD040': { description: 'Fenced code blocks should have a language specified', configurable: false },
-    'MD042': { description: 'No empty links', configurable: false },
-    'MD045': { description: 'Images should have alternate text (alt text)', configurable: false },
-    'MD046': { description: 'Code block style should be consistent', configurable: true },
-    'MD047': { description: 'File should end with a single newline character', configurable: false },
-    'MD048': { description: 'Code fence style should be consistent', configurable: true },
-    'MD049': { description: 'Emphasis style should be consistent', configurable: true },
-    'MD050': { description: 'Strong style should be consistent', configurable: true },
-    'MD051': { description: 'Link fragments should be valid', configurable: false },
-    'MD052': { description: 'Reference links and images should use a label that is defined', configurable: false },
-    'MD053': { description: 'Link and image reference definitions should be needed', configurable: false },
-    'MD054': { description: 'Link and image style should be consistent', configurable: false },
-    'MD055': { description: 'Table row should have a pipe character at the beginning and end', configurable: false },
-    'MD056': { description: 'Table column count should be consistent', configurable: false },
-    'MD058': { description: 'Table rows should have the same number of cells', configurable: false }
-  };
+  // Fallback rule definitions if not available from the API (moved outside component)
 
   // Compute effective definitions each render to ensure it updates when ruleDefinitions changes
   const effectiveDefinitions = React.useMemo(() => {
     const hasApiDefinitions = ruleDefinitions && Object.keys(ruleDefinitions).length > 0;
-    
+
     if (hasApiDefinitions) {
       // Merge API definitions with fallback to ensure configurable field is preserved
       const merged = {};
@@ -142,18 +142,18 @@ const MarkdownLintTab = () => {
           ...(ruleDefinitions[ruleId] || {}) // Override with API data if available
         };
       });
-      
+
       // Add any additional rules from API that aren't in fallback
       Object.keys(ruleDefinitions).forEach(ruleId => {
         if (!merged[ruleId]) {
           merged[ruleId] = ruleDefinitions[ruleId];
         }
       });
-      
+
       console.log('Using merged definitions. MD003:', merged.MD003);
       return merged;
     }
-    
+
     console.log('Using fallback definitions. MD003:', fallbackDefinitions.MD003);
     return fallbackDefinitions;
   }, [ruleDefinitions]);
@@ -325,17 +325,17 @@ const MarkdownLintTab = () => {
     if (!localRules) return 'disabled';
     const value = localRules[ruleId];
     const definition = effectiveDefinitions[ruleId];
-    
+
     if (value === false) return 'disabled';
     if (!value) return 'disabled'; // undefined or null
-    
+
     // If the rule is configurable and enabled (true or object), show as configured
     if (definition?.configurable && value) return 'configured';
-    
+
     // Otherwise, just enabled
     if (value === true) return 'enabled';
     if (typeof value === 'object' && value !== null) return 'configured';
-    
+
     return 'disabled';
   };
 
@@ -344,7 +344,7 @@ const MarkdownLintTab = () => {
    */
   const renderRuleConfig = (ruleId) => {
     const definition = effectiveDefinitions[ruleId];
-    const currentValue = localRules && localRules.hasOwnProperty(ruleId) ? localRules[ruleId] : undefined;
+    const currentValue = localRules && Object.prototype.hasOwnProperty.call(localRules, ruleId) ? localRules[ruleId] : undefined;
 
     // Only show config for configurable rules that are enabled (true or object)
     if (!definition || !definition.configurable || !currentValue || currentValue === false) {
@@ -632,7 +632,7 @@ const MarkdownLintTab = () => {
                 <Accordion.Body>
                   {ruleIds.map(ruleId => {
                     const definition = effectiveDefinitions[ruleId];
-                    const status = getRuleStatus(ruleId);
+                    const _status = getRuleStatus(ruleId);
                     const ruleValue = (localRules && localRules[ruleId]) || undefined;
                     // Only treat explicitly true or configured (object) rules as enabled
                     const isEnabled = ruleValue === true || (typeof ruleValue === 'object' && ruleValue !== null);

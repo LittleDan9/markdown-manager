@@ -76,7 +76,7 @@ export class MarkdownLintMarkerAdapter {
    * @param {Object} monaco - Monaco editor namespace
    * @returns {Object|null} Monaco marker object or null
    */
-  static issueToMonacoMarker(model, issue, startOffset = 0, monaco) {
+  static issueToMonacoMarker(model, issue, _startOffset = 0, monaco) {
     // Handle both 'line' and 'lineNumber' properties from different linting sources
     const lineNumber = issue.lineNumber || issue.line;
     if (!issue || typeof lineNumber !== 'number') {

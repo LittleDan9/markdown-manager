@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 
 export function useUnifiedFileBrowser({
   dataProvider,
@@ -8,7 +8,7 @@ export function useUnifiedFileBrowser({
   onFileOpen,
   onMultiSelect,
   onPathChange,
-  selectedFiles = []
+  selectedFiles: _selectedFiles = []
 }) {
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [treeData, setTreeData] = useState([]);
@@ -63,23 +63,23 @@ export function useUnifiedFileBrowser({
       // Load files for the initial path
       loadCurrentPathFiles();
     }
-  }, [dataProvider]);
+  }, [dataProvider, initialPath, loadCurrentPathFiles, loadTreeData]);
 
   // Sync currentPath with initialPath when initialPath changes
   useEffect(() => {
     if (initialPath !== currentPath) {
       setCurrentPath(initialPath);
     }
-  }, [initialPath]);
+  }, [initialPath]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load files for current path
   useEffect(() => {
     if (dataProvider && (currentPath !== null && currentPath !== undefined)) {
       loadCurrentPathFiles();
     }
-  }, [currentPath, dataProvider]);
+  }, [currentPath, dataProvider, loadCurrentPathFiles]);
 
-  const loadTreeData = async () => {
+  const loadTreeData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await dataProvider.getTreeStructure();
@@ -89,9 +89,9 @@ export function useUnifiedFileBrowser({
     } finally {
       setLoading(false);
     }
-  };
+  }, [dataProvider]);
 
-  const loadCurrentPathFiles = async () => {
+  const loadCurrentPathFiles = useCallback(async () => {
     try {
       // Ensure we always pass a valid path, defaulting to root '/' if empty
       const pathToLoad = currentPath || '/';
@@ -101,7 +101,7 @@ export function useUnifiedFileBrowser({
       console.error('Failed to load files:', error);
       setCurrentFiles([]);
     }
-  };
+  }, [currentPath, dataProvider]);
 
   const handlePathChange = (newPath) => {
     console.log('UnifiedFileBrowser handlePathChange called with:', newPath);

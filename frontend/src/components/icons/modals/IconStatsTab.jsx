@@ -1,11 +1,11 @@
 import React from 'react';
-import { Card, Badge, Button, Alert, Spinner, Row, Col } from 'react-bootstrap';
+import { Card, Button, Alert, Spinner, Row, Col } from 'react-bootstrap';
 import { useIconStatistics, useIconCache } from '../../../hooks/icons';
 
 export default function IconStatsTab({ iconPacks, onReloadData }) {
   const {
     systemStats,
-    popularIcons,
+    _popularIcons,
     loading: statsLoading,
     refreshAll: refreshStats
   } = useIconStatistics();
@@ -239,7 +239,7 @@ export default function IconStatsTab({ iconPacks, onReloadData }) {
                             <strong>Next Steps:</strong><br/>
                             • Monitor usage patterns for 1-2 weeks<br/>
                             • Consider server configuration adjustments<br/>
-                            • Use "Warm Cache" regularly for popular icons
+                            • Use &quot;Warm Cache&quot; regularly for popular icons
                           </small>
                         </div>
                       )}
@@ -251,7 +251,7 @@ export default function IconStatsTab({ iconPacks, onReloadData }) {
                             • Metadata Cache Size: Currently 1000 entries<br/>
                             • Impact: Icon info requests hitting database instead of cache<br/>
                             <strong>Immediate Actions:</strong><br/>
-                            • Use "Warm Cache" to preload popular icons<br/>
+                            • Use &quot;Warm Cache&quot; to preload popular icons<br/>
                             • Clean up expired entries regularly
                           </small>
                         </div>

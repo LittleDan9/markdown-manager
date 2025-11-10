@@ -15,7 +15,7 @@ import DiagramFullscreenModal from './DiagramFullscreenModal';
  */
 function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscreen }) {
   const [isExporting, setIsExporting] = useState(false);
-  const [exportFormat, setExportFormat] = useState(null);
+  const [_exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
@@ -221,7 +221,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   };
 
   const handleFullscreen = () => {
-    const svgContent = getSvgContent();
+    // const _svgContent = getSvgContent();
 
     // Add modal interaction class to parent container to keep controls visible
     if (diagramElement) {

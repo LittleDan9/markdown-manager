@@ -41,7 +41,7 @@ class DocumentStorageService {
     }
 
     // Generate ID if needed
-    let document = { ...doc };
+    const document = { ...doc };
     if (!document.id) {
       document.id = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
@@ -134,7 +134,7 @@ class DocumentStorageService {
   }
 
   deleteCategory(name, options = {}) {
-    let categories = this.getCategories().filter(cat => cat !== name);
+    const categories = this.getCategories().filter(cat => cat !== name);
     localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
 
     // Handle documents in the deleted category

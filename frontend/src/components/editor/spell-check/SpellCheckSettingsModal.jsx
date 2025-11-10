@@ -256,7 +256,7 @@ export function SpellCheckSettingsModal({
                     <strong>Code Checking Options:</strong>
                     <ul className="mb-0 mt-2">
                       <li><strong>Comments:</strong> Check spelling in code comments (// /* */)</li>
-                      <li><strong>Strings:</strong> Check spelling in string literals ("text" 'text')</li>
+                      <li><strong>Strings:</strong> Check spelling in string literals (&quot;text&quot; &apos;text&apos;)</li>
                       <li><strong>Identifiers:</strong> Check spelling in variable/function names (camelCase, snake_case)</li>
                     </ul>
                   </Alert>

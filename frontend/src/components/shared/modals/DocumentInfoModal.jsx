@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Button, Badge, Table, Card } from "react-bootstrap";
+import { Modal, Badge, Table, Card } from "react-bootstrap";
 import { ActionButton } from "@/components/shared";
 
 function DocumentInfoModal({ show, onHide, document, gitStatus }) {

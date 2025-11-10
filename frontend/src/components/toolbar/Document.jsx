@@ -1,5 +1,5 @@
 import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModal";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown } from "react-bootstrap";
@@ -8,7 +8,7 @@ import { useNotification } from "@/components/NotificationProvider";
 import { serviceFactory } from "@/services/injectors";
 import { formatDistanceToNow } from "date-fns";
 
-function DocumentToolbar({ documentTitle, setDocumentTitle }) {
+function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deleteTargetCategory, setDeleteTargetCategory] = useState(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -16,13 +16,15 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError } = useNotification();
   const documentService = serviceFactory.createDocumentService();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument } = useDocumentContext();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument } = useDocumentContext();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
-  const customCats = rawCategories
-    .filter(c => c !== "Drafts" && c !== "General")
-    .sort((a, b) => a.localeCompare(b));
-  const categories = ["Drafts", "General", ...customCats];
+  const categories = useMemo(() => {
+    const customCats = rawCategories
+      .filter(c => c !== "Drafts" && c !== "General")
+      .sort((a, b) => a.localeCompare(b));
+    return ["Drafts", "General", ...customCats];
+  }, [rawCategories]);
   const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
   const [newCategory, setNewCategory] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
@@ -31,13 +33,27 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
   // renameDocument is now included above from useDocumentContext
-  const [ lastSavedText, setLastSavedText ] = useState("");
+  const [ _lastSavedText, setLastSavedText ] = useState("");
+
+  // Ensure Last Saved indicator parses UTC and displays in local time
+  const getLastSavedText = useCallback(() => {
+    let ts = currentDocument.updated_at || currentDocument.created_at;
+    if (!ts) return "Never";
+    // If timestamp lacks timezone, treat as UTC by appending 'Z'
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(ts) && !ts.endsWith('Z')) {
+      ts += 'Z';
+    }
+    const utcDate = new Date(ts);
+    const now = new Date();
+    if (utcDate > now) return "Just now";
+    return formatDistanceToNow(utcDate, { addSuffix: true });
+  }, [currentDocument.updated_at, currentDocument.created_at]);
 
   useEffect(() => {
     setTimeout(() => {
       setLastSavedText(getLastSavedText());
     }, 1000);
-  }, []);
+  }, [getLastSavedText]);
 
   // Save document immediately when changing category (only for local files)
   const handleCategorySelect = async (category) => {
@@ -49,37 +65,11 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
     setCurrentCategory(category);
     try {
       const updatedDoc = { ...currentDocument, category };
-      const saved = await saveDocument(updatedDoc);
+      const _saved = await saveDocument(updatedDoc);
       // The saveDocument in DocumentProvider will handle current document tracking
     } catch (err) {
       showError("Failed to update document category.");
     }
-  };
-
-  // Keep parent component title in sync
-  useEffect(() => {
-    setDocumentTitle(currentDocument.name || "Untitled Document");
-  }, [currentDocument.name, currentDocument.id, setDocumentTitle]);
-
-  // Keep titleInput in sync with currentDocument.name when not editing
-  useEffect(() => {
-    if (!editingTitle) {
-      setTitleInput(currentDocument.name || "Untitled Document");
-    }
-  }, [currentDocument.name, currentDocument.id, editingTitle]);
-
-  // Ensure Last Saved indicator parses UTC and displays in local time
-  const getLastSavedText = () => {
-    let ts = currentDocument.updated_at || currentDocument.created_at;
-    if (!ts) return "Never";
-    // If timestamp lacks timezone, treat as UTC by appending 'Z'
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(ts) && !ts.endsWith('Z')) {
-      ts += 'Z';
-    }
-    const utcDate = new Date(ts);
-    const now = new Date();
-    if (utcDate > now) return "Just now";
-    return formatDistanceToNow(utcDate, { addSuffix: true });
   };
 
   // Sync category with currentDocument.category whenever document changes (local files only)
@@ -97,7 +87,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
         setCurrentCategory(currentDocument.category);
       }
     }
-  }, [currentDocument?.category, currentDocument?.updated_at, currentDocument?.repository_type, categories]);
+  }, [currentDocument?.category, currentDocument?.updated_at, currentDocument?.repository_type, categories, currentCategory, currentDocument]);
 
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");
@@ -199,7 +189,7 @@ function DocumentToolbar({ documentTitle, setDocumentTitle }) {
             setCurrentCategory(categoryInput.trim());
             setCategoryError("");
           } else {
-            setCategoryError(error || "Category name already exists or is invalid.");
+            setCategoryError("Category name already exists or is invalid.");
             setEditingCategory(true);
           }
         },

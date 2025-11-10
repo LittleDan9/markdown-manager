@@ -178,7 +178,7 @@ class DocumentsApi extends Api {
    * Note: The new API doesn't support migration - documents with this category
    * will need to be handled by the backend's foreign key constraints
    */
-  async deleteCategory(categoryName, options = {}) {
+  async deleteCategory(categoryName, _options = {}) {
     try {
       const categoriesApi = (await import('./categoriesApi')).default;
 
@@ -284,45 +284,6 @@ class DocumentsApi extends Api {
    */
   async markDocumentOpened(documentId) {
     const res = await this.apiCall(`/documents/${documentId}/mark-opened`, 'PUT');
-    return res.data;
-  }
-
-  /**
-   * Save document to GitHub with optional diagram conversion
-   * @param {number} documentId - Document ID
-   * @param {Object} options - Save options
-   * @param {number} options.repository_id - Repository ID
-   * @param {string} options.file_path - File path in repository
-   * @param {string} options.commit_message - Commit message
-   * @param {string} options.branch - Target branch (default: 'main')
-   * @param {boolean} options.create_branch - Create branch if it doesn't exist
-   * @param {string} options.base_branch - Base branch for new branch creation
-   * @param {boolean} options.convertDiagrams - Convert advanced diagrams for GitHub compatibility
-   * @param {string} options.diagramFormat - Export format for diagrams ('svg' or 'png')
-   * @returns {Promise<Object>} - Save result with conversion info
-   */
-  async saveToGitHubWithDiagrams(documentId, options = {}) {
-    const {
-      repository_id,
-      file_path,
-      commit_message,
-      branch = 'main',
-      create_branch = false,
-      base_branch,
-      convertDiagrams = false,
-      diagramFormat = 'png'
-    } = options;
-
-    const res = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', {
-      repository_id,
-      file_path,
-      commit_message,
-      branch,
-      create_branch,
-      base_branch,
-      auto_convert_diagrams: convertDiagrams
-    });
-
     return res.data;
   }
 

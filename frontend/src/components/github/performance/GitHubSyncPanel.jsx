@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Alert, Badge, Row, Col, Table, Modal } from "react-bootstrap";
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Button, Alert, Badge, Table, Modal } from "react-bootstrap";
 import gitHubApi from "../../../api/gitHubApi";
 import { useNotification } from "../../NotificationProvider";
 import { useGitHubAccounts } from '../../../hooks/github/useGitHubAccounts';
 
 export default function GitHubSyncPanel({ isActive = false }) {
-  const [cacheStats, setCacheStats] = useState(null);
+  const [_cacheStats, setCacheStats] = useState(null);
   const [syncStatus, setSyncStatus] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showForceSync, setShowForceSync] = useState(false);
@@ -19,9 +19,9 @@ export default function GitHubSyncPanel({ isActive = false }) {
       const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
       return () => clearInterval(interval);
     }
-  }, [accounts, accountsLoading, isActive]); // Add isActive to dependencies
+  }, [accounts, accountsLoading, isActive, loadStats]); // Add isActive to dependencies
 
-  const loadStats = async () => {
+  const loadStats = useCallback(async () => {
     if (accounts.length === 0) {
       return; // Don't load stats if no accounts
     }
@@ -36,9 +36,9 @@ export default function GitHubSyncPanel({ isActive = false }) {
     } catch (error) {
       console.error("Failed to load stats:", error);
     }
-  };
+  }, [accounts.length]);
 
-  const handleClearCache = async () => {
+  const _handleClearCache = async () => {
     if (accounts.length === 0) {
       showError("No GitHub accounts connected");
       return;

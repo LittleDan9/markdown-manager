@@ -13,7 +13,7 @@ export const CropOverlayFeature = {
    * @param {Element} element - The image container element
    * @param {Object} context - Shared context with handlers and refs
    */
-  initialize(element, context) {
+  initialize(element, _context) {
     console.log('✂️ Initializing crop overlay for:', element.dataset.filename);
 
     // Skip if already has overlay

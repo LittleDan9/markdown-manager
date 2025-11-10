@@ -13,6 +13,31 @@ export class Api {
     return localStorage.getItem("authToken");
   }
 
+  getRefreshToken() {
+    return localStorage.getItem("refreshToken");
+  }
+
+  async refreshAccessToken() {
+    // The refresh token is stored in an HTTP-only cookie by the backend
+    // We don't need to send it in the request body - the browser will send the cookie automatically
+    try {
+      const response = await axios.post(`${this.apiBase}/auth/refresh`, {}, {
+        withCredentials: true
+      });
+      const { access_token, refresh_token } = response.data;
+      localStorage.setItem("authToken", access_token);
+      if (refresh_token) {
+        localStorage.setItem("refreshToken", refresh_token);
+      }
+      return access_token;
+    } catch (error) {
+      // Refresh failed, clear tokens
+      localStorage.removeItem("authToken");
+      localStorage.removeItem("refreshToken");
+      throw error;
+    }
+  }
+
   async apiCall(endpoint, method = "GET", body = null, extraHeaders = {}, options = {}) {
     const url = `${this.apiBase}${endpoint}`;
     // console.log('API Call:', { method, url, body }); // Commented out to reduce noise
@@ -76,6 +101,21 @@ export class Api {
       // console.log('API Response:', response.status, response.data); // Commented out to reduce noise
       return response;
     } catch (error) {
+      // Check for 401 and attempt refresh if not already retrying
+      if (error.response?.status === 401 && !options._isRetry) {
+        try {
+          await this.refreshAccessToken();
+          // Retry the request once with the new token
+          return this.apiCall(endpoint, method, body, extraHeaders, { ...options, _isRetry: true });
+        } catch (refreshError) {
+          // Refresh failed, dispatch logout event
+          window.dispatchEvent(new CustomEvent('logout', {
+            detail: { reason: 'Token refresh failed' }
+          }));
+          throw refreshError;
+        }
+      }
+
       // Log error details without circular references
       console.error('API Error:', {
         message: error.message,
@@ -116,7 +156,7 @@ export class Api {
   /**
    * Handle API errors and dispatch appropriate notifications
    */
-  handleApiError(error, endpoint) {
+  handleApiError(error, _endpoint) {
     let notificationMessage = null;
     let notificationType = 'warning';
 

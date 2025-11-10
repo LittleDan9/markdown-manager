@@ -5,7 +5,6 @@
 
 import spellCheckApi from '@/api/spellCheckApi';
 import DictionaryService from '../../dictionary';
-import MarkdownParser from '../MarkdownParser';
 
 export class SpellCheckService {
   constructor(chunkSize = 1000) {

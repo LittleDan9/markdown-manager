@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Button,
   Badge,
@@ -19,6 +19,7 @@ import GitHubConflictModal from '../github/modals/GitHubConflictModal';
 import GitHubPRModal from '../github/modals/GitHubPRModal';
 import { serviceFactory } from '../../services/injectors';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
+import { useGitStatus } from '../../hooks/document';
 
 const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }) => {
   // Always call ALL hooks - never do conditional returns
@@ -42,7 +43,88 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
   const [prModalVisible, setPRModalVisible] = useState(false);
   const [currentRepository, setCurrentRepository] = useState(null);
 
-  const { showSuccess, showError, showInfo } = useNotification();
+  // Use centralized git status hook for local documents
+  const { gitStatus: localGitStatus, loading: localGitLoading, refreshGitStatus: refreshLocalGitStatus } = useGitStatus(documentId, document);
+
+  // Track last checked document to prevent duplicate API calls
+  const lastCheckedDocumentRef = useRef(null);
+  const lastCheckedTimeRef = useRef(0);
+  const isCheckingRef = useRef(false);
+
+  const { showSuccess, showError } = useNotification();
+
+  const checkLocalGitStatus = useCallback(async () => {
+    setLoading(localGitLoading);
+    if (localGitStatus) {
+      const hasChanges = localGitStatus.has_uncommitted_changes ||
+                        localGitStatus.has_staged_changes ||
+                        localGitStatus.has_untracked_files;
+
+      const localStatus = {
+        is_github_document: false,
+        sync_status: hasChanges ? "local_changes" : "clean",
+        has_local_changes: hasChanges,
+        has_remote_changes: false,
+        github_repository: null,
+        github_branch: localGitStatus.current_branch,
+        github_file_path: null,
+        last_sync: null,
+        current_branch: localGitStatus.current_branch,
+        repository_type: localGitStatus.repository_type,
+        status_info: {
+          type: hasChanges ? "local_changes" : "clean",
+          message: hasChanges ? "Local changes" : "Up to date",
+          icon: hasChanges ? "📝" : "✅",
+          color: hasChanges ? "warning" : "success"
+        }
+      };
+      setStatus(localStatus);
+      onStatusChange?.(localStatus);
+    } else {
+      // Fall back to basic local status
+      const localStatus = {
+        is_github_document: false,
+        sync_status: "local",
+        has_local_changes: false,
+        has_remote_changes: false,
+        github_repository: null,
+        github_branch: null,
+        github_file_path: null,
+        last_sync: null,
+        status_info: {
+          type: "local",
+          message: "Local document",
+          icon: "📄",
+          color: "secondary"
+        }
+      };
+      setStatus(localStatus);
+      onStatusChange?.(localStatus);
+    }
+  }, [localGitStatus, localGitLoading, onStatusChange]);
+
+  const checkStatus = useCallback(async (bustCache = false) => {
+    if (!documentId) return;
+
+    try {
+      setLoading(true);
+      console.log('Checking GitHub status...', { documentId, bustCache, timestamp: new Date().toISOString() });
+
+      // Add cache-busting parameter if needed
+      const params = bustCache ? { force_refresh: 'true', _t: Date.now() } : {};
+      const statusData = await gitHubApi.getDocumentStatus(documentId, params);
+
+      console.log('GitHub status response:', statusData);
+      setStatus(statusData);
+      onStatusChange?.(statusData);
+    } catch (error) {
+      console.error('Failed to check GitHub status:', error);
+      showError('Failed to check GitHub status');
+    } finally {
+      setLoading(false);
+      isCheckingRef.current = false;
+    }
+  }, [documentId, onStatusChange, showError]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -51,6 +133,32 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
       onStatusChange?.(null);
       return;
     }
+
+    // Prevent duplicate status checks for the same document within a short time window
+    const now = Date.now();
+    const timeSinceLastCheck = now - lastCheckedTimeRef.current;
+    const isSameDocument = lastCheckedDocumentRef.current === documentId;
+
+    if ((isSameDocument && timeSinceLastCheck < 5000) || isCheckingRef.current) { // 5 seconds cooldown
+      console.log('[GitStatusBar] Skipping duplicate status check', {
+        documentId,
+        timeSinceLastCheck,
+        lastCheckedDocument: lastCheckedDocumentRef.current,
+        isChecking: isCheckingRef.current
+      });
+      return;
+    }
+
+    console.log('[GitStatusBar] useEffect running', {
+      documentId,
+      githubRepoId: document?.github_repository_id,
+      timestamp: new Date().toISOString()
+    });
+
+    // Update tracking refs
+    lastCheckedDocumentRef.current = documentId;
+    lastCheckedTimeRef.current = now;
+    isCheckingRef.current = true;
 
     if (!documentId || String(documentId).startsWith('doc_')) {
       // For new/local documents, set local status immediately
@@ -73,6 +181,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
       setStatus(localStatus);
       setLoading(false);
       onStatusChange?.(localStatus);
+      isCheckingRef.current = false;
     } else if (!document?.github_repository_id) {
       // For backend documents that are NOT linked to GitHub, check git status for local repo
       checkLocalGitStatus();
@@ -80,83 +189,14 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
       // For backend documents that ARE linked to GitHub, check GitHub status
       checkStatus();
     }
-  }, [documentId, document?.github_repository_id, document?.updated_at, isAuthenticated]);
+  }, [documentId, document?.github_repository_id, isAuthenticated, checkLocalGitStatus, checkStatus, onStatusChange]);
 
-  const checkLocalGitStatus = async () => {
-    setLoading(true);
-    try {
-      const gitStatusResponse = await documentsApi.getDocumentGitStatus(documentId);
-      const hasChanges = gitStatusResponse.has_uncommitted_changes ||
-                        gitStatusResponse.has_staged_changes ||
-                        gitStatusResponse.has_untracked_files;
-
-      const localStatus = {
-        is_github_document: false,
-        sync_status: hasChanges ? "local_changes" : "clean",
-        has_local_changes: hasChanges,
-        has_remote_changes: false,
-        github_repository: null,
-        github_branch: gitStatusResponse.current_branch,
-        github_file_path: null,
-        last_sync: null,
-        current_branch: gitStatusResponse.current_branch,
-        repository_type: gitStatusResponse.repository_type,
-        status_info: {
-          type: hasChanges ? "local_changes" : "clean",
-          message: hasChanges ? "Local changes" : "Up to date",
-          icon: hasChanges ? "📝" : "✅",
-          color: hasChanges ? "warning" : "success"
-        }
-      };
-      setStatus(localStatus);
-      onStatusChange?.(localStatus);
-    } catch (error) {
-      console.error('Failed to get git status for local repo:', error);
-      // Fall back to basic local status
-      const localStatus = {
-        is_github_document: false,
-        sync_status: "local",
-        has_local_changes: false,
-        has_remote_changes: false,
-        github_repository: null,
-        github_branch: null,
-        github_file_path: null,
-        last_sync: null,
-        status_info: {
-          type: "local",
-          message: "Local document",
-          icon: "📄",
-          color: "secondary"
-        }
-      };
-      setStatus(localStatus);
-      onStatusChange?.(localStatus);
-    } finally {
-      setLoading(false);
+  // Update local status when git status changes
+  useEffect(() => {
+    if (!document?.github_repository_id && documentId && !String(documentId).startsWith('doc_')) {
+      checkLocalGitStatus();
     }
-  };
-
-  const checkStatus = async (bustCache = false) => {
-    if (!documentId) return;
-
-    try {
-      setLoading(true);
-      console.log('Checking GitHub status...', { documentId, bustCache, timestamp: new Date().toISOString() });
-
-      // Add cache-busting parameter if needed
-      const params = bustCache ? { force_refresh: 'true', _t: Date.now() } : {};
-      const statusData = await gitHubApi.getDocumentStatus(documentId, params);
-
-      console.log('GitHub status response:', statusData);
-      setStatus(statusData);
-      onStatusChange?.(statusData);
-    } catch (error) {
-      console.error('Failed to check GitHub status:', error);
-      showError('Failed to check GitHub status');
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [localGitStatus, localGitLoading, checkLocalGitStatus, document?.github_repository_id, documentId]);
 
   const handleCommit = async (forceCommit = false) => {
     if (!commitMessage.trim()) {
@@ -249,7 +289,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
           if (status?.is_github_document) {
             checkStatus(true);
           } else {
-            checkLocalGitStatus();
+            refreshLocalGitStatus();
           }
         }, 500);
       } catch (error) {
@@ -308,7 +348,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
   };
 
   // Phase 3: New handlers
-  const handlePullSuccess = async (result) => {
+  const handlePullSuccess = async (_result) => {
     showSuccess('Changes pulled successfully from GitHub');
 
     // Sync with backend to update localStorage and reload document
@@ -575,7 +615,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
               >
                 <Button
                   variant="outline-secondary"
-                  onClick={status.is_github_document ? checkStatus : checkLocalGitStatus}
+                  onClick={status.is_github_document ? checkStatus : refreshLocalGitStatus}
                   disabled={loading}
                 >
                   {loading ? (

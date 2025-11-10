@@ -143,7 +143,7 @@ class MarkdownLintService {
    * @param {string|null} folderPath - Folder path (ignored in simplified system)
    * @returns {Promise<Object>} Rules configuration object
    */
-  async getRulesForContext(categoryId, folderPath) {
+  async getRulesForContext(_categoryId, _folderPath) {
     try {
       // Use the new lintingApi to get effective rules
       return await lintingApi.getEffectiveRules();

@@ -4,25 +4,25 @@
  * This component handles event listeners for built-in image controls
  * and manages cropping functionality using a much simpler approach.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { Modal, Button } from 'react-bootstrap';
 import { useImageMetadata } from '../../services/ImageMetadataService';
 import { useRendererContext } from './RendererContext';
-import { applyCropStyles, getDefaultCropData, prepareCropContainer, restoreCropContainer } from './utils/cropUtils';
+import { applyCropStyles, getDefaultCropData, restoreCropContainer } from './utils/cropUtils';
 
 const ImageManager = () => {
   const { getCropData, updateCropData } = useImageMetadata();
   const {
     previewScrollRef,
     cropModeRef,
-    cropOverlayKey,
+    cropOverlayKey: _cropOverlayKey,
     showImageModal,
     setShowImageModal,
     selectedImage,
     setSelectedImage,
     enterCropMode,
     exitCropMode,
-    isCropModeActive,
+    isCropModeActive: _isCropModeActive,
     previewHTML,
     isRendering
   } = useRendererContext();
@@ -33,7 +33,7 @@ const ImageManager = () => {
   /**
    * Global handler for all image control button clicks
    */
-  const handleImageControl = (action, filename, lineNumber) => {
+  const handleImageControl = useCallback((action, filename, lineNumber) => {
     console.log('=== GLOBAL IMAGE CONTROL HANDLER CALLED ===');
     console.log('Arguments received:', { action, filename, lineNumber, type: typeof action });
 
@@ -63,10 +63,10 @@ const ImageManager = () => {
     } else if (action === 'crop-cancel') {
       handleCropCancel(cropOverlay, filename);
     }
-  };  /**
+  }, [previewScrollRef, handleCropClick, handleExpandClick, handleCropSave, handleCropCancel]);  /**
    * Setup global handler and apply crop styles
    */
-  const setupImageControlListeners = () => {
+  const setupImageControlListeners = useCallback(() => {
     console.log('=== ImageManager: Setting up global image control handler ===');
 
     // Register global handler
@@ -193,12 +193,12 @@ const ImageManager = () => {
         }
       }
     });
-  };
+  }, [handleImageControl, previewScrollRef, getCropData]);
 
   /**
    * Handle crop button click - show the injected overlay
    */
-  const handleCropClick = (img, container, cropOverlay, filename, lineNumber) => {
+  const handleCropClick = useCallback((img, container, cropOverlay, filename, lineNumber) => {
     console.log('Crop button clicked for:', filename);
 
     if (!cropOverlay) {
@@ -229,12 +229,12 @@ const ImageManager = () => {
     }, cropData);
 
     console.log('Crop overlay shown for:', filename);
-  };
+  }, [getCropData, enterCropMode]);
 
   /**
    * Handle expand button click
    */
-  const handleExpandClick = (img, filename) => {
+  const handleExpandClick = useCallback((img, filename) => {
     console.log('Expand button clicked for:', filename);
 
     const lineNumber = parseInt(img.getAttribute('data-line-number')) || 1;
@@ -248,12 +248,12 @@ const ImageManager = () => {
       cropData: cropData
     });
     setShowImageModal(true);
-  };
+  }, [getCropData, setSelectedImage, setShowImageModal]);
 
   /**
    * Handle crop save button click
    */
-  const handleCropSave = async (cropOverlay, filename, lineNumber) => {
+  const handleCropSave = useCallback(async (cropOverlay, filename, lineNumber) => {
     console.log('Crop save clicked for:', filename);
 
     if (!cropOverlay) return;
@@ -292,25 +292,12 @@ const ImageManager = () => {
     } catch (error) {
       console.error('Failed to save crop:', error);
     }
-  };
-
-  /**
-   * Handle crop cancel button click
-   */
-  const handleCropCancel = (cropOverlay, filename) => {
-    console.log('Crop cancelled for:', filename);
-
-    if (!cropOverlay) return;
-
-    // Hide the overlay
-    cropOverlay.style.display = 'none';
-    exitCropMode();
-  };
+  }, [updateCropData, exitCropMode]);
 
   /**
    * Handle crop cancel
    */
-  const handleCropCancel = () => {
+  const handleCropCancel = useCallback(() => {
     const cropMode = cropModeRef.current;
     if (!cropMode) return;
 
@@ -322,7 +309,7 @@ const ImageManager = () => {
     }
 
     exitCropMode();
-  };
+  }, [previewScrollRef, cropModeRef, exitCropMode]);
 
   // Setup global handler and apply styles when preview HTML changes
   useEffect(() => {
@@ -376,20 +363,22 @@ const ImageManager = () => {
                 isRendering ? 'still rendering' : 'unknown'
       });
     }
-  }, [previewHTML, isRendering]);
+  }, [previewHTML, isRendering, previewScrollRef, setupImageControlListeners]);
 
   // Cleanup global handler on unmount
   useEffect(() => {
+    const currentPreviewScrollRef = previewScrollRef.current;
+    const currentControlClickHandler = controlClickHandlerRef.current;
     return () => {
       if (window.handleImageControl) {
         delete window.handleImageControl;
       }
       // Clean up event delegation listener
-      if (controlClickHandlerRef.current && previewScrollRef.current) {
-        previewScrollRef.current.removeEventListener('click', controlClickHandlerRef.current);
+      if (currentControlClickHandler && currentPreviewScrollRef) {
+        currentPreviewScrollRef.removeEventListener('click', currentControlClickHandler);
       }
     };
-  }, []);
+  }, [previewScrollRef]);
 
   // Clean up old controls when modal closes
   useEffect(() => {
@@ -408,7 +397,7 @@ const ImageManager = () => {
         }
       });
     }
-  }, [showImageModal]);
+  }, [showImageModal, getCropData, previewScrollRef]);
 
   return (
     <>

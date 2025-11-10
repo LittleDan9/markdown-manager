@@ -11,7 +11,7 @@ import PropTypes from 'prop-types';
  * - Auto-save on crop changes
  */
 function ImageCropOverlay({
-  imageDimensions,
+  imageDimensions: _imageDimensions,
   currentCrop,
   onCropChange,
   onSave,
@@ -73,7 +73,7 @@ function ImageCropOverlay({
     const deltaX = ((currentX - dragStart.x) / rect.width) * 100;
     const deltaY = ((currentY - dragStart.y) / rect.height) * 100;
 
-    let newCrop = { ...cropStart };
+    const newCrop = { ...cropStart };
 
     if (dragType === 'move') {
       // Move the entire crop area

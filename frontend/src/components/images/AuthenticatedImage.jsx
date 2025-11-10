@@ -7,16 +7,16 @@ import imageApi from '@/api/imageApi';
  * AuthenticatedImage component that fetches images with authentication
  * and displays them using blob URLs
  */
-export default function AuthenticatedImage({ 
-  filename, 
-  useThumbnail = false, 
+export default function AuthenticatedImage({
+  filename,
+  useThumbnail = false,
   fallbackSrc = null,
   alt = '',
   className = '',
   style = {},
   onLoad = null,
   onError = null,
-  ...props 
+  ...props
 }) {
   const [blobUrl, setBlobUrl] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -25,7 +25,7 @@ export default function AuthenticatedImage({
 
   useEffect(() => {
     let isMounted = true;
-    
+
     const loadImage = async () => {
       if (!filename || !user?.id) {
         setError(true);
@@ -36,11 +36,11 @@ export default function AuthenticatedImage({
       try {
         setLoading(true);
         setError(false);
-        
-        const url = useThumbnail 
+
+        const url = useThumbnail
           ? await imageApi.getThumbnailBlobUrl(filename, user.id)
           : await imageApi.getImageBlobUrl(filename, user.id);
-        
+
         if (isMounted) {
           if (url) {
             setBlobUrl(url);
@@ -67,7 +67,7 @@ export default function AuthenticatedImage({
         URL.revokeObjectURL(blobUrl);
       }
     };
-  }, [filename, useThumbnail, user?.id]);
+  }, [filename, useThumbnail, user?.id, blobUrl]);
 
   // Cleanup blob URL when component unmounts
   useEffect(() => {
@@ -91,12 +91,12 @@ export default function AuthenticatedImage({
 
   if (loading) {
     return (
-      <div 
+      <div
         className={`d-flex align-items-center justify-content-center ${className}`}
-        style={{ 
-          minHeight: '100px', 
+        style={{
+          minHeight: '100px',
           backgroundColor: '#f8f9fa',
-          ...style 
+          ...style
         }}
         {...props}
       >
@@ -123,13 +123,13 @@ export default function AuthenticatedImage({
     }
 
     return (
-      <div 
+      <div
         className={`d-flex align-items-center justify-content-center ${className}`}
-        style={{ 
-          minHeight: '100px', 
+        style={{
+          minHeight: '100px',
           backgroundColor: '#f8f9fa',
           border: '1px dashed #dee2e6',
-          ...style 
+          ...style
         }}
         {...props}
       >

@@ -1,13 +1,13 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { Container, Row, Col, Card, Form, Badge, Button, Alert, InputGroup, Collapse } from 'react-bootstrap';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Container, Row, Col, Card, Form, Badge, Alert, InputGroup, Collapse } from 'react-bootstrap';
 import { useLogger } from '../../providers/LoggerProvider';
 import { serviceFactory } from '@/services/injectors';
 import { ActionButton } from '@/components/shared';
 import { cleanSvgBodyForBrowser } from '@/utils/svgUtils';
 
-const ITEMS_PER_ROW = 4;
-const INITIAL_LOAD_SIZE = 24; // 6 rows
-const LOAD_MORE_SIZE = 16;    // 4 more rows per “page”
+const _ITEMS_PER_ROW = 4;
+const _INITIAL_LOAD_SIZE = 24; // 6 rows
+const _LOAD_MORE_SIZE = 16;    // 4 more rows per "page"
 
 const DIAGRAM_TYPES = {
   architecture: {
@@ -21,7 +21,7 @@ const DIAGRAM_TYPES = {
 };
 
 export default function IconBrowser() {
-  const log = useLogger('IconBrowser');
+  const _log = useLogger('IconBrowser');
   const iconService = serviceFactory.createIconService();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -87,7 +87,7 @@ export default function IconBrowser() {
     };
 
     loadIconPacks();
-  }, []); // No dependencies - only run once on mount
+  }, [iconService]); // Added iconService dependency
 
   // Initial search after icon packs are loaded
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function IconBrowser() {
     };
 
     performInitialSearch();
-  }, [availableIconPacks]); // Only when icon packs are first loaded
+  }, [availableIconPacks.length, iconService]); // Added missing dependencies
 
   // Server-side search when filters change (not on initial load)
   useEffect(() => {
@@ -168,7 +168,7 @@ export default function IconBrowser() {
     };
 
     searchIcons();
-  }, [searchTerm, selectedCategory, selectedIconPack]); // Removed log dependency
+  }, [searchTerm, selectedCategory, selectedIconPack, availableIconPacks.length, iconService]); // Added missing dependencies
 
   // Memoize icons with usage examples to avoid unnecessary re-renders
   const iconsWithUsage = useMemo(() => {
@@ -177,7 +177,7 @@ export default function IconBrowser() {
       ...icon,
       usage: iconService.generateUsageExample(icon.pack || 'unknown', icon.key, selectedDiagramType)
     }));
-  }, [allIcons, selectedDiagramType]);
+  }, [allIcons, selectedDiagramType, iconService]);
 
   // Load more icons when scrolling (server-side pagination)
   const loadMoreIcons = useCallback(async () => {
@@ -205,7 +205,7 @@ export default function IconBrowser() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMoreIcons, currentPage, searchTerm, selectedCategory, selectedIconPack]);
+  }, [isLoadingMore, hasMoreIcons, currentPage, searchTerm, selectedCategory, selectedIconPack, iconService]);
 
   // Simple infinite scroll for server-side pagination
   useEffect(() => {
@@ -407,7 +407,7 @@ export default function IconBrowser() {
             <div id="usage-instructions">
               <Alert variant="info" className="mb-4">
                 <Alert.Heading className="h6">How to Use Icons in {DIAGRAM_TYPES[selectedDiagramType].label}</Alert.Heading>
-                <p className="mb-2">Click “Copy Usage” on an icon to copy the syntax ({DIAGRAM_TYPES[selectedDiagramType].description}).</p>
+                <p className="mb-2">Click &quot;Copy Usage&quot; on an icon to copy the syntax ({DIAGRAM_TYPES[selectedDiagramType].description}).</p>
                 {selectedDiagramType === 'architecture' ? (
                   <>
                     <code>service myec2(awssvg:ec2)[My EC2 Instance]</code><br />
@@ -416,9 +416,10 @@ export default function IconBrowser() {
                   </>
                 ) : (
                   <>
-                    <code>A@{`{ icon: "awssvg:ec2", form: "square", label: "EC2" }`}</code><br />
-                    <code>B@{`{ icon: "awsgrp:vpc", form: "circle", label: "VPC" }`}</code><br />
-                    <code>C@{'{ icon: "logos:aws", form: "rounded", label: "AWS" }'}</code>
+                    {/* eslint-disable-next-line react/no-unescaped-entities */}
+                    <code dangerouslySetInnerHTML={{ __html: 'A@{ icon: "awssvg:ec2", form: "square", label: "EC2" }' }} /><br /> {/* eslint-disable-line react/no-unescaped-entities */}
+                    <code dangerouslySetInnerHTML={{ __html: 'B@{ icon: "awsgrp:vpc", form: "circle", label: "VPC" }' }} /><br /> {/* eslint-disable-line react/no-unescaped-entities */}
+                    <code dangerouslySetInnerHTML={{ __html: 'C@{ icon: "logos:aws", form: "rounded", label: "AWS" }' }} /> {/* eslint-disable-line react/no-unescaped-entities */}
                   </>
                 )}
               </Alert>
@@ -524,7 +525,7 @@ export default function IconBrowser() {
               <div className="spinner-border text-primary" role="status">
                 <span className="visually-hidden">Loading more icons...</span>
               </div>
-              <p className="mt-2 text-muted">Scroll down for more icons…</p>
+              <p className="mt-2 text-muted">Scroll down for more icons&hellip;</p>
             </div>
           )}
 

@@ -13,8 +13,8 @@ import SpellCheckSettingsModal from "../editor/spell-check/SpellCheckSettingsMod
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
-  const { showSuccess, showError } = useNotification();
-  const { user, setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, autoCommitEnabled, setAutoCommitEnabled } = useAuth();
+  const { showSuccess, showError: _showError } = useNotification();
+  const { user, setUser: _setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, autoCommitEnabled, setAutoCommitEnabled } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [showIconModal, setShowIconModal] = useState(false);

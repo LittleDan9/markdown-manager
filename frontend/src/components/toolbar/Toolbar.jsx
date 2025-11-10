@@ -13,16 +13,16 @@ function Toolbar({
   fullscreenPreview,
   setFullscreenPreview,
   setContent,
-  editorValue,
+  editorValue: _editorValue,
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error, isSharedView, sharedDocument, sharedLoading, sharedError, previewHTML } = useDocumentContext();
-  const { showWarning } = useNotification();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML } = useDocumentContext();
+  const { showWarning: _showWarning } = useNotification();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
   );
-  const [importMarkdownFile, setImportMarkdownFile] = useState(null);
+  const [_importMarkdownFile, setImportMarkdownFile] = useState(null);
   const [showDocumentInfoModal, setShowDocumentInfoModal] = useState(false);
 
   // Memoize setDocumentTitle to prevent infinite re-renders
@@ -31,7 +31,7 @@ function Toolbar({
   }, []);
 
   // Memoize setImportMarkdownFile to prevent infinite re-renders
-  const memoizedSetImportMarkdownFile = useCallback((file) => {
+  const _memoizedSetImportMarkdownFile = useCallback((file) => {
     setImportMarkdownFile(file);
   }, []);
 

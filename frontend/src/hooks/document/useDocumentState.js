@@ -7,7 +7,7 @@ import documentsApi from '@/api/documentsApi.js';
 import useChangeTracker from './useChangeTracker';
 
 export default function useDocumentState(notification, auth, setPreviewHTML, isSharedView = false) {
-  const { isAuthenticated, token, user, isInitializing } = auth;
+  const { isAuthenticated, token, user: _user, isInitializing } = auth;
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
   const [migrationStatus, setMigrationStatus] = useState('idle');
@@ -20,6 +20,10 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const [saving, setSaving] = useState(false); // Separate state for save operations
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
+
+  // Track document loading to prevent duplicates
+  const lastLoadedDocumentRef = useRef(null);
+  const lastLoadTimeRef = useRef(0);
 
   // Notification helpers
   const notificationRef = useRef();
@@ -116,7 +120,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, showWarning, showSuccess]);
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -155,6 +159,28 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
     }
     const loadCurrentDocument = async () => {
+      console.log('[useDocumentState] loadCurrentDocument called', {
+        isAuthenticated,
+        token: !!token,
+        isInitializing,
+        migrationStatus,
+        isSharedView,
+        hasSyncedOnMount,
+        timestamp: new Date().toISOString()
+      });
+
+      // Prevent duplicate document loading within a short time window
+      const now = Date.now();
+      const timeSinceLastLoad = now - lastLoadTimeRef.current;
+      if (timeSinceLastLoad < 2000) { // 2 seconds cooldown
+        console.log('[useDocumentState] Skipping duplicate document load', {
+          timeSinceLastLoad,
+          lastLoaded: lastLoadedDocumentRef.current
+        });
+        return;
+      }
+
+      lastLoadTimeRef.current = now;
       if (isAuthenticated && token && !hasSyncedOnMount) {
         try {
           const result = await DocumentService.syncWithBackend();
@@ -188,7 +214,9 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
           if (currentDocId) {
             currentDoc = docs.find(doc => doc.id === currentDocId);
           }
-        } catch (error) {}
+        } catch (error) {
+          // Ignore errors when fetching current document ID
+        }
       }
       if (!currentDoc) {
         const storedCurrentDoc = DocumentStorageService.getCurrentDocument();
@@ -207,6 +235,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       // If we found a document by ID, load the full document with metadata
       if (currentDoc && currentDoc.id) {
         try {
+          console.log('[useDocumentState] Loading full document metadata for:', currentDoc.id);
           const fullDoc = await documentsApi.getDocument(currentDoc.id);
           if (fullDoc) {
             currentDoc = fullDoc;
@@ -228,7 +257,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
     loadCurrentDocument();
-  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView]);
+  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView, hasSyncedOnMount, migrateLocalDocuments, setPreviewHTML, showError, showSuccess, showWarning]);
 
   useEffect(() => {
     const newCategories = DocumentService.getCategories();
@@ -293,7 +322,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         setContent(documentContent);
       }
     }
-  }, [currentDocument]); // Remove content from dependencies to avoid sync loops
+  }, [currentDocument]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Skip authentication-based state changes when in shared view
@@ -323,7 +352,9 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     DocumentStorageService.setCurrentDocument(document);
     try {
       await DocumentService.setCurrentDocumentId(document.id);
-    } catch (error) {}
+    } catch (error) {
+      // Ignore errors when setting current document ID
+    }
   }, []);
 
   const createDocument = useCallback(() => {
@@ -361,7 +392,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     // Note: We don't clear the current document on the backend when creating a new document
     // because new documents don't have backend IDs, and the backend API doesn't support
     // clearing the current document (it requires a valid doc_id)
-  }, [setPreviewHTML, isAuthenticated, token, currentDocument, content]);
+  }, [setPreviewHTML, currentDocument, content]);
 
   const loadDocument = useCallback(async (id) => {
     setLoading(true);
@@ -423,7 +454,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setLoading(false);
     }
-  }, [updateCurrentDocument, setPreviewHTML]);
+  }, [updateCurrentDocument, setPreviewHTML, isAuthenticated, token, showError]);
 
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
@@ -466,7 +497,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setSaving(false); // Reset saving state instead of loading state
     }
-  }, [content, currentDocument, updateCurrentDocument]);
+  }, [content, currentDocument, updateCurrentDocument, showError]);
 
   const deleteDocument = useCallback(async (id, showNotification = true) => {
     setSaving(true); // Use saving state for delete operations too
@@ -502,7 +533,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setSaving(false); // Reset saving state
     }
-  }, [currentDocument, updateCurrentDocument, setPreviewHTML, isAuthenticated, token]);
+  }, [currentDocument, setPreviewHTML, isAuthenticated, token, showError]);
 
   const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
     try {
@@ -519,7 +550,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } catch (error) {
       showError('Rename failed: ' + error.message);
     }
-  }, [currentDocument, updateCurrentDocument]);
+  }, [currentDocument, showError, updateCurrentDocument]);
 
   // --- CATEGORY OPERATIONS ---
   const addCategory = useCallback(async (category) => {

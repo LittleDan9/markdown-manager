@@ -1,7 +1,6 @@
 import { useRef, useEffect, useState } from 'react';
 import { EditorService } from '@/services/editor';
 import { useTheme } from '@/providers/ThemeProvider';
-import { useTypingDetection } from './shared';
 
 /**
  * Core editor hook for Monaco setup and basic functionality
@@ -17,15 +16,12 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
   const editorRef = useRef(null);
   const [editor, setEditor] = useState(null); // Use state for ready editor
   const lastEditorValue = useRef(value);
-  const changeTimeoutRef = useRef(null);
   const onChangeRef = useRef(onChange);
   const isSettingValueRef = useRef(false); // Track when WE are setting the value
   // No typing detection hook - keep it simple to avoid re-renders
 
   // Keep onChange ref up to date without causing re-renders
   onChangeRef.current = onChange;
-
-  // Monaco editor setup
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -33,8 +29,8 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
       .setup(containerRef.current, value, theme)
       .then(editorInstance => {
         editorRef.current = editorInstance;
+        editorInstance.setValue(value); // Set value before setting state
         setEditor(editorInstance); // Set state when ready
-        editorInstance.setValue(value);
 
         // Content changes
         editorInstance.onDidChangeModelContent(() => {
@@ -66,9 +62,6 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
 
     // Cleanup
     return () => {
-      if (changeTimeoutRef.current) {
-        clearTimeout(changeTimeoutRef.current);
-      }
       if (editorRef.current) {
         editorRef.current.dispose();
         editorRef.current = null;
@@ -76,7 +69,7 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
       }
       // No cleanup needed
     };
-  }, [containerRef]); // Simplified dependencies
+  }, [containerRef]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Theme changes
   useEffect(() => {
@@ -106,35 +99,11 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
       return;
     }
 
-    // Key insight: If lastEditorValue matches the current editor content,
-    // then this value change came from user typing (our onChange callback updated the parent).
-    // BUT: On initial load, currentEditorValue might be empty while value has content
-    const isInitialLoad = currentEditorValue === '' && value !== '';
-
-    // FIXED: Don't treat document clearing as user typing - when switching to empty content
-    // from non-empty content, this is always an external document change
-    const isDocumentClearing = currentEditorValue !== '' && value === '';
-    const isUserTypingChange = currentEditorValue === lastEditorValue.current && !isInitialLoad && !isDocumentClearing;
-
-    console.log('useEditorCore: Change analysis', {
-      isInitialLoad,
-      isDocumentClearing,
-      isUserTypingChange,
-      currentEqualsLast: currentEditorValue === lastEditorValue.current
-    });
-
-    if (isUserTypingChange) {
-      // This value change came from our own onChange callback - ignore it
-      lastEditorValue.current = value; // Keep tracking in sync
-      console.log('useEditorCore: Detected user typing change, ignoring external value');
-      return;
-    }
-
-    console.log('EXTERNAL VALUE EFFECT: External change detected', {
-      type: isInitialLoad ? 'initial-load' : isDocumentClearing ? 'document-clearing' : 'external-change',
+    // For document switches and external changes, always update the editor
+    // The complex user typing detection was causing issues with document synchronization
+    console.log('EXTERNAL VALUE EFFECT: External change detected - updating editor', {
       incomingLength: value.length,
-      currentLength: currentEditorValue.length,
-      lastEditorLength: lastEditorValue.current.length
+      currentLength: currentEditorValue.length
     });
 
     // Mark that we're setting the value to prevent onChange loop
@@ -150,26 +119,28 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     // Clear the flag after setValue completes
     isSettingValueRef.current = false;
 
-    // Only restore position if not initial load
-    if (!isInitialLoad && currentPosition) {
+    // Restore cursor position if we had one
+    if (currentPosition) {
       const model = editor.getModel();
-      const lineCount = model.getLineCount();
+      if (model) {
+        const lineCount = model.getLineCount();
 
-      // Ensure position is within bounds
-      const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
-      const lineLength = model.getLineContent(safeLineNumber).length;
-      const safeColumn = Math.min(currentPosition.column, lineLength + 1);
+        // Ensure position is within bounds
+        const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
+        const lineLength = model.getLineContent(safeLineNumber).length;
+        const safeColumn = Math.min(currentPosition.column, lineLength + 1);
 
-      const safePosition = {
-        lineNumber: safeLineNumber,
-        column: safeColumn
-      };
+        const safePosition = {
+          lineNumber: safeLineNumber,
+          column: safeColumn
+        };
 
-      // Use setTimeout to ensure the position is set after Monaco finishes processing
-      setTimeout(() => {
-        editor.setPosition(safePosition);
-        editor.setScrollTop(currentScrollTop);
-      }, 0);
+        // Use setTimeout to ensure the position is set after Monaco finishes processing
+        setTimeout(() => {
+          editor.setPosition(safePosition);
+          editor.setScrollTop(currentScrollTop);
+        }, 0);
+      }
     }
   }, [value]);
 

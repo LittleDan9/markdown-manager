@@ -1,5 +1,5 @@
 import React, { useRef, useCallback } from 'react';
-import { Table, Badge, Spinner } from 'react-bootstrap';
+import { Table, Badge } from 'react-bootstrap';
 import { useTheme } from '../../../providers/ThemeProvider';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
 import {
@@ -8,7 +8,6 @@ import {
   isMarkdownFile,
   getHoverBackgroundColor,
   getTableVariant,
-  getTableHeaderClass,
   getEmptyState
 } from '../../../utils/fileBrowserUtils';
 
@@ -16,12 +15,12 @@ export default function FileList({
   files,
   currentPath,
   selectedFile,
-  selectedFiles = [],
+  selectedFiles: _selectedFiles = [],
   onFileSelect,
   onFileOpen,
   onPathChange,
   onFolderExpand,
-  onMultiSelect,
+  onMultiSelect: _onMultiSelect,
   config
 }) {
   const { theme } = useTheme();
@@ -58,7 +57,7 @@ export default function FileList({
 
     if (isGitHub) {
       // GitHub-specific breadcrumb logic (existing logic)
-      let filteredParts = pathParts.filter(part => part !== 'GitHub');
+      const filteredParts = pathParts.filter(part => part !== 'GitHub');
 
       let repoName = '';
       let folderParts = [];
@@ -86,7 +85,7 @@ export default function FileList({
             const isLast = index === folderParts.length - 1;
             // Reconstruct the original path including all parts for navigation
             const repoIndex = pathParts.indexOf(repoName);
-            const branchName = pathParts[repoIndex + 1]; // Branch is after repo name
+            const _branchName = pathParts[repoIndex + 1]; // Branch is after repo name
             const folderPath = pathParts.slice(0, repoIndex + 2 + index + 1); // Include repo, branch, and folders up to this point
             const partPath = '/' + folderPath.join('/');
 

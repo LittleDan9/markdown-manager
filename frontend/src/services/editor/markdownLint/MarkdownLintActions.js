@@ -20,7 +20,7 @@ export class MarkdownLintActions {
    * @param {Function} getFolderPath - Function to get current folder path
    * @returns {Array} Array of registered action IDs
    */
-  static registerQuickFixActions(editor, markersMapRef, getCategoryId = null, getFolderPath = null) {
+  static registerQuickFixActions(editor, markersMapRef, _getCategoryId = null, _getFolderPath = null) {
     if (!editor) {
       return [];
     }
@@ -128,7 +128,7 @@ export class MarkdownLintActions {
    * @param {Object} editor - Monaco editor instance
    * @param {Object} markersMapRef - Reference to markers map
    */
-  static fixTrailingSpaces(editor, markersMapRef) {
+  static fixTrailingSpaces(editor, _markersMapRef) {
     if (!editor) return;
 
     try {
@@ -171,7 +171,7 @@ export class MarkdownLintActions {
    * @param {Object} editor - Monaco editor instance
    * @param {Object} markersMapRef - Reference to markers map
    */
-  static fixMultipleBlankLines(editor, markersMapRef) {
+  static fixMultipleBlankLines(editor, _markersMapRef) {
     if (!editor) return;
 
     try {
@@ -239,7 +239,7 @@ export class MarkdownLintActions {
    * @param {Object} editor - Monaco editor instance
    * @param {Object} markersMapRef - Reference to markers map
    */
-  static fixHeadingSpacing(editor, markersMapRef) {
+  static fixHeadingSpacing(editor, _markersMapRef) {
     if (!editor) return;
 
     try {
@@ -258,7 +258,7 @@ export class MarkdownLintActions {
         const headingMatch = trimmedContent.match(/^(#{1,6})([^#\s])/);
         if (headingMatch) {
           const hashes = headingMatch[1];
-          const restOfLine = headingMatch[2];
+          const _restOfLine = headingMatch[2];
 
           // Find position in original line
           const hashIndex = lineContent.indexOf(hashes);
@@ -370,7 +370,7 @@ export class MarkdownLintActions {
    */
   static _registerCodeActionProvider(markersMapRef, monacoRef) {
     return monacoRef.languages.registerCodeActionProvider('markdown', {
-      provideCodeActions(model, range, context) {
+      provideCodeActions(model, range, _context) {
         const actions = [];
 
         // Get markers at the current position

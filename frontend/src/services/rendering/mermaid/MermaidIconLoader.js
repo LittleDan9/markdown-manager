@@ -122,7 +122,7 @@ class MermaidIconLoader {
         // Extract width/height from viewBox to ensure consistency
         let width = 24;
         let height = 24;
-        let viewBox = icon.icon_data.viewBox || '0 0 24 24';
+        const viewBox = icon.icon_data.viewBox || '0 0 24 24';
 
         // Parse viewBox to get correct dimensions
         const viewBoxMatch = viewBox.match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);
@@ -294,7 +294,7 @@ class MermaidIconLoader {
         // Extract width/height from viewBox to ensure consistency
         let width = 24;
         let height = 24;
-        let viewBox = exactMatch.iconData.viewBox || '0 0 24 24';
+        const viewBox = exactMatch.iconData.viewBox || '0 0 24 24';
 
         // Parse viewBox to get correct dimensions
         const viewBoxMatch = viewBox.match(/^(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)$/);

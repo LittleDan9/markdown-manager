@@ -4,7 +4,7 @@
  * This component manages cleanup operations for diagrams and images,
  * coordinates effects, and handles first render logic.
  */
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import { useRendererContext } from './RendererContext';
 import { useTheme } from '../../providers/ThemeProvider';
@@ -12,7 +12,7 @@ import DiagramControls from './DiagramControls';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 
 const LifecycleManager = ({ onFirstRender }) => {
-  const { theme } = useTheme();
+  const { theme: _theme } = useTheme();
   const {
     previewScrollRef,
     previewHTML,
@@ -23,12 +23,12 @@ const LifecycleManager = ({ onFirstRender }) => {
     markFirstRenderCalled
   } = useRendererContext();
 
-  const imageManagerRef = useRef(null);
+  const _imageManagerRef = useRef(null);
 
   /**
    * Add diagram controls to rendered Mermaid diagrams
    */
-  const addDiagramControls = (previewElement) => {
+  const addDiagramControls = useCallback((previewElement) => {
     if (!previewElement) return;
 
     const diagrams = previewElement.querySelectorAll('.mermaid[data-processed="true"]');
@@ -79,12 +79,12 @@ const LifecycleManager = ({ onFirstRender }) => {
       // Store the root for cleanup
       diagramControlsRefs.current.set(diagram, root);
     });
-  };
+  }, [diagramControlsRefs]);
 
   /**
    * Clean up controls that are no longer in the DOM
    */
-  const cleanupStaleControls = () => {
+  const cleanupStaleControls = useCallback(() => {
     const validDiagrams = new Set();
     const validImages = new Set();
 
@@ -127,7 +127,7 @@ const LifecycleManager = ({ onFirstRender }) => {
         }
       });
     }, 0);
-  };
+  }, [previewScrollRef, diagramControlsRefs, imageControlsRefs]);
 
   // Add controls after preview HTML is updated and rendering is complete
   useEffect(() => {
@@ -173,7 +173,7 @@ const LifecycleManager = ({ onFirstRender }) => {
         }
       }, 200); // Increased delay for stability
     }
-  }, [previewHTML, isRendering]);
+  }, [previewHTML, isRendering, addDiagramControls, cleanupStaleControls, previewScrollRef]);
 
   // Call onFirstRender when ready
   useEffect(() => {
@@ -189,7 +189,7 @@ const LifecycleManager = ({ onFirstRender }) => {
       markFirstRenderCalled();
       onFirstRender();
     }
-  }, [onFirstRender, isRendering, previewHTML]);
+  }, [onFirstRender, isRendering, previewHTML, markFirstRenderCalled, shouldCallFirstRender]);
 
   // Listen for diagram export completion events
   useEffect(() => {
@@ -218,24 +218,26 @@ const LifecycleManager = ({ onFirstRender }) => {
     return () => {
       window.removeEventListener('diagramExportComplete', handleExportComplete);
     };
-  }, [previewHTML, isRendering]);
+  }, [previewHTML, isRendering, addDiagramControls, diagramControlsRefs, previewScrollRef]);
 
   // Cleanup on unmount
   useEffect(() => {
+    const currentDiagramControlsRefs = diagramControlsRefs.current;
+    const currentImageControlsRefs = imageControlsRefs.current;
     return () => {
       setTimeout(() => {
         // Cleanup diagram controls
-        diagramControlsRefs.current.forEach((root, diagram) => {
+        currentDiagramControlsRefs.forEach((root, _diagram) => {
           try {
             root.unmount();
           } catch (error) {
             console.warn('Error unmounting diagram controls on cleanup:', error);
           }
         });
-        diagramControlsRefs.current.clear();
+        currentDiagramControlsRefs.clear();
 
         // Cleanup image controls
-        imageControlsRefs.current.forEach((controlsData, container) => {
+        currentImageControlsRefs.forEach((controlsData, _container) => {
           try {
             if (controlsData.cleanup) {
               controlsData.cleanup();
@@ -247,10 +249,10 @@ const LifecycleManager = ({ onFirstRender }) => {
             console.warn('Error cleaning up image controls on cleanup:', error);
           }
         });
-        imageControlsRefs.current.clear();
+        currentImageControlsRefs.clear();
       }, 0);
     };
-  }, []);
+  }, [diagramControlsRefs, imageControlsRefs]);
 
   // This component doesn't render anything directly
   return null;

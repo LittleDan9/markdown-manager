@@ -138,12 +138,13 @@ export default class MonacoMarkerAdapter {
     // Create appropriate message based on issue type
     let msg;
     switch (issue.type) {
-      case 'spelling':
+      case 'spelling': {
         // For spelling: "word" → suggestion1, suggestion2, suggestion3
         const spellingSuggestions = issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions';
         msg = `"${issue.word}" → ${spellingSuggestions}`;
         break;
-      case 'grammar':
+      }
+      case 'grammar': {
         // For grammar: Use the descriptive message from backend, truncate if too long
         if (issue.message && issue.message.length > 60) {
           msg = issue.message.substring(0, 57) + '...';
@@ -151,6 +152,7 @@ export default class MonacoMarkerAdapter {
           msg = issue.message || `Grammar issue: "${issue.word}"`;
         }
         break;
+      }
       case 'style':
         // For style: Use the descriptive message from backend, truncate if too long
         if (issue.message && issue.message.length > 60) {
@@ -159,10 +161,11 @@ export default class MonacoMarkerAdapter {
           msg = issue.message || `Style suggestion: "${issue.word}"`;
         }
         break;
-      default:
+      default: {
         // Legacy format
         const defaultSuggestions = issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions';
         msg = `"${issue.word}" → ${defaultSuggestions}`;
+      }
     }
 
     // Determine severity based on issue type
@@ -179,9 +182,10 @@ export default class MonacoMarkerAdapter {
         break;
       case 'code-comment':
       case 'code-string':
-      case 'code-identifier':
+      case 'code-identifier': {
         severity = monaco.MarkerSeverity.Error; // Red squiggles for code spell issues (same as regular spelling)
         break;
+      }
       default:
         severity = monaco.MarkerSeverity.Warning;
     }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminIconsApi } from '../../api/admin';
 import { useNotification } from '../../components/NotificationProvider';
 
@@ -10,7 +10,7 @@ export function useIconCache() {
 
   const { showSuccess, showError } = useNotification();
 
-  const loadCacheStats = async () => {
+  const loadCacheStats = useCallback(async () => {
     try {
       setError(null);
       const stats = await adminIconsApi.getCacheStats();
@@ -19,9 +19,9 @@ export function useIconCache() {
       console.error('Failed to load cache statistics:', err);
       setError(err);
     }
-  };
+  }, []);
 
-  const loadCacheAnalysis = async () => {
+  const loadCacheAnalysis = useCallback(async () => {
     try {
       setError(null);
       const analysis = await adminIconsApi.getCacheAnalysis();
@@ -30,7 +30,7 @@ export function useIconCache() {
       console.error('Failed to load cache analysis:', err);
       setError(err);
     }
-  };
+  }, []);
 
   const clearCache = async () => {
     setLoading(true);
@@ -88,7 +88,7 @@ export function useIconCache() {
     }
   };
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     setLoading(true);
     try {
       await Promise.all([
@@ -98,11 +98,11 @@ export function useIconCache() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadCacheStats, loadCacheAnalysis]);
 
   useEffect(() => {
     refreshAll();
-  }, []);
+  }, [refreshAll]);
 
   return {
     cacheStats,

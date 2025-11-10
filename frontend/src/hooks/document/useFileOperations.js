@@ -6,7 +6,7 @@ import { useNotification } from "@/components/NotificationProvider.jsx";
 export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, theme }) {
   // Document context and notifications
   const {
-    saveDocument, currentDocument, loadDocument, createDocument, documents,
+    saveDocument, currentDocument, loadDocument, createDocument, documents: _documents,
     exportAsMarkdown, exportAsPDF, importMarkdownFile
   } = useDocumentContext();
   const { showSuccess, showError } = useNotification();

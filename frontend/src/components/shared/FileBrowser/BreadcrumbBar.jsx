@@ -7,7 +7,7 @@ export default function BreadcrumbBar({
   onPathChange,
   breadcrumbType = 'github', // 'github' or 'local'
   repository = null,
-  categories = [],
+  categories: _categories = [],
   documents = [],
   currentFiles = [] // Add current files for item count
 }) {

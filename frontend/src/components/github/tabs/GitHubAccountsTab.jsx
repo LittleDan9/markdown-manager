@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Button, Alert, Badge, Row, Col } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Alert, Badge, Row, Col } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubAccountConnection, GitHubAccountList } from '../index';
 import gitHubApi from '../../../api/gitHubApi';
@@ -28,9 +28,9 @@ export default function GitHubAccountsTab({ onAccountsChange }) {
     });
 
     return cleanup;
-  }, []);
+  }, [loadAccounts, handleAccountConnected, showError]);
 
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     try {
       setLoading(true);
       const accountsData = await gitHubApi.getAccounts();
@@ -47,11 +47,11 @@ export default function GitHubAccountsTab({ onAccountsChange }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [onAccountsChange]);
 
-  const handleAccountConnected = () => {
+  const handleAccountConnected = useCallback(() => {
     loadAccounts();
-  };
+  }, [loadAccounts]);
 
   const handleAccountDisconnected = (accountId) => {
     const updatedAccounts = accounts.filter(acc => acc.id !== accountId);

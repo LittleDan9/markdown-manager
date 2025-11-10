@@ -1,8 +1,8 @@
-import { useRef, useCallback, useState, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 
 // Singleton state for editor content - shared across all instances
-let globalContentRef = { current: '' };
-let globalSubscribers = new Set();
+const globalContentRef = { current: '' };
+const globalSubscribers = new Set();
 
 /**
  * Hook for accessing editor content WITHOUT causing re-renders

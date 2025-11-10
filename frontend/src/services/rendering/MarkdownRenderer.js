@@ -19,7 +19,7 @@ function getLineAttr(tokens, idx) {
 }
 
 
-md.renderer.rules.fence = (tokens, idx, options, env, self) => {
+md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
   const token = tokens[idx];
   const info = token.info.trim();
   const lang = info || "";
@@ -87,7 +87,7 @@ md.renderer.rules.fence = (tokens, idx, options, env, self) => {
 };
 // Headings
 for (let i = 1; i <= 6; i++) {
-  md.renderer.rules[`heading_open`] = (tokens, idx, options, env, self) => {
+  md.renderer.rules[`heading_open`] = (tokens, idx, _options, _env, _self) => {
     const lineAttr = getLineAttr(tokens, idx);
     // Add data-line to heading open tag
     const token = tokens[idx];
@@ -96,33 +96,33 @@ for (let i = 1; i <= 6; i++) {
 }
 
 // Paragraphs
-md.renderer.rules.paragraph_open = (tokens, idx, options, env, self) => {
+md.renderer.rules.paragraph_open = (tokens, idx, _options, _env, _self) => {
   const lineAttr = getLineAttr(tokens, idx);
   const token = tokens[idx];
   return `<${token.tag} ${lineAttr}>`;
 };
 
 // Blockquotes
-md.renderer.rules.blockquote_open = (tokens, idx, options, env, self) => {
+md.renderer.rules.blockquote_open = (tokens, idx, _options, _env, _self) => {
   const lineAttr = getLineAttr(tokens, idx);
   const token = tokens[idx];
   return `<${token.tag} ${lineAttr}>`;
 };
 
 // Lists
-md.renderer.rules.bullet_list_open = (tokens, idx, options, env, self) => {
+md.renderer.rules.bullet_list_open = (tokens, idx, _options, _env, _self) => {
   const lineAttr = getLineAttr(tokens, idx);
   const token = tokens[idx];
   return `<${token.tag} ${lineAttr}>`;
 };
-md.renderer.rules.ordered_list_open = (tokens, idx, options, env, self) => {
+md.renderer.rules.ordered_list_open = (tokens, idx, _options, _env, _self) => {
   const lineAttr = getLineAttr(tokens, idx);
   const token = tokens[idx];
   return `<${token.tag} ${lineAttr}>`;
 };
 
 // Images with enhanced handling for user images
-md.renderer.rules.image = (tokens, idx, options, env, self) => {
+md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
   const token = tokens[idx];
   const lineAttr = getLineAttr(tokens, idx);
 

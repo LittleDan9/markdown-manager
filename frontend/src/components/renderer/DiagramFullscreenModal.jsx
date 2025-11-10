@@ -12,7 +12,7 @@ import { serviceFactory } from '../../services/injectors';
  * - Export controls
  * - Diagram metadata display
  */
-function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagramSource, svgContent }) {
+function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagramSource: _diagramSource, svgContent }) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState(null);
   const mermaidExportService = serviceFactory.createMermaidExportService();

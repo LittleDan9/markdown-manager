@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Form, InputGroup, Badge, Alert, Modal } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import gitHubRepositorySelectionApi from '../../../api/gitHubRepositorySelectionApi';
@@ -38,7 +38,7 @@ export default function GitHubRepositorySettings({ account, onBack }) {
     loadSelectedRepositories();
     loadStatistics();
     loadOrganizations();
-  }, [account.id]);
+  }, [account.id, loadSelectedRepositories, loadStatistics, loadOrganizations]);
 
   useEffect(() => {
     const debounceTimer = setTimeout(() => {
@@ -46,9 +46,9 @@ export default function GitHubRepositorySettings({ account, onBack }) {
     }, 500);
 
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery, searchFilters, pagination.page]);
+  }, [searchQuery, searchFilters, pagination.page, searchRepositories]);
 
-  const loadSelectedRepositories = async () => {
+  const loadSelectedRepositories = useCallback(async () => {
     try {
       setLoading(true);
       const response = await gitHubRepositorySelectionApi.getSelectedRepositories(account.id);
@@ -59,18 +59,18 @@ export default function GitHubRepositorySettings({ account, onBack }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [account.id, showError]);
 
-  const loadStatistics = async () => {
+  const loadStatistics = useCallback(async () => {
     try {
       const stats = await gitHubRepositorySelectionApi.getRepositoryStatistics(account.id);
       setStatistics(stats);
     } catch (error) {
       console.error('Failed to load statistics:', error);
     }
-  };
+  }, [account.id]);
 
-  const loadOrganizations = async () => {
+  const loadOrganizations = useCallback(async () => {
     try {
       setOrganizationsLoading(true);
       const response = await gitHubRepositorySelectionApi.getOrganizations(account.id);
@@ -92,9 +92,9 @@ export default function GitHubRepositorySettings({ account, onBack }) {
     } finally {
       setOrganizationsLoading(false);
     }
-  };
+  }, [account.id]);
 
-  const searchRepositories = async () => {
+  const searchRepositories = useCallback(async () => {
     try {
       setSearchLoading(true);
       const params = {
@@ -118,7 +118,7 @@ export default function GitHubRepositorySettings({ account, onBack }) {
     } finally {
       setSearchLoading(false);
     }
-  };
+  }, [account.id, searchQuery, pagination.page, pagination.per_page, searchFilters, showError]);
 
   const handleAddRepository = async (repo) => {
     try {

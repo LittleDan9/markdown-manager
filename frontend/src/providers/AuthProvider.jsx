@@ -10,7 +10,6 @@ import LoginModal from '../components/auth/modals/LoginModal.jsx';
 import VerifyMFAModal from '../components/security/modals/VerifyMFAModal.jsx';
 import PasswordResetModal from '../components/auth/modals/PasswordResetModal.jsx';
 import LogoutProgressModal from '../components/LogoutProgressModal.jsx';
-import UserAPI from '../api/userApi.js';
 
 const AuthContext = createContext(null);
 
@@ -68,7 +67,7 @@ export function AuthProvider({ children }) {
     initializeAuth();
 
     // Listen for legacy password reset events if needed
-    const handler = (e) => {
+    const handler = (_e) => {
       // Handle password reset token from legacy JS if applicable
       setShowPasswordResetModal(true);
     };

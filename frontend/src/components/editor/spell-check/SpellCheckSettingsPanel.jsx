@@ -1,7 +1,7 @@
 /**
  * Advanced Spell Check Settings Panel
  * Phase 5: Advanced UI Enhancements
- * 
+ *
  * Provides user controls for:
  * - Analysis type toggles (spelling, grammar, style)
  * - Style guide selection
@@ -10,13 +10,12 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { 
-  Card, 
-  Form, 
-  Row, 
-  Col, 
-  ButtonGroup, 
-  Button, 
+import {
+  Card,
+  Form,
+  Row,
+  Col,
+  Button,
   Badge,
   Collapse,
   Alert
@@ -42,8 +41,8 @@ const READABILITY_METRICS = [
   { key: 'averageSyllablesPerWord', name: 'Avg Syllables/Word', format: 'decimal' }
 ];
 
-export function SpellCheckSettingsPanel({ 
-  settings = {}, 
+export function SpellCheckSettingsPanel({
+  settings = {},
   onSettingsChange = () => {},
   readabilityData = null,
   isVisible = false,
@@ -73,7 +72,7 @@ export function SpellCheckSettingsPanel({
 
   // UI state
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [_loading, _setLoading] = useState(false);
 
   // Load available languages on mount
   useEffect(() => {
@@ -109,7 +108,7 @@ export function SpellCheckSettingsPanel({
 
   const formatReadabilityValue = (value, format) => {
     if (value === null || value === undefined) return 'N/A';
-    
+
     switch (format) {
       case 'grade':
         return `Grade ${Math.round(value * 10) / 10}`;
@@ -126,7 +125,7 @@ export function SpellCheckSettingsPanel({
 
   const getReadabilityInterpretation = (fleschScore) => {
     if (!fleschScore) return null;
-    
+
     if (fleschScore >= 90) return { level: 'Very Easy', color: 'success' };
     if (fleschScore >= 80) return { level: 'Easy', color: 'success' };
     if (fleschScore >= 70) return { level: 'Fairly Easy', color: 'info' };
@@ -157,7 +156,7 @@ export function SpellCheckSettingsPanel({
               <i className="bi bi-x"></i>
             </Button>
           </Card.Header>
-          
+
           <Card.Body>
             {/* Analysis Type Toggles */}
             <div className="mb-4">
@@ -267,7 +266,7 @@ export function SpellCheckSettingsPanel({
                   <i className="bi bi-bar-chart me-2"></i>
                   Readability Analysis
                 </h6>
-                
+
                 {interpretation && (
                   <Alert variant={interpretation.color} className="py-2">
                     <strong>Reading Level:</strong> {interpretation.level}
@@ -305,7 +304,7 @@ export function SpellCheckSettingsPanel({
                 <i className={`bi bi-chevron-${showAdvanced ? 'up' : 'down'} me-1`}></i>
                 Advanced Settings
               </Button>
-              
+
               <Collapse in={showAdvanced}>
                 <div className="mt-3">
                   {/* Language Selection */}
@@ -339,8 +338,8 @@ export function SpellCheckSettingsPanel({
                         <div>Version: {serviceInfo.version || 'N/A'}</div>
                         <div>Features: {serviceInfo.integration?.features?.join(', ') || 'Basic'}</div>
                         <div>
-                          Backend: 
-                          <Badge 
+                          Backend:
+                          <Badge
                             bg={serviceInfo.integration?.custom_dictionary ? 'success' : 'warning'}
                             className="ms-1"
                           >

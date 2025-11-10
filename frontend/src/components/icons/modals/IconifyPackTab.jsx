@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Form, Button, Alert, Card, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
-import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
 import PackCategorySelector from '../common/PackCategorySelector';
 
@@ -150,8 +149,8 @@ export default function IconifyPackTab({
       // Install the pack using the existing API
       const result = await adminIconsApi.installIconPack(customPackData, null, 'json');
 
-      setSuccess(`Successfully installed Iconify pack "${result.display_name}" with ${Object.keys(icons).length} icons`);
-      showSuccess(`Iconify pack "${result.display_name}" installed successfully!`);
+      setSuccess(`Successfully installed Iconify pack &quot;${result.display_name}&quot; with ${Object.keys(icons).length} icons`);
+      showSuccess(`Iconify pack &quot;${result.display_name}&quot; installed successfully!`);
 
       // Reset form
       setIconifyForm({
@@ -191,7 +190,7 @@ export default function IconifyPackTab({
           <small>
             <strong>Direct JSON (Recommended):</strong> <code>https://api.iconify.design/PREFIX.json?icons=icon1,icon2,icon3</code><br/>
             <strong>Collection API (Limited):</strong> <code>https://api.iconify.design/collection?prefix=PREFIX&info=1</code><br/>
-            <strong>Find Icon Packs:</strong> Browse <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener">icon-sets.iconify.design</a> or <a href="https://iconify.design/icon-sets/" target="_blank" rel="noopener">iconify.design/icon-sets</a><br/>
+            <strong>Find Icon Packs:</strong> Browse <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener noreferrer">icon-sets.iconify.design</a> or <a href="https://iconify.design/icon-sets/" target="_blank" rel="noopener noreferrer">iconify.design/icon-sets</a><br/>
             <strong>Get Icon Names:</strong> Use the Iconify website to find specific icon names for your pack.
           </small>
         </Alert>
@@ -212,7 +211,7 @@ export default function IconifyPackTab({
                   <strong>URL Format Examples:</strong><br/>
                   • <strong>Direct JSON:</strong> https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user<br/>
                   • <strong>Collection API:</strong> https://api.iconify.design/collection?prefix=heroicons&info=1<br/>
-                  • <strong>Find more packs:</strong> <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener">Browse Iconify Icon Sets</a>
+                  • <strong>Find more packs:</strong> <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener noreferrer">Browse Iconify Icon Sets</a>
                 </Form.Text>
               </Form.Group>
 
@@ -315,7 +314,7 @@ export default function IconifyPackTab({
                   </div>
                   <small className="text-muted">
                     <strong>Quick-fill buttons above use optimized direct JSON URLs.</strong><br/>
-                    Visit <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener">icon-sets.iconify.design</a> to find more icon packs and their prefix names.
+                    Visit <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener noreferrer">icon-sets.iconify.design</a> to find more icon packs and their prefix names.
                   </small>
                 </Card.Body>
               </Card>

@@ -101,7 +101,7 @@ self.onmessage = async function (e) {
 
     // chunk: { text, startOffset, codeRegions }
     const { text, startOffset, codeRegions = [] } = chunk;
-    let issues = [];
+    const issues = [];
     const seen = new Set();
 
     const regex = /\b[A-Za-z']+\b/g;

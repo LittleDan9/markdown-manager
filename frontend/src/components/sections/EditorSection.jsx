@@ -28,7 +28,7 @@ function EditorSection({
           fullscreenPreview={fullscreenPreview}
         />
       ) : (
-        <div style={{ height: "100%", width: "100%", position: "relative", display: "flex", flexDirection: "column" }}>
+        <div style={{ height: "100%", width: "100%", position: "relative", display: "flex", justifyContent: "center", alignItems: "center" }}>
           <div className="editor-loading-container">
             <div className="text-center">
               <div className="spinner-border text-primary mb-3" role="status">

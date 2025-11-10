@@ -18,7 +18,7 @@ export class MarkdownLintMarkers {
    * @param {Map} prevMarkersMap - Previous markers map for comparison
    * @returns {Map} Map of markers for this update
    */
-  setMarkers(editor, issues, startOffset = 0, prevMarkersMap = new Map()) {
+  setMarkers(editor, issues, startOffset = 0, _prevMarkersMap = new Map()) {
     if (!editor || !Array.isArray(issues)) {
       return new Map();
     }
@@ -116,7 +116,7 @@ export class MarkdownLintMarkers {
    * @param {number} startOffset - Character offset
    * @returns {Object|null} Monaco marker object or null
    */
-  issueToMarker(model, issue, startOffset = 0) {
+  issueToMarker(model, issue, _startOffset = 0) {
     if (!issue || typeof issue.line !== 'number') {
       return null;
     }

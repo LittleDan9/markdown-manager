@@ -53,10 +53,8 @@ export default function useEditorImagePaste(editor, enabled = true) {
       const items = event.clipboardData?.items;
 
       if (items) {
-        let hasImage = false;
         for (let i = 0; i < items.length; i++) {
           if (items[i].type.startsWith('image/')) {
-            hasImage = true;
             event.preventDefault(); // Prevent default paste behavior
             event.stopPropagation(); // Stop event from bubbling
             event.stopImmediatePropagation(); // Stop other handlers from running

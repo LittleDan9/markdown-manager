@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Card, Badge, Row, Col } from 'react-bootstrap';
+import { Card, Badge } from 'react-bootstrap';
 import { formatLastSync } from '../../../utils/githubUtils';
 import gitHubApi from '../../../api/gitHubApi';
 import ConfirmModal from '../../shared/modals/ConfirmModal';
@@ -8,8 +8,8 @@ import ConfirmModal from '../../shared/modals/ConfirmModal';
  * GitHub Account List Component
  * Displays connected accounts as simple cards
  */
-const GitHubAccountList = ({ 
-  accounts, 
+const GitHubAccountList = ({
+  accounts,
   loading,
   onDeleteAccount
 }) => {
@@ -29,7 +29,7 @@ const GitHubAccountList = ({
       setDeletingAccountId(accountToDelete.id);
       setShowConfirmModal(false);
       await gitHubApi.disconnectAccount(accountToDelete.id);
-      
+
       // Call parent callback to update the UI
       if (onDeleteAccount) {
         onDeleteAccount(accountToDelete.id);
@@ -84,7 +84,7 @@ const GitHubAccountList = ({
                     {account.is_active ? 'Active' : 'Inactive'}
                   </Badge>
                 </div>
-                
+
                 <div className="d-flex justify-content-between align-items-end">
                   <div>
                     {account.repository_count > 0 && (

@@ -25,7 +25,7 @@ export default function usePerformanceMonitor(componentName, options = {}) {
 
   // Track render time
   const renderStartRef = useRef();
-  
+
   if (trackRenderTime && enabled) {
     renderStartRef.current = performance.now();
   }
@@ -35,10 +35,10 @@ export default function usePerformanceMonitor(componentName, options = {}) {
     if (!enabled) return;
 
     renderCountRef.current += 1;
-    
+
     if (trackRenderTime && renderStartRef.current) {
       const renderTime = performance.now() - renderStartRef.current;
-      
+
       if (renderTime > logThreshold) {
         logger.warn(`Slow render detected: ${renderTime.toFixed(2)}ms`);
       }
@@ -56,45 +56,46 @@ export default function usePerformanceMonitor(componentName, options = {}) {
         mountTime: Date.now() - mountTimeRef.current
       }));
     }
-  });
+  }, [enabled, trackRenderTime, trackRenderCount, logThreshold, logger]);
 
   // Track component mount time
   useEffect(() => {
     if (!enabled) return;
 
-    const mountTime = Date.now() - mountTimeRef.current;
+    // Capture mount time at effect execution time
+    const capturedMountTime = mountTimeRef.current;
+    const mountTime = Date.now() - capturedMountTime;
+    const renderCount = renderCountRef.current;
     logger.debug(`Component mounted in ${mountTime}ms`);
 
     return () => {
-      const totalLifetime = Date.now() - mountTimeRef.current;
-      logger.debug(`Component unmounted after ${totalLifetime}ms lifetime, ${renderCountRef.current} renders`);
+      const totalLifetime = Date.now() - capturedMountTime;
+      logger.debug(`Component unmounted after ${totalLifetime}ms lifetime, ${renderCount} renders`);
     };
   }, [logger, enabled]);
 
   // Manual performance measurement
-  const measureOperation = useCallback((operationName, operation) => {
+  const measureOperation = useCallback(async (operationName, operation) => {
     if (!enabled) return operation();
 
-    return new Promise(async (resolve, reject) => {
-      const startTime = performance.now();
-      
-      try {
-        const result = await operation();
-        const duration = performance.now() - startTime;
-        
-        logger.debug(`${operationName} completed in ${duration.toFixed(2)}ms`);
-        
-        if (duration > logThreshold * 2) {
-          logger.warn(`Slow operation detected: ${operationName} took ${duration.toFixed(2)}ms`);
-        }
-        
-        resolve(result);
-      } catch (error) {
-        const duration = performance.now() - startTime;
-        logger.error(`${operationName} failed after ${duration.toFixed(2)}ms:`, error);
-        reject(error);
+    const startTime = performance.now();
+
+    try {
+      const result = await operation();
+      const duration = performance.now() - startTime;
+
+      logger.debug(`${operationName} completed in ${duration.toFixed(2)}ms`);
+
+      if (duration > logThreshold * 2) {
+        logger.warn(`Slow operation detected: ${operationName} took ${duration.toFixed(2)}ms`);
       }
-    });
+
+      return result;
+    } catch (error) {
+      const duration = performance.now() - startTime;
+      logger.error(`${operationName} failed after ${duration.toFixed(2)}ms:`, error);
+      throw error;
+    }
   }, [logger, enabled, logThreshold]);
 
   // Memory usage tracking (if available)

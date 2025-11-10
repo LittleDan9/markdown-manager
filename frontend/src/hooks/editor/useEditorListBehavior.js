@@ -37,7 +37,7 @@ export default function useEditorListBehavior(editor, enabled = true) {
 
         const lineNumber = position.lineNumber;
         const currentLine = model.getLineContent(lineNumber);
-        const lineUpToPosition = currentLine.substring(0, position.column - 1);
+        const _lineUpToPosition = currentLine.substring(0, position.column - 1);
         const lineAfterPosition = currentLine.substring(position.column - 1);
 
         // Don't interfere if we're in a code fence

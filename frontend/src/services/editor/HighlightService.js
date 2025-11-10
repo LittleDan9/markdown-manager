@@ -54,6 +54,7 @@ class HighlightService {
     }
     return hash >>> 0;
   }
+
   constructor() {
     this.cache = new Map(); // Cache highlighted code to avoid redundant API calls
     this.supportedLanguages = new Set(); // Cache of supported languages
@@ -125,19 +126,6 @@ class HighlightService {
     const div = document.createElement("div");
     div.textContent = text;
     return div.innerHTML;
-  }
-
-  /**
-   * Simple hash function for cache keys
-   * @param {string} str - String to hash
-   * @returns {number} - Hash value
-   */
-  hashCode(str) {
-    let hash = 5381;
-    for (let i = 0; i < str.length; i++) {
-      hash = ((hash << 5) + hash) + str.charCodeAt(i); // hash * 33 + c
-    }
-    return hash >>> 0; // Ensure unsigned 32-bit integer
   }
 }
 

@@ -11,7 +11,6 @@
  * - Provide stable render state to dependent components (ImageManager, LifecycleManager)
  * - Debounce rapid content changes to prevent performance issues
  */
-import React from 'react';
 import { useRenderingOrchestrator } from '../../hooks/renderer/useRenderingOrchestrator';
 
 const RenderingOrchestrator = ({ theme, onRenderComplete }) => {
