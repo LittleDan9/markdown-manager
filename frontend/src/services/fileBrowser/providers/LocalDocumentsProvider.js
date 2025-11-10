@@ -9,9 +9,10 @@ import { NODE_TYPES, SOURCE_TYPES } from '../../../types/FileBrowserTypes.js';
  * Local documents provider - adapts existing document/category system
  */
 export class LocalDocumentsProvider extends BaseFileBrowserProvider {
-  constructor(documentContext, config = {}) {
+  constructor(documents, categories, config = {}) {
     super(config);
-    this.documentContext = documentContext;
+    this.documents = documents;
+    this.categories = categories;
   }
 
   getDisplayName() {
@@ -23,7 +24,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
   }
 
   async getTreeStructure() {
-    const { documents = [], categories = [] } = this.documentContext;
+    const { documents = [], categories = [] } = { documents: this.documents, categories: this.categories };
 
     // Filter out GitHub documents - only show local documents
     const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
@@ -65,7 +66,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
   }
 
   async getFilesInPath(path) {
-    const { documents = [] } = this.documentContext;
+    const { documents = [] } = { documents: this.documents, categories: this.categories };
 
     // Filter out GitHub documents - only show local documents
     const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
@@ -84,7 +85,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
       }];
     } else if (pathParts.length === 1 && pathParts[0] === 'Documents') {
       // Documents folder - return categories as folders
-      const { categories = [] } = this.documentContext;
+      const { categories = [] } = { documents: this.documents, categories: this.categories };
       const safeCategories = categories.includes('General')
         ? categories
         : ['General', ...categories.filter(c => c !== 'General')];
@@ -119,13 +120,13 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
   }
 
   async getFileContent(fileNode) {
-    const { documents = [] } = this.documentContext;
+    const { documents = [] } = { documents: this.documents, categories: this.categories };
     const document = documents.find(doc => doc.id === fileNode.documentId);
     return document?.content || '';
   }
 
   async searchFiles(query) {
-    const { documents = [] } = this.documentContext;
+    const { documents = [] } = { documents: this.documents, categories: this.categories };
 
     // Filter out GitHub documents - only search local documents
     const localDocuments = documents.filter(doc => doc.repository_type !== 'github');
@@ -150,7 +151,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
   }
 
   async getStats() {
-    const { documents = [], categories = [] } = this.documentContext;
+    const { documents = [], categories = [] } = { documents: this.documents, categories: this.categories };
 
     // Filter out GitHub documents - only count local documents
     const localDocuments = documents.filter(doc => doc.repository_type !== 'github');

@@ -1,17 +1,17 @@
 #!/usr/bin/env bash
 # Common functions and variables for deployment scripts
 
-# Source colors if available
-if [[ -f "$(dirname "${BASH_SOURCE[0]}")/../colors.sh" ]]; then
+# Source colors if available and not disabled
+if [[ -z "$NO_COLOR" && -f "$(dirname "${BASH_SOURCE[0]}")/../colors.sh" ]]; then
     source "$(dirname "${BASH_SOURCE[0]}")/../colors.sh"
 else
-    # Fallback color definitions
-    RED='\033[0;31m'
-    GREEN='\033[0;32m'
-    YELLOW='\033[1;33m'
-    BLUE='\033[0;34m'
-    CYAN='\033[0;36m'
-    NC='\033[0m'
+    # Fallback color definitions (disabled)
+    RED=''
+    GREEN=''
+    YELLOW=''
+    BLUE=''
+    CYAN=''
+    NC=''
 fi
 
 # Default configuration
@@ -88,7 +88,7 @@ validate_file() {
 check_ssh_connectivity() {
     local remote_host=$1
     local ssh_key=$2
-    
+
     echo -e "${YELLOW}🔍 Checking remote host connectivity...${NC}"
     if ! ssh -q -T -i "$ssh_key" "$remote_host" "echo 'Connection successful'"; then
         echo -e "${RED}❌ Cannot connect to remote host${NC}"
@@ -115,7 +115,7 @@ is_tunnel_active() {
 # Docker configuration functions
 configure_insecure_registry() {
     local registry_url=$1
-    
+
     if ! grep -q "insecure-registries" ~/.docker/daemon.json 2>/dev/null; then
         echo -e "${YELLOW}🔧 Configuring local Docker for insecure registry...${NC}"
         mkdir -p ~/.docker
@@ -144,11 +144,11 @@ image_exists_in_registry() {
     local registry_port=$2
     local remote_host=$3
     local ssh_key=$4
-    
+
     echo -e "${YELLOW}🔍 Checking if $service_name image exists in remote registry...${NC}" >&2
     local service_repo=$(echo $(get_service_image $service_name) | cut -d':' -f1 | cut -d'/' -f2)
     local remote_manifest=$(ssh -q -T -i "$ssh_key" "$remote_host" "curl -s -H 'Accept: application/vnd.docker.distribution.manifest.v2+json' http://localhost:$registry_port/v2/$service_repo/manifests/latest 2>/dev/null" || echo "")
-    
+
     if [[ -n "$remote_manifest" ]] && echo "$remote_manifest" | grep -q "schemaVersion"; then
         return 0
     else
@@ -161,11 +161,11 @@ compare_image_ids() {
     local registry_image=$2
     local remote_host=$3
     local ssh_key=$4
-    
+
     local local_id=$(get_image_id "$local_image")
     # Get remote image ID without pulling - check what's already there
     local remote_id=$(ssh -q -T -i "$ssh_key" "$remote_host" "docker images -q $registry_image 2>/dev/null || echo 'none'")
-    
+
     if [[ "$local_id" = "$remote_id" ]] && [[ "$remote_id" != "none" ]]; then
         return 0  # Images are the same
     else
@@ -213,23 +213,39 @@ cleanup_dangling_images() {
 log_step() {
     local emoji=$1
     local message=$2
-    echo -e "${YELLOW}$emoji $message${NC}"
+    if [[ -n "$NO_COLOR" ]]; then
+        echo "STEP: $message"
+    else
+        echo -e "${YELLOW}$emoji $message${NC}"
+    fi
 }
 
 log_success() {
     local message=$1
-    echo -e "${GREEN}✅ $message${NC}"
+    if [[ -n "$NO_COLOR" ]]; then
+        echo "SUCCESS: $message"
+    else
+        echo -e "${GREEN}✅ $message${NC}"
+    fi
 }
 
 log_error() {
     local message=$1
-    echo -e "${RED}❌ $message${NC}"
+    if [[ -n "$NO_COLOR" ]]; then
+        echo "ERROR: $message"
+    else
+        echo -e "${RED}❌ $message${NC}"
+    fi
 }
 
 log_info() {
     local emoji=$1
     local message=$2
-    echo -e "${CYAN}$emoji $message${NC}"
+    if [[ -n "$NO_COLOR" ]]; then
+        echo "INFO: $message"
+    else
+        echo -e "${CYAN}$emoji $message${NC}"
+    fi
 }
 
 # Print configuration summary
@@ -240,7 +256,7 @@ print_config_summary() {
     local spell_check_dir=$4
     local remote_host=$5
     local registry_port=$6
-    
+
     echo -e "${BLUE}📋 Backend dir: $backend_dir${NC}"
     echo -e "${BLUE}📋 Export service dir: $export_dir${NC}"
     echo -e "${BLUE}📋 Lint service dir: $lint_dir${NC}"
@@ -253,7 +269,7 @@ print_config_summary() {
 wait_with_feedback() {
     local seconds=$1
     local message=${2:-"Waiting"}
-    
+
     echo -e "${YELLOW}⏳ $message for $seconds seconds...${NC}"
     sleep $seconds
 }

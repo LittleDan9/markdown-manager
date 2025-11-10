@@ -299,8 +299,9 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       // race conditions during loadDocument operations
       const shouldUseTimeout = currentDocument.id !== null; // Only use timeout for existing documents
 
-      if (shouldUseTimeout) {
+      if (shouldUseTimeout && documentContent !== currentContent) {
         // Add a small delay for existing documents to handle loadDocument race conditions
+        // Only do this delayed sync if content is actually different
         const timer = setTimeout(() => {
           setContent(prevContent => {
             const prevContentStr = prevContent || '';
@@ -316,7 +317,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         }, 0);
 
         return () => clearTimeout(timer);
-      } else {
+      } else if (!shouldUseTimeout) {
         // Immediate sync for new documents (id: null) - always force update
         console.log('useDocumentState: Immediate sync for new document');
         setContent(documentContent);

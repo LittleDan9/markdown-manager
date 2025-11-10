@@ -14,10 +14,6 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
   const [loading, setLoading] = useState(false);
   const [showSubmenu, setShowSubmenu] = useState(false);
 
-  useEffect(() => {
-    loadRecentFiles();
-  }, [isAuthenticated, loadRecentFiles]);
-
   const loadRecentFiles = useCallback(async () => {
     setLoading(true);
     try {
@@ -57,6 +53,10 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
       setLoading(false);
     }
   }, [isAuthenticated, showError, documentStorageService]);
+
+  useEffect(() => {
+    loadRecentFiles();
+  }, [isAuthenticated, loadRecentFiles]);
 
   const handleFileSelect = async (file) => {
     if (onFileSelect) {

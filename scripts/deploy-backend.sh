@@ -3,6 +3,9 @@
 
 set -e
 
+# Disable ANSI colors to prevent shell interpretation issues
+export NO_COLOR=1
+
 # Get script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_DIR="$SCRIPT_DIR/deploy"
@@ -40,59 +43,69 @@ validate_file "$SSH_KEY" "SSH key"
 # Main deployment function
 deploy_all_services() {
     log_step "🏗️" "Starting full backend deployment..."
-    
+
     # Phase 1: Infrastructure setup
     log_info "🔧" "Phase 1: Infrastructure Setup"
     "$DEPLOY_DIR/deploy-infra.sh" "$REMOTE_USER_HOST" "$REGISTRY_PORT" "$SSH_KEY"
-    
+
     # Phase 2: Build and registry push
     log_info "🚀" "Phase 2: Build and Registry Push"
     echo "Starting Docker image builds (this may take several minutes)..."
     # Run build script and capture its output
-    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "all" 2>&1)
-    # Display the build output
-    echo "$build_output"
+    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
+    # Strip ANSI codes from the entire output before processing
+    clean_output=$(printf '%s\n' "$build_output" | sed 's/\x1b\[[0-9;]*[A-Za-z]//g')
+    # Display the cleaned build output
+    echo "$clean_output"
     # Extract skip statuses from the last line
-    skip_statuses=$(echo "$build_output" | tail -1)
+    skip_statuses=$(echo "$clean_output" | tail -1)
     echo "Docker builds completed."    # Phase 3: Remote deployment
     log_info "🌐" "Phase 3: Remote Deployment"
-    "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "all"
-    
+    # Run remote deployment directly (don't capture output to avoid ANSI issues)
+    if "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "all"; then
+        log_success "Remote deployment completed"
+    else
+        log_error "Remote deployment failed"
+        exit 1
+    fi
+
     # Phase 4: Cleanup infrastructure
     log_info "🧹" "Phase 4: Infrastructure Cleanup"
     cleanup_ssh_tunnel "$REGISTRY_PORT"
-    
+
     # Phase 5: Deploy nginx configurations
     log_info "🌐" "Phase 5: Nginx Configuration"
     "$SCRIPT_DIR/deploy-nginx.sh" deploy_all "$REMOTE_USER_HOST"
-    
+
     # Phase 6: Image cleanup
     log_info "🗑️" "Phase 6: Image Cleanup"
     "$DEPLOY_DIR/deploy-cleanup.sh" "all" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY"
-    
-    log_success "Full backend deployment completed successfully!"
+
+    echo "SUCCESS: Full backend deployment completed!"
 }
 
 # Deploy specific service
 deploy_single_service() {
     local service=$1
-    
+
     log_step "🎯" "Starting deployment for $service service..."
-    
+
     # Phase 1: Infrastructure setup
     log_info "🔧" "Phase 1: Infrastructure Setup"
     "$DEPLOY_DIR/deploy-infra.sh" "$REMOTE_USER_HOST" "$REGISTRY_PORT" "$SSH_KEY"
-    
+
     # Phase 2: Build and registry push for specific service
     log_info "🚀" "Phase 2: Build and Registry Push ($service)"
     echo "Starting Docker image build for $service (this may take a few minutes)..."
     # Run build script and capture its output
     build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
-    # Display the build output
-    echo "$build_output"
+    # Strip ANSI codes from the entire output before processing
+    clean_output=$(echo "$build_output" | sed 's/\x1b\[[0-9;]*m//g')
+    # Display the cleaned build output
+    echo "$clean_output"
     # Extract skip status from the last line
-    skip_status=$(echo "$build_output" | tail -1)
-    
+    skip_status=$(echo "$clean_output" | tail -1)
+
     # Phase 3: Remote deployment for specific service
     log_info "🌐" "Phase 3: Remote Deployment ($service)"
     # Convert single skip status to format expected by deploy-remote.sh
@@ -103,18 +116,18 @@ deploy_single_service() {
         "backend") skip_statuses="true true true $skip_status" ;;
     esac
     "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "$service"
-    
+
     # Phase 4: Cleanup infrastructure
     log_info "🧹" "Phase 4: Infrastructure Cleanup"
     cleanup_ssh_tunnel "$REGISTRY_PORT"
-    
+
     log_success "$service service deployment completed successfully!"
 }
 
 # Deploy specific phase
 deploy_phase() {
     local phase=$1
-    
+
     case "$phase" in
         "infra"|"infrastructure")
             log_step "🔧" "Deploying infrastructure phase..."
@@ -144,7 +157,7 @@ deploy_phase() {
             exit 1
             ;;
     esac
-    
+
     log_success "Phase '$phase' completed successfully!"
 }
 

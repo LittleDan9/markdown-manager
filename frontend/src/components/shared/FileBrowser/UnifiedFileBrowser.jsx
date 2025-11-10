@@ -15,6 +15,7 @@ export default function UnifiedFileBrowser({
   onPathChange, // Callback when path changes
   selectedFiles = [],
   initialPath = '/',
+  initialSelectedFile = null,
   breadcrumbType = 'github', // 'github' or 'local'
   breadcrumbData = {}, // Additional data for breadcrumb (repository, categories, documents)
   className = '',
@@ -39,6 +40,7 @@ export default function UnifiedFileBrowser({
     dataProvider,
     config,
     initialPath,
+    initialSelectedFile,
     onFileSelect,
     onFileOpen,
     onMultiSelect,

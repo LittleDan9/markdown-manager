@@ -4,6 +4,7 @@ export function useUnifiedFileBrowser({
   dataProvider,
   config = {},
   initialPath = '/',
+  initialSelectedFile = null,
   onFileSelect,
   onFileOpen,
   onMultiSelect,
@@ -13,7 +14,7 @@ export function useUnifiedFileBrowser({
   const [currentPath, setCurrentPath] = useState(initialPath);
   const [treeData, setTreeData] = useState([]);
   const [currentFiles, setCurrentFiles] = useState([]);
-  const [selectedFile, setSelectedFile] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(initialSelectedFile);
   const [loading, setLoading] = useState(false);
   const [expandedFolders, setExpandedFolders] = useState(new Set(['/']));
   const fileTreeRef = useRef(null);
@@ -31,12 +32,39 @@ export function useUnifiedFileBrowser({
 
   const finalConfig = { ...defaultConfig, ...config };
 
+  const loadTreeData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await dataProvider.getTreeStructure();
+      setTreeData(data);
+    } catch (error) {
+      console.error('Failed to load tree data:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [dataProvider]);
+
+  const loadCurrentPathFiles = useCallback(async () => {
+    try {
+      // Ensure we always pass a valid path, defaulting to root '/' if empty
+      const pathToLoad = currentPath || '/';
+      const files = await dataProvider.getFilesInPath(pathToLoad);
+      setCurrentFiles(files);
+    } catch (error) {
+      console.error('Failed to load files:', error);
+      setCurrentFiles([]);
+    }
+  }, [currentPath, dataProvider]);
+
   // Reset state and load tree data when provider changes
   useEffect(() => {
     if (dataProvider) {
       // Reset state when provider changes
-      setCurrentPath(initialPath);
-      setSelectedFile(null);
+      // setCurrentPath(initialPath); // Remove this to maintain current path when provider changes
+      // Only reset selectedFile if we don't have an initialSelectedFile
+      if (!initialSelectedFile) {
+        setSelectedFile(null);
+      }
       setTreeData([]);
       setCurrentFiles([]);
 
@@ -63,7 +91,7 @@ export function useUnifiedFileBrowser({
       // Load files for the initial path
       loadCurrentPathFiles();
     }
-  }, [dataProvider, initialPath, loadCurrentPathFiles, loadTreeData]);
+  }, [dataProvider, initialPath, initialSelectedFile, loadCurrentPathFiles, loadTreeData]);
 
   // Sync currentPath with initialPath when initialPath changes
   useEffect(() => {
@@ -78,30 +106,6 @@ export function useUnifiedFileBrowser({
       loadCurrentPathFiles();
     }
   }, [currentPath, dataProvider, loadCurrentPathFiles]);
-
-  const loadTreeData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const data = await dataProvider.getTreeStructure();
-      setTreeData(data);
-    } catch (error) {
-      console.error('Failed to load tree data:', error);
-    } finally {
-      setLoading(false);
-    }
-  }, [dataProvider]);
-
-  const loadCurrentPathFiles = useCallback(async () => {
-    try {
-      // Ensure we always pass a valid path, defaulting to root '/' if empty
-      const pathToLoad = currentPath || '/';
-      const files = await dataProvider.getFilesInPath(pathToLoad);
-      setCurrentFiles(files);
-    } catch (error) {
-      console.error('Failed to load files:', error);
-      setCurrentFiles([]);
-    }
-  }, [currentPath, dataProvider]);
 
   const handlePathChange = (newPath) => {
     console.log('UnifiedFileBrowser handlePathChange called with:', newPath);

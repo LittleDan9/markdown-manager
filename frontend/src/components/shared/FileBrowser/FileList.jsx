@@ -175,12 +175,19 @@ export default function FileList({
       // For folders, double-click navigates to the folder
       // Use the item's path directly - it should already be in the correct format
       const newPath = item.path;
+
+      // First expand the folder in the tree
+      if (onFolderExpand) {
+        onFolderExpand(newPath);
+      }
+
+      // Then navigate to the folder
       onPathChange(newPath);
     } else if (item.type === 'file' && onFileOpen) {
       // For files, double-click opens the file
       onFileOpen(item);
     }
-  }, [onPathChange, onFileOpen]);
+  }, [onPathChange, onFileOpen, onFolderExpand]);
 
   const isSelected = (file) => {
     return selectedFile && selectedFile.id === file.id;

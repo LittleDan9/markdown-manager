@@ -24,6 +24,142 @@ const GitHubAccountList = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState(null);
 
+  const startSyncPolling = useCallback((newAccountIds) => {
+    console.log('GitHubAccountList: Starting sync polling for accounts:', newAccountIds);
+
+    // Mark these accounts as syncing
+    setSyncingAccounts(prev => {
+      const newSyncing = { ...prev };
+      newAccountIds.forEach(id => {
+        newSyncing[id] = true;
+      });
+      return newSyncing;
+    });
+
+    // Clear any existing polling interval
+    if (syncPollingInterval) {
+      clearInterval(syncPollingInterval);
+    }
+
+    let pollCount = 0;
+    const maxPolls = 30; // 1 minute maximum (30 * 2 seconds)
+    const lastRepositoryCount = {};
+
+    // Initialize repository count tracking
+    newAccountIds.forEach(id => {
+      lastRepositoryCount[id] = 0;
+    });
+
+    // Start polling for repository updates
+    const interval = setInterval(async () => {
+      pollCount++;
+
+      try {
+        console.log(`GitHubAccountList: Repository check ${pollCount} for accounts:`, newAccountIds);
+
+        let allAccountsStable = true;
+
+        // Check each account for repository updates
+        for (const accountId of newAccountIds) {
+          try {
+            // Use repository selection API to get only user-selected repositories
+            const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(accountId);
+            const currentCount = selectedReposData.selections.length;
+            const previousCount = lastRepositoryCount[accountId];
+
+            console.log(`Account ${accountId}: ${currentCount} selected repos (was ${previousCount})`);
+
+            // Update repository list if count changed
+            if (currentCount !== previousCount) {
+              // Transform the data to match expected format
+              const transformedRepos = selectedReposData.selections.map(selection => ({
+                id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
+                github_repo_id: selection.github_repo_id,
+                internal_repo_id: selection.internal_repo_id,
+                name: selection.repo_name,
+                full_name: selection.repo_full_name,
+                description: selection.description,
+                private: selection.is_private,
+                language: selection.language,
+                default_branch: selection.default_branch,
+                sync_enabled: selection.sync_enabled,
+                last_synced_at: selection.last_synced_at,
+                selected_at: selection.selected_at,
+                owner: {
+                  login: selection.repo_owner
+                }
+              }));
+
+              setAccountRepositories(prev => ({
+                ...prev,
+                [accountId]: transformedRepos
+              }));
+              lastRepositoryCount[accountId] = currentCount;
+              allAccountsStable = false;
+            }
+
+            // If no repositories yet, keep checking
+            if (currentCount === 0) {
+              allAccountsStable = false;
+            }
+          } catch (error) {
+            console.error(`Error checking selected repositories for account ${accountId}:`, error);
+            allAccountsStable = false;
+          }
+        }
+
+        // If all accounts have been stable for 3+ checks (6+ seconds), consider sync complete
+        if (allAccountsStable && pollCount >= 3) {
+          console.log('GitHubAccountList: All accounts stable, sync completed');
+
+          // Clear syncing state
+          setSyncingAccounts(prev => {
+            const newState = { ...prev };
+            newAccountIds.forEach(id => {
+              delete newState[id];
+            });
+            return newState;
+          });
+
+          // Stop polling
+          clearInterval(interval);
+          setSyncPollingInterval(null);
+          return;
+        }
+
+        // Auto-stop after max polls to prevent infinite polling
+        if (pollCount >= maxPolls) {
+          console.log('GitHubAccountList: Sync polling timeout, stopping');
+          setSyncingAccounts(prev => {
+            const newState = { ...prev };
+            newAccountIds.forEach(id => {
+              delete newState[id];
+            });
+            return newState;
+          });
+          clearInterval(interval);
+          setSyncPollingInterval(null);
+        }
+      } catch (error) {
+        console.error('GitHubAccountList: Error during repository polling:', error);
+        // On repeated errors, stop polling
+        if (pollCount >= 10) {
+          setSyncingAccounts(prev => {
+            const newState = { ...prev };
+            newAccountIds.forEach(id => {
+              delete newState[id];
+            });
+            return newState;
+          });
+          clearInterval(interval);
+          setSyncPollingInterval(null);
+        }
+      }
+    }, 2000); // Check every 2 seconds
+
+    setSyncPollingInterval(interval);
+  }, [syncPollingInterval]);
+
   // Load GitHub accounts on component mount if not passed as props
   useEffect(() => {
     if (!passedAccounts) {
@@ -191,142 +327,6 @@ const GitHubAccountList = ({
       setError('Failed to load selected repositories. Please try again.');
     }
   };
-
-  const startSyncPolling = useCallback((newAccountIds) => {
-    console.log('GitHubAccountList: Starting sync polling for accounts:', newAccountIds);
-
-    // Mark these accounts as syncing
-    setSyncingAccounts(prev => {
-      const newSyncing = { ...prev };
-      newAccountIds.forEach(id => {
-        newSyncing[id] = true;
-      });
-      return newSyncing;
-    });
-
-    // Clear any existing polling interval
-    if (syncPollingInterval) {
-      clearInterval(syncPollingInterval);
-    }
-
-    let pollCount = 0;
-    const maxPolls = 30; // 1 minute maximum (30 * 2 seconds)
-    const lastRepositoryCount = {};
-
-    // Initialize repository count tracking
-    newAccountIds.forEach(id => {
-      lastRepositoryCount[id] = 0;
-    });
-
-    // Start polling for repository updates
-    const interval = setInterval(async () => {
-      pollCount++;
-
-      try {
-        console.log(`GitHubAccountList: Repository check ${pollCount} for accounts:`, newAccountIds);
-
-        let allAccountsStable = true;
-
-        // Check each account for repository updates
-        for (const accountId of newAccountIds) {
-          try {
-            // Use repository selection API to get only user-selected repositories
-            const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(accountId);
-            const currentCount = selectedReposData.selections.length;
-            const previousCount = lastRepositoryCount[accountId];
-
-            console.log(`Account ${accountId}: ${currentCount} selected repos (was ${previousCount})`);
-
-            // Update repository list if count changed
-            if (currentCount !== previousCount) {
-              // Transform the data to match expected format
-              const transformedRepos = selectedReposData.selections.map(selection => ({
-                id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
-                github_repo_id: selection.github_repo_id,
-                internal_repo_id: selection.internal_repo_id,
-                name: selection.repo_name,
-                full_name: selection.repo_full_name,
-                description: selection.description,
-                private: selection.is_private,
-                language: selection.language,
-                default_branch: selection.default_branch,
-                sync_enabled: selection.sync_enabled,
-                last_synced_at: selection.last_synced_at,
-                selected_at: selection.selected_at,
-                owner: {
-                  login: selection.repo_owner
-                }
-              }));
-
-              setAccountRepositories(prev => ({
-                ...prev,
-                [accountId]: transformedRepos
-              }));
-              lastRepositoryCount[accountId] = currentCount;
-              allAccountsStable = false;
-            }
-
-            // If no repositories yet, keep checking
-            if (currentCount === 0) {
-              allAccountsStable = false;
-            }
-          } catch (error) {
-            console.error(`Error checking selected repositories for account ${accountId}:`, error);
-            allAccountsStable = false;
-          }
-        }
-
-        // If all accounts have been stable for 3+ checks (6+ seconds), consider sync complete
-        if (allAccountsStable && pollCount >= 3) {
-          console.log('GitHubAccountList: All accounts stable, sync completed');
-
-          // Clear syncing state
-          setSyncingAccounts(prev => {
-            const newState = { ...prev };
-            newAccountIds.forEach(id => {
-              delete newState[id];
-            });
-            return newState;
-          });
-
-          // Stop polling
-          clearInterval(interval);
-          setSyncPollingInterval(null);
-          return;
-        }
-
-        // Auto-stop after max polls to prevent infinite polling
-        if (pollCount >= maxPolls) {
-          console.log('GitHubAccountList: Sync polling timeout, stopping');
-          setSyncingAccounts(prev => {
-            const newState = { ...prev };
-            newAccountIds.forEach(id => {
-              delete newState[id];
-            });
-            return newState;
-          });
-          clearInterval(interval);
-          setSyncPollingInterval(null);
-        }
-      } catch (error) {
-        console.error('GitHubAccountList: Error during repository polling:', error);
-        // On repeated errors, stop polling
-        if (pollCount >= 10) {
-          setSyncingAccounts(prev => {
-            const newState = { ...prev };
-            newAccountIds.forEach(id => {
-              delete newState[id];
-            });
-            return newState;
-          });
-          clearInterval(interval);
-          setSyncPollingInterval(null);
-        }
-      }
-    }, 2000); // Check every 2 seconds
-
-    setSyncPollingInterval(interval);
-  }, [syncPollingInterval]);
 
   const _handleDeleteClick = (accountId, accountName) => {
     setAccountToDelete({ id: accountId, name: accountName });

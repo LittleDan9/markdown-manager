@@ -9,10 +9,6 @@ function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
   const [unsavedDocs, setUnsavedDocs] = useState([]);
   const [showSubmenu, setShowSubmenu] = useState(false);
 
-  useEffect(() => {
-    loadUnsavedDocuments();
-  }, [documents, loadUnsavedDocuments]);
-
   const loadUnsavedDocuments = useCallback(() => {
     // Filter documents that exist only in localStorage (doc IDs starting with 'doc_')
     const localStorageOnly = documents.filter(doc =>
@@ -31,6 +27,10 @@ function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
 
     setUnsavedDocs(sorted);
   }, [documents]);
+
+  useEffect(() => {
+    loadUnsavedDocuments();
+  }, [documents, loadUnsavedDocuments]);
 
   const handleFileSelect = (file) => {
     if (onFileSelect) {
