@@ -14,12 +14,22 @@ import DiagramFullscreenModal from './DiagramFullscreenModal';
  * - GitHub compatibility indicators
  */
 function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscreen }) {
+  console.log('DiagramControls: Component rendered for diagram', diagramId, {
+    hasDiagramElement: !!diagramElement,
+    diagramSourceLength: diagramSource?.length
+  });
+
   const [isExporting, setIsExporting] = useState(false);
-  const [_exportFormat, setExportFormat] = useState(null);
+  const [exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
   const mermaidExportService = serviceFactory.createMermaidExportService();
+
+  console.log('DiagramControls: Service created for diagram', diagramId, {
+    hasService: !!mermaidExportService,
+    serviceType: typeof mermaidExportService
+  });
 
   // Use unified context system
   const { theme } = useTheme();
@@ -85,7 +95,53 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     }
   };
 
-  // Cleanup timeout on unmount
+  // Handle hover events on the diagram element and controls
+  useEffect(() => {
+    console.log('DiagramControls: Setting up hover listeners for diagram', diagramId, {
+      hasDiagramElement: !!diagramElement,
+      hasControlsRef: !!controlsRef.current
+    });
+
+    if (!diagramElement || !controlsRef.current) return;
+
+    let hoverCount = 0;
+
+    const handleMouseEnter = () => {
+      hoverCount++;
+      console.log('DiagramControls: Mouse enter, hoverCount:', hoverCount, 'diagram:', diagramId);
+      if (controlsRef.current) {
+        controlsRef.current.style.opacity = '1';
+      }
+    };
+
+    const handleMouseLeave = () => {
+      hoverCount = Math.max(0, hoverCount - 1);
+      console.log('DiagramControls: Mouse leave, hoverCount:', hoverCount, 'diagram:', diagramId);
+      // Only hide if not hovering over anything and not in interaction-active state
+      if (hoverCount === 0 && controlsRef.current && !controlsRef.current.classList.contains('interaction-active')) {
+        controlsRef.current.style.opacity = '';
+      }
+    };
+
+    // Add listeners to diagram element
+    diagramElement.addEventListener('mouseenter', handleMouseEnter);
+    diagramElement.addEventListener('mouseleave', handleMouseLeave);
+
+    // Add listeners to controls
+    const controlsElement = controlsRef.current;
+    controlsElement.addEventListener('mouseenter', handleMouseEnter);
+    controlsElement.addEventListener('mouseleave', handleMouseLeave);
+
+    console.log('DiagramControls: Hover listeners added for diagram', diagramId);
+
+    return () => {
+      console.log('DiagramControls: Cleaning up hover listeners for diagram', diagramId);
+      diagramElement.removeEventListener('mouseenter', handleMouseEnter);
+      diagramElement.removeEventListener('mouseleave', handleMouseLeave);
+      controlsElement.removeEventListener('mouseenter', handleMouseEnter);
+      controlsElement.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [diagramElement, diagramId]);  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (interactionTimeoutRef.current) {
@@ -268,7 +324,15 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
   return (
     <>
-      <div className="diagram-controls" ref={controlsRef}>
+      <div className="diagram-controls" ref={(el) => {
+        controlsRef.current = el;
+        if (el) {
+          console.log('DiagramControls: Controls element created for diagram', diagramId, {
+            element: el,
+            parentElement: el.parentElement?.className
+          });
+        }
+      }}>
         <ButtonGroup size="sm">
           {/* Fullscreen Button */}
           <Button

@@ -2,19 +2,18 @@
 .mermaid-container {
   position: relative;
 
-  &:hover .diagram-controls,
+  /* Hover is handled by JavaScript */
+  /* &:hover .diagram-controls, */
   &:focus-within .diagram-controls {
     opacity: 1;
   }
-  
+
   /* Shorter visibility period for modal interactions */
   &.modal-interaction .diagram-controls {
     opacity: 1;
     transition: opacity 0.2s ease-in-out;
   }
-}
-
-.diagram-controls {
+}.diagram-controls {
   position: absolute;
   top: 8px;
   right: 8px;

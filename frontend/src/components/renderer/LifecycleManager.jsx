@@ -7,16 +7,18 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import ReactDOM from 'react-dom/client';
 import { useRendererContext } from './RendererContext';
+import { useDocumentContext } from '../../providers/DocumentContextProvider';
 import { useTheme } from '../../providers/ThemeProvider';
 import DiagramControls from './DiagramControls';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 
 const LifecycleManager = ({ onFirstRender }) => {
+  console.log('LifecycleManager: Component rendered', { hasOnFirstRender: !!onFirstRender });
+
   const { theme: _theme } = useTheme();
+  const { previewHTML, isRendering } = useDocumentContext();
   const {
     previewScrollRef,
-    previewHTML,
-    isRendering,
     diagramControlsRefs,
     imageControlsRefs,
     shouldCallFirstRender,
@@ -29,16 +31,29 @@ const LifecycleManager = ({ onFirstRender }) => {
    * Add diagram controls to rendered Mermaid diagrams
    */
   const addDiagramControls = useCallback((previewElement) => {
-    if (!previewElement) return;
+    if (!previewElement) {
+      console.log('LifecycleManager: No preview element provided');
+      return;
+    }
 
     const diagrams = previewElement.querySelectorAll('.mermaid[data-processed="true"]');
+    console.log('LifecycleManager: Found', diagrams.length, 'processed mermaid diagrams');
 
     diagrams.forEach((diagram, index) => {
       const diagramId = `diagram-${index}`;
 
+      console.log('LifecycleManager: Processing diagram', diagramId, {
+        hasExistingControls: !!diagram.querySelector('.diagram-controls-container'),
+        hasMermaidContainerClass: diagram.classList.contains('mermaid-container'),
+        diagramClasses: diagram.className
+      });
+
       // Skip if controls already added and still in DOM
       const existingControls = diagram.querySelector('.diagram-controls-container');
-      if (existingControls && existingControls.isConnected) return;
+      if (existingControls && existingControls.isConnected) {
+        console.log('LifecycleManager: Skipping diagram', diagramId, '- controls already exist and connected');
+        return;
+      }
 
       // Get diagram source from data attribute
       const encodedSource = diagram.getAttribute('data-mermaid-source') || '';
@@ -47,11 +62,15 @@ const LifecycleManager = ({ onFirstRender }) => {
       // Add mermaid-container class if not present
       if (!diagram.classList.contains('mermaid-container')) {
         diagram.classList.add('mermaid-container');
+        console.log('LifecycleManager: Added mermaid-container class to diagram', diagramId);
       }
 
       // Remove any orphaned controls first
       const orphanedControls = diagram.querySelectorAll('.diagram-controls-container');
-      orphanedControls.forEach(control => control.remove());
+      orphanedControls.forEach(control => {
+        console.log('LifecycleManager: Removing orphaned controls for diagram', diagramId);
+        control.remove();
+      });
 
       // Create a container for the controls
       const controlsContainer = document.createElement('div');
@@ -64,6 +83,8 @@ const LifecycleManager = ({ onFirstRender }) => {
       controlsContainer.style.pointerEvents = 'none';
       diagram.appendChild(controlsContainer);
 
+      console.log('LifecycleManager: Created controls container for diagram', diagramId);
+
       // Create React root and render controls with providers
       const root = ReactDOM.createRoot(controlsContainer);
       root.render(
@@ -75,6 +96,8 @@ const LifecycleManager = ({ onFirstRender }) => {
           />
         </ThemeProvider>
       );
+
+      console.log('LifecycleManager: Rendered DiagramControls for diagram', diagramId);
 
       // Store the root for cleanup
       diagramControlsRefs.current.set(diagram, root);
@@ -131,8 +154,16 @@ const LifecycleManager = ({ onFirstRender }) => {
 
   // Add controls after preview HTML is updated and rendering is complete
   useEffect(() => {
+    console.log('LifecycleManager: useEffect triggered', {
+      hasPreviewHTML: !!previewHTML,
+      previewHTMLLength: previewHTML?.length,
+      isRendering,
+      hasPreviewScrollRef: !!previewScrollRef.current,
+      previewScrollRefElement: previewScrollRef.current
+    });
+
     if (previewHTML && previewScrollRef.current && !isRendering) {
-      console.log('LifecycleManager: Checking orchestrator state before adding controls');
+      console.log('LifecycleManager: Conditions met for adding controls');
 
       // Check orchestrator state if available
       const orchestratorState = window.__renderingOrchestrator;
@@ -160,16 +191,26 @@ const LifecycleManager = ({ onFirstRender }) => {
         console.log('LifecycleManager: Orchestrator idle, proceeding immediately');
         proceedWithControlSetup();
       }
+    } else {
+      console.log('LifecycleManager: Conditions NOT met for adding controls', {
+        previewHTML: !!previewHTML,
+        previewScrollRef: !!previewScrollRef.current,
+        isRendering
+      });
     }
 
     function proceedWithControlSetup() {
+      console.log('LifecycleManager: Proceeding with control setup');
       // Clean up stale controls
       cleanupStaleControls();
 
       // Add controls to new diagrams with appropriate delay
       setTimeout(() => {
+        console.log('LifecycleManager: Adding controls after delay');
         if (previewScrollRef.current) {
           addDiagramControls(previewScrollRef.current);
+        } else {
+          console.log('LifecycleManager: No previewScrollRef.current available in timeout');
         }
       }, 200); // Increased delay for stability
     }
