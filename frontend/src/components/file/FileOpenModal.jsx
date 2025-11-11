@@ -95,6 +95,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
           minHeight: 0
         }}>
           <div className="file-open-modal-container">
+            {console.log('🔍 FileOpenModal - selectedRepository:', selectedRepository)}
             {/* UNIFIED FILE BROWSER - Local documents including synced GitHub repos */}
             <UnifiedFileBrowserTab
               // Local document props
@@ -103,7 +104,8 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
               onFileOpen={handleFileOpen}
               onDocumentDelete={handleDocumentDelete}
               onModalHide={handleHide}
-              // GitHub props removed - now handled by separate modal
+              // Pass selected repository for navigation
+              selectedRepository={selectedRepository}
             />
           </div>
         </Modal.Body>

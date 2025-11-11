@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Modal, Button, Spinner, Badge, Alert } from "react-bootstrap";
-import gitHubApi from "@/api/gitHubApi";
+import documentsApi from "@/api/documentsApi";
 
 function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBranch }) {
   const [commits, setCommits] = useState([]);
@@ -11,8 +11,8 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
     setLoading(true);
     setError(null);
     try {
-      // Call the backend API through gitHubApi
-      const data = await gitHubApi.getDocumentGitHistory(documentId, 20);
+      // Call the backend API through documentsApi
+      const data = await documentsApi.getDocumentGitHistory(documentId, 20);
 
       // Transform the backend response to match our expected format
       const transformedCommits = data.commits.map((commit, index) => ({
@@ -107,7 +107,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
         </Modal.Title>
       </Modal.Header>
 
-      <Modal.Body>
+      <Modal.Body style={{ maxHeight: '60vh', overflowY: 'auto' }}>
         {loading && (
           <div className="text-center py-4">
             <Spinner animation="border" role="status" className="me-2" />

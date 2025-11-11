@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 import FileTree from './FileTree';
 import FileList from './FileList';
 import FilePreview from './FilePreview';
@@ -6,7 +6,7 @@ import FileBrowserActions from './FileBrowserActions';
 import BreadcrumbBar from './BreadcrumbBar';
 import { useUnifiedFileBrowser } from '@/hooks/fileBrowser/useUnifiedFileBrowser';
 
-const UnifiedFileBrowser = React.memo(({
+const UnifiedFileBrowser = forwardRef(({
   dataProvider,
   config = {},
   onFileSelect,
@@ -20,7 +20,7 @@ const UnifiedFileBrowser = React.memo(({
   breadcrumbData = {}, // Additional data for breadcrumb (repository, categories, documents)
   className = '',
   style = {}
-}) => {
+}, ref) => {
   const {
     currentPath,
     treeData,
@@ -47,6 +47,11 @@ const UnifiedFileBrowser = React.memo(({
     onPathChange,
     selectedFiles
   });
+
+  // Expose handlePathChange via ref
+  useImperativeHandle(ref, () => ({
+    handlePathChange
+  }), [handlePathChange]);
 
   return (
     <div

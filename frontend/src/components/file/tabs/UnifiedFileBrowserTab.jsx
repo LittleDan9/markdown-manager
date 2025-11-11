@@ -9,6 +9,8 @@ export default function UnifiedFileBrowserTab({
   onFileOpen,
   _onDocumentDelete,
   onModalHide,
+  // Repository navigation props
+  selectedRepository = null,
   // GitHub-specific props removed - now handled by separate modal
   _initialRepository = null,
   _setContent = null,
@@ -21,6 +23,9 @@ export default function UnifiedFileBrowserTab({
 
   // Preserve selected file across modal openings
   const [selectedFile, setSelectedFile] = useState(null);
+
+  // Ref to access UnifiedFileBrowser's handlePathChange
+  const fileBrowserRef = useRef(null);
 
   // Unified file opening hook
   const { openFromFileNode, isOpening, lastError } = useUnifiedFileOpening();
@@ -49,15 +54,88 @@ export default function UnifiedFileBrowserTab({
     return providerRef.current;
   }, [documents, categories]);
 
-  // Set initial path when provider is created
+  // Set initial path when provider is created or when selectedRepository changes
   useEffect(() => {
     if (currentProvider) {
-      const defaultPath = currentProvider.getDefaultPath ? currentProvider.getDefaultPath() : '/';
-      setInitialPath(defaultPath);
-      setCurrentPath(defaultPath);
-      console.log('📍 Setting root path:', defaultPath);
+      let defaultPath = currentProvider.getDefaultPath ? currentProvider.getDefaultPath() : '/';
+
+      console.log('🔍 UnifiedFileBrowserTab useEffect - selectedRepository:', selectedRepository);
+
+      // If a repository is selected for navigation, try to navigate to it
+      if (selectedRepository) {
+        console.log('📍 Navigating to selected repository:', selectedRepository);
+
+        if (selectedRepository.id) {
+          // GitHub repository navigation
+          const fetchAndNavigateToGitHubRepository = async () => {
+            try {
+              // Import gitHubApi dynamically to avoid circular imports
+              const gitHubApi = (await import('../../../api/gitHubApi')).default;
+
+              // Try to find the repository details
+              // First, get all accounts
+              const accounts = await gitHubApi.getAccounts();
+
+              for (const account of accounts) {
+                try {
+                  // Get selected repositories for this account
+                  const selectedRepos = await gitHubApi.getSelectedRepositories(account.id);
+                  const repo = selectedRepos.find(r => r.internal_repo_id === selectedRepository.id || r.github_repo_id === selectedRepository.id);
+
+                  if (repo) {
+                    // Found the repository, construct the path
+                    const accountLogin = account.login || account.username || `account-${account.id}`;
+                    const repoName = repo.repo_name || 'unnamed';
+                    let repoPath = `/GitHub/${accountLogin}/${repoName}`;
+
+                    // If a specific file path is provided, append it
+                    if (selectedRepository.file_path) {
+                      repoPath += `/${selectedRepository.file_path}`;
+                    }
+
+                    console.log('📍 Constructed GitHub repository path:', repoPath);
+                    // Instead of setting initialPath, navigate directly
+                    setTimeout(() => {
+                      if (fileBrowserRef.current) {
+                        fileBrowserRef.current.handlePathChange(repoPath);
+                      }
+                    }, 100);
+                    return;
+                  }
+                } catch (error) {
+                  console.error(`Failed to check repositories for account ${account.id}:`, error);
+                }
+              }
+            } catch (error) {
+              console.error('Failed to fetch GitHub repository details for navigation:', error);
+            }
+
+            // If we couldn't find the repository, fall back to default
+            setInitialPath(defaultPath);
+            setCurrentPath(defaultPath);
+          };
+
+          fetchAndNavigateToGitHubRepository();
+        } else if (selectedRepository.type === 'local' && selectedRepository.path) {
+          // Local repository navigation - navigate directly
+          console.log('📍 Navigating to local repository path:', selectedRepository.path);
+          setTimeout(() => {
+            if (fileBrowserRef.current) {
+              fileBrowserRef.current.handlePathChange(selectedRepository.path);
+            }
+          }, 100);
+        } else {
+          console.log('📍 No valid repository navigation found, using default path');
+          setInitialPath(defaultPath);
+          setCurrentPath(defaultPath);
+        }
+      } else {
+        console.log('📍 No selectedRepository, setting initial path:', defaultPath);
+        setInitialPath(defaultPath);
+        setCurrentPath(defaultPath);
+      }
     }
-  }, [currentProvider]);
+  }, [currentProvider, selectedRepository]);
 
   // Function to track current path changes
   const handlePathChange = (path) => {
@@ -113,7 +191,8 @@ export default function UnifiedFileBrowserTab({
     <div className="unified-file-browser-container">
       {/* Unified File Browser - Shows both local documents and GitHub repositories */}
       <div className="file-browser-content">
-        <UnifiedFileBrowser
+                <UnifiedFileBrowser
+          ref={fileBrowserRef}
           key="unified-browser"
           dataProvider={currentProvider}
           initialSelectedFile={selectedFile}
