@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Row, Col, Alert, Badge, Spinner, Button, Table } from 'react-bootstrap';
 import { GitHubSyncPanel } from '../index';
 import gitHubApi from '../../../api/gitHubApi';
@@ -13,40 +13,41 @@ export default function GitHubCachePanel({ isActive = false }) {
   const { showSuccess, showError } = useNotification();
   const { accounts, loading: accountsLoading } = useGitHubAccounts();
 
+  const fetchMetrics = useCallback(async () => {
+    try {
+      setLoading(true);
+
+      // Only fetch metrics if user has GitHub accounts
+      if (accounts.length === 0) {
+        console.log('No GitHub accounts found, skipping cache stats fetch');
+        setCacheStats(null);
+        setSyncStatus(null);
+        setError(null);
+        setLoading(false);
+        return;
+      }
+
+      console.log('GitHub accounts found, calling getCacheStats()...');
+      const [cacheData, syncData] = await Promise.all([
+        gitHubApi.getCacheStats(),
+        gitHubApi.getSyncStatus()
+      ]);
+      console.log('Cache stats received:', cacheData);
+      console.log('Sync status received:', syncData);
+      setCacheStats(cacheData);
+      setSyncStatus(syncData);
+      setError(null);
+    } catch (err) {
+      console.error('Failed to fetch performance metrics:', err);
+      setError('Failed to load metrics');
+      // Don't set loading to false on error to avoid modal issues
+    } finally {
+      setLoading(false);
+    }
+  }, [accounts.length]);
+
   useEffect(() => {
     console.log('GitHubPerformancePanel mounted, checking GitHub accounts...');
-
-    const fetchMetrics = async () => {
-      try {
-        setLoading(true);
-
-        // Only fetch metrics if user has GitHub accounts
-        if (accounts.length === 0) {
-          console.log('No GitHub accounts found, skipping cache stats fetch');
-          setCacheStats(null);
-          setSyncStatus(null);
-          setError(null);
-          setLoading(false);
-          return;
-        }
-
-        console.log('GitHub accounts found, calling getCacheStats()...');
-        const [cacheData, syncData] = await Promise.all([
-          gitHubApi.getCacheStats(),
-          gitHubApi.getSyncStatus()
-        ]);
-        console.log('Cache stats received:', cacheData);
-        console.log('Sync status received:', syncData);
-        setCacheStats(cacheData);
-        setSyncStatus(syncData);
-        setError(null);
-      } catch (err) {
-        console.error('Failed to fetch performance metrics:', err);
-        setError('Failed to load metrics');
-      } finally {
-        setLoading(false);
-      }
-    };
 
     // Wait for accounts to load before fetching metrics
     if (!accountsLoading) {
@@ -63,7 +64,7 @@ export default function GitHubCachePanel({ isActive = false }) {
         clearInterval(interval);
       }
     };
-  }, [accounts, accountsLoading, isActive]); // Add isActive to dependencies
+  }, [accountsLoading, accounts.length, isActive, fetchMetrics]); // Keep dependencies for proper re-fetching
 
   const handleClearCache = async () => {
     if (accounts.length === 0) {
@@ -76,12 +77,7 @@ export default function GitHubCachePanel({ isActive = false }) {
       await gitHubApi.clearCache();
       showSuccess("Cache cleared successfully");
       // Refresh metrics after clearing cache
-      const [cacheData, syncData] = await Promise.all([
-        gitHubApi.getCacheStats(),
-        gitHubApi.getSyncStatus()
-      ]);
-      setCacheStats(cacheData);
-      setSyncStatus(syncData);
+      await fetchMetrics();
     } catch (error) {
       showError("Failed to clear cache");
     } finally {
@@ -97,12 +93,7 @@ export default function GitHubCachePanel({ isActive = false }) {
 
     try {
       setLoading(true);
-      const [cacheData, syncData] = await Promise.all([
-        gitHubApi.getCacheStats(),
-        gitHubApi.getSyncStatus()
-      ]);
-      setCacheStats(cacheData);
-      setSyncStatus(syncData);
+      await fetchMetrics();
       setError(null);
     } catch (err) {
       console.error('Failed to fetch performance metrics:', err);

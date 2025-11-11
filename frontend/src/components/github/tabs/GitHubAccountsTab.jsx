@@ -11,6 +11,40 @@ export default function GitHubAccountsTab({ onAccountsChange }) {
   const [error, setError] = useState(null);
   const { showSuccess, showError } = useNotification();
 
+  const loadAccounts = useCallback(async () => {
+    try {
+      setLoading(true);
+      const accountsData = await gitHubApi.getAccounts();
+      setAccounts(accountsData);
+      setError(null);
+
+      // Notify parent of accounts change
+      if (onAccountsChange) {
+        onAccountsChange(accountsData);
+      }
+    } catch (err) {
+      setError('Failed to load GitHub accounts');
+      console.error('Error loading accounts:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, []); // Remove onAccountsChange from dependencies to prevent infinite loops
+
+  const handleAccountConnected = useCallback(() => {
+    loadAccounts();
+  }, [loadAccounts]);
+
+  const handleAccountDisconnected = (accountId) => {
+    const updatedAccounts = accounts.filter(acc => acc.id !== accountId);
+    setAccounts(updatedAccounts);
+    showSuccess('GitHub account disconnected successfully!');
+
+    // Notify parent of accounts change
+    if (onAccountsChange) {
+      onAccountsChange(updatedAccounts);
+    }
+  };
+
   useEffect(() => {
     loadAccounts();
 
@@ -29,40 +63,6 @@ export default function GitHubAccountsTab({ onAccountsChange }) {
 
     return cleanup;
   }, [loadAccounts, handleAccountConnected, showError]);
-
-  const loadAccounts = useCallback(async () => {
-    try {
-      setLoading(true);
-      const accountsData = await gitHubApi.getAccounts();
-      setAccounts(accountsData);
-      setError(null);
-
-      // Notify parent of accounts change
-      if (onAccountsChange) {
-        onAccountsChange(accountsData);
-      }
-    } catch (err) {
-      setError('Failed to load GitHub accounts');
-      console.error('Error loading accounts:', err);
-    } finally {
-      setLoading(false);
-    }
-  }, [onAccountsChange]);
-
-  const handleAccountConnected = useCallback(() => {
-    loadAccounts();
-  }, [loadAccounts]);
-
-  const handleAccountDisconnected = (accountId) => {
-    const updatedAccounts = accounts.filter(acc => acc.id !== accountId);
-    setAccounts(updatedAccounts);
-    showSuccess('GitHub account disconnected successfully!');
-
-    // Notify parent of accounts change
-    if (onAccountsChange) {
-      onAccountsChange(updatedAccounts);
-    }
-  };
 
   if (loading) {
     return (

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { Toast, ToastContainer } from "react-bootstrap";
 
 const NotificationContext = createContext();
@@ -27,12 +27,12 @@ export function NotificationProvider({ children }) {
     }, effectiveDuration);
   }, []);
 
-  const contextValue = {
+  const contextValue = useMemo(() => ({
     showSuccess: (msg, duration) => showNotification(msg, "success", duration),
     showError: (msg, duration, details, errorType) => showNotification(msg, "danger", duration, details, errorType),
     showWarning: (msg, duration, details, errorType) => showNotification(msg, "warning", duration, details, errorType),
     showInfo: (msg, duration) => showNotification(msg, "info", duration),
-  };
+  }), [showNotification]);
 
   useEffect(() => {
     const handleNotification = (event) => {

@@ -16,18 +16,6 @@ const GitHubRepositoryList = forwardRef(({
   const [repositoryStatuses, setRepositoryStatuses] = useState({});
   const [loadingStatuses, setLoadingStatuses] = useState(new Set());
 
-  // Expose refresh method to parent component
-  useImperativeHandle(ref, () => ({
-    refreshStatuses: () => loadRepositoryStatuses()
-  }));
-
-  // Load git status for all repositories when component mounts or repositories change
-  useEffect(() => {
-    if (repositories.length > 0) {
-      loadRepositoryStatuses();
-    }
-  }, [repositories, loadRepositoryStatuses]);
-
   const loadRepositoryStatuses = useCallback(async () => {
     const statusPromises = repositories.map(async (repo) => {
       // Only try to get status for repositories that have an internal repo ID
@@ -74,7 +62,19 @@ const GitHubRepositoryList = forwardRef(({
     if (onStatusUpdate) {
       onStatusUpdate(statusMap);
     }
-  }, [repositories, onStatusUpdate]);
+  }, [onStatusUpdate]); // Remove repositories to prevent unnecessary re-creations
+
+  // Expose refresh method to parent component
+  useImperativeHandle(ref, () => ({
+    refreshStatuses: () => loadRepositoryStatuses()
+  }));
+
+  // Load git status for all repositories when component mounts or repositories change
+  useEffect(() => {
+    if (repositories.length > 0) {
+      loadRepositoryStatuses();
+    }
+  }, [repositories, loadRepositoryStatuses]);
 
   const getLanguageColor = (language) => {
     if (!language) return 'secondary';
@@ -134,9 +134,13 @@ const GitHubRepositoryList = forwardRef(({
   const handleSyncRepository = async (repo) => {
     try {
       console.log('Sync repository:', repo);
-      showSuccess(`Syncing ${repo.name} with remote...`);
+      await gitHubApi.syncRepository(repo.internal_repo_id, repo.default_branch);
+      showSuccess(`Successfully synced ${repo.name} with remote`);
+      // Refresh repository status after sync
+      loadRepositoryStatuses();
     } catch (error) {
-      showError(`Failed to sync ${repo.name}`);
+      console.error('Sync error:', error);
+      showError(`Failed to sync ${repo.name}: ${error.message}`);
     }
   };
 

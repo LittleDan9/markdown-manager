@@ -6,7 +6,7 @@ import FileBrowserActions from './FileBrowserActions';
 import BreadcrumbBar from './BreadcrumbBar';
 import { useUnifiedFileBrowser } from '@/hooks/fileBrowser/useUnifiedFileBrowser';
 
-export default function UnifiedFileBrowser({
+const UnifiedFileBrowser = React.memo(({
   dataProvider,
   config = {},
   onFileSelect,
@@ -20,7 +20,7 @@ export default function UnifiedFileBrowser({
   breadcrumbData = {}, // Additional data for breadcrumb (repository, categories, documents)
   className = '',
   style = {}
-}) {
+}) => {
   const {
     currentPath,
     treeData,
@@ -131,4 +131,8 @@ export default function UnifiedFileBrowser({
       )}
     </div>
   );
-}
+});
+
+UnifiedFileBrowser.displayName = 'UnifiedFileBrowser';
+
+export default UnifiedFileBrowser;

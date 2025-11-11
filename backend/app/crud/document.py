@@ -655,9 +655,9 @@ class DocumentCRUD:
 
         # Filter by source if specified
         if source == "local":
-            query = query.filter(Document.github_repository_id.is_(None))
+            query = query.filter(Document.repository_type == "local")
         elif source == "github":
-            query = query.filter(Document.github_repository_id.isnot(None))
+            query = query.filter(Document.repository_type == "github_repo")
 
         query = query.order_by(Document.last_opened_at.desc()).limit(limit)
 

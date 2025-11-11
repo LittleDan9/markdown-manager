@@ -70,6 +70,18 @@ class GitHubAPI extends Api {
     return res.data;
   }
 
+  async getSelectedRepositories(accountId) {
+    const res = await this.apiCall(`/github/repository-selection/accounts/${accountId}/repositories/selected`, "GET");
+    return res.data.selections || [];
+  }
+
+  async addRepositorySelection(accountId, githubRepoId) {
+    const res = await this.apiCall(`/github/repository-selection/accounts/${accountId}/repositories/selected`, "POST", {
+      github_repo_id: githubRepoId
+    });
+    return res.data;
+  }
+
   async getRepositoryFiles(repoId, path = "", branch = null) {
     const params = new URLSearchParams();
     if (path) params.append("path", path);

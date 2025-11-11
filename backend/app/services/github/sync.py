@@ -1,17 +1,23 @@
 """Advanced GitHub synchronization service for bidirectional sync."""
 import difflib
+import logging
 from datetime import datetime
 from typing import Any, Dict
 
 from fastapi import HTTPException, status
+from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.crud.github_crud import GitHubCRUD
 from app.crud.document import DocumentCRUD
+from app.database import AsyncSessionLocal
 from app.models.document import Document
 from app.services.storage.user import UserStorage
 
 from .base import BaseGitHubService
+
+
+logger = logging.getLogger(__name__)
 
 
 class GitHubSyncService(BaseGitHubService):
@@ -428,6 +434,86 @@ class GitHubSyncService(BaseGitHubService):
         """Log sync operation to database."""
         # Placeholder for logging implementation
         print(f"Sync operation logged: {operation} {status} on {branch_name}")
+
+    async def pull_document_changes(
+        self,
+        document_id: int,
+        user_id: int,
+        remote_content: str,
+        remote_sha: str
+    ) -> bool:
+        """Pull remote changes for a document (simplified version for background sync)."""
+        async with AsyncSessionLocal() as db:
+            try:
+                # Get the document
+                doc_query = select(Document).where(
+                    and_(Document.id == document_id, Document.user_id == user_id)
+                )
+                doc_result = await db.execute(doc_query)
+                document = doc_result.scalar_one_or_none()
+
+                if not document:
+                    logger.error(f"Document {document_id} not found for user {user_id}")
+                    return False
+
+                # Load current document content from filesystem
+                storage_service = UserStorage()
+                current_content = ""
+                if document.file_path:
+                    try:
+                        content = await storage_service.read_document(
+                            user_id=user_id,
+                            file_path=document.file_path
+                        )
+                        current_content = content or ""
+                    except Exception as e:
+                        logger.warning(f"Failed to load document content from filesystem: {e}")
+                        current_content = ""
+
+                # Check for local changes
+                from .api import GitHubAPIService
+                api_service = GitHubAPIService()
+                current_local_hash = api_service.generate_git_blob_hash(current_content)
+                has_local_changes = current_local_hash != document.local_sha
+
+                if has_local_changes:
+                    # Local changes exist - mark as conflict for manual resolution
+                    document.github_sync_status = "conflict"
+                    document.last_github_sync_at = datetime.utcnow()
+                    await db.commit()
+                    logger.info(f"Document {document_id} has local changes - marked as conflict")
+                    return True  # Still "successful" in terms of checking
+
+                # No local changes, safe to update
+                new_content_hash = api_service.generate_git_blob_hash(remote_content)
+
+                # Update document content in filesystem
+                if document.file_path:
+                    try:
+                        await storage_service.write_document(
+                            user_id=user_id,
+                            file_path=document.file_path,
+                            content=remote_content,
+                            commit_message=f"Background sync: {document.name}",
+                            auto_commit=True
+                        )
+                    except Exception as e:
+                        logger.error(f"Failed to write remote content to filesystem: {e}")
+                        return False
+
+                # Update metadata
+                document.github_sha = remote_sha
+                document.local_sha = new_content_hash
+                document.github_sync_status = "synced"
+                document.last_github_sync_at = datetime.utcnow()
+
+                await db.commit()
+                logger.info(f"Document {document_id} background synced successfully")
+                return True
+
+            except Exception as e:
+                logger.error(f"Failed to pull document changes for {document_id}: {e}")
+                return False
 
 
 # Global service instance

@@ -96,10 +96,10 @@ class GitHubFilesystemService(BaseGitHubService):
             # Create parent directory if it doesn't exist
             target_path.parent.mkdir(parents=True, exist_ok=True)
 
-            # Build clone command with optimizations
+            # Build clone command with shallow clone (depth 1) for efficiency
             clone_cmd = [
                 "clone",
-                "--depth", str(settings.github_clone_depth),  # Shallow clone
+                "--depth", "1",  # Always use shallow clone with depth 1
                 "--single-branch",
                 "--no-tags"  # Skip tags to save space
             ]
@@ -129,10 +129,7 @@ class GitHubFilesystemService(BaseGitHubService):
                 if not reset_success:
                     logger.warning(f"Git reset failed after clone: {reset_error}")
 
-                # Skip markdown-only cleanup for GitHub repositories to maintain full repo structure
-                # Storage limits should be enforced at the user/account level instead
-
-                logger.info(f"Successfully cloned repository to {target_path} (depth: {settings.github_clone_depth})")
+                logger.info(f"Successfully cloned repository to {target_path} (shallow clone depth 1)")
                 return True
             else:
                 logger.error(f"Failed to clone repository: {stderr.decode()}")
@@ -213,7 +210,7 @@ class GitHubFilesystemService(BaseGitHubService):
             Tuple of (within_limits, storage_info)
         """
         try:
-            github_dir = self.storage_root / str(user_id) / "github"
+            github_dir = self.storage_root / str(user_id) / "GitHub"  # Updated path
             if not github_dir.exists():
                 return True, {"total_size_mb": 0, "repo_count": 0}
 
@@ -221,9 +218,9 @@ class GitHubFilesystemService(BaseGitHubService):
             repo_count = 0
 
             # Calculate total size across all GitHub repositories
-            for account_dir in github_dir.iterdir():
-                if account_dir.is_dir():
-                    for repo_dir in account_dir.iterdir():
+            for owner_dir in github_dir.iterdir():
+                if owner_dir.is_dir():
+                    for repo_dir in owner_dir.iterdir():
                         if repo_dir.is_dir():
                             repo_size = await self.get_repository_size(repo_dir)
                             total_size += repo_size
@@ -262,7 +259,7 @@ class GitHubFilesystemService(BaseGitHubService):
             Dictionary with pruning results
         """
         try:
-            github_dir = self.storage_root / str(user_id) / "github"
+            github_dir = self.storage_root / str(user_id) / "GitHub"  # Updated path
             if not github_dir.exists():
                 return {"pruned_repos": [], "total_size_freed_mb": 0}
 
@@ -271,9 +268,9 @@ class GitHubFilesystemService(BaseGitHubService):
             total_size_freed = 0
 
             # Check each repository's last access time
-            for account_dir in github_dir.iterdir():
-                if account_dir.is_dir():
-                    for repo_dir in account_dir.iterdir():
+            for owner_dir in github_dir.iterdir():
+                if owner_dir.is_dir():
+                    for repo_dir in owner_dir.iterdir():
                         if repo_dir.is_dir():
                             # Check last modified time as proxy for last access
                             last_modified = datetime.fromtimestamp(repo_dir.stat().st_mtime)
@@ -286,13 +283,13 @@ class GitHubFilesystemService(BaseGitHubService):
                                 shutil.rmtree(repo_dir)
 
                                 pruned_repos.append({
-                                    "path": f"{account_dir.name}/{repo_dir.name}",
+                                    "path": f"{owner_dir.name}/{repo_dir.name}",
                                     "last_modified": last_modified.isoformat(),
                                     "size_mb": round(repo_size / (1024 * 1024), 2)
                                 })
                                 total_size_freed += repo_size
 
-                                logger.info(f"Pruned old repository: {account_dir.name}/{repo_dir.name}")
+                                logger.info(f"Pruned old repository: {owner_dir.name}/{repo_dir.name}")
 
             return {
                 "pruned_repos": pruned_repos,
@@ -533,23 +530,31 @@ class GitHubFilesystemService(BaseGitHubService):
             Storage information for the account
         """
         try:
-            account_dir = self.storage_root / str(user_id) / "github" / str(account_id)
-            if not account_dir.exists():
+            # For the new structure, we need to find repos owned by this account
+            # This is more complex now since repos are organized by owner, not account
+            # For now, return a placeholder - this method may need refactoring
+            github_dir = self.storage_root / str(user_id) / "GitHub"
+            if not github_dir.exists():
                 return {"repo_count": 0, "total_size_mb": 0, "repositories": []}
 
             repositories = []
             total_size = 0
 
-            for repo_dir in account_dir.iterdir():
-                if repo_dir.is_dir():
-                    repo_size = await self.get_repository_size(repo_dir)
-                    total_size += repo_size
+            # This is a simplified implementation - in practice, we'd need to query the database
+            # to map account_id to repo owners
+            for owner_dir in github_dir.iterdir():
+                if owner_dir.is_dir():
+                    for repo_dir in owner_dir.iterdir():
+                        if repo_dir.is_dir():
+                            repo_size = await self.get_repository_size(repo_dir)
+                            total_size += repo_size
 
-                    repositories.append({
-                        "name": repo_dir.name,
-                        "size_mb": round(repo_size / (1024 * 1024), 2),
-                        "last_modified": datetime.fromtimestamp(repo_dir.stat().st_mtime).isoformat()
-                    })
+                            repositories.append({
+                                "name": repo_dir.name,
+                                "owner": owner_dir.name,
+                                "size_mb": round(repo_size / (1024 * 1024), 2),
+                                "last_modified": datetime.fromtimestamp(repo_dir.stat().st_mtime).isoformat()
+                            })
 
             return {
                 "repo_count": len(repositories),
@@ -566,16 +571,18 @@ class GitHubFilesystemService(BaseGitHubService):
         user_id: int,
         account_id: int,
         repo_name: str,
+        repo_owner: str,
         repo_url: str,
         branch: Optional[str] = None
     ) -> bool:
         """
-        Clone a repository for a specific GitHub account.
+        Clone a repository for a specific GitHub account with new path structure.
 
         Args:
             user_id: User ID
-            account_id: GitHub account ID
+            account_id: GitHub account ID (for backward compatibility, but not used in path)
             repo_name: Repository name
+            repo_owner: Repository owner (username or org)
             repo_url: Repository URL
             branch: Branch to clone
 
@@ -589,7 +596,8 @@ class GitHubFilesystemService(BaseGitHubService):
                 logger.warning(f"Storage limit exceeded for user {user_id}, skipping clone")
                 return False
 
-            target_path = self.storage_root / str(user_id) / "github" / str(account_id) / repo_name
+            # New path structure: /user/{user_id}/GitHub/{repo_owner}/{repo_name}
+            target_path = self.storage_root / str(user_id) / "GitHub" / repo_owner / repo_name
 
             # Remove existing repository if it exists
             if target_path.exists():
@@ -598,12 +606,12 @@ class GitHubFilesystemService(BaseGitHubService):
             success = await self.clone_repository(repo_url, target_path, branch)
 
             if success:
-                logger.info(f"Successfully cloned {repo_name} for user {user_id}, account {account_id}")
+                logger.info(f"Successfully cloned {repo_owner}/{repo_name} for user {user_id}")
 
             return success
 
         except Exception as e:
-            logger.error(f"Failed to clone repository {repo_name} for account {account_id}: {e}")
+            logger.error(f"Failed to clone repository {repo_owner}/{repo_name} for account {account_id}: {e}")
             return False
 
 

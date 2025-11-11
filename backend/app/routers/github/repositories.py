@@ -207,15 +207,16 @@ async def get_repository_contents(
         )
 
 
-@router.get("/{repo_id}/file")
-async def get_file_content(
+@router.post("/{repo_id}/clone")
+async def clone_repository(
     repo_id: int,
-    file_path: str = Query(..., description="File path to get content for"),
-    branch: str = Query("main", description="Branch to get file from"),
+    branch: str = Query("main", description="Branch to clone"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
-    """Get file content from a GitHub repository."""
+    """Clone a GitHub repository to local filesystem."""
+    from app.services.github.filesystem import github_filesystem_service
+
     github_crud = GitHubCRUD()
 
     repo = await github_crud.get_repository(db, repo_id)
@@ -225,26 +226,33 @@ async def get_file_content(
             detail="Repository not found"
         )
 
+    # Construct repository URL
+    repo_url = f"https://github.com/{repo.repo_owner}/{repo.repo_name}.git"
+
     try:
-        content, sha = await github_service.get_file_content(
-            repo.account.access_token,
-            repo.repo_owner,
-            repo.repo_name,
-            file_path,
-            ref=branch
+        success = await github_filesystem_service.clone_repository_for_account(
+            user_id=current_user.id,
+            account_id=repo.account_id,
+            repo_name=repo.repo_name,
+            repo_owner=repo.repo_owner,
+            repo_url=repo_url,
+            branch=branch
         )
 
-        return {
-            "content": content,
-            "sha": sha,
-            "path": file_path,
-            "branch": branch
-        }
-    except HTTPException:
-        # Re-raise HTTP exceptions from the service
-        raise
+        if success:
+            return {
+                "success": True,
+                "message": f"Repository {repo.repo_owner}/{repo.repo_name} cloned successfully",
+                "path": f"/user/{current_user.id}/GitHub/{repo.repo_owner}/{repo.repo_name}"
+            }
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to clone repository"
+            )
+
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to fetch file content: {str(e)}"
+            detail=f"Failed to clone repository: {str(e)}"
         )

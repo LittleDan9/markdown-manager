@@ -11,6 +11,7 @@ export { BaseFileBrowserProvider } from './providers/BaseFileBrowserProvider.js'
 // Concrete provider implementations
 export { LocalDocumentsProvider } from './providers/LocalDocumentsProvider.js';
 export { GitHubProvider } from './providers/GitHubProvider.js';
+export { RootFileBrowserProvider } from './providers/RootFileBrowserProvider.js';
 
 // Utility classes for GitHub operations
 export {

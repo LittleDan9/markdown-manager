@@ -1,11 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { ButtonGroup } from "react-bootstrap";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
-import { LocalDocumentsProvider } from "../../../services/fileBrowser/FileBrowserProviders";
-import { createFileBrowserProvider } from "../../../services/fileBrowser/providers/UnifiedFileBrowserProvider";
+import { RootFileBrowserProvider } from "../../../services/fileBrowser/FileBrowserProviders";
 import { useUnifiedFileOpening } from "../../../services/core/UnifiedFileOpeningService";
-import GitHubAccountList from "../../shared/GitHubAccountList";
-import GitHubRepositorySettings from "../../github/settings/GitHubRepositorySettings";
 
 export default function UnifiedFileBrowserTab({
   documents,
@@ -13,77 +9,55 @@ export default function UnifiedFileBrowserTab({
   onFileOpen,
   _onDocumentDelete,
   onModalHide,
-  // GitHub-specific props
-  initialRepository = null,
+  // GitHub-specific props removed - now handled by separate modal
+  _initialRepository = null,
   _setContent = null,
   _setDocumentTitle = null,
-  showSuccess = null,
-  showError = null
+  _showSuccess = null,
+  _showError = null
 }) {
-  const [currentDataSource, setCurrentDataSource] = useState('local'); // 'local' or 'github'
-  const [currentProvider, setCurrentProvider] = useState(null);
-    const [initialPath, setInitialPath] = React.useState('/');
-  const [currentPath, setCurrentPath] = React.useState('/');
-
-  // Path memory system - store last path for each provider
-  const [providerPaths, setProviderPaths] = useState({
-    local: '/Documents', // Default path for local documents
-    github: '/' // Default path for GitHub
-  });
+  const [initialPath, setInitialPath] = useState('/');
+  const [currentPath, setCurrentPath] = useState('/');
 
   // Preserve selected file across modal openings
   const [selectedFile, setSelectedFile] = useState(null);
 
-  // GitHub-specific state
-  const [selectedRepository, setSelectedRepository] = useState(initialRepository);
-  const [selectedBranch, setSelectedBranch] = useState('main');
-  const [showRepositorySelection, setShowRepositorySelection] = useState(false);
-  const [showRepositorySettings, setShowRepositorySettings] = useState(false);
-  const [selectedAccount, setSelectedAccount] = useState(null);
-
   // Unified file opening hook
   const { openFromFileNode, isOpening, lastError } = useUnifiedFileOpening();
 
-  // Auto-select GitHub if initialRepository provided
-  useEffect(() => {
-    if (initialRepository) {
-      setCurrentDataSource('github');
-      setSelectedRepository(initialRepository);
-      setSelectedBranch(initialRepository.default_branch || 'main');
+  // Refs to track previous data for stable provider creation
+  const prevDocumentsRef = useRef();
+  const prevCategoriesRef = useRef();
+  const providerRef = useRef();
+
+  // Create root file browser provider - only recreate when data actually changes
+  const currentProvider = useMemo(() => {
+    const documentsChanged = !prevDocumentsRef.current ||
+      prevDocumentsRef.current.length !== documents?.length ||
+      prevDocumentsRef.current.some((doc, i) => doc.id !== documents[i]?.id);
+    const categoriesChanged = !prevCategoriesRef.current ||
+      prevCategoriesRef.current.length !== categories?.length ||
+      prevCategoriesRef.current.some((cat, i) => cat !== categories[i]);
+
+    if (documents && categories && (documentsChanged || categoriesChanged || !providerRef.current)) {
+      console.log('🏠 Creating root file browser provider (data changed)');
+      prevDocumentsRef.current = documents;
+      prevCategoriesRef.current = categories;
+      providerRef.current = new RootFileBrowserProvider(documents, categories, { filters: { fileTypes: [] } });
     }
-  }, [initialRepository]);
 
-  // Create provider based on current data source
+    return providerRef.current;
+  }, [documents, categories]);
+
+  // Set initial path when provider is created
   useEffect(() => {
-    if (currentDataSource === 'local' && documents && categories) {
-      console.log('🏠 Creating local documents provider');
-      const provider = new LocalDocumentsProvider(documents, categories, { filters: { fileTypes: [] } });
-      setCurrentProvider(provider);
-
-      // Use stored path or provider default
-      const storedPath = providerPaths.local;
-      const defaultPath = provider.getDefaultPath ? provider.getDefaultPath() : '/Documents';
-      setInitialPath(storedPath || defaultPath);
-
-      console.log('📍 Restoring local path:', storedPath || defaultPath);
-    } else if (currentDataSource === 'github' && selectedRepository) {
-      console.log('🐙 Creating GitHub provider for:', selectedRepository.repo_name);
-      const provider = createFileBrowserProvider({
-        type: 'github',
-        repositoryId: selectedRepository.id,
-        repositoryName: selectedRepository.repo_name || selectedRepository.name,
-        branch: selectedBranch
-      });
-      setCurrentProvider(provider);
-
-      // Use stored path for this specific repository, or default to root
-      const repoKey = `github-${selectedRepository.id}-${selectedBranch}`;
-      const storedPath = providerPaths[repoKey] || providerPaths.github;
-      setInitialPath(storedPath || '/');
-
-      console.log('📍 Restoring GitHub path:', storedPath || '/');
+    if (currentProvider) {
+      const defaultPath = currentProvider.getDefaultPath ? currentProvider.getDefaultPath() : '/';
+      setInitialPath(defaultPath);
+      setCurrentPath(defaultPath);
+      console.log('📍 Setting root path:', defaultPath);
     }
-  }, [currentDataSource, documents, categories, selectedRepository, selectedBranch, providerPaths]);
+  }, [currentProvider]);
 
   // Function to track current path changes
   const handlePathChange = (path) => {
@@ -91,73 +65,9 @@ export default function UnifiedFileBrowserTab({
     console.log('📍 Current path changed to:', path);
   };
 
-  // Function to save current path before switching providers
-  const saveCurrentPath = () => {
-    if (!currentPath) return;
-
-    if (currentDataSource === 'local') {
-      setProviderPaths(prev => ({
-        ...prev,
-        local: currentPath
-      }));
-      console.log('💾 Saved local path:', currentPath);
-    } else if (currentDataSource === 'github' && selectedRepository) {
-      const repoKey = `github-${selectedRepository.id}-${selectedBranch}`;
-      setProviderPaths(prev => ({
-        ...prev,
-        github: currentPath, // General GitHub path
-        [repoKey]: currentPath // Specific repository path
-      }));
-      console.log('💾 Saved GitHub path:', currentPath, 'for repo:', repoKey);
-    }
-  };
-
-  const handleDataSourceChange = (dataSource) => {
-    console.log('📊 Switching data source to:', dataSource);
-
-    // Save current path before switching
-    saveCurrentPath();
-
-    // Clear selected file when switching data sources
-    setSelectedFile(null);
-
-    // Reset provider state when switching
-    setCurrentProvider(null);
-
-    setCurrentDataSource(dataSource);
-
-    if (dataSource === 'github' && !selectedRepository) {
-      setShowRepositorySelection(true);
-    } else {
-      setShowRepositorySelection(false);
-    }
-  };
-
-  const handleRepositorySelect = (repository, _account) => {
-    console.log('🚀 Repository selected:', repository.repo_name);
-    setSelectedRepository(repository);
-    setSelectedBranch(repository.default_branch || 'main');
-    setShowRepositorySelection(false);
-  };
-
   const handleFileSelect = (file) => {
     console.log('👆 File selected for preview:', file);
     setSelectedFile(file);
-    // File selection for preview is handled by UnifiedFileBrowser internally
-    // The preview panel will show the content automatically
-  };
-
-  const handleRepositorySettings = (account) => {
-    console.log('🔧 Opening repository settings for account:', account.username);
-    setSelectedAccount(account);
-    setShowRepositorySettings(true);
-    setShowRepositorySelection(false);
-  };
-
-  const handleBackToRepositorySelection = () => {
-    setShowRepositorySettings(false);
-    setShowRepositorySelection(true);
-    setSelectedAccount(null);
   };
 
   const handleFileOpen = async (file) => {
@@ -166,47 +76,29 @@ export default function UnifiedFileBrowserTab({
     // Clear selected file when opening a document
     setSelectedFile(null);
 
-    if (currentDataSource === 'local') {
-      // Handle local documents (existing working logic)
-      const doc = documents?.find((d) => d.id === file.documentId);
-      if (doc) {
-        onFileOpen(doc);
-        onModalHide();
-      }
-    } else if (currentDataSource === 'github') {
-      // Handle GitHub files using unified service
+    // Handle local documents (now includes synced GitHub repos)
+    const doc = documents?.find((d) => d.id === file.documentId);
+    if (doc) {
+      onFileOpen(doc);
+      onModalHide();
+    } else {
+      // Fallback: try unified file opening service
       try {
-        console.log('🐙 Opening GitHub file:', file);
-        console.log('🔍 File structure:', JSON.stringify(file, null, 2));
-        console.log('🔧 Current provider:', currentProvider);
-
-        // Use unified file opening service with current provider
+        console.log('🔍 Opening file using unified service:', file);
         const document = await openFromFileNode(file, currentProvider);
 
         console.log('📄 Document received:', JSON.stringify(document, null, 2));
-
-        // All files (local and GitHub) now use the same flow - they're real documents
-        console.log('� Using unified document flow');
         onFileOpen(document);
-
-        if (showSuccess) {
-          const fileType = document.repository_type === 'github' ? 'GitHub' : 'local';
-          showSuccess(`Opened ${fileType} file: ${document.name}`);
-        }
-
         onModalHide();
       } catch (error) {
-        console.error('❌ Failed to open GitHub file:', error);
-        if (showError) {
-          showError(`Error opening file: ${error.message}`);
-        }
+        console.error('❌ Failed to open file:', error);
         // Errors are handled by the useUnifiedFileOpening hook
       }
     }
   };
 
   // Show loading state while provider is being created
-  if (!currentProvider && !showRepositorySelection) {
+  if (!currentProvider) {
     return (
       <div className="d-flex justify-content-center align-items-center p-4">
         <div className="text-muted">
@@ -219,104 +111,32 @@ export default function UnifiedFileBrowserTab({
 
   return (
     <div className="unified-file-browser-container">
-      {/* Data Source Selector */}
-      <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-        <div className="d-flex align-items-center">
-          <span className="me-3 text-muted">Browse:</span>
-          <ButtonGroup>
-            <button
-              className={`btn btn-sm ${currentDataSource === 'local' ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => handleDataSourceChange('local')}
-            >
-              <i className="bi bi-folder me-1"></i>
-              Local Documents
-            </button>
-            <button
-              className={`btn btn-sm ${currentDataSource === 'github' ? 'btn-primary' : 'btn-outline-primary'}`}
-              onClick={() => handleDataSourceChange('github')}
-            >
-              <i className="bi bi-github me-1"></i>
-              GitHub Repositories
-            </button>
-          </ButtonGroup>
-        </div>
-
-        {/* Current source indicator */}
-        <div className="text-muted small d-flex align-items-center">
-          {currentDataSource === 'local' && (
-            <span><i className="bi bi-folder me-1"></i>Local ({documents?.length || 0} documents)</span>
-          )}
-          {currentDataSource === 'github' && selectedRepository && (
-            <div className="d-flex align-items-center">
-              <button
-                className="btn btn-link btn-sm p-0 me-2 text-primary"
-                onClick={() => setShowRepositorySelection(true)}
-                title="Back to repository selection"
-              >
-                <i className="bi bi-arrow-left me-1"></i>
-                Back
-              </button>
-              <span><i className="bi bi-github me-1"></i>{selectedRepository.repo_owner}/{selectedRepository.repo_name} ({selectedBranch})</span>
-            </div>
-          )}
-          {currentDataSource === 'github' && !selectedRepository && (
-            <span><i className="bi bi-github me-1"></i>Select a repository</span>
-          )}
-        </div>
+      {/* Unified File Browser - Shows both local documents and GitHub repositories */}
+      <div className="file-browser-content">
+        <UnifiedFileBrowser
+          key="unified-browser"
+          dataProvider={currentProvider}
+          initialSelectedFile={selectedFile}
+          onFileSelect={handleFileSelect}  // Single-click: Preview
+          onFileOpen={handleFileOpen}      // Double-click: Open in editor
+          onPathChange={handlePathChange}   // Track path changes
+          initialPath={initialPath}
+          breadcrumbType="local"
+          breadcrumbData={{
+            categories: categories,
+            documents: documents,
+            showGitHub: true
+          }}
+          config={{
+            allowMultiSelect: false,
+            showPreview: true,
+            showActions: true,
+            showBreadcrumb: true
+          }}
+          className="unified-browser"
+          style={{ height: '500px' }}
+        />
       </div>
-
-      {/* Repository Settings for GitHub */}
-      {showRepositorySettings && selectedAccount && (
-        <div style={{ height: '500px' }}>
-          <GitHubRepositorySettings
-            account={selectedAccount}
-            onBack={handleBackToRepositorySelection}
-          />
-        </div>
-      )}
-
-      {/* Repository Selection for GitHub */}
-      {showRepositorySelection && currentDataSource === 'github' && !showRepositorySettings && (
-        <div style={{ height: '400px' }}>
-          <GitHubAccountList
-            onBrowseRepository={handleRepositorySelect}
-            onRepositorySettings={handleRepositorySettings}
-            documents={documents}
-          />
-        </div>
-      )}
-
-      {/* Unified File Browser */}
-      {currentProvider && !showRepositorySelection && !showRepositorySettings && (
-        <div className="file-browser-content">
-          <UnifiedFileBrowser
-            key={`${currentDataSource}-${selectedRepository?.id || 'local'}-${selectedBranch || 'main'}`}
-            dataProvider={currentProvider}
-            initialSelectedFile={selectedFile}
-            onFileSelect={handleFileSelect}  // Single-click: Preview
-            onFileOpen={handleFileOpen}      // Double-click: Open in editor
-            onPathChange={handlePathChange}   // Track path changes
-            initialPath={initialPath}
-            breadcrumbType={currentDataSource}
-            breadcrumbData={{
-              // Local breadcrumb data
-              categories: currentDataSource === 'local' ? categories : undefined,
-              documents: currentDataSource === 'local' ? documents : undefined,
-              // GitHub breadcrumb data
-              repository: currentDataSource === 'github' ? selectedRepository : undefined,
-              branch: currentDataSource === 'github' ? selectedBranch : undefined
-            }}
-            config={{
-              allowMultiSelect: false,
-              showPreview: true,
-              showActions: true,
-              showBreadcrumb: true
-            }}
-            className="unified-browser"
-            style={{ height: '500px' }}
-          />
-        </div>
-      )}
 
       {/* Loading/Error States for file operations */}
       {isOpening && (

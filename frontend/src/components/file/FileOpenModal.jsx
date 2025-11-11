@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Modal } from "react-bootstrap";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useNotification } from "@/components/NotificationProvider";
@@ -6,6 +6,7 @@ import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useFileModal } from "@/hooks/ui";
 // Import the unified tab component
 import UnifiedFileBrowserTab from "./tabs/UnifiedFileBrowserTab";
+import GitHubModal from "../github/modals/GitHubModal";
 
 export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument, setDocumentTitle }) {
   const { documents, categories } = useDocumentContext();
@@ -14,6 +15,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
   const [isDeleting, setIsDeleting] = useState(false);
   const { showSuccess, showError } = useNotification();
   const { activeTab, selectedRepository, closeFileModal } = useFileModal();
+  const [showGitHubModal, setShowGitHubModal] = useState(false);
 
   // Sync the activeTab from the global state
   useEffect(() => {
@@ -57,6 +59,9 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
     }
   };
 
+  // Memoize modal hide handler to prevent unnecessary re-renders
+  const handleGitHubModalHide = useCallback(() => setShowGitHubModal(false), []);
+
   return (
     <>
       <Modal
@@ -71,6 +76,14 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
           <Modal.Title>
             <i className="bi bi-folder2-open me-2"></i>
             Open Document
+            <button
+              className="btn btn-outline-primary btn-sm ms-3"
+              onClick={() => setShowGitHubModal(true)}
+              title="Manage GitHub repositories"
+            >
+              <i className="bi bi-github me-1"></i>
+              GitHub Management
+            </button>
           </Modal.Title>
         </Modal.Header>
 
@@ -82,7 +95,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
           minHeight: 0
         }}>
           <div className="file-open-modal-container">
-            {/* UNIFIED FILE BROWSER - One interface for all data sources */}
+            {/* UNIFIED FILE BROWSER - Local documents including synced GitHub repos */}
             <UnifiedFileBrowserTab
               // Local document props
               documents={documents}
@@ -90,12 +103,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
               onFileOpen={handleFileOpen}
               onDocumentDelete={handleDocumentDelete}
               onModalHide={handleHide}
-              // GitHub integration props
-              initialRepository={selectedRepository}
-              setContent={setContent}
-              setDocumentTitle={setDocumentTitle}
-              showSuccess={showSuccess}
-              showError={showError}
+              // GitHub props removed - now handled by separate modal
             />
           </div>
         </Modal.Body>
@@ -128,6 +136,11 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
             disabled: isDeleting
           }
         ]}
+      />
+
+      <GitHubModal
+        show={showGitHubModal}
+        onHide={handleGitHubModalHide}
       />
     </>
   );

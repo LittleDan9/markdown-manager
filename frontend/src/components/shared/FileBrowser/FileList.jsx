@@ -11,7 +11,7 @@ import {
   getEmptyState
 } from '../../../utils/fileBrowserUtils';
 
-export default function FileList({
+const FileList = React.memo(({
   files,
   currentPath,
   selectedFile,
@@ -22,7 +22,7 @@ export default function FileList({
   onFolderExpand,
   onMultiSelect: _onMultiSelect,
   config
-}) {
+}) => {
   const { theme } = useTheme();
 
   // Deduplicate files by creating a unique identifier and removing duplicates
@@ -383,4 +383,8 @@ export default function FileList({
       </div>
     </div>
   );
-}
+});
+
+FileList.displayName = 'FileList';
+
+export default FileList;
