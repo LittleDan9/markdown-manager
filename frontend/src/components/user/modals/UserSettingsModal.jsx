@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modal, Nav, Tab, Card, Alert } from "react-bootstrap";
+import { Modal, Nav, Tab } from "react-bootstrap";
 import ProfileInfoTab from "./ProfileInfoTab";
 import SecurityTab from "../../security/modals/SecurityTab";
 import MFATab from "../../security/modals/MFATab";
@@ -10,7 +10,7 @@ import StorageTab from "../../storage/StorageTab";
 import userApi from "../../../api/userApi";
 import { useAuth } from "../../../providers/AuthProvider";
 
-function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false, onOpenFileModal }) {
+function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false, onOpenFileModal: _onOpenFileModal }) {
   const { user, setUser } = useAuth();
   const [form, setForm] = useState({
     profileFirstName: user.first_name || "",
@@ -24,7 +24,7 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [_loading, setLoading] = useState(false);
 
   // Profile Info Tab handler
   const handleSubmit = async (e) => {
@@ -72,12 +72,12 @@ function UserSettingsModal({ show, onHide, defaultActiveKey = "profile-info", ac
   };
 
   // MFA Details Tab handlers (example: backup codes)
-  const [backupCodes, setBackupCodes] = useState([]);
-  const [mfaError, setMfaError] = useState("");
-  const [mfaSuccess, setMfaSuccess] = useState("");
-  const [mfaLoading, setMfaLoading] = useState(false);
+  const [_backupCodes, setBackupCodes] = useState([]);
+  const [_mfaError, setMfaError] = useState("");
+  const [_mfaSuccess, setMfaSuccess] = useState("");
+  const [_mfaLoading, setMfaLoading] = useState(false);
 
-  const handleViewBackupCodes = async () => {
+  const _handleViewBackupCodes = async () => {
     setMfaError("");
     setMfaSuccess("");
     setMfaLoading(true);

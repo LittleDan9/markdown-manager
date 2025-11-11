@@ -6,7 +6,7 @@ import { useNotification } from "@/components/NotificationProvider.jsx";
 export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, theme }) {
   // Document context and notifications
   const {
-    saveDocument, currentDocument, loadDocument, createDocument, documents,
+    saveDocument, currentDocument, loadDocument, createDocument, documents: _documents,
     exportAsMarkdown, exportAsPDF, importMarkdownFile
   } = useDocumentContext();
   const { showSuccess, showError } = useNotification();
@@ -149,9 +149,18 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
     exportAsMarkdown(currentDocument.content, currentDocument.name);
   }, [exportAsMarkdown, currentDocument]);
   const handleExportPDF = useCallback(() => {
-    if (!currentDocument || !renderedHTML) return;
+    if (!currentDocument) {
+      showError && showError("No document selected for export.");
+      return;
+    }
+
+    if (!renderedHTML || renderedHTML.trim() === "") {
+      showError && showError("Document content is still being processed. Please wait a moment and try again.");
+      return;
+    }
+
     exportAsPDF(renderedHTML, currentDocument.name, theme);
-  }, [exportAsPDF, currentDocument, renderedHTML]);
+  }, [exportAsPDF, currentDocument, renderedHTML, showError, theme]);
 
   // --- File Overwrite Logic ---
   const openOverwriteModal = useCallback((importData) => {

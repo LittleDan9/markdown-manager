@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
-import DocumentStorageService from "@/services/core/DocumentStorageService";
 
 function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
   const { documents } = useDocumentContext();
@@ -10,11 +9,7 @@ function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
   const [unsavedDocs, setUnsavedDocs] = useState([]);
   const [showSubmenu, setShowSubmenu] = useState(false);
 
-  useEffect(() => {
-    loadUnsavedDocuments();
-  }, [documents]);
-
-  const loadUnsavedDocuments = () => {
+  const loadUnsavedDocuments = useCallback(() => {
     // Filter documents that exist only in localStorage (doc IDs starting with 'doc_')
     const localStorageOnly = documents.filter(doc =>
       String(doc.id).startsWith('doc_') &&
@@ -31,7 +26,11 @@ function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
     });
 
     setUnsavedDocs(sorted);
-  };
+  }, [documents]);
+
+  useEffect(() => {
+    loadUnsavedDocuments();
+  }, [documents, loadUnsavedDocuments]);
 
   const handleFileSelect = (file) => {
     if (onFileSelect) {
@@ -164,7 +163,7 @@ function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
                         {file.category || 'General'} • {file.content ? `${file.content.length} chars` : '0 chars'}
                       </div>
                       <div className="text-muted mt-1" style={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
-                        "{getContentPreview(file.content)}"
+                        &quot;{getContentPreview(file.content)}&quot;
                       </div>
                     </div>
                     <div className="text-muted ms-2 d-flex flex-column align-items-end" style={{ fontSize: '0.7rem', flexShrink: 0 }}>
@@ -183,7 +182,7 @@ function UnsavedDocumentsDropdown({ onFileSelect, onClose }) {
               <div className="text-center">
                 <small className="text-muted">
                   <i className="bi bi-lightbulb me-1"></i>
-                  Click a document to open it, then use <strong>Save</strong> to store it on the server
+                  Click a document to open it&apos;s, then use <strong>Save</strong> to store it on the server
                 </small>
               </div>
             </div>

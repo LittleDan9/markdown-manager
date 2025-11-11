@@ -82,16 +82,6 @@ class GitHubAPI extends Api {
     return res.data;
   }
 
-  async getFileContent(repoId, filePath, branch = null) {
-    const params = new URLSearchParams();
-    params.append("file_path", filePath);
-    if (branch) params.append("branch", branch);
-
-    const res = await this.apiCall(`/github/repositories/${repoId}/file?${params.toString()}`, "GET");
-    return res.data;
-  }
-
-  // Document operations
   async importDocument(importData) {
     const { repository_id, file_path, branch = "main", ...rest } = importData;
     const res = await this.apiCall(`/github/repositories/${repository_id}/import`, "POST", {

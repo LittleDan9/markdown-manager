@@ -17,16 +17,47 @@ export default forwardRef(function FileTree({
   expandedFolders,
   onPathChange,
   onFileSelect,
-  onFileOpen,
+  onFileOpen: _onFileOpen,
   onFolderToggle,
   loading,
-  config,
+  config: _config,
   dataProvider
 }, ref) {
   const [folderContents, setFolderContents] = useState(new Map());
   const [loadingFolders, setLoadingFolders] = useState(new Set());
   const treeContainerRef = useRef(null);
   const nodeRefs = useRef(new Map());
+  const loadedFoldersRef = useRef(new Set()); // Track loaded folders without causing re-renders
+  const loadingFoldersRef = useRef(new Set()); // Track loading folders without causing re-renders
+
+  // Load folder contents when expanded
+  const loadFolderContents = React.useCallback(async (folderPath) => {
+    if (loadedFoldersRef.current.has(folderPath) || loadingFoldersRef.current.has(folderPath)) {
+      console.log(`⏭️ Skipping ${folderPath} - already loaded or loading`);
+      return;
+    }
+
+    console.log(`📂 Loading folder contents for: ${folderPath}`);
+    loadingFoldersRef.current.add(folderPath);
+    setLoadingFolders(prev => new Set(prev).add(folderPath));
+
+    try {
+      const contents = await dataProvider.getFilesInPath(folderPath);
+      console.log(`✅ Loaded ${contents.length} items for ${folderPath}:`, contents.map(c => c.name));
+
+      loadedFoldersRef.current.add(folderPath);
+      setFolderContents(prev => new Map(prev).set(folderPath, contents));
+    } catch (error) {
+      console.error(`❌ Failed to load folder contents for ${folderPath}:`, error);
+    } finally {
+      loadingFoldersRef.current.delete(folderPath);
+      setLoadingFolders(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(folderPath);
+        return newSet;
+      });
+    }
+  }, [dataProvider]);
 
   // Reset state when provider changes
   useEffect(() => {
@@ -34,12 +65,14 @@ export default forwardRef(function FileTree({
       console.log('🔄 Provider changed, resetting FileTree state');
       setFolderContents(new Map());
       setLoadingFolders(new Set());
+      loadedFoldersRef.current.clear();
+      loadingFoldersRef.current.clear();
       nodeRefs.current.clear();
 
       // Load root contents for new provider
       loadFolderContents('/');
     }
-  }, [dataProvider]);
+  }, [dataProvider, loadFolderContents]);
 
   // Load contents for current path when it changes
   useEffect(() => {
@@ -47,7 +80,7 @@ export default forwardRef(function FileTree({
       console.log('📍 Current path changed to:', currentPath);
 
       // Always load the current path contents when path changes
-      if (!folderContents.has(currentPath) && !loadingFolders.has(currentPath)) {
+      if (!loadedFoldersRef.current.has(currentPath) && !loadingFoldersRef.current.has(currentPath)) {
         console.log('� Loading contents for new current path:', currentPath);
         loadFolderContents(currentPath);
       }
@@ -58,25 +91,25 @@ export default forwardRef(function FileTree({
       pathParts.forEach((part, index) => {
         if (index < pathParts.length - 1) { // Don't duplicate the final path
           buildPath += '/' + part;
-          if (!folderContents.has(buildPath) && !loadingFolders.has(buildPath)) {
+          if (!loadedFoldersRef.current.has(buildPath) && !loadingFoldersRef.current.has(buildPath)) {
             console.log('📁 Loading parent path:', buildPath);
             loadFolderContents(buildPath);
           }
         }
       });
     }
-  }, [currentPath, dataProvider]);
+  }, [currentPath, dataProvider, loadFolderContents]);
 
   // Load folder contents when folders are expanded
   useEffect(() => {
     // Load contents for newly expanded folders
     expandedFolders.forEach(folderPath => {
-      if (folderPath !== '/' && !folderContents.has(folderPath) && !loadingFolders.has(folderPath)) {
+      if (folderPath !== '/' && !loadedFoldersRef.current.has(folderPath) && !loadingFoldersRef.current.has(folderPath)) {
         console.log('📂 Loading expanded folder:', folderPath);
         loadFolderContents(folderPath);
       }
     });
-  }, [expandedFolders]);
+  }, [expandedFolders, loadFolderContents]);
 
   // Handle tree data changes (when provider loads initial data)
   useEffect(() => {
@@ -84,12 +117,12 @@ export default forwardRef(function FileTree({
       console.log('🌳 Tree data loaded:', treeData.length, 'root items');
 
       // If we have a current path that's not root, make sure it's loaded
-      if (currentPath && currentPath !== '/' && !folderContents.has(currentPath)) {
+      if (currentPath && currentPath !== '/' && !loadedFoldersRef.current.has(currentPath)) {
         console.log('📍 Loading current path after tree data loaded:', currentPath);
         loadFolderContents(currentPath);
       }
     }
-  }, [treeData, currentPath]);
+  }, [treeData, currentPath, loadFolderContents]);
 
   // Scroll to a specific folder in the tree
   const scrollToFolder = (folderPath) => {
@@ -107,37 +140,6 @@ export default forwardRef(function FileTree({
   useImperativeHandle(ref, () => ({
     scrollToFolder
   }));
-
-  // Load folder contents when expanded
-  const loadFolderContents = React.useCallback(async (folderPath) => {
-    if (folderContents.has(folderPath) || loadingFolders.has(folderPath)) {
-      console.log(`⏭️ Skipping ${folderPath} - already loaded or loading`);
-      return;
-    }
-
-    console.log(`📂 Loading folder contents for: ${folderPath}`);
-    setLoadingFolders(prev => new Set(prev).add(folderPath));
-
-    try {
-      const contents = await dataProvider.getFilesInPath(folderPath);
-      console.log(`✅ Loaded ${contents.length} items for ${folderPath}:`, contents.map(c => c.name));
-
-      // Only update if we actually got contents - prevent erasing existing data
-      if (contents.length > 0 || !folderContents.has(folderPath)) {
-        setFolderContents(prev => new Map(prev).set(folderPath, contents));
-      } else {
-        console.log(`⚠️ Empty contents for ${folderPath} - keeping existing data`);
-      }
-    } catch (error) {
-      console.error(`❌ Failed to load folder contents for ${folderPath}:`, error);
-    } finally {
-      setLoadingFolders(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(folderPath);
-        return newSet;
-      });
-    }
-  }, [dataProvider, folderContents, loadingFolders]);
 
   const handleFolderToggle = async (folder, event) => {
     event?.stopPropagation();

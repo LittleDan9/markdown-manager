@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Card, Badge, Button, Alert, Spinner, Row, Col, Table, Tab, Nav } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Badge, Button, Alert, Spinner, Row, Col, Table, Nav } from 'react-bootstrap';
 import { adminIconsApi } from '../../../api/admin';
 import { useNotification } from '../../NotificationProvider';
 
@@ -10,15 +10,9 @@ export default function DocumentUsageInsights({ documentId, documentName, onClos
   const [activeTab, setActiveTab] = useState('overview');
   const [error, setError] = useState(null);
 
-  const { showSuccess, showError } = useNotification();
+  const { _showSuccess, showError } = useNotification();
 
-  useEffect(() => {
-    if (documentId) {
-      loadDocumentAnalysis();
-    }
-  }, [documentId]);
-
-  const loadDocumentAnalysis = async () => {
+  const loadDocumentAnalysis = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -30,7 +24,13 @@ export default function DocumentUsageInsights({ documentId, documentName, onClos
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId]);
+
+  useEffect(() => {
+    if (documentId) {
+      loadDocumentAnalysis();
+    }
+  }, [documentId, loadDocumentAnalysis]);
 
   const loadTrends = async () => {
     if (trends) return; // Already loaded

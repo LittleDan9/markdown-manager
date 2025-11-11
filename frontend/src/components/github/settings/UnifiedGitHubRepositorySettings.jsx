@@ -9,7 +9,7 @@
  * 5. Streamlined UI with essential features only
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Container, Row, Col, Card, Button, Form, InputGroup, Badge, Alert, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import config from '../../../config';
@@ -20,16 +20,16 @@ export default function UnifiedGitHubRepositorySettings({ account, onBack, onRep
   const [selectedRepos, setSelectedRepos] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(false);
-  const [searchLoading, setSearchLoading] = useState(false);
+  const [_searchLoading, _setSearchLoading] = useState(false);
 
   const { showSuccess, showError } = useNotification();
 
   useEffect(() => {
     loadRepositories();
-  }, [account.id]);
+  }, [account.id, loadRepositories]);
 
   // UNIFIED APPROACH: Use documents API to get GitHub repositories
-  const loadRepositories = async () => {
+  const loadRepositories = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -45,7 +45,7 @@ export default function UnifiedGitHubRepositorySettings({ account, onBack, onRep
     } finally {
       setLoading(false);
     }
-  };
+  }, [account.id, showError]);
 
   // UNIFIED APPROACH: Simple repository selection
   const handleRepositoryToggle = async (repository) => {

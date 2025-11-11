@@ -10,7 +10,7 @@ from app.crud import document as document_crud
 from app.database import get_db
 from app.models.user import User
 from app.models.document import Document as DocumentModel
-from app.schemas.document import Document, DocumentUpdate
+from app.schemas.document import Document, DocumentUpdate, DocumentImageMetadataUpdate
 from .response_utils import create_document_response
 from .docs import DOCUMENT_CRUD_DOCS
 
@@ -583,4 +583,74 @@ async def get_document_at_commit(
         "document_name": document.name,
         "commit_hash": commit_hash,
         "content": content
+    }
+
+
+@router.patch("/{document_id}/image-metadata")
+async def update_document_image_metadata(
+    document_id: int,
+    metadata_update: DocumentImageMetadataUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> dict:
+    """Update image metadata for a document."""
+    from datetime import datetime, timezone
+
+    # Get the document
+    result = await db.execute(
+        select(DocumentModel).filter(
+            DocumentModel.id == document_id, DocumentModel.user_id == current_user.id
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # Initialize image_metadata if it doesn't exist
+    if document.image_metadata is None:
+        document.image_metadata = {}
+
+    # Process each metadata update
+    for update in metadata_update.updates:
+        filename = update.filename
+        line_key = f"line_{update.line_number}"
+
+        # Initialize filename entry if it doesn't exist
+        if filename not in document.image_metadata:
+            document.image_metadata[filename] = {"instances": {}}
+
+        # Update or create the instance metadata
+        instance_data: dict = {
+            "last_modified": datetime.now(timezone.utc).isoformat()
+        }
+
+        if update.metadata.crop:
+            instance_data["crop"] = {
+                "x": float(update.metadata.crop.x),
+                "y": float(update.metadata.crop.y),
+                "width": float(update.metadata.crop.width),
+                "height": float(update.metadata.crop.height),
+                "unit": str(update.metadata.crop.unit)
+            }
+
+        if update.metadata.original_dimensions:
+            instance_data["original_dimensions"] = dict(update.metadata.original_dimensions)
+
+        document.image_metadata[filename]["instances"][line_key] = instance_data
+
+    # Mark the field as modified for SQLAlchemy
+    from sqlalchemy.orm.attributes import flag_modified
+    flag_modified(document, "image_metadata")
+
+    # Update document timestamp
+    document.updated_at = datetime.now(timezone.utc)
+
+    # Commit changes
+    await db.commit()
+
+    return {
+        "success": True,
+        "document_id": document_id,
+        "updated_images": len(metadata_update.updates),
+        "message": "Image metadata updated successfully"
     }

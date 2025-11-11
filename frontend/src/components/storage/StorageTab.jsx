@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, Alert, Spinner, Row, Col, Badge, Table, Nav, Tab } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
 import ConfirmModal from '../shared/modals/ConfirmModal';
@@ -26,7 +26,7 @@ function StorageTab({ userId = null, isAdmin = false }) {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
-  const loadStorageStats = async () => {
+  const loadStorageStats = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -43,9 +43,9 @@ function StorageTab({ userId = null, isAdmin = false }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [isAdmin, userId, showError]);
 
-  const loadOrphanedDocs = async () => {
+  const loadOrphanedDocs = useCallback(async () => {
     setError('');
     try {
       let docs;
@@ -59,9 +59,9 @@ function StorageTab({ userId = null, isAdmin = false }) {
       setError(err.message);
       showError(err.message);
     }
-  };
+  }, [isAdmin, userId, showError]);
 
-  const loadOrphanedRepos = async () => {
+  const loadOrphanedRepos = useCallback(async () => {
     setError('');
     try {
       let repos;
@@ -75,7 +75,7 @@ function StorageTab({ userId = null, isAdmin = false }) {
       setError(err.message);
       showError(err.message);
     }
-  };
+  }, [isAdmin, userId, showError]);
 
   const handleRepoCleanup = async () => {
     setShowRepoConfirm(true);
@@ -139,7 +139,7 @@ function StorageTab({ userId = null, isAdmin = false }) {
     loadStorageStats();
     loadOrphanedDocs();
     loadOrphanedRepos();
-  }, [userId, isAdmin]);
+  }, [userId, isAdmin, loadStorageStats, loadOrphanedDocs, loadOrphanedRepos]);
 
   if (loading && !storageStats) {
     return (

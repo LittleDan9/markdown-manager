@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { adminIconsApi } from '../../api/admin';
 import { useNotification } from '../../components/NotificationProvider';
 
@@ -126,7 +126,7 @@ export function useDocumentAnalysis(documentId) {
 
   const { showError } = useNotification();
 
-  const loadAnalysis = async () => {
+  const loadAnalysis = useCallback(async () => {
     if (!documentId) return;
 
     setLoading(true);
@@ -143,7 +143,7 @@ export function useDocumentAnalysis(documentId) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId, showError]);
 
   const refreshAnalysis = async () => {
     return await loadAnalysis();
@@ -153,7 +153,7 @@ export function useDocumentAnalysis(documentId) {
     if (documentId) {
       loadAnalysis();
     }
-  }, [documentId]);
+  }, [documentId, loadAnalysis]);
 
   return {
     analysis,
@@ -171,7 +171,7 @@ export function useUsageTrends(days = 30) {
 
   const { showError } = useNotification();
 
-  const loadTrends = async () => {
+  const loadTrends = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -186,7 +186,7 @@ export function useUsageTrends(days = 30) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [days, showError]);
 
   const refreshTrends = async () => {
     return await loadTrends();
@@ -194,7 +194,7 @@ export function useUsageTrends(days = 30) {
 
   useEffect(() => {
     loadTrends();
-  }, [days]);
+  }, [loadTrends]);
 
   return {
     trends,

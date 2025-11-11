@@ -1,10 +1,9 @@
 import React from "react";
-import { Alert, Button, Badge, Modal, Spinner, Form, Accordion } from "react-bootstrap";
-import { SpellCheckService } from "@/services/editor";
+import { Alert, Button, Modal, Spinner, Form } from "react-bootstrap";
 import { useDictionaryState, useDictionaryOperations, useDictionaryUI } from "@/hooks";
 import { DictionaryScopeSelector } from "./DictionaryScopeSelector";
-import { DictionaryAddWordForm } from "./DictionaryAddWordForm";
 import { DictionaryWordList } from "./DictionaryWordList";
+import { ActionButton } from "@/components/shared";
 
 function DictionaryTab() {
   // State management hooks
@@ -287,7 +286,7 @@ function DictionaryTab() {
           <Modal.Title>Confirm Delete</Modal.Title>
         </Modal.Header>
         <Modal.Body>
-          Are you sure you want to remove "{deleteConfirm}" from your dictionary?
+          Are you sure you want to remove &quot;{deleteConfirm}&quot; from your dictionary?
         </Modal.Body>
         <Modal.Footer>
           <Button variant="secondary" onClick={cancelDelete}>
@@ -306,7 +305,7 @@ function DictionaryTab() {
       {/* Edit Notes Modal */}
       <Modal show={editingEntry !== null} onHide={cancelEdit}>
         <Modal.Header closeButton>
-          <Modal.Title>Edit Notes for "{editingEntry?.word}"</Modal.Title>
+          <Modal.Title>Edit Notes for &quot;{editingEntry?.word}&quot;</Modal.Title>
         </Modal.Header>
         <Modal.Body>
           <Form
@@ -327,12 +326,12 @@ function DictionaryTab() {
               />
             </Form.Group>
             <div className="mt-3">
-              <Button type="submit" variant="primary" disabled={isLoading} className="me-2">
-                {isLoading ? <Spinner size="sm" /> : "Save"}
-              </Button>
-              <Button variant="secondary" onClick={cancelEdit}>
+              <ActionButton type="submit" loading={isLoading} className="me-2">
+                Save
+              </ActionButton>
+              <ActionButton variant="secondary" onClick={cancelEdit}>
                 Cancel
-              </Button>
+              </ActionButton>
             </div>
           </Form>
         </Modal.Body>

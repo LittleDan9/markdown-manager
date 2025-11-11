@@ -2,32 +2,31 @@ import React from 'react';
 import { render, screen, act, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { AuthProvider, useAuth } from '../AuthProvider';
-import AuthService from '@/services/core/AuthService';
 
 // Mock the AuthService
 jest.mock('@/services/core/AuthService');
 
 // Mock the modal components manually
 jest.mock('@/components/auth/modals/LoginModal.jsx', () => {
-  return function LoginModal({ show, onHide, onLoginSuccess }) {
+  return function LoginModal({ show, onHide: _onHide, onLoginSuccess: _onLoginSuccess }) {
     return show ? <div data-testid="login-modal">Login Modal</div> : null;
   };
 });
 
 jest.mock('@/components/security/modals/VerifyMFAModal.jsx', () => {
-  return function VerifyMFAModal({ show, onHide, onVerifySuccess }) {
+  return function VerifyMFAModal({ show, onHide: _onHide, onVerifySuccess: _onVerifySuccess }) {
     return show ? <div data-testid="mfa-modal">MFA Modal</div> : null;
   };
 });
 
 jest.mock('@/components/auth/modals/PasswordResetModal.jsx', () => {
-  return function PasswordResetModal({ show, onHide }) {
+  return function PasswordResetModal({ show, onHide: _onHide }) {
     return show ? <div data-testid="password-reset-modal">Password Reset Modal</div> : null;
   };
 });
 
 jest.mock('@/components/LogoutProgressModal.jsx', () => {
-  return function LogoutProgressModal({ show, config }) {
+  return function LogoutProgressModal({ show, config: _config }) {
     return show ? <div data-testid="logout-modal">Logout Modal</div> : null;
   };
 });

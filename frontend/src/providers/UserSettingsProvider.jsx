@@ -120,6 +120,11 @@ export function UserSettingsProvider({ children }) {
       // Always save to localStorage for persistence
       saveToLocalStorage(clampedWidth);
 
+      // Dispatch custom event for components that need to react to width changes
+      window.dispatchEvent(new CustomEvent('editor-width-changed', {
+        detail: { width: clampedWidth }
+      }));
+
       // If authenticated, also save to backend
       if (isAuthenticated && user) {
         try {

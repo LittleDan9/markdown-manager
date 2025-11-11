@@ -14,13 +14,18 @@ const MarkdownToolbar = ({
   onSpellCheck,
   spellCheckProgress,
   onMarkdownLint,
-  markdownLintProgress
+  markdownLintProgress,
+  // Phase 5: New props for advanced spell check features
+  onSpellCheckSettings = () => {},
+  spellCheckSettings = {},
+  readabilityData = null,
+  serviceInfo = null
 }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
 
   return (
-    <div className="markdown-toolbar d-flex align-items-center gap-2" style={styles.toolbar}>
+    <div className="markdown-toolbar d-flex align-items-center gap-1 flex-wrap" style={styles.toolbar}>
       {/* Text Formatting */}
       <TextFormattingGroup
         insertMarkdown={insertMarkdown}
@@ -54,6 +59,7 @@ const MarkdownToolbar = ({
         insertHorizontalRule={insertHorizontalRule}
         buttonVariant={buttonVariant}
         buttonStyle={styles.button}
+        editorRef={editorRef}
       />
 
       <ToolbarSeparator style={styles.separator} />
@@ -66,6 +72,11 @@ const MarkdownToolbar = ({
         buttonStyle={styles.button}
         spellCheckProgress={spellCheckProgress}
         markdownLintProgress={markdownLintProgress}
+        // Phase 5: Pass new props
+        onSpellCheckSettings={onSpellCheckSettings}
+        spellCheckSettings={spellCheckSettings}
+        readabilityData={readabilityData}
+        serviceInfo={serviceInfo}
       />
     </div>
   );

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useUserSettings } from '@/providers/UserSettingsProvider';
 
@@ -120,6 +120,11 @@ function InvisibleResizer({ fullscreenPreview = false }) {
         // Continue anyway - local state is updated
       }
     }
+
+    // Dispatch custom event for components that need to react to width changes
+    window.dispatchEvent(new CustomEvent('editor-width-changed', {
+      detail: { width: clampedWidth }
+    }));
   }, [updateEditorWidthSetting]);
 
   // Handle mouse down on the gap area
@@ -215,7 +220,7 @@ function InvisibleResizer({ fullscreenPreview = false }) {
       // Update local state for immediate feedback
       setLocalEditorWidth(newEditorWidth);
     }
-  }, []);
+  }, [fullscreenPreview]);
 
   // Handle mouse up - end drag and save settings
   const handleMouseUp = useCallback(() => {

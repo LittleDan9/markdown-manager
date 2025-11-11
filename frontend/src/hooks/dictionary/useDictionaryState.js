@@ -28,7 +28,7 @@ export function useDictionaryState() {
   const updateLocalWordCount = useCallback(async () => {
     const scope = selectedScope || getCurrentScope();
     console.log('updateLocalWordCount called with scope:', scope);
-    
+
     let wordCount = 0;
     if (scope?.folderPath) {
       wordCount = DictionaryService.getWordCount(scope.folderPath);
@@ -39,16 +39,16 @@ export function useDictionaryState() {
       // User-level dictionary
       wordCount = DictionaryService.getWordCount();
     }
-    
+
     console.log('updateLocalWordCount: words found:', wordCount);
     setLocalWordCount(wordCount);
-  }, [selectedScope, currentDocument]);
+  }, [selectedScope, getCurrentScope]);
 
   // Load available scopes
   const loadAvailableScopes = useCallback(() => {
     const scopes = DictionaryService.getAvailableScopes(documents || []);
     setAvailableScopes(scopes);
-    
+
     // Auto-select current document's scope if not manually selected
     if (!selectedScope) {
       const currentScope = getCurrentScope();
@@ -90,7 +90,7 @@ export function useDictionaryState() {
     } finally {
       setLoading(false);
     }
-  }, [selectedScope, currentDocument, updateLocalWordCount]);
+  }, [selectedScope, updateLocalWordCount, getCurrentScope]);
 
   // Sync with backend
   const syncWithBackend = useCallback(async () => {
@@ -125,13 +125,13 @@ export function useDictionaryState() {
       // Auto-sync when user logs in
       syncWithBackend().catch(console.error);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, syncWithBackend]);
 
   // Load entries when component mounts or scope changes
   useEffect(() => {
     updateLocalWordCount();
     loadEntries().catch(console.error);
-  }, [user, isAuthenticated, selectedScope, currentDocument]);
+  }, [user, isAuthenticated, selectedScope, currentDocument, updateLocalWordCount, loadEntries]);
 
   // Listen for dictionary update events
   useEffect(() => {

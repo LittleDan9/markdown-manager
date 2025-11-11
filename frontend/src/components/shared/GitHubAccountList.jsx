@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Button, ListGroup, Alert, Badge, Spinner, Accordion, Form } from 'react-bootstrap';
 import gitHubApi from '../../api/gitHubApi';
 import gitHubRepositorySelectionApi from '../../api/gitHubRepositorySelectionApi';
@@ -24,175 +24,7 @@ const GitHubAccountList = ({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [accountToDelete, setAccountToDelete] = useState(null);
 
-  // Load GitHub accounts on component mount if not passed as props
-  useEffect(() => {
-    if (!passedAccounts) {
-      loadAccounts();
-    }
-  }, [passedAccounts]);
-
-  // Set up global OAuth listener
-  useEffect(() => {
-    console.log('GitHubAccountList: Setting up global OAuth listener');
-    const cleanup = githubOAuthListener.addListener(async (event) => {
-      console.log('GitHubAccountList: Received OAuth result', event);
-      if (event.data.type === 'GITHUB_AUTH_SUCCESS') {
-        console.log('GitHubAccountList: Processing OAuth success - refreshing accounts');
-        // Reload accounts when OAuth succeeds
-        if (!passedAccounts) {
-          try {
-            // Store current account IDs before loading
-            const previousAccountIds = accounts.map(acc => acc.id);
-
-            // Load updated accounts
-            await loadAccounts();
-
-            // Wait a bit for state to update, then start sync polling for new accounts
-            setTimeout(async () => {
-              // Get current accounts after the state update
-              const response = await gitHubApi.getAccounts();
-              const currentAccounts = response || [];
-
-              // Find new accounts
-              const newAccounts = currentAccounts.filter(account =>
-                !previousAccountIds.includes(account.id)
-              );
-
-              console.log('GitHubAccountList: Found new accounts after OAuth:', newAccounts.map(a => a.id));
-
-              if (newAccounts.length > 0) {
-                // Start sync polling for new accounts - this will handle everything
-                const newAccountIds = newAccounts.map(a => a.id);
-                startSyncPolling(newAccountIds);
-
-                console.log('GitHubAccountList: Started sync polling for new accounts:', newAccountIds);
-              }
-            }, 100);
-
-          } catch (error) {
-            console.error('GitHubAccountList: Error handling OAuth success:', error);
-          }
-        }
-        // If accounts are passed as props, the parent should handle refresh
-      }
-    });
-
-    return cleanup;
-  }, [passedAccounts, accounts]);
-
-  // Cleanup polling interval on unmount
-  useEffect(() => {
-    return () => {
-      if (syncPollingInterval) {
-        clearInterval(syncPollingInterval);
-      }
-    };
-  }, [syncPollingInterval]);
-
-  // Update accounts when passed as props
-  useEffect(() => {
-    if (passedAccounts) {
-      setAccounts(passedAccounts);
-    }
-  }, [passedAccounts]);
-
-  // Auto-load repositories for existing accounts (not currently syncing)
-  useEffect(() => {
-    if (accounts.length > 0) {
-      // Find accounts that don't have repositories loaded yet and aren't syncing
-      const accountsNeedingRepos = accounts.filter(account =>
-        !accountRepositories[account.id] &&
-        !syncingAccounts[account.id]
-      );
-
-      if (accountsNeedingRepos.length > 0) {
-        console.log('GitHubAccountList: Auto-loading repositories for existing accounts:', accountsNeedingRepos.map(a => a.id));
-        // Load repositories for the first account that needs them
-        const firstAccount = accountsNeedingRepos[0];
-        loadRepositories(firstAccount.id);
-      }
-    }
-  }, [accounts, accountRepositories, syncingAccounts]);
-
-  const loadAccounts = async () => {
-    setLoadingAccounts(true);
-    setError('');
-    try {
-      const response = await gitHubApi.getAccounts();
-      setAccounts(response || []);
-    } catch (error) {
-      console.error('Failed to load GitHub accounts:', error);
-      setError('Failed to load GitHub accounts. Please try again.');
-    } finally {
-      setLoadingAccounts(false);
-    }
-  };
-
-  const connectGitHub = async () => {
-    if (onConnectGitHub) {
-      onConnectGitHub();
-    } else {
-      try {
-        const authData = await gitHubApi.getAuthUrl();
-        if (authData?.authorization_url) {
-          window.open(authData.authorization_url, '_blank', 'width=600,height=700');
-        }
-      } catch (error) {
-        console.error('Failed to get GitHub auth URL:', error);
-        setError('Failed to initiate GitHub connection. Please try again.');
-      }
-    }
-  };
-
-  const toggleAccountExpansion = async (accountId) => {
-    if (accountRepositories[accountId]) {
-      // Collapse
-      const newRepos = { ...accountRepositories };
-      delete newRepos[accountId];
-      setAccountRepositories(newRepos);
-    } else {
-      // Expand - load repositories
-      await loadRepositories(accountId);
-    }
-  };
-
-  const loadRepositories = async (accountId) => {
-    try {
-      console.log('GitHubAccountList: Loading selected repositories for account:', accountId);
-      // Use repository selection API to get only user-selected repositories
-      const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(accountId);
-
-      // Transform the selected repositories data to match the expected format
-      const transformedRepos = selectedReposData.selections.map(selection => ({
-        id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
-        github_repo_id: selection.github_repo_id,
-        internal_repo_id: selection.internal_repo_id,
-        name: selection.repo_name,
-        full_name: selection.repo_full_name,
-        description: selection.description,
-        private: selection.is_private,
-        language: selection.language,
-        default_branch: selection.default_branch,
-        sync_enabled: selection.sync_enabled,
-        last_synced_at: selection.last_synced_at,
-        selected_at: selection.selected_at,
-        owner: {
-          login: selection.repo_owner
-        }
-      }));
-
-      setAccountRepositories(prev => ({
-        ...prev,
-        [accountId]: transformedRepos
-      }));
-      console.log('GitHubAccountList: Loaded', transformedRepos.length, 'selected repositories for account:', accountId);
-    } catch (error) {
-      console.error('Failed to load selected repositories:', error);
-      setError('Failed to load selected repositories. Please try again.');
-    }
-  };
-
-  const startSyncPolling = (newAccountIds) => {
+  const startSyncPolling = useCallback((newAccountIds) => {
     console.log('GitHubAccountList: Starting sync polling for accounts:', newAccountIds);
 
     // Mark these accounts as syncing
@@ -211,7 +43,7 @@ const GitHubAccountList = ({
 
     let pollCount = 0;
     const maxPolls = 30; // 1 minute maximum (30 * 2 seconds)
-    let lastRepositoryCount = {};
+    const lastRepositoryCount = {};
 
     // Initialize repository count tracking
     newAccountIds.forEach(id => {
@@ -326,9 +158,177 @@ const GitHubAccountList = ({
     }, 2000); // Check every 2 seconds
 
     setSyncPollingInterval(interval);
+  }, [syncPollingInterval]);
+
+  // Load GitHub accounts on component mount if not passed as props
+  useEffect(() => {
+    if (!passedAccounts) {
+      loadAccounts();
+    }
+  }, [passedAccounts]);
+
+  // Set up global OAuth listener
+  useEffect(() => {
+    console.log('GitHubAccountList: Setting up global OAuth listener');
+    const cleanup = githubOAuthListener.addListener(async (event) => {
+      console.log('GitHubAccountList: Received OAuth result', event);
+      if (event.data.type === 'GITHUB_AUTH_SUCCESS') {
+        console.log('GitHubAccountList: Processing OAuth success - refreshing accounts');
+        // Reload accounts when OAuth succeeds
+        if (!passedAccounts) {
+          try {
+            // Store current account IDs before loading
+            const previousAccountIds = accounts.map(acc => acc.id);
+
+            // Load updated accounts
+            await loadAccounts();
+
+            // Wait a bit for state to update, then start sync polling for new accounts
+            setTimeout(async () => {
+              // Get current accounts after the state update
+              const response = await gitHubApi.getAccounts();
+              const currentAccounts = response || [];
+
+              // Find new accounts
+              const newAccounts = currentAccounts.filter(account =>
+                !previousAccountIds.includes(account.id)
+              );
+
+              console.log('GitHubAccountList: Found new accounts after OAuth:', newAccounts.map(a => a.id));
+
+              if (newAccounts.length > 0) {
+                // Start sync polling for new accounts - this will handle everything
+                const newAccountIds = newAccounts.map(a => a.id);
+                startSyncPolling(newAccountIds);
+
+                console.log('GitHubAccountList: Started sync polling for new accounts:', newAccountIds);
+              }
+            }, 100);
+
+          } catch (error) {
+            console.error('GitHubAccountList: Error handling OAuth success:', error);
+          }
+        }
+        // If accounts are passed as props, the parent should handle refresh
+      }
+    });
+
+    return cleanup;
+  }, [passedAccounts, accounts, startSyncPolling]);
+
+  // Cleanup polling interval on unmount
+  useEffect(() => {
+    return () => {
+      if (syncPollingInterval) {
+        clearInterval(syncPollingInterval);
+      }
+    };
+  }, [syncPollingInterval]);
+
+  // Update accounts when passed as props
+  useEffect(() => {
+    if (passedAccounts) {
+      setAccounts(passedAccounts);
+    }
+  }, [passedAccounts]);
+
+  // Auto-load repositories for existing accounts (not currently syncing)
+  useEffect(() => {
+    if (accounts.length > 0) {
+      // Find accounts that don't have repositories loaded yet and aren't syncing
+      const accountsNeedingRepos = accounts.filter(account =>
+        !accountRepositories[account.id] &&
+        !syncingAccounts[account.id]
+      );
+
+      if (accountsNeedingRepos.length > 0) {
+        console.log('GitHubAccountList: Auto-loading repositories for existing accounts:', accountsNeedingRepos.map(a => a.id));
+        // Load repositories for the first account that needs them
+        const firstAccount = accountsNeedingRepos[0];
+        loadRepositories(firstAccount.id);
+      }
+    }
+  }, [accounts, accountRepositories, syncingAccounts]);
+
+  const loadAccounts = async () => {
+    setLoadingAccounts(true);
+    setError('');
+    try {
+      const response = await gitHubApi.getAccounts();
+      setAccounts(response || []);
+    } catch (error) {
+      console.error('Failed to load GitHub accounts:', error);
+      setError('Failed to load GitHub accounts. Please try again.');
+    } finally {
+      setLoadingAccounts(false);
+    }
   };
 
-  const handleDeleteClick = (accountId, accountName) => {
+  const connectGitHub = async () => {
+    if (onConnectGitHub) {
+      onConnectGitHub();
+    } else {
+      try {
+        const authData = await gitHubApi.getAuthUrl();
+        if (authData?.authorization_url) {
+          window.open(authData.authorization_url, '_blank', 'width=600,height=700');
+        }
+      } catch (error) {
+        console.error('Failed to get GitHub auth URL:', error);
+        setError('Failed to initiate GitHub connection. Please try again.');
+      }
+    }
+  };
+
+  const toggleAccountExpansion = async (accountId) => {
+    if (accountRepositories[accountId]) {
+      // Collapse
+      const newRepos = { ...accountRepositories };
+      delete newRepos[accountId];
+      setAccountRepositories(newRepos);
+    } else {
+      // Expand - load repositories
+      await loadRepositories(accountId);
+    }
+  };
+
+  const loadRepositories = async (accountId) => {
+    try {
+      console.log('GitHubAccountList: Loading selected repositories for account:', accountId);
+      // Use repository selection API to get only user-selected repositories
+      const selectedReposData = await gitHubRepositorySelectionApi.getSelectedRepositories(accountId);
+
+      // Transform the selected repositories data to match the expected format
+      const transformedRepos = selectedReposData.selections.map(selection => ({
+        id: selection.internal_repo_id || selection.github_repo_id, // Use internal repo ID when available
+        github_repo_id: selection.github_repo_id,
+        internal_repo_id: selection.internal_repo_id,
+        name: selection.repo_name,
+        full_name: selection.repo_full_name,
+        description: selection.description,
+        private: selection.is_private,
+        language: selection.language,
+        default_branch: selection.default_branch,
+        sync_enabled: selection.sync_enabled,
+        last_synced_at: selection.last_synced_at,
+        selected_at: selection.selected_at,
+        owner: {
+          login: selection.repo_owner
+        }
+      }));
+
+      setAccountRepositories(prev => ({
+        ...prev,
+        [accountId]: transformedRepos
+      }));
+      console.log('GitHubAccountList: Loaded', transformedRepos.length, 'selected repositories for account:', accountId);
+    } catch (error) {
+      console.error('Failed to load selected repositories:', error);
+      setError('Failed to load selected repositories. Please try again.');
+    }
+  };
+
+  const _handleDeleteClick = (accountId, accountName) => {
     setAccountToDelete({ id: accountId, name: accountName });
     setShowConfirmModal(true);
   };
@@ -363,7 +363,7 @@ const GitHubAccountList = ({
   const handleCancelDelete = () => {
     setShowConfirmModal(false);
     setAccountToDelete(null);
-  };  const formatLastSync = (lastSync) => {
+  };  const _formatLastSync = (lastSync) => {
     if (!lastSync) return 'Never';
     const date = new Date(lastSync);
     const now = new Date();
@@ -522,7 +522,7 @@ const GitHubAccountList = ({
                           return (
                             <div className="text-center py-3 text-muted">
                               <i className="bi bi-search"></i>
-                              <div className="mt-2">No repositories match "{searchTerm}"</div>
+                              <div className="mt-2">No repositories match &quot;{searchTerm}&quot;</div>
                               <small>Try a different search term</small>
                             </div>
                           );
@@ -577,7 +577,7 @@ const GitHubAccountList = ({
                       return (
                         <div className="text-center py-3 text-muted">
                           <i className="bi bi-search"></i>
-                          <div className="mt-2">No repositories match "{searchTerm}"</div>
+                          <div className="mt-2">No repositories match &quot;{searchTerm}&quot;</div>
                           <small>Try a different search term</small>
                         </div>
                       );

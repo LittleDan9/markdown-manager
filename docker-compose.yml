@@ -24,6 +24,15 @@ services:
     command: sh -c "npm install && CHOKIDAR_USEPOLLING=true npm run serve"
     environment:
       - CHOKIDAR_USEPOLLING=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    depends_on:
+      - backend
+      - nginx
     init: true
 
   db:
@@ -77,6 +86,10 @@ services:
         condition: service_healthy
       export-service:
         condition: service_healthy
+      spell-check-service:
+        condition: service_healthy
+      markdown-lint-service:
+        condition: service_healthy
 
   export-service:
     build:
@@ -114,4 +127,28 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+    restart: unless-stopped
+
+  spell-check-service:
+    build:
+      context: ./spell-check-service
+      dockerfile: Dockerfile
+    environment:
+      - SPELL_CHECK_PORT=8003
+      - NODE_ENV=development
+      - BACKEND_URL=http://backend:8000
+    ports:
+      - "8003:8003"
+    volumes:
+      - ./spell-check-service/server.js:/app/server.js
+      - ./spell-check-service/lib:/app/lib
+      - ./spell-check-service/config:/app/config:ro
+      - ./spell-check-service/dictionaries:/app/dictionaries:ro
+    command: ["npm", "run", "dev"]     # Use nodemon for development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
     restart: unless-stopped

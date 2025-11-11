@@ -47,7 +47,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
     setLoading(true);
     try {
       await adminIconsApi.deleteIconPack(packToDelete.name);
-      showSuccess(`Icon pack "${packToDelete.display_name}" deleted successfully!`);
+      showSuccess(`Icon pack &quot;${packToDelete.display_name}&quot; deleted successfully!`);
       setShowDeleteModal(false);
       setPackToDelete(null);
       if (onReloadData) {
@@ -85,7 +85,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
       };
 
       await adminIconsApi.updateIconPackMetadata(editingPack.name, metadata);
-      showSuccess(`Icon pack "${editForm.displayName}" updated successfully!`);
+      showSuccess(`Icon pack &quot;${editForm.displayName}&quot; updated successfully!`);
       setShowEditModal(false);
       setEditingPack(null);
 
@@ -225,7 +225,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
         {packToDelete && (
           <p>
             Are you sure you want to delete the icon pack{' '}
-            <strong>"{packToDelete.display_name}"</strong>?
+            <strong>&quot;{packToDelete.display_name}&quot;</strong>?
           </p>
         )}
         <Alert variant="warning" className="small">
@@ -248,7 +248,8 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
               </p>
               <p className="mb-0">
                 This will automatically update all documents that reference icons from this pack
-                (e.g., <code>{editingPack?.name}:icon-name</code> → <code>{editForm.name}:icon-name</code>).
+                {/* eslint-disable-next-line react/no-unescaped-entities */}
+                (e.g., <code>{editingPack?.name}:icon-name</code> &rarr; <code>{editForm.name}:icon-name</code>).
               </p>
             </Alert>
           )}
@@ -264,6 +265,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                 required
               />
               <Form.Text className="text-muted">
+                {/* eslint-disable-next-line react/no-unescaped-entities */}
                 Used as the identifier in icon references: <code>{editForm.name}:icon-name</code>
               </Form.Text>
             </Form.Group>

@@ -1,5 +1,6 @@
 import React from "react";
-import { Modal, Button, Badge, Table, Card } from "react-bootstrap";
+import { Modal, Badge, Table, Card } from "react-bootstrap";
+import { ActionButton } from "@/components/shared";
 
 function DocumentInfoModal({ show, onHide, document, gitStatus }) {
   const handleClose = () => {
@@ -104,15 +105,14 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                         </td>
                         <td>
                           <span className="fw-medium">{document.name}</span>
-                          <Button
+                          <ActionButton
                             variant="link"
                             size="sm"
                             className="p-0 ms-2"
                             onClick={() => copyToClipboard(document.name)}
                             title="Copy to clipboard"
-                          >
-                            <i className="bi bi-clipboard"></i>
-                          </Button>
+                            icon="clipboard"
+                          />
                         </td>
                       </tr>
                       <tr>
@@ -122,15 +122,14 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                         </td>
                         <td>
                           <code>{document.id}</code>
-                          <Button
+                          <ActionButton
                             variant="link"
                             size="sm"
                             className="p-0 ms-2"
                             onClick={() => copyToClipboard(document.id.toString())}
                             title="Copy to clipboard"
-                          >
-                            <i className="bi bi-clipboard"></i>
-                          </Button>
+                            icon="clipboard"
+                          />
                         </td>
                       </tr>
                       <tr>
@@ -341,15 +340,14 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                               <div className="d-flex align-items-center">
                                 <i className="bi bi-github me-2"></i>
                                 <span className="fw-medium">{document.github_repository.full_name}</span>
-                                <Button
+                                <ActionButton
                                   variant="link"
                                   size="sm"
                                   className="p-0 ms-2"
                                   onClick={() => copyToClipboard(document.github_repository.full_name)}
                                   title="Copy repository name"
-                                >
-                                  <i className="bi bi-clipboard"></i>
-                                </Button>
+                                  icon="clipboard"
+                                />
                               </div>
                               {document.github_repository.description && (
                                 <small className="text-muted d-block mt-1">
@@ -395,15 +393,14 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                                 {document.github_file_path || 'N/A'}
                               </small>
                               {document.github_file_path && (
-                                <Button
+                                <ActionButton
                                   variant="link"
                                   size="sm"
                                   className="p-0 ms-2"
                                   onClick={() => copyToClipboard(document.github_file_path)}
                                   title="Copy file path"
-                                >
-                                  <i className="bi bi-clipboard"></i>
-                                </Button>
+                                  icon="clipboard"
+                                />
                               )}
                             </td>
                           </tr>
@@ -412,15 +409,14 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                               <td className="fw-bold">Commit SHA:</td>
                               <td>
                                 <code className="small">{document.github_sha.substring(0, 8)}...</code>
-                                <Button
+                                <ActionButton
                                   variant="link"
                                   size="sm"
                                   className="p-0 ms-2"
                                   onClick={() => copyToClipboard(document.github_sha)}
                                   title="Copy full SHA"
-                                >
-                                  <i className="bi bi-clipboard"></i>
-                                </Button>
+                                  icon="clipboard"
+                                />
                               </td>
                             </tr>
                           )}
@@ -463,15 +459,14 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                                 {document.file_path || 'N/A'}
                               </small>
                               {document.file_path && (
-                                <Button
+                                <ActionButton
                                   variant="link"
                                   size="sm"
                                   className="p-0 ms-2"
                                   onClick={() => copyToClipboard(document.file_path)}
                                   title="Copy to clipboard"
-                                >
-                                  <i className="bi bi-clipboard"></i>
-                                </Button>
+                                  icon="clipboard"
+                                />
                               )}
                             </td>
                           </tr>
@@ -613,9 +608,9 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
             <i className="bi bi-info-circle me-1"></i>
             Click <i className="bi bi-clipboard"></i> icons to copy values
           </small>
-          <Button variant="secondary" onClick={handleClose}>
+          <ActionButton variant="secondary" onClick={handleClose}>
             Close
-          </Button>
+          </ActionButton>
         </div>
       </Modal.Footer>
     </Modal>

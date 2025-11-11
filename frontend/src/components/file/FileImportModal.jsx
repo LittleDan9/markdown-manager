@@ -1,9 +1,3 @@
-import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { useNotification } from "@/components/NotificationProvider";
-import { DocumentService } from "@/services/core";
-
-// ...existing code...
-
 import React, { useState } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import DocumentForm from "@/components/document/modals/DocumentForm";

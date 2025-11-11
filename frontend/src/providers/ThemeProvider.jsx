@@ -26,14 +26,10 @@ export function ThemeProvider({ children }) {
       const sysDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
       theme = sysDark ? "dark" : "light";
     }
-    return theme;
-  });
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === "dark" ? "light" : "dark");
-  };
-
-  const setPrismTheme = (theme) => {
+    // Apply theme immediately to prevent flash
+    document.documentElement.setAttribute("data-bs-theme", theme);
+    localStorage.setItem("theme", theme);
+    // Set prism theme
     let link = document.getElementById(PRISM_THEME_ID);
     if (!link) {
       link = document.createElement("link");
@@ -42,13 +38,26 @@ export function ThemeProvider({ children }) {
       document.head.appendChild(link);
     }
     link.href = THEMES[theme] || THEMES.light;
-  }
+    return theme;
+  });
 
-  // Apply theme side effects (body class, localStorage)
+  const toggleTheme = () => {
+    setTheme(prev => prev === "dark" ? "light" : "dark");
+  };
+
+  // Apply theme side effects when theme changes
   useEffect(() => {
     document.documentElement.setAttribute("data-bs-theme", theme);
-    setPrismTheme(theme);
     localStorage.setItem("theme", theme);
+    // Set prism theme
+    let link = document.getElementById(PRISM_THEME_ID);
+    if (!link) {
+      link = document.createElement("link");
+      link.id = PRISM_THEME_ID;
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    link.href = THEMES[theme] || THEMES.light;
   }, [theme]);
 
   return (

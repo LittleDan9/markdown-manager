@@ -181,7 +181,7 @@ export class MermaidExportService {
 
       if (viewBox) {
         // Parse viewBox: "minX minY width height"
-        const [minX, minY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
+        const [_minX, _minY, vbWidth, vbHeight] = viewBox.split(' ').map(Number);
         baseWidth = vbWidth;
         baseHeight = vbHeight;
       } else {

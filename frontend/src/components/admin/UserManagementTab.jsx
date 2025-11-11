@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Card,
   Form,
@@ -14,7 +14,6 @@ import {
   ButtonGroup
 } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
-import PropTypes from 'prop-types';
 import adminUsersApi from '../../api/admin/usersApi';
 
 function UserManagementTab() {
@@ -28,9 +27,9 @@ function UserManagementTab() {
   const [stats, setStats] = useState(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [confirmAction, setConfirmAction] = useState(null);
-  const { showError, showSuccess, showWarning } = useNotification();
+  const { showError, showSuccess, showWarning: _showWarning } = useNotification();
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -48,16 +47,16 @@ function UserManagementTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, activeFilter, showError]);
 
-  const loadUserStats = async () => {
+  const loadUserStats = useCallback(async () => {
     try {
       const statsData = await adminUsersApi.getUserStats();
       setStats(statsData);
     } catch (err) {
       console.warn('Failed to load user stats:', err);
     }
-  };
+  }, []);
 
   const loadUserDetails = async (user) => {
     if (!user || !user.id) {
@@ -181,7 +180,7 @@ function UserManagementTab() {
   useEffect(() => {
     loadUsers();
     loadUserStats();
-  }, [searchTerm, activeFilter]);
+  }, [searchTerm, activeFilter, loadUsers, loadUserStats]);
 
   if (loading && users.length === 0) {
     return (
@@ -539,7 +538,5 @@ function UserManagementTab() {
     </div>
   );
 }
-
-UserManagementTab.propTypes = {};
 
 export default UserManagementTab;

@@ -2,8 +2,6 @@
  * Service for handling code commenting in Markdown code blocks
  */
 
-import { logger } from '@/providers/LoggerProvider.jsx';
-import { HighlightService } from './index';
 import NotificationService from '../utilities/notifications.js';
 
 // Language comment patterns
@@ -248,31 +246,7 @@ class CommentService {
    */
   toggleMultiLineComment(editor, startLine, endLine, commentPattern) {
     const edits = [];
-
-    // First, check if all non-empty lines are commented
-    let allCommented = true;
     const model = editor.getModel();
-
-    for (let line = startLine; line <= endLine; line++) {
-      const lineContent = model.getLineContent(line);
-      const trimmed = lineContent.trim();
-
-      // Skip empty lines
-      if (trimmed === '') continue;
-
-      if (commentPattern.includes('{}')) {
-        const [start, end] = commentPattern.split('{}').map(s => s.trim());
-        if (!(trimmed.startsWith(start) && trimmed.endsWith(end))) {
-          allCommented = false;
-          break;
-        }
-      } else {
-        if (!trimmed.startsWith(commentPattern)) {
-          allCommented = false;
-          break;
-        }
-      }
-    }
 
     // Apply comment/uncomment to all lines
     for (let line = startLine; line <= endLine; line++) {

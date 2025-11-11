@@ -25,10 +25,12 @@ from app.routers import (
     github_settings,
     icons,
     iconify_router,
+    images,
     markdown_lint,
     monitoring,
     pdf,
     public,
+    spell_check,
     syntax_highlighting,
     third_party_router,
     users,
@@ -118,6 +120,9 @@ def setup_routers(app: FastAPI) -> None:
         icons.router  # Icon service endpoints - tags already defined in router
     )
     app.include_router(
+        images.router, tags=["images"]  # Image management endpoints - nginx handles /api prefix
+    )
+    app.include_router(
         iconify_router.router  # Iconify browser endpoints
     )
     app.include_router(
@@ -141,6 +146,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         markdown_lint.router, tags=["markdown-lint"]
+    )
+    app.include_router(
+        spell_check.router, tags=["spell-check"]
     )
     app.include_router(
         github.router, prefix="/github", tags=["github"]

@@ -4,7 +4,7 @@ import ShareModal from '@/components/shared/modals/ShareModal';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNotification } from '@/components/NotificationProvider';
-import DocumentService from '@/services/core/DocumentService';
+import { serviceFactory } from '@/services/injectors';
 import PropTypes from 'prop-types';
 
 function ShareButton({ className = '', size = 'sm' }) {
@@ -12,6 +12,8 @@ function ShareButton({ className = '', size = 'sm' }) {
   const { isAuthenticated } = useAuth();
   const { showError } = useNotification();
   const [showShareModal, setShowShareModal] = useState(false);
+
+  const documentService = serviceFactory.createDocumentService();
 
   const handleShare = () => {
     if (isDefaultDoc) {
@@ -23,7 +25,7 @@ function ShareButton({ className = '', size = 'sm' }) {
 
   const handleEnableSharing = async (documentId) => {
     try {
-      const result = await DocumentService.enableDocumentSharing(documentId);
+      const result = await documentService.enableDocumentSharing(documentId);
       return result;
     } catch (error) {
       showError(`Failed to enable sharing: ${error.message}`);
@@ -33,7 +35,7 @@ function ShareButton({ className = '', size = 'sm' }) {
 
   const handleDisableSharing = async (documentId) => {
     try {
-      await DocumentService.disableDocumentSharing(documentId);
+      await documentService.disableDocumentSharing(documentId);
       return true;
     } catch (error) {
       showError(`Failed to disable sharing: ${error.message}`);

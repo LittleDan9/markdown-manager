@@ -106,9 +106,10 @@ class DocumentsApi extends Api {
       }
     }
 
-    const requestData = { name, content };
-    if (finalCategoryId) {
-      requestData.category_id = finalCategoryId;
+    const requestData = { name, content: content || "" };
+    if (finalCategoryId !== undefined && finalCategoryId !== null) {
+      // Ensure category_id is an integer
+      requestData.category_id = parseInt(finalCategoryId, 10);
     }
 
     const res = await this.apiCall(`/documents`, "POST", requestData);
@@ -134,7 +135,10 @@ class DocumentsApi extends Api {
     const requestData = {};
     if (name !== undefined) requestData.name = name;
     if (content !== undefined) requestData.content = content;
-    if (finalCategoryId) requestData.category_id = finalCategoryId;
+    if (finalCategoryId !== undefined && finalCategoryId !== null) {
+      // Ensure category_id is an integer
+      requestData.category_id = parseInt(finalCategoryId, 10);
+    }
 
     const res = await this.apiCall(`/documents/${id}`, "PUT", requestData);
     return res.data;
@@ -174,7 +178,7 @@ class DocumentsApi extends Api {
    * Note: The new API doesn't support migration - documents with this category
    * will need to be handled by the backend's foreign key constraints
    */
-  async deleteCategory(categoryName, options = {}) {
+  async deleteCategory(categoryName, _options = {}) {
     try {
       const categoriesApi = (await import('./categoriesApi')).default;
 
@@ -280,45 +284,6 @@ class DocumentsApi extends Api {
    */
   async markDocumentOpened(documentId) {
     const res = await this.apiCall(`/documents/${documentId}/mark-opened`, 'PUT');
-    return res.data;
-  }
-
-  /**
-   * Save document to GitHub with optional diagram conversion
-   * @param {number} documentId - Document ID
-   * @param {Object} options - Save options
-   * @param {number} options.repository_id - Repository ID
-   * @param {string} options.file_path - File path in repository
-   * @param {string} options.commit_message - Commit message
-   * @param {string} options.branch - Target branch (default: 'main')
-   * @param {boolean} options.create_branch - Create branch if it doesn't exist
-   * @param {string} options.base_branch - Base branch for new branch creation
-   * @param {boolean} options.convertDiagrams - Convert advanced diagrams for GitHub compatibility
-   * @param {string} options.diagramFormat - Export format for diagrams ('svg' or 'png')
-   * @returns {Promise<Object>} - Save result with conversion info
-   */
-  async saveToGitHubWithDiagrams(documentId, options = {}) {
-    const {
-      repository_id,
-      file_path,
-      commit_message,
-      branch = 'main',
-      create_branch = false,
-      base_branch,
-      convertDiagrams = false,
-      diagramFormat = 'png'
-    } = options;
-
-    const res = await this.apiCall(`/documents/${documentId}/github/save`, 'POST', {
-      repository_id,
-      file_path,
-      commit_message,
-      branch,
-      create_branch,
-      base_branch,
-      auto_convert_diagrams: convertDiagrams
-    });
-
     return res.data;
   }
 
@@ -694,6 +659,22 @@ class DocumentsApi extends Api {
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     return hashHex.substring(0, 12);
+  }
+
+  /**
+   * Update image metadata for a document
+   * @param {number} documentId - Document ID
+   * @param {Object} metadata - Image metadata updates
+   * @returns {Promise<Object>} - Response from server
+   */
+  async updateImageMetadata(documentId, metadata) {
+    try {
+      const response = await this.apiCall(`/documents/${documentId}/image-metadata`, 'PATCH', metadata);
+      return response;
+    } catch (error) {
+      console.error('Failed to update image metadata:', error);
+      throw error;
+    }
   }
 }
 

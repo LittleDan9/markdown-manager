@@ -142,8 +142,6 @@ export class UnifiedFileOpeningService {
           console.log('📄 Document already exists, finding existing document:', existingError.file);
 
           // Use the dedicated GitHub document existence check API
-          const gitHubApi = (await import('../../api/gitHubApi.js')).default;
-
           console.log('🔍 Checking if GitHub document exists via API...');
 
           try {

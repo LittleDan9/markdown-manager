@@ -3,10 +3,12 @@ import useEditorSpellCheck from './useEditorSpellCheck';
 import useEditorMarkdownLint from './useEditorMarkdownLint';
 import useEditorKeyboardShortcuts from './useEditorKeyboardShortcuts';
 import useEditorListBehavior from './useEditorListBehavior';
+import useEditorImagePaste from './useEditorImagePaste';
 
 /**
  * Main orchestrating editor hook that composes all domain-specific hooks
  * Maintains backwards compatibility with the original useEditor API
+ * Phase 5: Enhanced with advanced spell check settings support
  * @param {Object} config - Configuration object
  * @returns {Object} Complete editor interface
  */
@@ -19,9 +21,20 @@ export default function useEditor({
   enableMarkdownLint = true,
   enableKeyboardShortcuts = true,
   enableListBehavior = true,
+  enableImagePaste = true,
   categoryId,
   getCategoryId,
   getFolderPath,
+
+  // Phase 5: Advanced spell check settings
+  spellCheckSettings = {
+    spelling: true,
+    grammar: true,
+    style: true,
+    readability: true,
+    styleGuide: 'none',
+    language: 'en-US'
+  },
 
   // Support for new config object approach (for future)
   config
@@ -31,12 +44,14 @@ export default function useEditor({
     spellCheck: { enabled: enableSpellCheck, ...(config.spellCheck || {}) },
     markdownLint: { enabled: enableMarkdownLint, ...(config.markdownLint || {}) },
     keyboardShortcuts: { enabled: enableKeyboardShortcuts, ...(config.keyboardShortcuts || {}) },
-    listBehavior: { enabled: enableListBehavior, ...(config.listBehavior || {}) }
+    listBehavior: { enabled: enableListBehavior, ...(config.listBehavior || {}) },
+    imagePaste: { enabled: enableImagePaste, ...(config.imagePaste || {}) }
   } : {
     spellCheck: { enabled: enableSpellCheck },
     markdownLint: { enabled: enableMarkdownLint },
     keyboardShortcuts: { enabled: enableKeyboardShortcuts },
-    listBehavior: { enabled: enableListBehavior }
+    listBehavior: { enabled: enableListBehavior },
+    imagePaste: { enabled: enableImagePaste }
   };
 
   // Core editor setup
@@ -47,12 +62,13 @@ export default function useEditor({
     onCursorLineChange
   });
 
-  // Spell check functionality
+  // Spell check functionality with Phase 5 settings
   const spellCheckResult = useEditorSpellCheck(
     editor,
     finalConfig.spellCheck.enabled,
     categoryId,
-    getFolderPath
+    getFolderPath,
+    spellCheckSettings
   );
 
   // Markdown linting functionality
@@ -65,6 +81,9 @@ export default function useEditor({
 
   // List behavior
   useEditorListBehavior(editor, finalConfig.listBehavior.enabled);
+
+  // Image paste functionality
+  const imagePasteResult = useEditorImagePaste(editor, finalConfig.imagePaste.enabled);
 
   // Keyboard shortcuts (depends on other hooks' trigger functions)
   useEditorKeyboardShortcuts(
@@ -82,10 +101,13 @@ export default function useEditor({
   return {
     editor,
 
-    // Spell check interface (only if enabled)
+    // Spell check interface (only if enabled) - Phase 5 enhanced
     spellCheck: finalConfig.spellCheck.enabled ? {
       progress: spellCheckResult.progress,
-      suggestionsMap: spellCheckResult.suggestionsMap
+      suggestionsMap: spellCheckResult.suggestionsMap,
+      readabilityData: spellCheckResult.readabilityData,
+      serviceInfo: spellCheckResult.serviceInfo,
+      allIssues: spellCheckResult.allIssues
     } : undefined,
 
     // Markdown lint interface (only if enabled)
@@ -100,6 +122,11 @@ export default function useEditor({
 
     // External trigger functions (for services)
     triggerSpellCheck: spellCheckResult.triggerSpellCheck,
-    triggerMarkdownLint: markdownLintResult.triggerMarkdownLint
+    triggerMarkdownLint: markdownLintResult.triggerMarkdownLint,
+
+    // Image paste interface
+    imagePaste: finalConfig.imagePaste.enabled ? {
+      handlePaste: imagePasteResult.handlePaste
+    } : undefined
   };
 }

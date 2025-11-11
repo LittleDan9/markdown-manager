@@ -37,7 +37,7 @@ export default function useEditorListBehavior(editor, enabled = true) {
 
         const lineNumber = position.lineNumber;
         const currentLine = model.getLineContent(lineNumber);
-        const lineUpToPosition = currentLine.substring(0, position.column - 1);
+        const _lineUpToPosition = currentLine.substring(0, position.column - 1);
         const lineAfterPosition = currentLine.substring(position.column - 1);
 
         // Don't interfere if we're in a code fence
@@ -146,10 +146,9 @@ export default function useEditorListBehavior(editor, enabled = true) {
       }
     });
 
-    // Tab key handler for list indentation
-    const tabKeyHandler = editor.addCommand(
-      monaco.KeyCode.Tab,
-      () => {
+    // Tab key handler for list indentation - use onKeyDown for better control
+    const tabKeyDownDisposable = editor.onKeyDown((e) => {
+      if (e.keyCode === monaco.KeyCode.Tab && !e.shiftKey) {
         const model = editor.getModel();
         const position = editor.getPosition();
         const lineNumber = position.lineNumber;
@@ -157,12 +156,16 @@ export default function useEditorListBehavior(editor, enabled = true) {
 
         // Don't interfere if we're in a code fence
         if (isInCodeFence(model, lineNumber)) {
-          return false; // Let default behavior handle it
+          return; // Let default behavior handle it
         }
 
         const listPattern = getListPattern(currentLine);
 
         if (listPattern) {
+          // Prevent default tab behavior
+          e.preventDefault();
+          e.stopPropagation();
+
           // Add one level of indentation (2 spaces)
           let newPrefix;
           if (listPattern.type === 'ordered') {
@@ -183,16 +186,15 @@ export default function useEditorListBehavior(editor, enabled = true) {
           // Move cursor to maintain position relative to content
           const newPosition = new monaco.Position(lineNumber, newPrefix.length + 1);
           editor.setPosition(newPosition);
-
-          return true;
         }
-
-        return false; // Let default behavior handle non-list lines
+        // If no list pattern, don't prevent default - let Monaco's tab behavior handle it
       }
-    );
+    });
 
     // Shift+Tab key handler for list outdentation
-    const shiftTabKeyHandler = editor.addCommand(
+    let shiftTabKeyHandler = null;
+    try {
+      shiftTabKeyHandler = editor.addCommand(
       monaco.KeyMod.Shift | monaco.KeyCode.Tab,
       () => {
         const model = editor.getModel();
@@ -241,16 +243,20 @@ export default function useEditorListBehavior(editor, enabled = true) {
         return false; // Let default behavior handle non-list lines or when can't outdent
       }
     );
+    } catch (error) {
+      console.warn('Failed to register shift+tab key handler:', error);
+      shiftTabKeyHandler = null;
+    }
 
     // Cleanup function
     return () => {
-      if (keyDownDisposable) {
+      if (keyDownDisposable && typeof keyDownDisposable.dispose === 'function') {
         keyDownDisposable.dispose();
       }
-      if (tabKeyHandler) {
-        tabKeyHandler.dispose();
+      if (tabKeyDownDisposable && typeof tabKeyDownDisposable.dispose === 'function') {
+        tabKeyDownDisposable.dispose();
       }
-      if (shiftTabKeyHandler) {
+      if (shiftTabKeyHandler && typeof shiftTabKeyHandler.dispose === 'function') {
         shiftTabKeyHandler.dispose();
       }
     };

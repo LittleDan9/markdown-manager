@@ -6,7 +6,7 @@ import PropTypes from 'prop-types';
  * Generic rule configuration input component
  * Handles different types of rule configuration options
  */
-function RuleConfigInput({ ruleId, definition, value, onChange }) {
+function RuleConfigInput({ ruleId: _ruleId, definition, value, onChange }) {
   if (!definition?.configurable || typeof value !== 'object') {
     return null;
   }

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ListGroup, Button, Form, Badge, Alert, Spinner } from 'react-bootstrap';
+import { ListGroup, Button, Form, Alert, Spinner } from 'react-bootstrap';
 
 /**
  * Word list entry component with inline editing
@@ -15,7 +15,7 @@ function DictionaryWordEntry({
   onUpdateNotes,
   onDelete,
   loading,
-  selectedScope,
+  selectedScope: _selectedScope,
   isAuthenticated
 }) {
   const getScopeDisplay = () => {
@@ -125,8 +125,8 @@ export function DictionaryWordList({
   onDeleteWord,
   loading,
   isAuthenticated,
-  selectedScope,
-  localWordCount,
+  selectedScope: _selectedScope,
+  localWordCount: _localWordCount,
   onLocalWordDelete
 }) {
   // Show loading spinner when loading and no entries
@@ -140,17 +140,19 @@ export function DictionaryWordList({
   }
 
   const getScopeDisplayText = () => {
-    if (!selectedScope) return 'personal dictionary';
+    if (!_selectedScope) return 'personal dictionary';
 
-    switch (selectedScope.type) {
+    switch (_selectedScope.type) {
       case 'user':
         return 'personal dictionary';
-      case 'folder':
-        const folderName = selectedScope.folder_path?.split('/').filter(p => p)[0] || 'folder';
+      case 'folder': {
+        const folderName = _selectedScope.folder_path?.split('/').filter(p => p)[0] || 'folder';
         return `${folderName} folder dictionary`;
-      case 'repository':
-        const repoName = selectedScope.folder_path?.split('/').filter(p => p)[1] || 'repository';
+      }
+      case 'repository': {
+        const repoName = _selectedScope.folder_path?.split('/').filter(p => p)[1] || 'repository';
         return `${repoName} repository dictionary`;
+      }
       default:
         return 'dictionary';
     }
@@ -162,8 +164,8 @@ export function DictionaryWordList({
       <div>
         <Alert variant="info">
           <i className="bi bi-info-circle me-2"></i>
-          You're using a local dictionary. Log in to sync your words across devices.
-          {selectedScope && (
+          You&apos;re using a local dictionary. Log in to sync your words across devices.
+          {_selectedScope && (
             <div className="mt-2">
               <strong>Scope:</strong> {getScopeDisplayText()}
             </div>
@@ -171,10 +173,10 @@ export function DictionaryWordList({
         </Alert>
         {entries.length === 0 ? (
           <Alert variant="secondary">
-            {selectedScope
+            {_selectedScope
               ? `No custom words in the ${getScopeDisplayText()} yet.`
               : "No custom words yet."
-            } Add words above or use "Add to Dictionary" in the editor.
+            } Add words above or use &quot;Add to Dictionary&quot; in the editor.
           </Alert>
         ) : (
           <div style={{ maxHeight: '300px', overflowY: 'auto', border: '1px solid #dee2e6', borderRadius: '0.375rem' }}>
@@ -185,7 +187,7 @@ export function DictionaryWordList({
                   <Button
                     variant="link"
                     size="sm"
-                    onClick={() => onLocalWordDelete && onLocalWordDelete(entry, selectedScope)}
+                    onClick={() => onLocalWordDelete && onLocalWordDelete(entry, _selectedScope)}
                     title="Remove word"
                     className="text-muted p-1 word-delete-btn"
                     style={{ fontSize: '0.875rem' }}
@@ -205,9 +207,9 @@ export function DictionaryWordList({
   if (!Array.isArray(entries) || entries.length === 0) {
     return (
       <Alert variant="info">
-        {selectedScope
+        {_selectedScope
           ? `No custom words in your ${getScopeDisplayText()} yet. Add words above or use "Add to Dictionary" in the editor when working with documents in this scope.`
-          : "No custom words in your personal dictionary yet. Add words above or use \"Add to Dictionary\" in the editor."
+          : "No custom words in your personal dictionary yet. Add words above or use &quot;Add to Dictionary&quot; in the editor."
         }
       </Alert>
     );
@@ -228,7 +230,7 @@ export function DictionaryWordList({
             onUpdateNotes={onUpdateEditNotes}
             onDelete={onDeleteWord}
             loading={loading}
-            selectedScope={selectedScope}
+            selectedScope={_selectedScope}
             isAuthenticated={isAuthenticated}
           />
         ))}

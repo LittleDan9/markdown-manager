@@ -58,7 +58,7 @@ export const useGitHubAccounts = () => {
       }, 1000);
 
       // Cleanup if the popup is closed manually
-      const cleanupTimer = setTimeout(() => {
+      const _cleanupTimer = setTimeout(() => {
         clearInterval(checkClosed);
         setLoading(false);
       }, 300000); // 5 minutes timeout

@@ -7,7 +7,7 @@ import documentsApi from '@/api/documentsApi.js';
 import useChangeTracker from './useChangeTracker';
 
 export default function useDocumentState(notification, auth, setPreviewHTML, isSharedView = false) {
-  const { isAuthenticated, token, user, isInitializing } = auth;
+  const { isAuthenticated, token, user: _user, isInitializing } = auth;
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
   const [migrationStatus, setMigrationStatus] = useState('idle');
@@ -20,6 +20,10 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const [saving, setSaving] = useState(false); // Separate state for save operations
   const [error, setError] = useState('');
   const [highlightedBlocks, setHighlightedBlocks] = useState({});
+
+  // Track document loading to prevent duplicates
+  const lastLoadedDocumentRef = useRef(null);
+  const lastLoadTimeRef = useRef(0);
 
   // Notification helpers
   const notificationRef = useRef();
@@ -116,7 +120,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, token]);
+  }, [isAuthenticated, token, showWarning, showSuccess]);
 
   // --- EFFECTS ---
   useEffect(() => {
@@ -155,6 +159,28 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
     }
     const loadCurrentDocument = async () => {
+      console.log('[useDocumentState] loadCurrentDocument called', {
+        isAuthenticated,
+        token: !!token,
+        isInitializing,
+        migrationStatus,
+        isSharedView,
+        hasSyncedOnMount,
+        timestamp: new Date().toISOString()
+      });
+
+      // Prevent duplicate document loading within a short time window
+      const now = Date.now();
+      const timeSinceLastLoad = now - lastLoadTimeRef.current;
+      if (timeSinceLastLoad < 2000) { // 2 seconds cooldown
+        console.log('[useDocumentState] Skipping duplicate document load', {
+          timeSinceLastLoad,
+          lastLoaded: lastLoadedDocumentRef.current
+        });
+        return;
+      }
+
+      lastLoadTimeRef.current = now;
       if (isAuthenticated && token && !hasSyncedOnMount) {
         try {
           const result = await DocumentService.syncWithBackend();
@@ -188,7 +214,9 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
           if (currentDocId) {
             currentDoc = docs.find(doc => doc.id === currentDocId);
           }
-        } catch (error) {}
+        } catch (error) {
+          // Ignore errors when fetching current document ID
+        }
       }
       if (!currentDoc) {
         const storedCurrentDoc = DocumentStorageService.getCurrentDocument();
@@ -203,6 +231,22 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         const localDocs = docs.filter(doc => String(doc.id).startsWith('doc_'));
         currentDoc = isAuthenticated ? docs[0] : (localDocs[0] || DocumentService.createNewDocument());
       }
+
+      // If we found a document by ID, load the full document with metadata
+      if (currentDoc && currentDoc.id) {
+        try {
+          console.log('[useDocumentState] Loading full document metadata for:', currentDoc.id);
+          const fullDoc = await documentsApi.getDocument(currentDoc.id);
+          if (fullDoc) {
+            currentDoc = fullDoc;
+            console.log('Loaded current document with metadata:', currentDoc.image_metadata ? 'has metadata' : 'no metadata');
+          }
+        } catch (error) {
+          console.warn('Failed to load full document, using basic version:', error);
+          // Continue with the basic document from the list
+        }
+      }
+
       setCurrentDocument(currentDoc);
       setContent(currentDoc.content || '');
       // Clear preview HTML and highlighted blocks when loading initial document
@@ -213,7 +257,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
     loadCurrentDocument();
-  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView]);
+  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView, hasSyncedOnMount, migrateLocalDocuments, setPreviewHTML, showError, showSuccess, showWarning]);
 
   useEffect(() => {
     const newCategories = DocumentService.getCategories();
@@ -221,10 +265,65 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   }, [documents]);
 
   useEffect(() => {
-    if (currentDocument && currentDocument.content !== content) {
-      setContent(currentDocument.content || '');
+    // Sync content with currentDocument when there's a mismatch
+    // This ensures the content state stays in sync with the current document
+    if (currentDocument) {
+      const documentContent = currentDocument.content || '';
+      const currentContent = content || '';
+
+      console.log('useDocumentState: useEffect triggered', {
+        documentId: currentDocument.id,
+        documentName: currentDocument.name,
+        documentContent: documentContent.length,
+        currentContent: currentContent.length,
+        areEqual: documentContent === currentContent
+      });
+
+      // Always sync content when currentDocument changes, regardless of content equality
+      // This ensures the editor receives the correct content for the new document
+      if (documentContent !== currentContent) {
+        console.log('useDocumentState: Content mismatch detected, syncing', {
+          documentContent: documentContent.length,
+          currentContent: currentContent.length,
+          documentId: currentDocument.id,
+          documentName: currentDocument.name
+        });
+      } else {
+        console.log('useDocumentState: Content equal but forcing sync due to document change', {
+          documentId: currentDocument.id,
+          documentName: currentDocument.name
+        });
+      }
+
+      // Use immediate sync for document changes, but add timeout for potential
+      // race conditions during loadDocument operations
+      const shouldUseTimeout = currentDocument.id !== null; // Only use timeout for existing documents
+
+      if (shouldUseTimeout && documentContent !== currentContent) {
+        // Add a small delay for existing documents to handle loadDocument race conditions
+        // Only do this delayed sync if content is actually different
+        const timer = setTimeout(() => {
+          setContent(prevContent => {
+            const prevContentStr = prevContent || '';
+            const docContentStr = currentDocument.content || '';
+
+            console.log('useDocumentState: Delayed sync with currentDocument', {
+              documentContent: docContentStr.length,
+              previousContent: prevContentStr.length,
+              documentId: currentDocument.id
+            });
+            return docContentStr;
+          });
+        }, 0);
+
+        return () => clearTimeout(timer);
+      } else if (!shouldUseTimeout) {
+        // Immediate sync for new documents (id: null) - always force update
+        console.log('useDocumentState: Immediate sync for new document');
+        setContent(documentContent);
+      }
     }
-  }, [currentDocument]);
+  }, [currentDocument]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     // Skip authentication-based state changes when in shared view
@@ -254,13 +353,33 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     DocumentStorageService.setCurrentDocument(document);
     try {
       await DocumentService.setCurrentDocumentId(document.id);
-    } catch (error) {}
+    } catch (error) {
+      // Ignore errors when setting current document ID
+    }
   }, []);
 
   const createDocument = useCallback(() => {
+    console.log('createDocument: Starting new document creation');
     const newDoc = DocumentService.createNewDocument();
-    setCurrentDocument(newDoc);
+    console.log('createDocument: Created new document', {
+      id: newDoc.id,
+      name: newDoc.name,
+      content: newDoc.content?.length || 0,
+      contentValue: newDoc.content
+    });
+
+    console.log('createDocument: Current state before update', {
+      currentDocumentId: currentDocument?.id,
+      currentDocumentContent: currentDocument?.content?.length || 0,
+      contentState: content?.length || 0
+    });
+
+    // First clear the content explicitly
     setContent('');
+
+    // Then set the new document - this ensures content is empty when document changes
+    setCurrentDocument(newDoc);
+
     // Clear the preview HTML when creating a new document
     if (setPreviewHTML) {
       setPreviewHTML('');
@@ -269,13 +388,12 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     setHighlightedBlocks({});
     DocumentStorageService.setCurrentDocument(newDoc);
 
-    // Clear current document on backend if authenticated
-    if (isAuthenticated && token) {
-      documentsApi.setCurrentDocumentId(null).catch(err => {
-        console.warn('Failed to clear current document on backend:', err);
-      });
-    }
-  }, [setPreviewHTML, isAuthenticated, token]);
+    console.log('createDocument: Document creation completed, new state should be empty content');
+
+    // Note: We don't clear the current document on the backend when creating a new document
+    // because new documents don't have backend IDs, and the backend API doesn't support
+    // clearing the current document (it requires a valid doc_id)
+  }, [setPreviewHTML, currentDocument, content]);
 
   const loadDocument = useCallback(async (id) => {
     setLoading(true);
@@ -300,6 +418,11 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
 
       if (doc) {
+        console.log('loadDocument: Setting document and content', {
+          documentId: doc.id,
+          documentName: doc.name,
+          contentLength: doc.content?.length || 0
+        });
         setCurrentDocument(doc);
         setContent(doc.content || '');
         // Clear the preview HTML when loading a different document
@@ -332,7 +455,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setLoading(false);
     }
-  }, [updateCurrentDocument, setPreviewHTML]);
+  }, [updateCurrentDocument, setPreviewHTML, isAuthenticated, token, showError]);
 
   const saveDocument = useCallback(async (doc, showNotification = true) => {
     if (!doc) return null;
@@ -375,7 +498,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setSaving(false); // Reset saving state instead of loading state
     }
-  }, [content, currentDocument, updateCurrentDocument]);
+  }, [content, currentDocument, updateCurrentDocument, showError]);
 
   const deleteDocument = useCallback(async (id, showNotification = true) => {
     setSaving(true); // Use saving state for delete operations too
@@ -411,7 +534,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } finally {
       setSaving(false); // Reset saving state
     }
-  }, [currentDocument, updateCurrentDocument, setPreviewHTML, isAuthenticated, token]);
+  }, [currentDocument, setPreviewHTML, isAuthenticated, token, showError]);
 
   const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
     try {
@@ -428,7 +551,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } catch (error) {
       showError('Rename failed: ' + error.message);
     }
-  }, [currentDocument, updateCurrentDocument]);
+  }, [currentDocument, showError, updateCurrentDocument]);
 
   // --- CATEGORY OPERATIONS ---
   const addCategory = useCallback(async (category) => {

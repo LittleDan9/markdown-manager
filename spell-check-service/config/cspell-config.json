@@ -1,0 +1,353 @@
+{
+  "version": "0.2",
+  "language": "en",
+  "maxNumberOfProblems": 10000,
+  "dictionaries": [
+    "typescript",
+    "node",
+    "npm",
+    "filetypes",
+    "softwareTerms",
+    "companies",
+    "bash",
+    "cpp",
+    "csharp",
+    "css",
+    "docker",
+    "fonts",
+    "fullstack",
+    "golang",
+    "html",
+    "java",
+    "php",
+    "powershell",
+    "python",
+    "rust",
+    "sql"
+  ],
+  "dictionaryDefinitions": [
+    {
+      "name": "custom-tech",
+      "path": "./dictionaries/custom-technical.txt"
+    }
+  ],
+  "languageSettings": [
+    {
+      "languageId": "javascript,typescript",
+      "dictionaries": ["typescript", "node", "npm", "html"]
+    },
+    {
+      "languageId": "python",
+      "dictionaries": ["python", "bash"]
+    },
+    {
+      "languageId": "java",
+      "dictionaries": ["java", "bash"]
+    },
+    {
+      "languageId": "php",
+      "dictionaries": ["php", "html", "css"]
+    },
+    {
+      "languageId": "html",
+      "dictionaries": ["html", "css", "typescript"]
+    },
+    {
+      "languageId": "css,scss,sass,less",
+      "dictionaries": ["css", "fonts"]
+    },
+    {
+      "languageId": "sql",
+      "dictionaries": ["sql"]
+    },
+    {
+      "languageId": "json,yaml,yml",
+      "dictionaries": ["npm", "bash"]
+    },
+    {
+      "languageId": "cpp,c",
+      "dictionaries": ["cpp", "bash"]
+    },
+    {
+      "languageId": "rust",
+      "dictionaries": ["rust", "bash"]
+    },
+    {
+      "languageId": "go",
+      "dictionaries": ["golang", "bash"]
+    },
+    {
+      "languageId": "csharp",
+      "dictionaries": ["csharp", "bash"]
+    },
+    {
+      "languageId": "bash,shell,sh",
+      "dictionaries": ["bash", "docker"]
+    },
+    {
+      "languageId": "dockerfile",
+      "dictionaries": ["docker", "bash"]
+    },
+    {
+      "languageId": "powershell",
+      "dictionaries": ["powershell", "bash"]
+    }
+  ],
+  "ignoreWords": [
+    "npm",
+    "webpack",
+    "eslint",
+    "babel",
+    "jest",
+    "rollup",
+    "vite",
+    "tsx",
+    "jsx",
+    "async",
+    "await",
+    "typeof",
+    "instanceof",
+    "const",
+    "enum",
+    "namespace",
+    "readonly",
+    "keyof",
+    "infer",
+    "readonly",
+    "tuple",
+    "struct",
+    "impl",
+    "trait",
+    "mut",
+    "ref",
+    "dyn",
+    "fn",
+    "impl",
+    "pub",
+    "crate",
+    "extern",
+    "mod",
+    "use",
+    "where",
+    "loop",
+    "match",
+    "println",
+    "vec",
+    "HashMap",
+    "Option",
+    "Result",
+    "Ok",
+    "Err",
+    "Some",
+    "None",
+    "std",
+    "io",
+    "fs",
+    "path",
+    "env",
+    "process",
+    "thread",
+    "sync",
+    "collections",
+    "fmt",
+    "str",
+    "clone",
+    "copy",
+    "drop",
+    "send",
+    "sync",
+    "unpin",
+    "pin",
+    "box",
+    "rc",
+    "arc",
+    "refcell",
+    "cell",
+    "mutex",
+    "rwlock",
+    "channel",
+    "receiver",
+    "sender",
+    "iterator",
+    "collect",
+    "map",
+    "filter",
+    "fold",
+    "reduce",
+    "foreach",
+    "into",
+    "from",
+    "into_iter",
+    "iter",
+    "next",
+    "item",
+    "self",
+    "Self",
+    "super",
+    "crate",
+    "extern",
+    "as",
+    "dyn",
+    "move",
+    "static",
+    "type",
+    "unsafe",
+    "union",
+    "where",
+    "abstract",
+    "yield",
+    "continue",
+    "break",
+    "return",
+    "throw",
+    "try",
+    "catch",
+    "finally",
+    "switch",
+    "case",
+    "default",
+    "goto",
+    "sizeof",
+    "typedef",
+    "volatile",
+    "register",
+    "restrict",
+    "inline",
+    "extern",
+    "auto",
+    "void",
+    "char",
+    "short",
+    "int",
+    "long",
+    "float",
+    "double",
+    "signed",
+    "unsigned",
+    "bool",
+    "true",
+    "false",
+    "null",
+    "undefined",
+    "NaN",
+    "Infinity",
+    "console",
+    "log",
+    "debug",
+    "info",
+    "warn",
+    "error",
+    "assert",
+    "trace",
+    "table",
+    "group",
+    "groupEnd",
+    "time",
+    "timeEnd",
+    "count",
+    "clear",
+    "dir",
+    "dirxml",
+    "profile",
+    "profileEnd",
+    "getElementById",
+    "querySelector",
+    "querySelectorAll",
+    "addEventListener",
+    "removeEventListener",
+    "preventDefault",
+    "stopPropagation",
+    "setTimeout",
+    "setInterval",
+    "clearTimeout",
+    "clearInterval",
+    "requestAnimationFrame",
+    "cancelAnimationFrame",
+    "fetch",
+    "XMLHttpRequest",
+    "Promise",
+    "then",
+    "catch",
+    "finally",
+    "resolve",
+    "reject",
+    "all",
+    "race",
+    "allSettled"
+  ],
+  "patterns": [
+    {
+      "name": "comment-block",
+      "pattern": "/\\/\\*[\\s\\S]*?\\*\\//g"
+    },
+    {
+      "name": "comment-line",
+      "pattern": "//.*$"
+    },
+    {
+      "name": "string-double",
+      "pattern": "\"[^\"]*\""
+    },
+    {
+      "name": "string-single",
+      "pattern": "'[^']*'"
+    },
+    {
+      "name": "string-template",
+      "pattern": "`[^`]*`"
+    },
+    {
+      "name": "docstring-python",
+      "pattern": "\"\"\"[\\s\\S]*?\"\"\""
+    },
+    {
+      "name": "docstring-python-single",
+      "pattern": "'''[\\s\\S]*?'''"
+    }
+  ],
+  "overrides": [
+    {
+      "filename": "**/*.{js,ts,jsx,tsx}",
+      "includeRegExpList": [
+        "/\\/\\*[\\s\\S]*?\\*\\//g",
+        "//.*$"
+      ]
+    },
+    {
+      "filename": "**/*.py",
+      "includeRegExpList": [
+        "#.*$",
+        "\"\"\"[\\s\\S]*?\"\"\"",
+        "'''[\\s\\S]*?'''"
+      ]
+    },
+    {
+      "filename": "**/*.{java,c,cpp,cs}",
+      "includeRegExpList": [
+        "/\\/\\*[\\s\\S]*?\\*\\//g",
+        "//.*$"
+      ]
+    },
+    {
+      "filename": "**/*.php",
+      "includeRegExpList": [
+        "/\\/\\*[\\s\\S]*?\\*\\//g",
+        "//.*$",
+        "#.*$"
+      ]
+    },
+    {
+      "filename": "**/*.{sh,bash}",
+      "includeRegExpList": [
+        "#.*$"
+      ]
+    },
+    {
+      "filename": "**/*.sql",
+      "includeRegExpList": [
+        "--.*$",
+        "/\\/\\*[\\s\\S]*?\\*\\//g"
+      ]
+    }
+  ]
+}

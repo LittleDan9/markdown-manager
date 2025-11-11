@@ -1,6 +1,6 @@
 """Pydantic schemas for documents."""
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Dict, Any, List
 
 from pydantic import BaseModel, ConfigDict, Field, field_serializer, field_validator, model_validator
 
@@ -17,7 +17,7 @@ class DocumentCreate(BaseModel):
     """Schema for creating a document with folder or category support."""
 
     name: str = Field(..., min_length=1, max_length=255)
-    content: str = Field("", description="Markdown content - defaults to empty string")
+    content: str = ""
 
     # Support both new and legacy request formats
     folder_path: Optional[str] = Field(None, min_length=1, max_length=1000)
@@ -254,3 +254,36 @@ class DocumentVersionContent(BaseModel):
     document_name: str
     commit_hash: str
     content: str
+
+
+# Image metadata schemas for non-destructive cropping
+class ImageCropData(BaseModel):
+    """Schema for image crop information."""
+
+    x: float = Field(..., ge=0, description="X coordinate of crop area (percentage or pixels)")
+    y: float = Field(..., ge=0, description="Y coordinate of crop area (percentage or pixels)")
+    width: float = Field(..., gt=0, description="Width of crop area (percentage or pixels)")
+    height: float = Field(..., gt=0, description="Height of crop area (percentage or pixels)")
+    unit: str = Field(default="percentage", pattern="^(percentage|pixels)$", description="Unit of measurement")
+
+
+class ImageInstanceMetadata(BaseModel):
+    """Schema for metadata of a specific image instance in the document."""
+
+    crop: Optional[ImageCropData] = None
+    original_dimensions: Optional[Dict[str, int]] = Field(None, description="Original image dimensions")
+    last_modified: Optional[datetime] = None
+
+
+class DocumentImageMetadata(BaseModel):
+    """Schema for updating document image metadata."""
+
+    filename: str = Field(..., description="Image filename")
+    line_number: int = Field(..., ge=1, description="Line number where image appears")
+    metadata: ImageInstanceMetadata
+
+
+class DocumentImageMetadataUpdate(BaseModel):
+    """Schema for batch updating multiple image metadata entries."""
+
+    updates: List[DocumentImageMetadata] = Field(..., description="List of image metadata updates")

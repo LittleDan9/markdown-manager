@@ -3,26 +3,18 @@
  * Abstracted from GitHub file preview for universal use with existing styling
  */
 
-import React, { useState, useEffect } from 'react';
-import { Card, Alert, Spinner, Badge, Button } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Spinner, Badge } from 'react-bootstrap';
 
 export default function FilePreview({
   file,
   dataProvider,
-  config
+  config: _config
 }) {
   const [fileContent, setFileContent] = useState('');
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    if (file && file.type === 'file' && dataProvider) {
-      loadFileContent();
-    } else {
-      setFileContent('');
-    }
-  }, [file, dataProvider]);
-
-  const loadFileContent = async () => {
+  const loadFileContent = useCallback(async () => {
     setLoading(true);
     try {
       const content = await dataProvider.getFileContent(file);
@@ -33,11 +25,19 @@ export default function FilePreview({
     } finally {
       setLoading(false);
     }
-  };
+  }, [file, dataProvider]);
+
+  useEffect(() => {
+    if (file && file.type === 'file' && dataProvider) {
+      loadFileContent();
+    } else {
+      setFileContent('');
+    }
+  }, [file, dataProvider, loadFileContent]);
 
   const formatFileSize = (size) => {
     if (!size) return '-';
-    
+
     if (size < 1024) return `${size} B`;
     if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
     return `${(size / (1024 * 1024)).toFixed(1)} MB`;
@@ -102,9 +102,9 @@ export default function FilePreview({
     if (loading) {
       return (
         <div className="d-flex justify-content-center align-items-center p-4">
-          <Spinner 
-            animation="border" 
-            role="status" 
+          <Spinner
+            animation="border"
+            role="status"
             variant="primary"
           >
             <span className="visually-hidden">Loading content...</span>

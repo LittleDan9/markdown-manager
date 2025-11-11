@@ -28,7 +28,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
   // Load icons when pack selection or search changes
   useEffect(() => {
     loadIcons(true);
-  }, [selectedPack, searchTerm]);
+  }, [selectedPack, searchTerm, loadIcons]);
 
   const loadIcons = useCallback(async (reset = false) => {
     if (loading) return;
@@ -468,7 +468,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
           {selectedIcon && (
             <div>
               <p>
-                Are you sure you want to delete the icon <strong>"{selectedIcon.key}"</strong>?
+                Are you sure you want to delete the icon <strong>&quot;{selectedIcon.key}&quot;</strong>?
               </p>
               <Card className="mb-3">
                 <Card.Body>

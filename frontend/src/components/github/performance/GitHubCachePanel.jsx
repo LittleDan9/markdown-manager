@@ -124,7 +124,7 @@ export default function GitHubCachePanel({ isActive = false }) {
     return Math.round((hits / (hits + misses)) * 100);
   };
 
-  const getSyncStatusBadge = () => {
+  const _getSyncStatusBadge = () => {
     if (!syncStatus) return { variant: 'secondary', text: 'Unknown' };
     return syncStatus.running
       ? { variant: 'success', text: 'Running' }

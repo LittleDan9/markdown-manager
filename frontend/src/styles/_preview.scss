@@ -16,6 +16,19 @@
   #preview {
     .preview-scroll {
 
+      // Disable automatic hyphenation for better readability
+      hyphens: none;
+      word-break: normal;
+      overflow-wrap: normal;
+
+      // Apply to all text elements
+      *,
+      p, h1, h2, h3, h4, h5, h6, li, td, th, blockquote, code {
+        hyphens: none;
+        word-break: normal;
+        overflow-wrap: normal;
+      }
+
       & > .mermaid {
         margin: 1.5rem 0 !important;
         svg[id^="mermaid"] {

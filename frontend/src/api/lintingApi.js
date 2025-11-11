@@ -11,6 +11,17 @@
 import { Api } from './api';
 
 class LintingApi extends Api {
+  constructor() {
+    super();
+    this._rulesCache = null;
+  }
+
+  /**
+   * Clear the rules cache - call this when auth state changes or settings are modified
+   */
+  clearRulesCache() {
+    this._rulesCache = null;
+  }
   /**
    * Get user's linting configuration
    * Returns null if user has no settings (should use defaults)
@@ -41,6 +52,8 @@ class LintingApi extends Api {
       description,
       enabled
     });
+    // Clear cache when user config changes
+    this.clearRulesCache();
     return response.data;
   }
 
@@ -49,6 +62,8 @@ class LintingApi extends Api {
    */
   async deleteUserConfig() {
     await this.apiCall('/markdown-lint/user/defaults', 'DELETE');
+    // Clear cache when user config is deleted
+    this.clearRulesCache();
   }
 
   /**
@@ -72,6 +87,11 @@ class LintingApi extends Api {
    * This is what the editor should use for actual linting
    */
   async getEffectiveRules() {
+    // Return cached rules if available
+    if (this._rulesCache !== null) {
+      return this._rulesCache;
+    }
+
     try {
       // Check if user has a token (simple authentication check)
       const token = this.getToken();
@@ -79,7 +99,9 @@ class LintingApi extends Api {
       if (!token) {
         // User not authenticated, use recommended defaults
         console.log('User not authenticated, using recommended defaults for markdown lint');
-        return await this.getRecommendedDefaults();
+        const rules = await this.getRecommendedDefaults();
+        this._rulesCache = rules;
+        return rules;
       }
 
       // User is authenticated, try to get their configuration
@@ -87,24 +109,32 @@ class LintingApi extends Api {
 
       if (userConfig === null) {
         // User has no configuration, use recommended defaults
-        return await this.getRecommendedDefaults();
+        const rules = await this.getRecommendedDefaults();
+        this._rulesCache = rules;
+        return rules;
       }
 
       if (userConfig.enabled === false) {
         // User has globally disabled linting
+        this._rulesCache = {};
         return {};
       }
 
       // User has custom rules (including {} for all rules disabled)
-      return userConfig.rules || {};
+      const rules = userConfig.rules || {};
+      this._rulesCache = rules;
+      return rules;
 
     } catch (error) {
       // On any error (including 403), fall back to public defaults
       console.warn('Failed to get effective rules, falling back to defaults:', error);
       try {
-        return await this.getRecommendedDefaults();
+        const rules = await this.getRecommendedDefaults();
+        this._rulesCache = rules;
+        return rules;
       } catch (defaultsError) {
         console.error('Failed to get defaults, using empty rules:', defaultsError);
+        this._rulesCache = {};
         return {};
       }
     }

@@ -13,16 +13,16 @@ export const getFileIcon = (item, isExpanded = false) => {
   if (item.type === 'dir' || item.type === 'folder') {
     return isExpanded ? 'folder2-open' : 'folder2';
   }
-  
+
   // Extract file extension and filename
   const extension = item.name.split('.').pop().toLowerCase();
   const filename = item.name.toLowerCase();
-  
+
   // Special files first (by exact filename)
   const filenameMap = {
     // Documentation
     'readme.md': 'file-text-fill',
-    'readme.txt': 'file-text-fill', 
+    'readme.txt': 'file-text-fill',
     'readme': 'file-text-fill',
     'changelog.md': 'file-text',
     'changelog.txt': 'file-text',
@@ -34,7 +34,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'contributors': 'file-earmark-text',
     'todo.md': 'list-check',
     'todo.txt': 'list-check',
-    
+
     // Package Management
     'package.json': 'box-seam',
     'package-lock.json': 'box-seam',
@@ -45,7 +45,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'setup.py': 'file-earmark-code',
     'pyproject.toml': 'file-earmark-code',
     'poetry.lock': 'file-earmark-code',
-    
+
     // Build & Config
     'dockerfile': 'hdd-stack',
     'docker-compose.yml': 'hdd-stack',
@@ -57,13 +57,13 @@ export const getFileIcon = (item, isExpanded = false) => {
     'gruntfile.js': 'gear',
     'rollup.config.js': 'gear',
     'vite.config.js': 'gear',
-    
+
     // Version Control
     '.gitignore': 'git',
     '.gitattributes': 'git',
     '.gitmodules': 'git',
     '.gitkeep': 'git',
-    
+
     // Environment
     '.env': 'file-earmark-code',
     '.env.local': 'file-earmark-code',
@@ -71,12 +71,12 @@ export const getFileIcon = (item, isExpanded = false) => {
     '.env.development': 'file-earmark-code',
     '.env.example': 'file-earmark-code',
   };
-  
+
   // Check filename first
   if (filenameMap[filename]) {
     return filenameMap[filename];
   }
-  
+
   // Special filename patterns
   if (filename.includes('config') || filename.includes('settings')) {
     return 'gear';
@@ -84,7 +84,7 @@ export const getFileIcon = (item, isExpanded = false) => {
   if (filename.startsWith('docker-compose')) {
     return 'hdd-stack';
   }
-  
+
   // File type mapping by extension
   const iconMap = {
     // Documents & Text
@@ -95,7 +95,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'doc': 'file-earmark-word',
     'docx': 'file-earmark-word',
     'pdf': 'file-earmark-pdf',
-    
+
     // Programming Languages
     'js': 'filetype-js',
     'mjs': 'filetype-js',
@@ -125,7 +125,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'r': 'file-code',
     'matlab': 'file-code',
     'm': 'file-code',
-    
+
     // Shell Scripts
     'sh': 'terminal',
     'bash': 'terminal',
@@ -134,7 +134,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'bat': 'terminal',
     'cmd': 'terminal',
     'ps1': 'terminal',
-    
+
     // Web Technologies
     'html': 'filetype-html',
     'htm': 'filetype-html',
@@ -143,17 +143,16 @@ export const getFileIcon = (item, isExpanded = false) => {
     'jsp': 'file-earmark-code',
     'asp': 'file-earmark-code',
     'aspx': 'file-earmark-code',
-    
+
     // Stylesheets
     'css': 'filetype-css',
     'scss': 'filetype-scss',
     'sass': 'filetype-scss',
     'less': 'file-earmark-richtext',
     'styl': 'file-earmark-richtext',
-    
+
     // Data & Configuration
     'json': 'filetype-json',
-    'xml': 'filetype-xml',
     'yaml': 'filetype-yml',
     'yml': 'filetype-yml',
     'toml': 'file-earmark-code',
@@ -164,13 +163,13 @@ export const getFileIcon = (item, isExpanded = false) => {
     'env': 'file-earmark-code',
     'properties': 'file-earmark-code',
     'csv': 'filetype-csv',
-    
+
     // Database
     'sql': 'filetype-sql',
     'db': 'file-earmark-sql',
     'sqlite': 'file-earmark-sql',
     'sqlite3': 'file-earmark-sql',
-    
+
     // Images
     'png': 'file-earmark-image',
     'jpg': 'filetype-jpg',
@@ -182,7 +181,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'ico': 'file-earmark-image',
     'tiff': 'file-earmark-image',
     'tif': 'file-earmark-image',
-    
+
     // Audio
     'mp3': 'file-earmark-music',
     'wav': 'file-earmark-music',
@@ -191,7 +190,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'ogg': 'file-earmark-music',
     'm4a': 'file-earmark-music',
     'wma': 'file-earmark-music',
-    
+
     // Video
     'mp4': 'file-earmark-play',
     'avi': 'file-earmark-play',
@@ -201,7 +200,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'webm': 'file-earmark-play',
     'mkv': 'file-earmark-play',
     'm4v': 'file-earmark-play',
-    
+
     // Archives
     'zip': 'file-zip',
     'rar': 'file-zip',
@@ -211,7 +210,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'tgz': 'file-zip',
     'bz2': 'file-zip',
     'xz': 'file-zip',
-    
+
     // Executables
     'exe': 'file-binary',
     'msi': 'file-binary',
@@ -220,17 +219,17 @@ export const getFileIcon = (item, isExpanded = false) => {
     'deb': 'file-binary',
     'rpm': 'file-binary',
     'apk': 'file-binary',
-    
+
     // Spreadsheets
     'xls': 'file-earmark-spreadsheet',
     'xlsx': 'file-earmark-spreadsheet',
     'ods': 'file-earmark-spreadsheet',
-    
+
     // Presentations
     'ppt': 'file-earmark-slides',
     'pptx': 'file-earmark-slides',
     'odp': 'file-earmark-slides',
-    
+
     // Fonts
     'ttf': 'fonts',
     'otf': 'fonts',
@@ -238,7 +237,7 @@ export const getFileIcon = (item, isExpanded = false) => {
     'woff2': 'fonts',
     'eot': 'fonts',
   };
-  
+
   return iconMap[extension] || 'file-earmark';
 };
 
@@ -256,14 +255,14 @@ export const getFileIconColor = (item, isExpanded = false, isSelected = false) =
     }
     return isExpanded ? 'text-warning' : '';
   }
-  
+
   // For selected files, let selection styling handle the color
   if (isSelected) {
     return '';
   }
-  
+
   const extension = item.name.split('.').pop().toLowerCase();
-  
+
   // Color mapping for different file types
   const colorMap = {
     // Documents - Green
@@ -271,7 +270,7 @@ export const getFileIconColor = (item, isExpanded = false, isSelected = false) =
     'markdown': 'text-success',
     'txt': 'text-muted',
     'pdf': 'text-danger',
-    
+
     // Code - Blue
     'js': 'text-info',
     'jsx': 'text-info',
@@ -286,38 +285,36 @@ export const getFileIconColor = (item, isExpanded = false, isSelected = false) =
     'rs': 'text-info',
     'php': 'text-info',
     'rb': 'text-info',
-    
+
     // Web - Primary
     'html': 'text-primary',
     'htm': 'text-primary',
-    'xml': 'text-primary',
-    
+
     // Styles - Danger/Red
     'css': 'text-danger',
     'scss': 'text-danger',
     'sass': 'text-danger',
     'less': 'text-danger',
-    
+
     // Data - Secondary
     'json': 'text-secondary',
     'yaml': 'text-secondary',
     'yml': 'text-secondary',
-    'xml': 'text-secondary',
-    
+
     // Images - Purple/Custom
     'png': 'text-purple',
     'jpg': 'text-purple',
     'jpeg': 'text-purple',
     'gif': 'text-purple',
     'svg': 'text-purple',
-    
+
     // Media - Warning
     'mp3': 'text-warning',
     'mp4': 'text-warning',
     'wav': 'text-warning',
     'avi': 'text-warning',
   };
-  
+
   return colorMap[extension] || 'text-muted';
 };
 

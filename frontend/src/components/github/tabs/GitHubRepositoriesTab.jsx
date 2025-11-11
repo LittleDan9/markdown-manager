@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, Button, Alert, Badge, Row, Col, Form, InputGroup, ProgressBar } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
@@ -18,22 +18,22 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
   const [showRepositorySettings, setShowRepositorySettings] = useState(false);
   const [gitStatusOverview, setGitStatusOverview] = useState(null);
   const [loadingGitStatus, setLoadingGitStatus] = useState(false);
-  const { showSuccess, showError } = useNotification();
-  const { openGitHubTab } = useFileModal();
+  const { _showSuccess, showError } = useNotification();
+  const { _openGitHubTab } = useFileModal();
 
   const repositoryListRef = useRef(null);
 
   useEffect(() => {
     loadAccounts();
-  }, []);
+  }, [loadAccounts]);
 
   useEffect(() => {
     if (selectedAccount) {
       loadRepositories();
     }
-  }, [selectedAccount]);
+  }, [selectedAccount, loadRepositories]);
 
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     try {
       const accountsData = await gitHubApi.getAccounts();
       setAccounts(accountsData);
@@ -43,9 +43,9 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } catch (err) {
       showError('Failed to load GitHub accounts');
     }
-  };
+  }, [selectedAccount, showError]);
 
-  const loadRepositories = async () => {
+  const loadRepositories = useCallback(async () => {
     if (!selectedAccount) return;
 
     try {
@@ -86,7 +86,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedAccount, accounts.length]);
 
     // Handle status updates from the repository list
   const handleRepositoryStatusUpdate = (statusMap) => {
@@ -305,7 +305,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                   Workspace Repositories
                   {searchTerm && (
                     <small className="text-muted ms-2">
-                      (filtered by "{searchTerm}")
+                      (filtered by &quot;{searchTerm}&quot;)
                     </small>
                   )}
                 </div>
@@ -346,7 +346,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
                     <i className="bi bi-info-circle me-2"></i>
                     <strong>No repositories in workspace yet.</strong>
                     <p className="mb-2 mt-2">
-                      Use the "Manage Repository Selection" button above to add repositories to your workspace.
+                      Use the &quot;Manage Repository Selection&quot; button above to add repositories to your workspace.
                     </p>
                     <Button
                       variant="primary"

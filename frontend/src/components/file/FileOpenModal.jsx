@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Tabs, Tab } from "react-bootstrap";
+import { Modal } from "react-bootstrap";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useNotification } from "@/components/NotificationProvider";
-import { useAuth } from "@/providers/AuthProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useFileModal } from "@/hooks/ui";
-import config from "@/config.js";
 // Import the unified tab component
 import UnifiedFileBrowserTab from "./tabs/UnifiedFileBrowserTab";
 
@@ -15,16 +13,11 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
   const [docToDelete, setDocToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const { showSuccess, showError } = useNotification();
-  const { isAuthenticated } = useAuth();
   const { activeTab, selectedRepository, closeFileModal } = useFileModal();
 
   // Sync the activeTab from the global state
-  const [localActiveTab, setLocalActiveTab] = useState(activeTab || "local");
-
   useEffect(() => {
-    if (activeTab) {
-      setLocalActiveTab(activeTab);
-    }
+    // localActiveTab was here but not used
   }, [activeTab, selectedRepository]);
 
   // Override onHide to also close the global modal state

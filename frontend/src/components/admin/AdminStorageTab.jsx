@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Form, Alert, Spinner } from 'react-bootstrap';
 import StorageTab from '../storage/StorageTab';
 import { useNotification } from '../NotificationProvider';
@@ -11,7 +11,7 @@ function AdminStorageTab() {
   const [error, setError] = useState('');
   const { showError } = useNotification();
 
-  const loadUsers = async () => {
+  const loadUsers = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
@@ -38,11 +38,11 @@ function AdminStorageTab() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [selectedUserId, showError]);
 
   useEffect(() => {
     loadUsers();
-  }, []);
+  }, [loadUsers]);
 
   if (loading && users.length === 0) {
     return (

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Button, ButtonGroup, Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
-import MermaidExportService from '../../services/rendering/MermaidExportService';
+import { serviceFactory } from '../../services/injectors';
 import DiagramFullscreenModal from './DiagramFullscreenModal';
 
 /**
@@ -15,13 +15,14 @@ import DiagramFullscreenModal from './DiagramFullscreenModal';
  */
 function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscreen }) {
   const [isExporting, setIsExporting] = useState(false);
-  const [exportFormat, setExportFormat] = useState(null);
+  const [_exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
+  const mermaidExportService = serviceFactory.createMermaidExportService();
 
-  // Use context with fallback values
-  const themeContext = useTheme();
+  // Use unified context system
+  const { theme } = useTheme();
 
   // Use event-based notifications to avoid portal context issues
   const showSuccess = (message) => {
@@ -35,12 +36,12 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       detail: { message, type: 'danger', duration: 8000 }
     }));
   };
-  const theme = themeContext?.theme || 'light';
+
   const isDarkMode = theme === 'dark';
 
   // Check if diagram needs GitHub conversion
   const needsConversion = diagramElement ?
-    MermaidExportService.needsGitHubConversion(diagramElement, diagramSource) : false;
+    mermaidExportService.needsGitHubConversion(diagramElement, diagramSource) : false;
 
   // Extract SVG content for fullscreen modal
   const getSvgContent = () => {
@@ -63,10 +64,10 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       // Reset styles before applying new ones to avoid conflicts
       controlsRef.current.style.transition = '';
       controlsRef.current.style.opacity = '';
-      
+
       // Add the interaction class
       controlsRef.current.classList.add('interaction-active');
-      
+
       // Force visibility immediately to prevent flickering
       controlsRef.current.style.opacity = '1';
       controlsRef.current.style.transition = 'opacity 0.2s ease-in-out 2s';
@@ -119,7 +120,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       if (controlsRef.current && controlsRef.current.classList.contains('interaction-active')) {
         const computedStyle = window.getComputedStyle(controlsRef.current);
         const opacity = parseFloat(computedStyle.opacity);
-        
+
         // If controls are supposed to be visible but aren't, force visibility
         if (opacity < 0.5) {
           console.log('Detected invisible controls, forcing visibility');
@@ -192,9 +193,9 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
         };
       }
 
-      const filename = MermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
+      const filename = mermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
 
-      await MermaidExportService.downloadDiagram(
+      await mermaidExportService.downloadDiagram(
         diagramElement,
         format,
         filename,
@@ -210,7 +211,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       setIsExporting(false);
       setExportFormat(null);
       markInteractionActive(); // Keep controls visible after export completes
-      
+
       // Dispatch event to notify parent that controls need to be re-validated
       // This helps ensure controls remain available after export
       window.dispatchEvent(new CustomEvent('diagramExportComplete', {
@@ -220,7 +221,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   };
 
   const handleFullscreen = () => {
-    const svgContent = getSvgContent();
+    // const _svgContent = getSvgContent();
 
     // Add modal interaction class to parent container to keep controls visible
     if (diagramElement) {
@@ -249,7 +250,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   // Handle modal close to ensure controls reset properly
   const handleModalClose = () => {
     setShowFullscreen(false);
-    
+
     // Immediately clear any forced interaction states when modal closes
     if (controlsRef.current) {
       // Clear the interaction-active class and styles immediately
@@ -257,7 +258,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       controlsRef.current.style.opacity = '';
       controlsRef.current.style.transition = '';
     }
-    
+
     // Clear any existing timeout
     if (interactionTimeoutRef.current) {
       clearTimeout(interactionTimeoutRef.current);

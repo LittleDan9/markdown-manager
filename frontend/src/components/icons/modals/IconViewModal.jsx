@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Badge, Row, Col, Spinner, Alert, Form, InputGroup, OverlayTrigger, Tooltip } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Button, Row, Col, Spinner, Alert, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
 import { cleanSvgBodyForBrowser } from '../../../utils/svgUtils';
@@ -41,7 +41,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
       setEditedSearchTerms('');
       setSaving(false);
     }
-  }, [show, icon?.id, icon?.key, initialEditMode]); // Added icon?.key to ensure updates when icon changes
+  }, [show, icon?.id, icon?.key, icon?.search_terms, initialEditMode, fetchIconData]); // Added icon?.key to ensure updates when icon changes
 
   useEffect(() => {
     // Reset editing state when modal opens/closes or icon changes
@@ -53,7 +53,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     }
   }, [show, iconData, initialEditMode]);
 
-  const fetchIconData = async () => {
+  const fetchIconData = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -78,7 +78,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     } finally {
       setLoading(false);
     }
-  };
+  }, [iconData, icon]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -165,12 +165,9 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
           borderRadius: '0.375rem',
           padding: '20px',
           backgroundColor: 'var(--bs-body-bg)',
-          display: 'inline-block',
-          width: '300px',
-          height: '300px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center'
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center'
         }}>
           <svg
             viewBox={viewBox || `0 0 ${width} ${height}`}
@@ -306,7 +303,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                     overlay={
                       <Tooltip>
                         Space-delimited keywords used when searching for this icon.
-                        Example: "aws lambda serverless function compute"
+                        Example: &quot;aws lambda serverless function compute&quot;
                       </Tooltip>
                     }
                   >

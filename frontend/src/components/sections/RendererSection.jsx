@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Container, Alert, Button } from 'react-bootstrap';
 import Renderer from '../Renderer';
+import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
 /**
  * RendererSection - Wrapper component for the renderer area
@@ -10,8 +11,6 @@ import Renderer from '../Renderer';
 
 // ...existing code...
 function RendererSection({
-  content,
-  onRenderHTML,
   isSharedView,
   sharedDocument,
   sharedLoading,
@@ -21,11 +20,12 @@ function RendererSection({
   cursorLine,
   fullscreenPreview
 }) {
+  const { content } = useDocumentContext();
   const [hasRendered, setHasRendered] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
 
   // Reset hasRendered only when starting a document operation (not content changes)
-  React.useEffect(() => {
+  useEffect(() => {
     if (isInitializing || sharedLoading || documentLoading) {
       setHasRendered(false);
       if (isInitializing) {
@@ -39,14 +39,13 @@ function RendererSection({
   }, [isInitializing, sharedLoading, documentLoading]);
 
   // Handle empty content case - consider it "rendered" immediately
-  React.useEffect(() => {
+  useEffect(() => {
     console.log("RendererSection: Empty content check", {
       content: content.length,
       contentTrimmed: content.trim().length,
       isInitializing,
       sharedLoading,
-      documentLoading,
-      hasRendered
+      documentLoading
     });
 
     if (!content.trim() && !isInitializing && !sharedLoading && !documentLoading) {
@@ -62,6 +61,8 @@ function RendererSection({
 
   // Only show spinner for document operations, not content changes
   const showSpinner = (isInitializing || sharedLoading || documentLoading) && !hasRendered;
+
+  const scrollToLineValue = isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null);
 
   return (
     <>
@@ -85,9 +86,7 @@ function RendererSection({
         </div>
       ) : (
         <Renderer
-          content={content}
-          onRenderHTML={onRenderHTML}
-          scrollToLine={isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null)}
+          scrollToLine={scrollToLineValue}
           fullscreenPreview={fullscreenPreview}
           onFirstRender={handleFirstRender}
           showLoadingOverlay={showSpinner}
@@ -98,8 +97,6 @@ function RendererSection({
   );
 }
 RendererSection.propTypes = {
-  content: PropTypes.string.isRequired,
-  onRenderHTML: PropTypes.func.isRequired,
   isSharedView: PropTypes.bool.isRequired,
   sharedDocument: PropTypes.object,
   sharedLoading: PropTypes.bool.isRequired,

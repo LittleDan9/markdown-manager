@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { Modal, Button, Spinner, Badge, Table, Alert } from "react-bootstrap";
+import React, { useState, useEffect, useCallback } from "react";
+import { Modal, Button, Spinner, Badge, Alert } from "react-bootstrap";
 import gitHubApi from "@/api/gitHubApi";
 
 function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBranch }) {
@@ -7,13 +7,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  useEffect(() => {
-    if (show && documentId) {
-      loadCommitHistory();
-    }
-  }, [show, documentId]);
-
-  const loadCommitHistory = async () => {
+  const loadCommitHistory = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
@@ -38,7 +32,13 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
     } finally {
       setLoading(false);
     }
-  };
+  }, [documentId]);
+
+  useEffect(() => {
+    if (show && documentId) {
+      loadCommitHistory();
+    }
+  }, [show, documentId, loadCommitHistory]);
 
   const handleClose = () => {
     setCommits([]);
@@ -137,7 +137,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
             </div>
 
             <div className="git-history-timeline">
-              {commits.map((commit, index) => (
+              {commits.map((commit, _index) => (
                 <div key={commit.hash} className="commit-item border-start border-2 border-primary ps-3 pb-3 position-relative">
                   {/* Timeline dot */}
                   <div

@@ -1,6 +1,9 @@
 // Content rendering services
 export { render } from './MarkdownRenderer.js';
 
+// Mermaid export service
+export { MermaidExportService } from './MermaidExportService.js';
+
 // New modular Mermaid services
 export {
   MermaidRenderer,

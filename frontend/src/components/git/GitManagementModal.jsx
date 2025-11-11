@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Tab, Tabs, Alert, Button, Spinner, Table, Badge, Card, Row, Col, Accordion } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Modal, Tab, Tabs, Alert, Spinner, Table, Badge, Card, Row, Col, Accordion } from 'react-bootstrap';
 import { useAuth } from '../../providers/AuthProvider';
 import { useNotification } from '../NotificationProvider';
+import { ActionButton, StatusBadge } from '@/components/shared';
 import documentsApi from '../../api/documentsApi';
 
 export default function GitManagementModal({ show, onHide }) {
@@ -20,16 +21,6 @@ export default function GitManagementModal({ show, onHide }) {
   // Settings form state
   const [settingsForm, setSettingsForm] = useState({});
   const [settingsLoading, setSettingsLoading] = useState(false);
-
-  useEffect(() => {
-    if (show) {
-      loadDataForTab(activeTab);
-    }
-  }, [show]);
-
-  const loadData = async () => {
-    await loadDataForTab(activeTab);
-  };
 
   const loadOverview = async () => {
     try {
@@ -67,7 +58,7 @@ export default function GitManagementModal({ show, onHide }) {
     }
   };
 
-  const loadSettings = async () => {
+  const loadSettings = useCallback(async () => {
     try {
       const data = await documentsApi.getGitSettings();
       setSettings(data.settings); // Extract settings from response
@@ -76,7 +67,7 @@ export default function GitManagementModal({ show, onHide }) {
       setSettings({ error: error.message });
       showError('Failed to load git settings', null, error.message, 'git');
     }
-  };
+  }, [showError]);
 
   const handleTabSelect = async (key) => {
     setActiveTab(key);
@@ -84,7 +75,7 @@ export default function GitManagementModal({ show, onHide }) {
     await loadDataForTab(key);
   };
 
-  const loadDataForTab = async (tabKey = activeTab) => {
+  const loadDataForTab = useCallback(async (tabKey = activeTab) => {
     setLoading(true);
     try {
       switch (tabKey) {
@@ -112,6 +103,16 @@ export default function GitManagementModal({ show, onHide }) {
     } finally {
       setLoading(false);
     }
+  }, [activeTab, showError, loadSettings]);
+
+  useEffect(() => {
+    if (show) {
+      loadDataForTab(activeTab);
+    }
+  }, [show, activeTab, loadDataForTab]);
+
+  const loadData = async () => {
+    await loadDataForTab(activeTab);
   };
 
   const formatDateTime = (dateString) => {
@@ -268,7 +269,7 @@ export default function GitManagementModal({ show, onHide }) {
                     <Card.Body className="text-center">
                       <i className="bi bi-activity display-4 text-info"></i>
                       <Card.Title className="mt-2">Status</Card.Title>
-                      <Badge bg="success" className="fs-6">Active</Badge>
+                      <StatusBadge status="active" />
                     </Card.Body>
                   </Card>
                 </Col>
@@ -319,9 +320,7 @@ export default function GitManagementModal({ show, onHide }) {
                             <td>{repo.document_count}</td>
                             <td>{formatDateTime(repo.last_updated)}</td>
                             <td>
-                              <Badge bg={repo.status === 'active' ? 'success' : 'warning'}>
-                                {repo.status}
-                              </Badge>
+                              <StatusBadge status={repo.status} />
                             </td>
                           </tr>
                         ))}
@@ -478,15 +477,14 @@ export default function GitManagementModal({ show, onHide }) {
                   </p>
                 </Col>
                 <Col xs="auto">
-                  <Button
+                  <ActionButton
                     variant="primary"
                     onClick={handleCreateStash}
-                    disabled={loading}
-                    size="sm"
+                    loading={loading}
+                    icon="plus-circle"
                   >
-                    <i className="bi bi-plus-circle me-2"></i>
                     Create Stash
-                  </Button>
+                  </ActionButton>
                 </Col>
               </Row>
 
@@ -535,22 +533,20 @@ export default function GitManagementModal({ show, onHide }) {
                             </td>
                             <td>
                               <div className="d-flex gap-1">
-                                <Button
+                                <ActionButton
                                   variant="success"
                                   size="sm"
                                   onClick={() => handleApplyStash(stash, false)}
                                   title="Apply stash (keep stash)"
-                                >
-                                  <i className="bi bi-arrow-down-circle"></i>
-                                </Button>
-                                <Button
+                                  icon="arrow-down-circle"
+                                />
+                                <ActionButton
                                   variant="warning"
                                   size="sm"
                                   onClick={() => handleApplyStash(stash, true)}
                                   title="Pop stash (apply and remove)"
-                                >
-                                  <i className="bi bi-arrow-up-circle-fill"></i>
-                                </Button>
+                                  icon="arrow-up-circle-fill"
+                                />
                               </div>
                             </td>
                           </tr>
@@ -564,7 +560,7 @@ export default function GitManagementModal({ show, onHide }) {
               {!loading && !stashes.error && stashes.stashes.length === 0 && (
                 <Alert variant="info">
                   <i className="bi bi-info-circle me-2"></i>
-                  No stashes found. Use "Create Stash" to save uncommitted changes temporarily.
+                  No stashes found. Use &quot;Create Stash&quot; to save uncommitted changes temporarily.
                 </Alert>
               )}
             </div>
@@ -833,32 +829,23 @@ export default function GitManagementModal({ show, onHide }) {
                     </Row>
 
                     <div className="d-flex justify-content-end gap-2 mt-3">
-                      <Button
+                      <ActionButton
                         type="button"
                         variant="secondary"
                         onClick={handleResetSettings}
-                        disabled={settingsLoading}
+                        loading={settingsLoading}
+                        icon="arrow-counterclockwise"
                       >
-                        <i className="bi bi-arrow-counterclockwise me-1"></i>
                         Reset
-                      </Button>
-                      <Button
+                      </ActionButton>
+                      <ActionButton
                         type="submit"
                         variant="primary"
-                        disabled={settingsLoading}
+                        loading={settingsLoading}
+                        icon="check-lg"
                       >
-                        {settingsLoading ? (
-                          <>
-                            <Spinner animation="border" size="sm" className="me-1" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <i className="bi bi-check-lg me-1"></i>
-                            Save Settings
-                          </>
-                        )}
-                      </Button>
+                        Save Settings
+                      </ActionButton>
                     </div>
                   </form>
 
@@ -882,22 +869,17 @@ export default function GitManagementModal({ show, onHide }) {
         </Tabs>
       </Modal.Body>
       <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>
+        <ActionButton variant="secondary" onClick={onHide}>
           Close
-        </Button>
-        <Button variant="primary" onClick={loadData} disabled={loading}>
-          {loading ? (
-            <>
-              <Spinner animation="border" size="sm" className="me-2" />
-              Loading...
-            </>
-          ) : (
-            <>
-              <i className="bi bi-arrow-clockwise me-2"></i>
-              Refresh
-            </>
-          )}
-        </Button>
+        </ActionButton>
+        <ActionButton
+          variant="primary"
+          onClick={loadData}
+          loading={loading}
+          icon="arrow-clockwise"
+        >
+          Refresh
+        </ActionButton>
       </Modal.Footer>
     </Modal>
   );

@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from "react";
-import { Card, Dropdown, ButtonGroup } from "react-bootstrap";
+import { ButtonGroup } from "react-bootstrap";
 import UnifiedFileBrowser from "../../shared/FileBrowser/UnifiedFileBrowser";
-import { LocalDocumentsProvider } from "../../../services/FileBrowserProviders";
-import { createFileBrowserProvider } from "../../../services/providers/UnifiedFileBrowserProvider";
+import { LocalDocumentsProvider } from "../../../services/fileBrowser/FileBrowserProviders";
+import { createFileBrowserProvider } from "../../../services/fileBrowser/providers/UnifiedFileBrowserProvider";
 import { useUnifiedFileOpening } from "../../../services/core/UnifiedFileOpeningService";
 import GitHubAccountList from "../../shared/GitHubAccountList";
 import GitHubRepositorySettings from "../../github/settings/GitHubRepositorySettings";
-import config from '../../../config';
 
 export default function UnifiedFileBrowserTab({
   documents,
   categories,
   onFileOpen,
-  onDocumentDelete,
+  _onDocumentDelete,
   onModalHide,
   // GitHub-specific props
   initialRepository = null,
-  setContent = null,
-  setDocumentTitle = null,
+  _setContent = null,
+  _setDocumentTitle = null,
   showSuccess = null,
   showError = null
 }) {
@@ -31,6 +30,9 @@ export default function UnifiedFileBrowserTab({
     local: '/Documents', // Default path for local documents
     github: '/' // Default path for GitHub
   });
+
+  // Preserve selected file across modal openings
+  const [selectedFile, setSelectedFile] = useState(null);
 
   // GitHub-specific state
   const [selectedRepository, setSelectedRepository] = useState(initialRepository);
@@ -55,7 +57,7 @@ export default function UnifiedFileBrowserTab({
   useEffect(() => {
     if (currentDataSource === 'local' && documents && categories) {
       console.log('🏠 Creating local documents provider');
-      const provider = new LocalDocumentsProvider({ documents, categories }, { filters: { fileTypes: [] } });
+      const provider = new LocalDocumentsProvider(documents, categories, { filters: { fileTypes: [] } });
       setCurrentProvider(provider);
 
       // Use stored path or provider default
@@ -116,6 +118,9 @@ export default function UnifiedFileBrowserTab({
     // Save current path before switching
     saveCurrentPath();
 
+    // Clear selected file when switching data sources
+    setSelectedFile(null);
+
     // Reset provider state when switching
     setCurrentProvider(null);
 
@@ -128,7 +133,7 @@ export default function UnifiedFileBrowserTab({
     }
   };
 
-  const handleRepositorySelect = (repository, account) => {
+  const handleRepositorySelect = (repository, _account) => {
     console.log('🚀 Repository selected:', repository.repo_name);
     setSelectedRepository(repository);
     setSelectedBranch(repository.default_branch || 'main');
@@ -137,6 +142,7 @@ export default function UnifiedFileBrowserTab({
 
   const handleFileSelect = (file) => {
     console.log('👆 File selected for preview:', file);
+    setSelectedFile(file);
     // File selection for preview is handled by UnifiedFileBrowser internally
     // The preview panel will show the content automatically
   };
@@ -156,6 +162,9 @@ export default function UnifiedFileBrowserTab({
 
   const handleFileOpen = async (file) => {
     console.log('📂 UnifiedFileBrowserTab handleFileOpen:', file);
+
+    // Clear selected file when opening a document
+    setSelectedFile(null);
 
     if (currentDataSource === 'local') {
       // Handle local documents (existing working logic)
@@ -283,6 +292,7 @@ export default function UnifiedFileBrowserTab({
           <UnifiedFileBrowser
             key={`${currentDataSource}-${selectedRepository?.id || 'local'}-${selectedBranch || 'main'}`}
             dataProvider={currentProvider}
+            initialSelectedFile={selectedFile}
             onFileSelect={handleFileSelect}  // Single-click: Preview
             onFileOpen={handleFileOpen}      // Double-click: Open in editor
             onPathChange={handlePathChange}   // Track path changes

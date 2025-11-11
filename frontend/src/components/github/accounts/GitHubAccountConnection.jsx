@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, Alert, Card } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import gitHubApi from '../../../api/gitHubApi';
@@ -7,69 +7,9 @@ import githubOAuthListener from '../../../utils/GitHubOAuthListener';
 export default function GitHubAccountConnection({ onSuccess }) {
   const [connecting, setConnecting] = useState(false);
   const [error, setError] = useState(null);
-  const { showSuccess, showError } = useNotification();
+  const { showError } = useNotification();
 
-  // Set up global OAuth listener
-  useEffect(() => {
-    console.log('GitHubAccountConnection: Setting up global OAuth listener');
-    const cleanup = githubOAuthListener.addListener(handleAuthMessage);
-
-    return cleanup; // Cleanup when component unmounts
-  }, []);
-
-  const openAuthWindow = (authUrl) => {
-    console.log('Opening OAuth popup for URL:', authUrl);
-
-    // Try a different approach: use a form with target="_blank" to preserve opener
-    const popup = window.open('', 'githubAuth', 'width=600,height=600,scrollbars=yes,resizable=yes');
-
-    if (!popup || popup.closed) {
-      setError('Popup was blocked. Please allow popups for this site and try again.');
-      return;
-    }
-
-    // Navigate the popup to the auth URL - this should preserve opener
-    popup.location.href = authUrl;
-
-    console.log('Popup opened and navigated successfully');
-    console.log('Popup window object:', popup);
-
-    // Listen for auth completion via postMessage
-    const messageListener = (event) => {
-      console.log('Received message:', event);
-      handleAuthMessage(event);
-    };
-    window.addEventListener('message', messageListener);
-
-    // Monitor popup status
-    let checkCount = 0;
-    const checkClosed = setInterval(() => {
-      checkCount++;
-      try {
-        if (popup.closed) {
-          clearInterval(checkClosed);
-          window.removeEventListener('message', messageListener);
-          setConnecting(false);
-          console.log('Popup was closed');
-        }
-      } catch (e) {
-        console.error('Error checking popup status:', e);
-      }
-    }, 1000);
-
-    // Cleanup after 5 minutes
-    setTimeout(() => {
-      if (!popup.closed) {
-        popup.close();
-      }
-      clearInterval(checkClosed);
-      window.removeEventListener('message', messageListener);
-      setConnecting(false);
-      console.log('OAuth timeout - cleaning up');
-    }, 300000);
-  };
-
-  const handleAuthMessage = (event) => {
+  const handleAuthMessage = useCallback((event) => {
     console.log('handleAuthMessage called with event:', event);
     console.log('Event origin:', event.origin);
     console.log('Event data:', event.data);
@@ -105,6 +45,66 @@ export default function GitHubAccountConnection({ onSuccess }) {
       setError('GitHub authentication failed. Please try again.');
       showError('GitHub authentication failed');
     }
+  }, [onSuccess, showError]);
+
+  // Set up global OAuth listener
+  useEffect(() => {
+    console.log('GitHubAccountConnection: Setting up global OAuth listener');
+    const cleanup = githubOAuthListener.addListener(handleAuthMessage);
+
+    return cleanup; // Cleanup when component unmounts
+  }, [handleAuthMessage]);
+
+  const openAuthWindow = (authUrl) => {
+    console.log('Opening OAuth popup for URL:', authUrl);
+
+    // Try a different approach: use a form with target="_blank" to preserve opener
+    const popup = window.open('', 'githubAuth', 'width=600,height=600,scrollbars=yes,resizable=yes');
+
+    if (!popup || popup.closed) {
+      setError('Popup was blocked. Please allow popups for this site and try again.');
+      return;
+    }
+
+    // Navigate the popup to the auth URL - this should preserve opener
+    popup.location.href = authUrl;
+
+    console.log('Popup opened and navigated successfully');
+    console.log('Popup window object:', popup);
+
+    // Listen for auth completion via postMessage
+    const messageListener = (event) => {
+      console.log('Received message:', event);
+      handleAuthMessage(event);
+    };
+    window.addEventListener('message', messageListener);
+
+    // Monitor popup status
+    let _checkCount = 0;
+    const checkClosed = setInterval(() => {
+      _checkCount++;
+      try {
+        if (popup.closed) {
+          clearInterval(checkClosed);
+          window.removeEventListener('message', messageListener);
+          setConnecting(false);
+          console.log('Popup was closed');
+        }
+      } catch (e) {
+        console.error('Error checking popup status:', e);
+      }
+    }, 1000);
+
+    // Cleanup after 5 minutes
+    setTimeout(() => {
+      if (!popup.closed) {
+        popup.close();
+      }
+      clearInterval(checkClosed);
+      window.removeEventListener('message', messageListener);
+      setConnecting(false);
+      console.log('OAuth timeout - cleaning up');
+    }, 300000);
   };
 
   const handleConnect = async () => {

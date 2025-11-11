@@ -107,7 +107,7 @@ export function chunkTextWithOffsets(text, chunkSize, codeRegions = null) {
       // First, try to find a natural break point
       const lastSpace   = text.lastIndexOf(' ', end);
       const lastNewline = text.lastIndexOf('\n', end);
-      let splitPos = Math.max(lastSpace, lastNewline);
+      const splitPos = Math.max(lastSpace, lastNewline);
 
       if (splitPos > start) {
         end = splitPos;

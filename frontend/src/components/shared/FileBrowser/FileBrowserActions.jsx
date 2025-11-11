@@ -11,8 +11,8 @@ export default function FileBrowserActions({
   selectedFile,
   selectedFiles,
   onFileOpen,
-  onMultiSelect,
-  config
+  onMultiSelect: _onMultiSelect,
+  config: _config
 }) {
   const handleFileOpen = () => {
     if (onFileOpen && selectedFile) {
@@ -35,7 +35,7 @@ export default function FileBrowserActions({
     }
 
     const isMarkdown = isMarkdownFile(selectedFile);
-    
+
     return (
       <Button
         variant={isMarkdown ? "primary" : "outline-secondary"}

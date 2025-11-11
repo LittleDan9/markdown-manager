@@ -95,7 +95,7 @@ reload_nginx() {
         sudo nginx -t
         echo "Reloading nginx..."
         sudo systemctl reload nginx
-        echo "✅ Nginx reloaded successfully"
+        echo "✅ Nginx reloaded"
 EOF
 }
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Row, Col, Alert, Spinner, Card, Button } from 'react-bootstrap';
-import { useGitHubSettings } from '../../../contexts/GitHubSettingsProvider';
+import { useGitHubSettings } from '../../../providers/GitHubSettingsProvider';
 import { useNotification } from '../../NotificationProvider';
 
 export default function GitHubSettingsTab() {
@@ -164,10 +164,10 @@ export default function GitHubSettingsTab() {
                   />
                   <Form.Text className="text-muted">
                     Automatically convert architecture-beta diagrams and custom icons to static images when saving to GitHub.
-                    This ensures your diagrams display correctly on GitHub, which doesn't support all Mermaid features.
+                    This ensures your diagrams display correctly on GitHub, which doesn&apos;t support all Mermaid features.
                     <br />
-                    <strong>When enabled:</strong> Advanced diagrams will be replaced with image references and the original source 
-                    will be preserved in collapsible details sections (e.g., "📊 View diagram source (click to expand)").
+                    <strong>When enabled:</strong> Advanced diagrams will be replaced with image references and the original source
+                    will be preserved in collapsible details sections (e.g., &quot;📊 View diagram source (click to expand)&quot;).
                   </Form.Text>
                 </Form.Group>
 
@@ -262,7 +262,7 @@ export default function GitHubSettingsTab() {
                 About GitHub Integration Settings
               </Alert.Heading>
               <ul className="mb-0">
-                <li><strong>Diagram Conversion:</strong> Advanced Mermaid features like architecture-beta and custom icons aren't supported by GitHub's renderer. This feature converts them to static images with collapsible source code.</li>
+                <li><strong>Diagram Conversion:</strong> Advanced Mermaid features like architecture-beta and custom icons aren&apos;t supported by GitHub&apos;s renderer. This feature converts them to static images with collapsible source code.</li>
                 <li><strong>Export Formats:</strong> SVG files are smaller and scale better, while PNG files have broader compatibility across different platforms.</li>
                 <li><strong>Auto-sync:</strong> When enabled, changes are automatically synchronized with your GitHub repositories based on your configured sync intervals.</li>
               </ul>

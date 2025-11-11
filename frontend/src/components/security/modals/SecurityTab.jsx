@@ -6,14 +6,14 @@ import { useAuth } from "../../../providers/AuthProvider";
 import { useNotification } from "../../NotificationProvider";
 
 function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubmit, setActiveTab }) {
-  const { user , setUser, enableMFA} = useAuth();
+  const { user } = useAuth();
   const [showMFAModal, setShowMFAModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [step, setStep] = useState(1);
   const [verifiedCode, setVerifiedCode] = useState("");
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess } = useNotification();
   const [backupCodes, setBackupCodes] = useState([]);
 
 
@@ -73,7 +73,7 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
         return;
       }
       // Confirm MFA enable with password and verified TOTP code
-      const response = await enableMFA(password, verifiedCode);
+      const response = await userApi.enableMFA(password, verifiedCode);
       if (response.success) {
         // Fetch backup codes for step 4
         setBackupCodes(response.backup_codes);

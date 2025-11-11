@@ -45,9 +45,9 @@ export default function useMemoryOptimization(options = {}) {
       cleanup: cleanupFn,
       id: Math.random().toString(36).substring(7)
     };
-    
+
     resourcesRef.current.add(resourceWrapper);
-    
+
     // Return cleanup function that also removes from tracking
     return () => {
       try {
@@ -65,8 +65,8 @@ export default function useMemoryOptimization(options = {}) {
     for (const resourceWrapper of resourcesRef.current) {
       try {
         // Check if resource is still valid/needed
-        if (resourceWrapper.resource && 
-            typeof resourceWrapper.resource.isValid === 'function' && 
+        if (resourceWrapper.resource &&
+            typeof resourceWrapper.resource.isValid === 'function' &&
             !resourceWrapper.resource.isValid()) {
           resourceWrapper.cleanup(resourceWrapper.resource);
           resourcesRef.current.delete(resourceWrapper);
@@ -87,7 +87,7 @@ export default function useMemoryOptimization(options = {}) {
   const handleMemoryPressure = useCallback(() => {
     // Clear all caches
     clearCache();
-    
+
     // Force garbage collection if available (dev mode)
     if (typeof window !== 'undefined' && window.gc && process.env.NODE_ENV === 'development') {
       try {
@@ -125,13 +125,14 @@ export default function useMemoryOptimization(options = {}) {
 
   // Setup and cleanup
   useEffect(() => {
+    // Capture current resources for cleanup at effect execution time
+    const currentResources = Array.from(resourcesRef.current);
+    const currentResourcesRef = resourcesRef.current;
+
     if (enablePeriodicCleanup) {
       cleanupTimeoutRef.current = setTimeout(performCleanup, cleanupInterval);
     }
 
-    // Listen for memory pressure events if available
-    const handleMemoryPressureEvent = () => handleMemoryPressure();
-    
     if (typeof window !== 'undefined' && 'memory' in performance) {
       // Custom memory pressure detection
       const checkMemoryPressure = () => {
@@ -148,16 +149,16 @@ export default function useMemoryOptimization(options = {}) {
         if (cleanupTimeoutRef.current) {
           clearTimeout(cleanupTimeoutRef.current);
         }
-        
+
         // Final cleanup of all tracked resources
-        for (const resourceWrapper of resourcesRef.current) {
+        for (const resourceWrapper of currentResources) {
           try {
             resourceWrapper.cleanup(resourceWrapper.resource);
           } catch (error) {
             console.warn('Error during final cleanup:', error);
           }
         }
-        resourcesRef.current.clear();
+        currentResourcesRef.clear();
         clearCache();
       };
     }
@@ -166,16 +167,16 @@ export default function useMemoryOptimization(options = {}) {
       if (cleanupTimeoutRef.current) {
         clearTimeout(cleanupTimeoutRef.current);
       }
-      
+
       // Final cleanup
-      for (const resourceWrapper of resourcesRef.current) {
+      for (const resourceWrapper of currentResources) {
         try {
           resourceWrapper.cleanup(resourceWrapper.resource);
         } catch (error) {
           console.warn('Error during final cleanup:', error);
         }
       }
-      resourcesRef.current.clear();
+      currentResourcesRef.clear();
       clearCache();
     };
   }, [enablePeriodicCleanup, cleanupInterval, performCleanup, handleMemoryPressure, clearCache, getMemoryInfo]);

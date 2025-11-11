@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Modal, Button, Form, Dropdown } from "react-bootstrap";
+import { Modal, Button, Form } from "react-bootstrap";
 
 function DeleteCategoryModal({
   show,

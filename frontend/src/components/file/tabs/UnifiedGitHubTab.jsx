@@ -64,7 +64,7 @@ export default function UnifiedGitHubTab({
   }, [selectedRepository, selectedBranch]);
 
   // Repository selection from account list
-  const handleGitHubRepositorySelect = (repository, account) => {
+  const _handleGitHubRepositorySelect = (repository, account) => {
     console.log('UnifiedGitHubTab: Repository selected', repository);
     setSelectedRepository(repository);
     setSelectedBranch(repository.default_branch || 'main');
@@ -101,7 +101,7 @@ export default function UnifiedGitHubTab({
   };
 
   // Repository selected from settings (unified approach)
-  const handleRepositorySelectedFromSettings = (repository, account) => {
+  const _handleRepositorySelectedFromSettings = (repository, account) => {
     console.log('UnifiedGitHubTab: Repository selected from settings', repository);
     setSelectedRepository(repository);
     setSelectedBranch(repository.default_branch || 'main');

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Form, Button, Alert, Card, Badge, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
-import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
 import PackCategorySelector from '../common/PackCategorySelector';
 
@@ -362,7 +361,7 @@ export default function UploadIconTab({
                     disabled={loading}
                   />
                   <Form.Text className="text-muted">
-                    Creating new pack "{uploadForm.packName}" in category "{uploadForm.category}"
+                    Creating new pack &quot;{uploadForm.packName}&quot; in category &quot;{uploadForm.category}&quot;
                   </Form.Text>
                 </Form.Group>
               )}
@@ -372,7 +371,7 @@ export default function UploadIconTab({
                 <div className="mb-3">
                   <small className="text-muted">
                     <i className="bi bi-info-circle me-1"></i>
-                    Adding icon to existing pack "{uploadForm.packName}"
+                    Adding icon to existing pack &quot;{uploadForm.packName}&quot;
                   </small>
                 </div>
               )}

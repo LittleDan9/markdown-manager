@@ -9,16 +9,18 @@ import GitHubModal from "../github/modals/GitHubModal";
 import IconManagementModal from "../icons/modals/IconManagementModal";
 import AdminModal from "../admin/AdminModal";
 import GitManagementModal from "../git/GitManagementModal";
+import SpellCheckSettingsModal from "../editor/spell-check/SpellCheckSettingsModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
-  const { showSuccess, showError } = useNotification();
-  const { user, setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, autoCommitEnabled, setAutoCommitEnabled } = useAuth();
+  const { showSuccess, showError: _showError } = useNotification();
+  const { user, setUser: _setUser, logout, autosaveEnabled, setAutosaveEnabled, syncPreviewScrollEnabled, setSyncPreviewScrollEnabled, autoCommitEnabled, setAutoCommitEnabled } = useAuth();
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showGitHubModal, setShowGitHubModal] = useState(false);
   const [showIconModal, setShowIconModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
+  const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
 
@@ -61,6 +63,10 @@ function UserMenuLoggedIn() {
   const handleStorage = () => {
     setActiveTab("storage");
     setShowSettingsModal(true);
+  };
+
+  const handleSpellCheck = () => {
+    setShowSpellCheckModal(true);
   };
 
   const handleGitHub = () => {
@@ -111,6 +117,9 @@ function UserMenuLoggedIn() {
         </Dropdown.Item>
         <Dropdown.Item id="storageBtn" onClick={handleStorage}>
           <i className="bi bi-hdd me-2"></i>Storage
+        </Dropdown.Item>
+        <Dropdown.Item id="spellCheckBtn" onClick={handleSpellCheck}>
+          <i className="bi bi-spellcheck me-2"></i>Spell Check
         </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item
@@ -198,6 +207,22 @@ function UserMenuLoggedIn() {
       <AdminModal
         show={showAdminModal}
         onHide={() => setShowAdminModal(false)}
+      />
+      <SpellCheckSettingsModal
+        show={showSpellCheckModal}
+        onHide={() => setShowSpellCheckModal(false)}
+        settings={{
+          spelling: true,
+          grammar: true,
+          style: true,
+          readability: true,
+          styleGuide: 'none',
+          language: 'en-US'
+        }}
+        onSettingsChange={(newSettings) => {
+          // For global settings, we could save to localStorage or user preferences
+          console.log('Global spell check settings changed:', newSettings);
+        }}
       />
     </>
   );

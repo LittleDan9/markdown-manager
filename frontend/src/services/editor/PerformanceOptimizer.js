@@ -105,7 +105,7 @@ class PerformanceOptimizer {
    */
   getOptimizedEditorOptions(content) {
     const isLarge = this.isLargeDocument(content);
-    const isVeryLarge = this.isVeryLargeDocument(content);
+    const _isVeryLarge = this.isVeryLargeDocument(content);
     const isMassive = this.isMassiveDocument(content);
     const isExtreme = this.isExtremeDocument(content);
 

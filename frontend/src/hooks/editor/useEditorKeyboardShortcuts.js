@@ -42,7 +42,7 @@ export default function useEditorKeyboardShortcuts(
     window.editorMarkdownLintTrigger = triggerMarkdownLint;
 
     // Bold shortcut
-    const boldCommand = editor.addCommand(
+    const _boldCommand = editor.addCommand(
       monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyB,
       () => {
         const toolbarButton = document.querySelector('[title="Bold (Ctrl+B)"]');
@@ -51,7 +51,7 @@ export default function useEditorKeyboardShortcuts(
     );
 
     // Italic shortcut
-    const italicCommand = editor.addCommand(
+    const _italicCommand = editor.addCommand(
       monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.KeyI,
       () => {
         const toolbarButton = document.querySelector('[title="Italic (Ctrl+I)"]');
@@ -60,7 +60,7 @@ export default function useEditorKeyboardShortcuts(
     );
 
     // Quick fix shortcut
-    const quickFixCommand = editor.addCommand(
+    const _quickFixCommand = editor.addCommand(
       monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.US_DOT,
       () => {
         editor.trigger('', 'editor.action.quickFix', {});
@@ -68,7 +68,7 @@ export default function useEditorKeyboardShortcuts(
     );
 
     // Comment toggle shortcut
-    const commentCommand = editor.addCommand(
+    const _commentCommand = editor.addCommand(
       monacoRef.KeyMod.CtrlCmd | monacoRef.KeyCode.Slash,
       () => {
         CommentService.handleCommentToggle(editor);
@@ -96,7 +96,7 @@ export default function useEditorKeyboardShortcuts(
       delete window.editorSpellCheckTrigger;
       delete window.editorMarkdownLintTrigger;
     };
-  }, [enabled, editor]); // Simplified dependencies to prevent re-runs
+  }, [enabled, editor]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return {};
 }

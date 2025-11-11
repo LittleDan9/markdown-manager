@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { Modal, Button, Form, Row, Col, Alert, Accordion, ProgressBar } from "react-bootstrap";
 
 function RegisterModal({ show, onHide, onRegister, error }) {

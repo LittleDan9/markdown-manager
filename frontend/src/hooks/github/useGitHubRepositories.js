@@ -49,7 +49,7 @@ export const useGitHubRepositories = () => {
   }, [accountRepositories]);
 
   const hasRepositoriesLoaded = useCallback((accountId) => {
-    return accountRepositories.hasOwnProperty(accountId);
+    return Object.prototype.hasOwnProperty.call(accountRepositories, accountId);
   }, [accountRepositories]);
 
   const clearRepositoriesForAccount = useCallback((accountId) => {

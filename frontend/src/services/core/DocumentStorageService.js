@@ -29,16 +29,19 @@ class DocumentStorageService {
   saveDocument(doc) {
     const docs = this._getStoredDocuments();
 
-    // Check for duplicates (name + category combination)
-    const duplicate = Object.values(docs).find(
-      d => d.name === doc.name && d.category === doc.category && d.id !== doc.id
-    );
-    if (duplicate) {
-      throw new Error("A document with this name and category already exists.");
+    // Check for duplicates (name + category combination) only for new documents
+    // Allow updating existing documents with the same name/category
+    if (!doc.id) {
+      const duplicate = Object.values(docs).find(
+        d => d.name === doc.name && d.category === doc.category
+      );
+      if (duplicate) {
+        throw new Error("A document with this name and category already exists.");
+      }
     }
 
     // Generate ID if needed
-    let document = { ...doc };
+    const document = { ...doc };
     if (!document.id) {
       document.id = `doc_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     }
@@ -131,7 +134,7 @@ class DocumentStorageService {
   }
 
   deleteCategory(name, options = {}) {
-    let categories = this.getCategories().filter(cat => cat !== name);
+    const categories = this.getCategories().filter(cat => cat !== name);
     localStorage.setItem(CATEGORIES_KEY, JSON.stringify(categories));
 
     // Handle documents in the deleted category

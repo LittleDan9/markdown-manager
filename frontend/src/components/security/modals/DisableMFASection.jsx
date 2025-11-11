@@ -1,15 +1,14 @@
 import React, { useState } from "react";
 import { Card, Button, Alert, Spinner, Collapse } from "react-bootstrap";
-import userApi from "../../../api/userApi";
 import { useAuth } from "../../../providers/AuthProvider";
 import { useNotification } from "../../NotificationProvider";
 
 function DisableMFASection({ setActiveTab }) {
-  const { user, setUser, disableMFA } = useAuth();
+  const { disableMFA } = useAuth();
   const [showDisable, setShowDisable] = useState(false);
   const [disableLoading, setDisableLoading] = useState(false);
   const [disableError, setDisableError] = useState("");
-  const { showSuccess, showError } = useNotification();
+  const { showSuccess: _showSuccess, showError: _showError } = useNotification();
 
   const handleDisableClick = () => {
     setShowDisable(true);
@@ -45,7 +44,7 @@ function DisableMFASection({ setActiveTab }) {
       </Card.Header>
       <Card.Body>
         <p className="card-text">
-          Disabling two-factor authentication will make your account less secure. Only disable MFA if you're having trouble accessing your account.
+          Disabling two-factor authentication will make your account less secure. Only disable MFA if you&apos;re having trouble accessing your account.
         </p>
         <Button variant="outline-danger" id="mfaDetailsDisableBtn" onClick={handleDisableClick}>
           <i className="bi bi-shield-x me-2"></i>Disable Two-Factor Authentication

@@ -1,6 +1,6 @@
 // src/services/editor/MonacoMarkerAdapter.js
 import * as monaco from 'monaco-editor';
-import SpellCheckMarkers from './SpellCheckMarkers';
+import SpellCheckMarkers from './spellCheck/SpellCheckMarkers';
 
 /**
  * Service for converting spell check issues to Monaco markers
@@ -42,9 +42,9 @@ export default class MonacoMarkerAdapter {
 
       // Keep markers outside the scanned region
       filteredOld = SpellCheckMarkers.filterMarkersOutsideRegion(
-        oldMarkers, 
-        model, 
-        startOffset, 
+        oldMarkers,
+        model,
+        startOffset,
         regionEndOffset
       );
 
@@ -79,10 +79,17 @@ export default class MonacoMarkerAdapter {
         const marker = this._createMarkerFromIssue(model, issue, startOffset);
         if (marker) {
           markers.push(marker);
-          
-          // Store suggestions for this marker
+
+          // Store full issue information for quick fixes (includes type)
           const key = `${marker.startLineNumber}:${marker.startColumn}`;
-          suggestionsMap.set(key, issue.suggestions || []);
+          suggestionsMap.set(key, {
+            suggestions: issue.suggestions || [],
+            type: issue.type || 'spelling',
+            message: issue.message,
+            rule: issue.rule
+          });
+        } else {
+          console.warn(`❌ Failed to create marker for "${issue.word}" (${issue.type})`);
         }
       } catch (error) {
         console.warn('Error creating marker for spell issue:', error, issue);
@@ -101,19 +108,96 @@ export default class MonacoMarkerAdapter {
    * @private
    */
   static _createMarkerFromIssue(model, issue, startOffset) {
-    const globalOffset = startOffset + issue.offset;
+    // Handle both old format (issue.offset) and new backend format (issue.position.start)
+    let globalOffset;
+    let wordLength;
+
+    if (issue.position && typeof issue.position.start === 'number') {
+      // New backend format - position already contains global offset
+      globalOffset = issue.position.start;
+      wordLength = issue.position.end - issue.position.start;
+    } else if (typeof issue.offset === 'number') {
+      // Old format - offset relative to startOffset
+      globalOffset = startOffset + issue.offset;
+      wordLength = issue.word ? issue.word.length : 1;
+    } else {
+      console.warn('❌ Spell check issue missing position information:', issue);
+      return null;
+    }
+
+    // Apply code fence offset correction if needed
+    const adjustedPosition = this._adjustPositionForCodeFences(model, globalOffset, wordLength, issue);
+    if (adjustedPosition) {
+      globalOffset = adjustedPosition.globalOffset;
+      wordLength = adjustedPosition.wordLength;
+    }
+
     const pos = model.getPositionAt(globalOffset);
-    const wordLength = issue.word ? issue.word.length : 1;
-    const msg = `"${issue.word}" — ${issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions'}`;
+    const endPos = model.getPositionAt(globalOffset + wordLength);
+
+    // Create appropriate message based on issue type
+    let msg;
+    switch (issue.type) {
+      case 'spelling': {
+        // For spelling: "word" → suggestion1, suggestion2, suggestion3
+        const spellingSuggestions = issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions';
+        msg = `"${issue.word}" → ${spellingSuggestions}`;
+        break;
+      }
+      case 'grammar': {
+        // For grammar: Use the descriptive message from backend, truncate if too long
+        if (issue.message && issue.message.length > 60) {
+          msg = issue.message.substring(0, 57) + '...';
+        } else {
+          msg = issue.message || `Grammar issue: "${issue.word}"`;
+        }
+        break;
+      }
+      case 'style':
+        // For style: Use the descriptive message from backend, truncate if too long
+        if (issue.message && issue.message.length > 60) {
+          msg = issue.message.substring(0, 57) + '...';
+        } else {
+          msg = issue.message || `Style suggestion: "${issue.word}"`;
+        }
+        break;
+      default: {
+        // Legacy format
+        const defaultSuggestions = issue.suggestions?.slice(0, 3).join(', ') || 'no suggestions';
+        msg = `"${issue.word}" → ${defaultSuggestions}`;
+      }
+    }
+
+    // Determine severity based on issue type
+    let severity;
+    switch (issue.type) {
+      case 'spelling':
+        severity = monaco.MarkerSeverity.Error; // Red squiggles for spelling errors
+        break;
+      case 'grammar':
+        severity = monaco.MarkerSeverity.Warning; // Yellow squiggles for grammar issues
+        break;
+      case 'style':
+        severity = monaco.MarkerSeverity.Info; // Blue squiggles for style suggestions
+        break;
+      case 'code-comment':
+      case 'code-string':
+      case 'code-identifier': {
+        severity = monaco.MarkerSeverity.Error; // Red squiggles for code spell issues (same as regular spelling)
+        break;
+      }
+      default:
+        severity = monaco.MarkerSeverity.Warning;
+    }
 
     return {
-      owner: 'spell',
-      severity: monaco.MarkerSeverity.Warning,
+      severity: severity,
       message: msg,
       startLineNumber: pos.lineNumber,
       startColumn: pos.column,
-      endLineNumber: pos.lineNumber,
-      endColumn: pos.column + wordLength,
+      endLineNumber: endPos.lineNumber,
+      endColumn: endPos.column,
+      type: issue.type, // Add type for proper categorization in SpellCheckMarkers
     };
   }
 
@@ -146,7 +230,87 @@ export default class MonacoMarkerAdapter {
     }
 
     return Math.max(
-      ...issues.map(i => startOffset + i.offset + (i.word ? i.word.length : 0))
+      ...issues.map(issue => {
+        if (issue.position && typeof issue.position.end === 'number') {
+          // New backend format - position contains global offset
+          return issue.position.end;
+        } else if (typeof issue.offset === 'number') {
+          // Old format - offset relative to startOffset
+          return startOffset + issue.offset + (issue.word ? issue.word.length : 0);
+        } else {
+          return startOffset;
+        }
+      })
     );
+  }
+
+  /**
+   * Adjust position for code fence content when Monaco displays only the code content
+   * This handles cases where spell check was done on full markdown but Monaco shows extracted code
+   * @param {Object} model - Monaco editor model
+   * @param {number} globalOffset - Original global offset
+   * @param {number} wordLength - Length of the word
+   * @param {Object} issue - Spell check issue
+   * @returns {Object|null} Adjusted position or null if no adjustment needed
+   * @private
+   */
+  static _adjustPositionForCodeFences(model, globalOffset, wordLength, issue) {
+    // Only adjust for code-related issues (code-comment, code-string, code-identifier)
+    if (!issue.type || !issue.type.includes('code')) {
+      return null;
+    }
+
+    const fullText = model.getValue();
+    const textAtPosition = fullText.substring(globalOffset, globalOffset + wordLength);
+
+    // If the position already matches the expected word, no adjustment needed
+    if (textAtPosition === issue.word) {
+      return null;
+    }
+
+    // Look for code fence patterns around the issue position
+    const beforeText = fullText.substring(0, globalOffset);
+    // Pattern to match various fence formats: ```language\n, ```\n, ``` \n, etc.
+    const fencePattern = /```[^\n]*\n/g;
+    let match;
+    let cumulativeOffset = 0;
+
+    // Count all code fence opening delimiters before this position
+    while ((match = fencePattern.exec(beforeText)) !== null) {
+      // Each fence opener adds its length to the offset difference
+      cumulativeOffset += match[0].length;
+    }
+
+    if (cumulativeOffset > 0) {
+      const adjustedGlobalOffset = globalOffset - cumulativeOffset;
+      const adjustedText = fullText.substring(adjustedGlobalOffset, adjustedGlobalOffset + wordLength);
+
+      // Only apply adjustment if it improves the match
+      if (adjustedText === issue.word || adjustedText.includes(issue.word)) {
+        return {
+          globalOffset: adjustedGlobalOffset,
+          wordLength: wordLength,
+          offsetAdjustment: cumulativeOffset
+        };
+      }
+    }
+
+    // Try searching for the word near the original position if simple offset didn't work
+    const searchRadius = 100; // Search within 100 characters
+    const searchStart = Math.max(0, globalOffset - searchRadius);
+    const searchEnd = Math.min(fullText.length, globalOffset + searchRadius);
+    const searchText = fullText.substring(searchStart, searchEnd);
+    const wordIndex = searchText.indexOf(issue.word);
+
+    if (wordIndex !== -1) {
+      const correctedOffset = searchStart + wordIndex;
+      return {
+        globalOffset: correctedOffset,
+        wordLength: issue.word.length,
+        offsetAdjustment: globalOffset - correctedOffset
+      };
+    }
+
+    return null;
   }
 }

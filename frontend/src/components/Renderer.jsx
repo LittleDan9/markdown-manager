@@ -1,384 +1,135 @@
-import React, { useEffect, useState, useRef } from "react";
-import ReactDOM from "react-dom/client";
-import { render } from "@/services/rendering";
-import { useTheme, ThemeProvider } from "@/providers/ThemeProvider";
-import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
-import { HighlightService } from "@/services/editor";
-import { useMermaid } from "@/services/rendering";
-import { useCodeCopy } from "@/hooks/ui/useCodeCopy";
-import { NotificationProvider } from "./NotificationProvider";
-import DiagramControls from "./renderer/DiagramControls";
-
 /**
- * Modern Renderer component using the new useMermaid hook architecture
+ * Modern Renderer component - Refactored for maintainability
  *
- * This component renders markdown content with syntax highlighting and Mermaid diagrams
- * using the new modular architecture for better performance and maintainability.
- *
- * Benefits over the legacy approach:
- * - Cleaner state management with React hooks
- * - Automatic loading states and theme management
- * - Better error handling and user feedback
- * - No manual ref management for rendering state
- * - Optimized Mermaid diagram rendering
+ * This is the simplified main orchestrator that coordinates the specialized
+ * sub-components for a clean, maintainable architecture.
  */
-function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, showLoadingOverlay, loadingMessage }) {
-  const { theme } = useTheme();
-  const { highlightedBlocks, setHighlightedBlocks, previewHTML, setPreviewHTML, currentDocument } = useDocumentContext();
-  const [html, setHtml] = useState("");
-  const [isRendering, setIsRendering] = useState(false);
-  const previewScrollRef = useRef(null);
-  const hasCalledFirstRender = useRef(false);
-  const diagramControlsRefs = useRef(new Map());
+import React, { useEffect, useCallback } from 'react';
+import { useTheme } from '../providers/ThemeProvider';
+import { useDocumentContext } from '../providers/DocumentContextProvider';
+import { useMermaid } from '../services/rendering/mermaid/useMermaid';
+import { useCodeCopy } from '../hooks/ui/useCodeCopy';
+import RendererProvider, { useRendererContext } from './renderer/RendererContext';
+import RenderingOrchestrator from './renderer/RenderingOrchestrator';
+import FeatureManager from './renderer/FeatureManager';
+import LifecycleManager from './renderer/LifecycleManager';
+import PreviewRenderer from './renderer/PreviewRenderer';
 
-  // Setup copy functionality for code blocks
+const RendererContent = ({
+  scrollToLine,
+  fullscreenPreview: _fullscreenPreview,
+  onFirstRender,
+  showLoadingOverlay,
+  loadingMessage
+}) => {
+  const { theme: _theme } = useTheme();
+  const { currentDocument, previewHTML, setPreviewHTML, isRendering: _isRendering } = useDocumentContext();
+  const {
+    html: _html,
+    setIsRendering: _setIsRendering,
+    previewScrollRef,
+    resetFirstRenderFlag,
+    isCropModeActive: _isCropModeActive
+  } = useRendererContext();  // Setup copy functionality for code blocks
   const setCodeCopyRef = useCodeCopy(previewHTML, true);
 
-  // Use the new Mermaid hook - much cleaner than manual state management!
+  // Use the Mermaid hook for diagram rendering
   const {
     renderDiagrams,
     updateTheme,
     currentTheme: mermaidTheme
-  } = useMermaid(theme);
+  } = useMermaid(_theme);
 
-  // Automatic theme updates - no manual checking needed
+  // Setup global image modal function (fallback for external images)
   useEffect(() => {
-    if (theme !== mermaidTheme) {
-      updateTheme(theme);
-    }
-  }, [theme, mermaidTheme, updateTheme]);
+    window.openImageModal = (imageElement) => {
+      // This could be handled by ImageManager in the future
+      console.log('Global image modal triggered for:', imageElement.src);
+    };
 
-  // Reset render flag when document changes (even if content is the same)
-  useEffect(() => {
-    hasCalledFirstRender.current = false;
-  }, [currentDocument?.id]);
-
-  /**
-   * Add diagram controls to rendered Mermaid diagrams
-   * Only adds controls to NEW diagrams that don't already have them
-   * @param {HTMLElement} previewElement - The preview container element
-   */
-  const addDiagramControls = (previewElement) => {
-    if (!previewElement) return;
-
-    // Find all processed Mermaid diagrams
-    const diagrams = previewElement.querySelectorAll('.mermaid[data-processed="true"]');
-
-    diagrams.forEach((diagram, index) => {
-      const diagramId = `diagram-${index}`;
-
-      // Skip if controls already added and still in DOM
-      const existingControls = diagram.querySelector('.diagram-controls-container');
-      if (existingControls && existingControls.isConnected) return;
-
-      // Get diagram source from data attribute
-      const encodedSource = diagram.getAttribute('data-mermaid-source') || '';
-      const diagramSource = encodedSource ? decodeURIComponent(encodedSource) : '';
-
-      // Add mermaid-container class if not present
-      if (!diagram.classList.contains('mermaid-container')) {
-        diagram.classList.add('mermaid-container');
-      }
-
-      // Remove any orphaned controls first
-      const orphanedControls = diagram.querySelectorAll('.diagram-controls-container');
-      orphanedControls.forEach(control => control.remove());
-
-      // Create a container for the controls
-      const controlsContainer = document.createElement('div');
-      controlsContainer.className = 'diagram-controls-container';
-      controlsContainer.style.position = 'absolute';
-      controlsContainer.style.top = '0';
-      controlsContainer.style.left = '0';
-      controlsContainer.style.width = '100%';
-      controlsContainer.style.height = '100%';
-      controlsContainer.style.pointerEvents = 'none'; // Allow clicks to pass through to diagram
-      diagram.appendChild(controlsContainer);
-
-      // Create React root and render controls with providers
-      const root = ReactDOM.createRoot(controlsContainer);
-      root.render(
-        <ThemeProvider>
-          <DiagramControls
-            diagramElement={diagram}
-            diagramId={diagramId}
-            diagramSource={diagramSource}
-          />
-        </ThemeProvider>
-      );
-
-      // Store the root for cleanup
-      diagramControlsRefs.current.set(diagram, root);
-    });
-  };
-
-  /**
-   * Clean up diagram controls that are no longer in the DOM
-   * Uses asynchronous cleanup to avoid React race conditions
-   */
-  const cleanupStaleControls = () => {
-    const validDiagrams = new Set();
-    if (previewScrollRef.current) {
-      const currentDiagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
-      currentDiagrams.forEach(diagram => validDiagrams.add(diagram));
-    }
-
-    // Async cleanup to avoid race conditions
-    setTimeout(() => {
-      diagramControlsRefs.current.forEach((root, diagram) => {
-        if (!validDiagrams.has(diagram)) {
-          try {
-            root.unmount();
-            diagramControlsRefs.current.delete(diagram);
-          } catch (error) {
-            console.warn('Error unmounting stale diagram controls:', error);
-          }
-        }
-      });
-    }, 0);
-  };
-
-  // Cleanup on unmount
-  useEffect(() => {
     return () => {
-      // Use async cleanup on unmount to avoid race conditions
-      setTimeout(() => {
-        diagramControlsRefs.current.forEach((root, diagram) => {
-          try {
-            root.unmount();
-          } catch (error) {
-            console.warn('Error unmounting diagram controls on cleanup:', error);
-          }
-        });
-        diagramControlsRefs.current.clear();
-      }, 0);
+      delete window.openImageModal;
     };
   }, []);
 
-  // Render Markdown to HTML (when content changes or component mounts)
+  // Automatic theme updates for Mermaid
   useEffect(() => {
-    setIsRendering(true);
-    // Reset the first render flag when content changes or document changes
-    hasCalledFirstRender.current = false;
+    if (_theme !== mermaidTheme) {
+      updateTheme(_theme);
+    }
+  }, [_theme, mermaidTheme, updateTheme]);
 
-    let htmlString = render(content);
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = htmlString;
-    const codeBlocks = Array.from(tempDiv.querySelectorAll("[data-syntax-placeholder]"));
-    const blocksToHighlight = [];
+  // Reset render flag when document changes
+  useEffect(() => {
+    resetFirstRenderFlag();
+  }, [currentDocument?.id, resetFirstRenderFlag]);
 
-    codeBlocks.forEach(block => {
-      const code = decodeURIComponent(block.dataset.code);
-      const language = block.dataset.lang;
-      const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
-      block.setAttribute("data-syntax-placeholder", placeholderId);
+  /**
+   * Handle render completion from the orchestrator
+   * This is where we process Mermaid diagrams after the initial render
+   */
+  const handleRenderComplete = useCallback(async (htmlString, { renderId, reason }) => {
+    console.log(`🎯 Renderer: Handling render completion for ${renderId} (${reason})`);
 
-      // Use current highlighted blocks (from closure)
-      if (highlightedBlocks[placeholderId]) {
-        const codeEl = block.querySelector("code");
-        if (codeEl) {
-          codeEl.innerHTML = highlightedBlocks[placeholderId];
-          block.setAttribute("data-processed", "true");
-        }
+    try {
+      let finalHtml = htmlString;
+
+      // Check if we need to process Mermaid diagrams
+      if (htmlString.includes("data-mermaid-source")) {
+        console.log(`🧜‍♀️ Processing Mermaid diagrams for render ${renderId}`);
+        finalHtml = await renderDiagrams(htmlString, _theme);
+        setPreviewHTML(finalHtml);
       } else {
-        block.setAttribute("data-processed", "false");
-        blocksToHighlight.push({ code, language, placeholderId });
+        console.log(`📄 Setting preview HTML for render ${renderId} (no Mermaid)`);
+        setPreviewHTML(finalHtml);
       }
-    });
 
-    if (blocksToHighlight.length > 0) {
-      HighlightService.highlightBlocks(blocksToHighlight).then(results => {
-        // Re-process the HTML with new highlights
-        const updatedTempDiv = document.createElement("div");
-        updatedTempDiv.innerHTML = render(content);
-        const updatedCodeBlocks = Array.from(updatedTempDiv.querySelectorAll("[data-syntax-placeholder]"));
+      // Update the App's renderedHTML state for PDF export
+      // Note: Rendering is now centralized - previewHTML is updated directly in context
+      // if (onRenderHTML) {
+      //   onRenderHTML(finalHtml);
+      // }
 
-        updatedCodeBlocks.forEach(block => {
-          const code = decodeURIComponent(block.dataset.code);
-          const language = block.dataset.lang;
-          const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
-          block.setAttribute("data-syntax-placeholder", placeholderId);
+      // The orchestrator will handle setting isRendering to false
 
-          // Apply both existing and new highlights
-          const highlightedHtml = results[placeholderId] || highlightedBlocks[placeholderId];
-          if (highlightedHtml) {
-            const codeEl = block.querySelector("code");
-            if (codeEl) {
-              codeEl.innerHTML = highlightedHtml;
-              block.setAttribute("data-processed", "true");
-            }
-          }
-        });
+    } catch (error) {
+      console.error(`❌ Error processing Mermaid for render ${renderId}:`, error);
+      // Fall back to original HTML
+      setPreviewHTML(htmlString);
 
-        // Update highlighted blocks state with new highlights only
-        const newHighlights = {};
-        Object.entries(results).forEach(([id, html]) => {
-          if (!highlightedBlocks[id]) {
-            newHighlights[id] = html;
-          }
-        });
-
-        if (Object.keys(newHighlights).length > 0) {
-          setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
-        }
-
-        htmlString = updatedTempDiv.innerHTML;
-        setHtml(htmlString);
-        // isRendering will be handled by Mermaid effect
-      }).catch(error => {
-        console.error("Syntax highlighting failed:", error);
-        htmlString = tempDiv.innerHTML;
-        setHtml(htmlString);
-        // isRendering will be handled by Mermaid effect
-      });
-    } else {
-      htmlString = tempDiv.innerHTML;
-      setHtml(htmlString);
-      // isRendering will be handled by Mermaid effect
+      // Still update the App's renderedHTML state even on error
+      // Note: Rendering is now centralized - previewHTML is updated directly in context
+      // if (onRenderHTML) {
+      //   onRenderHTML(htmlString);
+      // }
     }
-  }, [content, currentDocument?.id]); // Depend on content AND document ID to handle document changes
-
-  // Handle Mermaid rendering - much cleaner with the hook!
-  useEffect(() => {
-    if (!html) return;
-
-    const processMermaidDiagrams = async () => {
-      // Don't set isRendering here as it's already set by the markdown effect
-      if (html.includes("data-mermaid-source")) {
-        try {
-          const updatedHtml = await renderDiagrams(html, theme);
-          setPreviewHTML(updatedHtml);
-        } catch (error) {
-          console.error("Mermaid rendering failed:", error);
-          setPreviewHTML(html);
-        }
-      } else {
-        setPreviewHTML(html);
-      }
-      // Always set rendering to false when done (whether Mermaid or not)
-      setIsRendering(false);
-    };
-
-    processMermaidDiagrams();
-  }, [html, theme, renderDiagrams]);
-
-  // Add diagram controls after preview HTML is updated
-  useEffect(() => {
-    if (previewHTML && previewScrollRef.current && !isRendering) {
-      // Clean up stale controls (async to avoid race conditions)
-      cleanupStaleControls();
-
-      // Add controls to new diagrams (with small delay to ensure DOM is updated)
-      setTimeout(() => {
-        if (previewScrollRef.current) {
-          addDiagramControls(previewScrollRef.current);
-        }
-      }, 150); // Increased timeout slightly for better stability
-    }
-  }, [previewHTML, isRendering]);
-
-  // Scroll to line functionality
-  useEffect(() => {
-    if (scrollToLine && previewScrollRef.current) {
-      const el = previewScrollRef.current.querySelector(`[data-line='${scrollToLine}']`);
-      if (el) {
-        el.scrollIntoView({ behavior: "smooth", block: "center" });
-      }
-    }
-  }, [scrollToLine, previewHTML]);
-
-  // Call onFirstRender when ready
-  useEffect(() => {
-    console.log("onFirstRender check:", {
-      hasCallback: !!onFirstRender,
-      isRendering,
-      hasPreviewHTML: !!previewHTML,
-      hasCalledBefore: hasCalledFirstRender.current
-    });
-
-    if (onFirstRender && !isRendering && previewHTML && !hasCalledFirstRender.current) {
-      console.log("Calling onFirstRender");
-      hasCalledFirstRender.current = true;
-      onFirstRender();
-    }
-  }, [onFirstRender, isRendering, previewHTML]);
-
-  // Listen for diagram export completion events to ensure controls remain visible
-  useEffect(() => {
-    const handleExportComplete = (event) => {
-      console.log('Diagram export completed:', event.detail);
-
-      // Re-validate diagram controls after export to ensure they remain visible
-      if (previewScrollRef.current && !isRendering) {
-        setTimeout(() => {
-          // Check if controls are still present for all diagrams
-          const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
-          let needsRevalidation = false;
-
-          diagrams.forEach((diagram) => {
-            const existingControls = diagram.querySelector('.diagram-controls-container');
-            if (!existingControls || !existingControls.isConnected) {
-              needsRevalidation = true;
-            }
-          });
-
-          if (needsRevalidation) {
-            console.log('Re-adding diagram controls after export');
-            addDiagramControls(previewScrollRef.current);
-          }
-        }, 100); // Small delay to ensure export process is fully complete
-      }
-    };
-
-    window.addEventListener('diagramExportComplete', handleExportComplete);
-
-    return () => {
-      window.removeEventListener('diagramExportComplete', handleExportComplete);
-    };
-  }, [previewHTML, isRendering]);
-
-  // Defensive mechanism: Periodically check if diagram controls are missing and restore them
-  useEffect(() => {
-    if (!previewHTML || isRendering) return;
-
-    const checkAndRestoreControls = () => {
-      if (!previewScrollRef.current) return;
-
-      const diagrams = previewScrollRef.current.querySelectorAll('.mermaid[data-processed="true"]');
-      let missingControls = false;
-
-      diagrams.forEach((diagram) => {
-        const existingControls = diagram.querySelector('.diagram-controls-container');
-        if (!existingControls || !existingControls.isConnected) {
-          missingControls = true;
-        }
-      });
-
-      if (missingControls && diagrams.length > 0) {
-        console.log('Detected missing diagram controls, restoring...');
-        addDiagramControls(previewScrollRef.current);
-      }
-    };
-
-    // Check every 10 seconds for missing controls
-    const interval = setInterval(checkAndRestoreControls, 10000);
-
-    return () => {
-      clearInterval(interval);
-    };
-  }, [previewHTML, isRendering]);
+  }, [renderDiagrams, _theme, setPreviewHTML]);
 
   return (
     <div id="previewContainer">
+      {/* Central rendering orchestrator replaces MarkdownProcessor */}
+      <RenderingOrchestrator
+        theme={_theme}
+        onRenderComplete={handleRenderComplete}
+      />
+
+      {/* Handle lifecycle and controls */}
+      <LifecycleManager onFirstRender={onFirstRender} />
+
+      {/* Handle image functionality */}
+      <FeatureManager />
+
       <div id="preview" className="position-relative">
-        <div
+        <PreviewRenderer
+          htmlContent={previewHTML}
           className="preview-scroll"
-          ref={(element) => {
+          scrollToLine={scrollToLine}
+          onRef={(element) => {
             previewScrollRef.current = element;
             setCodeCopyRef(element);
           }}
-          dangerouslySetInnerHTML={{ __html: previewHTML }}
         />
+
         {showLoadingOverlay && (
           <div
             className="position-absolute top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center bg-body bg-opacity-90"
@@ -397,6 +148,17 @@ function Renderer({ content, scrollToLine, fullscreenPreview, onFirstRender, sho
       </div>
     </div>
   );
-}
+};
+
+/**
+ * Main Renderer component with context provider
+ */
+const Renderer = (props) => {
+  return (
+    <RendererProvider>
+      <RendererContent {...props} />
+    </RendererProvider>
+  );
+};
 
 export default Renderer;

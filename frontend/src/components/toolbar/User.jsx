@@ -7,9 +7,9 @@ import { useAuth } from "@/providers/AuthProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 
 
-function UserToolbar({ handleThemeToggle, theme }) {
-  const { showSuccess, showError } = useNotification();
-  const { user, setUser } = useAuth();
+function UserToolbar({ handleThemeToggle: _handleThemeToggle, theme: _theme }) {
+  const { showSuccess: _showSuccess, showError: _showError } = useNotification();
+  const { user, setUser: _setUser } = useAuth();
   const { isSharedView } = useDocumentContext();
 
   // Admin styling

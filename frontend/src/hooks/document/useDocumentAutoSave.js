@@ -20,7 +20,7 @@ export default function useDocumentAutoSave(
   delay = 30000
 ) {
   const timeoutRef = useRef();
-  const isSavingRef = useRef(false);
+  const _isSavingRef = useRef(false);
   const lastSavedContentRef = useRef('');
 
   // Unified auto-save callback

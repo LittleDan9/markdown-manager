@@ -1,4 +1,4 @@
-import React, { useState, useEffect, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, forwardRef, useImperativeHandle, useCallback } from 'react';
 import { Card, Badge, Button, Row, Col, Spinner } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import useFileModal from '../../../hooks/ui/useFileModal';
@@ -18,7 +18,7 @@ const GitHubRepositoryList = forwardRef(({
 
   // Expose refresh method to parent component
   useImperativeHandle(ref, () => ({
-    refreshStatuses: () => fetchRepositoryStatuses()
+    refreshStatuses: () => loadRepositoryStatuses()
   }));
 
   // Load git status for all repositories when component mounts or repositories change
@@ -26,9 +26,9 @@ const GitHubRepositoryList = forwardRef(({
     if (repositories.length > 0) {
       loadRepositoryStatuses();
     }
-  }, [repositories]);
+  }, [repositories, loadRepositoryStatuses]);
 
-  const loadRepositoryStatuses = async () => {
+  const loadRepositoryStatuses = useCallback(async () => {
     const statusPromises = repositories.map(async (repo) => {
       // Only try to get status for repositories that have an internal repo ID
       if (!repo.internal_repo_id && !repo.id) return null;
@@ -74,7 +74,7 @@ const GitHubRepositoryList = forwardRef(({
     if (onStatusUpdate) {
       onStatusUpdate(statusMap);
     }
-  };
+  }, [repositories, onStatusUpdate]);
 
   const getLanguageColor = (language) => {
     if (!language) return 'secondary';
@@ -257,8 +257,8 @@ const GitHubRepositoryList = forwardRef(({
         <i className="bi bi-folder-check fs-1 text-muted"></i>
         <h5 className="mt-3 text-muted">No repositories in workspace</h5>
         <p className="text-muted">
-          You haven't added any repositories to your workspace yet.
-          Use the "Manage Repository Selection" button to add repositories.
+          You haven&apos;t added any repositories to your workspace yet.
+          Use the &quot;Manage Repository Selection&quot; button to add repositories.
         </p>
       </div>
     );
@@ -385,5 +385,7 @@ const GitHubRepositoryList = forwardRef(({
     </>
   );
 });
+
+GitHubRepositoryList.displayName = 'GitHubRepositoryList';
 
 export default GitHubRepositoryList;

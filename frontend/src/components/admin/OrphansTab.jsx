@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Card, Button, Alert, Spinner, Badge, ListGroup } from "react-bootstrap";
-import PropTypes from "prop-types";
 import { adminGitHubApi } from "../../api/admin";
 
 function OrphansTab() {
@@ -39,7 +38,7 @@ function OrphansTab() {
         clearTimeout(closeTimeoutRef.current);
       }
     };
-  }, [success]);
+  }, [success, showSuccess]);
 
   const handleCloseSuccess = () => {
     setIsClosing(true);
@@ -197,7 +196,7 @@ function OrphansTab() {
                 </Card.Header>
                 <Card.Body>
                   <ListGroup variant="flush">
-                    {orphanedDocs.map((doc, index) => (
+                    {orphanedDocs.map((doc) => (
                       <ListGroup.Item key={doc.id} className="px-0">
                         <div className="d-flex justify-content-between align-items-start">
                           <div>
@@ -269,7 +268,5 @@ function OrphansTab() {
     </div>
   );
 }
-
-OrphansTab.propTypes = {};
 
 export default OrphansTab;

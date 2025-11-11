@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Button, ButtonGroup, Badge } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
-import MermaidExportService from '../../services/rendering/MermaidExportService';
+import { serviceFactory } from '../../services/injectors';
 
 /**
  * Fullscreen modal for viewing and exporting diagrams
@@ -12,9 +12,10 @@ import MermaidExportService from '../../services/rendering/MermaidExportService'
  * - Export controls
  * - Diagram metadata display
  */
-function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagramSource, svgContent }) {
+function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagramSource: _diagramSource, svgContent }) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState(null);
+  const mermaidExportService = serviceFactory.createMermaidExportService();
 
   // Use context with fallback values
   const themeContext = useTheme();
@@ -36,7 +37,7 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
   const isDarkMode = theme === 'dark';
 
   const diagramMetadata = diagramElement ?
-    MermaidExportService.extractDiagramMetadata(diagramElement) : null;
+    mermaidExportService.extractDiagramMetadata(diagramElement) : null;
 
   const handleExport = async (format) => {
     if (!diagramElement) {
@@ -67,12 +68,12 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
         };
       }
 
-      const filename = MermaidExportService.generateFilename(
+      const filename = mermaidExportService.generateFilename(
         diagramElement,
         `fullscreen-diagram-${diagramId}`
       );
 
-      await MermaidExportService.downloadDiagram(
+      await mermaidExportService.downloadDiagram(
         diagramElement,
         format,
         filename,
