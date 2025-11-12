@@ -112,6 +112,24 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
   };
   const handleImportConfirm = async (selectedCategory, filename, actionKey = "confirm") => {
     if (!importedFileData) return;
+
+    if (actionKey === "append") {
+      // Append content to current document
+      const currentContent = currentDocument?.content || "";
+      const newContent = currentContent + "\n\n" + importedFileData.content;
+      if (setContent) setContent(newContent);
+      showSuccess("Content appended to current document");
+      setShowImportModal(false);
+      setImportedFileData(null);
+      return;
+    }
+
+    if (actionKey === "cancel") {
+      setShowImportModal(false);
+      setImportedFileData(null);
+      return;
+    }
+
     const safeName = (filename && filename !== "__category_placeholder__") ? filename : "Untitled Document";
     const safeCategory = (selectedCategory && selectedCategory !== "__category_placeholder__") ? selectedCategory : "General";
     const docToSave = {
@@ -119,11 +137,6 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
       category: safeCategory,
       content: importedFileData.content,
     };
-    if (actionKey === "cancel") {
-      setShowImportModal(false);
-      setImportedFileData(null);
-      return;
-    }
     try {
       const savedDoc = await saveDocument(docToSave);
       if (savedDoc && savedDoc.id) {
