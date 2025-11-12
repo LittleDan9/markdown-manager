@@ -40,6 +40,10 @@ export class MarkdownLintActions {
       const codeActionProvider = this._registerCodeActionProvider(markersMapRef, monacoRef);
       disposables.push(codeActionProvider);
 
+      // Register hover provider for markdown lint markers
+      const hoverProvider = this._registerHoverProvider(markersMapRef, monacoRef);
+      disposables.push(hoverProvider);
+
       // Register global command for applying markdown lint fixes
       if (!monacoRef.editor._markdownLintApplyFixRegistered) {
         monacoRef.editor.registerCommand('markdownlint.applyFix', async (accessor, ...args) => {
@@ -379,13 +383,31 @@ export class MarkdownLintActions {
           owner: 'markdownlint'
         });
 
-        // Find markers that intersect with the current range
-        const relevantMarkers = markers.filter(marker => {
-          return marker.startLineNumber <= range.endLineNumber &&
-                 marker.endLineNumber >= range.startLineNumber;
-        });
+        // First, check if there's a marker at the exact cursor position (start of range)
+        const cursorPosition = range.getStartPosition();
+        const markerAtCursor = markers.find(marker =>
+          marker.startLineNumber === cursorPosition.lineNumber &&
+          cursorPosition.column >= marker.startColumn &&
+          cursorPosition.column <= marker.endColumn
+        );
 
-        for (const marker of relevantMarkers) {
+        let markersToProcess = [];
+
+        if (markerAtCursor) {
+          // If cursor is on a specific marker, only show quick fixes for that marker
+          markersToProcess = [markerAtCursor];
+        } else {
+          // If cursor is not on a specific marker, show all markers that intersect with the range
+          // This maintains backward compatibility for broader selections
+          markersToProcess = markers.filter(marker => {
+            return marker.startLineNumber <= range.endLineNumber &&
+                   marker.endLineNumber >= range.startLineNumber &&
+                   marker.startColumn <= range.endColumn &&
+                   marker.endColumn >= range.startColumn;
+          });
+        }
+
+        for (const marker of markersToProcess) {
           // Check if this marker has fix information
           const markerKey = `${marker.startLineNumber}-${marker.startColumn}-${marker.endLineNumber}-${marker.endColumn}`;
           const markersMap = markersMapRef.current;
@@ -420,105 +442,84 @@ export class MarkdownLintActions {
   }
 
   /**
-   * Get human-readable description for a fix
-   * @param {string} rule - Rule identifier
-   * @param {Object} fixInfo - Fix information from markdownlint
-   * @returns {string} Fix description
+   * Register hover provider for markdown lint markers
+   * @param {Object} markersMapRef - Reference to markers map
+   * @param {Object} monaco - Monaco editor namespace
+   * @returns {Object} Disposable registration
    * @private
    */
-  static _getFixDescription(rule, fixInfo) {
-    switch (rule) {
-      case 'MD009':
-        return 'Remove trailing spaces';
-      case 'MD010':
-        return 'Replace hard tabs with spaces';
-      case 'MD012':
-        return 'Remove multiple blank lines';
-      case 'MD018':
-      case 'MD019':
-        return 'Add space after heading hash';
-      case 'MD047':
-        return 'Add trailing newline';
-      default:
-        if (fixInfo.insertText) {
-          return `Insert "${fixInfo.insertText}"`;
-        } else if (fixInfo.deleteText) {
-          return `Delete "${fixInfo.deleteText}"`;
-        } else {
-          return 'Apply auto-fix';
-        }
-    }
-  }
-
-  /**
-   * Apply a markdown lint fix using markdownlint's fixInfo
-   * @param {Object} fixInfo - Fix information from markdownlint
-   * @param {Object} marker - Monaco marker object
-   * @param {Object} model - Monaco editor model
-   * @private
-   */
-  static async _applyMarkdownLintFix(fixInfo, marker, model) {
-    if (!fixInfo || !model) {
-      console.warn('MarkdownLintActions: Invalid fix info or model');
-      return;
-    }
-
-    try {
-      const edits = [];
-
-      if (fixInfo.editColumn && typeof fixInfo.insertText === 'string') {
-        // Insert text at specific column
-        const lineNumber = marker.startLineNumber;
-        const column = fixInfo.editColumn;
-
-        edits.push({
-          range: {
-            startLineNumber: lineNumber,
-            startColumn: column,
-            endLineNumber: lineNumber,
-            endColumn: column
-          },
-          text: fixInfo.insertText
+  static _registerHoverProvider(markersMapRef, monacoRef) {
+    return monacoRef.languages.registerHoverProvider('markdown', {
+      provideHover(model, position) {
+        // Find markdownlint markers at this position
+        const markers = monacoRef.editor.getModelMarkers({
+          resource: model.uri,
+          owner: 'markdownlint'
         });
-      } else if (fixInfo.deleteText) {
-        // Delete specific text
-        const lineNumber = marker.startLineNumber;
-        const lineContent = model.getLineContent(lineNumber);
-        const deleteIndex = lineContent.indexOf(fixInfo.deleteText);
 
-        if (deleteIndex !== -1) {
-          edits.push({
-            range: {
-              startLineNumber: lineNumber,
-              startColumn: deleteIndex + 1,
-              endLineNumber: lineNumber,
-              endColumn: deleteIndex + fixInfo.deleteText.length + 1
-            },
-            text: ''
+        const markerAtPosition = markers.find(marker =>
+          marker.startLineNumber === position.lineNumber &&
+          position.column >= marker.startColumn &&
+          position.column <= marker.endColumn
+        );
+
+        if (!markerAtPosition) {
+          return null;
+        }
+
+        // Get issue data for this marker
+        const markerKey = `${markerAtPosition.startLineNumber}-${markerAtPosition.startColumn}-${markerAtPosition.endLineNumber}-${markerAtPosition.endColumn}`;
+        const markersMap = markersMapRef.current;
+        const issueData = markersMap?.get(markerKey);
+
+        if (!issueData) {
+          return null;
+        }
+
+        // Create rich hover content
+        const contents = [];
+        const rule = markerAtPosition.code?.value || 'unknown';
+        const ruleName = issueData.issue?.ruleName || issueData.issue?.ruleDescription || rule;
+
+        contents.push({
+          value: `**${rule}**${ruleName !== rule ? ` (${ruleName})` : ''}`,
+          isTrusted: true
+        });
+
+        if (issueData.issue?.message || issueData.issue?.description) {
+          contents.push({
+            value: issueData.issue.message || issueData.issue.description,
+            isTrusted: true
           });
         }
-      } else {
-        // Generic fix based on marker range
-        edits.push({
-          range: {
-            startLineNumber: marker.startLineNumber,
-            startColumn: marker.startColumn,
-            endLineNumber: marker.endLineNumber,
-            endColumn: marker.endColumn
-          },
-          text: fixInfo.insertText || ''
-        });
-      }
 
-      if (edits.length > 0) {
-        // Apply the edits
-        model.pushEditOperations([], edits, () => null);
-        console.log(`MarkdownLintActions: Applied fix for ${marker.code?.value || marker.code}`);
-      }
+        // Add fixable indicator
+        if (issueData.fixable) {
+          contents.push({
+            value: `🔧 **Auto-fixable** - Click Ctrl+. for quick fix`,
+            isTrusted: true
+          });
+        }
 
-    } catch (error) {
-      console.error('MarkdownLintActions: Failed to apply fix:', error);
-    }
+        // Add rule documentation link if available
+        if (markerAtPosition.code?.target) {
+          contents.push({
+            value: `[View Rule Documentation](${markerAtPosition.code.target})`,
+            isTrusted: true
+          });
+        }
+
+        return {
+          range: new monacoRef.Range(
+            markerAtPosition.startLineNumber,
+            markerAtPosition.startColumn,
+            markerAtPosition.endLineNumber,
+            markerAtPosition.endColumn
+          ),
+          contents
+        };
+      }
+    });
   }
 
   /**

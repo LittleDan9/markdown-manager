@@ -426,7 +426,7 @@ export class RootFileBrowserProvider extends BaseFileBrowserProvider {
   async getStats() {
     const localStats = await this.localProvider.getStats();
 
-    let githubStats = { totalFiles: 0, totalFolders: 0, totalSize: 0 };
+    const githubStats = { totalFiles: 0, totalFolders: 0, totalSize: 0 };
     try {
       const accounts = await gitHubApi.getAccounts();
       let totalRepos = 0;

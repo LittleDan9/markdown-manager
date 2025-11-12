@@ -57,7 +57,7 @@ export default function UnifiedFileBrowserTab({
   // Set initial path when provider is created or when selectedRepository changes
   useEffect(() => {
     if (currentProvider) {
-      let defaultPath = currentProvider.getDefaultPath ? currentProvider.getDefaultPath() : '/';
+      const defaultPath = currentProvider.getDefaultPath ? currentProvider.getDefaultPath() : '/';
 
       console.log('🔍 UnifiedFileBrowserTab useEffect - selectedRepository:', selectedRepository);
 
