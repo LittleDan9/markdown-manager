@@ -154,7 +154,7 @@ module.exports = {
     new MonacoWebpackPlugin({
       languages: ['markdown'], // Only include markdown language
       features: [
-        // Minimal features to reduce bundle size
+        // RE-ENABLED: Basic Monaco features
         'find',
         'clipboard',
         'contextmenu'

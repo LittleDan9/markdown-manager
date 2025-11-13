@@ -41,8 +41,6 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   const lastProcessedContentRef = useRef('');
   const lastProcessedThemeRef = useRef('');
   const cancelTokenRef = useRef(null);
-  const lastTypingTimeRef = useRef(0);
-  const typingTimerRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
   const lastDocumentIdRef = useRef(null);
   const isFirstRenderRef = useRef(true);
@@ -117,6 +115,99 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   }, [createRenderRequest, renderQueue.length, isCropModeActive]);
 
   /**
+   * Process incremental render for content changes
+   */
+  const processIncrementalRender = useCallback(async (newContent, oldContent, cancelToken) => {
+    console.log('🔄 Processing incremental render');
+
+    // For now, fall back to full render for incremental updates
+    // TODO: Implement true incremental DOM updates
+    console.log('🔄 Falling back to full render for incremental update');
+    const htmlString = render(newContent);
+    // Don't set html in RendererContext for incremental - only update previewHTML
+    onRenderComplete(htmlString, { renderId: Date.now(), reason: 'incremental-fallback', incremental: false });
+  }, [onRenderComplete]);
+
+  /**
+   * Process full highlighting for document changes
+   */
+  const processFullHighlighting = useCallback(async (content, htmlString, cancelToken) => {
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlString;
+    const codeBlocks = Array.from(tempDiv.querySelectorAll("[data-syntax-placeholder]"));
+    const blocksToHighlight = [];
+
+    console.log(`🎨 Processing ${codeBlocks.length} code blocks for full render`);
+
+    codeBlocks.forEach(block => {
+      const code = decodeURIComponent(block.dataset.code);
+      const language = block.dataset.lang;
+      const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+      block.setAttribute("data-syntax-placeholder", placeholderId);
+
+      // Use existing highlighted blocks if available
+      if (highlightedBlocks[placeholderId]) {
+        const codeEl = block.querySelector("code");
+        if (codeEl) {
+          codeEl.innerHTML = highlightedBlocks[placeholderId];
+          block.setAttribute("data-processed", "true");
+        }
+      } else {
+        block.setAttribute("data-processed", "false");
+        blocksToHighlight.push({ code, language, placeholderId });
+      }
+    });
+
+    if (cancelToken.cancelled) throw new Error('cancelled');
+
+    // Highlight new blocks if needed
+    if (blocksToHighlight.length > 0) {
+      console.log(`✨ Highlighting ${blocksToHighlight.length} new blocks`);
+
+      const results = await HighlightService.highlightBlocks(blocksToHighlight);
+
+      if (cancelToken.cancelled) throw new Error('cancelled');
+
+      // Update HTML with new highlights
+      const updatedTempDiv = document.createElement("div");
+      updatedTempDiv.innerHTML = render(content);
+      const updatedCodeBlocks = Array.from(updatedTempDiv.querySelectorAll("[data-syntax-placeholder]"));
+
+      updatedCodeBlocks.forEach(block => {
+        const code = decodeURIComponent(block.dataset.code);
+        const language = block.dataset.lang;
+        const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+        block.setAttribute("data-syntax-placeholder", placeholderId);
+
+        // Apply highlights
+        const highlightedHtml = results[placeholderId] || highlightedBlocks[placeholderId];
+        if (highlightedHtml) {
+          const codeEl = block.querySelector("code");
+          if (codeEl) {
+            codeEl.innerHTML = highlightedHtml;
+            block.setAttribute("data-processed", "true");
+          }
+        }
+      });
+
+      // Update highlighted blocks state
+      const newHighlights = {};
+      Object.entries(results).forEach(([id, html]) => {
+        if (!highlightedBlocks[id]) {
+          newHighlights[id] = html;
+        }
+      });
+
+      if (Object.keys(newHighlights).length > 0) {
+        setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
+      }
+
+      return updatedTempDiv.innerHTML;
+    }
+
+    return tempDiv.innerHTML;
+  }, [highlightedBlocks, setHighlightedBlocks]);
+  /**
    * Process a single render request through the full pipeline
    */
   const processRenderRequest = useCallback(async (request) => {
@@ -141,111 +232,52 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         throw new Error('cancelled');
       }
 
-      // Step 1: Markdown to HTML conversion
-      let htmlString = render(content);
-      console.log(`📝 Markdown rendered for ${id}`);
+      // Determine render strategy based on reason
+      const isIncrementalUpdate = reason === 'content-change' && lastProcessedContentRef.current;
+      const oldContent = lastProcessedContentRef.current;
 
-      if (cancelToken.cancelled) throw new Error('cancelled');
+      let htmlString = null; // Will be set for full renders
 
-      // Step 2: Process syntax highlighting
-      setRenderState(RENDER_STATE.HIGHLIGHTING);
+      if (isIncrementalUpdate) {
+        console.log(`🔄 Incremental render for ${id} - content change detected`);
 
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = htmlString;
-      const codeBlocks = Array.from(tempDiv.querySelectorAll("[data-syntax-placeholder]"));
-      const blocksToHighlight = [];
+        // Process incremental updates
+        await processIncrementalRender(content, oldContent, cancelToken);
 
-      console.log(`🎨 Processing ${codeBlocks.length} code blocks for ${id}`);
+      } else {
+        console.log(`🔄 Full render for ${id} - ${reason}`);
 
-      // Get current highlighted blocks
-      const currentHighlightedBlocks = highlightedBlocks;
-
-      codeBlocks.forEach(block => {
-        const code = decodeURIComponent(block.dataset.code);
-        const language = block.dataset.lang;
-        const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
-        block.setAttribute("data-syntax-placeholder", placeholderId);
-
-        // Use existing highlighted blocks if available
-        if (currentHighlightedBlocks[placeholderId]) {
-          const codeEl = block.querySelector("code");
-          if (codeEl) {
-            codeEl.innerHTML = currentHighlightedBlocks[placeholderId];
-            block.setAttribute("data-processed", "true");
-          }
-        } else {
-          block.setAttribute("data-processed", "false");
-          blocksToHighlight.push({ code, language, placeholderId });
-        }
-      });
-
-      if (cancelToken.cancelled) throw new Error('cancelled');
-
-      // Highlight new blocks if needed
-      if (blocksToHighlight.length > 0) {
-        console.log(`✨ Highlighting ${blocksToHighlight.length} new blocks for ${id}`);
-
-        const results = await HighlightService.highlightBlocks(blocksToHighlight);
+        // Step 1: Markdown to HTML conversion (full render)
+        htmlString = render(content);
+        console.log(`📝 Markdown rendered for ${id}`);
 
         if (cancelToken.cancelled) throw new Error('cancelled');
 
-        // Re-process HTML with new highlights
-        const updatedTempDiv = document.createElement("div");
-        updatedTempDiv.innerHTML = render(content);
-        const updatedCodeBlocks = Array.from(updatedTempDiv.querySelectorAll("[data-syntax-placeholder]"));
+        // Step 2: Process syntax highlighting (full render)
+        setRenderState(RENDER_STATE.HIGHLIGHTING);
+        htmlString = await processFullHighlighting(content, htmlString, cancelToken);
 
-        updatedCodeBlocks.forEach(block => {
-          const code = decodeURIComponent(block.dataset.code);
-          const language = block.dataset.lang;
-          const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
-          block.setAttribute("data-syntax-placeholder", placeholderId);
+        if (cancelToken.cancelled) throw new Error('cancelled');
 
-          // Apply both existing and new highlights
-          const highlightedHtml = results[placeholderId] || currentHighlightedBlocks[placeholderId];
-          if (highlightedHtml) {
-            const codeEl = block.querySelector("code");
-            if (codeEl) {
-              codeEl.innerHTML = highlightedHtml;
-              block.setAttribute("data-processed", "true");
-            }
-          }
-        });
+        // Step 3: Finalize render
+        setRenderState(RENDER_STATE.FINALIZING);
 
-        // Update highlighted blocks state with new highlights only
-        const newHighlights = {};
-        Object.entries(results).forEach(([id, html]) => {
-          if (!currentHighlightedBlocks[id]) {
-            newHighlights[id] = html;
-          }
-        });
+        console.log(`✅ Full render ${id} completed successfully`);
 
-        if (Object.keys(newHighlights).length > 0) {
-          setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
-        }
-
-        htmlString = updatedTempDiv.innerHTML;
-      } else {
-        htmlString = tempDiv.innerHTML;
+        // Update state and tracking
+        setHtml(htmlString);
       }
 
-      if (cancelToken.cancelled) throw new Error('cancelled');
-
-      // Step 3: Finalize render
-      setRenderState(RENDER_STATE.FINALIZING);
-
-      console.log(`✅ Render ${id} completed successfully`);
-
-      // Update state and tracking
-      setHtml(htmlString);
+      // Update tracking for both incremental and full renders
       lastProcessedContentRef.current = content;
       lastProcessedThemeRef.current = theme;
 
       setRenderState(RENDER_STATE.COMPLETED);
       setActiveRender(null);
 
-      // Notify completion
-      if (onRenderComplete) {
-        onRenderComplete(htmlString, { renderId: id, reason });
+      // Notify completion - skip for incremental updates as they handle their own completion
+      if (!isIncrementalUpdate && onRenderComplete) {
+        onRenderComplete(htmlString, { renderId: id, reason, incremental: false });
       }
 
       // Reset to idle after a brief moment
@@ -254,7 +286,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
           setRenderState(RENDER_STATE.IDLE);
           setIsRendering(false);
         }
-      }, 10); // Reduced from 50ms to 10ms for faster state transitions
+      }, 10);
 
     } catch (error) {
       if (error.message === 'cancelled') {
@@ -273,25 +305,14 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         setRenderState(RENDER_STATE.IDLE);
       }, 100);
     }
-  }, [highlightedBlocks, setHighlightedBlocks, setHtml, setIsRendering, onRenderComplete, setRenderState]);
+  }, [highlightedBlocks, setHighlightedBlocks, setHtml, setIsRendering, onRenderComplete, setRenderState, processIncrementalRender, processFullHighlighting]);
 
   /**
-   * Process the render queue
-   * Takes the next valid request and starts processing it
+   * Process the render queue - simplified without rapid typing complexity
    */
   const processQueue = useCallback(async () => {
     // Don't process if already processing or in crop mode
-    // In rapid typing mode, allow processing even when in COMPLETED state
-    const canProcess = renderState === RENDER_STATE.IDLE ||
-                      (isRapidTyping && renderState === RENDER_STATE.COMPLETED);
-
-    if (!canProcess || isCropModeActive()) {
-      console.log(`⏸️ Queue processing paused:`, {
-        renderState,
-        isCropModeActive: isCropModeActive(),
-        isRapidTyping,
-        canProcess
-      });
+    if (renderState !== RENDER_STATE.IDLE || isCropModeActive()) {
       return;
     }
 
@@ -314,79 +335,37 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         remaining: remaining.length
       });
 
-      // For rapid typing, process immediately; otherwise use setTimeout to avoid setState during setState
-      if (isRapidTyping && request.reason === 'content-change') {
-        console.log(`🚀 Rapid typing: Synchronous processing for ${request.id}`);
-        // Use microtask to avoid any React state conflicts but still be immediate
-        queueMicrotask(() => processRenderRequest(request));
-      } else {
-        // Start processing this request asynchronously to avoid setState during setState
-        setTimeout(() => {
-          processRenderRequest(request);
-        }, 0);
-      }
+      // Start processing this request asynchronously
+      setTimeout(() => {
+        processRenderRequest(request);
+      }, 0);
 
       renderQueueRef.current = remaining;
       return remaining;
     });
-  }, [renderState, isCropModeActive, isRapidTyping, processRenderRequest]);
+  }, [renderState, isCropModeActive, processRenderRequest]);
 
   /**
-   * Detect rapid typing patterns and enable instant rendering mode
-   */
-  const detectRapidTyping = useCallback(() => {
-    const now = Date.now();
-    const timeSinceLastTyping = now - lastTypingTimeRef.current;
-    lastTypingTimeRef.current = now;
-
-    // Clear existing timer
-    if (typingTimerRef.current) {
-      clearTimeout(typingTimerRef.current);
-    }
-
-    // Enable rapid typing mode if typing within 200ms intervals
-    if (timeSinceLastTyping < 200) {
-      if (!isRapidTyping) {
-        console.log('🚀 Rapid typing mode: ENABLED');
-        setIsRapidTyping(true);
-      }
-    }
-
-    // Disable rapid typing mode after 500ms of no typing
-    typingTimerRef.current = setTimeout(() => {
-      if (isRapidTyping) {
-        console.log('🐌 Rapid typing mode: DISABLED');
-        setIsRapidTyping(false);
-      }
-    }, 500);
-  }, [isRapidTyping, setIsRapidTyping]);
-
-  /**
-   * Debounced render function for rapid content changes
+   * Simplified debounced render function - incremental updates make complex logic unnecessary
    */
   const debouncedRender = useCallback((content, theme, priority = PRIORITY.NORMAL, reason = 'content-change') => {
-    // Detect rapid typing for content changes
-    if (reason === 'content-change') {
-      detectRapidTyping();
-    }
-
     // Clear existing debounce timeout
     if (debounceTimeoutRef.current) {
       clearTimeout(debounceTimeoutRef.current);
     }
 
-    // For high priority requests or rapid typing mode, skip debouncing
-    if (priority === PRIORITY.HIGH || (isRapidTyping && reason === 'content-change')) {
-      console.log(`⚡ Instant render: ${priority === PRIORITY.HIGH ? 'HIGH_PRIORITY' : 'RAPID_TYPING'}`);
+    // For high priority requests (document changes, initial render), skip debouncing
+    if (priority === PRIORITY.HIGH) {
+      console.log(`⚡ Immediate render: HIGH_PRIORITY (${reason})`);
       queueRender(content, theme, priority, reason);
       return;
     }
 
-    // Debounce normal priority requests - reduced for faster typing feedback
+    // Simple debounce for content changes - incremental updates make this much more effective
     debounceTimeoutRef.current = setTimeout(() => {
       queueRender(content, theme, priority, reason);
-    }, reason === 'content-change' ? 50 : 10); // Much faster: 50ms for typing, 10ms for other changes
-  }, [queueRender, detectRapidTyping, isRapidTyping]);
+    }, 25); // Very fast debounce for near real-time feedback
+  }, [queueRender]);
 
   /**
    * Public API for triggering renders
@@ -398,8 +377,8 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       immediate = false
     } = options;
 
-    // Performance guard: Skip if content and theme haven't changed
-    if (reason === 'content-change' &&
+    // Performance guard: Skip if content and theme haven't changed (except for content changes which should always render)
+    if (reason !== 'content-change' &&
         content === lastProcessedContentRef.current &&
         theme === lastProcessedThemeRef.current) {
       console.log(`⏭️ Skipping render - no changes detected (${reason})`);
@@ -413,21 +392,12 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     }
   }, [queueRender, debouncedRender]);
 
-  // Process queue when it changes and we're idle, with rapid typing optimization
+  // Process queue when it changes and we're idle
   useEffect(() => {
     if (renderState === RENDER_STATE.IDLE && renderQueue.length > 0) {
-      if (isRapidTyping) {
-        // For rapid typing, use microtask for immediate processing
-        queueMicrotask(() => {
-          console.log(`🚀 Rapid typing: Microtask queue processing`);
-          processQueue();
-        });
-      } else {
-        // Normal processing
-        processQueue();
-      }
+      processQueue();
     }
-  }, [renderState, renderQueue.length, processQueue, isRapidTyping]);
+  }, [renderState, renderQueue.length, processQueue]);
 
   // Handle content changes
   useEffect(() => {
@@ -493,13 +463,9 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         cancelTokenRef.current.cancelled = true;
       }
 
-      // Clear timeouts
+      // Clear debounce timeout
       if (debounceTimeoutRef.current) {
         clearTimeout(debounceTimeoutRef.current);
-      }
-
-      if (typingTimerRef.current) {
-        clearTimeout(typingTimerRef.current);
       }
 
       // Cancel all queued requests

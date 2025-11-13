@@ -68,14 +68,20 @@ const RendererContent = ({
    * Handle render completion from the orchestrator
    * This is where we process Mermaid diagrams after the initial render
    */
-  const handleRenderComplete = useCallback(async (htmlString, { renderId, reason }) => {
-    console.log(`🎯 Renderer: Handling render completion for ${renderId} (${reason})`);
+  const handleRenderComplete = useCallback(async (htmlString, { renderId, reason, incremental = false }) => {
+    console.log(`🎯 Renderer: Handling render completion for ${renderId} (${reason}) - ${incremental ? 'incremental' : 'full'} update`);
 
     try {
+      // For incremental updates, htmlString is null - no need to process Mermaid
+      if (incremental) {
+        console.log(`🔄 Skipping Mermaid processing for incremental render ${renderId}`);
+        return;
+      }
+
       let finalHtml = htmlString;
 
       // Check if we need to process Mermaid diagrams
-      if (htmlString.includes("data-mermaid-source")) {
+      if (htmlString && htmlString.includes && htmlString.includes("data-mermaid-source")) {
         console.log(`🧜‍♀️ Processing Mermaid diagrams for render ${renderId}`);
         finalHtml = await renderDiagrams(htmlString, _theme);
         setPreviewHTML(finalHtml);
@@ -94,8 +100,10 @@ const RendererContent = ({
 
     } catch (error) {
       console.error(`❌ Error processing Mermaid for render ${renderId}:`, error);
-      // Fall back to original HTML
-      setPreviewHTML(htmlString);
+      // Fall back to original HTML if available
+      if (htmlString) {
+        setPreviewHTML(htmlString);
+      }
 
       // Still update the App's renderedHTML state even on error
       // Note: Rendering is now centralized - previewHTML is updated directly in context

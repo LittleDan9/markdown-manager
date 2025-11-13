@@ -280,6 +280,9 @@
   font-style: italic;
 }
 
+// Lazy image loading styles
+// Removed transitions that might cause blinking
+
 // Dark theme adjustments
 [data-bs-theme="dark"] {
   .image-controls {

@@ -345,24 +345,57 @@ export class MarkdownLintActions {
   }
 
   /**
-   * Fix all auto-fixable issues in the document
-   * @param {Object} editor - Monaco editor instance
-   * @param {Object} markersMapRef - Reference to markers map
+   * Get a human-readable description of a fix
+   * @param {string} rule - The markdownlint rule code
+   * @param {Object} _fixInfo - Information about the fix (unused in current implementation)
+   * @returns {string} Description of what the fix does
+   * @private
    */
-  static fixAllAutoFixable(editor, markersMapRef) {
-    if (!editor) return;
+  static _getFixDescription(rule, _fixInfo) {
+    // Provide descriptions based on common markdownlint rules
+    const descriptions = {
+      'MD009': 'Remove trailing spaces',
+      'MD010': 'Replace hard tabs with spaces',
+      'MD012': 'Remove multiple consecutive blank lines',
+      'MD018': 'Add space after heading hash',
+      'MD019': 'Fix multiple spaces after heading hash',
+      'MD020': 'Add space before heading hash',
+      'MD021': 'Remove multiple spaces before heading hash',
+      'MD022': 'Fix heading level indentation',
+      'MD023': 'Fix heading level style',
+      'MD024': 'Fix multiple headings with same content',
+      'MD025': 'Fix multiple top-level headings',
+      'MD026': 'Fix trailing punctuation in heading',
+      'MD027': 'Remove multiple spaces after blockquote symbol',
+      'MD028': 'Fix blank line inside blockquote',
+      'MD029': 'Fix ordered list item prefix',
+      'MD030': 'Fix spaces after list marker',
+      'MD031': 'Fix fenced code block surrounded by blank lines',
+      'MD032': 'Fix lists surrounded by blank lines',
+      'MD033': 'Fix inline HTML',
+      'MD034': 'Fix bare URL without angle brackets',
+      'MD035': 'Fix horizontal rule style',
+      'MD036': 'Fix emphasis used instead of heading',
+      'MD037': 'Fix spaces inside emphasis markers',
+      'MD038': 'Fix spaces inside code span elements',
+      'MD039': 'Fix spaces inside link text',
+      'MD040': 'Fix fenced code block language',
+      'MD041': 'Fix first line heading',
+      'MD042': 'Fix empty link',
+      'MD043': 'Fix required heading structure',
+      'MD044': 'Fix proper names',
+      'MD045': 'Fix images without alt text',
+      'MD046': 'Fix code block style',
+      'MD047': 'Fix file ends with single newline',
+      'MD048': 'Fix code fence language',
+      'MD049': 'Fix emphasis style',
+      'MD050': 'Fix emphasis style',
+      'MD051': 'Fix link fragments',
+      'MD052': 'Fix reference link images',
+      'MD053': 'Fix link and image reference definitions'
+    };
 
-    try {
-      // Apply all available fixes in sequence
-      this.fixTrailingSpaces(editor, markersMapRef);
-      this.fixMultipleBlankLines(editor, markersMapRef);
-      this.fixHeadingSpacing(editor, markersMapRef);
-
-      console.log('MarkdownLintActions: Applied all auto-fixable corrections');
-
-    } catch (error) {
-      console.error('MarkdownLintActions: Failed to fix all issues:', error);
-    }
+    return descriptions[rule] || 'Apply automatic fix';
   }
 
   /**

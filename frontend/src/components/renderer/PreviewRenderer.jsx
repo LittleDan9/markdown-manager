@@ -139,6 +139,11 @@ const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
       previousLength: lastHtmlRef.current?.length || 0
     });
 
+    // Apply cached images after HTML is inserted (disabled for now)
+    // applyCachedImages(container).catch(error => {
+    //   console.warn('Failed to apply cached images:', error);
+    // });
+
     // Restore scroll using anchor element if we found one
     if (shouldPreserveScroll && anchorElement) {
       const dataLine = anchorElement.getAttribute('data-line');
