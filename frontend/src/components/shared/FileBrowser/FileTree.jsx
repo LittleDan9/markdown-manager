@@ -30,7 +30,7 @@ const FileTreeComponent = forwardRef(function FileTree({
   const loadedFoldersRef = useRef(new Set()); // Track loaded folders without causing re-renders
   const loadingFoldersRef = useRef(new Set()); // Track loading folders without causing re-renders
 
-  const [folderContentsVersion, setFolderContentsVersion] = useState(0);
+  const [_folderContentsVersion, setFolderContentsVersion] = useState(0);
 
   // Load folder contents when expanded
   const loadFolderContents = React.useCallback(async (folderPath) => {
@@ -210,7 +210,7 @@ const FileTreeComponent = forwardRef(function FileTree({
         depth
       };
     });
-  }, [expandedFolders, currentPath, folderContentsVersion]); // folderContentsVersion triggers updates when contents load
+  }, [expandedFolders, currentPath, folderContents]); // folderContents triggers updates when contents load
 
   const renderTreeNode = (node) => {
     const isFolder = node.type === 'folder' || node.type === 'dir';

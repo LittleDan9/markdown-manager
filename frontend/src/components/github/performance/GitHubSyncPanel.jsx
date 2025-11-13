@@ -30,7 +30,7 @@ export default function GitHubSyncPanel({ isActive = false }) {
       // Don't set error state here to avoid modal issues
       setSyncStatus(null);
     }
-  }, []); // Keep empty dependencies to prevent re-creation
+  }, [accounts]); // Include accounts in dependencies
 
   useEffect(() => {
     // Only load stats if user has GitHub accounts and tab is active
@@ -42,7 +42,7 @@ export default function GitHubSyncPanel({ isActive = false }) {
       // Clear sync status if no accounts
       setSyncStatus(null);
     }
-  }, [accountsLoading, accounts.length, isActive, loadStats]); // Keep dependencies but loadStats is now stable
+  }, [accountsLoading, accounts, isActive, loadStats]); // Include accounts in dependencies
 
   const _handleClearCache = async () => {
     if (accounts.length === 0) {

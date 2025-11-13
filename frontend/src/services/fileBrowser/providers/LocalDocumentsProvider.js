@@ -191,7 +191,7 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
     const { documents = [], categories = [] } = { documents: this.documents, categories: this.categories };
 
     // Include both local and GitHub documents in stats
-    const localDocuments = documents.filter(doc => doc.repository_type !== 'github_repo');
+    const _localDocuments = documents.filter(doc => doc.repository_type !== 'github_repo');
     const githubDocuments = documents.filter(doc => doc.repository_type === 'github_repo');
 
     // Count unique GitHub repos
@@ -225,8 +225,8 @@ export class LocalDocumentsProvider extends BaseFileBrowserProvider {
       const rootChildren = [];
 
       // Add Documents folder
-      const localDocuments = documents.filter(doc => doc.repository_type !== 'github_repo');
-      if (localDocuments.length > 0 || safeCategories.length > 0) {
+      const _localDocuments = documents.filter(doc => doc.repository_type !== 'github_repo');
+      if (_localDocuments.length > 0 || safeCategories.length > 0) {
         rootChildren.push({
           id: 'documents-root',
           name: 'Documents',

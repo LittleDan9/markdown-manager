@@ -62,7 +62,7 @@ const GitHubRepositoryList = forwardRef(({
     if (onStatusUpdate) {
       onStatusUpdate(statusMap);
     }
-  }, [onStatusUpdate]); // Remove repositories to prevent unnecessary re-creations
+  }, [repositories, onStatusUpdate]); // Include repositories in dependencies
 
   // Expose refresh method to parent component
   useImperativeHandle(ref, () => ({

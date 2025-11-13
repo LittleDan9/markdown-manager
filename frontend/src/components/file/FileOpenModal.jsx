@@ -8,7 +8,7 @@ import { useFileModal } from "@/hooks/ui";
 import UnifiedFileBrowserTab from "./tabs/UnifiedFileBrowserTab";
 import GitHubModal from "../github/modals/GitHubModal";
 
-export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument, setDocumentTitle }) {
+export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument, setDocumentTitle: _setDocumentTitle }) {
   const { documents, categories } = useDocumentContext();
   const [showConfirm, setShowConfirm] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);

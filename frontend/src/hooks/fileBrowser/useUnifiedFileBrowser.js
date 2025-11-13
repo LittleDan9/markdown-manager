@@ -91,7 +91,7 @@ export function useUnifiedFileBrowser({
       // Load files for the initial path
       loadCurrentPathFiles();
     }
-  }, [dataProvider, initialPath, initialSelectedFile]); // Removed loadCurrentPathFiles and loadTreeData from dependencies
+  }, [dataProvider, initialPath, initialSelectedFile, loadCurrentPathFiles, loadTreeData]); // Include missing dependencies
 
   // Sync currentPath with initialPath when initialPath changes
   useEffect(() => {

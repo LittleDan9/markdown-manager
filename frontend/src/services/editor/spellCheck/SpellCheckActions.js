@@ -217,7 +217,7 @@ export default class SpellCheckActions {
                 // Split message into chunks at word boundaries
                 const words = suggestions.message.split(' ');
                 let currentLine = '';
-                let lines = [];
+                const lines = [];
 
                 for (const word of words) {
                   if ((currentLine + ' ' + word).length <= maxLineLength) {

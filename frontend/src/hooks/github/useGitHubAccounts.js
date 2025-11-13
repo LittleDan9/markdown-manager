@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import gitHubApi from '../../api/gitHubApi';
 
 /**
@@ -11,7 +11,7 @@ export const useGitHubAccounts = () => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const loadAccounts = async () => {
+  const loadAccounts = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -23,9 +23,9 @@ export const useGitHubAccounts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const connectAccount = async () => {
+  const connectAccount = useCallback(async () => {
     try {
       setLoading(true);
       setError('');
@@ -68,9 +68,9 @@ export const useGitHubAccounts = () => {
       console.error('Failed to initiate GitHub OAuth:', err);
       setLoading(false);
     }
-  };
+  }, [loadAccounts]);
 
-  const disconnectAccount = async (accountId) => {
+  const disconnectAccount = useCallback(async (accountId) => {
     try {
       setLoading(true);
       setError('');
@@ -83,17 +83,17 @@ export const useGitHubAccounts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [loadAccounts]);
 
-  const clearMessages = () => {
+  const clearMessages = useCallback(() => {
     setError('');
     setSuccess('');
-  };
+  }, []);
 
   // Load accounts on mount
   useEffect(() => {
     loadAccounts();
-  }, []);
+  }, [loadAccounts]);
 
   return {
     accounts,

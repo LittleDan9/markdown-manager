@@ -33,7 +33,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } catch (err) {
       showError('Failed to load GitHub accounts');
     }
-  }, []); // Remove dependencies that cause infinite loops
+  }, [selectedAccount, showError]); // Include dependencies
 
   const loadRepositories = useCallback(async () => {
     if (!selectedAccount) return;
@@ -76,7 +76,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedAccount]); // Keep selectedAccount as it affects the API call
+  }, [selectedAccount, accounts.length]); // Include accounts.length dependency
 
   useEffect(() => {
     loadAccounts();

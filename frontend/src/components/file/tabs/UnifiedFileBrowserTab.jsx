@@ -19,7 +19,7 @@ export default function UnifiedFileBrowserTab({
   _showError = null
 }) {
   const [initialPath, setInitialPath] = useState('/');
-  const [currentPath, setCurrentPath] = useState('/');
+  const [_currentPath, setCurrentPath] = useState('/');
 
   // Preserve selected file across modal openings
   const [selectedFile, setSelectedFile] = useState(null);

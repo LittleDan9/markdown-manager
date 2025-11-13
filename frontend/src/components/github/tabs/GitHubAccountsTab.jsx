@@ -28,7 +28,7 @@ export default function GitHubAccountsTab({ onAccountsChange }) {
     } finally {
       setLoading(false);
     }
-  }, []); // Remove onAccountsChange from dependencies to prevent infinite loops
+  }, [onAccountsChange]); // Include onAccountsChange in dependencies
 
   const handleAccountConnected = useCallback(() => {
     loadAccounts();

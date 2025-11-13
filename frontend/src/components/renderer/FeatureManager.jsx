@@ -11,8 +11,7 @@ import { useRendererContext } from '../renderer/RendererContext';
 import { applyCropStyles, getDefaultCropData } from '../renderer/utils/cropUtils';
 
 // Feature system imports
-import { registerFeature, initializeFeatures, cleanupFeatures } from '../../services/features/FeatureRegistry';
-import { ImageControlsFeature } from '../../services/features/ImageControlsFeature';
+import { initializeFeatures, cleanupFeatures } from '../../services/features/FeatureRegistry';
 import { CropOverlayFeature } from '../../services/features/CropOverlayFeature';
 
 const FeatureManager = () => {

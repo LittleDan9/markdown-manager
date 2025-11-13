@@ -25,7 +25,7 @@ const RENDER_STATE = {
 };
 
 export function useRenderingOrchestrator({ theme, onRenderComplete }) {
-  const { currentDocument, highlightedBlocks, setHighlightedBlocks, isRendering: _isRendering, setIsRendering, renderState, setRenderState, isRapidTyping, setIsRapidTyping, content } = useDocumentContext();
+  const { currentDocument, highlightedBlocks, setHighlightedBlocks, isRendering: _isRendering, setIsRendering, renderState, setRenderState, isRapidTyping, setIsRapidTyping: _setIsRapidTyping, content } = useDocumentContext();
   const {
     setHtml,
     resetFirstRenderFlag,
@@ -117,7 +117,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   /**
    * Process incremental render for content changes
    */
-  const processIncrementalRender = useCallback(async (newContent, oldContent, cancelToken) => {
+  const processIncrementalRender = useCallback(async (newContent, _oldContent, _cancelToken) => {
     console.log('🔄 Processing incremental render');
 
     // For now, fall back to full render for incremental updates
@@ -305,7 +305,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         setRenderState(RENDER_STATE.IDLE);
       }, 100);
     }
-  }, [highlightedBlocks, setHighlightedBlocks, setHtml, setIsRendering, onRenderComplete, setRenderState, processIncrementalRender, processFullHighlighting]);
+  }, [setHtml, setIsRendering, onRenderComplete, setRenderState, processIncrementalRender, processFullHighlighting]);
 
   /**
    * Process the render queue - simplified without rapid typing complexity
