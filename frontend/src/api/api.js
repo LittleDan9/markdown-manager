@@ -101,8 +101,14 @@ export class Api {
       // console.log('API Response:', response.status, response.data); // Commented out to reduce noise
       return response;
     } catch (error) {
-      // Check for 401 and attempt refresh if not already retrying
-      if (error.response?.status === 401 && !options._isRetry) {
+      // Don't attempt token refresh for authentication endpoints
+      const isAuthEndpoint = endpoint.startsWith('/auth/login') ||
+                             endpoint.startsWith('/auth/register') ||
+                             endpoint.startsWith('/auth/password-reset') ||
+                             endpoint.startsWith('/auth/refresh');
+
+      // Check for 401 and attempt refresh if not already retrying and not an auth endpoint
+      if (error.response?.status === 401 && !options._isRetry && !isAuthEndpoint) {
         try {
           await this.refreshAccessToken();
           // Retry the request once with the new token
@@ -127,15 +133,56 @@ export class Api {
 
       // Extract detailed error message from backend response
       let detailedErrorMessage = error.message;
-      if (error.response?.data?.detail) {
-        // Handle case where detail might be an array or object
-        detailedErrorMessage = typeof error.response.data.detail === 'string'
-          ? error.response.data.detail
-          : JSON.stringify(error.response.data.detail);
-      } else if (error.response?.data?.message) {
-        detailedErrorMessage = error.response.data.message;
-      } else if (error.response?.data?.error) {
-        detailedErrorMessage = error.response.data.error;
+
+      // Try to extract meaningful error message from various response formats
+      if (error.response?.data) {
+        const data = error.response.data;
+
+        // FastAPI standard format: {"detail": "message"}
+        if (data.detail) {
+          detailedErrorMessage = typeof data.detail === 'string'
+            ? data.detail
+            : JSON.stringify(data.detail);
+        }
+        // Alternative formats: {"message": "..."} or {"error": "..."}
+        else if (data.message) {
+          detailedErrorMessage = data.message;
+        }
+        else if (data.error) {
+          detailedErrorMessage = typeof data.error === 'string'
+            ? data.error
+            : data.error.message || JSON.stringify(data.error);
+        }
+        // Handle wrapped error formats like {"error": {"message": "..."}}
+        else if (data.error?.message) {
+          detailedErrorMessage = data.error.message;
+        }
+      }
+
+      // Provide more user-friendly messages for common HTTP status codes
+      if (detailedErrorMessage === error.message) {
+        switch (error.response?.status) {
+          case 401:
+            detailedErrorMessage = 'Invalid credentials. Please check your email and password.';
+            break;
+          case 403:
+            detailedErrorMessage = 'Access denied. You do not have permission to perform this action.';
+            break;
+          case 404:
+            detailedErrorMessage = 'The requested resource was not found.';
+            break;
+          case 500:
+            detailedErrorMessage = 'Server error. Please try again later.';
+            break;
+          case 502:
+          case 503:
+          case 504:
+            detailedErrorMessage = 'Service temporarily unavailable. Please try again later.';
+            break;
+          default:
+            // Keep the original message for other status codes
+            break;
+        }
       }
 
       // Create a new error with the detailed message but preserve other properties

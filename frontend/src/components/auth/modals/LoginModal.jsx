@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Button, Form, Alert, InputGroup } from "react-bootstrap";
+import { Modal, Button, Form, Alert } from "react-bootstrap";
 
 function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp }) {
   const [email, setEmail] = useState(emailProp || "");
@@ -11,6 +11,7 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
   useEffect(() => {
     if (show) {
       setEmail(emailProp || "");
+      setError(""); // Clear any previous errors when modal opens
     }
   }, [emailProp, show]);
 
@@ -19,14 +20,31 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
     setError("");
     setLoading(true);
     try {
-      // TODO: Replace with actual login logic
       if (!email || !password) {
         setError("Email and password are required.");
-      } else {
-        await (onLogin ? onLogin(email, password) : Promise.resolve());
-        setEmail("");
-        setPassword("");
-        onHide();
+        return;
+      }
+
+      if (onLogin) {
+        const result = await onLogin(email, password);
+
+        if (result?.success || result?.mfaRequired) {
+          // Login successful or MFA required - modal will be closed by AuthProvider
+          setEmail("");
+          setPassword("");
+          onHide();
+        } else if (result?.error) {
+          // Login failed - show error and keep modal open
+          setError(result.error);
+        } else if (result === undefined) {
+          // Legacy case - assume success and close modal
+          setEmail("");
+          setPassword("");
+          onHide();
+        } else {
+          // Unknown error case
+          setError("Login failed. Please try again.");
+        }
       }
     } catch (err) {
       setError(err.message || "Login failed.");
@@ -60,45 +78,48 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
         <Modal.Body>
           <Form.Group className="mb-3" controlId="loginEmail">
             <Form.Label>Email</Form.Label>
-            <InputGroup>
-              <InputGroup.Text>
+            <div className="input-group">
+              <span className="input-group-text">
                 <i className="bi bi-envelope"></i>
-              </InputGroup.Text>
+              </span>
               <Form.Control
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
                 required
                 autoFocus
               />
-            </InputGroup>
+            </div>
           </Form.Group>
           <Form.Group className="mb-3" controlId="loginPassword">
             <Form.Label>Password</Form.Label>
-            <InputGroup>
-              <InputGroup.Text>
+            <div className="input-group">
+              <span className="input-group-text">
                 <i className="bi bi-key"></i>
-              </InputGroup.Text>
+              </span>
               <Form.Control
                 type={showPassword ? "text" : "password"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
                 required
               />
-              <Button
-                variant="outline-secondary"
-                onClick={() => setShowPassword(!showPassword)}
+              <button
+                className="btn btn-outline-secondary"
                 type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? "Hide password" : "Show password"}
               >
                 <i className={`bi bi-eye${showPassword ? '-slash' : ''}`}></i>
-              </Button>
-            </InputGroup>
+              </button>
+            </div>
           </Form.Group>
           <div className="mb-3 text-end">
             <a
               href="#"
               id="forgotPasswordLink"
-              className="text-decoration-none"
+              className="text-decoration-none text-muted small"
               onClick={handleForgot}
             >
               <i className="bi bi-question-circle me-1"></i>Forgot Password?
@@ -111,11 +132,11 @@ function LoginModal({ show, onHide, onLogin, onForgotPassword, email: emailProp 
             </Alert>
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={handleClose} disabled={loading}>
+        <Modal.Footer className="d-flex justify-content-between">
+          <Button variant="outline-secondary" onClick={handleClose} disabled={loading}>
             <i className="bi bi-x-lg me-2"></i>Cancel
           </Button>
-          <Button type="submit" variant="primary" disabled={loading}>
+          <Button type="submit" variant="primary" disabled={loading} className="px-4">
             {loading ? (
               <>
                 <i className="bi bi-arrow-clockwise me-2 spin"></i>

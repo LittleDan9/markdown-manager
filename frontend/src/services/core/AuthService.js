@@ -237,7 +237,8 @@ class AuthService {
    * Login user
    */
   async login(email, password) {
-    const loginResponse = await UserAPI.login(email, password);
+    try {
+      const loginResponse = await UserAPI.login(email, password);
 
     // Handle null or undefined responses
     if (!loginResponse) {
@@ -267,6 +268,27 @@ class AuthService {
 
     this.justLoggedIn = false;
     return { success: true, user: loginResponse.user };
+    } catch (error) {
+      // Handle login errors and provide user-friendly messages
+      console.error('AuthService.login error:', error);
+
+      let errorMessage = error.message || 'Login failed';
+
+      // Extract error message if it's buried in error structure
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Invalid email or password. Please try again.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (!navigator.onLine) {
+        errorMessage = 'No internet connection. Please check your network.';
+      }
+
+      return { success: false, error: errorMessage };
+    }
   }
 
   /**
@@ -298,7 +320,22 @@ class AuthService {
         return { success: false, message: response.message || "Verification failed." };
       }
     } catch (error) {
-      return { success: false, message: error.message || "Verification failed." };
+      console.error('AuthService.verifyMFA error:', error);
+
+      let errorMessage = error.message || 'Verification failed';
+
+      // Extract error message from backend response
+      if (error.response?.data?.detail) {
+        errorMessage = error.response.data.detail;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error.response?.status === 401) {
+        errorMessage = 'Invalid verification code. Please try again.';
+      } else if (error.response?.status >= 500) {
+        errorMessage = 'Server error. Please try again later.';
+      }
+
+      return { success: false, message: errorMessage };
     }
   }
 
