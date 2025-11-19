@@ -134,21 +134,46 @@
   }
 
 
+  /* Use Bootstrap's default dropdown styling with proper overrides */
   .dropdown-menu {
-    border: 1px solid rgba(0, 0, 0, 0.15);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-
+    min-width: 220px;
+    
     .dropdown-item {
+      color: var(--bs-dropdown-link-color, #212529) !important;
+      text-decoration: none !important;
+      padding: 0.25rem 1rem;
       font-size: 0.875rem;
-
-      &.small {
-        font-size: 0.8rem;
+      white-space: nowrap;
+      
+      &:hover:not(:disabled),
+      &:focus:not(:disabled) {
+        color: var(--bs-dropdown-link-hover-color, #1e2125) !important;
+        background-color: var(--bs-dropdown-link-hover-bg, #e9ecef) !important;
+        text-decoration: none !important;
+      }
+      
+      &:disabled {
+        color: var(--bs-dropdown-link-disabled-color, #adb5bd) !important;
+        background-color: transparent !important;
+        pointer-events: none;
       }
 
       i {
         width: 16px;
         text-align: center;
       }
+    }
+    
+    .dropdown-divider {
+      margin: 0 !important;
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
+    }
+    
+    hr.dropdown-divider {
+      margin: 0 !important;
+      margin-top: 0.25rem !important;
+      margin-bottom: 0.25rem !important;
     }
   }
 }
@@ -195,25 +220,25 @@
       display: inline-flex;
     }
 
+    /* Dark mode dropdown styling */
     .dropdown-menu {
-      background-color: #212529;
-      border-color: rgba(255, 255, 255, 0.15);
-
       .dropdown-item {
-        color: #f8f9fa;
-
-        &:hover:not(:disabled) {
-          background-color: #343a40;
-          color: #fff;
+        color: var(--bs-dropdown-dark-link-color, #dee2e6) !important;
+        
+        &:hover:not(:disabled),
+        &:focus:not(:disabled) {
+          color: var(--bs-dropdown-dark-link-hover-color, #fff) !important;
+          background-color: var(--bs-dropdown-dark-link-hover-bg, #424649) !important;
+          text-decoration: none !important;
+        }
+        
+        &:disabled {
+          color: var(--bs-dropdown-dark-link-disabled-color, #adb5bd) !important;
         }
 
-        &.text-muted {
-          color: #6c757d;
-
-          &:hover {
-            background-color: transparent;
-            color: #6c757d;
-          }
+        i {
+          width: 16px;
+          text-align: center;
         }
       }
     }

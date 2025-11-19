@@ -364,14 +364,15 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
             <i className="bi bi-arrows-fullscreen"></i>
           </Button>
 
-          {/* Export Dropdown */}
-          <Dropdown as={ButtonGroup}>
+          {/* Export Dropdown - using standard Dropdown without ButtonGroup wrapper */}
+          <Dropdown>
             <Dropdown.Toggle
               variant="outline-secondary"
               size="sm"
               disabled={isExporting}
               title="Export diagram"
               id={`export-dropdown-${diagramId}`}
+              className="border-start-0"
             >
               {isExporting ? (
                 <>
@@ -389,14 +390,14 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
                 disabled={isExporting}
               >
                 <i className="bi bi-file-earmark-code me-2"></i>
-                Export as SVG
+                SVG
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => handleExport('png')}
                 disabled={isExporting}
               >
                 <i className="bi bi-file-earmark-image me-2"></i>
-                Export as PNG
+                PNG
               </Dropdown.Item>
               <Dropdown.Divider />
               <Dropdown.Item
@@ -404,14 +405,14 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
                 disabled={isExporting}
               >
                 <i className="bi bi-diagram-3 me-2"></i>
-                Export as Draw.io XML
+                Draw.io XML
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => handleExport('diagramsnet-png')}
                 disabled={isExporting}
               >
                 <i className="bi bi-diagram-3-fill me-2"></i>
-                Export as Draw.io PNG
+                Draw.io PNG
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>

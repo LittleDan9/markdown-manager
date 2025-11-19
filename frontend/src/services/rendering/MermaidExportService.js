@@ -233,8 +233,23 @@ export class MermaidExportService {
       clonedSVG.setAttribute('width', finalWidth.toString());
       clonedSVG.setAttribute('height', finalHeight.toString());
 
-      // Return just the SVG without wrapper for natural sizing
-      return clonedSVG.outerHTML;
+      // Create wrapper with proper sizing and styling for natural dimensions
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mermaid-export-container';
+      wrapper.style.cssText = `
+        width: ${finalWidth}px;
+        height: ${finalHeight}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: ${options.isDarkMode ? '#1a1a1a' : '#ffffff'};
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      `;
+
+      wrapper.appendChild(clonedSVG);
+      return wrapper.outerHTML;
     }
 
     // For SVG exports or fixed-size PNG exports, use a container wrapper
