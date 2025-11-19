@@ -13,7 +13,8 @@ class ExportServiceApi extends Api {
    * @param {number} options.width - Export width (default: 1200)
    * @param {number} options.height - Export height (default: 800)
    * @param {boolean} options.isDarkMode - Dark mode styling (default: false)
-   * @returns {Promise<string>} - SVG content as string
+   * @param {boolean} options.returnFullResponse - Return full ConversionResponse instead of just content
+   * @returns {Promise<string|Object>} - SVG content as string or full response object
    */
   async exportDiagramAsSVG(htmlContent, options = {}) {
     const requestData = {
@@ -25,7 +26,18 @@ class ExportServiceApi extends Api {
     };
 
     const res = await this.apiCall('/export/diagram/svg', 'POST', requestData);
-    return res.data.svg_content;
+
+    if (options.returnFullResponse) {
+      return res.data; // Return full ConversionResponse
+    }
+
+    // Decode base64 SVG content for backward compatibility
+    if (res.data.file_data) {
+      return atob(res.data.file_data);
+    }
+
+    // Fallback for legacy response format
+    return res.data.svg_content || res.data.file_data;
   }
 
   /**
@@ -35,7 +47,8 @@ class ExportServiceApi extends Api {
    * @param {number} options.width - Export width (default: 1200)
    * @param {number} options.height - Export height (default: 800)
    * @param {boolean} options.isDarkMode - Dark mode styling (default: false)
-   * @returns {Promise<Blob>} - PNG blob
+   * @param {boolean} options.returnFullResponse - Return full ConversionResponse instead of just blob
+   * @returns {Promise<Blob|Object>} - PNG blob or full response object
    */
   async exportDiagramAsPNG(htmlContent, options = {}) {
     // For PNG, we need to extract the SVG from the rendered HTML first
@@ -57,8 +70,13 @@ class ExportServiceApi extends Api {
 
     const res = await this.apiCall('/export/diagram/png', 'POST', requestData);
 
-    // Convert base64 response to blob
-    const binaryString = atob(res.data.image_data);
+    if (options.returnFullResponse) {
+      return res.data; // Return full ConversionResponse
+    }
+
+    // Convert base64 response to blob from new response format
+    const imageData = res.data.file_data || res.data.image_data; // Support both new and legacy formats
+    const binaryString = atob(imageData);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
@@ -91,21 +109,100 @@ class ExportServiceApi extends Api {
   }
 
   /**
+   * Generate quality message for user display based on diagrams.net conversion score
+   * @param {number} score - Quality score (0-100)
+   * @param {string} format - Export format
+   * @returns {Object} - Message object with type and text
+   */
+  generateQualityMessage(score, format = 'diagrams.net') {
+    if (score >= 90) {
+      return {
+        type: 'success',
+        icon: '✅',
+        text: `${format} export completed (Excellent quality - ${score.toFixed(1)}%)`
+      };
+    } else if (score >= 75) {
+      return {
+        type: 'warning',
+        icon: '⚠️',
+        text: `${format} export completed (Good quality - ${score.toFixed(1)}%) - Minor adjustments may be needed`
+      };
+    } else if (score >= 60) {
+      return {
+        type: 'warning',
+        icon: '⚠️',
+        text: `${format} export completed (Fair quality - ${score.toFixed(1)}%) - Review recommended`
+      };
+    } else {
+      return {
+        type: 'error',
+        icon: '❌',
+        text: `${format} export completed (Poor quality - ${score.toFixed(1)}%) - Consider SVG export for better results`
+      };
+    }
+  }
+
+  /**
    * Export document as PDF using the export service
    * @param {string} htmlContent - HTML content to export as PDF
    * @param {string} documentName - Document name for the PDF
    * @param {boolean} isDarkMode - Dark mode styling (default: false)
-   * @returns {Promise<Blob>} - PDF binary data as blob
+   * @param {string} responseFormat - 'stream' (default) or 'json'
+   * @returns {Promise<Blob|Object>} - PDF binary data as blob or ConversionResponse object
    */
-  async exportAsPDF(htmlContent, documentName, isDarkMode = false) {
+  async exportAsPDF(htmlContent, documentName, isDarkMode = false, responseFormat = 'stream') {
     const requestData = {
       html_content: htmlContent,
       document_name: documentName,
       is_dark_mode: isDarkMode,
     };
 
-    const res = await this.apiCall('/export/document/pdf', 'POST', requestData, {}, { responseType: 'blob' });
-    return res.data; // PDF binary or blob
+    if (responseFormat === 'json') {
+      // Use JSON response format with ConversionResponse
+      const res = await this.apiCall('/export/document/pdf?response_format=json', 'POST', requestData);
+      return res.data; // ConversionResponse object
+    } else {
+      // Use streaming response format (legacy behavior)
+      const res = await this.apiCall('/export/document/pdf', 'POST', requestData, {}, { responseType: 'blob' });
+      return res.data; // PDF binary or blob
+    }
+  }
+
+  /**
+   * Export diagram as diagrams.net format using the export service
+   * @param {string} svgContent - Raw SVG content from Mermaid rendering engine
+   * @param {Object} options - Export options
+   * @param {string} options.format - Export format ('xml' - currently only supported)
+   * @param {boolean} options.isDarkMode - Dark mode styling (default: false)
+   * @returns {Promise<Object>} - DiagramsNetExportResponse with quality assessment
+   */
+  async exportDiagramAsDiagramsNet(svgContent, options = {}) {
+    const requestData = {
+      svg_content: svgContent,
+      format: options.format || 'xml',
+      is_dark_mode: options.isDarkMode || false
+    };
+
+    const res = await this.apiCall('/export/diagram/diagramsnet', 'POST', requestData);
+    return res.data; // Full DiagramsNetExportResponse with quality assessment
+  }
+
+  /**
+   * Get supported diagrams.net export formats
+   * @returns {Promise<Object>} - Supported formats and service information
+   */
+  async getDiagramsNetFormats() {
+    const res = await this.apiCall('/export/diagram/formats', 'GET');
+    return res.data;
+  }
+
+  /**
+   * Check diagrams.net conversion service health
+   * @returns {Promise<Object>} - diagrams.net service health status
+   */
+  async checkDiagramsNetHealth() {
+    const res = await this.apiCall('/export/diagram/health', 'GET');
+    return res.data;
   }
 
   /**
@@ -120,21 +217,54 @@ class ExportServiceApi extends Api {
   /**
    * Render diagram to SVG (alias for exportDiagramAsSVG for backwards compatibility)
    * @param {Object} diagramData - Diagram data object
-   * @returns {Promise<Object>} - Response with SVG content
+   * @returns {Promise<Object>} - ConversionResponse with SVG content
    */
   async renderDiagramToSVG(diagramData) {
     const res = await this.apiCall('/export/diagram/svg', 'POST', diagramData);
-    return res.data;
+    return res.data; // Returns ConversionResponse
   }
 
   /**
    * Render diagram to PNG image (alias for exportDiagramAsPNG for backwards compatibility)
    * @param {Object} diagramData - Diagram data object
-   * @returns {Promise<Object>} - Response with image data
+   * @returns {Promise<Object>} - ConversionResponse with image data
    */
   async renderDiagramToImage(diagramData) {
     const res = await this.apiCall('/export/diagram/png', 'POST', diagramData);
-    return res.data;
+    return res.data; // Returns ConversionResponse
+  }
+
+  /**
+   * Helper method to download file from ConversionResponse
+   * @param {Object} conversionResponse - Response from export service
+   * @param {string} filename - Optional custom filename
+   */
+  downloadFromConversionResponse(conversionResponse, filename = null) {
+    if (!conversionResponse.success || !conversionResponse.file_data) {
+      throw new Error('Invalid conversion response or no file data');
+    }
+
+    // Use provided filename or the one from response
+    const downloadFilename = filename || conversionResponse.filename;
+
+    // Convert base64 to blob
+    const binaryString = atob(conversionResponse.file_data);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
+    }
+
+    const blob = new Blob([bytes], { type: conversionResponse.content_type });
+
+    // Trigger download
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = downloadFilename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 }
 

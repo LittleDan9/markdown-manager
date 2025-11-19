@@ -1,0 +1,71 @@
+<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg">
+  <!-- Architecture diagram with embedded icons -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+
+    <!-- Embedded AWS-style icons as SVG -->
+    <g id="ec2-icon">
+      <rect width="24" height="24" fill="#FF9900" rx="2"/>
+      <rect x="4" y="4" width="16" height="16" fill="white" rx="1"/>
+      <text x="12" y="16" text-anchor="middle" font-size="8" fill="#FF9900">EC2</text>
+    </g>
+
+    <g id="rds-icon">
+      <circle cx="12" cy="12" r="12" fill="#3F8FBF"/>
+      <circle cx="12" cy="12" r="8" fill="white"/>
+      <text x="12" y="16" text-anchor="middle" font-size="8" fill="#3F8FBF">RDS</text>
+    </g>
+
+    <g id="s3-icon">
+      <rect width="24" height="24" fill="#569A31" rx="4"/>
+      <text x="12" y="16" text-anchor="middle" font-size="8" fill="white">S3</text>
+    </g>
+  </defs>
+
+  <!-- Load Balancer -->
+  <rect id="lb" x="50" y="50" width="120" height="60" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="110" y="75" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Load Balancer</text>
+  <text x="110" y="90" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">ALB</text>
+
+  <!-- Web Server 1 -->
+  <rect id="web1" x="250" y="30" width="100" height="80" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <use href="#ec2-icon" x="276" y="40"/>
+  <text x="300" y="80" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Web Server 1</text>
+  <text x="300" y="95" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">t3.medium</text>
+
+  <!-- Web Server 2 -->
+  <rect id="web2" x="250" y="130" width="100" height="80" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <use href="#ec2-icon" x="276" y="140"/>
+  <text x="300" y="180" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Web Server 2</text>
+  <text x="300" y="195" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">t3.medium</text>
+
+  <!-- Database -->
+  <rect id="db" x="450" y="80" width="100" height="80" fill="#e8f5e8" stroke="#388e3c" stroke-width="2"/>
+  <use href="#rds-icon" x="476" y="90"/>
+  <text x="500" y="130" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">Database</text>
+  <text x="500" y="145" text-anchor="middle" font-family="Arial" font-size="10" fill="#666">MySQL 8.0</text>
+
+  <!-- S3 Storage -->
+  <rect id="storage" x="250" y="280" width="100" height="60" fill="#f1f8e9" stroke="#689f38" stroke-width="2"/>
+  <use href="#s3-icon" x="276" y="290"/>
+  <text x="300" y="325" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">S3 Bucket</text>
+
+  <!-- Connections -->
+  <path d="M 170 80 L 250 70" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 170 80 L 250 170" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 350 70 L 450 120" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 350 170 L 450 120" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <path d="M 300 210 L 300 280" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+
+  <!-- Connection labels -->
+  <text x="210" y="65" font-family="Arial" font-size="10" fill="#666">HTTP</text>
+  <text x="210" y="155" font-family="Arial" font-size="10" fill="#666">HTTP</text>
+  <text x="400" y="95" font-family="Arial" font-size="10" fill="#666">SQL</text>
+  <text x="400" y="145" font-family="Arial" font-size="10" fill="#666">SQL</text>
+  <text x="310" y="250" font-family="Arial" font-size="10" fill="#666">Files</text>
+
+  <!-- Title -->
+  <text x="300" y="25" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#333">AWS Architecture</text>
+</svg>

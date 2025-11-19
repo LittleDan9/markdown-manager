@@ -56,6 +56,12 @@ class DocumentsApi extends Api {
     return await exportServiceApi.exportDiagramAsPNG(htmlContent, options);
   }
 
+  async exportDiagramAsDiagramsNet(svgContent, options = {}) {
+    // Use the dedicated export service for diagrams.net XML generation
+    const exportServiceApi = (await import('./exportServiceApi')).default;
+    return await exportServiceApi.exportDiagramAsDiagramsNet(svgContent, options);
+  }
+
   async getAllDocuments(category = null, repositoryType = "local") {
     let endpoint = "/documents";
     const params = new URLSearchParams();

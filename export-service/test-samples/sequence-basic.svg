@@ -1,0 +1,59 @@
+<svg width="500" height="350" xmlns="http://www.w3.org/2000/svg">
+  <!-- Simple sequence diagram -->
+  <defs>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#333"/>
+    </marker>
+  </defs>
+
+  <!-- Actors -->
+  <rect id="user" x="50" y="30" width="80" height="40" fill="#e3f2fd" stroke="#1976d2" stroke-width="2"/>
+  <text x="90" y="55" text-anchor="middle" font-family="Arial" font-size="14" fill="#333">User</text>
+
+  <rect id="server" x="200" y="30" width="80" height="40" fill="#fff3e0" stroke="#f57c00" stroke-width="2"/>
+  <text x="240" y="55" text-anchor="middle" font-family="Arial" font-size="14" fill="#333">Server</text>
+
+  <rect id="database" x="350" y="30" width="80" height="40" fill="#e8f5e8" stroke="#388e3c" stroke-width="2"/>
+  <text x="390" y="55" text-anchor="middle" font-family="Arial" font-size="14" fill="#333">Database</text>
+
+  <!-- Lifelines -->
+  <line x1="90" y1="70" x2="90" y2="320" stroke="#ccc" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="240" y1="70" x2="240" y2="320" stroke="#ccc" stroke-width="2" stroke-dasharray="5,5"/>
+  <line x1="390" y1="70" x2="390" y2="320" stroke="#ccc" stroke-width="2" stroke-dasharray="5,5"/>
+
+  <!-- Messages -->
+  <!-- 1. Login Request -->
+  <path d="M 90 100 L 240 100" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="165" y="95" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">1. Login Request</text>
+
+  <!-- 2. Validate Credentials -->
+  <path d="M 240 130 L 390 130" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="315" y="125" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">2. Validate</text>
+
+  <!-- 3. User Data -->
+  <path d="M 390 160 L 240 160" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="315" y="155" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">3. User Data</text>
+
+  <!-- 4. Login Response -->
+  <path d="M 240 190 L 90 190" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="165" y="185" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">4. Login Success</text>
+
+  <!-- 5. Get Dashboard -->
+  <path d="M 90 220 L 240 220" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="165" y="215" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">5. Get Dashboard</text>
+
+  <!-- 6. Query Data -->
+  <path d="M 240 250 L 390 250" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="315" y="245" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">6. Query Data</text>
+
+  <!-- 7. Return Data -->
+  <path d="M 390 280 L 240 280" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="315" y="275" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">7. Results</text>
+
+  <!-- 8. Dashboard Response -->
+  <path d="M 240 310 L 90 310" stroke="#333" stroke-width="2" fill="none" marker-end="url(#arrowhead)"/>
+  <text x="165" y="305" text-anchor="middle" font-family="Arial" font-size="12" fill="#333">8. Dashboard</text>
+
+  <!-- Title -->
+  <text x="250" y="20" text-anchor="middle" font-family="Arial" font-size="16" font-weight="bold" fill="#333">User Login Sequence</text>
+</svg>

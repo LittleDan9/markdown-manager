@@ -5,6 +5,7 @@ from fastapi import APIRouter, HTTPException
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 
+from app.models import ConversionResponse
 from app.services.css_service import css_service
 
 router = APIRouter()
@@ -29,7 +30,7 @@ class PNGExportRequest(BaseModel):
 
 
 @router.post("/svg")
-async def export_diagram_svg(request: DiagramExportRequest) -> dict:
+async def export_diagram_svg(request: DiagramExportRequest) -> ConversionResponse:
     """Export diagram as SVG using Chromium rendering."""
     try:
         logger.info("Exporting diagram as SVG")
@@ -81,7 +82,22 @@ async def export_diagram_svg(request: DiagramExportRequest) -> dict:
             if not svg_content:
                 raise HTTPException(status_code=400, detail="No SVG content found in diagram")
 
-            return {"svg_content": svg_content}
+            # Encode SVG as base64 for consistent response format
+            svg_base64 = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
+
+            return ConversionResponse(
+                success=True,
+                file_data=svg_base64,
+                filename="diagram.svg",
+                content_type="image/svg+xml",
+                format="svg",
+                metadata={
+                    "width": request.width,
+                    "height": request.height,
+                    "dark_mode": request.is_dark_mode,
+                    "svg_length": len(svg_content)
+                }
+            )
 
     except Exception as e:
         logger.error(f"Failed to export diagram as SVG: {str(e)}")
@@ -89,7 +105,7 @@ async def export_diagram_svg(request: DiagramExportRequest) -> dict:
 
 
 @router.post("/png")
-async def export_diagram_png(request: PNGExportRequest) -> dict:
+async def export_diagram_png(request: PNGExportRequest) -> ConversionResponse:
     """Convert SVG to PNG with transparent background."""
     try:
         logger.info("Converting SVG to PNG with transparent background")
@@ -184,13 +200,22 @@ async def export_diagram_png(request: PNGExportRequest) -> dict:
 
             await browser.close()
 
-            # Return base64 encoded image
+            # Return base64 encoded image using ConversionResponse
             image_data = base64.b64encode(png_bytes).decode('utf-8')
-            return {
-                "image_data": image_data,
-                "width": int(width),
-                "height": int(height)
-            }
+
+            return ConversionResponse(
+                success=True,
+                file_data=image_data,
+                filename="diagram.png",
+                content_type="image/png",
+                format="png",
+                metadata={
+                    "width": int(width),
+                    "height": int(height),
+                    "transparent_background": request.transparent_background,
+                    "svg_source_length": len(request.svg_content)
+                }
+            )
 
     except Exception as e:
         logger.error(f"Failed to convert SVG to PNG: {str(e)}")

@@ -59,6 +59,11 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
           maxHeight: 2400,
           isDarkMode: isDarkMode
         };
+      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
+        // For Draw.io formats, no specific options needed - service will handle SVG extraction
+        exportOptions = {
+          isDarkMode: isDarkMode
+        };
       } else {
         // For SVG, use high resolution container
         exportOptions = {
@@ -73,14 +78,30 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
         `fullscreen-diagram-${diagramId}`
       );
 
-      await mermaidExportService.downloadDiagram(
+      const result = await mermaidExportService.downloadDiagram(
         diagramElement,
         format,
         filename,
         exportOptions
       );
 
-      showSuccess(`High-resolution diagram exported as ${format.toUpperCase()}`);
+      let formatName;
+      if (format === 'diagramsnet') {
+        formatName = 'diagrams.net XML';
+      } else if (format === 'diagramsnet-png') {
+        formatName = 'diagrams.net PNG';
+      } else {
+        formatName = format.toUpperCase();
+      }
+
+      // Show quality metrics for diagrams.net exports
+      if ((format === 'diagramsnet' || format === 'diagramsnet-png') && result && result.quality) {
+        const quality = result.quality;
+        const qualityIcon = quality.score >= 90 ? '🟢' : quality.score >= 75 ? '🟡' : '🔴';
+        showSuccess(`${qualityIcon} High-resolution ${formatName} exported with ${quality.score.toFixed(1)}% quality - ${quality.message}`);
+      } else {
+        showSuccess(`High-resolution diagram exported as ${formatName}`);
+      }
 
     } catch (error) {
       console.error(`Export failed:`, error);
@@ -207,6 +228,42 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
               <>
                 <i className="bi bi-file-earmark-image-fill me-1"></i>
                 Export PNG
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline-info"
+            onClick={() => handleExport('diagramsnet')}
+            disabled={isExporting}
+          >
+            {isExporting && exportFormat === 'diagramsnet' ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-1" />
+                Exporting diagrams.net XML...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-diagram-3 me-1"></i>
+                Export diagrams.net XML
+              </>
+            )}
+          </Button>
+
+          <Button
+            variant="outline-success"
+            onClick={() => handleExport('diagramsnet-png')}
+            disabled={isExporting}
+          >
+            {isExporting && exportFormat === 'diagramsnet-png' ? (
+              <>
+                <span className="spinner-border spinner-border-sm me-1" />
+                Exporting diagrams.net PNG...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-diagram-3-fill me-1"></i>
+                Export diagrams.net PNG
               </>
             )}
           </Button>

@@ -1,12 +1,12 @@
-# Draw.io Export Implementation Plan
+# Diagrams.net Export Implementation Plan
 
 ## Overview
-Add Draw.io export functionality to the markdown-manager application, allowing users to convert Mermaid diagrams to Draw.io's editable PNG format (with embedded XML metadata) or raw XML format. This feature integrates seamlessly with the existing diagram export system.
+Add diagrams.net export functionality to the markdown-manager application, allowing users to convert Mermaid diagrams to diagrams.net's editable PNG format (with embedded XML metadata) or raw XML format. This feature integrates seamlessly with the existing diagram export system.
 
 ## Feature Requirements
 
 ### User Experience
-- **UI Integration**: Add new Draw.io dropdown button alongside existing SVG/PNG export buttons
+- **UI Integration**: Add new diagrams.net dropdown button alongside existing SVG/PNG export buttons
 - **Format Options**: Support both editable PNG (default) and raw XML export formats
 - **Quality Feedback**: Provide conversion quality scoring via toast notifications after export
 - **Non-blocking**: Never prevent downloads - always allow user to proceed regardless of quality score

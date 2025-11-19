@@ -240,6 +240,11 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
           maxHeight: 1800,
           isDarkMode: isDarkMode
         };
+      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
+        // For diagrams.net formats, no specific options needed - service will handle SVG extraction
+        exportOptions = {
+          isDarkMode: isDarkMode
+        };
       } else {
         // For SVG, use standard container dimensions
         exportOptions = {
@@ -251,14 +256,30 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
       const filename = mermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
 
-      await mermaidExportService.downloadDiagram(
+      const result = await mermaidExportService.downloadDiagram(
         diagramElement,
         format,
         filename,
         exportOptions
       );
 
-      showSuccess(`Diagram exported as ${format.toUpperCase()}`);
+      let formatName;
+      if (format === 'diagramsnet') {
+        formatName = 'diagrams.net XML';
+      } else if (format === 'diagramsnet-png') {
+        formatName = 'diagrams.net PNG';
+      } else {
+        formatName = format.toUpperCase();
+      }
+
+      // Show quality metrics for Draw.io exports
+      if ((format === 'diagramsnet' || format === 'diagramsnet-png') && result && result.quality) {
+        const quality = result.quality;
+        const qualityIcon = quality.score >= 90 ? '🟢' : quality.score >= 75 ? '🟡' : '🔴';
+        showSuccess(`${qualityIcon} ${formatName} exported with ${quality.score.toFixed(1)}% quality - ${quality.message}`);
+      } else {
+        showSuccess(`Diagram exported as ${formatName}`);
+      }
 
     } catch (error) {
       console.error(`Export failed:`, error);
@@ -376,6 +397,21 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
               >
                 <i className="bi bi-file-earmark-image me-2"></i>
                 Export as PNG
+              </Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item
+                onClick={() => handleExport('diagramsnet')}
+                disabled={isExporting}
+              >
+                <i className="bi bi-diagram-3 me-2"></i>
+                Export as Draw.io XML
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={() => handleExport('diagramsnet-png')}
+                disabled={isExporting}
+              >
+                <i className="bi bi-diagram-3-fill me-2"></i>
+                Export as Draw.io PNG
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>
