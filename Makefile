@@ -111,10 +111,8 @@ install: ## Install frontend + backend deps
 clean: ## Clean build artifacts
 	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
 
-build-playwright-base: ## Build the Playwright base image
-	@echo "$(YELLOW)🏗️ Building Playwright base image...$(NC)"
-	cd $(EXPORT_DIR) && docker build -f playwright-base.Dockerfile -t markdown-manager/playwright-base:latest .
-	@echo "$(GREEN)✅ Playwright base image built$(NC)"
+build: ## Build production assets
+	@./scripts/build.sh $(FRONTEND_DIR)
 
 # ────────────────────────────────────────────────────────────────────────────
 dev: ## Start frontend & backend dev servers

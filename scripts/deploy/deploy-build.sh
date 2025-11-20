@@ -22,22 +22,6 @@ deploy_service() {
     # Validate service directory exists
     validate_directory "$service_dir" "$service_name service" >&2
 
-    # Build base images if needed
-    if [[ "$service_name" == "export" ]]; then
-        local base_image="markdown-manager/playwright-base:latest"
-        if ! docker image inspect "$base_image" >/dev/null 2>&1; then
-            log_info "🏗️" "Building Playwright base image..."
-            if docker build -t "$base_image" -f "$service_dir/playwright-base.Dockerfile" "$service_dir"; then
-                echo "✅ Playwright base image built"
-            else
-                echo "❌ Failed to build Playwright base image"
-                exit 1
-            fi
-        else
-            echo "✅ Playwright base image already exists"
-        fi
-    fi
-
     log_step "🚀" "Building $service_name image → $local_image"
     echo "📦 Using Docker layer caching for faster builds..."
     echo "💡 Changes will automatically invalidate relevant cache layers"
