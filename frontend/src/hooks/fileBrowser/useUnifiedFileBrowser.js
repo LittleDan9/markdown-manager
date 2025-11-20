@@ -49,10 +49,10 @@ export function useUnifiedFileBrowser({
       // Ensure we always pass a valid path, defaulting to root '/' if empty
       const pathToLoad = currentPath || '/';
       const files = await dataProvider.getFilesInPath(pathToLoad);
-      setCurrentFiles(files);
+      setCurrentFiles(files || []);
     } catch (error) {
       console.error('Failed to load files:', error);
-      setCurrentFiles([]);
+      setCurrentFiles([]); // Set empty array on error
     }
   }, [currentPath, dataProvider]);
 
@@ -91,7 +91,7 @@ export function useUnifiedFileBrowser({
       // Load files for the initial path
       loadCurrentPathFiles();
     }
-  }, [dataProvider, initialPath, initialSelectedFile, loadCurrentPathFiles, loadTreeData]);
+  }, [dataProvider, initialPath, initialSelectedFile, loadCurrentPathFiles, loadTreeData]); // Include missing dependencies
 
   // Sync currentPath with initialPath when initialPath changes
   useEffect(() => {
@@ -215,10 +215,8 @@ export function useUnifiedFileBrowser({
     }
     setExpandedFolders(newExpanded);
 
-    // Also update current path when expanding folders
-    if (isExpanded) {
-      setCurrentPath(folderPath);
-    }
+    // Don't update current path here - navigation is handled by onPathChange in handleItemClick
+    // This prevents duplicate path setting that causes tree refreshes
   };
 
   const handleMultiSelect = (files) => {

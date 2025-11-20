@@ -12,17 +12,9 @@ export default function GitHubSyncPanel({ isActive = false }) {
   const { showSuccess, showError } = useNotification();
   const { accounts, loading: accountsLoading } = useGitHubAccounts();
 
-  useEffect(() => {
-    // Only load stats if user has GitHub accounts and tab is active
-    if (!accountsLoading && accounts.length > 0 && isActive) {
-      loadStats();
-      const interval = setInterval(loadStats, 5000); // Refresh every 5 seconds
-      return () => clearInterval(interval);
-    }
-  }, [accounts, accountsLoading, isActive, loadStats]); // Add isActive to dependencies
-
-  const loadStats = useCallback(async () => {
-    if (accounts.length === 0) {
+  const loadStats = useCallback(async (currentAccounts = accounts) => {
+    if (currentAccounts.length === 0) {
+      setSyncStatus(null);
       return; // Don't load stats if no accounts
     }
 
@@ -35,8 +27,22 @@ export default function GitHubSyncPanel({ isActive = false }) {
       setSyncStatus(sync);
     } catch (error) {
       console.error("Failed to load stats:", error);
+      // Don't set error state here to avoid modal issues
+      setSyncStatus(null);
     }
-  }, [accounts.length]);
+  }, [accounts]); // Include accounts in dependencies
+
+  useEffect(() => {
+    // Only load stats if user has GitHub accounts and tab is active
+    if (!accountsLoading && accounts.length > 0 && isActive) {
+      loadStats(accounts);
+      const interval = setInterval(() => loadStats(accounts), 30000); // Refresh every 30 seconds
+      return () => clearInterval(interval);
+    } else if (!accountsLoading && accounts.length === 0) {
+      // Clear sync status if no accounts
+      setSyncStatus(null);
+    }
+  }, [accountsLoading, accounts, isActive, loadStats]); // Include accounts in dependencies
 
   const _handleClearCache = async () => {
     if (accounts.length === 0) {
@@ -48,7 +54,7 @@ export default function GitHubSyncPanel({ isActive = false }) {
     try {
       await gitHubApi.clearCache();
       showSuccess("Cache cleared successfully");
-      await loadStats();
+      await loadStats(accounts);
     } catch (error) {
       showError("Failed to clear cache");
     } finally {
@@ -71,7 +77,7 @@ export default function GitHubSyncPanel({ isActive = false }) {
         await gitHubApi.startBackgroundSync();
         showSuccess("Background sync started");
       }
-      await loadStats();
+      await loadStats(accounts);
     } catch (error) {
       showError(`Failed to ${syncStatus?.running ? 'stop' : 'start'} sync`);
     } finally {
@@ -90,7 +96,7 @@ export default function GitHubSyncPanel({ isActive = false }) {
       const result = await gitHubApi.forceSyncAll();
       showSuccess(`Force sync completed: ${result.stats?.checked || 0} documents checked`);
       setShowForceSync(false);
-      await loadStats();
+      await loadStats(accounts);
     } catch (error) {
       showError("Failed to force sync");
     } finally {

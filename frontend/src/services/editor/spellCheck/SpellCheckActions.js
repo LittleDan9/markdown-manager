@@ -28,6 +28,9 @@ export default class SpellCheckActions {
     // Register code action provider
     disposables.push(this._registerCodeActionProvider(suggestionsMapRef, getCategoryId, getFolderPath));
 
+    // Register hover provider for rich tooltips
+    disposables.push(this._registerHoverProvider(suggestionsMapRef));
+
     // Register all commands (only once globally)
     this._registerGlobalCommands(getCategoryId, getFolderPath);
 
@@ -52,136 +55,65 @@ export default class SpellCheckActions {
         const categoryId = typeof getCategoryId === 'function' ? getCategoryId() : getCategoryId;
         const folderPath = typeof getFolderPath === 'function' ? getFolderPath() : getFolderPath;
 
-        // Check for spell check actions
-        const wordInfo = model.getWordAtPosition(range.getStartPosition());
-        if (wordInfo && wordInfo.word) {
-          let suggestions = SpellCheckActions._findSuggestions(
-            suggestionsMapRef,
-            range,
-            model,
-            wordInfo
-          );
+        // Get spell check markers that intersect with the current range
+        const markers = monaco.editor.getModelMarkers({
+          resource: model.uri,
+          owner: 'spell'
+        });
 
-          // For positions that might have multiple markers (spelling, grammar, style),
-          // prioritize grammar suggestions for quick fixes
-          if (suggestions && suggestions.type !== 'grammar') {
-            console.log('Found non-grammar suggestion, checking for grammar alternatives...');
-            const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
-            const grammarMarker = markers.find(m =>
-              m.startLineNumber === range.startLineNumber &&
-              range.startColumn >= m.startColumn &&
-              range.startColumn <= m.endColumn &&
-              m.message && m.message.includes('repeated')  // Look for grammar markers
-            );
+        // First, check if there's a marker at the exact cursor position (start of range)
+        const cursorPosition = range.getStartPosition();
+        const markerAtCursor = markers.find(marker =>
+          marker.startLineNumber === cursorPosition.lineNumber &&
+          cursorPosition.column >= marker.startColumn &&
+          cursorPosition.column <= marker.endColumn
+        );
 
-            if (grammarMarker) {
-              const grammarKey = `${grammarMarker.startLineNumber}:${grammarMarker.startColumn}`;
-              const grammarSuggestions = suggestionsMapRef.current.get(grammarKey);
-              if (grammarSuggestions && grammarSuggestions.type === 'grammar') {
-                console.log('Found grammar suggestion, using instead:', grammarSuggestions.type);
-                suggestions = grammarSuggestions;
-              }
-            }
-          }
+        let markersToProcess = [];
 
-          // For grammar issues, if we still didn't find suggestions using the word position,
-          // try to find them using any marker that contains the current position
-          if (!suggestions) {
-            console.log('Initial suggestion lookup failed, trying marker fallback...');
-            console.log('Cursor position:', {
-              line: range.startLineNumber,
-              column: range.startColumn,
-              wordInfo: wordInfo
-            });
+        if (markerAtCursor) {
+          // If cursor is on a specific marker, only show quick fixes for that marker
+          markersToProcess = [markerAtCursor];
+        } else {
+          // If cursor is not on a specific marker, show all markers that intersect with the range
+          // This maintains backward compatibility for broader selections
+          markersToProcess = markers.filter(marker => {
+            return marker.startLineNumber <= range.endLineNumber &&
+                   marker.endLineNumber >= range.startLineNumber &&
+                   marker.startColumn <= range.endColumn &&
+                   marker.endColumn >= range.startColumn;
+          });
+        }
 
-            const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
-            console.log('All spell markers:', markers.map(m => ({
-              line: m.startLineNumber,
-              startCol: m.startColumn,
-              endCol: m.endColumn,
-              message: m.message
-            })));
-
-            const containingMarker = markers.find(m =>
-              m.startLineNumber === range.startLineNumber &&
-              range.startColumn >= m.startColumn &&
-              range.startColumn <= m.endColumn
-            );
-
-            console.log('Found containing marker:', containingMarker);
-
-            if (containingMarker) {
-              const markerKey = `${containingMarker.startLineNumber}:${containingMarker.startColumn}`;
-              suggestions = suggestionsMapRef.current.get(markerKey);
-              console.log('Found suggestions using marker position:', {
-                markerKey,
-                suggestions: suggestions?.type,
-                cursorPosition: range.startColumn
-              });
-            }
-          } else {
-            console.log('Found suggestions immediately:', suggestions?.type);
-          }
+        for (const marker of markersToProcess) {
+          // Get suggestions for this specific marker
+          const markerKey = `${marker.startLineNumber}:${marker.startColumn}`;
+          const suggestions = suggestionsMapRef.current.get(markerKey);
 
           if (suggestions) {
-            let trueRange;
+            // Use the marker range for actions
+            const markerRange = new monaco.Range(
+              marker.startLineNumber,
+              marker.startColumn,
+              marker.endLineNumber,
+              marker.endColumn
+            );
 
-            // For grammar issues, we need to use the actual marker range, not just the word range
-            if (suggestions.type === 'grammar') {
-              // Find the marker that contains this position (cursor anywhere within the marker)
-              const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
-              const marker = markers.find(m =>
-                m.startLineNumber === range.startLineNumber &&
-                range.startColumn >= m.startColumn &&
-                range.startColumn <= m.endColumn
-              );
-
-              if (marker) {
-                trueRange = new monaco.Range(
-                  marker.startLineNumber,
-                  marker.startColumn,
-                  marker.endLineNumber,
-                  marker.endColumn
-                );
-                console.log('Using marker range for grammar issue:', {
-                  markerStart: marker.startColumn,
-                  markerEnd: marker.endColumn,
-                  cursorPosition: range.startColumn,
-                  trueRange
-                });
-              } else {
-                // Fallback to word range if marker not found
-                trueRange = new monaco.Range(
-                  range.startLineNumber,
-                  wordInfo.startColumn,
-                  range.endLineNumber,
-                  wordInfo.startColumn + wordInfo.word.length
-                );
-              }
-            } else {
-              // For spelling issues, use word range as before
-              trueRange = new monaco.Range(
-                range.startLineNumber,
-                wordInfo.startColumn,
-                range.endLineNumber,
-                wordInfo.startColumn + wordInfo.word.length
-              );
-            }
             // Only add replacement suggestions for spelling issues
             // Grammar and style suggestions are descriptive, not replacement text
             if (suggestions.type === 'spelling' || (!suggestions.type && Array.isArray(suggestions))) {
               // Handle both new format (with type) and legacy format (plain array)
               const replacementActions = SpellCheckActions._createReplacementActions(
                 suggestions.suggestions || suggestions,
-                trueRange,
+                markerRange,
                 model
               );
               actions.push(...replacementActions);
 
               // Add dictionary actions for spelling issues
               actions.push(...SpellCheckActions._createDictionaryActions(
-                wordInfo.word,
-                range,
+                model.getValueInRange(markerRange), // Get the actual word from the marker range
+                markerRange,
                 suggestionsMapRef,
                 folderPath,
                 categoryId,
@@ -193,7 +125,7 @@ export default class SpellCheckActions {
               console.log('Full issue object:', JSON.stringify(suggestions, null, 2));
               const grammarActions = SpellCheckActions._createGrammarActions(
                 suggestions,
-                trueRange,
+                markerRange,
                 model
               );
               console.log('SpellCheckActions: Grammar actions created:', grammarActions);
@@ -204,6 +136,168 @@ export default class SpellCheckActions {
         }
 
         return { actions, dispose: () => {} };
+      }
+    });
+  }
+
+  /**
+   * Register hover provider for spell check markers
+   * @param {Object} suggestionsMapRef - Reference to suggestions map
+   * @returns {Object} Disposable registration
+   * @private
+   */
+  static _registerHoverProvider(suggestionsMapRef) {
+    return monaco.languages.registerHoverProvider('markdown', {
+      provideHover(model, position) {
+        // Find spell check markers at this position
+        const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
+        const markerAtPosition = markers.find(marker => {
+          // Check if position is within marker range
+          if (position.lineNumber < marker.startLineNumber || position.lineNumber > marker.endLineNumber) {
+            return false;
+          }
+          if (position.lineNumber === marker.startLineNumber && position.column < marker.startColumn) {
+            return false;
+          }
+          if (position.lineNumber === marker.endLineNumber && position.column > marker.endColumn) {
+            return false;
+          }
+          return true;
+        });
+
+        if (!markerAtPosition) {
+          return null;
+        }
+
+        // Get suggestions for this marker
+        const markerKey = `${markerAtPosition.startLineNumber}:${markerAtPosition.startColumn}`;
+        const suggestions = suggestionsMapRef.current.get(markerKey);
+
+        if (!suggestions) {
+          return null;
+        }
+
+        // Create rich hover content based on issue type
+        const contents = [];
+
+        switch (suggestions.type) {
+          case 'spelling': {
+            const word = model.getWordAtPosition(position)?.word || '';
+            const suggestionList = suggestions.suggestions?.slice(0, 5) || [];
+
+            contents.push({
+              value: `**Spelling Error**: \`${word}\``,
+              isTrusted: true
+            });
+
+            if (suggestionList.length > 0) {
+              contents.push({
+                value: `**Suggestions**: ${suggestionList.join(', ')}`,
+                isTrusted: true
+              });
+            }
+
+            contents.push({
+              value: `*Click Ctrl+. for quick fixes*`,
+              isTrusted: true
+            });
+            break;
+          }
+
+          case 'grammar': {
+            contents.push({
+              value: `**Grammar Issue**`,
+              isTrusted: true
+            });
+
+            if (suggestions.message) {
+              // Handle long grammar messages by splitting into multiple lines
+              const maxLineLength = 80; // Monaco hover width limit
+              if (suggestions.message.length > maxLineLength) {
+                // Split message into chunks at word boundaries
+                const words = suggestions.message.split(' ');
+                let currentLine = '';
+                const lines = [];
+
+                for (const word of words) {
+                  if ((currentLine + ' ' + word).length <= maxLineLength) {
+                    currentLine += (currentLine ? ' ' : '') + word;
+                  } else {
+                    if (currentLine) {
+                      lines.push(currentLine);
+                    }
+                    currentLine = word;
+                  }
+                }
+                if (currentLine) {
+                  lines.push(currentLine);
+                }
+
+                // Add each line as separate content item
+                lines.forEach(line => {
+                  contents.push({
+                    value: line,
+                    isTrusted: true
+                  });
+                });
+              } else {
+                contents.push({
+                  value: suggestions.message,
+                  isTrusted: true
+                });
+              }
+            }
+
+            contents.push({
+              value: `*Click Ctrl+. for quick fixes*`,
+              isTrusted: true
+            });
+            break;
+          }
+
+          case 'style': {
+            contents.push({
+              value: `**Style Suggestion**`,
+              isTrusted: true
+            });
+
+            if (suggestions.message) {
+              contents.push({
+                value: suggestions.message,
+                isTrusted: true
+              });
+            }
+            break;
+          }
+
+          default: {
+            // Legacy format
+            const word = model.getWordAtPosition(position)?.word || '';
+            const suggestionList = Array.isArray(suggestions) ? suggestions.slice(0, 5) : [];
+
+            contents.push({
+              value: `**Issue**: \`${word}\``,
+              isTrusted: true
+            });
+
+            if (suggestionList.length > 0) {
+              contents.push({
+                value: `**Suggestions**: ${suggestionList.join(', ')}`,
+                isTrusted: true
+              });
+            }
+          }
+        }
+
+        return {
+          range: new monaco.Range(
+            markerAtPosition.startLineNumber,
+            markerAtPosition.startColumn,
+            markerAtPosition.endLineNumber,
+            markerAtPosition.endColumn
+          ),
+          contents
+        };
       }
     });
   }

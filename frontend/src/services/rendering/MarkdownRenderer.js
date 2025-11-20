@@ -1,6 +1,7 @@
 import MarkdownIt from "markdown-it";
 import { HighlightService } from '../editor';
 import { Mermaid } from './index';
+import ImageCacheService from './ImageCacheService';
 
 const md = new MarkdownIt({
   html: true,
@@ -121,7 +122,7 @@ md.renderer.rules.ordered_list_open = (tokens, idx, _options, _env, _self) => {
   return `<${token.tag} ${lineAttr}>`;
 };
 
-// Images with enhanced handling for user images
+// Images with enhanced handling for user images and caching
 md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
   const token = tokens[idx];
   const lineAttr = getLineAttr(tokens, idx);
@@ -162,8 +163,11 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
   const titleAttr = title ? `title="${MarkdownIt().utils.escapeHtml(title)}"` : '';
   const altAttr = `alt="${MarkdownIt().utils.escapeHtml(alt)}"`;
 
+  // Add data attributes for caching
+  const cacheAttrs = `data-original-src="${MarkdownIt().utils.escapeHtml(src)}" data-cache-enabled="true"`;
+
   if (isUserImage) {
-    // Simple container with data attributes for feature system
+    // Simple container with data attributes for feature system and caching
     return `
       <div
         class="user-image-container"
@@ -176,7 +180,8 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
           src="${MarkdownIt().utils.escapeHtml(src)}"
           ${altAttr}
           ${titleAttr}
-          class="user-image img-fluid"
+          ${cacheAttrs}
+          class="user-image img-fluid lazy-image"
           loading="lazy"
           style="max-width: 100%; height: auto;"
           data-filename="${MarkdownIt().utils.escapeHtml(filename)}"
@@ -188,14 +193,15 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
       </div>
     `;
   } else {
-    // Standard image handling for external images
+    // Standard image handling for external images with caching
     return `
       <div class="image-container" ${lineAttr}>
         <img
           src="${MarkdownIt().utils.escapeHtml(src)}"
           ${altAttr}
           ${titleAttr}
-          class="external-image img-fluid"
+          ${cacheAttrs}
+          class="external-image img-fluid lazy-image"
           loading="lazy"
           style="max-width: 100%; height: auto;"
           onerror="this.style.filter='grayscale(100%)'; this.title='Image failed to load';"
@@ -208,6 +214,47 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
 
 export function render(content) {
   return md.render(content)
+}
+
+/**
+ * Apply cached images to rendered HTML
+ * This should be called after the HTML is inserted into the DOM
+ * Only applies to images that weren't cached during rendering
+ */
+export async function applyCachedImages(container) {
+  if (!container) return;
+
+  const images = container.querySelectorAll('img[data-cache-enabled="true"]');
+  if (images.length === 0) return;
+
+  console.log(`🖼️ Applying cached images to ${images.length} uncached images`);
+
+  const promises = Array.from(images).map(async (img) => {
+    const originalSrc = img.getAttribute('data-original-src');
+    if (!originalSrc) return;
+
+    try {
+      const cachedSrc = await ImageCacheService.cacheImage(originalSrc);
+      if (cachedSrc !== originalSrc) {
+        img.src = cachedSrc;
+        // Remove the data attributes since we're now cached
+        img.removeAttribute('data-original-src');
+        img.removeAttribute('data-cache-enabled');
+        console.log(`✅ Applied cached image: ${originalSrc}`);
+      }
+    } catch (error) {
+      console.warn('Failed to apply cached image:', originalSrc, error);
+    }
+  });
+
+  await Promise.allSettled(promises);
+}
+
+/**
+ * Preload images for content
+ */
+export async function preloadImages(content) {
+  return ImageCacheService.preloadImages(content);
 }
 
 // Export markdown instance as default for consistency

@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Dropdown } from "react-bootstrap";
 import ThemeToggle from "./ThemeToggle";
 import { useNotification } from "../NotificationProvider";
@@ -27,7 +27,14 @@ function UserMenuLoggedIn() {
   // Set up return callback for FileOpen Modal → GitHub Modal navigation
   useEffect(() => {
     window.gitHubModalReturnCallback = () => {
-      setShowGitHubModal(true);
+      // Only reopen if not already showing to prevent unnecessary re-renders
+      setShowGitHubModal(prev => {
+        if (!prev) {
+          console.log('Reopening GitHub modal via callback');
+          return true;
+        }
+        return prev;
+      });
     };
 
     return () => {
@@ -94,6 +101,14 @@ function UserMenuLoggedIn() {
     // setUser(null);
     // showSuccess("You have been logged out.");
   };
+
+  // Memoize modal hide handlers to prevent unnecessary re-renders
+  const handleSettingsModalHide = useCallback(() => setShowSettingsModal(false), []);
+  const handleGitHubModalHide = useCallback(() => setShowGitHubModal(false), []);
+  const handleGitModalHide = useCallback(() => setShowGitModal(false), []);
+  const handleIconModalHide = useCallback(() => setShowIconModal(false), []);
+  const handleAdminModalHide = useCallback(() => setShowAdminModal(false), []);
+  const handleSpellCheckModalHide = useCallback(() => setShowSpellCheckModal(false), []);
 
   return (
     <>
@@ -187,30 +202,30 @@ function UserMenuLoggedIn() {
       </Dropdown.Menu>
       <UserSettingsModal
         show={showSettingsModal}
-        onHide={() => setShowSettingsModal(false)}
+        onHide={handleSettingsModalHide}
         defaultActiveKey={activeTab}
         activeTab={activeTab}
         setActiveTab={setActiveTab}
       />
       <GitHubModal
         show={showGitHubModal}
-        onHide={() => setShowGitHubModal(false)}
+        onHide={handleGitHubModalHide}
       />
       <GitManagementModal
         show={showGitModal}
-        onHide={() => setShowGitModal(false)}
+        onHide={handleGitModalHide}
       />
       <IconManagementModal
         show={showIconModal}
-        onHide={() => setShowIconModal(false)}
+        onHide={handleIconModalHide}
       />
       <AdminModal
         show={showAdminModal}
-        onHide={() => setShowAdminModal(false)}
+        onHide={handleAdminModalHide}
       />
       <SpellCheckSettingsModal
         show={showSpellCheckModal}
-        onHide={() => setShowSpellCheckModal(false)}
+        onHide={handleSpellCheckModalHide}
         settings={{
           spelling: true,
           grammar: true,

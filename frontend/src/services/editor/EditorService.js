@@ -12,7 +12,7 @@ class Editor {
       value: value || "",
       language: "markdown",
       theme: "vs-" + (theme || "light"),
-      automaticLayout: true,
+      automaticLayout: true, // RE-ENABLED: Basic layout functionality
       fontFamily: "Consolas, Courier New, monospace",
       fontSize: 14,
       padding: { top: 20, bottom: 10 },
@@ -23,10 +23,10 @@ class Editor {
       // Always disable minimap for Markdown editor
       minimap: { enabled: false },
       // Always enable word wrap for Markdown editor
-      wordWrap: "on",
+      wordWrap: "on", // RE-ENABLED: Word wrapping
       // Enable hover for diagnostics/markers but with delay to avoid performance issues
       hover: {
-        enabled: true,
+        enabled: true, // RE-ENABLED: Hover functionality
         delay: 300,
         sticky: true,
         above: true // Try to position hover above the line when possible

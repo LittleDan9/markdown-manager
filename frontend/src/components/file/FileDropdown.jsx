@@ -111,15 +111,34 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         ...(currentDocument.github_file_path && { file_path: currentDocument.github_file_path })
       };
 
+      console.log('🔍 FileDropdown handleViewGitFiles - GitHub repositoryInfo:', repositoryInfo);
+
       // Open the GitHub tab with the specific repository pre-selected
       openFileModal('github', repositoryInfo);
     } else {
-      // For local repositories, open the local tab
-      openFileModal('local');
-    }
-  };
+      // For local documents, try to navigate to the document's category/repository
+      let repositoryInfo = null;
 
-  const handleViewGitHistory = () => {
+      if (currentDocument?.file_path && currentDocument.file_path.startsWith('local/')) {
+        // Extract category from file_path like "local/General/filename.md"
+        const pathParts = currentDocument.file_path.split('/');
+        if (pathParts.length >= 2) {
+          const categoryName = pathParts[1];
+          repositoryInfo = {
+            type: 'local',
+            category: categoryName,
+            // For local documents, we navigate to the Documents folder
+            path: `/Documents/${categoryName}`
+          };
+        }
+      }
+
+      console.log('🔍 FileDropdown handleViewGitFiles - Local repositoryInfo:', repositoryInfo);
+
+      // Open the local tab with repository info if available
+      openFileModal('local', repositoryInfo);
+    }
+  };  const handleViewGitHistory = () => {
     if (!currentDocument?.id) return;
     setShowGitHistoryModal(true);
   };

@@ -1,11 +1,13 @@
 """PDF export router."""
+import base64
 import io
 import logging
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from playwright.async_api import async_playwright
 from pydantic import BaseModel
 
+from app.models import ConversionResponse
 from app.services.css_service import css_service
 
 router = APIRouter()
@@ -44,8 +46,11 @@ async def render_html_to_pdf(html: str, css: str) -> bytes:
         return pdf
 
 
-@router.post("/pdf")
-async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
+@router.post("/pdf", response_model=None)
+async def export_pdf(
+    request: PDFExportRequest,
+    response_format: str = Query(default="stream", description="Response format: 'stream' or 'json'")
+):
     """Export HTML content as PDF."""
     try:
         logger.info(f"Generating PDF for document: {request.document_name}")
@@ -77,20 +82,37 @@ async def export_pdf(request: PDFExportRequest) -> StreamingResponse:
             logger.error(f"Error generating PDF: {e}")
             raise HTTPException(status_code=500, detail="Failed to generate PDF")
 
-        buf = io.BytesIO(pdf_bytes)
-        buf.seek(0)
-
         # Prepare filename
         filename = request.document_name
         if not filename.endswith(".pdf"):
             filename += ".pdf"
 
-        # Return PDF as streaming response
-        return StreamingResponse(
-            buf,
-            media_type="application/pdf",
-            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
-        )
+        # Return response based on requested format
+        if response_format == "json":
+            # Return JSON response with base64 encoded PDF
+            pdf_base64 = base64.b64encode(pdf_bytes).decode('utf-8')
+            return ConversionResponse(
+                success=True,
+                file_data=pdf_base64,
+                filename=filename,
+                content_type="application/pdf",
+                format="pdf",
+                metadata={
+                    "document_name": request.document_name,
+                    "dark_mode": request.is_dark_mode,
+                    "html_content_length": len(request.html_content),
+                    "pdf_size_bytes": len(pdf_bytes)
+                }
+            )
+        else:
+            # Return streaming response (default behavior)
+            buf = io.BytesIO(pdf_bytes)
+            buf.seek(0)
+            return StreamingResponse(
+                buf,
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
 
     except Exception as e:
         logger.error(f"Failed to generate PDF: {str(e)}")

@@ -18,7 +18,7 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
   const lastEditorValue = useRef(value);
   const onChangeRef = useRef(onChange);
   const isSettingValueRef = useRef(false); // Track when WE are setting the value
-  // No typing detection hook - keep it simple to avoid re-renders
+  const lastChangeSourceRef = useRef('external'); // Track source of last change: 'editor' or 'external'
 
   // Keep onChange ref up to date without causing re-renders
   onChangeRef.current = onChange;
@@ -26,7 +26,7 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     if (!containerRef.current) return;
 
     EditorService
-      .setup(containerRef.current, value, theme)
+      .setup(containerRef.current, '', theme) // DEBUG: Pass empty string instead of value
       .then(editorInstance => {
         editorRef.current = editorInstance;
         editorInstance.setValue(value); // Set value before setting state
@@ -40,6 +40,9 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
           if (isSettingValueRef.current) {
             return;
           }
+
+          // Mark that this change came from the editor
+          lastChangeSourceRef.current = 'editor';
 
           // Update tracking reference immediately
           lastEditorValue.current = newValue;
@@ -78,40 +81,63 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     }
   }, [theme]);
 
-  // External value changes - Only for genuine external changes (document loading, etc.)
+  // External value changes - Only respond to truly external changes
   useEffect(() => {
     const editor = editorRef.current;
     if (!editor) return;
 
-    // Check if value actually differs from current editor content
-    const currentEditorValue = editor.getValue();
-
-    console.log('useEditorCore: External value effect triggered', {
-      incomingValue: value.length,
-      currentEditorValue: currentEditorValue.length,
-      lastEditorValue: lastEditorValue.current.length,
-      areEqual: value === currentEditorValue
-    });
-
-    if (value === currentEditorValue) {
-      lastEditorValue.current = value;
-      console.log('useEditorCore: Values are equal, skipping update');
+    // If the last change came from the editor itself, ignore this value prop change
+    // This prevents circular updates during typing
+    if (lastChangeSourceRef.current === 'editor') {
+      console.log('🔄 Ignoring value prop change - originated from editor');
+      lastChangeSourceRef.current = 'external'; // Reset for next change
       return;
     }
 
-    // For document switches and external changes, always update the editor
-    // The complex user typing detection was causing issues with document synchronization
-    console.log('EXTERNAL VALUE EFFECT: External change detected - updating editor', {
-      incomingLength: value.length,
-      currentLength: currentEditorValue.length
+    // Check if value actually differs from current editor content
+    const currentEditorValue = editor.getValue();
+
+    console.log('🔄 EXTERNAL VALUE EFFECT triggered:', {
+      incomingLength: value?.length || 0,
+      currentLength: currentEditorValue?.length || 0,
+      areEqual: value === currentEditorValue,
+      source: lastChangeSourceRef.current,
+      timestamp: Date.now()
+    });
+
+    // Check for exact equality first
+    if (value === currentEditorValue) {
+      lastEditorValue.current = value;
+      console.log('✅ Values are equal, skipping update');
+      return;
+    }
+
+    // Check if this is just a minor difference (like trailing newline)
+    const valueTrimmed = value?.trim();
+    const currentTrimmed = currentEditorValue?.trim();
+    if (valueTrimmed === currentTrimmed) {
+      console.log('⚠️ Values differ only in whitespace, skipping update');
+      lastEditorValue.current = value;
+      return;
+    }
+
+    // This is a legitimate external change (document switch, import, etc.)
+    console.log('🚨 LEGITIMATE EXTERNAL CHANGE detected, updating editor:', {
+      incomingLength: value?.length || 0,
+      currentLength: currentEditorValue?.length || 0
     });
 
     // Mark that we're setting the value to prevent onChange loop
     isSettingValueRef.current = true;
 
-    // Safe to update editor content
-    const currentPosition = editor.getPosition();
-    const currentScrollTop = editor.getScrollTop();
+    // Save current position before updating
+    const savedPosition = editor.getPosition();
+    const savedScrollTop = editor.getScrollTop();
+
+    console.log('💾 Saving position before external update:', {
+      position: savedPosition ? `${savedPosition.lineNumber}:${savedPosition.column}` : 'none',
+      scrollTop: savedScrollTop
+    });
 
     editor.setValue(value);
     lastEditorValue.current = value;
@@ -119,29 +145,8 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     // Clear the flag after setValue completes
     isSettingValueRef.current = false;
 
-    // Restore cursor position if we had one
-    if (currentPosition) {
-      const model = editor.getModel();
-      if (model) {
-        const lineCount = model.getLineCount();
-
-        // Ensure position is within bounds
-        const safeLineNumber = Math.min(currentPosition.lineNumber, lineCount);
-        const lineLength = model.getLineContent(safeLineNumber).length;
-        const safeColumn = Math.min(currentPosition.column, lineLength + 1);
-
-        const safePosition = {
-          lineNumber: safeLineNumber,
-          column: safeColumn
-        };
-
-        // Use setTimeout to ensure the position is set after Monaco finishes processing
-        setTimeout(() => {
-          editor.setPosition(safePosition);
-          editor.setScrollTop(currentScrollTop);
-        }, 0);
-      }
-    }
+    // For external changes, we don't restore position - let Monaco handle cursor placement
+    // The user expects the cursor to go to a reasonable position for the new content
   }, [value]);
 
   return {

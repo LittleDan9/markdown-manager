@@ -3,14 +3,14 @@
  * Abstracted from GitHub file tree for universal use with existing styling
  */
 
-import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle } from 'react';
+import React, { useState, useEffect, useRef, forwardRef, useImperativeHandle, useMemo, useCallback } from 'react';
 import { Spinner } from 'react-bootstrap';
 import { getFileIcon, getFileIconColor } from '../../../utils/fileIcons';
 import { sortRepositoryItems } from '../../../utils/fileBrowserUtils';
 // Import existing GitHub styles for consistency
 import '../../../styles/github/index.scss';
 
-export default forwardRef(function FileTree({
+const FileTreeComponent = forwardRef(function FileTree({
   treeData,
   currentPath,
   selectedFile,
@@ -30,6 +30,8 @@ export default forwardRef(function FileTree({
   const loadedFoldersRef = useRef(new Set()); // Track loaded folders without causing re-renders
   const loadingFoldersRef = useRef(new Set()); // Track loading folders without causing re-renders
 
+  const [_folderContentsVersion, setFolderContentsVersion] = useState(0);
+
   // Load folder contents when expanded
   const loadFolderContents = React.useCallback(async (folderPath) => {
     if (loadedFoldersRef.current.has(folderPath) || loadingFoldersRef.current.has(folderPath)) {
@@ -46,9 +48,14 @@ export default forwardRef(function FileTree({
       console.log(`✅ Loaded ${contents.length} items for ${folderPath}:`, contents.map(c => c.name));
 
       loadedFoldersRef.current.add(folderPath);
-      setFolderContents(prev => new Map(prev).set(folderPath, contents));
+      setFolderContents(prev => new Map(prev).set(folderPath, contents || []));
+      // Increment version to trigger tree rebuild
+      setFolderContentsVersion(prev => prev + 1);
     } catch (error) {
       console.error(`❌ Failed to load folder contents for ${folderPath}:`, error);
+      // Set empty contents to prevent infinite loading states
+      setFolderContents(prev => new Map(prev).set(folderPath, []));
+      setFolderContentsVersion(prev => prev + 1);
     } finally {
       loadingFoldersRef.current.delete(folderPath);
       setLoadingFolders(prev => {
@@ -145,9 +152,21 @@ export default forwardRef(function FileTree({
     event?.stopPropagation();
 
     const isExpanded = expandedFolders.has(folder.path);
+    const isLoading = loadingFolders.has(folder.path);
 
-    if (!isExpanded) {
-      await loadFolderContents(folder.path);
+    // Prevent toggling if already loading
+    if (isLoading) {
+      console.log(`⏳ Skipping toggle for ${folder.path} - already loading`);
+      return;
+    }
+
+    try {
+      if (!isExpanded) {
+        await loadFolderContents(folder.path);
+      }
+    } catch (error) {
+      console.error('Failed to load folder contents during toggle:', error);
+      // Continue with toggle even if loading fails
     }
 
     onFolderToggle(folder.path, !isExpanded);
@@ -164,7 +183,8 @@ export default forwardRef(function FileTree({
     }
   };
 
-  const buildTreeWithContents = (nodes, depth = 0) => {
+  // Stable tree building that updates when folder contents version changes
+  const buildTreeWithContents = useCallback((nodes, depth = 0) => {
     // If no tree data but we have root contents, use root contents
     const nodesToProcess = nodes.length > 0 ? nodes : (folderContents.get('/') || []);
 
@@ -173,17 +193,12 @@ export default forwardRef(function FileTree({
       const isFolder = node.type === 'folder' || node.type === 'dir';
       const isCurrentPath = node.path === currentPath;
 
-      // Get children from folderContents if expanded, otherwise preserve existing children
-      let children = [];
-      if (isFolder && isExpanded) {
-        // Use loaded contents if available
-        if (folderContents.has(node.path)) {
-          children = folderContents.get(node.path) || [];
-          console.log(`🔍 Using loaded contents for ${node.path}:`, children.length, 'items');
-        } else {
-          // Preserve existing children until new contents are loaded
-          children = node.children || [];
-          console.log(`⏳ Using existing children for ${node.path}:`, children.length, 'items');
+      // Get children - prefer loaded contents, but don't cause rebuilds when they change
+      let children = node.children || [];
+      if (isFolder && isExpanded && folderContents.has(node.path)) {
+        const loadedChildren = folderContents.get(node.path) || [];
+        if (loadedChildren.length > 0) {
+          children = loadedChildren;
         }
       }
 
@@ -191,11 +206,11 @@ export default forwardRef(function FileTree({
         ...node,
         children: children.length > 0 ? buildTreeWithContents(children, depth + 1) : [],
         isExpanded,
-        isCurrentPath, // Add flag for styling/debugging
+        isCurrentPath,
         depth
       };
     });
-  };
+  }, [expandedFolders, currentPath, folderContents]); // folderContents triggers updates when contents load
 
   const renderTreeNode = (node) => {
     const isFolder = node.type === 'folder' || node.type === 'dir';
@@ -270,7 +285,7 @@ export default forwardRef(function FileTree({
     );
   };
 
-  const treeWithContents = buildTreeWithContents(treeData);
+  const treeWithContents = useMemo(() => buildTreeWithContents(treeData), [buildTreeWithContents, treeData]);
 
   return (
     <div className="file-browser-tree d-flex flex-column">
@@ -301,3 +316,8 @@ export default forwardRef(function FileTree({
     </div>
   );
 });
+
+const FileTree = React.memo(FileTreeComponent);
+FileTree.displayName = 'FileTree';
+
+export default FileTree;

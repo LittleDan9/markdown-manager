@@ -71,7 +71,7 @@ export class UnifiedFileOpeningService {
    */
   static async openFromFileNode(fileNode, dataProvider = null) {
     // Handle GitHub files that are browsed directly (no documentId)
-    if (!fileNode.documentId && fileNode._githubFile && dataProvider) {
+    if (!fileNode.documentId && fileNode._githubFile && (dataProvider || fileNode.repository)) {
       return await this.openGitHubFileDirect(fileNode, dataProvider);
     }
 
@@ -96,9 +96,9 @@ export class UnifiedFileOpeningService {
     try {
       console.log('🔄 Importing GitHub file as document:', fileNode.name);
 
-      // Import the file as a proper document
-      const repositoryId = dataProvider.sourceConfig?.repositoryId;
-      const branch = dataProvider.sourceConfig?.branch || 'main';
+      // Get repository info from either dataProvider or fileNode
+      const repositoryId = dataProvider?.sourceConfig?.repositoryId || fileNode.repository?.id;
+      const branch = dataProvider?.sourceConfig?.branch || fileNode.branch || 'main';
       const filePath = fileNode._githubFile.path;
 
       if (!repositoryId) {
@@ -113,6 +113,69 @@ export class UnifiedFileOpeningService {
 
       // Import using existing GitHub API
       const gitHubApi = (await import('../../api/gitHubApi.js')).default;
+
+      // Check if repository is already selected/available for import
+      let repositoryAvailable = true;
+      try {
+        // Try to get repository info - this will fail if repo is not selected
+        await gitHubApi.getRepositoryContents(repositoryId, '', branch);
+      } catch (error) {
+        console.log('🔍 Repository not available for import, checking if it needs to be selected:', error.message);
+        repositoryAvailable = false;
+      }
+
+      // If repository is not available, try to auto-select it
+      if (!repositoryAvailable) {
+        console.log('🔄 Auto-selecting repository for import...');
+
+        try {
+          // We need to get the GitHub repo info to add it to selection
+          // Since we have the repository ID from the fileNode, we need to find the account and repo details
+          const accounts = await gitHubApi.getAccounts();
+          let targetAccount = null;
+          let targetRepo = null;
+
+          // Find the account and repo that contains this repository ID
+          for (const account of accounts) {
+            try {
+              const repos = await gitHubApi.getRepositories(account.id);
+              const repo = repos.find(r => r.id === repositoryId);
+              if (repo) {
+                targetAccount = account;
+                targetRepo = repo;
+                break;
+              }
+            } catch (error) {
+              // Continue searching other accounts
+              console.log(`Account ${account.id} doesn't have this repo, continuing search...`);
+            }
+          }
+
+          if (!targetAccount || !targetRepo) {
+            throw new Error('Could not find repository in any connected GitHub account');
+          }
+
+          console.log('📋 Found repository to auto-select:', {
+            account: targetAccount.login,
+            repo: targetRepo.name,
+            repoId: targetRepo.id
+          });
+
+          // Add repository to selection - this will clone it and make it available
+          await gitHubApi.addRepositorySelection(targetAccount.id, targetRepo.id);
+
+          console.log('✅ Repository auto-selected and synced');
+
+          // Small delay to ensure the repository is fully set up
+          await new Promise(resolve => setTimeout(resolve, 1000));
+
+        } catch (selectionError) {
+          console.error('❌ Failed to auto-select repository:', selectionError);
+          throw new Error(`Repository needs to be selected before importing files. Please select the repository first: ${selectionError.message}`);
+        }
+      }
+
+      // Now proceed with the import
       const importResult = await gitHubApi.importRepositoryFile(repositoryId, filePath, branch);
 
       console.log('✅ GitHub import response:', importResult);

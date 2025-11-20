@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { forwardRef, useImperativeHandle } from 'react';
 import FileTree from './FileTree';
 import FileList from './FileList';
 import FilePreview from './FilePreview';
@@ -6,7 +6,7 @@ import FileBrowserActions from './FileBrowserActions';
 import BreadcrumbBar from './BreadcrumbBar';
 import { useUnifiedFileBrowser } from '@/hooks/fileBrowser/useUnifiedFileBrowser';
 
-export default function UnifiedFileBrowser({
+const UnifiedFileBrowser = forwardRef(({
   dataProvider,
   config = {},
   onFileSelect,
@@ -20,7 +20,7 @@ export default function UnifiedFileBrowser({
   breadcrumbData = {}, // Additional data for breadcrumb (repository, categories, documents)
   className = '',
   style = {}
-}) {
+}, ref) => {
   const {
     currentPath,
     treeData,
@@ -47,6 +47,11 @@ export default function UnifiedFileBrowser({
     onPathChange,
     selectedFiles
   });
+
+  // Expose handlePathChange via ref
+  useImperativeHandle(ref, () => ({
+    handlePathChange
+  }), [handlePathChange]);
 
   return (
     <div
@@ -131,4 +136,8 @@ export default function UnifiedFileBrowser({
       )}
     </div>
   );
-}
+});
+
+UnifiedFileBrowser.displayName = 'UnifiedFileBrowser';
+
+export default UnifiedFileBrowser;

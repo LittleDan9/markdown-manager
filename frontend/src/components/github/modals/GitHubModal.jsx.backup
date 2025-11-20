@@ -17,7 +17,7 @@ export default function GitHubModal({ show, onHide }) {
         setActiveTab('accounts');
       }
     }
-  }, [accounts, accountsLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [accounts, accountsLoading, activeTab]);
 
   const handleAccountsChange = useCallback((_updatedAccounts) => {
     // Refresh the accounts from the hook to keep them in sync
@@ -45,7 +45,7 @@ export default function GitHubModal({ show, onHide }) {
   const hasAccounts = !accountsLoading && accounts.length > 0;
 
   return (
-    <Modal show={show} onHide={onHide} size="xl" className="github-modal">
+    <Modal show={show} onHide={onHide} size="xl" className="github-modal" key="github-modal">
       <Modal.Header closeButton>
         <Modal.Title>
           <i className="bi bi-github me-2"></i>

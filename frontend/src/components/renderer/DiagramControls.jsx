@@ -14,12 +14,22 @@ import DiagramFullscreenModal from './DiagramFullscreenModal';
  * - GitHub compatibility indicators
  */
 function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscreen }) {
+  console.log('DiagramControls: Component rendered for diagram', diagramId, {
+    hasDiagramElement: !!diagramElement,
+    diagramSourceLength: diagramSource?.length
+  });
+
   const [isExporting, setIsExporting] = useState(false);
   const [_exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
   const mermaidExportService = serviceFactory.createMermaidExportService();
+
+  console.log('DiagramControls: Service created for diagram', diagramId, {
+    hasService: !!mermaidExportService,
+    serviceType: typeof mermaidExportService
+  });
 
   // Use unified context system
   const { theme } = useTheme();
@@ -85,7 +95,53 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     }
   };
 
-  // Cleanup timeout on unmount
+  // Handle hover events on the diagram element and controls
+  useEffect(() => {
+    console.log('DiagramControls: Setting up hover listeners for diagram', diagramId, {
+      hasDiagramElement: !!diagramElement,
+      hasControlsRef: !!controlsRef.current
+    });
+
+    if (!diagramElement || !controlsRef.current) return;
+
+    let hoverCount = 0;
+
+    const handleMouseEnter = () => {
+      hoverCount++;
+      console.log('DiagramControls: Mouse enter, hoverCount:', hoverCount, 'diagram:', diagramId);
+      if (controlsRef.current) {
+        controlsRef.current.style.opacity = '1';
+      }
+    };
+
+    const handleMouseLeave = () => {
+      hoverCount = Math.max(0, hoverCount - 1);
+      console.log('DiagramControls: Mouse leave, hoverCount:', hoverCount, 'diagram:', diagramId);
+      // Only hide if not hovering over anything and not in interaction-active state
+      if (hoverCount === 0 && controlsRef.current && !controlsRef.current.classList.contains('interaction-active')) {
+        controlsRef.current.style.opacity = '';
+      }
+    };
+
+    // Add listeners to diagram element
+    diagramElement.addEventListener('mouseenter', handleMouseEnter);
+    diagramElement.addEventListener('mouseleave', handleMouseLeave);
+
+    // Add listeners to controls
+    const controlsElement = controlsRef.current;
+    controlsElement.addEventListener('mouseenter', handleMouseEnter);
+    controlsElement.addEventListener('mouseleave', handleMouseLeave);
+
+    console.log('DiagramControls: Hover listeners added for diagram', diagramId);
+
+    return () => {
+      console.log('DiagramControls: Cleaning up hover listeners for diagram', diagramId);
+      diagramElement.removeEventListener('mouseenter', handleMouseEnter);
+      diagramElement.removeEventListener('mouseleave', handleMouseLeave);
+      controlsElement.removeEventListener('mouseenter', handleMouseEnter);
+      controlsElement.removeEventListener('mouseleave', handleMouseLeave);
+    };
+  }, [diagramElement, diagramId]);  // Cleanup timeout on unmount
   useEffect(() => {
     return () => {
       if (interactionTimeoutRef.current) {
@@ -184,6 +240,11 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
           maxHeight: 1800,
           isDarkMode: isDarkMode
         };
+      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
+        // For diagrams.net formats, no specific options needed - service will handle SVG extraction
+        exportOptions = {
+          isDarkMode: isDarkMode
+        };
       } else {
         // For SVG, use standard container dimensions
         exportOptions = {
@@ -195,14 +256,30 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
       const filename = mermaidExportService.generateFilename(diagramElement, `diagram-${diagramId}`);
 
-      await mermaidExportService.downloadDiagram(
+      const result = await mermaidExportService.downloadDiagram(
         diagramElement,
         format,
         filename,
         exportOptions
       );
 
-      showSuccess(`Diagram exported as ${format.toUpperCase()}`);
+      let formatName;
+      if (format === 'diagramsnet') {
+        formatName = 'diagrams.net XML';
+      } else if (format === 'diagramsnet-png') {
+        formatName = 'diagrams.net PNG';
+      } else {
+        formatName = format.toUpperCase();
+      }
+
+      // Show quality metrics for Draw.io exports
+      if ((format === 'diagramsnet' || format === 'diagramsnet-png') && result && result.quality) {
+        const quality = result.quality;
+        const qualityIcon = quality.score >= 90 ? '🟢' : quality.score >= 75 ? '🟡' : '🔴';
+        showSuccess(`${qualityIcon} ${formatName} exported with ${quality.score.toFixed(1)}% quality - ${quality.message}`);
+      } else {
+        showSuccess(`Diagram exported as ${formatName}`);
+      }
 
     } catch (error) {
       console.error(`Export failed:`, error);
@@ -268,7 +345,15 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
 
   return (
     <>
-      <div className="diagram-controls" ref={controlsRef}>
+      <div className="diagram-controls" ref={(el) => {
+        controlsRef.current = el;
+        if (el) {
+          console.log('DiagramControls: Controls element created for diagram', diagramId, {
+            element: el,
+            parentElement: el.parentElement?.className
+          });
+        }
+      }}>
         <ButtonGroup size="sm">
           {/* Fullscreen Button */}
           <Button
@@ -279,14 +364,15 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
             <i className="bi bi-arrows-fullscreen"></i>
           </Button>
 
-          {/* Export Dropdown */}
-          <Dropdown as={ButtonGroup}>
+          {/* Export Dropdown - using standard Dropdown without ButtonGroup wrapper */}
+          <Dropdown>
             <Dropdown.Toggle
               variant="outline-secondary"
               size="sm"
               disabled={isExporting}
               title="Export diagram"
               id={`export-dropdown-${diagramId}`}
+              className="border-start-0"
             >
               {isExporting ? (
                 <>
@@ -304,14 +390,29 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
                 disabled={isExporting}
               >
                 <i className="bi bi-file-earmark-code me-2"></i>
-                Export as SVG
+                SVG
               </Dropdown.Item>
               <Dropdown.Item
                 onClick={() => handleExport('png')}
                 disabled={isExporting}
               >
                 <i className="bi bi-file-earmark-image me-2"></i>
-                Export as PNG
+                PNG
+              </Dropdown.Item>
+              <Dropdown.Divider />
+              <Dropdown.Item
+                onClick={() => handleExport('diagramsnet')}
+                disabled={isExporting}
+              >
+                <i className="bi bi-diagram-3 me-2"></i>
+                Draw.io XML
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={() => handleExport('diagramsnet-png')}
+                disabled={isExporting}
+              >
+                <i className="bi bi-diagram-3-fill me-2"></i>
+                Draw.io PNG
               </Dropdown.Item>
             </Dropdown.Menu>
           </Dropdown>

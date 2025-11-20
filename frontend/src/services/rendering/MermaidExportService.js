@@ -2,11 +2,11 @@ import exportServiceApi from '@/api/exportServiceApi';
 
 export class MermaidExportService {
   /**
-   * Export diagram to image format using the export service for high-quality rendering
+   * Export diagram to various formats using the export service for high-quality rendering
    * @param {HTMLElement} diagramElement - The rendered Mermaid diagram element
-   * @param {string} format - 'svg' or 'png'
+   * @param {string} format - 'svg', 'png', or 'drawio'
    * @param {Object} options - Export options (width, height, isDarkMode)
-   * @returns {Promise<string|Blob>} - SVG string or PNG blob
+   * @returns {Promise<string|Blob|Object>} - SVG string, PNG blob, or DiagramsNetExportResponse
    */
   static async exportDiagram(diagramElement, format = 'svg', options = {}) {
     try {
@@ -15,8 +15,13 @@ export class MermaidExportService {
         throw new Error('Diagram element is required');
       }
 
-      if (!['svg', 'png'].includes(format)) {
-        throw new Error('Format must be "svg" or "png"');
+      if (!['svg', 'png', 'diagramsnet'].includes(format)) {
+        throw new Error('Format must be "svg", "png", or "diagramsnet"');
+      }
+
+      // Handle diagrams.net export differently as it works directly with SVG
+      if (format === 'diagramsnet') {
+        return await this.exportToDiagramsNet(diagramElement, 'xml', null, options);
       }
 
       // Pass format information to prepareDiagramHTML for proper sizing
@@ -228,8 +233,23 @@ export class MermaidExportService {
       clonedSVG.setAttribute('width', finalWidth.toString());
       clonedSVG.setAttribute('height', finalHeight.toString());
 
-      // Return just the SVG without wrapper for natural sizing
-      return clonedSVG.outerHTML;
+      // Create wrapper with proper sizing and styling for natural dimensions
+      const wrapper = document.createElement('div');
+      wrapper.className = 'mermaid-export-container';
+      wrapper.style.cssText = `
+        width: ${finalWidth}px;
+        height: ${finalHeight}px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: ${options.isDarkMode ? '#1a1a1a' : '#ffffff'};
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      `;
+
+      wrapper.appendChild(clonedSVG);
+      return wrapper.outerHTML;
     }
 
     // For SVG exports or fixed-size PNG exports, use a container wrapper
@@ -295,14 +315,125 @@ export class MermaidExportService {
   }
 
   /**
-   * Download diagram as file
+   * Export diagram as Draw.io format using export service
    * @param {HTMLElement} diagramElement - The diagram element
-   * @param {string} format - 'svg' or 'png'
+   * @param {string} format - Export format ('xml' or 'png')
    * @param {string} filename - Desired filename (without extension)
    * @param {Object} options - Export options
+   * @returns {Promise<Object>} - DiagramsNetExportResponse with quality assessment
+   */
+  static async exportToDiagramsNet(diagramElement, format = 'xml', filename = null, options = {}) {
+    try {
+      // Extract SVG content from the diagram element
+      const svgContent = this.extractSVGFromElement(diagramElement);
+
+      // Call the export service
+      const response = await exportServiceApi.exportDiagramAsDiagramsNet(svgContent, {
+        format: format,
+        isDarkMode: options.isDarkMode || false
+      });
+
+      // Generate filename if not provided
+      if (!filename) {
+        filename = this.generateFilename(diagramElement, 'diagram');
+      }
+
+      // Update response with custom filename if provided
+      if (filename) {
+        const baseFilename = filename.replace(/\.(xml|diagramsnet|png)$/i, '');
+        if (format === 'png') {
+          response.filename = `${baseFilename}.diagramsnet.png`;
+        } else {
+          response.filename = `${baseFilename}.diagramsnet.xml`;
+        }
+      }
+
+      return response;
+    } catch (error) {
+      console.error('Failed to export diagram as Draw.io:', error);
+      throw new Error(`Draw.io export failed: ${error.message}`);
+    }
+  }
+
+  /**
+   * Download diagram as Draw.io file with quality assessment
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @param {string} format - Export format ('xml')
+   * @param {string} filename - Desired filename (without extension)
+   * @param {Object} options - Export options
+   * @returns {Promise<Object>} - Quality assessment information
+   */
+  static async downloadDiagramsNetDiagram(diagramElement, format = 'xml', filename = null, options = {}) {
+    try {
+      const response = await this.exportToDiagramsNet(diagramElement, format, filename, options);
+
+      // Download the file using the helper method
+      exportServiceApi.downloadFromConversionResponse(response);
+
+      // Return quality information for user feedback
+      return {
+        success: response.success,
+        quality: response.quality,
+        filename: response.filename,
+        format: response.format
+      };
+    } catch (error) {
+      console.error('Failed to download Draw.io diagram:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Extract SVG content from diagram element
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @returns {string} - Raw SVG content
+   */
+  static extractSVGFromElement(diagramElement) {
+    // Look for SVG element within the diagram container
+    let svgElement = diagramElement.querySelector('svg');
+
+    // If the element itself is an SVG
+    if (!svgElement && diagramElement.tagName === 'SVG') {
+      svgElement = diagramElement;
+    }
+
+    if (!svgElement) {
+      console.error('No SVG element found in diagram element:', diagramElement);
+      throw new Error('No SVG element found in diagram');
+    }
+
+    // Ensure proper SVG attributes for export
+    svgElement.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+    svgElement.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+
+    const svgContent = svgElement.outerHTML;
+    console.log('Extracted SVG content length:', svgContent.length);
+    console.log('SVG content preview:', svgContent.substring(0, 200) + '...');
+
+    return svgContent;
+  }
+
+  /**
+   * Download diagram as file
+   * @param {HTMLElement} diagramElement - The diagram element
+   * @param {string} format - 'svg', 'png', or 'diagramsnet'
+   * @param {string} filename - Desired filename (without extension)
+   * @param {Object} options - Export options
+   * @returns {Promise<Object|undefined>} - Quality information for diagrams.net exports, undefined for others
    */
   static async downloadDiagram(diagramElement, format = 'svg', filename = null, options = {}) {
     try {
+      // Handle Draw.io export with quality feedback
+      if (format === 'diagramsnet') {
+        // Default to XML format for backward compatibility
+        return await this.downloadDiagramsNetDiagram(diagramElement, 'xml', filename, options);
+      }
+
+      // Handle Draw.io PNG export
+      if (format === 'diagramsnet-png') {
+        return await this.downloadDiagramsNetDiagram(diagramElement, 'png', filename, options);
+      }
+
       const content = await this.exportDiagram(diagramElement, format, options);
 
       // Generate filename if not provided
@@ -311,7 +442,7 @@ export class MermaidExportService {
       }
 
       // Remove extension if it already exists to avoid double extensions
-      const baseFilename = filename.replace(/\.(svg|png)$/i, '');
+      const baseFilename = filename.replace(/\.(svg|png|diagramsnet)$/i, '');
 
       // Create download
       const blob = format === 'svg'

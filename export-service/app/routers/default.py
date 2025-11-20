@@ -21,6 +21,7 @@ async def root():
             "document_pdf": "/document/pdf",
             "diagram_svg": "/diagram/svg",
             "diagram_png": "/diagram/png",
+            "diagram_diagrams": "/diagram/diagrams",
             "health": "/health"
         },
     }

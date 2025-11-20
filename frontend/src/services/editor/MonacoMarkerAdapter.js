@@ -145,21 +145,13 @@ export default class MonacoMarkerAdapter {
         break;
       }
       case 'grammar': {
-        // For grammar: Use the descriptive message from backend, truncate if too long
-        if (issue.message && issue.message.length > 60) {
-          msg = issue.message.substring(0, 57) + '...';
-        } else {
-          msg = issue.message || `Grammar issue: "${issue.word}"`;
-        }
+        // For grammar: Use the full descriptive message from backend (don't truncate)
+        msg = issue.message || `Grammar issue: "${issue.word}"`;
         break;
       }
       case 'style':
-        // For style: Use the descriptive message from backend, truncate if too long
-        if (issue.message && issue.message.length > 60) {
-          msg = issue.message.substring(0, 57) + '...';
-        } else {
-          msg = issue.message || `Style suggestion: "${issue.word}"`;
-        }
+        // For style: Use the full descriptive message from backend (don't truncate)
+        msg = issue.message || `Style suggestion: "${issue.word}"`;
         break;
       default: {
         // Legacy format

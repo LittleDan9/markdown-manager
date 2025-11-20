@@ -14,6 +14,33 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
+  const fetchIconData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      // Use the current iconData if available (after updates), otherwise use original icon
+      const currentIcon = iconData || icon;
+
+      // Use the proper RESTful endpoint for getting icon metadata
+      if (currentIcon.pack && currentIcon.pack.name && currentIcon.key) {
+        const freshIcon = await iconsApi.getIconMetadata(currentIcon.pack.name, currentIcon.key);
+        setIconData(freshIcon);
+      } else {
+        // Fallback to the ID-based method if pack info is not available
+        console.warn('Using ID-based getIconById - pack information not available');
+        const freshIcon = await iconsApi.getIconById(currentIcon.id);
+        setIconData(freshIcon);
+      }
+    } catch (err) {
+      console.error('Error fetching icon data:', err);
+      setError(err.message);
+      // Fallback to the passed icon data
+      setIconData(icon);
+    } finally {
+      setLoading(false);
+    }
+  }, [iconData, icon]);
+
   useEffect(() => {
     if (show && icon?.id) {
       // Reset iconData when a new icon is selected
@@ -42,43 +69,6 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
       setSaving(false);
     }
   }, [show, icon?.id, icon?.key, icon?.search_terms, initialEditMode, fetchIconData]); // Added icon?.key to ensure updates when icon changes
-
-  useEffect(() => {
-    // Reset editing state when modal opens/closes or icon changes
-    if (show && iconData) {
-      setEditedKey(iconData.key || '');
-      setEditedSearchTerms(iconData.search_terms || '');
-      setIsEditing(initialEditMode);
-      setSaveSuccess(false);
-    }
-  }, [show, iconData, initialEditMode]);
-
-  const fetchIconData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Use the current iconData if available (after updates), otherwise use original icon
-      const currentIcon = iconData || icon;
-
-      // Use the proper RESTful endpoint for getting icon metadata
-      if (currentIcon.pack && currentIcon.pack.name && currentIcon.key) {
-        const freshIcon = await iconsApi.getIconMetadata(currentIcon.pack.name, currentIcon.key);
-        setIconData(freshIcon);
-      } else {
-        // Fallback to the ID-based method if pack info is not available
-        console.warn('Using ID-based getIconById - pack information not available');
-        const freshIcon = await iconsApi.getIconById(currentIcon.id);
-        setIconData(freshIcon);
-      }
-    } catch (err) {
-      console.error('Error fetching icon data:', err);
-      setError(err.message);
-      // Fallback to the passed icon data
-      setIconData(icon);
-    } finally {
-      setLoading(false);
-    }
-  }, [iconData, icon]);
 
   const handleEdit = () => {
     setIsEditing(true);

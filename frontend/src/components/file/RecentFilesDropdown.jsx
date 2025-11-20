@@ -17,33 +17,26 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
   const loadRecentFiles = useCallback(async () => {
     setLoading(true);
     try {
-      // Get local recent files (3 most recent)
+      // Get recent documents (unified approach - includes both local and GitHub)
       if (isAuthenticated) {
-        // When authenticated, use backend API for local documents
         try {
-          const localFiles = await documentsApi.getRecentLocalDocuments(3);
-          setRecentLocal(localFiles);
+          const recentDocs = await documentsApi.getRecentDocuments(6); // Get more to allow for separation
+          // Separate by repository_type
+          const localDocs = recentDocs.filter(doc => doc.repository_type === 'local');
+          const githubDocs = recentDocs.filter(doc => doc.repository_type === 'github_repo');
+
+          setRecentLocal(localDocs.slice(0, 3)); // Take first 3 local
+          setRecentGitHub(githubDocs.slice(0, 3)); // Take first 3 GitHub
         } catch (error) {
-          console.warn('Failed to load recent local documents from API, falling back to localStorage:', error);
+          console.warn('Failed to load recent documents from API, falling back to localStorage:', error);
           const localFiles = documentStorageService.getRecentLocalDocuments(3);
           setRecentLocal(localFiles);
+          setRecentGitHub([]);
         }
       } else {
         // When not authenticated, use localStorage
         const localFiles = documentStorageService.getRecentLocalDocuments(3);
         setRecentLocal(localFiles);
-      }
-
-      // Get GitHub recent files if authenticated (3 most recent)
-      if (isAuthenticated) {
-        try {
-          const githubFiles = await documentsApi.getRecentGitHubDocuments(3);
-          setRecentGitHub(githubFiles);
-        } catch (error) {
-          console.warn('Failed to load recent GitHub documents:', error);
-          setRecentGitHub([]);
-        }
-      } else {
         setRecentGitHub([]);
       }
     } catch (error) {
@@ -92,6 +85,19 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
       return fileName.substring(0, 27) + '...';
     }
     return fileName;
+  };
+
+  const formatFilePath = (file) => {
+    // For GitHub documents, show the repo path
+    if (file.repository_type === 'github_repo' && file.folder_path) {
+      const parts = file.folder_path.split('/').filter(p => p);
+      if (parts.length >= 2) {
+        return `${parts[1]}/${parts[2]}`;
+      }
+    }
+
+    // For local documents, show category or folder path
+    return file.category || file.category_name || file.folder_path || 'General';
   };
 
   const formatLastOpened = (lastOpenedAt) => {
@@ -192,7 +198,7 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
                             {formatFileDisplayName(file)}
                           </div>
                           <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                            {file.category || file.category_name || file.folder_path || 'General'}
+                            {formatFilePath(file)}
                           </div>
                         </div>
                         <div className="text-muted ms-2" style={{ fontSize: '0.7rem', flexShrink: 0 }}>
@@ -228,7 +234,7 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
                             {formatFileDisplayName(file)}
                           </div>
                           <div className="text-muted" style={{ fontSize: '0.75rem' }}>
-                            {file.github_repository?.name || 'GitHub'}
+                            {formatFilePath(file)}
                           </div>
                         </div>
                         <div className="text-muted ms-2" style={{ fontSize: '0.7rem', flexShrink: 0 }}>

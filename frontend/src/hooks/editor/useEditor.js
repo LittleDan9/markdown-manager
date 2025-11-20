@@ -38,6 +38,8 @@ export default function useEditor({
 
   // Support for new config object approach (for future)
   config
+
+  // Rapid typing detection removed - using source tracking instead
 }) {
   // If config object is provided, merge with individual props
   const finalConfig = config ? {
@@ -57,7 +59,7 @@ export default function useEditor({
   // Core editor setup
   const { editor } = useEditorCore({
     containerRef,
-    value,
+    value: value || '', // Provide default empty string if value is not passed
     onChange, // Pass onChange callback normally
     onCursorLineChange
   });

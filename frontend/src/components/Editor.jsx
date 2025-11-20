@@ -94,20 +94,21 @@ export default function Editor({ value, fullscreenPreview = false }) {
   const debouncedLineChange = useDebouncedCursorChange(setCursorLine, 300);
 
 
-    // Use consolidated editor hook with Phase 5 settings
+      // Use consolidated editor hook with Phase 5 settings
   const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
-    value,
+    value, // RE-ENABLED: Reconnect value prop
     onChange: triggerContentUpdate,
     onCursorLineChange: debouncedLineChange,
-    enableSpellCheck: true,
-    enableMarkdownLint: true,
-    enableKeyboardShortcuts: true,
-    enableListBehavior: true,
-    enableImagePaste: true, // Explicitly enable image paste
+    enableSpellCheck: true, // ENABLED: Turn on spell check
+    enableMarkdownLint: true, // ENABLED: Turn on markdown lint
+    enableKeyboardShortcuts: true, // ENABLED: Turn on keyboard shortcuts
+    enableListBehavior: true, // ENABLED: Turn on list behavior
+    enableImagePaste: true, // ENABLED: Turn on image paste
     categoryId: getCategoryId,
     getFolderPath: getFolderPath,
-    spellCheckSettings // Phase 6: Pass current spell check settings
+    spellCheckSettings, // Phase 6: Pass current spell check settings
+    isRapidTyping: true // ENABLED: Turn on rapid typing detection now that rendering is smooth
   });
 
   const progress = spellCheck?.progress;

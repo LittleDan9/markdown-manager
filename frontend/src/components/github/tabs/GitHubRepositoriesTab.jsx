@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { Card, Button, Alert, Badge, Row, Col, Form, InputGroup, ProgressBar } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
 import { GitHubRepositoryList } from '../index';
@@ -23,16 +23,6 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
 
   const repositoryListRef = useRef(null);
 
-  useEffect(() => {
-    loadAccounts();
-  }, [loadAccounts]);
-
-  useEffect(() => {
-    if (selectedAccount) {
-      loadRepositories();
-    }
-  }, [selectedAccount, loadRepositories]);
-
   const loadAccounts = useCallback(async () => {
     try {
       const accountsData = await gitHubApi.getAccounts();
@@ -43,7 +33,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } catch (err) {
       showError('Failed to load GitHub accounts');
     }
-  }, [selectedAccount, showError]);
+  }, [selectedAccount, showError]); // Include dependencies
 
   const loadRepositories = useCallback(async () => {
     if (!selectedAccount) return;
@@ -86,10 +76,20 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedAccount, accounts.length]);
+  }, [selectedAccount, accounts.length]); // Include accounts.length dependency
 
-    // Handle status updates from the repository list
-  const handleRepositoryStatusUpdate = (statusMap) => {
+  useEffect(() => {
+    loadAccounts();
+  }, [loadAccounts]);
+
+  useEffect(() => {
+    if (selectedAccount) {
+      loadRepositories();
+    }
+  }, [selectedAccount, loadRepositories]);
+
+  // Handle status updates from the repository list
+  const handleRepositoryStatusUpdate = useCallback((statusMap) => {
     if (!statusMap || Object.keys(statusMap).length === 0) return;
 
     try {
@@ -110,7 +110,7 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
     } catch (error) {
       console.error('Failed to process repository status updates:', error);
     }
-  };
+  }, [repositories.length]);
 
   // Handle refresh status button click
   const handleRefreshStatus = () => {
@@ -124,12 +124,12 @@ export default function GitHubRepositoriesTab({ onRepositoryBrowse }) {
 
   // Remove the old loadGitStatusOverview function that was making duplicate API calls
 
-  const filteredRepositories = sortRepositories(
+  const filteredRepositories = useMemo(() => sortRepositories(
     repositories.filter(repo =>
       repo.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       repo.description?.toLowerCase().includes(searchTerm.toLowerCase())
     )
-  );
+  ), [repositories, searchTerm]);
 
   const handleAddRepositories = () => {
     setShowRepositorySettings(true);

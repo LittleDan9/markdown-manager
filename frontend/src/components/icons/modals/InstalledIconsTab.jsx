@@ -25,11 +25,6 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
   const { showSuccess, showError } = useNotification();
 
-  // Load icons when pack selection or search changes
-  useEffect(() => {
-    loadIcons(true);
-  }, [selectedPack, searchTerm, loadIcons]);
-
   const loadIcons = useCallback(async (reset = false) => {
     if (loading) return;
 
@@ -61,6 +56,11 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
       setLoading(false);
     }
   }, [selectedPack, searchTerm, page, loading]);
+
+  // Load icons when pack selection or search changes
+  useEffect(() => {
+    loadIcons(true);
+  }, [selectedPack, searchTerm, loadIcons]);
 
   const loadMoreIcons = useCallback(() => {
     if (!loading && hasMore) {
