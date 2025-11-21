@@ -109,12 +109,12 @@ class ExportServiceApi extends Api {
   }
 
   /**
-   * Generate quality message for user display based on diagrams.net conversion score
+   * Generate quality message for user display based on Draw.io conversion score
    * @param {number} score - Quality score (0-100)
    * @param {string} format - Export format
    * @returns {Object} - Message object with type and text
    */
-  generateQualityMessage(score, format = 'diagrams.net') {
+  generateQualityMessage(score, format = 'Draw.io') {
     if (score >= 90) {
       return {
         type: 'success',
@@ -169,40 +169,116 @@ class ExportServiceApi extends Api {
   }
 
   /**
-   * Export diagram as diagrams.net format using the export service
-   * @param {string} svgContent - Raw SVG content from Mermaid rendering engine
+   * Export diagram as Draw.io XML format using the export service
+   * @param {string} mermaidSource - Original Mermaid source code
+   * @param {string} svgContent - Rendered SVG content from Mermaid
    * @param {Object} options - Export options
-   * @param {string} options.format - Export format ('xml' - currently only supported)
+   * @param {string} options.iconServiceUrl - Icon service URL override
+   * @param {number} options.width - Canvas width (default: 1000)
+   * @param {number} options.height - Canvas height (default: 600)
    * @param {boolean} options.isDarkMode - Dark mode styling (default: false)
-   * @returns {Promise<Object>} - DiagramsNetExportResponse with quality assessment
+   * @returns {Promise<Object>} - DrawioExportResponse with quality assessment
    */
-  async exportDiagramAsDiagramsNet(svgContent, options = {}) {
+  async exportDiagramAsDrawioXML(mermaidSource, svgContent, options = {}) {
     const requestData = {
+      mermaid_source: mermaidSource,
       svg_content: svgContent,
-      format: options.format || 'xml',
+      width: options.width || 1000,
+      height: options.height || 600,
       is_dark_mode: options.isDarkMode || false
     };
 
-    const res = await this.apiCall('/export/diagram/diagramsnet', 'POST', requestData);
-    return res.data; // Full DiagramsNetExportResponse with quality assessment
+    if (options.iconServiceUrl) {
+      requestData.icon_service_url = options.iconServiceUrl;
+    }
+
+    const res = await this.apiCall('/export/diagram/drawio/xml', 'POST', requestData);
+    return res.data; // Full DrawioExportResponse with quality assessment
   }
 
   /**
-   * Get supported diagrams.net export formats
+   * Export diagram as Draw.io PNG format with embedded XML metadata
+   * @param {string} mermaidSource - Original Mermaid source code
+   * @param {string} svgContent - Rendered SVG content from Mermaid
+   * @param {Object} options - Export options
+   * @param {string} options.iconServiceUrl - Icon service URL override
+   * @param {number} options.width - Image width
+   * @param {number} options.height - Image height
+   * @param {boolean} options.transparentBackground - Transparent background (default: true)
+   * @param {boolean} options.isDarkMode - Dark mode styling (default: false)
+   * @returns {Promise<Object>} - DrawioExportResponse with PNG data and quality assessment
+   */
+  async exportDiagramAsDrawioPNG(mermaidSource, svgContent, options = {}) {
+    const requestData = {
+      mermaid_source: mermaidSource,
+      svg_content: svgContent,
+      transparent_background: options.transparentBackground !== false,
+      is_dark_mode: options.isDarkMode || false
+    };
+
+    if (options.width) {
+      requestData.width = options.width;
+    }
+    if (options.height) {
+      requestData.height = options.height;
+    }
+    if (options.iconServiceUrl) {
+      requestData.icon_service_url = options.iconServiceUrl;
+    }
+
+    const res = await this.apiCall('/export/diagram/drawio/png', 'POST', requestData);
+    return res.data; // Full DrawioExportResponse with PNG data and quality assessment
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use exportDiagramAsDrawioXML instead
+   */
+  async exportDiagramAsDiagramsNet(svgContent, options = {}) {
+    // For backward compatibility, we need to convert old API to new format
+    // This requires both Mermaid source and SVG content, but we only have SVG
+    // We'll extract what we can and use fallbacks
+    console.warn('exportDiagramAsDiagramsNet is deprecated. Use exportDiagramAsDrawioXML instead.');
+
+    // Try to extract Mermaid source from SVG comments or use empty fallback
+    const mermaidSource = this.extractMermaidSourceFromSVG(svgContent) || 'graph TD\n    A[Node] --> B[Node]';
+
+    return await this.exportDiagramAsDrawioXML(mermaidSource, svgContent, options);
+  }
+
+  /**
+   * Get supported Draw.io export formats
    * @returns {Promise<Object>} - Supported formats and service information
    */
-  async getDiagramsNetFormats() {
-    const res = await this.apiCall('/export/diagram/formats', 'GET');
+  async getDrawioFormats() {
+    const res = await this.apiCall('/export/diagram/drawio/formats', 'GET');
     return res.data;
   }
 
   /**
-   * Check diagrams.net conversion service health
-   * @returns {Promise<Object>} - diagrams.net service health status
+   * Check Draw.io conversion service health
+   * @returns {Promise<Object>} - Draw.io service health status
+   */
+  async checkDrawioHealth() {
+    const res = await this.apiCall('/export/diagram/drawio/health', 'GET');
+    return res.data;
+  }
+
+  /**
+   * Legacy methods for backward compatibility
+   * @deprecated Use getDrawioFormats instead
+   */
+  async getDiagramsNetFormats() {
+    console.warn('getDiagramsNetFormats is deprecated. Use getDrawioFormats instead.');
+    return await this.getDrawioFormats();
+  }
+
+  /**
+   * @deprecated Use checkDrawioHealth instead
    */
   async checkDiagramsNetHealth() {
-    const res = await this.apiCall('/export/diagram/health', 'GET');
-    return res.data;
+    console.warn('checkDiagramsNetHealth is deprecated. Use checkDrawioHealth instead.');
+    return await this.checkDrawioHealth();
   }
 
   /**
@@ -235,26 +311,26 @@ class ExportServiceApi extends Api {
   }
 
   /**
-   * Helper method to download file from ConversionResponse
-   * @param {Object} conversionResponse - Response from export service
+   * Helper method to download file from DrawioExportResponse
+   * @param {Object} exportResponse - Response from Draw.io export service
    * @param {string} filename - Optional custom filename
    */
-  downloadFromConversionResponse(conversionResponse, filename = null) {
-    if (!conversionResponse.success || !conversionResponse.file_data) {
-      throw new Error('Invalid conversion response or no file data');
+  downloadFromConversionResponse(exportResponse, filename = null) {
+    if (!exportResponse.success || !exportResponse.file_data) {
+      throw new Error('Invalid export response or no file data');
     }
 
     // Use provided filename or the one from response
-    const downloadFilename = filename || conversionResponse.filename;
+    const downloadFilename = filename || exportResponse.filename;
 
     // Convert base64 to blob
-    const binaryString = atob(conversionResponse.file_data);
+    const binaryString = atob(exportResponse.file_data);
     const bytes = new Uint8Array(binaryString.length);
     for (let i = 0; i < binaryString.length; i++) {
       bytes[i] = binaryString.charCodeAt(i);
     }
 
-    const blob = new Blob([bytes], { type: conversionResponse.content_type });
+    const blob = new Blob([bytes], { type: exportResponse.content_type });
 
     // Trigger download
     const url = URL.createObjectURL(blob);
@@ -265,6 +341,32 @@ class ExportServiceApi extends Api {
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
+  }
+
+  /**
+   * Helper method to extract Mermaid source from SVG comments (fallback for legacy support)
+   * @param {string} svgContent - SVG content that might contain Mermaid source in comments
+   * @returns {string|null} - Extracted Mermaid source or null
+   */
+  extractMermaidSourceFromSVG(svgContent) {
+    try {
+      // Look for Mermaid source in SVG comments
+      const sourceMatch = svgContent.match(/<!--\s*mermaid-source:\s*([^-]+)\s*-->/i);
+      if (sourceMatch && sourceMatch[1]) {
+        return decodeURIComponent(sourceMatch[1].trim());
+      }
+
+      // Look for data attributes that might contain source
+      const dataMatch = svgContent.match(/data-mermaid-source="([^"]+)"/i);
+      if (dataMatch && dataMatch[1]) {
+        return decodeURIComponent(dataMatch[1]);
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Failed to extract Mermaid source from SVG:', error);
+      return null;
+    }
   }
 }
 

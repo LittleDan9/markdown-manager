@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Form, Button, Card, Badge, Spinner, Alert, Modal } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
@@ -23,6 +23,9 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
   const [operationLoading, setOperationLoading] = useState(false);
   const [isSelectionMode, setIsSelectionMode] = useState(false);
 
+  // Use ref to track current page to avoid dependency issues
+  const currentPageRef = useRef(0);
+
   const { showSuccess, showError } = useNotification();
 
   const loadIcons = useCallback(async (reset = false) => {
@@ -32,7 +35,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
     setError(null);
 
     try {
-      const currentPage = reset ? 0 : page;
+      const currentPage = reset ? 0 : currentPageRef.current;
       const response = await iconsApi.searchIcons({
         q: searchTerm,
         pack: selectedPack,
@@ -42,9 +45,11 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
       if (reset) {
         setIcons(response.icons || []);
-        setPage(1); // Set to 1 since we'll be loading the next page
+        currentPageRef.current = 1; // Set to 1 since we'll be loading the next page
+        setPage(1);
       } else {
         setIcons(prev => [...prev, ...(response.icons || [])]);
+        currentPageRef.current = currentPageRef.current + 1;
         setPage(prev => prev + 1);
       }
 
@@ -55,10 +60,11 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
     } finally {
       setLoading(false);
     }
-  }, [selectedPack, searchTerm, page, loading]);
+  }, [selectedPack, searchTerm]);
 
   // Load icons when pack selection or search changes
   useEffect(() => {
+    currentPageRef.current = 0;
     loadIcons(true);
   }, [selectedPack, searchTerm, loadIcons]);
 
@@ -66,7 +72,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
     if (!loading && hasMore) {
       loadIcons(false);
     }
-  }, [loading, hasMore, loadIcons]);
+  }, [hasMore, loadIcons]);
 
   // Infinite scroll handler
   const handleScroll = useCallback((e) => {
@@ -76,7 +82,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
     if (scrollHeight - scrollTop - clientHeight < threshold && hasMore && !loading) {
       loadMoreIcons();
     }
-  }, [hasMore, loading, loadMoreIcons]);
+  }, [hasMore, loadMoreIcons]);
 
   const handleIconSaved = useCallback((updatedIcon) => {
     // Update the icon in the current list
@@ -119,6 +125,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
       showSuccess(`Icon "${selectedIcon.key}" deleted successfully!`);
       setShowDeleteModal(false);
       setSelectedIcon(null);
+      currentPageRef.current = 0;
       loadIcons(true); // Reload icons
 
       if (onReloadData) {
@@ -145,6 +152,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
       setShowBulkDeleteModal(false);
       setSelectedIcons(new Set());
       setIsSelectionMode(false);
+      currentPageRef.current = 0;
       loadIcons(true); // Reload icons
 
       if (onReloadData) {

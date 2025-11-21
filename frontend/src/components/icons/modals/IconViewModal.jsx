@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Button, Row, Col, Spinner, Alert, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
@@ -14,33 +14,6 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const fetchIconData = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Use the current iconData if available (after updates), otherwise use original icon
-      const currentIcon = iconData || icon;
-
-      // Use the proper RESTful endpoint for getting icon metadata
-      if (currentIcon.pack && currentIcon.pack.name && currentIcon.key) {
-        const freshIcon = await iconsApi.getIconMetadata(currentIcon.pack.name, currentIcon.key);
-        setIconData(freshIcon);
-      } else {
-        // Fallback to the ID-based method if pack info is not available
-        console.warn('Using ID-based getIconById - pack information not available');
-        const freshIcon = await iconsApi.getIconById(currentIcon.id);
-        setIconData(freshIcon);
-      }
-    } catch (err) {
-      console.error('Error fetching icon data:', err);
-      setError(err.message);
-      // Fallback to the passed icon data
-      setIconData(icon);
-    } finally {
-      setLoading(false);
-    }
-  }, [iconData, icon]);
-
   useEffect(() => {
     if (show && icon?.id) {
       // Reset iconData when a new icon is selected
@@ -48,7 +21,33 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
       setError(null);
       setSaveSuccess(false);
 
-      fetchIconData();
+      // Fetch fresh data directly without using the callback to avoid circular dependency
+      const loadIconData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          // Use the proper RESTful endpoint for getting icon metadata
+          if (icon.pack && icon.pack.name && icon.key) {
+            const freshIcon = await iconsApi.getIconMetadata(icon.pack.name, icon.key);
+            setIconData(freshIcon);
+          } else {
+            // Fallback to the ID-based method if pack info is not available
+            console.warn('Using ID-based getIconById - pack information not available');
+            const freshIcon = await iconsApi.getIconById(icon.id);
+            setIconData(freshIcon);
+          }
+        } catch (err) {
+          console.error('Error fetching icon data:', err);
+          setError(err.message);
+          // Fallback to the passed icon data
+          setIconData(icon);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      loadIconData();
+      
       // Set initial edit mode immediately if requested, even before data loads
       if (initialEditMode) {
         setIsEditing(true);
@@ -68,7 +67,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
       setEditedSearchTerms('');
       setSaving(false);
     }
-  }, [show, icon?.id, icon?.key, icon?.search_terms, initialEditMode, fetchIconData]); // Added icon?.key to ensure updates when icon changes
+  }, [show, icon?.id, icon?.key, icon?.search_terms, initialEditMode]); // Removed fetchIconData dependency
 
   const handleEdit = () => {
     setIsEditing(true);

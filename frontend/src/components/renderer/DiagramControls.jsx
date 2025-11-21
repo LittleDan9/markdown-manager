@@ -240,11 +240,19 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
           maxHeight: 1800,
           isDarkMode: isDarkMode
         };
-      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
-        // For diagrams.net formats, no specific options needed - service will handle SVG extraction
+      } else if (format === 'drawio' || format === 'drawio-xml' || format === 'drawio-png') {
+        // For Draw.io formats, provide canvas dimensions and theme options
         exportOptions = {
-          isDarkMode: isDarkMode
+          width: 1200,     // Canvas width for Draw.io
+          height: 800,     // Canvas height for Draw.io
+          isDarkMode: isDarkMode,
+          transparentBackground: format === 'drawio-png' ? true : undefined
         };
+      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
+        // Legacy format support - redirect to new Draw.io formats
+        console.warn(`Format "${format}" is deprecated. Using Draw.io format instead.`);
+        const newFormat = format === 'diagramsnet-png' ? 'drawio-png' : 'drawio-xml';
+        return await handleExport(newFormat); // Recursive call with new format
       } else {
         // For SVG, use standard container dimensions
         exportOptions = {
@@ -264,16 +272,20 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
       );
 
       let formatName;
-      if (format === 'diagramsnet') {
-        formatName = 'diagrams.net XML';
+      if (format === 'drawio' || format === 'drawio-xml') {
+        formatName = 'Draw.io XML';
+      } else if (format === 'drawio-png') {
+        formatName = 'Draw.io PNG';
+      } else if (format === 'diagramsnet') {
+        formatName = 'Draw.io XML (legacy)';
       } else if (format === 'diagramsnet-png') {
-        formatName = 'diagrams.net PNG';
+        formatName = 'Draw.io PNG (legacy)';
       } else {
         formatName = format.toUpperCase();
       }
 
       // Show quality metrics for Draw.io exports
-      if ((format === 'diagramsnet' || format === 'diagramsnet-png') && result && result.quality) {
+      if ((format.startsWith('drawio') || format.startsWith('diagramsnet')) && result && result.quality) {
         const quality = result.quality;
         const qualityIcon = quality.score >= 90 ? '🟢' : quality.score >= 75 ? '🟡' : '🔴';
         showSuccess(`${qualityIcon} ${formatName} exported with ${quality.score.toFixed(1)}% quality - ${quality.message}`);
@@ -401,14 +413,14 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
               </Dropdown.Item>
               <Dropdown.Divider />
               <Dropdown.Item
-                onClick={() => handleExport('diagramsnet')}
+                onClick={() => handleExport('drawio-xml')}
                 disabled={isExporting}
               >
                 <i className="bi bi-diagram-3 me-2"></i>
                 Draw.io XML
               </Dropdown.Item>
               <Dropdown.Item
-                onClick={() => handleExport('diagramsnet-png')}
+                onClick={() => handleExport('drawio-png')}
                 disabled={isExporting}
               >
                 <i className="bi bi-diagram-3-fill me-2"></i>
