@@ -59,11 +59,19 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
           maxHeight: 2400,
           isDarkMode: isDarkMode
         };
-      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
-        // For Draw.io formats, no specific options needed - service will handle SVG extraction
+      } else if (format === 'drawio-xml' || format === 'drawio-png') {
+        // For Draw.io formats, provide high-resolution canvas options
         exportOptions = {
-          isDarkMode: isDarkMode
+          width: 1600,     // High resolution canvas for fullscreen export
+          height: 1200,
+          isDarkMode: isDarkMode,
+          transparentBackground: format === 'drawio-png' ? true : undefined
         };
+      } else if (format === 'diagramsnet' || format === 'diagramsnet-png') {
+        // Legacy format support - redirect to new Draw.io formats
+        console.warn(`Format "${format}" is deprecated. Using Draw.io format instead.`);
+        const newFormat = format === 'diagramsnet-png' ? 'drawio-png' : 'drawio-xml';
+        return await handleExport(newFormat); // Recursive call with new format
       } else {
         // For SVG, use high resolution container
         exportOptions = {
@@ -86,16 +94,20 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
       );
 
       let formatName;
-      if (format === 'diagramsnet') {
-        formatName = 'diagrams.net XML';
+      if (format === 'drawio-xml') {
+        formatName = 'Draw.io XML';
+      } else if (format === 'drawio-png') {
+        formatName = 'Draw.io PNG';
+      } else if (format === 'diagramsnet') {
+        formatName = 'Draw.io XML (legacy)';
       } else if (format === 'diagramsnet-png') {
-        formatName = 'diagrams.net PNG';
+        formatName = 'Draw.io PNG (legacy)';
       } else {
         formatName = format.toUpperCase();
       }
 
-      // Show quality metrics for diagrams.net exports
-      if ((format === 'diagramsnet' || format === 'diagramsnet-png') && result && result.quality) {
+      // Show quality metrics for Draw.io exports
+      if ((format.startsWith('drawio') || format.startsWith('diagramsnet')) && result && result.quality) {
         const quality = result.quality;
         const qualityIcon = quality.score >= 90 ? '🟢' : quality.score >= 75 ? '🟡' : '🔴';
         showSuccess(`${qualityIcon} High-resolution ${formatName} exported with ${quality.score.toFixed(1)}% quality - ${quality.message}`);
@@ -234,36 +246,36 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
 
           <Button
             variant="outline-info"
-            onClick={() => handleExport('diagramsnet')}
+            onClick={() => handleExport('drawio-xml')}
             disabled={isExporting}
           >
-            {isExporting && exportFormat === 'diagramsnet' ? (
+            {isExporting && exportFormat === 'drawio-xml' ? (
               <>
                 <span className="spinner-border spinner-border-sm me-1" />
-                Exporting diagrams.net XML...
+                Exporting Draw.io XML...
               </>
             ) : (
               <>
                 <i className="bi bi-diagram-3 me-1"></i>
-                Export diagrams.net XML
+                Export Draw.io XML
               </>
             )}
           </Button>
 
           <Button
             variant="outline-success"
-            onClick={() => handleExport('diagramsnet-png')}
+            onClick={() => handleExport('drawio-png')}
             disabled={isExporting}
           >
-            {isExporting && exportFormat === 'diagramsnet-png' ? (
+            {isExporting && exportFormat === 'drawio-png' ? (
               <>
                 <span className="spinner-border spinner-border-sm me-1" />
-                Exporting diagrams.net PNG...
+                Exporting Draw.io PNG...
               </>
             ) : (
               <>
                 <i className="bi bi-diagram-3-fill me-1"></i>
-                Export diagrams.net PNG
+                Export Draw.io PNG
               </>
             )}
           </Button>

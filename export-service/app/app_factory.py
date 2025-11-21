@@ -39,13 +39,13 @@ def setup_middleware(app: FastAPI) -> None:
 def setup_routers(app: FastAPI) -> None:
     """Set up application routers."""
     # Import routers here to avoid circular imports
-    from app.routers import pdf, diagram, default, diagramsnet
+    from app.routers import pdf, diagram, default, drawio
 
     # Include routers with clean endpoint structure
     app.include_router(default.router, tags=["default"])
     app.include_router(pdf.router, prefix="/document", tags=["pdf"])
     app.include_router(diagram.router, prefix="/diagram", tags=["diagram"])
-    app.include_router(diagramsnet.router, prefix="/diagram", tags=["diagramsnet"])
+    app.include_router(drawio.router, prefix="/diagram", tags=["drawio"])
 
 
 def create_app() -> FastAPI:

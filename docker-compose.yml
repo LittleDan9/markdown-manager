@@ -103,6 +103,9 @@ services:
       - ./export-service/static:/export-service/static
     environment:
       - PYTHONUNBUFFERED=1
+      - ICON_SERVICE_URL=http://backend:8000
+      - DRAWIO_VERSION=24.7.5
+      - DRAWIO_QUALITY_THRESHOLD=60.0
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
       interval: 30s

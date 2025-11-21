@@ -56,8 +56,15 @@ class DocumentsApi extends Api {
     return await exportServiceApi.exportDiagramAsPNG(htmlContent, options);
   }
 
+  async exportDiagramAsDrawio(mermaidSource, svgContent, options = {}) {
+    // Use the dedicated export service for Draw.io XML generation
+    const exportServiceApi = (await import('./exportServiceApi')).default;
+    return await exportServiceApi.exportDiagramAsDrawioXML(mermaidSource, svgContent, options);
+  }
+
   async exportDiagramAsDiagramsNet(svgContent, options = {}) {
-    // Use the dedicated export service for diagrams.net XML generation
+    // Legacy method - use the dedicated export service for diagrams.net XML generation
+    console.warn('exportDiagramAsDiagramsNet is deprecated. Use exportDiagramAsDrawio instead.');
     const exportServiceApi = (await import('./exportServiceApi')).default;
     return await exportServiceApi.exportDiagramAsDiagramsNet(svgContent, options);
   }

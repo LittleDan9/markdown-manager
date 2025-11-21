@@ -15,13 +15,21 @@ export class MermaidExportService {
         throw new Error('Diagram element is required');
       }
 
-      if (!['svg', 'png', 'diagramsnet'].includes(format)) {
-        throw new Error('Format must be "svg", "png", or "diagramsnet"');
+      if (!['svg', 'png', 'diagramsnet', 'drawio', 'drawio-xml', 'drawio-png'].includes(format)) {
+        throw new Error('Format must be "svg", "png", "diagramsnet" (legacy), "drawio", "drawio-xml", or "drawio-png"');
       }
 
-      // Handle diagrams.net export differently as it works directly with SVG
+      // Handle Draw.io export (new format names)
+      if (format === 'drawio' || format === 'drawio-xml') {
+        return await this.exportToDrawio(diagramElement, 'xml', null, options);
+      }
+      if (format === 'drawio-png') {
+        return await this.exportToDrawio(diagramElement, 'png', null, options);
+      }
+
+      // Handle legacy diagrams.net export for backward compatibility
       if (format === 'diagramsnet') {
-        return await this.exportToDiagramsNet(diagramElement, 'xml', null, options);
+        return await this.exportToDrawio(diagramElement, 'xml', null, options);
       }
 
       // Pass format information to prepareDiagramHTML for proper sizing
@@ -315,23 +323,42 @@ export class MermaidExportService {
   }
 
   /**
-   * Export diagram as Draw.io format using export service
+   * Export diagram as Draw.io format using the new dual-input export service
    * @param {HTMLElement} diagramElement - The diagram element
    * @param {string} format - Export format ('xml' or 'png')
    * @param {string} filename - Desired filename (without extension)
    * @param {Object} options - Export options
-   * @returns {Promise<Object>} - DiagramsNetExportResponse with quality assessment
+   * @returns {Promise<Object>} - DrawioExportResponse with quality assessment
    */
-  static async exportToDiagramsNet(diagramElement, format = 'xml', filename = null, options = {}) {
+  static async exportToDrawio(diagramElement, format = 'xml', filename = null, options = {}) {
     try {
-      // Extract SVG content from the diagram element
+      // Extract both Mermaid source and SVG content (dual-input approach)
+      const mermaidSource = this.extractDiagramSource(diagramElement);
       const svgContent = this.extractSVGFromElement(diagramElement);
 
-      // Call the export service
-      const response = await exportServiceApi.exportDiagramAsDiagramsNet(svgContent, {
-        format: format,
-        isDarkMode: options.isDarkMode || false
-      });
+      if (!mermaidSource) {
+        throw new Error('Mermaid source code not found. Draw.io export requires original Mermaid source.');
+      }
+
+      let response;
+      if (format === 'png') {
+        // Use PNG export with embedded XML metadata
+        response = await exportServiceApi.exportDiagramAsDrawioPNG(mermaidSource, svgContent, {
+          width: options.width,
+          height: options.height,
+          transparentBackground: options.transparentBackground,
+          isDarkMode: options.isDarkMode || false,
+          iconServiceUrl: options.iconServiceUrl
+        });
+      } else {
+        // Use XML export
+        response = await exportServiceApi.exportDiagramAsDrawioXML(mermaidSource, svgContent, {
+          width: options.width || 1000,
+          height: options.height || 600,
+          isDarkMode: options.isDarkMode || false,
+          iconServiceUrl: options.iconServiceUrl
+        });
+      }
 
       // Generate filename if not provided
       if (!filename) {
@@ -340,11 +367,11 @@ export class MermaidExportService {
 
       // Update response with custom filename if provided
       if (filename) {
-        const baseFilename = filename.replace(/\.(xml|diagramsnet|png)$/i, '');
+        const baseFilename = filename.replace(/\.(xml|drawio|png)$/i, '');
         if (format === 'png') {
-          response.filename = `${baseFilename}.diagramsnet.png`;
+          response.filename = `${baseFilename}.drawio.png`;
         } else {
-          response.filename = `${baseFilename}.diagramsnet.xml`;
+          response.filename = `${baseFilename}.drawio.xml`;
         }
       }
 
@@ -356,16 +383,25 @@ export class MermaidExportService {
   }
 
   /**
+   * Legacy method for backward compatibility
+   * @deprecated Use exportToDrawio instead
+   */
+  static async exportToDiagramsNet(diagramElement, format = 'xml', filename = null, options = {}) {
+    console.warn('exportToDiagramsNet is deprecated. Use exportToDrawio instead.');
+    return await this.exportToDrawio(diagramElement, format, filename, options);
+  }
+
+  /**
    * Download diagram as Draw.io file with quality assessment
    * @param {HTMLElement} diagramElement - The diagram element
-   * @param {string} format - Export format ('xml')
+   * @param {string} format - Export format ('xml' or 'png')
    * @param {string} filename - Desired filename (without extension)
    * @param {Object} options - Export options
    * @returns {Promise<Object>} - Quality assessment information
    */
-  static async downloadDiagramsNetDiagram(diagramElement, format = 'xml', filename = null, options = {}) {
+  static async downloadDrawioDiagram(diagramElement, format = 'xml', filename = null, options = {}) {
     try {
-      const response = await this.exportToDiagramsNet(diagramElement, format, filename, options);
+      const response = await this.exportToDrawio(diagramElement, format, filename, options);
 
       // Download the file using the helper method
       exportServiceApi.downloadFromConversionResponse(response);
@@ -381,6 +417,15 @@ export class MermaidExportService {
       console.error('Failed to download Draw.io diagram:', error);
       throw error;
     }
+  }
+
+  /**
+   * Legacy method for backward compatibility
+   * @deprecated Use downloadDrawioDiagram instead
+   */
+  static async downloadDiagramsNetDiagram(diagramElement, format = 'xml', filename = null, options = {}) {
+    console.warn('downloadDiagramsNetDiagram is deprecated. Use downloadDrawioDiagram instead.');
+    return await this.downloadDrawioDiagram(diagramElement, format, filename, options);
   }
 
   /**
@@ -423,15 +468,22 @@ export class MermaidExportService {
    */
   static async downloadDiagram(diagramElement, format = 'svg', filename = null, options = {}) {
     try {
-      // Handle Draw.io export with quality feedback
-      if (format === 'diagramsnet') {
-        // Default to XML format for backward compatibility
-        return await this.downloadDiagramsNetDiagram(diagramElement, 'xml', filename, options);
+      // Handle Draw.io export with quality feedback (new format names)
+      if (format === 'drawio' || format === 'drawio-xml') {
+        return await this.downloadDrawioDiagram(diagramElement, 'xml', filename, options);
+      }
+      if (format === 'drawio-png') {
+        return await this.downloadDrawioDiagram(diagramElement, 'png', filename, options);
       }
 
-      // Handle Draw.io PNG export
+      // Handle legacy Draw.io export names for backward compatibility
+      if (format === 'diagramsnet') {
+        console.warn('Format "diagramsnet" is deprecated. Use "drawio" or "drawio-xml" instead.');
+        return await this.downloadDrawioDiagram(diagramElement, 'xml', filename, options);
+      }
       if (format === 'diagramsnet-png') {
-        return await this.downloadDiagramsNetDiagram(diagramElement, 'png', filename, options);
+        console.warn('Format "diagramsnet-png" is deprecated. Use "drawio-png" instead.');
+        return await this.downloadDrawioDiagram(diagramElement, 'png', filename, options);
       }
 
       const content = await this.exportDiagram(diagramElement, format, options);
@@ -442,7 +494,7 @@ export class MermaidExportService {
       }
 
       // Remove extension if it already exists to avoid double extensions
-      const baseFilename = filename.replace(/\.(svg|png|diagramsnet)$/i, '');
+      const baseFilename = filename.replace(/\.(svg|png|diagramsnet|drawio)$/i, '');
 
       // Create download
       const blob = format === 'svg'
