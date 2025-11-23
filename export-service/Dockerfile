@@ -67,7 +67,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 \
     curl \
     ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
 
 # Create symlinks for python commands
 RUN ln -s /usr/bin/python3 /usr/bin/python
@@ -84,6 +85,7 @@ WORKDIR /export-service
 # Copy application files
 COPY ./app /export-service/app
 COPY ./static /export-service/static
+COPY ./configs /export-service/configs
 
 # Create non-root user for security
 RUN groupadd -r exportservice && useradd -r -g exportservice exportservice && \
@@ -94,7 +96,8 @@ USER exportservice
 EXPOSE 8001
 
 # Health check - use virtual environment python
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD /export-service/.venv/bin/python -c "import sys,requests; r=requests.get('http://localhost:8001/health', timeout=5); r.raise_for_status(); sys.exit(0)"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
+  CMD /export-service/.venv/bin/python -c "import sys,requests; r=requests.get('http://localhost:8001/health', timeout=8); r.raise_for_status(); sys.exit(0)"
 
-CMD ["/export-service/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001"]
+# Production-optimized CMD with proper signal handling
+CMD ["/export-service/.venv/bin/uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1", "--access-log", "--log-level", "info"]

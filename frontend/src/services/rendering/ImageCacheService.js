@@ -1,3 +1,5 @@
+import imageApi from '../../api/imageApi';
+
 /**
  * ImageCacheService - Caches images using the browser's Cache API
  *
@@ -70,6 +72,61 @@ class ImageCacheService {
 
     // Fallback to original URL
     return url;
+  }
+
+  /**
+   * Cache an authenticated user image and return a blob URL
+   */
+  async cacheAuthenticatedImage(filename, userId) {
+    if (!filename || !userId) return null;
+
+    const cacheKey = `auth:${userId}:${filename}`;
+
+    // Check memory cache first
+    if (this.cache.has(cacheKey)) {
+      return this.cache.get(cacheKey);
+    }
+
+    try {
+      // Use imageApi to get authenticated blob URL
+      const blobUrl = await imageApi.getImageBlobUrl(filename, userId);
+
+      if (blobUrl) {
+        this.cache.set(cacheKey, blobUrl);
+        console.log(`🔐 Cached authenticated image: ${filename}`);
+        return blobUrl;
+      }
+    } catch (error) {
+      console.warn('Failed to cache authenticated image:', filename, error);
+    }
+
+    return null;
+  }
+
+  /**
+   * Check if URL is a user image that needs authentication
+   */
+  isUserImage(url) {
+    return url && (
+      url.includes('/api/images/') ||
+      url.includes('/images/') ||
+      url.match(/(?:https?:\/\/[^/]+)?\/api\/images\/\d+\//)
+    );
+  }
+
+  /**
+   * Extract user ID and filename from user image URL
+   */
+  parseUserImageUrl(url) {
+    // Match patterns like /api/images/123/filename.jpg or https://domain.com/api/images/123/filename.jpg
+    const match = url.match(/(?:https?:\/\/[^/]+)?\/api\/images\/(\d+)\/([^?]+)/);
+    if (match) {
+      return {
+        userId: parseInt(match[1]),
+        filename: match[2]
+      };
+    }
+    return null;
   }  /**
    * Get a cached image URL (memory cache only)
    */

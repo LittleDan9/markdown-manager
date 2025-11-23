@@ -7,6 +7,9 @@ from pydantic import BaseModel
 
 from app.models import ConversionResponse
 from app.services.css_service import css_service
+from app.services.diagram_converters.diagram_detector import DiagramTypeDetector
+from app.services.diagram_converters.shared_utils import PerformanceMonitor
+from configs.converter_config import get_config
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
@@ -32,8 +35,26 @@ class PNGExportRequest(BaseModel):
 @router.post("/svg")
 async def export_diagram_svg(request: DiagramExportRequest) -> ConversionResponse:
     """Export diagram as SVG using Chromium rendering."""
+    config = get_config()
+    monitor = PerformanceMonitor() if config.performance.enable_monitoring else None
+
     try:
         logger.info("Exporting diagram as SVG")
+        if monitor:
+            monitor.start_timer("svg_export")
+
+        # Detect diagram type if Mermaid content is present
+        diagram_type_info = None
+        if "mermaid" in request.html_content.lower():
+            try:
+                # Extract Mermaid source from HTML content
+                import re
+                mermaid_match = re.search(r'<div class="mermaid"[^>]*>([^<]+)</div>', request.html_content, re.DOTALL)
+                if mermaid_match:
+                    mermaid_source = mermaid_match.group(1).strip()
+                    diagram_type_info = DiagramTypeDetector.get_diagram_info(mermaid_source)
+            except Exception as e:
+                logger.warning(f"Failed to detect diagram type: {e}")
 
         # Get CSS styles optimized for diagrams
         css_styles = css_service.get_diagram_css(request.is_dark_mode)
@@ -85,18 +106,38 @@ async def export_diagram_svg(request: DiagramExportRequest) -> ConversionRespons
             # Encode SVG as base64 for consistent response format
             svg_base64 = base64.b64encode(svg_content.encode('utf-8')).decode('utf-8')
 
+            # Prepare metadata with performance and type information
+            metadata = {
+                "width": request.width,
+                "height": request.height,
+                "dark_mode": request.is_dark_mode,
+                "svg_length": len(svg_content)
+            }
+
+            # Add diagram type information if detected
+            if diagram_type_info:
+                metadata.update({
+                    "diagram_type": diagram_type_info["type_name"],
+                    "detection_confidence": diagram_type_info["confidence"],
+                    "converter_used": diagram_type_info.get("converter_type", "generic")
+                })
+
+            # Add performance metrics if monitoring enabled
+            if monitor:
+                export_time = monitor.end_timer("svg_export")
+                metadata.update({
+                    "export_time": export_time,
+                    "performance_monitoring": True
+                })
+                monitor.log_performance_summary()
+
             return ConversionResponse(
                 success=True,
                 file_data=svg_base64,
                 filename="diagram.svg",
                 content_type="image/svg+xml",
                 format="svg",
-                metadata={
-                    "width": request.width,
-                    "height": request.height,
-                    "dark_mode": request.is_dark_mode,
-                    "svg_length": len(svg_content)
-                }
+                metadata=metadata
             )
 
     except Exception as e:

@@ -8,9 +8,55 @@ from pydantic import ValidationError
 from app.models import DrawioXMLExportRequest, DrawioPNGExportRequest, DrawioExportResponse
 from app.services.mermaid_drawio_service import mermaid_drawio_service
 from app.services.drawio_quality_service import drawio_quality_service
+from app.services.diagram_converters.validation.input_validator import InputValidator
+from app.services.diagram_converters.shared_utils import PerformanceMonitor
+from configs.converter_config import get_config
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
+
+
+def _validate_drawio_inputs(request: DrawioXMLExportRequest, validator: InputValidator = None) -> None:
+    """Validate inputs for Draw.io XML conversion."""
+    if validator:
+        validation_result = validator.validate_conversion_request(
+            request.mermaid_source,
+            request.svg_content,
+            {
+                "width": request.width,
+                "height": request.height,
+                "icon_service_url": request.icon_service_url
+            }
+        )
+
+        if not validation_result.is_valid:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Input validation failed: {'; '.join(validation_result.errors)}"
+            )
+
+        if validation_result.has_warnings():
+            logger.warning(f"Validation warnings: {'; '.join(validation_result.warnings)}")
+
+    # Basic validation fallback
+    else:
+        if not request.mermaid_source.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="Mermaid source cannot be empty"
+            )
+
+        if not request.svg_content.strip():
+            raise HTTPException(
+                status_code=400,
+                detail="SVG content cannot be empty"
+            )
+
+        if not request.svg_content.strip().startswith('<svg'):
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid SVG content - must start with <svg> tag"
+            )
 
 
 @router.post("/drawio/xml", response_model=DrawioExportResponse)
@@ -31,29 +77,20 @@ async def export_drawio_xml(request: DrawioXMLExportRequest) -> DrawioExportResp
     Raises:
         HTTPException: If conversion fails or invalid input provided
     """
+    config = get_config()
+    monitor = PerformanceMonitor() if config.performance.enable_monitoring else None
+    validator = InputValidator(config) if config.quality.enable_validation else None
+
     try:
         logger.info("Starting Draw.io XML export conversion")
         logger.info(f"Mermaid source length: {len(request.mermaid_source)} characters")
         logger.info(f"SVG content length: {len(request.svg_content)} characters")
 
+        if monitor:
+            monitor.start_timer("drawio_xml_conversion")
+
         # Validate inputs
-        if not request.mermaid_source.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Mermaid source cannot be empty"
-            )
-
-        if not request.svg_content.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="SVG content cannot be empty"
-            )
-
-        if not request.svg_content.strip().startswith('<svg'):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid SVG content - must start with <svg> tag"
-            )
+        _validate_drawio_inputs(request, validator)
 
         # Get icon service URL (use provided or environment default)
         icon_service_url = request.icon_service_url or os.getenv('ICON_SERVICE_URL')
@@ -117,14 +154,22 @@ async def export_drawio_xml(request: DrawioXMLExportRequest) -> DrawioExportResp
             drawio_version="24.7.5"
         )
 
+        if monitor:
+            conversion_time = monitor.end_timer("drawio_xml_conversion")
+            logger.info(f"Draw.io XML conversion completed in {conversion_time:.3f}s")
+
         logger.info(f"Successfully exported Draw.io XML, quality: {quality_info.score:.1f}%")
         return response
 
     except HTTPException:
+        if monitor:
+            monitor.end_timer("drawio_xml_conversion")
         # Re-raise HTTP exceptions
         raise
 
     except ValidationError as e:
+        if monitor:
+            monitor.end_timer("drawio_xml_conversion")
         logger.error(f"Request validation failed: {str(e)}")
         raise HTTPException(
             status_code=422,
@@ -132,6 +177,8 @@ async def export_drawio_xml(request: DrawioXMLExportRequest) -> DrawioExportResp
         )
 
     except Exception as e:
+        if monitor:
+            monitor.end_timer("drawio_xml_conversion")
         logger.error(f"Unexpected error in Draw.io XML export: {str(e)}")
         raise HTTPException(
             status_code=500,
@@ -156,29 +203,20 @@ async def export_drawio_png(request: DrawioPNGExportRequest) -> DrawioExportResp
     Raises:
         HTTPException: If conversion fails or invalid input provided
     """
+    config = get_config()
+    monitor = PerformanceMonitor() if config.performance.enable_monitoring else None
+    validator = InputValidator(config) if config.quality.enable_validation else None
+
     try:
         logger.info("Starting Draw.io PNG export conversion")
         logger.info(f"Mermaid source length: {len(request.mermaid_source)} characters")
         logger.info(f"SVG content length: {len(request.svg_content)} characters")
 
+        if monitor:
+            monitor.start_timer("drawio_png_conversion")
+
         # Validate inputs
-        if not request.mermaid_source.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="Mermaid source cannot be empty"
-            )
-
-        if not request.svg_content.strip():
-            raise HTTPException(
-                status_code=400,
-                detail="SVG content cannot be empty"
-            )
-
-        if not request.svg_content.strip().startswith('<svg'):
-            raise HTTPException(
-                status_code=400,
-                detail="Invalid SVG content - must start with <svg> tag"
-            )
+        _validate_drawio_inputs(request, validator)
 
         # Get icon service URL (use provided or environment default)
         icon_service_url = request.icon_service_url or os.getenv('ICON_SERVICE_URL')
@@ -242,14 +280,22 @@ async def export_drawio_png(request: DrawioPNGExportRequest) -> DrawioExportResp
             drawio_version="24.7.5"
         )
 
+        if monitor:
+            conversion_time = monitor.end_timer("drawio_png_conversion")
+            logger.info(f"Draw.io PNG conversion completed in {conversion_time:.3f}s")
+
         logger.info(f"Successfully exported Draw.io PNG, quality: {quality_info.score:.1f}%")
         return response
 
     except HTTPException:
+        if monitor:
+            monitor.end_timer("drawio_png_conversion")
         # Re-raise HTTP exceptions
         raise
 
     except ValidationError as e:
+        if monitor:
+            monitor.end_timer("drawio_png_conversion")
         logger.error(f"Request validation failed: {str(e)}")
         raise HTTPException(
             status_code=422,
@@ -257,6 +303,8 @@ async def export_drawio_png(request: DrawioPNGExportRequest) -> DrawioExportResp
         )
 
     except Exception as e:
+        if monitor:
+            monitor.end_timer("drawio_png_conversion")
         logger.error(f"Unexpected error in Draw.io PNG export: {str(e)}")
         raise HTTPException(
             status_code=500,
