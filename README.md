@@ -1,7 +1,235 @@
 # Markdown Manager
 
-Some reasonable content should be added here.
+A sophisticated web-based markdown editor with advanced document management, real-time collaboration features, and professional-grade export capabilities. Built with modern microservices architecture for scalability and performance.
 
-This is some test and another test.
+## 🚀 Features
 
-Some additional text to be added.
+### Core Editor
+
+- **Monaco Editor Integration**: Professional code editing experience with syntax highlighting
+- **Real-time Preview**: Live markdown rendering with Mermaid diagram support
+- **Spell Check & Grammar**: Advanced writing assistance with custom dictionary support
+- **Markdown Linting**: Automated style checking and formatting suggestions
+- **Multi-document Management**: Tabbed interface with workspace sessions
+
+### Diagram & Export Capabilities
+
+- **Mermaid Diagrams**: Native support for flowcharts, sequence diagrams, and more
+- **Advanced Export Service**: High-quality PDF, SVG, and PNG generation
+- **Draw.io Integration**: Convert Mermaid diagrams to Draw.io format with quality assessment
+- **Icon Libraries**: Extensive Azure, AWS, and custom icon integration
+
+### Professional Features
+
+- **Document Templates**: Smart snippets and reusable content blocks
+- **Cross-document Search**: Semantic search across your entire workspace
+- **Git Integration**: Version control with visual diff viewer
+
+## 🏗️ Architecture
+
+The application follows a modern microservices architecture with Nginx as the central reverse proxy:
+
+```text
+                            ┌─────────────────┐
+                            │      Nginx      │ ← Entry Point
+                            │ Reverse Proxy   │   (Port 80)
+                            │                 │
+                            └─────────┬───────┘
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        │                             │                             │
+        ▼                             ▼                             ▼
+┌─────────────────┐          ┌─────────────────┐          ┌─────────────────┐
+│   Frontend      │          │   Backend API   │          │  Export Service │
+│   (React)       │          │   (FastAPI)     │          │   (Python)      │
+│   Port: 3000    │          │   Port: 8000    │◄─────────┤   Port: 8001    │
+│                 │          │                 │          │                 │
+│ Routes:         │          │ Routes:         │          │ Routes:         │
+│ / (all pages)   │          │ /api/*          │          │ /api/export/*   │
+└─────────────────┘          └─────────┬───────┘          └─────────────────┘
+                                       │
+                                       ▼
+                                       │
+        ┌──────────────────────────────┼──────────────────────────────┐
+        │                              │                              │
+        ▼                              ▼                              ▼
+┌─────────────────┐          ┌─────────────────┐          ┌─────────────────┐
+│   PostgreSQL    │          │ Markdown Lint   │          │  Spell Check    │
+│   Database      │          │ Service (Node)  │          │ Service (Node)  │
+│   Port: 5432    │          │ Port: 8002      │          │ Port: 8003      │
+└─────────────────┘          └─────────────────┘          └─────────────────┘
+
+                             ┌─────────────────┐
+                             │    Storage      │
+                             │   (Filesystem)  │
+                             │ /documents      │
+                             └─────────────────┘
+```
+
+**Request Flow:**
+
+1. **User** → `http://localhost` → **Nginx** (Port 80)
+2. **Nginx** routes requests:
+   - `/` → **Frontend** (Port 3000)
+   - `/api/*` → **Backend API** (Port 8000)
+   - `/api/export/*` → **Export Service** (Port 8001)
+3. **Backend** connects to:
+   - **PostgreSQL** (Port 5432) for data persistence
+   - **Markdown Lint Service** (Port 8002) for style checking
+   - **Spell Check Service** (Port 8003) for grammar checking
+   - **Filesystem Storage** for document files
+
+### Services Overview
+
+- **Frontend**: Modern React application with Monaco editor integration
+- **Backend API**: FastAPI-based REST API with PostgreSQL persistence
+- **Export Service**: Specialized document and diagram conversion service
+- **Markdown Lint Service**: Node.js service for markdown style checking
+- **Spell Check Service**: Advanced grammar and spell checking service
+- **Nginx**: Production-ready reverse proxy with SSL termination
+
+## 🚦 Quick Start
+
+### Prerequisites
+
+- Docker and Docker Compose
+- Node.js 18+ (for development)
+- Python 3.11+ (for development)
+- Make (for build automation)
+
+### Development Setup
+
+1. **Clone and Install**
+
+   ```bash
+   git clone <repository-url>
+   cd markdown-manager
+   make install
+   ```
+
+2. **Start Development Environment**
+
+   ```bash
+   make dev
+   ```
+
+   This starts both frontend (port 3000) and backend services.
+
+3. **Check Status**
+
+   ```bash
+   make status
+   ```
+
+4. **Access the Application**
+   - Frontend: <http://localhost> (via Nginx)
+   - Backend API: <http://localhost/api/> (via Nginx)
+   - API Documentation: <http://localhost/api/docs> (via Nginx)
+   - Export Service: <http://localhost/api/export/> (via Nginx)
+
+   *Direct service endpoints (for development debugging):*
+   - Frontend: <http://localhost:3000>
+   - Backend API: <http://localhost:8000>
+   - Export Service: <http://localhost:8001>
+   - Markdown Lint Service: <http://localhost:8002>
+   - Spell Check Service: <http://localhost:8003>
+
+### Production Deployment
+
+```bash
+# Build and deploy all services
+make deploy
+
+# Deploy individual components
+make deploy-front    # Frontend + Nginx config
+make deploy-back     # Backend services + Nginx config
+```
+
+For detailed deployment information, see [deployment documentation](docs/deployment/).
+
+## 📚 Documentation
+
+- **[Development Guide](docs/development/)** - Local development setup and workflows
+- **[API Documentation](docs/api/)** - REST API reference and examples
+- **[Export Service Guide](export-service/README.md)** - Document and diagram export capabilities
+- **[Frontend Architecture](frontend/src/services/editor/README.md)** - Editor services and structure
+
+## 🛠️ Development
+
+### Available Commands
+
+```bash
+# Development
+make dev              # Start frontend & backend dev servers
+make dev-frontend     # Frontend only
+make dev-backend      # Backend only
+
+# Building & Testing
+make build            # Build production assets
+make test             # Run all tests
+make test-backend     # Backend tests with coverage
+make quality          # Run linting and quality checks
+
+# Deployment
+make deploy           # Full deployment
+make deploy-front     # Frontend deployment
+make deploy-back      # Backend services deployment
+
+# Utilities
+make status           # Check development server status
+make stop             # Stop all development servers
+make clean            # Clean build artifacts
+```
+
+### Project Structure
+
+```text
+├── frontend/                 # React frontend application
+│   ├── src/                 # Source code
+│   ├── public/              # Static assets
+│   └── webpack.config.js    # Build configuration
+├── backend/                 # FastAPI backend service
+│   ├── app/                 # Application code
+│   ├── migrations/          # Database migrations
+│   └── tests/               # Backend tests
+├── export-service/          # Document export microservice
+├── markdown-lint-service/   # Markdown linting service
+├── spell-check-service/     # Spell checking service
+├── nginx/                   # Nginx configuration
+├── scripts/                 # Build and deployment scripts
+└── docs/                    # Documentation
+```
+
+## 🔧 Configuration
+
+### Environment Variables
+
+Key configuration options:
+
+- `NODE_ENV`: Development/production mode
+- `DATABASE_URL`: PostgreSQL connection string
+- `ICON_SERVICE_URL`: Icon service endpoint
+- `SPELL_CHECK_PORT`: Spell check service port
+
+See individual service README files for complete configuration options.
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/amazing-feature`
+3. Make your changes and add tests
+4. Run quality checks: `make quality`
+5. Commit your changes: `git commit -m 'Add amazing feature'`
+6. Push to the branch: `git push origin feature/amazing-feature`
+7. Open a Pull Request
+
+## 📄 License
+
+This project is licensed under the ISC License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Monaco Editor](https://microsoft.github.io/monaco-editor/) for the excellent code editing experience
+- [Mermaid](https://mermaid-js.github.io/) for diagram rendering capabilities
+- [FastAPI](https://fastapi.tiangolo.com/) for the high-performance backend framework
+- [React](https://reactjs.org/) for the modern frontend framework
