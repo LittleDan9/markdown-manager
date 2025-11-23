@@ -97,6 +97,8 @@ class TestDrawioRouter:
         request_data = {
             "mermaid_source": MERMAID_FLOWCHART_BASIC,
             "svg_content": SVG_FLOWCHART_BASIC,
+            "width": 800,
+            "height": 600,
             "transparent_background": True,
             "is_dark_mode": False
         }
@@ -248,15 +250,17 @@ class TestDrawioRouter:
         """Test XML export with malformed SVG content."""
         request_data = {
             "mermaid_source": MERMAID_FLOWCHART_BASIC,
-            "svg_content": "<svg>malformed</invalid>"
+            "svg_content": "<svg>malformed</invalid>",
+            "width": 800,
+            "height": 600
         }
 
         response = client.post("/diagram/drawio/xml", json=request_data)
 
-        assert response.status_code == status.HTTP_200_OK
+        # With enhanced validation, malformed SVG is now properly rejected
+        assert response.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY
         data = response.json()
-        assert data["success"] is True
-        # Service handles malformed SVG gracefully
+        assert "validation failed" in data["detail"].lower()
 
     @pytest.mark.integration
     def test_export_xml_empty_inputs(self, client):
@@ -275,7 +279,9 @@ class TestDrawioRouter:
         """Test PNG export with Playwright failure."""
         request_data = {
             "mermaid_source": MERMAID_FLOWCHART_BASIC,
-            "svg_content": SVG_FLOWCHART_BASIC
+            "svg_content": SVG_FLOWCHART_BASIC,
+            "width": 800,
+            "height": 600
         }
 
         # Mock Playwright to raise an exception
@@ -344,7 +350,9 @@ class TestDrawioRouter:
         """Test quality assessment integration in PNG export."""
         request_data = {
             "mermaid_source": MERMAID_FLOWCHART_BASIC,
-            "svg_content": SVG_FLOWCHART_BASIC
+            "svg_content": SVG_FLOWCHART_BASIC,
+            "width": 800,
+            "height": 600
         }
 
         # Mock the PNG conversion to return proper bytes

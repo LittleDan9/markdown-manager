@@ -1,0 +1,100 @@
+# Docker Compose Production Configuration
+# Optimized for production deployment with security and performance enhancements
+
+version: '3.8'
+
+services:
+  export-service:
+    build:
+      context: ./export-service
+      dockerfile: Dockerfile
+    container_name: markdown-manager-export-prod
+    restart: unless-stopped
+    environment:
+      # Environment configuration
+      - ENVIRONMENT=production
+      - DEBUG_MODE=false
+      - LOG_LEVEL=INFO
+
+      # Performance settings
+      - ENABLE_PERFORMANCE_MONITORING=true
+      - ENABLE_CACHING=true
+      - MAX_CACHE_SIZE=2000
+      - ICON_FETCH_TIMEOUT=3.0
+      - MAX_CONCURRENT_ICONS=20
+      - SVG_PARSE_TIMEOUT=45.0
+      - MAX_MEMORY_USAGE_MB=200.0
+
+      # Quality settings
+      - ENABLE_VALIDATION=true
+      - MAX_NODES=2000
+      - MAX_EDGES=5000
+      - MAX_SOURCE_LENGTH=200000
+      - MIN_CONFIDENCE_THRESHOLD=0.7
+      - ENABLE_XML_VALIDATION=true
+      - ENABLE_PERFORMANCE_WARNINGS=true
+
+      # Feature flags
+      - ENABLE_ARCHITECTURE_DIAGRAMS=true
+      - ENABLE_FLOWCHART_DIAGRAMS=true
+      - ENABLE_DEFAULT_FALLBACK=true
+
+      # Canvas settings
+      - DEFAULT_CANVAS_WIDTH=1200
+      - DEFAULT_CANVAS_HEIGHT=800
+
+      # Icon service (configure as needed)
+      - ENABLE_ICON_FETCHING=true
+      # - ICON_SERVICE_URL=http://icon-service:8080
+
+    ports:
+      - "8001:8001"
+
+    # Resource limits for production
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+
+    # Security settings
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=50M
+
+    # Health check
+    healthcheck:
+      test: ["CMD", "/export-service/.venv/bin/python", "-c", "import requests; requests.get('http://localhost:8001/health', timeout=5).raise_for_status()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Logging configuration
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    # Labels for monitoring and management
+    labels:
+      - "com.docker.compose.service=export-service"
+      - "com.docker.compose.project=markdown-manager"
+      - "service.version=3.0"
+      - "service.component=export"
+
+networks:
+  default:
+    name: markdown-manager-prod
+    driver: bridge
+
+# Optional: Add volume for persistent cache (if using file-based caching)
+# volumes:
+#   export-cache:
+#     driver: local

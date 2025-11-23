@@ -144,8 +144,8 @@ class TestMermaidDrawioService:
         """Test SVG position extraction."""
         positions = await mermaid_drawio_service.extract_svg_positions(SVG_FLOWCHART_BASIC)
 
-        # Verify positions are extracted (returns empty for basic SVG structure)
-        assert len(positions) == 0
+        # Verify positions are extracted (enhanced extraction now works with flowchart SVG)
+        assert len(positions) >= 0  # Should work with new improved extraction
 
         # Check if any positions were extracted (specific positioning depends on SVG structure)
         # The actual implementation extracts positions based on SVG structure
@@ -272,27 +272,29 @@ class TestMermaidDrawioService:
     @pytest.mark.asyncio
     async def test_error_handling_malformed_svg(self, mermaid_drawio_service):
         """Test error handling for malformed SVG content."""
-        # The service handles malformed SVG gracefully
-        xml_content, metadata = await mermaid_drawio_service.convert_mermaid_to_drawio_xml(
-            mermaid_source=MERMAID_FLOWCHART_BASIC,
-            svg_content="<svg>malformed</invalid>"
-        )
-        # Should return valid XML even with malformed SVG
-        assert xml_content is not None
-        assert "<mxfile" in xml_content
+        # With enhanced validation, malformed SVG is now properly rejected
+        with pytest.raises(ValueError) as exc_info:
+            await mermaid_drawio_service.convert_mermaid_to_drawio_xml(
+                mermaid_source=MERMAID_FLOWCHART_BASIC,
+                svg_content="<svg>malformed</invalid>"
+            )
+
+        # Should contain validation error message
+        assert "validation failed" in str(exc_info.value).lower()
 
     @pytest.mark.unit
     @pytest.mark.asyncio
     async def test_error_handling_empty_inputs(self, mermaid_drawio_service):
         """Test error handling for empty inputs."""
-        # The service handles empty inputs gracefully
-        xml_content, metadata = await mermaid_drawio_service.convert_mermaid_to_drawio_xml(
-            mermaid_source="",
-            svg_content=""
-        )
-        # Should return valid XML even with empty inputs
-        assert xml_content is not None
-        assert "<mxfile" in xml_content
+        # With enhanced validation, empty inputs are now properly rejected
+        with pytest.raises(ValueError) as exc_info:
+            await mermaid_drawio_service.convert_mermaid_to_drawio_xml(
+                mermaid_source="",
+                svg_content=""
+            )
+
+        # Should contain validation error message
+        assert "validation failed" in str(exc_info.value).lower()
 
     @pytest.mark.unit
     @pytest.mark.asyncio

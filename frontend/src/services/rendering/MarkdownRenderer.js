@@ -167,7 +167,7 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
   const cacheAttrs = `data-original-src="${MarkdownIt().utils.escapeHtml(src)}" data-cache-enabled="true"`;
 
   if (isUserImage) {
-    // Simple container with data attributes for feature system and caching
+    // For user images, we'll use a loading placeholder and replace it with blob URL post-render
     return `
       <div
         class="user-image-container"
@@ -177,10 +177,12 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
         style="position: relative;"
       >
         <img
-          src="${MarkdownIt().utils.escapeHtml(src)}"
+          src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5Mb2FkaW5nLi4uPC90ZXh0Pjwvc3ZnPg=="
           ${altAttr}
           ${titleAttr}
           ${cacheAttrs}
+          data-needs-auth="true"
+          data-auth-url="${MarkdownIt().utils.escapeHtml(src)}"
           class="user-image img-fluid lazy-image"
           loading="lazy"
           style="max-width: 100%; height: auto;"
@@ -219,17 +221,22 @@ export function render(content) {
 /**
  * Apply cached images to rendered HTML
  * This should be called after the HTML is inserted into the DOM
- * Only applies to images that weren't cached during rendering
+ * Handles both regular cached images and authenticated user images
  */
 export async function applyCachedImages(container) {
   if (!container) return;
 
-  const images = container.querySelectorAll('img[data-cache-enabled="true"]');
-  if (images.length === 0) return;
+  // Handle regular cached images
+  const regularImages = container.querySelectorAll('img[data-cache-enabled="true"]:not([data-needs-auth])');
+  const authImages = container.querySelectorAll('img[data-needs-auth="true"]');
+  const totalImages = regularImages.length + authImages.length;
 
-  console.log(`🖼️ Applying cached images to ${images.length} uncached images`);
+  if (totalImages === 0) return;
 
-  const promises = Array.from(images).map(async (img) => {
+  console.log(`🖼️ Applying cached images to ${totalImages} images (${regularImages.length} regular, ${authImages.length} authenticated)`);
+
+  // Handle regular images
+  const regularPromises = Array.from(regularImages).map(async (img) => {
     const originalSrc = img.getAttribute('data-original-src');
     if (!originalSrc) return;
 
@@ -237,7 +244,6 @@ export async function applyCachedImages(container) {
       const cachedSrc = await ImageCacheService.cacheImage(originalSrc);
       if (cachedSrc !== originalSrc) {
         img.src = cachedSrc;
-        // Remove the data attributes since we're now cached
         img.removeAttribute('data-original-src');
         img.removeAttribute('data-cache-enabled');
         console.log(`✅ Applied cached image: ${originalSrc}`);
@@ -247,7 +253,38 @@ export async function applyCachedImages(container) {
     }
   });
 
-  await Promise.allSettled(promises);
+  // Handle authenticated images
+  const authPromises = Array.from(authImages).map(async (img) => {
+    const authUrl = img.getAttribute('data-auth-url');
+    if (!authUrl) return;
+
+    try {
+      const urlInfo = ImageCacheService.parseUserImageUrl(authUrl);
+
+      if (urlInfo) {
+        const blobUrl = await ImageCacheService.cacheAuthenticatedImage(urlInfo.filename, urlInfo.userId);
+        if (blobUrl) {
+          img.src = blobUrl;
+          img.removeAttribute('data-needs-auth');
+          img.removeAttribute('data-auth-url');
+          img.removeAttribute('data-cache-enabled');
+        } else {
+          // Fallback to error state
+          img.style.filter = 'grayscale(100%)';
+          img.title = 'Failed to load authenticated image';
+        }
+      } else {
+        img.style.filter = 'grayscale(100%)';
+        img.title = 'Invalid image URL format';
+      }
+    } catch (error) {
+      console.warn('Failed to apply authenticated image:', authUrl, error);
+      img.style.filter = 'grayscale(100%)';
+      img.title = 'Authentication failed';
+    }
+  });
+
+  await Promise.allSettled([...regularPromises, ...authPromises]);
 }
 
 /**

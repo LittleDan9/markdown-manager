@@ -1,36 +1,42 @@
 """
-Mermaid to Draw.io conversion service for converting Mermaid diagrams to Draw.io XML format.
+Mermaid to Draw.io conversion service - Orchestrator for multiple algorithms.
 
 This service handles:
-- Parsing Mermaid source code to extract nodes and edges
-- Extracting SVG positioning from rendered content
-- Fetching and cleaning SVG icons from icon service
-- Generating Draw.io XML with proper mxGraphModel structure
+- Smart diagram type detection
+- Factory-based converter selection
+- Delegating conversion to specialized converters
 - PNG embedding with XML metadata for editable files
+- Maintaining backward compatibility with existing API
 
-Based on the enhanced conversion logic from mermaid_to_drawio_fresh.
+Uses multi-algorithm architecture for different diagram types.
 """
 
-import html
 import io
 import logging
-import re
-import urllib.parse
-from typing import Dict, List, Tuple, Optional, Any
-from xml.etree import ElementTree as ET
+from typing import Dict, Tuple, Optional, Any, List
 
-import requests
 from PIL import Image
 from PIL.PngImagePlugin import PngInfo
+
+from .diagram_converters.converter_factory import MermaidConverterFactory
+from .diagram_converters.diagram_detector import DiagramTypeDetector
+from .diagram_converters.shared_utils import PerformanceMonitor
+from .diagram_converters.validation.input_validator import InputValidator
+from configs.converter_config import get_config
 
 logger = logging.getLogger(__name__)
 
 
 class MermaidDrawioService:
-    """Service for converting Mermaid diagrams to Draw.io format."""
+    """Orchestrator service for converting Mermaid diagrams to Draw.io format."""
 
     def __init__(self):
         self.logger = logging.getLogger("export-service.mermaid-drawio")
+        self.config = get_config()
+
+        # Initialize components based on configuration
+        self.performance_monitor = PerformanceMonitor() if self.config.performance.enable_monitoring else None
+        self.input_validator = InputValidator(self.config) if self.config.quality.enable_validation else None
 
     async def convert_mermaid_to_drawio_xml(
         self,
@@ -44,54 +50,76 @@ class MermaidDrawioService:
         """
         Convert Mermaid source and SVG content to Draw.io XML format.
 
-        Args:
-            mermaid_source: Raw Mermaid source code
-            svg_content: Rendered SVG content
-            icon_service_url: Optional icon service URL for fetching icons
-            width: Canvas width
-            height: Canvas height
-            is_dark_mode: Whether to use dark mode styling
-
-        Returns:
-            Tuple of (Draw.io XML string, conversion metadata)
+        Uses smart detection to choose appropriate conversion algorithm.
         """
         try:
             self.logger.info("Starting Mermaid to Draw.io XML conversion")
 
-            # Parse Mermaid source to extract nodes and edges
-            mermaid_nodes, mermaid_edges = await self.parse_mermaid_source(mermaid_source)
-            self.logger.info(f"Parsed {len(mermaid_nodes)} nodes and {len(mermaid_edges)} edges from Mermaid source")
+            # Start performance monitoring
+            if self.performance_monitor:
+                self.performance_monitor.start_timer("service_xml_conversion")
 
-            # Extract positions from rendered SVG
-            svg_positions = await self.extract_svg_positions(svg_content)
-            self.logger.info(f"Extracted positions for {len(svg_positions)} nodes from SVG")
+            # Enhanced input validation
+            if self.input_validator:
+                validation_result = self.input_validator.validate_conversion_request(
+                    mermaid_source, svg_content, {
+                        "width": width, "height": height,
+                        "icon_service_url": icon_service_url,
+                        "is_dark_mode": is_dark_mode
+                    }
+                )
 
-            # Build Draw.io XML
-            drawio_xml, conversion_metadata = await self.build_drawio_xml(
-                mermaid_nodes, mermaid_edges, svg_positions, icon_service_url, width, height
+                if not validation_result.is_valid:
+                    raise ValueError(f"Input validation failed: {'; '.join(validation_result.errors)}")
+
+                if validation_result.has_warnings():
+                    self.logger.warning(f"Validation warnings: {'; '.join(validation_result.warnings)}")
+
+            # Detect diagram type and get info
+            diagram_info = DiagramTypeDetector.get_diagram_info(mermaid_source)
+            self.logger.info(f"Detected diagram type: {diagram_info['type_name']} "
+                             f"(confidence: {diagram_info['confidence']:.2f})")
+
+            # Create appropriate converter
+            converter = MermaidConverterFactory.create_converter(mermaid_source)
+
+            # Delegate conversion to specialized converter
+            drawio_xml, conversion_metadata = await converter.convert_to_drawio_xml(
+                mermaid_source, svg_content, icon_service_url, width, height, is_dark_mode
             )
 
-            # Prepare metadata with conversion statistics
+            # Add performance metrics
+            service_metrics = {}
+            if self.performance_monitor:
+                conversion_time = self.performance_monitor.end_timer("service_xml_conversion")
+                service_metrics = {
+                    "conversion_time": conversion_time,
+                    "performance_metrics": self.performance_monitor.get_metrics()
+                }
+                self.logger.info(f"Service XML conversion completed in {conversion_time:.3f}s")
+
+            # Enhance metadata with detection info and test-expected fields
             metadata = {
-                "original_nodes": len(mermaid_nodes),
-                "original_edges": len(mermaid_edges),
-                "positioned_nodes": len(svg_positions),
+                **diagram_info,
+                **conversion_metadata,
+                **service_metrics,
                 "canvas_width": width,
                 "canvas_height": height,
                 "icon_service_url": icon_service_url,
                 "dark_mode": is_dark_mode,
-                # Add conversion statistics
-                "nodes_converted": conversion_metadata['nodes_converted'],
-                "edges_converted": conversion_metadata['edges_converted'],
-                "icons_attempted": conversion_metadata['icons_attempted'],
-                "icons_successful": conversion_metadata['icons_successful'],
-                "icon_success_rate": conversion_metadata['icon_success_rate']
+                # Add fields expected by tests
+                "original_nodes": conversion_metadata.get('nodes_parsed', 0),
+                "original_edges": conversion_metadata.get('edges_parsed', 0),
+                "positioned_nodes": conversion_metadata.get('positions_found', 0)
             }
 
             self.logger.info("Mermaid to Draw.io XML conversion completed")
             return drawio_xml, metadata
 
         except Exception as e:
+            # Cleanup performance monitoring on error
+            if self.performance_monitor:
+                self.performance_monitor.end_timer("service_xml_conversion")
             self.logger.error(f"Mermaid to Draw.io XML conversion failed: {str(e)}")
             raise ValueError(f"Failed to convert Mermaid to Draw.io XML: {str(e)}")
 
@@ -108,22 +136,33 @@ class MermaidDrawioService:
         """
         Convert Mermaid content to Draw.io editable PNG format.
 
-        Args:
-            mermaid_source: Raw Mermaid source code
-            svg_content: Rendered SVG content
-            icon_service_url: Optional icon service URL for fetching icons
-            width: Optional image width
-            height: Optional image height
-            transparent_background: Whether to use transparent background
-            is_dark_mode: Whether to use dark mode styling
-
-        Returns:
-            Tuple of (PNG bytes with embedded XML, conversion metadata)
+        Delegates XML generation to new system, handles PNG conversion.
         """
         try:
             self.logger.info("Starting Mermaid to Draw.io PNG conversion")
 
-            # First, convert to XML
+            # Start performance monitoring for PNG conversion
+            if self.performance_monitor:
+                self.performance_monitor.start_timer("service_png_conversion")
+
+            # Additional validation for PNG-specific parameters
+            if self.input_validator:
+                png_validation_result = self.input_validator.validate_conversion_request(
+                    mermaid_source, svg_content, {
+                        "width": width, "height": height,
+                        "icon_service_url": icon_service_url,
+                        "transparent_background": transparent_background,
+                        "is_dark_mode": is_dark_mode
+                    }
+                )
+
+                if not png_validation_result.is_valid:
+                    raise ValueError(f"PNG input validation failed: {'; '.join(png_validation_result.errors)}")
+
+                if png_validation_result.has_warnings():
+                    self.logger.warning(f"PNG validation warnings: {'; '.join(png_validation_result.warnings)}")
+
+            # Get XML using new system
             drawio_xml, xml_metadata = await self.convert_mermaid_to_drawio_xml(
                 mermaid_source, svg_content, icon_service_url, width or 1000, height or 600, is_dark_mode
             )
@@ -134,9 +173,20 @@ class MermaidDrawioService:
             # Embed XML in PNG metadata
             editable_png = await self.embed_xml_in_png(drawio_xml, png_data)
 
+            # Add PNG-specific performance metrics
+            png_metrics = {}
+            if self.performance_monitor:
+                png_conversion_time = self.performance_monitor.end_timer("service_png_conversion")
+                png_metrics = {
+                    "png_conversion_time": png_conversion_time,
+                    "total_performance_metrics": self.performance_monitor.get_metrics()
+                }
+                self.logger.info(f"Service PNG conversion completed in {png_conversion_time:.3f}s")
+
             # Prepare metadata
             metadata = {
                 **xml_metadata,
+                **png_metrics,
                 "png_size": len(editable_png),
                 "transparent_background": transparent_background,
                 "embedded_xml": True
@@ -146,325 +196,13 @@ class MermaidDrawioService:
             return editable_png, metadata
 
         except Exception as e:
+            # Cleanup PNG performance monitoring on error
+            if self.performance_monitor:
+                self.performance_monitor.end_timer("service_png_conversion")
             self.logger.error(f"Mermaid to Draw.io PNG conversion failed: {str(e)}")
             raise ValueError(f"Failed to convert Mermaid to Draw.io PNG: {str(e)}")
 
-    async def parse_mermaid_source(self, mermaid_content: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
-        """Parse the raw mermaid source to extract node information and icons."""
-        nodes = {}
-        edges = []
-
-        # First, collect all content in one string for easier processing
-        content = ' '.join(line.strip() for line in mermaid_content.strip().split('\n')
-                           if line.strip() and not line.strip().startswith('flowchart')
-                           and not line.strip().startswith('graph'))
-
-        self.logger.debug(f"Processing Mermaid content: {content}")
-
-        # Parse node definitions with icons first
-        # A@{ icon: "network:firewall", form: "", label: "Node" }
-        icon_matches = re.findall(r'(\w+)@\{[^}]*icon:\s*"([^"]+)"[^}]*label:\s*"([^"]+)"[^}]*\}', content)
-        for node_id, icon_ref, label in icon_matches:
-            nodes[node_id] = {
-                'id': node_id,
-                'label': label,
-                'icon': icon_ref,
-                'hasIcon': True
-            }
-            self.logger.debug(f"Found icon node: {node_id} -> {label} ({icon_ref})")
-
-        # Parse all edges and extract nodes from them
-        edge_patterns = [
-            (r'(\w+)(?:@\{[^}]*\})?\s*-->\s*(\w+)', False),  # solid arrow (A@{...} --> B or A --> B)
-            (r'(\w+)(?:@\{[^}]*\})?\s*-\.-\s*(\w+)', True),   # dotted line
-            (r'(\w+)(?:@\{[^}]*\})?\s*---\s*(\w+)', False),   # solid line
-        ]
-
-        for pattern, is_dashed in edge_patterns:
-            matches = re.findall(pattern, content)
-            for source, target in matches:
-                # Add source node if not already present
-                if source not in nodes:
-                    nodes[source] = {
-                        'id': source,
-                        'label': source,
-                        'icon': None,
-                        'hasIcon': False
-                    }
-                    self.logger.debug(f"Found regular node from edge: {source}")
-
-                # Add target node if not already present
-                if target not in nodes:
-                    nodes[target] = {
-                        'id': target,
-                        'label': target,
-                        'icon': None,
-                        'hasIcon': False
-                    }
-                    self.logger.debug(f"Found regular node from edge: {target}")
-
-                edges.append({
-                    'source': source,
-                    'target': target,
-                    'dashed': is_dashed
-                })
-                self.logger.debug(f"Found edge: {source} -> {target} (dashed: {is_dashed})")
-
-        return nodes, edges
-
-    async def extract_svg_positions(self, svg_content: str) -> Dict[str, Dict[str, float]]:
-        """Extract positioning information from the rendered SVG."""
-        try:
-            # Register namespace for XML parsing
-            ET.register_namespace('', 'http://www.w3.org/2000/svg')
-
-            # Parse SVG content
-            root = ET.fromstring(svg_content)
-            ns = {'svg': 'http://www.w3.org/2000/svg'}
-
-            positions = {}
-
-            # Find all groups that represent nodes
-            for g in root.findall('.//svg:g[@class]', ns):
-                cls = g.get('class', '')
-                if 'node' not in cls.split() and 'icon-shape' not in cls.split():
-                    continue
-
-                gid = g.get('id')
-                if not gid:
-                    continue
-
-                # Extract node name from ID (flowchart-A-0 -> A)
-                m = re.match(r'flowchart-([A-Za-z0-9_]+)-\d+', gid)
-                if not m:
-                    continue
-
-                node_name = m.group(1)
-
-                # Get position and size
-                tx, ty = self._parse_transform_translate(g.get('transform', ''))
-                w, h, rx, ry = self._get_rect_size(g)
-                x, y = tx + rx, ty + ry
-
-                positions[node_name] = {
-                    'x': x, 'y': y, 'w': w, 'h': h
-                }
-
-            return positions
-
-        except Exception as e:
-            self.logger.error(f"Failed to extract SVG positions: {str(e)}")
-            return {}
-
-    def _parse_transform_translate(self, transform_str: str) -> Tuple[float, float]:
-        """Parse SVG transform attribute to extract translation."""
-        if not transform_str:
-            return (0.0, 0.0)
-
-        m = re.search(r'translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)', transform_str)
-        return (float(m.group(1)), float(m.group(2))) if m else (0.0, 0.0)
-
-    def _get_rect_size(self, node_g: ET.Element) -> Tuple[float, float, float, float]:
-        """Get rectangle size and position from SVG node group."""
-        # Look for rect with specific class first
-        rect = node_g.find(".//{http://www.w3.org/2000/svg}rect[@class='basic label-container']")
-
-        if rect is None:
-            # Look for any rect element
-            rects = node_g.findall('.//{http://www.w3.org/2000/svg}rect')
-            for r in rects:
-                if r.get('width') and r.get('height'):
-                    rect = r
-                    break
-
-        if rect is not None:
-            try:
-                w = float(rect.get('width', '80'))
-                h = float(rect.get('height', '50'))
-                x = float(rect.get('x', '0'))
-                y = float(rect.get('y', '0'))
-                return w, h, x, y
-            except (ValueError, TypeError):
-                pass
-
-        # Default size for icon nodes
-        return 80.0, 80.0, -40.0, -40.0
-
-    async def fetch_icon_svg(self, icon_ref: str, icon_service_url: str) -> Optional[str]:
-        """Fetch the SVG for an icon from the icon service."""
-        if not icon_service_url or not icon_ref:
-            return None
-
-        try:
-            # Parse icon reference: "network:firewall" -> pack="network", id="firewall"
-            if ':' not in icon_ref:
-                return None
-
-            pack, icon_id = icon_ref.split(':', 1)
-
-            # Construct URL to fetch raw SVG
-            url = f"{icon_service_url}/api/icons/packs/{pack}/contents/{icon_id}/raw"
-
-            response = requests.get(url, timeout=5)
-            if response.status_code == 200:
-                # Clean and prepare the SVG for Draw.io
-                svg_content = self._clean_svg_for_drawio(response.text)
-                # Use percent-encoded SVG (no base64, no semicolons)
-                payload = urllib.parse.quote(svg_content, safe='')  # FULLY encoded
-                return f"data:image/svg+xml,{payload}"  # no ;base64
-
-        except Exception as e:
-            self.logger.warning(f"Could not fetch icon {icon_ref}: {e}")
-
-        return None
-
-    def _clean_svg_for_drawio(self, svg_content: str) -> str:
-        """Clean SVG content to make it compatible with Draw.io."""
-        # Create a minimal, clean SVG by extracting just the path elements
-        # Find all path elements
-        paths = re.findall(r'<path[^>]*d="[^"]*"[^>]*>', svg_content)
-
-        if not paths:
-            # Fallback to simple shape if no paths found
-            return ('<svg width="24" height="24" viewBox="0 0 24 24">'
-                    '<rect x="2" y="6" width="20" height="12" '
-                    'fill=\"#d94723\" stroke=\"#e1e1e1\" stroke-width=\"1\"/></svg>')
-
-        # Create a clean SVG with just the essential paths
-        clean_paths = []
-        for path in paths:
-            # Clean up the path by removing problematic attributes
-            clean_path = re.sub(r'\s+(?:inkscape|sodipodi):[^=]*="[^"]*"', '', path)
-            clean_paths.append(clean_path)
-
-        # Construct minimal, hardened SVG for Draw.io compatibility
-        svg_header = '<svg width="80" height="80" viewBox="0 0 161.47 100.69" xmlns="http://www.w3.org/2000/svg">'
-        svg_footer = '</svg>'
-
-        # Add transform group to position correctly
-        group_start = '<g transform="translate(-630.34 -504.88)">'
-        group_end = '</g>'
-
-        clean_svg = svg_header + group_start + ''.join(clean_paths) + group_end + svg_footer
-
-        return clean_svg
-
-    async def build_drawio_xml(
-        self,
-        mermaid_nodes: Dict[str, Any],
-        mermaid_edges: List[Dict[str, Any]],
-        svg_positions: Dict[str, Dict[str, float]],
-        icon_service_url: Optional[str] = None,
-        width: int = 1000,
-        height: int = 600
-    ) -> Tuple[str, Dict[str, Any]]:
-        """Build Draw.io XML using both mermaid source and SVG positioning."""
-        try:
-            # Initialize tracking variables
-            icons_attempted = 0
-            icons_successful = 0
-            nodes_converted = 0
-            edges_converted = 0
-
-            # Create root mxGraphModel element
-            root = ET.Element('mxGraphModel',
-                              dx='1466', dy='827', grid='1', gridSize='10', guides='1', tooltips='1',
-                              connect='1', arrows='1', fold='1', page='1', pageScale='1',
-                              pageWidth=str(width), pageHeight=str(height), math='0', shadow='0')
-
-            root_el = ET.SubElement(root, 'root')
-            ET.SubElement(root_el, 'mxCell', id='0')
-            ET.SubElement(root_el, 'mxCell', id='1', parent='0')
-
-            # Create nodes
-            x_offset = 100  # For nodes without SVG positions
-            for i, (node_id, node_info) in enumerate(mermaid_nodes.items()):
-                label = node_info['label']
-
-                # Get position from SVG, use calculated defaults if not found
-                if node_id in svg_positions:
-                    pos = svg_positions[node_id]
-                else:
-                    # Calculate position for nodes not in SVG
-                    pos = {'x': x_offset + (i * 150), 'y': 100, 'w': 80, 'h': 50}
-                    self.logger.debug(f"Using calculated position for {node_id}: {pos}")
-
-                # Determine style based on whether node has icon
-                if node_info['hasIcon'] and node_info['icon'] and icon_service_url:
-                    # Try to fetch clean icon SVG
-                    icons_attempted += 1
-                    icon_svg = await self.fetch_icon_svg(node_info['icon'], icon_service_url)
-                    if icon_svg:
-                        icons_successful += 1
-                        # Put image= LAST to avoid semicolon collision in data URI
-                        # Position text at bottom center for icon nodes
-                        style = "shape=image;imageBackground=none;imageBorder=none;whiteSpace=wrap;html=1;"
-                        style += "verticalLabelPosition=bottom;verticalAlign=top;labelPosition=center;align=center;"
-                        style += f"image={html.escape(icon_svg)}"  # image LAST, no trailing ';'
-                        # Make icon nodes larger for better visibility
-                        pos['w'] = int(max(pos['w'], 80))
-                        pos['h'] = int(max(pos['h'], 80))
-                    else:
-                        # Fallback for failed icon fetch
-                        style = "shape=hexagon;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
-                else:
-                    # Regular rectangular node
-                    style = "shape=rectangle;rounded=2;whiteSpace=wrap;html=1;"
-
-                # Create the cell
-                cell_id = f"node-{node_id}"
-                v = ET.SubElement(root_el, 'mxCell', id=cell_id, value=html.escape(label),
-                                  style=style, vertex='1', parent='1')
-                geo = ET.SubElement(v, 'mxGeometry', x=str(pos['x']), y=str(pos['y']),
-                                    width=str(pos['w']), height=str(pos['h']))
-                geo.set('as', 'geometry')
-                nodes_converted += 1
-
-            # Create edges
-            eid = 1000
-            for edge in mermaid_edges:
-                source_id = f"node-{edge['source']}"
-                target_id = f"node-{edge['target']}"
-
-                style = 'endArrow=block;html=1;rounded=0;'
-                if edge['dashed']:
-                    style += 'dashed=1;dashPattern=3 3;'
-
-                edge_elem = ET.SubElement(root_el, 'mxCell', id=str(eid), style=style,
-                                          edge='1', parent='1', source=source_id, target=target_id)
-                geo = ET.SubElement(edge_elem, 'mxGeometry', relative='1')
-                geo.set('as', 'geometry')
-                edges_converted += 1
-                eid += 1
-
-            # Convert to XML string and wrap in Draw.io format
-            mx_xml = ET.tostring(root, encoding='unicode')
-            drawio_xml = self._wrap_as_drawio(mx_xml)
-
-            # Prepare conversion metadata
-            conversion_metadata = {
-                'nodes_converted': nodes_converted,
-                'edges_converted': edges_converted,
-                'icons_attempted': icons_attempted,
-                'icons_successful': icons_successful,
-                'icon_success_rate': (icons_successful / icons_attempted * 100) if icons_attempted > 0 else 100.0
-            }
-
-            self.logger.info(f"Draw.io XML built: {nodes_converted} nodes, {edges_converted} edges, "
-                             f"{icons_successful}/{icons_attempted} icons")
-            return drawio_xml, conversion_metadata
-
-        except Exception as e:
-            self.logger.error(f"Failed to build Draw.io XML: {str(e)}")
-            raise ValueError(f"Failed to build Draw.io XML: {str(e)}")
-
-    def _wrap_as_drawio(self, mx_xml: str) -> str:
-        """Wrap mxGraphModel XML in Draw.io format."""
-        mxfile = ET.Element('mxfile', host='app.diagrams.net', version='24.7.5')
-        diag = ET.SubElement(mxfile, 'diagram', id='0', name='Page-1')
-        diag.append(ET.fromstring(mx_xml))
-        return ET.tostring(mxfile, encoding='unicode')
-
+    # Keep existing PNG conversion methods
     async def _convert_svg_to_png(
         self,
         svg_content: str,
@@ -654,6 +392,57 @@ class MermaidDrawioService:
         except Exception as e:
             self.logger.error(f"Failed to embed XML in PNG: {str(e)}")
             raise ValueError(f"Failed to embed XML in PNG metadata: {str(e)}")
+
+    # Expose converter methods for testing and direct usage
+    async def parse_mermaid_source(self, mermaid_source: str) -> Tuple[Dict[str, Any], List[Dict[str, Any]]]:
+        """Parse Mermaid source using appropriate converter (exposed for testing)."""
+        try:
+            converter = MermaidConverterFactory.create_converter(mermaid_source)
+            return await converter.parse_mermaid_source(mermaid_source)
+        except Exception as e:
+            self.logger.error(f"Failed to parse Mermaid source: {str(e)}")
+            raise ValueError(f"Failed to parse Mermaid source: {str(e)}")
+
+    async def extract_svg_positions(self, svg_content: str) -> Dict[str, Dict[str, float]]:
+        """Extract SVG positions using default converter (exposed for testing)."""
+        try:
+            from .diagram_converters.default_converter import DefaultMermaidConverter
+            converter = DefaultMermaidConverter()
+            return await converter.extract_svg_positions(svg_content)
+        except Exception as e:
+            self.logger.error(f"Failed to extract SVG positions: {str(e)}")
+            return {}
+
+    async def build_drawio_xml(
+        self,
+        nodes: Dict[str, Any],
+        edges: List[Dict[str, Any]],
+        positions: Dict[str, Dict[str, float]],
+        icon_service_url: Optional[str] = None,
+        width: int = 1000,
+        height: int = 600
+    ) -> str:
+        """Build Draw.io XML from parsed components (exposed for testing)."""
+        try:
+            from .diagram_converters.default_converter import DefaultMermaidConverter
+            converter = DefaultMermaidConverter()
+            drawio_xml, _ = await converter.build_drawio_xml(
+                nodes, edges, positions, icon_service_url, width, height
+            )
+            return drawio_xml
+        except Exception as e:
+            self.logger.error(f"Failed to build Draw.io XML: {str(e)}")
+            raise ValueError(f"Failed to build Draw.io XML: {str(e)}")
+
+    async def fetch_icon_svg(self, icon_ref: str, icon_service_url: str) -> Optional[str]:
+        """Fetch icon SVG from icon service (exposed for testing)."""
+        try:
+            from .diagram_converters.shared_utils import IconService
+            icon_service = IconService(icon_service_url)
+            return await icon_service.fetch_icon_svg(icon_ref)
+        except Exception as e:
+            self.logger.warning(f"Failed to fetch icon {icon_ref}: {str(e)}")
+            return None
 
 
 # Global service instance

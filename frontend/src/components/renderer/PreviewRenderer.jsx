@@ -5,6 +5,7 @@
  * while maintaining proper scroll synchronization and cursor following.
  */
 import React, { useEffect, useRef, useCallback } from 'react';
+import { applyCachedImages } from '../../services/rendering/MarkdownRenderer';
 
 const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
   const containerRef = useRef(null);
@@ -139,10 +140,10 @@ const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
       previousLength: lastHtmlRef.current?.length || 0
     });
 
-    // Apply cached images after HTML is inserted (disabled for now)
-    // applyCachedImages(container).catch(error => {
-    //   console.warn('Failed to apply cached images:', error);
-    // });
+    // Apply cached images after HTML is inserted
+    applyCachedImages(container).catch(error => {
+      console.warn('Failed to apply cached images:', error);
+    });
 
     // Restore scroll using anchor element if we found one
     if (shouldPreserveScroll && anchorElement) {
