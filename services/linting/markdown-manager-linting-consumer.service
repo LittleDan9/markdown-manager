@@ -13,19 +13,19 @@ Type=simple
 User=dlittle
 Group=dlittle
 EnvironmentFile=-/etc/markdown-manager.env
-ExecStartPre=-/usr/bin/docker stop markdown-manager-lint-consumer
-ExecStartPre=-/usr/bin/docker rm markdown-manager-lint-consumer
-ExecStart=/usr/bin/docker run --rm --name markdown-manager-lint-consumer \
+ExecStartPre=-/usr/bin/docker stop markdown-manager-linting-consumer
+ExecStartPre=-/usr/bin/docker rm markdown-manager-linting-consumer
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-linting-consumer \
   -e DATABASE_URL=${DATABASE_URL} \
   -e REDIS_URL=${REDIS_URL} \
-  -v /opt/markdown-manager/configs/markdown-lint-consumer.config.json:/app/config/consumer.config.json:ro \
+  -v /opt/markdown-manager/configs/linting-consumer.config.json:/app/config/consumer.config.json:ro \
   --health-cmd="python -c 'import redis.asyncio; import asyncio; asyncio.run(redis.asyncio.from_url(\"${REDIS_URL}\").ping())'" \
   --health-interval=30s \
   --health-timeout=10s \
   --health-retries=3 \
   --health-start-period=20s \
-  littledan9/markdown-manager-consumer:latest
-ExecStop=/usr/bin/docker stop markdown-manager-lint-consumer
+  littledan9/markdown-manager-event-consumer:latest
+ExecStop=/usr/bin/docker stop markdown-manager-linting-consumer
 Restart=always
 RestartSec=10
 
@@ -37,12 +37,12 @@ PrivateTmp=yes
 
 # Resource limits
 LimitNOFILE=65536
-MemoryLimit=256M
+MemoryMax=256M
 
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=markdown-manager-lint-consumer
+SyslogIdentifier=markdown-manager-linting-consumer
 
 [Install]
 WantedBy=multi-user.target

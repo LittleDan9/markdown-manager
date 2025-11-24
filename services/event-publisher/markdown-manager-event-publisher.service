@@ -1,8 +1,8 @@
-# Systemd service configuration for spell-check-consumer
-# Place in /etc/systemd/system/markdown-manager-spell-check-consumer.service
+# Systemd service configuration for event-publisher
+# Place in /etc/systemd/system/markdown-manager-event-publisher.service
 
 [Unit]
-Description=Spell Check Consumer Service for Markdown Manager
+Description=Markdown Manager Event Publisher Service
 After=network.target docker.service redis.service postgresql.service
 Wants=network.target
 Requires=docker.service
@@ -13,19 +13,18 @@ Type=simple
 User=dlittle
 Group=dlittle
 EnvironmentFile=-/etc/markdown-manager.env
-ExecStartPre=-/usr/bin/docker stop markdown-manager-spell-check-consumer
-ExecStartPre=-/usr/bin/docker rm markdown-manager-spell-check-consumer
-ExecStart=/usr/bin/docker run --rm --name markdown-manager-spell-check-consumer \
+ExecStartPre=-/usr/bin/docker stop markdown-manager-event-publisher
+ExecStartPre=-/usr/bin/docker rm markdown-manager-event-publisher
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-event-publisher \
   -e DATABASE_URL=${DATABASE_URL} \
   -e REDIS_URL=${REDIS_URL} \
-  -v /opt/markdown-manager/configs/spell-check-consumer.config.json:/app/config/consumer.config.json:ro \
   --health-cmd="python -c 'import redis.asyncio; import asyncio; asyncio.run(redis.asyncio.from_url(\"${REDIS_URL}\").ping())'" \
   --health-interval=30s \
   --health-timeout=10s \
   --health-retries=3 \
   --health-start-period=20s \
-  littledan9/markdown-manager-event-consumer:latest
-ExecStop=/usr/bin/docker stop markdown-manager-spell-check-consumer
+  littledan9/markdown-manager-event-publisher:latest
+ExecStop=/usr/bin/docker stop markdown-manager-event-publisher
 Restart=always
 RestartSec=10
 
@@ -42,7 +41,7 @@ MemoryMax=256M
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=markdown-manager-spell-check-consumer
+SyslogIdentifier=markdown-manager-event-publisher
 
 [Install]
 WantedBy=multi-user.target

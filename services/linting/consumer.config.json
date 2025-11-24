@@ -7,7 +7,7 @@
   "redis": {
     "url": "redis://redis:6379/0"
   },
-  "consumer_group": "lint_group",
+  "consumer_group": "linting_group",
   "topics": [
     "identity.user.v1"
   ]

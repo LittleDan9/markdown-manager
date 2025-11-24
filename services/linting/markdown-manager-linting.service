@@ -8,13 +8,13 @@ Type=simple
 Restart=on-failure
 RestartSec=5s
 EnvironmentFile=/etc/markdown-manager.env
-ExecStart=/usr/bin/docker run --rm --name markdown-manager-lint \
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-linting \
   -e NODE_ENV=production \
   -e ENVIRONMENT=${ENVIRONMENT} \
   -e MARKDOWN_LINT_PORT=${MARKDOWN_LINT_PORT} \
   -p 8002:8002 \
-  littledan9/markdown-manager-lint:latest
-ExecStop=/usr/bin/docker stop markdown-manager-lint
+  littledan9/markdown-manager-linting:latest
+ExecStop=/usr/bin/docker stop markdown-manager-linting
 
 [Install]
 WantedBy=multi-user.target
