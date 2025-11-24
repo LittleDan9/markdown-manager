@@ -84,6 +84,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      redis:
+        condition: service_healthy
       export:
         condition: service_healthy
       spell-check:
@@ -99,8 +101,8 @@ services:
     ports:
       - "8001:8001"
     volumes:
-      - ./services/export/app:/export-service/app
-      - ./services/export/static:/export-service/static
+      - ./services/export/app:/app
+      - ./services/export/static:/static
     environment:
       - PYTHONUNBUFFERED=1
       - ICON_SERVICE_URL=http://backend:8000
@@ -130,6 +132,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 20s
     restart: unless-stopped
 
   spell-check:
@@ -150,8 +153,10 @@ services:
     ports:
       - "8003:8003"
     depends_on:
-      - db
-      - redis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     volumes:
       - ./services/spell-check/server.js:/app/server.js
       - ./services/spell-check/lib:/app/lib

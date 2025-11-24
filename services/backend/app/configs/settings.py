@@ -84,12 +84,12 @@ class Settings(BaseSettings):
 
     # Export Service configuration
     export_service_url: str = Field(
-        default="http://export-service:8001", description="Export service URL"
+        default="http://export:8001", description="Export service URL"
     )
 
     # Markdown Lint Service configuration
     markdown_lint_service_url: str = Field(
-        default="http://markdown-lint-service:8002", description="Markdown lint service URL"
+        default="http://linting:8002", description="Markdown lint service URL"
     )
 
     # Filesystem storage configuration

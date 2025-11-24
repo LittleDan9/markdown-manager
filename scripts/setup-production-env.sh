@@ -22,6 +22,7 @@ declare -A REQUIRED_VARS=(
     ["DATABASE_URL"]="postgresql+asyncpg://postgres:password@localhost:5432/markdown_manager"
     ["EXPORT_SERVICE_URL"]="http://localhost:8001"
     ["MARKDOWN_LINT_SERVICE_URL"]="http://localhost:8002"
+    ["SPELL_CHECK_SERVICE_URL"]="http://localhost:8003"
     ["ENVIRONMENT"]="production"
     ["GITHUB_CLIENT_ID"]="your-github-client-id"
     ["GITHUB_CLIENT_SECRET"]="your-github-client-secret"

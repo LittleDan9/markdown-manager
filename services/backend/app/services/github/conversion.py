@@ -55,7 +55,7 @@ class GitHubDiagramConversionService:
     - GitHub-compatible markdown references
     """
 
-    def __init__(self, export_service_url: str = "http://export-service:8001"):
+    def __init__(self, export_service_url: str = "http://export:8001"):
         self.export_service_url = export_service_url
         self.client = httpx.AsyncClient(timeout=30.0)
 
