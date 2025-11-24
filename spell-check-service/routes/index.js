@@ -13,6 +13,7 @@ const batchProcessingRoutes = require('./batchProcessing');
 const languageDetectionRoutes = require('./languageDetection');
 const styleGuideRoutes = require('./styleGuides');
 const contextualAnalysisRoutes = require('./contextualAnalysis');
+const dictionaryRoutes = require('./dictionary');
 
 /**
  * Setup all application routes
@@ -40,6 +41,9 @@ function setupRoutes(serviceManager, responseBuilder) {
 
   // Contextual analysis routes
   router.use('/', contextualAnalysisRoutes(serviceManager, responseBuilder));
+
+  // Dictionary management routes (Phase 5)
+  router.use('/', dictionaryRoutes(serviceManager, responseBuilder));
 
   // Service info endpoint
   router.get('/info', asyncHandler(async (req, res) => {

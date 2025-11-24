@@ -24,7 +24,9 @@ install_systemd_services() {
     # Copy service files to remote /tmp
     scp -q -i "$ssh_key" "$export_dir/markdown-manager-export.service" "$remote_host:/tmp/"
     scp -q -i "$ssh_key" "$lint_dir/markdown-manager-lint.service" "$remote_host:/tmp/"
+    scp -q -i "$ssh_key" "$lint_dir/markdown-manager-lint-consumer.service" "$remote_host:/tmp/"
     scp -q -i "$ssh_key" "$spell_check_dir/markdown-manager-spell-check.service" "$remote_host:/tmp/"
+    scp -q -i "$ssh_key" "$spell_check_dir/markdown-manager-spell-check-consumer.service" "$remote_host:/tmp/"
     scp -q -i "$ssh_key" "$backend_dir/markdown-manager-api.service" "$remote_host:/tmp/"
 
     # Install services on remote host
@@ -45,20 +47,43 @@ install_systemd_services() {
         sudo systemctl daemon-reload
         sudo systemctl enable markdown-manager-export.service
 
-        # Install lint service
+        # Install lint service and consumer
         sudo cp /tmp/markdown-manager-lint.service /etc/systemd/system/markdown-manager-lint.service
+        sudo cp /tmp/markdown-manager-lint-consumer.service /etc/systemd/system/markdown-manager-lint-consumer.service
         sudo systemctl daemon-reload
         sudo systemctl enable markdown-manager-lint.service
+        sudo systemctl enable markdown-manager-lint-consumer.service
 
-        # Install spell check service
+        # Install spell check service and consumer
         sudo cp /tmp/markdown-manager-spell-check.service /etc/systemd/system/markdown-manager-spell-check.service
+        sudo cp /tmp/markdown-manager-spell-check-consumer.service /etc/systemd/system/markdown-manager-spell-check-consumer.service
         sudo systemctl daemon-reload
         sudo systemctl enable markdown-manager-spell-check.service
+        sudo systemctl enable markdown-manager-spell-check-consumer.service
 
         # Install backend service
         sudo cp /tmp/markdown-manager-api.service /etc/systemd/system/markdown-manager-api.service
         sudo systemctl daemon-reload
         sudo systemctl enable markdown-manager-api.service
+
+        # Create consumer config directory and copy configs
+        sudo mkdir -p /opt/markdown-manager/configs
+EOH
+
+    # Copy consumer configuration files
+    log_step "📋" "Copying consumer configuration files..."
+    scp -q -i "$ssh_key" "$lint_dir/consumer.config.json" "$remote_host:/tmp/markdown-lint-consumer.config.json"
+    scp -q -i "$ssh_key" "$spell_check_dir/consumer.config.json" "$remote_host:/tmp/spell-check-consumer.config.json"
+
+    # Install consumer configs on remote host
+    ssh -q -T -i "$ssh_key" "$remote_host" 'bash -s' << 'EOH'
+        set -e
+
+        # Install consumer configs
+        sudo cp /tmp/markdown-lint-consumer.config.json /opt/markdown-manager/configs/markdown-lint-consumer.config.json
+        sudo cp /tmp/spell-check-consumer.config.json /opt/markdown-manager/configs/spell-check-consumer.config.json
+        sudo chown root:root /opt/markdown-manager/configs/*.json
+        sudo chmod 644 /opt/markdown-manager/configs/*.json
 EOH
 
     log_success "Systemd services installed and enabled"
@@ -69,10 +94,10 @@ deploy_containers() {
     local registry_port=$1
     local remote_host=$2
     local ssh_key=$3
-    local skip_statuses=$4  # "export_skip lint_skip spell_check_skip backend_skip"
+    local skip_statuses=$4  # "export_skip lint_skip spell_check_skip consumer_skip backend_skip"
 
     # Parse skip statuses
-    read export_skip lint_skip spell_check_skip backend_skip <<< "$skip_statuses"
+    read export_skip lint_skip spell_check_skip consumer_skip backend_skip <<< "$skip_statuses"
 
     log_step "🚀" "Deploying containers on $remote_host"
 
@@ -84,6 +109,7 @@ deploy_containers() {
         EXPORT_SKIP=$export_skip
         LINT_SKIP=$lint_skip
         SPELL_CHECK_SKIP=$spell_check_skip
+        CONSUMER_SKIP=$consumer_skip
         BACKEND_SKIP=$backend_skip
 
         # Pull export service image if needed
@@ -126,6 +152,16 @@ deploy_containers() {
             echo \"[SKIP] Using existing backend image (no pull needed)\"
         fi
 
+        # Pull consumer image if needed (used by both lint and spell-check consumers)
+        if [[ \"\$CONSUMER_SKIP\" != \"true\" ]]; then
+            echo \"[PULL] Pulling latest consumer image from local registry...\"
+            docker pull localhost:\$REGISTRY_PORT/markdown-manager-consumer:latest
+            # Tag for local use (matching the service file expectations)
+            docker tag localhost:\$REGISTRY_PORT/markdown-manager-consumer:latest littledan9/markdown-manager-consumer:latest
+        else
+            echo \"[SKIP] Using existing consumer image (no pull needed)\"
+        fi
+
         # Restart services in proper order (dependencies first)
         echo \"[RESTART] Restarting export service...\"
         sudo systemctl restart markdown-manager-export.service
@@ -143,6 +179,13 @@ deploy_containers() {
         sudo systemctl restart markdown-manager-spell-check.service
 
         echo \"[WAIT] Waiting for spell check service to be ready...\"
+        sleep 3
+
+        echo \"[RESTART] Restarting consumer services...\"
+        sudo systemctl restart markdown-manager-lint-consumer.service
+        sudo systemctl restart markdown-manager-spell-check-consumer.service
+
+        echo \"[WAIT] Waiting for consumer services to be ready...\"
         sleep 3
 
         echo \"[RESTART] Restarting backend service...\"
@@ -212,11 +255,12 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     EXPORT_DIR=${2:-$DEFAULT_EXPORT_SERVICE_DIR}
     LINT_DIR=${3:-$DEFAULT_LINT_SERVICE_DIR}
     SPELL_CHECK_DIR=${4:-$DEFAULT_SPELL_CHECK_SERVICE_DIR}
-    REGISTRY_PORT=${5:-$DEFAULT_REGISTRY_PORT}
-    REMOTE_HOST=${6:-$DEFAULT_REMOTE_USER_HOST}
-    SSH_KEY=${7:-$DEFAULT_SSH_KEY}
-    SKIP_STATUSES=${8:-"false false false false"}  # Default to rebuild all
-    SERVICE_NAME=${9:-"all"}  # Optional: deploy specific service
+    CONSUMER_DIR=${5:-$DEFAULT_CONSUMER_SERVICE_DIR}
+    REGISTRY_PORT=${6:-$DEFAULT_REGISTRY_PORT}
+    REMOTE_HOST=${7:-$DEFAULT_REMOTE_USER_HOST}
+    SSH_KEY=${8:-$DEFAULT_SSH_KEY}
+    SKIP_STATUSES=${9:-"false false false false false"}  # Default to rebuild all
+    SERVICE_NAME=${10:-"all"}  # Optional: deploy specific service
 
     echo "Remote Deployment Script"
     echo "========================"
@@ -233,7 +277,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         deploy_containers "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$SKIP_STATUSES"
     else
         # Deploy single service
-        read export_skip lint_skip spell_check_skip backend_skip <<< "$SKIP_STATUSES"
+        read export_skip lint_skip spell_check_skip consumer_skip backend_skip <<< "$SKIP_STATUSES"
         case "$SERVICE_NAME" in
             "export") deploy_single_service "export" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$export_skip" ;;
             "lint") deploy_single_service "lint" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$lint_skip" ;;

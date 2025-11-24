@@ -83,15 +83,17 @@ deploy_all_services() {
     local export_dir=$2
     local lint_dir=$3
     local spell_check_dir=$4
-    local registry_port=$5
-    local remote_host=$6
-    local ssh_key=$7
+    local consumer_dir=$5
+    local registry_port=$6
+    local remote_host=$7
+    local ssh_key=$8
 
     # Update service directories in configuration
     SERVICE_CONFIG["backend"]="$backend_dir:$(get_service_image "backend"):$(get_service_port "backend")"
     SERVICE_CONFIG["export"]="$export_dir:$(get_service_image "export"):$(get_service_port "export")"
     SERVICE_CONFIG["lint"]="$lint_dir:$(get_service_image "lint"):$(get_service_port "lint")"
     SERVICE_CONFIG["spell-check"]="$spell_check_dir:$(get_service_image "spell-check"):$(get_service_port "spell-check")"
+    SERVICE_CONFIG["consumer"]="$consumer_dir:$(get_service_image "consumer"):$(get_service_port "consumer")"
 
     # Deploy services in dependency order
     echo "🔧 Building export service..."
@@ -103,11 +105,14 @@ deploy_all_services() {
     echo "✏️ Building spell check service..."
     local spell_check_skip=$(deploy_service "spell-check" "$registry_port" "$remote_host" "$ssh_key")
 
+    echo "🔧 Building consumer service..."
+    local consumer_skip=$(deploy_service "consumer" "$registry_port" "$remote_host" "$ssh_key")
+
     echo "🔧 Building backend service..."
     local backend_skip=$(deploy_service "backend" "$registry_port" "$remote_host" "$ssh_key")
 
     # Return skip statuses for downstream use
-    echo "$export_skip $lint_skip $spell_check_skip $backend_skip"
+    echo "$export_skip $lint_skip $spell_check_skip $consumer_skip $backend_skip"
 }
 
 # Clean up registry tags
@@ -116,7 +121,7 @@ cleanup_registry_tags() {
 
     log_step "🧹" "Cleaning up local registry tags..."
 
-    for service in "backend" "export" "lint" "spell-check"; do
+    for service in "backend" "export" "lint" "spell-check" "consumer"; do
         local local_image=$(get_service_image "$service")
         local registry_image=$(get_registry_image "$local_image" "$registry_port")
         docker rmi "$registry_image" 2>/dev/null || true
@@ -130,14 +135,15 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
     EXPORT_DIR=${2:-$DEFAULT_EXPORT_SERVICE_DIR}
     LINT_DIR=${3:-$DEFAULT_LINT_SERVICE_DIR}
     SPELL_CHECK_DIR=${4:-$DEFAULT_SPELL_CHECK_SERVICE_DIR}
-    REGISTRY_PORT=${5:-$DEFAULT_REGISTRY_PORT}
-    REMOTE_HOST=${6:-$DEFAULT_REMOTE_USER_HOST}
-    SSH_KEY=${7:-$DEFAULT_SSH_KEY}
-    SERVICE_NAME=${8:-"all"}  # Optional: deploy specific service
+    CONSUMER_DIR=${5:-$DEFAULT_CONSUMER_SERVICE_DIR}
+    REGISTRY_PORT=${6:-$DEFAULT_REGISTRY_PORT}
+    REMOTE_HOST=${7:-$DEFAULT_REMOTE_USER_HOST}
+    SSH_KEY=${8:-$DEFAULT_SSH_KEY}
+    SERVICE_NAME=${9:-"all"}  # Optional: deploy specific service
 
     echo "Build and Registry Deployment Script"
     echo "===================================="
-    print_config_summary "$BACKEND_DIR" "$EXPORT_DIR" "$LINT_DIR" "$SPELL_CHECK_DIR" "$REMOTE_HOST" "$REGISTRY_PORT"
+    print_config_summary "$BACKEND_DIR" "$EXPORT_DIR" "$LINT_DIR" "$SPELL_CHECK_DIR" "$CONSUMER_DIR" "$REMOTE_HOST" "$REGISTRY_PORT"
     echo
 
     # Check if SSH tunnel is active
@@ -155,7 +161,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         echo "  2. Push to local registry"
         echo "  3. Skip unchanged images to save time"
         echo ""
-        skip_statuses=$(deploy_all_services "$BACKEND_DIR" "$EXPORT_DIR" "$LINT_DIR" "$SPELL_CHECK_DIR" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" 2>&1)
+        skip_statuses=$(deploy_all_services "$BACKEND_DIR" "$EXPORT_DIR" "$LINT_DIR" "$SPELL_CHECK_DIR" "$CONSUMER_DIR" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" 2>&1)
         echo ""
         echo "✅ All services built and deployed!"
         echo "$skip_statuses"

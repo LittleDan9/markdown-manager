@@ -1,0 +1,75 @@
+{
+  "$id": "identity.user.v1/UserUpdated.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "User Updated Event",
+  "description": "Event emitted when a user is updated",
+  "type": "object",
+  "required": [
+    "user_id",
+    "tenant_id",
+    "email",
+    "display_name",
+    "status",
+    "updated_at",
+    "changed_fields"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the user"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant identifier"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "User's email address"
+    },
+    "display_name": {
+      "type": ["string", "null"],
+      "description": "User's display name"
+    },
+    "first_name": {
+      "type": ["string", "null"],
+      "description": "User's first name"
+    },
+    "last_name": {
+      "type": ["string", "null"],
+      "description": "User's last name"
+    },
+    "status": {
+      "type": "string",
+      "enum": ["active", "disabled"],
+      "description": "User account status"
+    },
+    "is_verified": {
+      "type": "boolean",
+      "description": "Whether user email is verified"
+    },
+    "is_admin": {
+      "type": "boolean",
+      "description": "Whether user has admin privileges"
+    },
+    "mfa_enabled": {
+      "type": "boolean",
+      "description": "Whether MFA is enabled for user"
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user was last updated"
+    },
+    "changed_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "List of fields that were changed in this update"
+    }
+  },
+  "additionalProperties": false
+}

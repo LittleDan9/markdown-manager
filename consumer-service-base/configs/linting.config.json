@@ -1,0 +1,87 @@
+{
+  "service": {
+    "name": "linting-consumer",
+    "domain": "linting",
+    "description": "Consumer for linting service identity events and user preferences"
+  },
+  "redis": {
+    "consumer_group": "linting_group",
+    "consumer_name": "linting_consumer_1",
+    "stream_name": "identity.user.v1",
+    "batch_size": 10,
+    "poll_interval": 5,
+    "max_retry_attempts": 3
+  },
+  "database": {
+    "schema": "linting",
+    "tables": {
+      "identity_projection": {
+        "primary_key": ["tenant_id", "user_id"],
+        "columns": {
+          "tenant_id": "UUID NOT NULL",
+          "user_id": "UUID NOT NULL",
+          "email": "CITEXT",
+          "display_name": "TEXT",
+          "status": "TEXT NOT NULL",
+          "updated_at": "TIMESTAMPTZ NOT NULL"
+        }
+      },
+      "user_prefs": {
+        "primary_key": ["tenant_id", "user_id"],
+        "columns": {
+          "tenant_id": "UUID NOT NULL",
+          "user_id": "UUID NOT NULL",
+          "rules": "JSONB NOT NULL",
+          "version": "INT NOT NULL DEFAULT 1",
+          "updated_at": "TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      },
+      "event_ledger": {
+        "primary_key": ["event_id"],
+        "columns": {
+          "event_id": "UUID PRIMARY KEY",
+          "received_at": "TIMESTAMPTZ NOT NULL DEFAULT now()"
+        }
+      }
+    }
+  },
+  "event_handlers": {
+    "UserCreated": {
+      "update_identity_projection": true,
+      "create_default_preferences": true,
+      "default_preferences": {
+        "rules": {
+          "MD001": true,
+          "MD003": {"style": "atx"},
+          "MD004": {"style": "dash"},
+          "MD005": true,
+          "MD007": {"indent": 2},
+          "MD009": true,
+          "MD010": true,
+          "MD011": true,
+          "MD012": {"maximum": 1},
+          "MD013": {"line_length": 120},
+          "MD022": true,
+          "MD025": true,
+          "MD026": true,
+          "MD028": true,
+          "MD030": true,
+          "MD032": true
+        }
+      }
+    },
+    "UserUpdated": {
+      "update_identity_projection": true,
+      "create_default_preferences": false
+    },
+    "UserDisabled": {
+      "update_identity_projection": true,
+      "create_default_preferences": false,
+      "set_status": "disabled"
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  }
+}

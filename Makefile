@@ -67,7 +67,7 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
 .PHONY: deploy deploy-front deploy-back deploy-nginx deploy-nginx-frontend deploy-nginx-api deploy-nginx-all
-.PHONY: deploy-backend-only deploy-export-only deploy-lint-only deploy-spell-check-only
+.PHONY: deploy-backend-only deploy-export-only deploy-lint-only deploy-spell-check-only deploy-consumer-only
 .PHONY: deploy-build-only deploy-remote-only deploy-cleanup-only deploy-infra-only
 .PHONY: backup-db restore-db backup-restore-cycle
 
@@ -177,7 +177,7 @@ deploy-front: build ## Build and deploy frontend (includes nginx config)
 	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
 
 deploy-back: ## Deploy backend services (includes nginx config)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000
 
 # Nginx-only deployment targets
 deploy-nginx-frontend: ## Deploy only frontend nginx config
@@ -193,29 +193,32 @@ deploy-nginx: deploy-nginx-all ## Alias for deploy-nginx-all
 
 # Individual service deployment targets
 deploy-backend-only: ## Deploy only the main backend API service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 backend
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 backend
 
 deploy-export-only: ## Deploy only the export service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 export
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 export
 
 deploy-lint-only: ## Deploy only the markdown lint service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 lint
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 lint
 
 deploy-spell-check-only: ## Deploy only the spell check service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 spell-check
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 spell-check
+
+deploy-consumer-only: ## Deploy only the consumer service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 consumer
 
 # Deployment phase targets
 deploy-infra-only: ## Setup deployment infrastructure (SSH tunnels, registry)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 infra
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 infra
 
-deploy-build-only: ## Build and push images to registry only
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 build
+deploy-build-only: ## Build and push images only (no deployment)
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 build
 
 deploy-remote-only: ## Deploy to remote servers only (assumes images exist)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 remote
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 remote
 
 deploy-cleanup-only: ## Run cleanup operations only
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service $(REMOTE_USER_HOST) 5000 cleanup
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 cleanup
 
 # ────────────────────────────────────────────────────────────────────────────
 # DATABASE OPERATIONS

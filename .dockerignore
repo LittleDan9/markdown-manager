@@ -6,6 +6,8 @@ backend/.venv
 backend/postgres-data
 backend/*.db
 backend/*.service
+redis-data/
+postgres-data/
 
 __pycache__/
 *.pyc

@@ -77,6 +77,11 @@ class Settings(BaseSettings):
         default=constants.MAX_PAGE_SIZE, description="Maximum pagination page size"
     )
 
+    # Redis configuration
+    redis_url: str = Field(
+        default="redis://redis:6379", description="Redis connection URL"
+    )
+
     # Export Service configuration
     export_service_url: str = Field(
         default="http://export-service:8001", description="Export service URL"

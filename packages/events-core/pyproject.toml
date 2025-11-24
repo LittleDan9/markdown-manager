@@ -1,0 +1,54 @@
+[tool.poetry]
+name = "events-core"
+version = "1.0.0"
+description = "Event schemas and Pydantic models for markdown-manager microservices"
+authors = ["markdown-manager <dev@markdown-manager.com>"]
+license = "MIT"
+readme = "README.md"
+packages = [{include = "events_core", from = "py"}]
+include = ["schemas/**/*.json"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+pydantic = {extras = ["email"], version = "^2.5.0"}
+
+[tool.poetry.group.dev.dependencies]
+datamodel-code-generator = "^0.25.0"
+pytest = "^7.4.0"
+pytest-asyncio = "^0.21.0"
+black = "^23.12.0"
+isort = "^5.13.0"
+mypy = "^1.8.0"
+
+[tool.poetry.scripts]
+generate-models = "events_core.scripts:generate_models"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.datamodel-codegen]
+input = "schemas"
+input-file-type = "jsonschema"
+output = "py/events_core/models.py"
+use-standard-collections = true
+target-python-version = "3.11"
+field-constraints = true
+use-schema-description = true
+validation = true
+
+[tool.black]
+line-length = 88
+target-version = ['py311']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 88
+
+[tool.mypy]
+python_version = "3.11"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true

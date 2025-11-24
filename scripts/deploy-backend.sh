@@ -18,16 +18,17 @@ BACKEND_DIR=${1:-$DEFAULT_BACKEND_DIR}
 EXPORT_SERVICE_DIR=${2:-$DEFAULT_EXPORT_SERVICE_DIR}
 LINT_SERVICE_DIR=${3:-$DEFAULT_LINT_SERVICE_DIR}
 SPELL_CHECK_SERVICE_DIR=${4:-$DEFAULT_SPELL_CHECK_SERVICE_DIR}
-REMOTE_USER_HOST=${5:-$DEFAULT_REMOTE_USER_HOST}
-REGISTRY_PORT=${6:-$DEFAULT_REGISTRY_PORT}
-SERVICE_NAME=${7:-"all"}  # Optional: deploy specific service or phase
+CONSUMER_SERVICE_DIR=${5:-$DEFAULT_CONSUMER_SERVICE_DIR}
+REMOTE_USER_HOST=${6:-$DEFAULT_REMOTE_USER_HOST}
+REGISTRY_PORT=${7:-$DEFAULT_REGISTRY_PORT}
+SERVICE_NAME=${8:-"all"}  # Optional: deploy specific service or phase
 SSH_KEY="$DEFAULT_SSH_KEY"
 
 # Print configuration
 echo "════════════════════════════════════════════════════════════════════════════"
 echo "Modular Backend Deployment Script"
 echo "════════════════════════════════════════════════════════════════════════════"
-print_config_summary "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REMOTE_USER_HOST" "$REGISTRY_PORT"
+print_config_summary "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REMOTE_USER_HOST" "$REGISTRY_PORT"
 echo -e "${BLUE}📋 SSH Key: $SSH_KEY${NC}"
 echo -e "${BLUE}📋 Target: $SERVICE_NAME${NC}"
 echo "════════════════════════════════════════════════════════════════════════════"
@@ -38,6 +39,7 @@ validate_directory "$BACKEND_DIR" "Backend"
 validate_directory "$EXPORT_SERVICE_DIR" "Export service"
 validate_directory "$LINT_SERVICE_DIR" "Lint service"
 validate_directory "$SPELL_CHECK_SERVICE_DIR" "Spell check service"
+validate_directory "$CONSUMER_SERVICE_DIR" "Consumer service"
 validate_file "$SSH_KEY" "SSH key"
 
 # Main deployment function
@@ -52,7 +54,7 @@ deploy_all_services() {
     log_info "🚀" "Phase 2: Build and Registry Push"
     echo "Starting Docker image builds (this may take several minutes)..."
     # Run build script and capture its output
-    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
+    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
     # Strip ANSI codes from the entire output before processing
     clean_output=$(printf '%s\n' "$build_output" | sed 's/\x1b\[[0-9;]*[A-Za-z]//g')
     # Display the cleaned build output
@@ -62,7 +64,7 @@ deploy_all_services() {
     echo "Docker builds completed."    # Phase 3: Remote deployment
     log_info "🌐" "Phase 3: Remote Deployment"
     # Run remote deployment directly (don't capture output to avoid ANSI issues)
-    if "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "all"; then
+    if "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "all"; then
         log_success "Remote deployment completed"
     else
         log_error "Remote deployment failed"
@@ -98,7 +100,7 @@ deploy_single_service() {
     log_info "🚀" "Phase 2: Build and Registry Push ($service)"
     echo "Starting Docker image build for $service (this may take a few minutes)..."
     # Run build script and capture its output
-    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
+    build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$service" 2>&1)
     # Strip ANSI codes from the entire output before processing
     clean_output=$(echo "$build_output" | sed 's/\x1b\[[0-9;]*m//g')
     # Display the cleaned build output
@@ -110,12 +112,13 @@ deploy_single_service() {
     log_info "🌐" "Phase 3: Remote Deployment ($service)"
     # Convert single skip status to format expected by deploy-remote.sh
     case "$service" in
-        "export") skip_statuses="$skip_status true true true" ;;
-        "lint") skip_statuses="true $skip_status true true" ;;
-        "spell-check") skip_statuses="true true $skip_status true" ;;
-        "backend") skip_statuses="true true true $skip_status" ;;
+        "export") skip_statuses="$skip_status true true true true" ;;
+        "lint") skip_statuses="true $skip_status true true true" ;;
+        "spell-check") skip_statuses="true true $skip_status true true" ;;
+        "consumer") skip_statuses="true true true $skip_status true" ;;
+        "backend") skip_statuses="true true true true $skip_status" ;;
     esac
-    "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "$service"
+    "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "$service"
 
     # Phase 4: Cleanup infrastructure
     log_info "🧹" "Phase 4: Infrastructure Cleanup"
@@ -140,12 +143,12 @@ deploy_phase() {
                 exit 1
             fi
             echo "Starting Docker image builds (this may take several minutes)..."
-            build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" 2>&1)
+            build_output=$("$DEPLOY_DIR/deploy-build.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" 2>&1)
             echo "$build_output"
             ;;
         "remote")
             log_step "🌐" "Deploying remote phase..."
-            "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "false false false false"
+            "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "false false false false false"
             ;;
         "cleanup")
             log_step "🧹" "Deploying cleanup phase..."
@@ -166,7 +169,7 @@ case "$SERVICE_NAME" in
     "all")
         deploy_all_services
         ;;
-    "backend"|"export"|"lint"|"spell-check")
+    "backend"|"export"|"lint"|"spell-check"|"consumer")
         deploy_single_service "$SERVICE_NAME"
         ;;
     "infra"|"infrastructure"|"build"|"remote"|"cleanup")
@@ -176,14 +179,15 @@ case "$SERVICE_NAME" in
         log_error "Unknown service/phase: $SERVICE_NAME"
         echo
         echo "Valid options:"
-        echo "  Services: all, backend, export, lint, spell-check"
+        echo "  Services: all, backend, export, lint, spell-check, consumer"
         echo "  Phases:   infra, build, remote, cleanup"
         echo
         echo "Examples:"
-        echo "  $0                                    # Deploy all services"
-        echo "  $0 . . . . . . spell-check           # Deploy only spell-check service"
-        echo "  $0 . . . . . . build                 # Run only build phase"
-        echo "  $0 ./backend ./export . ./spell infra # Setup infrastructure only"
+        echo "  $0                                       # Deploy all services"
+        echo "  $0 . . . . . . . spell-check            # Deploy only spell-check service"
+        echo "  $0 . . . . . . . consumer               # Deploy only consumer service"
+        echo "  $0 . . . . . . . build                  # Run only build phase"
+        echo "  $0 ./backend ./export . ./spell . infra # Setup infrastructure only"
         exit 1
         ;;
 esac

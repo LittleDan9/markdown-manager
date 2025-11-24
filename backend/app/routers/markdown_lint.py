@@ -1,42 +1,21 @@
-"""Markdown Lint API Router - Proxy to markdown-lint-service."""
+"""Markdown Lint API Router - User preferences and rule management."""
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 from urllib.parse import unquote
 
-import httpx
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user, get_current_user_optional
+from app.core.auth import get_current_user
 from app.database import get_db
 from app.models import User
 from app.services.markdown_lint_rule import MarkdownLintRuleService
-from app.configs.settings import get_settings
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/markdown-lint", tags=["markdown-lint"])
-
-
-class LintRequest(BaseModel):
-    """Request model for markdown linting."""
-    text: str
-    rules: Dict[str, Any]
-    chunk_offset: int = 0
-
-
-class LintResponse(BaseModel):
-    """Response model for markdown linting."""
-    issues: list
-    processed_length: int
-    rule_count: int
-
-
-class RuleDefinitionsResponse(BaseModel):
-    """Response model for rule definitions."""
-    rules: Dict[str, Any]
 
 
 class RuleConfigurationRequest(BaseModel):
@@ -52,194 +31,6 @@ class RuleConfigurationResponse(BaseModel):
     description: str | None = None
     enabled: bool = True
     updated_at: str | None = None
-
-
-@router.post("/process", response_model=LintResponse)
-async def process_markdown(
-    request: LintRequest,
-    current_user: Optional[User] = Depends(get_current_user_optional)
-):
-    """
-    Process markdown text for linting issues.
-
-    Proxies the request to the internal markdown-lint-service.
-    Authentication is optional - authenticated users get full access,
-    unauthenticated users are rate-limited by nginx.
-    """
-    settings = get_settings()
-    lint_service_url = settings.markdown_lint_service_url + "/lint"
-
-    user_context = f"user {current_user.id}" if current_user else "unauthenticated user"
-    logger.info(f"Processing markdown lint request for {user_context}, text length: {len(request.text)}")
-
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                lint_service_url,
-                json={
-                    "text": request.text,
-                    "rules": request.rules,
-                    "chunk_offset": request.chunk_offset
-                },
-                headers={
-                    "Content-Type": "application/json",
-                    "User-Agent": "markdown-manager-backend/1.0"
-                }
-            )
-            response.raise_for_status()
-
-            result = response.json()
-            logger.info(f"Markdown lint service returned {len(result.get('issues', []))} issues")
-
-            return LintResponse(**result)
-
-    except httpx.RequestError as e:
-        logger.error(f"Markdown lint service request error: {str(e)}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Markdown lint service unavailable: {str(e)}"
-        )
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Markdown lint service HTTP error: {e.response.status_code} - {e.response.text}")
-        raise HTTPException(
-            status_code=e.response.status_code,
-            detail=f"Markdown lint service error: {e.response.text}"
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error in markdown lint processing: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error during markdown linting"
-        )
-
-
-@router.get("/rules/definitions", response_model=RuleDefinitionsResponse)
-async def get_rule_definitions():
-    """
-    Get available markdownlint rule definitions.
-
-    Proxies the request to the internal markdown-lint-service.
-    No authentication required as rule definitions are static.
-    """
-    settings = get_settings()
-    lint_service_url = settings.markdown_lint_service_url + "/rules/definitions"
-
-    logger.info("Fetching markdown lint rule definitions")
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                lint_service_url,
-                headers={
-                    "User-Agent": "markdown-manager-backend/1.0"
-                }
-            )
-            response.raise_for_status()
-
-            result = response.json()
-            logger.info(f"Retrieved {len(result.get('rules', {}))} rule definitions")
-
-            return RuleDefinitionsResponse(**result)
-
-    except httpx.RequestError as e:
-        logger.error(f"Markdown lint service request error: {str(e)}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Markdown lint service unavailable: {str(e)}"
-        )
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Markdown lint service HTTP error: {e.response.status_code}")
-        raise HTTPException(
-            status_code=e.response.status_code,
-            detail="Failed to retrieve rule definitions"
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error fetching rule definitions: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error while fetching rule definitions"
-        )
-
-
-@router.get("/rules/recommended-defaults", response_model=RuleDefinitionsResponse)
-async def get_recommended_defaults():
-    """
-    Get recommended default markdown lint rules for new users.
-
-    Proxies the request to the internal markdown-lint-service.
-    No authentication required as recommended defaults are static.
-    """
-    settings = get_settings()
-    lint_service_url = settings.markdown_lint_service_url + "/rules/recommended-defaults"
-
-    logger.info("Fetching recommended default lint rules")
-
-    try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                lint_service_url,
-                headers={
-                    "User-Agent": "markdown-manager-backend/1.0"
-                }
-            )
-            response.raise_for_status()
-
-            result = response.json()
-            logger.info("Retrieved recommended default rules")
-
-            # Return the rules portion to match the expected response model
-            return RuleDefinitionsResponse(rules=result.get("rules", {}))
-
-    except httpx.RequestError as e:
-        logger.error(f"Markdown lint service request error: {str(e)}")
-        raise HTTPException(
-            status_code=503,
-            detail=f"Markdown lint service unavailable: {str(e)}"
-        )
-    except httpx.HTTPStatusError as e:
-        logger.error(f"Markdown lint service HTTP error: {e.response.status_code}")
-        raise HTTPException(
-            status_code=e.response.status_code,
-            detail="Failed to retrieve recommended defaults"
-        )
-    except Exception as e:
-        logger.error(f"Unexpected error fetching recommended defaults: {str(e)}")
-        raise HTTPException(
-            status_code=500,
-            detail="Internal server error while fetching recommended defaults"
-        )
-
-
-@router.get("/health")
-async def check_lint_service_health():
-    """
-    Check the health of the markdown-lint-service.
-
-    Returns the service health status for monitoring purposes.
-    No authentication required for health checks.
-    """
-    settings = get_settings()
-    lint_service_url = settings.markdown_lint_service_url + "/health"
-
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(lint_service_url)
-            response.raise_for_status()
-
-            result = response.json()
-            return {
-                "status": "healthy",
-                "service": "markdown-lint-proxy",
-                "downstream": result
-            }
-
-    except Exception as e:
-        logger.warning(f"Markdown lint service health check failed: {str(e)}")
-        return {
-            "status": "unhealthy",
-            "service": "markdown-lint-proxy",
-            "error": str(e)
-        }
 
 
 # Rule Management Endpoints

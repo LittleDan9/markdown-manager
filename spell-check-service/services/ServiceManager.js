@@ -20,6 +20,8 @@ const StyleGuideManager = require('../lib/StyleGuideManager');
 // Import CSpell integration
 const CSpellCodeChecker = require('../lib/CSpellCodeChecker');
 
+// Phase 5 services removed - now handled by separate spell-check-consumer-service
+
 /**
  * Service Manager Class
  * Manages the lifecycle of all service components
@@ -90,6 +92,9 @@ class ServiceManager {
       this.services.cspellCodeChecker = new CSpellCodeChecker();
       initPromises.push(this.initializeService('cspellCodeChecker', this.services.cspellCodeChecker));
 
+      // Phase 5 services now handled by separate spell-check-consumer-service
+      console.log('[ServiceManager] Phase 5 consumer services are external');
+
       // Wait for all services to initialize
       const results = await Promise.allSettled(initPromises);
 
@@ -117,6 +122,9 @@ class ServiceManager {
 
       this.initialized = true;
       console.log('[ServiceManager] All services initialized successfully');
+
+      // Start Phase 5 background services
+      await this.startBackgroundServices();
 
       // Log service status
       this.logServiceStatus();
@@ -265,6 +273,9 @@ class ServiceManager {
   async cleanup() {
     console.log('[ServiceManager] Cleaning up services...');
 
+    // Stop background services first
+    await this.stopBackgroundServices();
+
     const cleanupPromises = Object.entries(this.services).map(async ([name, service]) => {
       try {
         if (service.cleanup && typeof service.cleanup === 'function') {
@@ -280,6 +291,28 @@ class ServiceManager {
 
     this.services = {};
     this.initialized = false;
+  }
+
+  /**
+   * Start background services (Phase 5)
+   */
+  async startBackgroundServices() {
+    console.log('[ServiceManager] Starting background services...');
+
+    // Background services (event consumer, outbox relay) now handled
+    // by separate spell-check-consumer-service
+    console.log('[ServiceManager] Background services are external - skipping');
+  }
+
+  /**
+   * Stop background services (Phase 5)
+   */
+  async stopBackgroundServices() {
+    console.log('[ServiceManager] Stopping background services...');
+
+    // Background services (event consumer, outbox relay) now handled
+    // by separate spell-check-consumer-service - nothing to stop here
+    console.log('[ServiceManager] Background services are external - skipping shutdown');
   }
 
   /**

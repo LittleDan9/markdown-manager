@@ -19,6 +19,7 @@ DEFAULT_BACKEND_DIR="./backend"
 DEFAULT_EXPORT_SERVICE_DIR="./export-service"
 DEFAULT_LINT_SERVICE_DIR="./markdown-lint-service"
 DEFAULT_SPELL_CHECK_SERVICE_DIR="./spell-check-service"
+DEFAULT_CONSUMER_SERVICE_DIR="./consumer-service-base"
 DEFAULT_REMOTE_USER_HOST="dlittle@10.0.1.51"
 DEFAULT_REGISTRY_PORT="5000"
 DEFAULT_SSH_KEY="$HOME/.ssh/id_danbian"
@@ -29,6 +30,7 @@ declare -A SERVICE_CONFIG=(
     ["export"]="$DEFAULT_EXPORT_SERVICE_DIR:littledan9/markdown-manager-export:latest:8001"
     ["lint"]="$DEFAULT_LINT_SERVICE_DIR:littledan9/markdown-manager-lint:latest:8002"
     ["spell-check"]="$DEFAULT_SPELL_CHECK_SERVICE_DIR:littledan9/markdown-manager-spell-check:latest:8003"
+    ["consumer"]="$DEFAULT_CONSUMER_SERVICE_DIR:littledan9/markdown-manager-consumer:latest:0"
 )
 
 # Parse service configuration
@@ -254,13 +256,15 @@ print_config_summary() {
     local export_dir=$2
     local lint_dir=$3
     local spell_check_dir=$4
-    local remote_host=$5
-    local registry_port=$6
+    local consumer_dir=$5
+    local remote_host=$6
+    local registry_port=$7
 
     echo -e "${BLUE}📋 Backend dir: $backend_dir${NC}"
     echo -e "${BLUE}📋 Export service dir: $export_dir${NC}"
     echo -e "${BLUE}📋 Lint service dir: $lint_dir${NC}"
     echo -e "${BLUE}📋 Spell check service dir: $spell_check_dir${NC}"
+    echo -e "${BLUE}📋 Consumer service dir: $consumer_dir${NC}"
     echo -e "${BLUE}📋 Remote host: $remote_host${NC}"
     echo -e "${BLUE}📋 Registry port: $registry_port${NC}"
 }
