@@ -48,10 +48,14 @@ endif
 # PATHS & PORTS
 # ────────────────────────────────────────────────────────────────────────────
 
-FRONTEND_DIR   := frontend
-FRONT_DIST_DIR := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,frontend/dist)
-BACKEND_DIR    := backend
-EXPORT_DIR     := export-service
+FRONTEND_DIR         := services/frontend
+FRONT_DIST_DIR       := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,services/frontend/dist)
+BACKEND_DIR          := services/backend
+EXPORT_DIR           := services/export
+LINT_DIR             := services/linting
+SPELL_CHECK_DIR      := services/spell-check
+CONSUMER_DIR         := services/event-consumer
+EVENT_PUBLISHER_DIR  := services/event-publisher
 
 FRONTEND_PORT      := 3000
 BACKEND_DEV_PORT   := 8000
@@ -177,7 +181,7 @@ deploy-front: build ## Build and deploy frontend (includes nginx config)
 	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
 
 deploy-back: ## Deploy backend services (includes nginx config)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000
 
 # Nginx-only deployment targets
 deploy-nginx-frontend: ## Deploy only frontend nginx config
@@ -193,32 +197,35 @@ deploy-nginx: deploy-nginx-all ## Alias for deploy-nginx-all
 
 # Individual service deployment targets
 deploy-backend-only: ## Deploy only the main backend API service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 backend
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 backend
 
 deploy-export-only: ## Deploy only the export service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 export
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 export
 
-deploy-lint-only: ## Deploy only the markdown lint service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 lint
+deploy-linting-only: ## Deploy only the linting service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 linting
 
 deploy-spell-check-only: ## Deploy only the spell check service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 spell-check
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 spell-check
 
-deploy-consumer-only: ## Deploy only the consumer service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 consumer
+deploy-event-consumer-only: ## Deploy only the event consumer service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 event-consumer
+
+deploy-event-publisher-only: ## Deploy only the event publisher service
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 event-publisher
 
 # Deployment phase targets
 deploy-infra-only: ## Setup deployment infrastructure (SSH tunnels, registry)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 infra
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 infra
 
 deploy-build-only: ## Build and push images only (no deployment)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 build
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 build
 
 deploy-remote-only: ## Deploy to remote servers only (assumes images exist)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 remote
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 remote
 
 deploy-cleanup-only: ## Run cleanup operations only
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) export-service markdown-lint-service spell-check-service consumer-service-base $(REMOTE_USER_HOST) 5000 cleanup
+	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 cleanup
 
 # ────────────────────────────────────────────────────────────────────────────
 # DATABASE OPERATIONS

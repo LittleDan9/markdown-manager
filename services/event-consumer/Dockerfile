@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 RUN pip install poetry
 
 # Copy poetry files for base consumer
-COPY consumer-service-base/pyproject.toml consumer-service-base/poetry.lock* ./
+COPY services/event-consumer/pyproject.toml services/event-consumer/poetry.lock* ./
 
 # Configure poetry to not create virtual environment
 RUN poetry config virtualenvs.create false
@@ -26,9 +26,9 @@ COPY packages/events-core/dist/events_core-1.0.0-py3-none-any.whl ./
 RUN pip install events_core-1.0.0-py3-none-any.whl && rm events_core-1.0.0-py3-none-any.whl
 
 # Copy application code
-COPY consumer-service-base/app/ ./app/
-COPY consumer-service-base/main.py ./
-COPY consumer-service-base/README.md ./
+COPY services/event-consumer/app/ ./app/
+COPY services/event-consumer/main.py ./
+COPY services/event-consumer/README.md ./
 
 # Create config directory for service-specific configs
 RUN mkdir -p /app/config

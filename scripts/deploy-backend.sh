@@ -112,11 +112,12 @@ deploy_single_service() {
     log_info "🌐" "Phase 3: Remote Deployment ($service)"
     # Convert single skip status to format expected by deploy-remote.sh
     case "$service" in
-        "export") skip_statuses="$skip_status true true true true" ;;
-        "lint") skip_statuses="true $skip_status true true true" ;;
-        "spell-check") skip_statuses="true true $skip_status true true" ;;
-        "consumer") skip_statuses="true true true $skip_status true" ;;
-        "backend") skip_statuses="true true true true $skip_status" ;;
+        "export") skip_statuses="$skip_status true true true true true" ;;
+        "linting") skip_statuses="true $skip_status true true true true" ;;
+        "spell-check") skip_statuses="true true $skip_status true true true" ;;
+        "event-consumer") skip_statuses="true true true $skip_status true true" ;;
+        "event-publisher") skip_statuses="true true true true $skip_status true" ;;
+        "backend") skip_statuses="true true true true true $skip_status" ;;
     esac
     "$DEPLOY_DIR/deploy-remote.sh" "$BACKEND_DIR" "$EXPORT_SERVICE_DIR" "$LINT_SERVICE_DIR" "$SPELL_CHECK_SERVICE_DIR" "$CONSUMER_SERVICE_DIR" "$REGISTRY_PORT" "$REMOTE_USER_HOST" "$SSH_KEY" "$skip_statuses" "$service"
 
@@ -169,7 +170,7 @@ case "$SERVICE_NAME" in
     "all")
         deploy_all_services
         ;;
-    "backend"|"export"|"lint"|"spell-check"|"consumer")
+    "backend"|"export"|"linting"|"spell-check"|"event-consumer"|"event-publisher")
         deploy_single_service "$SERVICE_NAME"
         ;;
     "infra"|"infrastructure"|"build"|"remote"|"cleanup")
@@ -179,15 +180,15 @@ case "$SERVICE_NAME" in
         log_error "Unknown service/phase: $SERVICE_NAME"
         echo
         echo "Valid options:"
-        echo "  Services: all, backend, export, lint, spell-check, consumer"
+        echo "  Services: all, backend, export, linting, spell-check, event-consumer, event-publisher"
         echo "  Phases:   infra, build, remote, cleanup"
         echo
         echo "Examples:"
         echo "  $0                                       # Deploy all services"
         echo "  $0 . . . . . . . spell-check            # Deploy only spell-check service"
-        echo "  $0 . . . . . . . consumer               # Deploy only consumer service"
+        echo "  $0 . . . . . . . event-consumer         # Deploy only event-consumer service"
         echo "  $0 . . . . . . . build                  # Run only build phase"
-        echo "  $0 ./backend ./export . ./spell . infra # Setup infrastructure only"
+        echo "  $0 ./services/backend ./services/export . ./services/spell-check . infra # Setup infrastructure only"
         exit 1
         ;;
 esac

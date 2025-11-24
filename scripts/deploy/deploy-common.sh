@@ -15,11 +15,12 @@ else
 fi
 
 # Default configuration
-DEFAULT_BACKEND_DIR="./backend"
-DEFAULT_EXPORT_SERVICE_DIR="./export-service"
-DEFAULT_LINT_SERVICE_DIR="./markdown-lint-service"
-DEFAULT_SPELL_CHECK_SERVICE_DIR="./spell-check-service"
-DEFAULT_CONSUMER_SERVICE_DIR="./consumer-service-base"
+DEFAULT_BACKEND_DIR="./services/backend"
+DEFAULT_EXPORT_SERVICE_DIR="./services/export"
+DEFAULT_LINT_SERVICE_DIR="./services/linting"
+DEFAULT_SPELL_CHECK_SERVICE_DIR="./services/spell-check"
+DEFAULT_CONSUMER_SERVICE_DIR="./services/event-consumer"
+DEFAULT_EVENT_PUBLISHER_DIR="./services/event-publisher"
 DEFAULT_REMOTE_USER_HOST="dlittle@10.0.1.51"
 DEFAULT_REGISTRY_PORT="5000"
 DEFAULT_SSH_KEY="$HOME/.ssh/id_danbian"
@@ -28,9 +29,10 @@ DEFAULT_SSH_KEY="$HOME/.ssh/id_danbian"
 declare -A SERVICE_CONFIG=(
     ["backend"]="$DEFAULT_BACKEND_DIR:littledan9/markdown-manager:latest:8000"
     ["export"]="$DEFAULT_EXPORT_SERVICE_DIR:littledan9/markdown-manager-export:latest:8001"
-    ["lint"]="$DEFAULT_LINT_SERVICE_DIR:littledan9/markdown-manager-lint:latest:8002"
+    ["linting"]="$DEFAULT_LINT_SERVICE_DIR:littledan9/markdown-manager-linting:latest:8002"
     ["spell-check"]="$DEFAULT_SPELL_CHECK_SERVICE_DIR:littledan9/markdown-manager-spell-check:latest:8003"
-    ["consumer"]="$DEFAULT_CONSUMER_SERVICE_DIR:littledan9/markdown-manager-consumer:latest:0"
+    ["event-consumer"]="$DEFAULT_CONSUMER_SERVICE_DIR:littledan9/markdown-manager-event-consumer:latest:0"
+    ["event-publisher"]="$DEFAULT_EVENT_PUBLISHER_DIR:littledan9/markdown-manager-event-publisher:latest:0"
 )
 
 # Parse service configuration

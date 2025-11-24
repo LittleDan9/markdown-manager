@@ -91,22 +91,22 @@ deploy_all_services() {
     # Update service directories in configuration
     SERVICE_CONFIG["backend"]="$backend_dir:$(get_service_image "backend"):$(get_service_port "backend")"
     SERVICE_CONFIG["export"]="$export_dir:$(get_service_image "export"):$(get_service_port "export")"
-    SERVICE_CONFIG["lint"]="$lint_dir:$(get_service_image "lint"):$(get_service_port "lint")"
+    SERVICE_CONFIG["linting"]="$lint_dir:$(get_service_image "linting"):$(get_service_port "linting")"
     SERVICE_CONFIG["spell-check"]="$spell_check_dir:$(get_service_image "spell-check"):$(get_service_port "spell-check")"
-    SERVICE_CONFIG["consumer"]="$consumer_dir:$(get_service_image "consumer"):$(get_service_port "consumer")"
+    SERVICE_CONFIG["event-consumer"]="$consumer_dir:$(get_service_image "event-consumer"):$(get_service_port "event-consumer")"
 
     # Deploy services in dependency order
     echo "🔧 Building export service..."
     local export_skip=$(deploy_service "export" "$registry_port" "$remote_host" "$ssh_key")
 
-    echo "🧪 Building markdown linting service..."
-    local lint_skip=$(deploy_service "lint" "$registry_port" "$remote_host" "$ssh_key")
+    echo "🧪 Building linting service..."
+    local lint_skip=$(deploy_service "linting" "$registry_port" "$remote_host" "$ssh_key")
 
     echo "✏️ Building spell check service..."
     local spell_check_skip=$(deploy_service "spell-check" "$registry_port" "$remote_host" "$ssh_key")
 
-    echo "🔧 Building consumer service..."
-    local consumer_skip=$(deploy_service "consumer" "$registry_port" "$remote_host" "$ssh_key")
+    echo "🔧 Building event-consumer service..."
+    local consumer_skip=$(deploy_service "event-consumer" "$registry_port" "$remote_host" "$ssh_key")
 
     echo "🔧 Building backend service..."
     local backend_skip=$(deploy_service "backend" "$registry_port" "$remote_host" "$ssh_key")
@@ -121,7 +121,7 @@ cleanup_registry_tags() {
 
     log_step "🧹" "Cleaning up local registry tags..."
 
-    for service in "backend" "export" "lint" "spell-check" "consumer"; do
+    for service in "backend" "export" "linting" "spell-check" "event-consumer"; do
         local local_image=$(get_service_image "$service")
         local registry_image=$(get_registry_image "$local_image" "$registry_port")
         docker rmi "$registry_image" 2>/dev/null || true

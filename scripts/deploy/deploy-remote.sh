@@ -23,8 +23,8 @@ install_systemd_services() {
 
     # Copy service files to remote /tmp
     scp -q -i "$ssh_key" "$export_dir/markdown-manager-export.service" "$remote_host:/tmp/"
-    scp -q -i "$ssh_key" "$lint_dir/markdown-manager-lint.service" "$remote_host:/tmp/"
-    scp -q -i "$ssh_key" "$lint_dir/markdown-manager-lint-consumer.service" "$remote_host:/tmp/"
+    scp -q -i "$ssh_key" "$lint_dir/markdown-manager-linting.service" "$remote_host:/tmp/"
+    scp -q -i "$ssh_key" "$lint_dir/markdown-manager-linting-consumer.service" "$remote_host:/tmp/"
     scp -q -i "$ssh_key" "$spell_check_dir/markdown-manager-spell-check.service" "$remote_host:/tmp/"
     scp -q -i "$ssh_key" "$spell_check_dir/markdown-manager-spell-check-consumer.service" "$remote_host:/tmp/"
     scp -q -i "$ssh_key" "$backend_dir/markdown-manager-api.service" "$remote_host:/tmp/"
@@ -47,12 +47,12 @@ install_systemd_services() {
         sudo systemctl daemon-reload
         sudo systemctl enable markdown-manager-export.service
 
-        # Install lint service and consumer
-        sudo cp /tmp/markdown-manager-lint.service /etc/systemd/system/markdown-manager-lint.service
-        sudo cp /tmp/markdown-manager-lint-consumer.service /etc/systemd/system/markdown-manager-lint-consumer.service
+        # Install linting service and consumer
+        sudo cp /tmp/markdown-manager-linting.service /etc/systemd/system/markdown-manager-linting.service
+        sudo cp /tmp/markdown-manager-linting-consumer.service /etc/systemd/system/markdown-manager-linting-consumer.service
         sudo systemctl daemon-reload
-        sudo systemctl enable markdown-manager-lint.service
-        sudo systemctl enable markdown-manager-lint-consumer.service
+        sudo systemctl enable markdown-manager-linting.service
+        sudo systemctl enable markdown-manager-linting-consumer.service
 
         # Install spell check service and consumer
         sudo cp /tmp/markdown-manager-spell-check.service /etc/systemd/system/markdown-manager-spell-check.service
@@ -72,7 +72,7 @@ EOH
 
     # Copy consumer configuration files
     log_step "📋" "Copying consumer configuration files..."
-    scp -q -i "$ssh_key" "$lint_dir/consumer.config.json" "$remote_host:/tmp/markdown-lint-consumer.config.json"
+    scp -q -i "$ssh_key" "$lint_dir/consumer.config.json" "$remote_host:/tmp/linting-consumer.config.json"
     scp -q -i "$ssh_key" "$spell_check_dir/consumer.config.json" "$remote_host:/tmp/spell-check-consumer.config.json"
 
     # Install consumer configs on remote host
@@ -80,7 +80,7 @@ EOH
         set -e
 
         # Install consumer configs
-        sudo cp /tmp/markdown-lint-consumer.config.json /opt/markdown-manager/configs/markdown-lint-consumer.config.json
+        sudo cp /tmp/linting-consumer.config.json /opt/markdown-manager/configs/linting-consumer.config.json
         sudo cp /tmp/spell-check-consumer.config.json /opt/markdown-manager/configs/spell-check-consumer.config.json
         sudo chown root:root /opt/markdown-manager/configs/*.json
         sudo chmod 644 /opt/markdown-manager/configs/*.json
@@ -122,14 +122,14 @@ deploy_containers() {
             echo \"[SKIP] Using existing export service image (no pull needed)\"
         fi
 
-        # Pull lint service image if needed
-        if [[ \"\$LINT_SKIP\" != \"true\" ]]; then
-            echo \"[PULL] Pulling latest lint service image from local registry...\"
-            docker pull localhost:\$REGISTRY_PORT/markdown-manager-lint:latest
+        # Pull linting service image if needed
+        if [[ "\$LINT_SKIP" != "true" ]]; then
+            echo "[PULL] Pulling latest linting service image from local registry..."
+            docker pull localhost:\$REGISTRY_PORT/markdown-manager-linting:latest
             # Tag for local use (matching the service file expectations)
-            docker tag localhost:\$REGISTRY_PORT/markdown-manager-lint:latest littledan9/markdown-manager-lint:latest
+            docker tag localhost:\$REGISTRY_PORT/markdown-manager-linting:latest littledan9/markdown-manager-linting:latest
         else
-            echo \"[SKIP] Using existing lint service image (no pull needed)\"
+            echo "[SKIP] Using existing linting service image (no pull needed)"
         fi
 
         # Pull spell check service image if needed
@@ -152,14 +152,14 @@ deploy_containers() {
             echo \"[SKIP] Using existing backend image (no pull needed)\"
         fi
 
-        # Pull consumer image if needed (used by both lint and spell-check consumers)
-        if [[ \"\$CONSUMER_SKIP\" != \"true\" ]]; then
-            echo \"[PULL] Pulling latest consumer image from local registry...\"
-            docker pull localhost:\$REGISTRY_PORT/markdown-manager-consumer:latest
+        # Pull event-consumer image if needed (used by both linting and spell-check consumers)
+        if [[ "\$CONSUMER_SKIP" != "true" ]]; then
+            echo "[PULL] Pulling latest event-consumer image from local registry..."
+            docker pull localhost:\$REGISTRY_PORT/markdown-manager-event-consumer:latest
             # Tag for local use (matching the service file expectations)
-            docker tag localhost:\$REGISTRY_PORT/markdown-manager-consumer:latest littledan9/markdown-manager-consumer:latest
+            docker tag localhost:\$REGISTRY_PORT/markdown-manager-event-consumer:latest littledan9/markdown-manager-event-consumer:latest
         else
-            echo \"[SKIP] Using existing consumer image (no pull needed)\"
+            echo "[SKIP] Using existing event-consumer image (no pull needed)"
         fi
 
         # Restart services in proper order (dependencies first)
@@ -169,10 +169,10 @@ deploy_containers() {
         echo \"[WAIT] Waiting for export service to be ready...\"
         sleep 3
 
-        echo \"[RESTART] Restarting lint service...\"
-        sudo systemctl restart markdown-manager-lint.service
+        echo "[RESTART] Restarting linting service..."
+        sudo systemctl restart markdown-manager-linting.service
 
-        echo \"[WAIT] Waiting for lint service to be ready...\"
+        echo "[WAIT] Waiting for linting service to be ready..."
         sleep 3
 
         echo \"[RESTART] Restarting spell check service...\"
@@ -181,8 +181,8 @@ deploy_containers() {
         echo \"[WAIT] Waiting for spell check service to be ready...\"
         sleep 3
 
-        echo \"[RESTART] Restarting consumer services...\"
-        sudo systemctl restart markdown-manager-lint-consumer.service
+        echo "[RESTART] Restarting consumer services..."
+        sudo systemctl restart markdown-manager-linting-consumer.service
         sudo systemctl restart markdown-manager-spell-check-consumer.service
 
         echo \"[WAIT] Waiting for consumer services to be ready...\"
@@ -280,7 +280,7 @@ if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
         read export_skip lint_skip spell_check_skip consumer_skip backend_skip <<< "$SKIP_STATUSES"
         case "$SERVICE_NAME" in
             "export") deploy_single_service "export" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$export_skip" ;;
-            "lint") deploy_single_service "lint" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$lint_skip" ;;
+            "linting") deploy_single_service "linting" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$lint_skip" ;;
             "spell-check") deploy_single_service "spell-check" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$spell_check_skip" ;;
             "backend") deploy_single_service "backend" "$REGISTRY_PORT" "$REMOTE_HOST" "$SSH_KEY" "$backend_skip" ;;
             *) log_error "Unknown service: $SERVICE_NAME"; exit 1 ;;

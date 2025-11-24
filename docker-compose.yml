@@ -14,7 +14,7 @@ services:
     image: node:24
     working_dir: /app
     volumes:
-      - ./frontend:/app
+      - ./services/ui:/app
       - type: tmpfs
         target: /app/node_modules/.cache
         tmpfs:
@@ -45,7 +45,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./backend/postgres-data:/var/lib/postgresql/data
+      - ./services/backend/postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d markdown_manager || exit 1"]
       interval: 5s
@@ -54,23 +54,23 @@ services:
 
   backend:
     build:
-      context: ./backend
+      context: ./services/backend
       dockerfile: Dockerfile
     image: backend
     tmpfs:
       - /tmp  # for FastAPI temp files
     working_dir: /markdown_manager
     volumes:
-      - ./backend/app:/markdown_manager/app
-      - ./backend/migrations/:/markdown_manager/migrations/
-      - ./backend/markdown_manager.db:/markdown_manager/markdown_manager.db
-      - ./backend/alembic.ini:/markdown_manager/alembic.ini
+      - ./services/backend/app:/markdown_manager/app
+      - ./services/backend/migrations/:/markdown_manager/migrations/
+      - ./services/backend/markdown_manager.db:/markdown_manager/markdown_manager.db
+      - ./services/backend/alembic.ini:/markdown_manager/alembic.ini
       # Volume mount for filesystem-based document storage
       - ./storage:/documents
     ports:
       - "8000:8000"
     env_file:
-      - ./backend/.env
+      - ./services/backend/.env
     environment:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
@@ -84,23 +84,23 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      export-service:
+      export:
         condition: service_healthy
-      spell-check-service:
+      spell-check:
         condition: service_healthy
-      markdown-lint-service:
+      linting:
         condition: service_healthy
 
-  export-service:
+  export:
     build:
-      context: ./export-service
+      context: ./services/export
       dockerfile: Dockerfile
     image: littledan9/markdown-manager-export:latest
     ports:
       - "8001:8001"
     volumes:
-      - ./export-service/app:/export-service/app
-      - ./export-service/static:/export-service/static
+      - ./services/export/app:/export-service/app
+      - ./services/export/static:/export-service/static
     environment:
       - PYTHONUNBUFFERED=1
       - ICON_SERVICE_URL=http://backend:8000
@@ -113,9 +113,9 @@ services:
       retries: 3
       start_period: 30s
 
-  markdown-lint-service:
+  linting:
     build:
-      context: ./markdown-lint-service
+      context: ./services/linting
       dockerfile: Dockerfile
     environment:
       - MARKDOWN_LINT_PORT=8002
@@ -123,7 +123,7 @@ services:
     ports:
       - "8002:8002"
     volumes:
-      - ./markdown-lint-service/server.js:/app/server.js  # Mount only server.js for hot reload
+      - ./services/linting/server.js:/app/server.js  # Mount only server.js for hot reload
     command: ["npm", "start"]     # Use standard start command
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
@@ -132,9 +132,9 @@ services:
       retries: 3
     restart: unless-stopped
 
-  spell-check-service:
+  spell-check:
     build:
-      context: ./spell-check-service
+      context: ./services/spell-check
       dockerfile: Dockerfile
     environment:
       - SPELL_CHECK_PORT=8003
@@ -153,10 +153,10 @@ services:
       - db
       - redis
     volumes:
-      - ./spell-check-service/server.js:/app/server.js
-      - ./spell-check-service/lib:/app/lib
-      - ./spell-check-service/config:/app/config:ro
-      - ./spell-check-service/dictionaries:/app/dictionaries:ro
+      - ./services/spell-check/server.js:/app/server.js
+      - ./services/spell-check/lib:/app/lib
+      - ./services/spell-check/config:/app/config:ro
+      - ./services/spell-check/dictionaries:/app/dictionaries:ro
     command: ["npm", "run", "dev"]     # Use nodemon for development
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
@@ -181,9 +181,9 @@ services:
       retries: 5
     restart: unless-stopped
 
-  relay-service:
+  event-publisher:
     build:
-      context: ./relay-service
+      context: ./services/event-publisher
       dockerfile: Dockerfile
     environment:
       - RELAY_DATABASE_URL=postgresql+asyncpg://postgres:postgres@db:5432/markdown_manager
@@ -205,21 +205,21 @@ services:
       retries: 3
       start_period: 10s
 
-  markdown-lint-consumer:
+  linting-consumer:
     build:
       context: .
-      dockerfile: ./consumer-service-base/Dockerfile
+      dockerfile: ./services/event-consumer/Dockerfile
     environment:
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/markdown_manager
       - REDIS_URL=redis://redis:6379/0
     volumes:
-      - ./markdown-lint-service/consumer.config.json:/app/config/consumer.config.json:ro
+      - ./services/linting/consumer.config.json:/app/config/consumer.config.json:ro
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      relay-service:
+      event-publisher:
         condition: service_started
     restart: unless-stopped
     healthcheck:
@@ -232,19 +232,19 @@ services:
   spell-check-consumer:
     build:
       context: .
-      dockerfile: ./consumer-service-base/Dockerfile
+      dockerfile: ./services/event-consumer/Dockerfile
     environment:
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@db:5432/markdown_manager
       - REDIS_URL=redis://redis:6379/0
       - SPELL_CONSUMER_LOG_LEVEL=INFO
     volumes:
-      - ./spell-check-service/consumer.config.json:/app/config/consumer.config.json:ro
+      - ./services/spell-check/consumer.config.json:/app/config/consumer.config.json:ro
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-      relay-service:
+      event-publisher:
         condition: service_started
     restart: unless-stopped
     healthcheck:

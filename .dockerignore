@@ -6,6 +6,10 @@ backend/.venv
 backend/postgres-data
 backend/*.db
 backend/*.service
+services/backend/.venv
+services/backend/postgres-data
+services/backend/*.db
+services/backend/*.service
 redis-data/
 postgres-data/
 
