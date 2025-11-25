@@ -70,7 +70,7 @@ pids
 *.pid
 *.seed
 *.pid.lock
-
+redis-data/
 # Coverage directory used by tools like istanbul
 coverage/
 
@@ -113,4 +113,3 @@ backend/htmlcov
 
 gallery/
 backups/migration/pre_deliverable7_backup_20250916_011511.json
-redis-data/
