@@ -49,9 +49,9 @@ DB_POOL_TIMEOUT=30
 
 # Internal service communication
 ICON_SERVICE_URL=http://backend:8000
-EXPORT_SERVICE_URL=http://export-service:8001
-MARKDOWN_LINT_SERVICE_URL=http://markdown-lint-service:8002
-SPELL_CHECK_SERVICE_URL=http://spell-check-service:8003
+EXPORT_SERVICE_URL=http://export:8001
+LINTING_SERVICE_URL=http://linting:8002
+SPELL_CHECK_SERVICE_URL=http://spell-check:8003
 
 # ────────────────────────────────────────────────────────────────────────────
 # EXPORT SERVICE CONFIGURATION
@@ -385,7 +385,7 @@ if __name__ == "__main__":
    ```bash
    # Test internal service URLs
    curl http://backend:8000/health
-   curl http://export-service:8001/health
+   curl http://export:8001/health
    ```
 
 3. **File Permission Issues**

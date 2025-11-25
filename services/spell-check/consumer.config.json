@@ -1,0 +1,14 @@
+{
+  "service": {
+    "name": "spell-check-consumer",
+    "domain": "spell_checking",
+    "schema": "spell_checking"
+  },
+  "redis": {
+    "url": "redis://redis:6379/0"
+  },
+  "consumer_group": "spell_check_group",
+  "topics": [
+    "identity.user.v1"
+  ]
+}

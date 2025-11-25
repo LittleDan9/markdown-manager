@@ -1,0 +1,36 @@
+{
+  "name": "@markdown-manager/events-core",
+  "version": "1.0.0",
+  "description": "Event schemas and types for markdown-manager microservices",
+  "main": "ts/index.js",
+  "types": "ts/index.d.ts",
+  "scripts": {
+    "build": "npm run generate-types && npm run compile",
+    "generate-types": "mkdir -p ts && npx json-schema-to-typescript --input schemas --output ts --bannerComment '/* Auto-generated types from JSON Schema */'",
+    "compile": "tsc",
+    "dev": "npm run generate-types && tsc --watch",
+    "clean": "rm -rf ts/*.d.ts ts/*.js ts/*.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.25",
+    "json-schema-to-typescript": "^13.1.2",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "ajv": "^8.12.0",
+    "ajv-formats": "^2.1.1"
+  },
+  "files": [
+    "ts/",
+    "schemas/",
+    "README.md"
+  ],
+  "keywords": [
+    "events",
+    "schemas",
+    "microservices",
+    "domain-driven-design"
+  ],
+  "author": "markdown-manager",
+  "license": "MIT"
+}

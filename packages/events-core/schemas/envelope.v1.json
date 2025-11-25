@@ -1,0 +1,67 @@
+{
+  "$id": "envelope.v1.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Event Envelope v1",
+  "description": "Standardized envelope for all domain events",
+  "type": "object",
+  "required": [
+    "event_id",
+    "event_type",
+    "topic",
+    "schema_version",
+    "occurred_at",
+    "tenant_id",
+    "aggregate_id",
+    "payload"
+  ],
+  "properties": {
+    "event_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for this event"
+    },
+    "event_type": {
+      "type": "string",
+      "description": "Type of event (e.g., UserCreated, UserUpdated)"
+    },
+    "topic": {
+      "type": "string",
+      "description": "Redis stream topic (e.g., identity.user.v1)"
+    },
+    "schema_version": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Schema version for compatibility"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp when event occurred"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant identifier for multi-tenancy"
+    },
+    "aggregate_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of the aggregate that generated this event"
+    },
+    "aggregate_type": {
+      "type": "string",
+      "default": "user",
+      "description": "Type of aggregate (e.g., user, document)"
+    },
+    "correlation_id": {
+      "type": ["string", "null"],
+      "format": "uuid",
+      "description": "Optional correlation ID for request tracing"
+    },
+    "payload": {
+      "type": "object",
+      "description": "Event-specific payload data"
+    }
+  },
+  "additionalProperties": false
+}

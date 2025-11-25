@@ -79,7 +79,7 @@ Each service is configured for optimal development experience:
 
 #### Export Service (Python/Playwright)
 - **Port**: 8001
-- **Volume Mounts**: `./export-service/app` for live code updates
+- **Volume Mounts**: `./services/export/app` for live code updates
 - **Browser Engine**: Playwright Chromium for PDF/PNG generation
 - **Dependencies**: All export libraries pre-installed
 
@@ -95,7 +95,7 @@ Each service is configured for optimal development experience:
 
 Development configuration is managed through multiple layers:
 
-#### Backend Configuration (`backend/.env`)
+#### Backend Configuration (`services/backend/.env`)
 ```bash
 # Environment
 ENVIRONMENT=development
@@ -109,9 +109,9 @@ SECRET_KEY=development-secret-key-change-in-production-make-it-long-and-random-1
 SECURE_COOKIES=false
 
 # Service URLs
-EXPORT_SERVICE_URL=http://export-service:8001
-MARKDOWN_LINT_SERVICE_URL=http://markdown-lint-service:8002
-SPELL_CHECK_SERVICE_URL=http://spell-check-service:8003
+EXPORT_SERVICE_URL=http://export:8001
+LINTING_SERVICE_URL=http://linting:8002
+SPELL_CHECK_SERVICE_URL=http://spell-check:8003
 
 # GitHub OAuth (development)
 GITHUB_CLIENT_ID=Ov23likBCpFdyxJhTjRL
@@ -406,16 +406,19 @@ curl -X POST http://localhost:8003/check \
 │   │   ├── services/        # API clients and utilities
 │   │   └── components/      # React components
 │   └── webpack.config.js    # Development build configuration
-├── export-service/
+services/
+├── export/
 │   ├── app/                 # Export service application
 │   └── static/              # Static assets for PDF generation
-├── markdown-lint-service/
+├── linting/
 │   ├── server.js            # Express server with hot reload
 │   └── middleware/          # Logging middleware
-├── spell-check-service/
+├── spell-check/
 │   ├── server.js            # Express server with hot reload
 │   ├── middleware/          # Logging and security middleware
 │   └── dictionaries/        # Spell check dictionaries
+├── event-consumer/          # Event consumer framework
+└── event-publisher/         # Event publishing service
 ├── nginx/
 │   ├── nginx-dev.conf       # Development reverse proxy config
 │   └── conf.d/              # Additional nginx configuration

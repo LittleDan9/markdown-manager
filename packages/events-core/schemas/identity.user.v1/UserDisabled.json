@@ -1,0 +1,52 @@
+{
+  "$id": "identity.user.v1/UserDisabled.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "User Disabled Event",
+  "description": "Event emitted when a user account is disabled",
+  "type": "object",
+  "required": [
+    "user_id",
+    "tenant_id",
+    "email",
+    "disabled_at",
+    "disabled_by",
+    "reason"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Unique identifier for the user"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant identifier"
+    },
+    "email": {
+      "type": "string",
+      "format": "email",
+      "description": "User's email address"
+    },
+    "display_name": {
+      "type": ["string", "null"],
+      "description": "User's display name"
+    },
+    "disabled_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user was disabled"
+    },
+    "disabled_by": {
+      "type": "string",
+      "format": "uuid",
+      "description": "ID of user/admin who disabled this account"
+    },
+    "reason": {
+      "type": "string",
+      "enum": ["admin_action", "self_deletion", "security_violation", "policy_violation"],
+      "description": "Reason for account disabling"
+    }
+  },
+  "additionalProperties": false
+}

@@ -150,9 +150,9 @@ For detailed deployment information, see [deployment documentation](docs/deploym
 ## 📚 Documentation
 
 - **[Development Guide](docs/development/)** - Local development setup and workflows
-- **[API Documentation](docs/api/)** - REST API reference and examples
-- **[Export Service Guide](export-service/README.md)** - Document and diagram export capabilities
-- **[Frontend Architecture](frontend/src/services/editor/README.md)** - Editor services and structure
+- **[Deployment Guide](docs/deployment/)** - Production deployment and configuration
+- **[Export Service Guide](services/export/README.md)** - Document and diagram export capabilities
+- **[Backend API](services/backend/README.md)** - FastAPI backend service documentation
 
 ## 🛠️ Development
 
@@ -184,17 +184,22 @@ make clean            # Clean build artifacts
 ### Project Structure
 
 ```text
-├── frontend/                 # React frontend application
-│   ├── src/                 # Source code
-│   ├── public/              # Static assets
-│   └── webpack.config.js    # Build configuration
+services/
 ├── backend/                 # FastAPI backend service
 │   ├── app/                 # Application code
 │   ├── migrations/          # Database migrations
 │   └── tests/               # Backend tests
-├── export-service/          # Document export microservice
-├── markdown-lint-service/   # Markdown linting service
-├── spell-check-service/     # Spell checking service
+├── ui/                      # React frontend application
+│   ├── src/                 # Source code
+│   ├── public/              # Static assets
+│   └── webpack.config.js    # Build configuration
+├── export/                  # Document export microservice
+├── linting/                 # Markdown linting service
+├── spell-check/             # Spell checking service
+├── event-consumer/          # Event consumer framework
+└── event-publisher/         # Event publishing service
+
+Infrastructure:
 ├── nginx/                   # Nginx configuration
 ├── scripts/                 # Build and deployment scripts
 └── docs/                    # Documentation

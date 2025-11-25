@@ -1,0 +1,48 @@
+# Systemd service configuration for spell-check-consumer
+# Place in /etc/systemd/system/markdown-manager-spell-check-consumer.service
+
+[Unit]
+Description=Spell Check Consumer Service for Markdown Manager
+After=network.target docker.service redis.service postgresql.service
+Wants=network.target
+Requires=docker.service
+Wants=redis.service postgresql.service
+
+[Service]
+Type=simple
+User=dlittle
+Group=dlittle
+EnvironmentFile=-/etc/markdown-manager.env
+ExecStartPre=-/usr/bin/docker stop markdown-manager-spell-check-consumer
+ExecStartPre=-/usr/bin/docker rm markdown-manager-spell-check-consumer
+ExecStart=/usr/bin/docker run --rm --name markdown-manager-spell-check-consumer \
+  -e DATABASE_URL=${DATABASE_URL} \
+  -e REDIS_URL=${REDIS_URL} \
+  -v /opt/markdown-manager/configs/spell-check-consumer.config.json:/app/config/consumer.config.json:ro \
+  --health-cmd="python -c 'import redis.asyncio; import asyncio; asyncio.run(redis.asyncio.from_url(\"${REDIS_URL}\").ping())'" \
+  --health-interval=30s \
+  --health-timeout=10s \
+  --health-retries=3 \
+  --health-start-period=20s \
+  littledan9/markdown-manager-event-consumer:latest
+ExecStop=/usr/bin/docker stop markdown-manager-spell-check-consumer
+Restart=always
+RestartSec=10
+
+# Security settings
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+
+# Resource limits
+LimitNOFILE=65536
+MemoryMax=256M
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=markdown-manager-spell-check-consumer
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+{
+  "service": {
+    "name": "markdown-lint-consumer",
+    "domain": "linting",
+    "schema": "linting"
+  },
+  "redis": {
+    "url": "redis://redis:6379/0"
+  },
+  "consumer_group": "linting_group",
+  "topics": [
+    "identity.user.v1"
+  ]
+}
