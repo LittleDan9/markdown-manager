@@ -144,7 +144,7 @@ POSTGRES_DB=markdown_manager
 
 # Service URLs
 ICON_SERVICE_URL=http://backend:8000
-EXPORT_SERVICE_URL=http://export-service:8001
+EXPORT_SERVICE_URL=http://export:8001
 
 # Export Service Configuration
 DRAWIO_VERSION=24.7.5
@@ -412,5 +412,5 @@ sudo certbot --nginx -d yourdomain.com
 
 - **[Development Setup](../development/)** - Local development environment
 - **[Architecture Overview](../../README.md#architecture)** - System architecture details
-- **[Service Documentation](../../export-service/README.md)** - Individual service guides
+- **[Service Documentation](../../services/export/README.md)** - Individual service guides
 - **[Nginx Configuration](../../nginx/)** - Reverse proxy setup
