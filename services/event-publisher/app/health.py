@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, Any
 from fastapi import FastAPI, HTTPException
-import aioredis
+import redis.asyncio as redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -42,11 +42,11 @@ def setup_health_endpoints(app: FastAPI, settings: Settings, session_factory):
 
         # Check Redis connection
         try:
-            redis = aioredis.from_url(settings.redis_url, decode_responses=True)
-            ping_result = await redis.ping()
+            redis_client = redis.from_url(settings.redis_url, decode_responses=True)
+            ping_result = await redis_client.ping()
 
             # Get Redis info
-            info = await redis.info()
+            info = await redis_client.info()
             memory_used_mb = round(info.get('used_memory', 0) / 1024 / 1024, 2)
             aof_enabled = info.get('aof_enabled', 0) == 1
 
@@ -58,7 +58,7 @@ def setup_health_endpoints(app: FastAPI, settings: Settings, session_factory):
             if not aof_enabled:
                 overall_status = "degraded"
 
-            await redis.close()
+            await redis_client.close()
 
         except Exception as e:
             services["redis"] = {"status": "unhealthy", "details": f"Connection failed: {str(e)}"}

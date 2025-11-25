@@ -7,7 +7,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Any
 
-import aioredis
+import redis.asyncio as redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlalchemy.orm import sessionmaker
@@ -42,7 +42,7 @@ class OutboxRelay:
         )
 
         # Initialize Redis connection
-        self.redis = aioredis.from_url(
+        self.redis = redis.from_url(
             self.settings.redis_url,
             decode_responses=True,
             retry_on_timeout=True,
