@@ -1,0 +1,56 @@
+---
+# Note: UI building and deployment is now handled by make deploy-ui
+# This task only handles nginx configuration
+
+- name: Create nginx web root directory
+  file:
+    path: "{{ ui.nginx_root }}"
+    state: directory
+    owner: www-data
+    group: www-data
+    mode: '0755'
+  become: true
+
+- name: Create nginx production configuration
+  template:
+    src: nginx-production.conf.j2
+    dest: "/etc/nginx/nginx.conf"
+    backup: true
+    owner: root
+    group: root
+    mode: '0644'
+  become: true
+  notify: reload nginx
+
+- name: Copy nginx configuration files
+  copy:
+    src: "{{ playbook_dir }}/../nginx/conf.d/"
+    dest: "/etc/nginx/conf.d/"
+    backup: true
+  notify: reload nginx
+  become: true
+
+- name: Copy nginx scripts
+  copy:
+    src: "{{ playbook_dir }}/../nginx/scripts/"
+    dest: "/etc/nginx/scripts/"
+    backup: true
+    mode: '0755'
+  notify: reload nginx
+  become: true
+
+- name: Test nginx configuration
+  command: nginx -t
+  register: nginx_test
+  become: true
+
+- name: Reload nginx if configuration is valid
+  systemd:
+    name: nginx
+    state: reloaded
+  become: true
+  when: nginx_test.rc == 0
+
+- name: Display nginx deployment status
+  debug:
+    msg: "✅ Nginx configuration deployed successfully"

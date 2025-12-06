@@ -1,0 +1,48 @@
+---
+- name: Check if SSH tunnel to registry is needed
+  uri:
+    url: "http://localhost:{{ registry.tunnel_port }}/v2/"
+    method: GET
+    status_code: [200, -1]
+  register: tunnel_check
+  delegate_to: localhost
+  failed_when: false
+
+- name: Kill any existing SSH tunnels
+  shell: "pkill -f 'ssh.*{{ registry.tunnel_port }}:localhost:{{ registry.port }}' || true"
+  delegate_to: localhost
+  when: tunnel_check.status != 200
+
+- name: Setup SSH tunnel to production registry
+  shell: "ssh -f -N -L {{ registry.tunnel_port }}:localhost:{{ registry.port }} {{ ansible_user }}@{{ ansible_host }} -i {{ ssh_key_path }}"
+  delegate_to: localhost
+  when: tunnel_check.status != 200
+  register: tunnel_result
+  failed_when: false
+
+- name: Wait for SSH tunnel to be established
+  uri:
+    url: "http://localhost:{{ registry.tunnel_port }}/v2/"
+    method: GET
+    status_code: 200
+  register: tunnel_ready
+  retries: 10
+  delay: 2
+  delegate_to: localhost
+
+- name: Configure Docker daemon for insecure registry access
+  copy:
+    content: |
+      {
+        "insecure-registries": ["localhost:{{ registry.tunnel_port }}"]
+      }
+    dest: /etc/docker/daemon.json
+    backup: yes
+  notify: restart docker
+  delegate_to: localhost
+
+- name: Ensure local Docker daemon is running
+  systemd:
+    name: docker
+    state: started
+  delegate_to: localhost

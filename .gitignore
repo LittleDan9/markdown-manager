@@ -113,3 +113,5 @@ backend/htmlcov
 
 redis-data/
 **/postgres-data/
+
+backup-*/

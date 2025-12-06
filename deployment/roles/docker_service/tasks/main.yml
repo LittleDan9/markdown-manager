@@ -1,0 +1,98 @@
+---
+- name: "Display service deployment info"
+  debug:
+    msg: "Deploying service: {{ service_name }} ({{ service.image }}:{{ service.tag }})"
+
+- name: "Copy consumer config file for {{ service_name }}"
+  shell: |
+    echo "📋 Copying consumer config for {{ service_name }}..."
+    sudo mkdir -p /workspace/$(dirname {{ service.consumer_config }})
+    sudo cp {{ playbook_dir }}/../{{ service.consumer_config }} /workspace/{{ service.consumer_config }}
+    sudo chmod 644 /workspace/{{ service.consumer_config }}
+    echo "✅ Consumer config copied to /workspace/{{ service.consumer_config }}"
+  when: service.consumer_config is defined
+
+- name: "Create systemd service for {{ service_name }}"
+  template:
+    src: docker-service.service.j2
+    dest: "/tmp/{{ service.name }}.service"
+    mode: '0644'
+  when: service.systemd_service | default(false)
+  register: systemd_template_result
+
+- name: "Install systemd service for {{ service_name }}"
+  shell: |
+    echo "⚙️ Installing systemd service for {{ service_name }}..."
+    # Stop existing service first to ensure clean restart with new config
+    sudo systemctl stop {{ service.name }} 2>/dev/null || echo "Service not running"
+    sudo cp /tmp/{{ service.name }}.service /etc/systemd/system/{{ service.name }}.service
+    sudo systemctl daemon-reload
+    sudo systemctl enable {{ service.name }}
+    echo "✅ Systemd service installed for {{ service_name }}"
+  register: systemd_install_result
+  when: service.systemd_service | default(false)
+
+- name: "Check if Docker image exists locally"
+  shell: docker images localhost:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }} --quiet
+  register: image_check
+  ignore_errors: true
+
+- name: "Build and push Docker image (only if needed)"
+  include_tasks: docker_build_push.yml
+  when: 
+    - image_check.stdout == "" or force_rebuild | default(false)
+    - service.build_context is defined
+
+- name: "Start systemd service for {{ service_name }}"
+  shell: |
+    echo "🚀 Starting {{ service_name }} via systemd..."
+    if ! sudo systemctl start {{ service.name }}; then
+      echo "❌ Failed to start systemd service for {{ service_name }}"
+      sudo systemctl status {{ service.name }} --no-pager -l
+      exit 1
+    fi
+    echo "✅ Systemd service started for {{ service_name }}"
+  register: systemd_start_result
+  failed_when: systemd_start_result.rc != 0
+  when: service.systemd_service | default(false)
+
+- name: "Wait for {{ service_name }} health check"
+  uri:
+    url: "http://localhost:{{ service.port }}{{ service.health_check }}"
+    method: GET
+    status_code: 200
+  retries: 30
+  delay: 2
+  when: 
+    - service.health_check is defined
+    - service.port != 0
+  register: health_check_result
+
+- name: "Verify {{ service_name }} container is running"
+  shell: |
+    echo "🔍 Verifying {{ service_name }} container status..."
+    if ! docker ps --filter "name={{ service.name }}" --filter "status=running" | grep -q {{ service.name }}; then
+      echo "❌ Container {{ service.name }} is not running!"
+      echo "Container logs:"
+      docker logs {{ service.name }} --tail 20 2>/dev/null || echo "No logs available"
+      echo "Systemd service status:"
+      sudo systemctl status {{ service.name }} --no-pager -l
+      exit 1
+    fi
+    echo "✅ Container {{ service.name }} is running"
+  register: container_check
+  failed_when: container_check.rc != 0
+  when: service.systemd_service | default(false)
+
+- name: "Display {{ service_name }} deployment status"
+  debug:
+    msg: "✅ {{ service_name }} deployed successfully"
+
+- name: "Fail deployment if health check failed"
+  fail:
+    msg: "❌ {{ service_name }} deployment failed: Health check unreachable after 30 attempts"
+  when: 
+    - health_check_result is defined
+    - health_check_result is failed
+    - service.health_check is defined
+    - service.port != 0

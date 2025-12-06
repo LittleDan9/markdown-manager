@@ -1,0 +1,66 @@
+# Redis Configuration for markdown-manager microservices
+# Deployed via Ansible
+# Optimized for Redis Streams with AOF persistence
+
+# Basic Configuration
+bind 0.0.0.0
+port 6379
+timeout 0
+tcp-keepalive 300
+
+# Memory Management
+maxmemory-policy allkeys-lru
+maxmemory 256mb
+
+# Persistence - AOF (Append Only File) for durability
+appendonly yes
+appendfilename "appendonly.aof"
+appendfsync everysec
+no-appendfsync-on-rewrite no
+auto-aof-rewrite-percentage 100
+auto-aof-rewrite-min-size 64mb
+
+# Redis Streams specific settings
+# Set reasonable limits for stream entries
+stream-node-max-bytes 4096
+stream-node-max-entries 100
+
+# Logging
+loglevel notice
+logfile "/data/redis.log"
+
+# Security (basic) - Enable in production
+# requirepass {{ redis_password | default('') }}
+
+# Disable dangerous commands in production
+{% if ansible_environment is defined and ansible_environment == 'production' %}
+rename-command FLUSHDB ""
+rename-command FLUSHALL ""
+rename-command SHUTDOWN SHUTDOWN_8f7a9b2c
+rename-command CONFIG CONFIG_9c4e6b1a
+{% endif %}
+
+# Client connections
+maxclients 10000
+tcp-backlog 511
+tcp-keepalive 300
+
+# Performance tuning
+hz 10
+dynamic-hz yes
+
+# Enable lazy freeing for better performance
+lazyfree-lazy-eviction yes
+lazyfree-lazy-expire yes
+lazyfree-lazy-server-del yes
+replica-lazy-flush yes
+
+# Database settings
+databases 1
+
+# AOF rewrite settings for better performance
+aof-rewrite-incremental-fsync yes
+aof-load-truncated yes
+
+# Enable notifications for expired keys (useful for DLQ cleanup)
+notify-keyspace-events Ex

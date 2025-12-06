@@ -21,38 +21,56 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
+    # Ensure identity schema exists first
+    op.execute("CREATE SCHEMA IF NOT EXISTS identity")
+    
     # Apply event ledger migration that wasn't applied due to merge
-    # Create event_ledger table for identity service
-    op.create_table(
-        'event_ledger',
-        sa.Column('event_id', postgresql.UUID(), nullable=False),
-        sa.Column('event_type', sa.String(length=100), nullable=False),
-        sa.Column('processed_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('NOW()'), nullable=True),
-        sa.Column('consumer_group', sa.String(length=100), nullable=False),
-        sa.Column('processing_result', sa.String(length=50), server_default=sa.text("'success'"), nullable=True),
-        sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('NOW()'), nullable=True),
-        sa.CheckConstraint("processing_result IN ('success', 'failure', 'skipped')", name='event_ledger_result_check'),
-        sa.PrimaryKeyConstraint('event_id'),
-        schema='identity'
-    )
-    op.create_index('idx_identity_event_ledger_type_processed', 'event_ledger', ['event_type', 'processed_at'], unique=False, schema='identity')
-    op.create_index('idx_identity_event_ledger_consumer_group', 'event_ledger', ['consumer_group', 'processed_at'], unique=False, schema='identity')
+    # Create event_ledger table for identity service (use IF NOT EXISTS since this is a merge)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS identity.event_ledger (
+            event_id UUID PRIMARY KEY,
+            event_type VARCHAR(100) NOT NULL,
+            processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            consumer_group VARCHAR(100) NOT NULL,
+            processing_result VARCHAR(50) DEFAULT 'success',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    # Create event_ledger table for public schema (other consumers)
-    op.create_table(
-        'event_ledger',
-        sa.Column('event_id', postgresql.UUID(), nullable=False),
-        sa.Column('event_type', sa.String(length=100), nullable=False),
-        sa.Column('processed_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('NOW()'), nullable=True),
-        sa.Column('consumer_group', sa.String(length=100), nullable=False),
-        sa.Column('processing_result', sa.String(length=50), server_default=sa.text("'success'"), nullable=True),
-        sa.Column('created_at', sa.TIMESTAMP(timezone=True), server_default=sa.text('NOW()'), nullable=True),
-        sa.CheckConstraint("processing_result IN ('success', 'failure', 'skipped')", name='event_ledger_result_check'),
-        sa.PrimaryKeyConstraint('event_id'),
-        schema='public'
+            CONSTRAINT event_ledger_result_check
+                CHECK (processing_result IN ('success', 'failure', 'skipped'))
+        )
+    """)
+    # Create indices for performance (use IF NOT EXISTS since this is a merge)
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_identity_event_ledger_type_processed "
+        "ON identity.event_ledger (event_type, processed_at)"
     )
-    op.create_index('idx_public_event_ledger_type_processed', 'event_ledger', ['event_type', 'processed_at'], unique=False, schema='public')
-    op.create_index('idx_public_event_ledger_consumer_group', 'event_ledger', ['consumer_group', 'processed_at'], unique=False, schema='public')
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_identity_event_ledger_consumer_group "
+        "ON identity.event_ledger (consumer_group, processed_at)"
+    )
+
+    # Create event_ledger table for public schema (use IF NOT EXISTS since this is a merge)
+    op.execute("""
+        CREATE TABLE IF NOT EXISTS public.event_ledger (
+            event_id UUID NOT NULL,
+            event_type VARCHAR(100) NOT NULL,
+            processed_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            consumer_group VARCHAR(100) NOT NULL,
+            processing_result VARCHAR(50) DEFAULT 'success',
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+            PRIMARY KEY (event_id),
+            CONSTRAINT event_ledger_result_check CHECK (processing_result IN ('success', 'failure', 'skipped'))
+        )
+    """)
+    # Create indices for performance (use IF NOT EXISTS since this is a merge)
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_public_event_ledger_type_processed "
+        "ON public.event_ledger (event_type, processed_at)"
+    )
+    op.execute(
+        "CREATE INDEX IF NOT EXISTS idx_public_event_ledger_consumer_group "
+        "ON public.event_ledger (consumer_group, processed_at)"
+    )
 
     # Create cleanup function (this is OK to use SQL for functions)
     op.execute("""

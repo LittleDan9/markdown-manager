@@ -1,0 +1,26 @@
+---
+- name: Get list of all images for each service
+  shell: |
+    docker images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" | \
+    grep "localhost:{{ registry.port }}" | \
+    sort -k3 -r
+  register: all_images
+  ignore_errors: true
+
+- name: Clean up old Docker images
+  shell: |
+    # Keep only the latest {{ docker.keep_image_count | default(3) }} images per service
+    for service in {{ services.keys() | join(' ') }}; do
+      echo "Cleaning up images for $service..."
+      docker images --format "{{.ID}}" localhost:{{ registry.port }}/$service | \
+      tail -n +{{ (docker.keep_image_count | default(3)) + 1 }} | \
+      xargs -r docker rmi -f || true
+    done
+  when: all_images.stdout != ""
+
+- name: Remove dangling images
+  command: docker image prune -f
+
+- name: Display cleanup summary
+  debug:
+    msg: "✅ Image cleanup completed - kept {{ docker.keep_image_count | default(3) }} images per service"

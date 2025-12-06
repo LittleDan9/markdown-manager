@@ -1,0 +1,183 @@
+---
+# Deployment Configuration for Markdown Manager Services
+registry:
+  host: "localhost"
+  port: 5000
+  tunnel_port: 5000
+
+services:
+  backend:
+    name: "markdown-manager-backend"
+    # Updated systemd template 2024-12-04
+    image: "littledan9/markdown-manager"
+    tag: "latest"
+    port: 8000
+    build_context: "./services/backend"
+    dockerfile: "Dockerfile"
+    systemd_service: true
+    health_check: "/health"
+    env_file: "/etc/markdown-manager.env"
+    networks:
+      - "markdown-manager"
+    restart_policy: "unless-stopped"
+    environment_variables:
+      - "DATABASE_URL"
+      - "EXPORT_SERVICE_URL"
+      - "MARKDOWN_LINT_SERVICE_URL"
+      - "SPELL_CHECK_SERVICE_URL"
+      - "REDIS_URL"
+      - "ENVIRONMENT"
+      - "GITHUB_CLIENT_ID"
+      - "GITHUB_CLIENT_SECRET"
+      - "GITHUB_REDIRECT_URI"
+      - "GITHUB_OAUTH_SCOPE"
+      - "JWT_SECRET_KEY"
+      - "GITHUB_MAX_REPOS_PER_ACCOUNT"
+      - "GITHUB_MIN_UPDATED_DAYS"
+      - "GITHUB_INCLUDE_FORKS"
+      - "GITHUB_EXCLUDE_ARCHIVED"
+      - "GITHUB_MAX_REPO_SIZE_MB"
+      - "GITHUB_TOTAL_STORAGE_LIMIT_GB"
+      - "GITHUB_CLONE_DEPTH"
+      - "GITHUB_AUTO_PRUNE_DAYS"
+      - "GITHUB_MARKDOWN_ONLY"
+      - "HOST_STORAGE_ROOT"
+      - "CONTAINER_STORAGE_ROOT"
+      - "ALLOWED_ORIGINS"
+
+    
+  export:
+    name: "markdown-manager-export"
+    image: "littledan9/markdown-manager-export"
+    tag: "latest"
+    port: 8001
+    build_context: "./services/export"
+    dockerfile: "Dockerfile"
+    systemd_service: true
+    health_check: "/health"
+    env_file: "/etc/markdown-manager.env"
+    networks:
+      - "markdown-manager"
+    restart_policy: "unless-stopped"
+    environment_variables:
+      - "DATABASE_URL"
+      - "ENVIRONMENT"
+      - "HOST_STORAGE_ROOT"
+      - "CONTAINER_STORAGE_ROOT"
+    
+  linting:
+    name: "markdown-manager-lint"
+    image: "littledan9/markdown-manager-lint"
+    tag: "latest"
+    port: 8002
+    build_context: "./services/linting"
+    dockerfile: "Dockerfile"
+    systemd_service: true
+    health_check: "/health"
+    env_file: "/etc/markdown-manager.env"
+    consumer_config: "consumer.config.json"  # This service has event consumption
+    networks:
+      - "markdown-manager"
+    restart_policy: "unless-stopped"
+    environment_variables:
+      - "MARKDOWN_LINT_PORT"
+      - "NODE_ENV"
+      - "NODE_OPTIONS"
+      - "ENVIRONMENT"
+    
+  spell-check:
+    name: "markdown-manager-spell-check"
+    image: "littledan9/markdown-manager-spell-check"
+    tag: "latest"
+    port: 8003
+    build_context: "./services/spell-check"
+    dockerfile: "Dockerfile"
+    systemd_service: true
+    health_check: "/health"
+    env_file: "/etc/markdown-manager.env"
+    consumer_config: "consumer.config.json"  # This service has event consumption
+    networks:
+      - "markdown-manager"
+    restart_policy: "unless-stopped"
+    environment_variables:
+      - "SPELL_CHECK_PORT"
+      - "NODE_ENV"
+      - "NODE_OPTIONS"
+      - "ENVIRONMENT"
+
+  event-publisher:
+    name: "markdown-manager-event-publisher"
+    image: "littledan9/markdown-manager-event-publisher"
+    tag: "latest"
+    port: 0  # No exposed port (background service)
+    build_context: "./services/event-publisher"
+    dockerfile: "Dockerfile"
+    systemd_service: true
+    env_file: "/etc/markdown-manager.env"
+    networks:
+      - "markdown-manager"
+    restart_policy: "unless-stopped"
+    environment_variables:
+      - "DATABASE_URL"
+      - "REDIS_URL"
+      - "ENVIRONMENT"
+
+# Event consumer service template (used automatically for services with consumer_config)
+event_consumer_template:
+  image: "littledan9/markdown-manager-event-consumer"
+  tag: "latest"
+  port: 0  # No exposed port
+  build_context: ".."  # Use repo root since Dockerfile needs access to packages/
+  dockerfile: "services/event-consumer/Dockerfile"
+  systemd_service: true
+  env_file: "/etc/markdown-manager.env"
+  networks:
+    - "markdown-manager"
+  restart_policy: "unless-stopped"
+  environment_variables:
+    - "DATABASE_URL"
+    - "REDIS_URL"
+    - "ENVIRONMENT"
+
+
+
+# Service deployment order (dependencies first)
+# Note: Event consumers for services with consumer_config are deployed automatically
+# Note: UI is deployed as static files via nginx role, not as a service
+service_deploy_order:
+  - "redis"              # Event store (required by all event services)
+  - "event-publisher"    # Publishes events (depends on Redis)
+  - "export"             # Core service (no consumer)
+  - "linting"            # Core service (+ auto-deployed linting-consumer)
+  - "spell-check"        # Core service (+ auto-deployed spell-check-consumer)
+  - "backend"            # Main API (no consumer)
+
+# UI Configuration (static files served by nginx)
+ui:
+  build_context: "./services/ui"
+  build_command: "npm install && npm run build:clean"
+  dist_path: "./services/ui/dist"
+  nginx_root: "/var/www/littledan.com"
+  node_version: "24"
+
+# Infrastructure services
+redis:
+  name: "markdown-manager-redis"
+  image: "redis"
+  tag: "7-alpine"
+  port: 6379
+  systemd_service: true
+  health_check: "redis-cli ping"
+  config_file: "/etc/redis/redis.conf"
+  data_volume: "/var/lib/redis"
+  networks:
+    - "markdown-manager"
+  restart_policy: "unless-stopped"
+  command: ["redis-server", "/etc/redis/redis.conf"]
+
+# Infrastructure settings
+docker:
+  network_name: "markdown-manager"
+  registry_cleanup: true
+  image_cleanup: true
+  keep_image_count: 3

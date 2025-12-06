@@ -1,0 +1,167 @@
+# Nginx production configuration for Markdown Manager
+# Serves static UI files directly and proxies API requests to services
+
+events {
+    worker_connections 1024;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+
+    # Performance optimizations
+    sendfile on;
+    tcp_nopush on;
+    tcp_nodelay on;
+    keepalive_timeout 65;
+    types_hash_max_size 2048;
+    server_tokens off;
+
+    # Gzip compression
+    gzip on;
+    gzip_vary on;
+    gzip_min_length 1024;
+    gzip_proxied any;
+    gzip_comp_level 6;
+    gzip_types
+        text/plain
+        text/css
+        text/xml
+        text/javascript
+        application/json
+        application/javascript
+        application/xml+rss
+        application/atom+xml
+        image/svg+xml;
+
+    # Include all conf.d files (rate limiting, etc.)
+    include /etc/nginx/conf.d/*.conf;
+
+    # Main server (static UI + API)
+    server {
+        listen 80;
+        server_name _;
+
+        # Security headers
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-XSS-Protection "1; mode=block" always;
+
+        # Spell check service endpoints - direct routing to spell-check service
+        location /api/spell-check/ {
+            # Remove /api/spell-check prefix before proxying directly to spell-check service
+            rewrite ^/api/spell-check/(.*)$ /$1 break;
+            proxy_pass http://{{ services['spell-check'].name }}:{{ services['spell-check'].port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Extended timeouts for spell check processing
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+        }
+
+        # Export service endpoints via /api/export/ - proxy to export service
+        location /api/export/ {
+            # Remove /api/export prefix before proxying to export service  
+            rewrite ^/api/export/(.*)$ /$1 break;
+            proxy_pass http://{{ services.export.name }}:{{ services.export.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Allow larger payloads for diagram content
+            client_max_body_size 10M;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+        }
+
+        # User-specific markdown lint routes - go to backend for database access
+        location ~ ^/api/markdown-lint/(user|categories|folders)/ {
+            # Remove /api prefix before proxying to backend
+            rewrite ^/api/(.*)$ /$1 break;
+            proxy_pass http://{{ services.backend.name }}:{{ services.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Extended timeouts for database operations
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+        }
+
+        # General markdown lint service endpoints - direct routing to lint service
+        location /api/markdown-lint/ {
+            # Remove /api/markdown-lint prefix before proxying directly to lint service
+            rewrite ^/api/markdown-lint/(.*)$ /$1 break;
+            proxy_pass http://{{ services.linting.name }}:{{ services.linting.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Extended timeouts for markdown processing
+            proxy_connect_timeout 60s;
+            proxy_send_timeout 60s;
+            proxy_read_timeout 60s;
+        }
+
+        # API endpoints - proxy to backend with path rewrite
+        location /api/ {
+            # Remove /api prefix before proxying to backend
+            rewrite ^/api/(.*)$ /$1 break;
+            proxy_pass http://{{ services.backend.name }}:{{ services.backend.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Allow larger payloads for file uploads (20MB covers icon packs and other uploads)
+            client_max_body_size 20M;
+            proxy_read_timeout 300s;
+            proxy_send_timeout 300s;
+        }
+
+        # Export service endpoints - proxy to export service
+        location /export/ {
+            # Remove /export prefix before proxying to export service
+            rewrite ^/export/(.*)$ /$1 break;
+            proxy_pass http://{{ services.export.name }}:{{ services.export.port }};
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+
+            # Allow larger payloads for diagram content
+            client_max_body_size 10M;
+            proxy_read_timeout 120s;
+            proxy_send_timeout 120s;
+        }
+
+        # Static assets with long cache
+        location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2|ttf|eot)$ {
+            root {{ ui.nginx_root }};
+            expires 1y;
+            add_header Cache-Control "public, immutable";
+            add_header Vary Accept-Encoding;
+        }
+
+        # Frontend - serve static files (must come after API routes)
+        location / {
+            root {{ ui.nginx_root }};
+            index index.html;
+            try_files $uri $uri/ /index.html;
+            
+            # Cache control for HTML files
+            location ~* \.html$ {
+                expires -1;
+                add_header Cache-Control "no-cache, no-store, must-revalidate";
+            }
+        }
+    }
+}

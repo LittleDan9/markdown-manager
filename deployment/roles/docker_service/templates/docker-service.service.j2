@@ -1,0 +1,32 @@
+# Updated systemd template for service-specific environment variables
+[Unit]
+Description={{ service.name }} Docker Container
+Requires=docker.service
+After=network.target docker.service
+
+[Service]
+Type=simple
+Restart=on-failure
+RestartSec=5s
+{% if service.env_file is defined %}
+EnvironmentFile={{ service.env_file }}
+{% endif %}
+ExecStart=/bin/bash -c 'set -a; source {{ service.env_file }}; set +a; docker run --rm --name {{ service.name }} \
+{% if service.environment_variables is defined %}
+{% for env_var in service.environment_variables %}
+  -e {{ env_var }} \
+{% endfor %}
+{% endif %}
+{% if service.port != 0 %}  -p {{ service.port }}:{{ service.port }} \
+{% endif %}
+{% for network in service.networks | default([]) %}  --network {{ network }} \
+{% endfor %}
+{% if 'consumer_config' in service %}  --volume /workspace/{{ service.consumer_config }}:/app/consumer.config.json:ro \
+{% endif %}
+{% if service.name == 'markdown-manager-backend' %}  -v "$HOST_STORAGE_ROOT":/documents \
+{% endif %}
+  localhost:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }}'
+ExecStop=/usr/bin/docker stop {{ service.name }}
+
+[Install]
+WantedBy=multi-user.target

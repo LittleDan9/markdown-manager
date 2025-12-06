@@ -1,0 +1,159 @@
+---
+- name: Deploy Markdown Manager Services
+  hosts: production
+  become: no
+  vars_files:
+    - config.yml
+    - group_vars/production.yml
+
+  pre_tasks:
+    - name: Check if target service is specified
+      debug:
+        msg: "Deploying service: {{ deploy_service | default('all services') }}"
+
+    - name: Display deployment timeline warning
+      debug:
+        msg: |
+          🚀 Starting Markdown Manager Deployment
+          ⏱️  Expected timeline:
+            - Infrastructure setup: ~30 seconds
+            - Redis deployment: ~1 minute  
+            - Backend build: ~3-5 minutes (Python dependencies)
+            - Other services: ~2-3 minutes each
+            - Total estimated time: 10-15 minutes
+          📊 Progress will be shown for each step...
+
+    - name: Validate required variables
+      assert:
+        that:
+          - registry.port is defined
+          - services is defined
+        fail_msg: "Required configuration variables are missing"
+
+  tasks:
+    - name: Setup infrastructure
+      include_role:
+        name: infrastructure
+      tags: [infra, infrastructure]
+
+    # SSH tunnel not needed since we build directly on Danbian
+    # - name: Setup Docker registry tunnel
+    #   include_role:
+    #     name: registry
+    #   tags: [infra, registry]
+
+    - name: Deploy Redis service
+      include_role:
+        name: redis
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'redis'
+      tags: [services, redis]
+
+    - name: Deploy backend service
+      import_role:
+        name: docker_service
+      vars:
+        service: "{{ services.backend }}"
+        service_name: "backend"
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'backend'
+      tags: [services, backend]
+
+
+
+    - name: Deploy export service
+      import_role:
+        name: docker_service
+      vars:
+        service: "{{ services.export }}"
+        service_name: "export"
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'export'
+      tags: [services, export]
+
+
+
+    - name: Deploy linting service
+      import_role:
+        name: docker_service
+      vars:
+        service: "{{ services.linting }}"
+        service_name: "linting"
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'linting'
+      tags: [services, linting]
+
+    - name: Deploy linting event consumer
+      import_role:
+        name: docker_service
+      vars:
+        service: >-
+          {{
+            event_consumer_template | combine({
+              'name': services.linting.name + '-consumer',
+              'consumer_config': 'services/linting/' + services.linting.consumer_config
+            })
+          }}
+        service_name: "linting-consumer"
+      when: 
+        - services.linting.consumer_config is defined
+        - deploy_service is not defined or deploy_service == 'all' or deploy_service == 'linting' or deploy_service == 'linting-consumer'
+      tags: [services, linting, linting-consumer]
+
+    - name: Deploy spell-check service
+      import_role:
+        name: docker_service
+      vars:
+        service: "{{ services['spell-check'] }}"
+        service_name: "spell-check"
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'spell-check'
+      tags: [services, spell-check]
+
+    - name: Deploy spell-check event consumer
+      import_role:
+        name: docker_service
+      vars:
+        service: >-
+          {{
+            event_consumer_template | combine({
+              'name': services['spell-check'].name + '-consumer',
+              'consumer_config': 'services/spell-check/' + services['spell-check'].consumer_config
+            })
+          }}
+        service_name: "spell-check-consumer"
+      when: 
+        - services['spell-check'].consumer_config is defined
+        - deploy_service is not defined or deploy_service == 'all' or deploy_service == 'spell-check' or deploy_service == 'spell-check-consumer'
+      tags: [services, spell-check, spell-check-consumer]
+
+
+
+    - name: Deploy event-publisher service
+      import_role:
+        name: docker_service
+      vars:
+        service: "{{ services['event-publisher'] }}"
+        service_name: "event-publisher"
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'event-publisher'
+      tags: [services, event-publisher]
+
+
+
+    - name: Update Nginx configuration
+      include_role:
+        name: nginx_config
+      when: deploy_service is not defined or deploy_service == 'all' or 'nginx' in ansible_run_tags
+      tags: [nginx]
+
+  post_tasks:
+    - name: Cleanup old images
+      include_role:
+        name: cleanup
+      when: docker.image_cleanup | default(false)
+      tags: [cleanup]
+
+  handlers:
+    - name: reload systemd
+      systemd:
+        daemon_reload: yes
+
+    - name: restart docker
+      systemd:
+        name: docker
+        state: restarted
