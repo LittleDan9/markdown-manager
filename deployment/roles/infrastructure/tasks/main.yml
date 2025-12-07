@@ -16,7 +16,7 @@
   failed_when: false
   changed_when: false
 
-- name: Display existing registry status  
+- name: Display existing registry status
   debug:
     msg: "Registry on port 5000: {{ 'found' if registry_check.stdout != 'none' else 'not found' }}"
 

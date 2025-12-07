@@ -127,6 +127,12 @@
 
 
 
+    - name: Deploy UI static files
+      include_role:
+        name: ui_deployment
+      when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'ui'
+      tags: [ui, frontend]
+
     - name: Update Nginx configuration
       include_role:
         name: nginx_config

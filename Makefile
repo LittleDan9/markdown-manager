@@ -246,20 +246,9 @@ deploy-nginx: ## Update nginx configuration only using Ansible
 	@./scripts/setup-ansible.sh
 	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags nginx
 
-deploy-ui: ## Build and deploy UI static files
-	@echo "$(YELLOW)🔨 Building UI...$(NC)"
-	@cd $(UI_DIR) && npm install && npm run build:clean
-	@echo "$(YELLOW)📤 Deploying UI files...$(NC)"
-ifeq ($(REMOTE_USER_HOST),)
-	@sudo mkdir -p $(DEPLOY_BASE)
-	@sudo $(COPY_CMD) $(FRONT_DIST_DIR)/ $(DEPLOY_BASE)/
-	@sudo chown -R www-data:www-data $(DEPLOY_BASE)
-else
-	@$(SSH_CMD) -i ~/.ssh/id_danbian $(REMOTE_USER_HOST) "sudo mkdir -p $(DEPLOY_BASE) && sudo chown -R dlittle:dlittle $(DEPLOY_BASE)"
-	@$(COPY_CMD) $(FRONT_DIST_DIR)/ $(REMOTE_USER_HOST):$(DEPLOY_BASE)/
-	@$(SSH_CMD) -i ~/.ssh/id_danbian $(REMOTE_USER_HOST) "sudo chown -R www-data:www-data $(DEPLOY_BASE)"
-endif
-	@echo "$(GREEN)✅ UI deployed successfully$(NC)"
+deploy-ui: ## Build and deploy UI static files using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags ui -e deploy_service=ui
 
 deploy-cleanup: ## Run cleanup operations using Ansible
 	@./scripts/setup-ansible.sh

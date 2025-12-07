@@ -50,7 +50,7 @@ class SpellCheckApi extends Api {
         requestPayload.options.codeSpellSettings = options.codeSpellSettings;
       }
 
-      const response = await this.apiCall('/spell-check/', 'POST', requestPayload);
+      const response = await this.apiCall('/spell-check/check', 'POST', requestPayload);
       return response.data;
     } catch (error) {
       console.error('Spell check failed:', error);
@@ -151,7 +151,7 @@ class SpellCheckApi extends Api {
    */
   async checkBatch(texts, customWords = [], options = {}) {
     try {
-      const response = await this.apiCall('/spell-check/batch', 'POST', {
+      const response = await this.apiCall('/spell-check/check-batch', 'POST', {
         texts: texts,
         customWords: customWords,
         options: options

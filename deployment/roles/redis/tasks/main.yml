@@ -1,14 +1,28 @@
 ---
 - name: "Create Redis data directory using shell command"
   ansible.builtin.shell: |
-    sudo mkdir -p {{ redis.data_volume }}
-    sudo chown 999:999 {{ redis.data_volume }}
-    sudo chmod 755 {{ redis.data_volume }}
+    if [ ! -d "{{ redis.data_volume }}" ] || [ "$(stat -c '%U:%G' {{ redis.data_volume }})" != "systemd-coredump:systemd-coredump" ]; then
+      sudo mkdir -p {{ redis.data_volume }}
+      sudo chown 999:999 {{ redis.data_volume }}
+      sudo chmod 755 {{ redis.data_volume }}
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: redis_data_dir_result
+  changed_when: "'changed' in redis_data_dir_result.stdout"
 
 - name: "Create Redis config directory using shell command"
   ansible.builtin.shell: |
-    sudo mkdir -p /etc/redis
-    sudo chmod 755 /etc/redis
+    if [ ! -d "/etc/redis" ]; then
+      sudo mkdir -p /etc/redis
+      sudo chmod 755 /etc/redis
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: redis_config_dir_result
+  changed_when: "'changed' in redis_config_dir_result.stdout"
 
 - name: "Create temporary Redis config file"
   ansible.builtin.template:
@@ -18,33 +32,60 @@
 
 - name: "Copy Redis configuration to system location"
   ansible.builtin.shell: |
-    sudo cp /tmp/redis.conf {{ redis.config_file }}
-    sudo chmod 644 {{ redis.config_file }}
+    if ! cmp -s /tmp/redis.conf {{ redis.config_file }} 2>/dev/null; then
+      sudo cp /tmp/redis.conf {{ redis.config_file }}
+      sudo chmod 644 {{ redis.config_file }}
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: redis_config_copy_result
+  changed_when: "'changed' in redis_config_copy_result.stdout"
 
 - name: "Pull Redis Docker image"
   ansible.builtin.shell: |
-    docker pull {{ redis.image }}:{{ redis.tag }}
+    if ! docker images {{ redis.image }}:{{ redis.tag }} | grep -q {{ redis.image }}; then
+      docker pull {{ redis.image }}:{{ redis.tag }}
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: redis_pull_result
+  changed_when: "'changed' in redis_pull_result.stdout"
 
 - name: "Stop existing Redis container"
   ansible.builtin.shell: |
-    docker stop {{ redis.name }} || true
-    docker rm {{ redis.name }} || true
+    if docker ps | grep -q {{ redis.name }}; then
+      docker stop {{ redis.name }}
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: redis_stop_result
+  changed_when: "'changed' in redis_stop_result.stdout"
 
 - name: "Run Redis container"
   ansible.builtin.shell: |
-    docker run -d \
-      --name {{ redis.name }} \
-      --restart {{ redis.restart_policy }} \
-      -p {{ redis.port }}:6379 \
-      -v {{ redis.data_volume }}:/data \
-      -v {{ redis.config_file }}:/etc/redis/redis.conf:ro \
-      --network {{ docker.network_name }} \
-      --health-cmd="redis-cli ping" \
-      --health-interval=5s \
-      --health-timeout=5s \
-      --health-retries=5 \
-      {{ redis.image }}:{{ redis.tag }} {{ redis.command | join(' ') }}
+    if ! docker ps | grep -q {{ redis.name }}; then
+      docker rm {{ redis.name }} 2>/dev/null || true
+      docker run -d \
+        --name {{ redis.name }} \
+        --restart {{ redis.restart_policy }} \
+        -p {{ redis.port }}:6379 \
+        -v {{ redis.data_volume }}:/data \
+        -v {{ redis.config_file }}:/etc/redis/redis.conf:ro \
+        --network {{ docker.network_name }} \
+        --health-cmd="redis-cli ping" \
+        --health-interval=5s \
+        --health-timeout=5s \
+        --health-retries=5 \
+        {{ redis.image }}:{{ redis.tag }} {{ redis.command | join(' ') }}
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
   register: redis_container
+  changed_when: "'changed' in redis_container.stdout"
 
 - name: "Create temporary Redis systemd service file"
   ansible.builtin.template:
@@ -55,10 +96,27 @@
 
 - name: "Install Redis systemd service"
   ansible.builtin.shell: |
-    sudo cp /tmp/{{ redis.name }}.service /etc/systemd/system/{{ redis.name }}.service
-    sudo systemctl daemon-reload
-    sudo systemctl enable {{ redis.name }}
-    sudo systemctl start {{ redis.name }}
+    changed=false
+    if ! cmp -s /tmp/{{ redis.name }}.service /etc/systemd/system/{{ redis.name }}.service 2>/dev/null; then
+      sudo cp /tmp/{{ redis.name }}.service /etc/systemd/system/{{ redis.name }}.service
+      sudo systemctl daemon-reload
+      changed=true
+    fi
+    if ! systemctl is-enabled --quiet {{ redis.name }} 2>/dev/null; then
+      sudo systemctl enable {{ redis.name }}
+      changed=true
+    fi
+    if ! systemctl is-active --quiet {{ redis.name }} 2>/dev/null; then
+      sudo systemctl start {{ redis.name }}
+      changed=true
+    fi
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: redis_systemd_result
+  changed_when: "'changed' in redis_systemd_result.stdout"
   when: redis.systemd_service
 
 - name: "Wait for Redis to be healthy"
@@ -68,3 +126,4 @@
   until: redis_health.stdout == "PONG"
   retries: 30
   delay: 2
+  changed_when: false

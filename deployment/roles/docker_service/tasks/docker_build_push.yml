@@ -29,7 +29,7 @@
     fi
     echo "✅ Build completed for {{ service_name }}"
   register: build_result
-  changed_when: true
+  changed_when: build_result.rc == 0
   failed_when: build_result.rc != 0
   delegate_to: localhost
 
@@ -62,6 +62,7 @@
     echo "✅ Successfully pushed {{ service_name }} to registry"
   register: push_result
   failed_when: push_result.rc != 0
+  changed_when: push_result.rc == 0
   delegate_to: localhost
 
 - name: "Pull {{ service_name }} image on production server"
@@ -76,3 +77,4 @@
     echo "✅ Successfully pulled {{ service_name }} image"
   register: pull_result
   failed_when: pull_result.rc != 0
+  changed_when: pull_result.rc == 0

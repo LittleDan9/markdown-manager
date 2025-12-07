@@ -1,0 +1,94 @@
+---
+# UI Build and Deployment Role
+# Builds React UI locally and deploys to production with idempotency
+
+- name: Check if UI source exists
+  stat:
+    path: "{{ playbook_dir }}/../services/ui"
+  delegate_to: localhost
+  register: ui_source_check
+
+- name: Fail if UI source not found
+  fail:
+    msg: "UI source directory not found at {{ playbook_dir }}/../services/ui"
+  when: not ui_source_check.stat.exists
+
+- name: Get current UI build hash
+  shell: |
+    cd "{{ playbook_dir }}/../services/ui"
+    find src -name '*.js' -o -name '*.jsx' -o -name '*.ts' -o -name '*.tsx' -o -name '*.css' -o -name '*.json' | sort | xargs cat | sha256sum | cut -d' ' -f1
+  register: ui_source_hash
+  delegate_to: localhost
+  changed_when: false
+
+- name: Check if UI is already deployed with same hash
+  shell: |
+    if [ -f "{{ ui.nginx_root }}/.build_hash" ]; then
+      cat "{{ ui.nginx_root }}/.build_hash"
+    else
+      echo "no_hash"
+    fi
+  register: deployed_ui_hash
+  changed_when: false
+
+- name: Install UI dependencies (if needed)
+  shell: |
+    cd "{{ playbook_dir }}/../services/ui"
+    if [ ! -d node_modules ] || [ package.json -nt node_modules/.package-lock.json ]; then
+      npm install
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: npm_install_result
+  delegate_to: localhost
+  changed_when: "'changed' in npm_install_result.stdout"
+  when: ui_source_hash.stdout != deployed_ui_hash.stdout
+
+- name: "📦 Building UI locally (only if changed)"
+  shell: |
+    cd "{{ playbook_dir }}/../services/ui"
+    echo "🔨 Building UI for production..."
+    npm run build:clean
+    echo "✅ UI build completed"
+  register: ui_build_result
+  delegate_to: localhost
+  when: ui_source_hash.stdout != deployed_ui_hash.stdout
+  changed_when: ui_build_result.rc == 0
+
+- name: "📤 Deploy UI files to production (using rsync like Makefile)"
+  shell: |
+    # Use the same approach as the working Makefile deploy-ui
+    # Ensure target directory exists with proper permissions
+    sudo mkdir -p "{{ ui.nginx_root }}"
+    sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
+    
+    # Sync files using rsync (same as Makefile)
+    rsync -av --delete "{{ playbook_dir }}/../services/ui/dist/" "{{ ui.nginx_root }}/"
+    
+    # Set final ownership
+    sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
+    
+    echo "✅ UI files deployed successfully"
+  register: ui_sync_result
+  when: ui_source_hash.stdout != deployed_ui_hash.stdout
+  changed_when: ui_sync_result.rc == 0
+
+- name: Save build hash to prevent unnecessary rebuilds
+  shell: |
+    echo "{{ ui_source_hash.stdout }}" | sudo tee "{{ ui.nginx_root }}/.build_hash" >/dev/null
+    sudo chown www-data:www-data "{{ ui.nginx_root }}/.build_hash"
+    sudo chmod 664 "{{ ui.nginx_root }}/.build_hash"
+  when: ui_source_hash.stdout != deployed_ui_hash.stdout
+  changed_when: false
+
+- name: Display UI deployment status
+  debug:
+    msg: |
+      {% if ui_source_hash.stdout != deployed_ui_hash.stdout %}
+      ✅ UI deployed successfully
+      📦 Build hash: {{ ui_source_hash.stdout }}
+      📂 Deployed to: {{ ui.nginx_root }}
+      {% else %}
+      ℹ️  UI already up to date (hash: {{ ui_source_hash.stdout[:12] }}...)
+      {% endif %}
