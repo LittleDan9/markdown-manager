@@ -62,13 +62,13 @@
     # Ensure target directory exists with proper permissions
     sudo mkdir -p "{{ ui.nginx_root }}"
     sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
-    
+
     # Sync files using rsync (same as Makefile)
     rsync -av --delete "{{ playbook_dir }}/../services/ui/dist/" "{{ ui.nginx_root }}/"
-    
+
     # Set final ownership
     sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
-    
+
     echo "✅ UI files deployed successfully"
   register: ui_sync_result
   when: ui_source_hash.stdout != deployed_ui_hash.stdout

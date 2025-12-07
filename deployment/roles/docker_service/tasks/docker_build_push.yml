@@ -7,19 +7,19 @@
   shell: |
     echo "🔨 Building Docker image for {{ service_name }} locally..."
     echo "📦 This may take several minutes for Python/Node.js dependencies"
-    
+
     if [ ! -d "{{ source_path }}" ]; then
       echo "❌ Source directory not found: {{ source_path }}"
       echo "Available services:"
       ls -la "{{ playbook_dir }}/../services/" 2>/dev/null || echo "No services directory found"
       exit 1
     fi
-    
+
     cd "{{ source_path }}"
     # Calculate source hash
     SOURCE_HASH=$(find . -name '*.py' -o -name '*.js' -o -name '*.json' -o -name 'Dockerfile' | sort | xargs cat | sha256sum | cut -d' ' -f1)
     echo "📝 Source hash: $SOURCE_HASH"
-    
+
     if ! docker build -f {{ service.dockerfile }} -t {{ service.image }}:{{ service.tag }} . \
       --label "source_hash=$SOURCE_HASH" \
       --label "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \

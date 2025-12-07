@@ -45,7 +45,7 @@ services:
       - "CONTAINER_STORAGE_ROOT"
       - "ALLOWED_ORIGINS"
 
-    
+
   export:
     name: "markdown-manager-export"
     image: "littledan9/markdown-manager-export"
@@ -64,7 +64,7 @@ services:
       - "ENVIRONMENT"
       - "HOST_STORAGE_ROOT"
       - "CONTAINER_STORAGE_ROOT"
-    
+
   linting:
     name: "markdown-manager-lint"
     image: "littledan9/markdown-manager-lint"
@@ -83,7 +83,7 @@ services:
       - "NODE_ENV"
       - "NODE_OPTIONS"
       - "ENVIRONMENT"
-    
+
   spell-check:
     name: "markdown-manager-spell-check"
     image: "littledan9/markdown-manager-spell-check"

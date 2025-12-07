@@ -75,7 +75,7 @@
 
 - name: "Get source code hash for {{ service_name }}"
   shell: |
-    cd "{{ playbook_dir }}/../{{ service.build_context | regex_replace('^\\./', '') }}" 
+    cd "{{ playbook_dir }}/../{{ service.build_context | regex_replace('^\\./', '') }}"
     find . -name '*.py' -o -name '*.js' -o -name '*.json' -o -name 'Dockerfile' | sort | xargs cat | sha256sum | cut -d' ' -f1
   register: source_hash
   ignore_errors: true
