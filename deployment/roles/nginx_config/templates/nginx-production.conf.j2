@@ -51,7 +51,7 @@ http {
         location /api/spell-check/ {
             # Remove /api/spell-check prefix before proxying directly to spell-check service
             rewrite ^/api/spell-check/(.*)$ /$1 break;
-            proxy_pass http://{{ services['spell-check'].name }}:{{ services['spell-check'].port }};
+            proxy_pass http://localhost:{{ services['spell-check'].port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -67,7 +67,7 @@ http {
         location /api/export/ {
             # Remove /api/export prefix before proxying to export service  
             rewrite ^/api/export/(.*)$ /$1 break;
-            proxy_pass http://{{ services.export.name }}:{{ services.export.port }};
+            proxy_pass http://localhost:{{ services.export.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -83,7 +83,7 @@ http {
         location ~ ^/api/markdown-lint/(user|categories|folders)/ {
             # Remove /api prefix before proxying to backend
             rewrite ^/api/(.*)$ /$1 break;
-            proxy_pass http://{{ services.backend.name }}:{{ services.backend.port }};
+            proxy_pass http://localhost:{{ services.backend.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -99,7 +99,7 @@ http {
         location /api/markdown-lint/ {
             # Remove /api/markdown-lint prefix before proxying directly to lint service
             rewrite ^/api/markdown-lint/(.*)$ /$1 break;
-            proxy_pass http://{{ services.linting.name }}:{{ services.linting.port }};
+            proxy_pass http://localhost:{{ services.linting.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -115,7 +115,7 @@ http {
         location /api/ {
             # Remove /api prefix before proxying to backend
             rewrite ^/api/(.*)$ /$1 break;
-            proxy_pass http://{{ services.backend.name }}:{{ services.backend.port }};
+            proxy_pass http://localhost:{{ services.backend.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -131,7 +131,7 @@ http {
         location /export/ {
             # Remove /export prefix before proxying to export service
             rewrite ^/export/(.*)$ /$1 break;
-            proxy_pass http://{{ services.export.name }}:{{ services.export.port }};
+            proxy_pass http://localhost:{{ services.export.port }};
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

@@ -1,0 +1,12 @@
+---
+- name: Check Markdown Manager Service Status
+  hosts: production
+  become: no
+  vars_files:
+    - config.yml
+    - group_vars/production.yml
+
+  tasks:
+    - name: Check service status
+      include_role:
+        name: status

@@ -1,6 +1,0 @@
-# Docker Compose file removed - using native Ansible deployment
-# All Ansible operations now run directly on the development machine
-# This eliminates container complexity and volume mounting issues
-#
-# To deploy: make deploy-ansible
-# The setup script will automatically install Ansible if needed

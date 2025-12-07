@@ -21,7 +21,7 @@ ExecStart=/bin/bash -c 'set -a; source {{ service.env_file }}; set +a; docker ru
 {% endif %}
 {% for network in service.networks | default([]) %}  --network {{ network }} \
 {% endfor %}
-{% if 'consumer_config' in service %}  --volume /workspace/{{ service.consumer_config }}:/app/consumer.config.json:ro \
+{% if 'consumer_config' in service %}  --volume /workspace/{{ service.consumer_config }}:/app/config/consumer.config.json:ro \
 {% endif %}
 {% if service.name == 'markdown-manager-backend' %}  -v "$HOST_STORAGE_ROOT":/documents \
 {% endif %}

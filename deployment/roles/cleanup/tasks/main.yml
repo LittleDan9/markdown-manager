@@ -1,22 +1,35 @@
 ---
-- name: Get list of all images for each service
+# Phase 1 Cleanup Tasks from Remediation Plan
+
+- name: "Remove legacy markdown-manager-api service"
   shell: |
-    docker images --format "table {{.Repository}}:{{.Tag}}\t{{.ID}}\t{{.CreatedAt}}" | \
-    grep "localhost:{{ registry.port }}" | \
-    sort -k3 -r
-  register: all_images
+    sudo systemctl stop markdown-manager-api 2>/dev/null || true
+    sudo systemctl disable markdown-manager-api 2>/dev/null || true
   ignore_errors: true
+
+- name: "Remove legacy service file"
+  shell: |
+    sudo rm -f /etc/systemd/system/markdown-manager-api.service
+
+- name: "Reload systemd daemon after cleanup"
+  shell: |
+    sudo systemctl daemon-reload
+
+- name: "Clean up Docker system (containers, networks, volumes)"
+  command: "docker system prune -f --volumes"
+  register: docker_system_prune
+  changed_when: "'reclaimed' in docker_system_prune.stdout"
 
 - name: Clean up old Docker images
   shell: |
-    # Keep only the latest {{ docker.keep_image_count | default(3) }} images per service
-    for service in {{ services.keys() | join(' ') }}; do
-      echo "Cleaning up images for $service..."
-      docker images --format "{{.ID}}" localhost:{{ registry.port }}/$service | \
-      tail -n +{{ (docker.keep_image_count | default(3)) + 1 }} | \
-      xargs -r docker rmi -f || true
+    # Clean up old images for each service (keep 3 latest)
+    for service in backend export linting spell-check event-publisher; do
+      echo "Cleaning up images for markdown-manager-$service..."
+      docker images --format "{{ '{{' }}.ID{{ '}}' }}" localhost:{{ registry.port }}/markdown-manager-$service | \
+      tail -n +4 | \
+      xargs -r docker rmi -f 2>/dev/null || true
     done
-  when: all_images.stdout != ""
+  ignore_errors: true
 
 - name: Remove dangling images
   command: docker image prune -f

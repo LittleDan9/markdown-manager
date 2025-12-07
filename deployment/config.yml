@@ -75,7 +75,6 @@ services:
     systemd_service: true
     health_check: "/health"
     env_file: "/etc/markdown-manager.env"
-    consumer_config: "consumer.config.json"  # This service has event consumption
     networks:
       - "markdown-manager"
     restart_policy: "unless-stopped"
@@ -95,7 +94,6 @@ services:
     systemd_service: true
     health_check: "/health"
     env_file: "/etc/markdown-manager.env"
-    consumer_config: "consumer.config.json"  # This service has event consumption
     networks:
       - "markdown-manager"
     restart_policy: "unless-stopped"
@@ -127,7 +125,7 @@ event_consumer_template:
   image: "littledan9/markdown-manager-event-consumer"
   tag: "latest"
   port: 0  # No exposed port
-  build_context: ".."  # Use repo root since Dockerfile needs access to packages/
+  build_context: "."  # Use repo root since Dockerfile needs access to packages/
   dockerfile: "services/event-consumer/Dockerfile"
   systemd_service: true
   env_file: "/etc/markdown-manager.env"

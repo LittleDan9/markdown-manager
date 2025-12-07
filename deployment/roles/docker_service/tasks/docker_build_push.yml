@@ -1,7 +1,7 @@
 ---
 - name: "Set source path for {{ service_name }}"
   set_fact:
-    source_path: "{{ playbook_dir }}/{{ service.build_context | regex_replace('^\\./', '../') }}"
+    source_path: "{{ playbook_dir }}/../{{ service.build_context | regex_replace('^\\./', '') }}"
 
 - name: "Build {{ service_name }} image locally"
   shell: |
@@ -16,7 +16,14 @@
     fi
     
     cd "{{ source_path }}"
-    if ! docker build -f {{ service.dockerfile }} -t {{ service.image }}:{{ service.tag }} . --progress=plain; then
+    # Calculate source hash
+    SOURCE_HASH=$(find . -name '*.py' -o -name '*.js' -o -name '*.json' -o -name 'Dockerfile' | sort | xargs cat | sha256sum | cut -d' ' -f1)
+    echo "📝 Source hash: $SOURCE_HASH"
+    
+    if ! docker build -f {{ service.dockerfile }} -t {{ service.image }}:{{ service.tag }} . \
+      --label "source_hash=$SOURCE_HASH" \
+      --label "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --progress=plain; then
       echo "❌ Build failed for {{ service_name }}"
       exit 1
     fi

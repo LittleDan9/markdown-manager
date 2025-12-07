@@ -58,5 +58,4 @@ class Settings(BaseSettings):
     )
 
     class Config:
-        env_prefix = "RELAY_"
         env_file = ".env"

@@ -1,0 +1,29 @@
+---
+- name: "Check service status"
+  shell: |
+    echo "Service Status Summary:"
+    echo "====================="
+    {% for service_key, service_data in services.items() %}
+    {% if service_data.systemd_service | default(false) %}
+    status=$(sudo systemctl is-active {{ service_data.name }} 2>/dev/null || echo "inactive")
+    if [ "$status" = "active" ]; then
+      echo "✅ {{ service_data.name }}: $status"
+    else
+      echo "❌ {{ service_data.name }}: $status"
+    fi
+    {% endif %}
+    {% endfor %}
+
+    # Check Redis separately
+    redis_status=$(sudo systemctl is-active {{ redis.name }} 2>/dev/null || echo "inactive")
+    if [ "$redis_status" = "active" ]; then
+      echo "✅ {{ redis.name }}: $redis_status"
+    else
+      echo "❌ {{ redis.name }}: $redis_status"
+    fi
+  register: service_status
+  changed_when: false
+
+- name: "Display service status"
+  debug:
+    msg: "{{ service_status.stdout }}"

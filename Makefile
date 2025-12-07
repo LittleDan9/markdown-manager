@@ -70,9 +70,9 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 # ────────────────────────────────────────────────────────────────────────────
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
-.PHONY: deploy deploy-front deploy-back deploy-nginx deploy-nginx-frontend deploy-nginx-api deploy-nginx-all
-.PHONY: deploy-backend-only deploy-export-only deploy-lint-only deploy-spell-check-only deploy-consumer-only
-.PHONY: deploy-build-only deploy-remote-only deploy-cleanup-only deploy-infra-only
+.PHONY: deploy deploy-quiet deploy-verbose deploy-dry-run deploy-status
+.PHONY: deploy-backend deploy-export deploy-lint deploy-spell-check deploy-event-publisher deploy-redis
+.PHONY: deploy-linting-consumer deploy-spell-check-consumer deploy-nginx deploy-ui deploy-cleanup deploy-infra
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -170,26 +170,26 @@ endif
 # ────────────────────────────────────────────────────────────────────────────
 # LEGACY SHELL SCRIPT DEPLOYMENT SYSTEM REMOVED
 # ────────────────────────────────────────────────────────────────────────────
-# 
+#
 # The old shell script deployment system has been replaced with Ansible.
-# 
+#
 # OLD TARGETS REMOVED:
 #   deploy, deploy-front, deploy-back, deploy-nginx-*, deploy-*-only, etc.
-# 
+#
 # NEW ANSIBLE TARGETS:
 #   make deploy              # Deploy all services
-#   make deploy-backend      # Deploy backend only  
+#   make deploy-backend      # Deploy backend only
 #   make deploy-export       # Deploy export only
 #   make deploy-linting      # Deploy linting only
 #   make deploy-spell-check  # Deploy spell-check only
 #   etc.
-# 
+#
 # Benefits of Ansible deployment:
 # - Proper error detection and health validation
-# - Configuration-driven deployment 
+# - Configuration-driven deployment
 # - Mature orchestration with rollback capabilities
 # - No more "convoluted" shell scripts
-# 
+#
 # Migration complete: deployment/MIGRATION-COMPLETE.md
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -197,8 +197,9 @@ endif
 # ────────────────────────────────────────────────────────────────────────────
 
 deploy: ## Deploy all services using Ansible (native)
+	@echo "$(BLUE)🚀 Starting Markdown Manager Deployment$(NC)"
 	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -v --diff
 
 deploy-backend: ## Deploy only backend service using Ansible
 	@./scripts/setup-ansible.sh
@@ -263,6 +264,20 @@ endif
 deploy-cleanup: ## Run cleanup operations using Ansible
 	@./scripts/setup-ansible.sh
 	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags cleanup
+
+deploy-status: ## Check deployment status
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml status.yml
+
+deploy-quiet: ## Deploy all services with minimal output
+	@echo "$(BLUE)🚀 Quiet Deployment Started$(NC)"
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --diff 2>/dev/null || (echo "$(RED)❌ Deployment failed$(NC)" && exit 1)
+	@echo "$(GREEN)✅ Deployment completed$(NC)"
+
+deploy-verbose: ## Deploy all services with detailed output
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -vvv --diff
 
 deploy-dry-run: ## Run Ansible deployment in check mode (dry run)
 	@./scripts/setup-ansible.sh

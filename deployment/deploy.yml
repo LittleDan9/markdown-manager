@@ -11,17 +11,9 @@
       debug:
         msg: "Deploying service: {{ deploy_service | default('all services') }}"
 
-    - name: Display deployment timeline warning
+    - name: Display deployment info
       debug:
-        msg: |
-          🚀 Starting Markdown Manager Deployment
-          ⏱️  Expected timeline:
-            - Infrastructure setup: ~30 seconds
-            - Redis deployment: ~1 minute  
-            - Backend build: ~3-5 minutes (Python dependencies)
-            - Other services: ~2-3 minutes each
-            - Total estimated time: 10-15 minutes
-          📊 Progress will be shown for each step...
+        msg: "🚀 Deploying {{ deploy_service | default('all services') }} to {{ inventory_hostname }}"
 
     - name: Validate required variables
       assert:
@@ -91,7 +83,7 @@
             })
           }}
         service_name: "linting-consumer"
-      when: 
+      when:
         - services.linting.consumer_config is defined
         - deploy_service is not defined or deploy_service == 'all' or deploy_service == 'linting' or deploy_service == 'linting-consumer'
       tags: [services, linting, linting-consumer]
@@ -117,7 +109,7 @@
             })
           }}
         service_name: "spell-check-consumer"
-      when: 
+      when:
         - services['spell-check'].consumer_config is defined
         - deploy_service is not defined or deploy_service == 'all' or deploy_service == 'spell-check' or deploy_service == 'spell-check-consumer'
       tags: [services, spell-check, spell-check-consumer]
@@ -142,6 +134,15 @@
       tags: [nginx]
 
   post_tasks:
+    - name: Deployment Summary
+      debug:
+        msg: |
+          🎉 Deployment completed successfully!
+          🔗 Services deployed: {{ deploy_service | default('all') }}
+          📍 Host: {{ inventory_hostname }}
+          ⏰ Completed at: {{ ansible_date_time.iso8601 }}
+      when: ansible_verbosity >= 0
+
     - name: Cleanup old images
       include_role:
         name: cleanup
