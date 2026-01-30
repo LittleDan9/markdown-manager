@@ -8,9 +8,9 @@
     "dev": "nodemon server.js"
   },
   "dependencies": {
-    "express": "^4.18.2",
-    "markdownlint": "^0.34.0",
-    "cors": "^2.8.5"
+    "express": "^4.22.1",
+    "markdownlint": "^0.40.0",
+    "cors": "^2.8.6"
   },
   "devDependencies": {
     "nodemon": "^3.0.1"
