@@ -316,6 +316,14 @@ SPELL_CHECK_SERVICE_URL=http://markdown-manager-spell-check:8003
 # Redis
 REDIS_URL=redis://markdown-manager-redis:6379/0
 
+# Event Publisher (RELAY_ prefix required)
+RELAY_DATABASE_URL=sqlite:///data/markdown_manager.db
+RELAY_REDIS_URL=redis://markdown-manager-redis:6379/0
+RELAY_BATCH_SIZE=50
+RELAY_POLL_INTERVAL=5
+RELAY_MAX_RETRY_ATTEMPTS=5
+RELAY_LOG_LEVEL=INFO
+
 # GitHub Integration
 GITHUB_CLIENT_ID=your_github_client_id
 GITHUB_CLIENT_SECRET=your_github_client_secret

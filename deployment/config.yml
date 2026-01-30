@@ -117,8 +117,12 @@ services:
       - "markdown-manager"
     restart_policy: "unless-stopped"
     environment_variables:
-      - "DATABASE_URL"
-      - "REDIS_URL"
+      - "RELAY_DATABASE_URL"
+      - "RELAY_REDIS_URL"
+      - "RELAY_BATCH_SIZE"
+      - "RELAY_POLL_INTERVAL"
+      - "RELAY_MAX_RETRY_ATTEMPTS"
+      - "RELAY_LOG_LEVEL"
       - "ENVIRONMENT"
 
 # Event consumer service template (used automatically for services with consumer_config)
