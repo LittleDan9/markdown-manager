@@ -1,33 +1,50 @@
 const express = require('express');
 const cors = require('cors');
-const markdownlint = require('markdownlint');
 const fs = require('fs');
 const path = require('path');
 
-const app = express();
-const PORT = process.env.MARKDOWN_LINT_PORT || 8002;
+// Dynamic import for markdownlint (ES module)
+let markdownlint;
 
-// Load rule definitions and recommended defaults from JSON files
-let ruleDefinitions = {};
-let recommendedDefaults = {};
-
-try {
-    const rulesPath = path.join(__dirname, 'rules-definitions.json');
-    const defaultsPath = path.join(__dirname, 'recommended-defaults.json');
-
-    ruleDefinitions = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
-    recommendedDefaults = JSON.parse(fs.readFileSync(defaultsPath, 'utf8'));
-
-    console.log(`Loaded ${Object.keys(ruleDefinitions).length} rule definitions`);
-    console.log(`Loaded recommended defaults for ${Object.keys(recommendedDefaults.rules).length} rules`);
-} catch (error) {
-    console.error('Failed to load rule configuration files:', error);
-    process.exit(1);
+async function initializeServer() {
+    try {
+        const markdownlintModule = await import('markdownlint');
+        markdownlint = markdownlintModule.default;
+        console.log('markdownlint ES module loaded successfully');
+        
+        // Start server after markdownlint is loaded
+        startServer();
+    } catch (error) {
+        console.error('Failed to load markdownlint:', error);
+        process.exit(1);
+    }
 }
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' })); // Support large markdown files
+function startServer() {
+    const app = express();
+    const PORT = process.env.MARKDOWN_LINT_PORT || 8002;
+
+    // Load rule definitions and recommended defaults from JSON files
+    let ruleDefinitions = {};
+    let recommendedDefaults = {};
+
+    try {
+        const rulesPath = path.join(__dirname, 'rules-definitions.json');
+        const defaultsPath = path.join(__dirname, 'recommended-defaults.json');
+
+        ruleDefinitions = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
+        recommendedDefaults = JSON.parse(fs.readFileSync(defaultsPath, 'utf8'));
+
+        console.log(`Loaded ${Object.keys(ruleDefinitions).length} rule definitions`);
+        console.log(`Loaded recommended defaults for ${Object.keys(recommendedDefaults.rules).length} rules`);
+    } catch (error) {
+        console.error('Failed to load rule configuration files:', error);
+        process.exit(1);
+    }
+
+    // Middleware
+    app.use(cors());
+    app.use(express.json({ limit: '10mb' })); // Support large markdown files
 
 // Health check endpoint
 app.get('/health', (req, res) => {
@@ -185,3 +202,7 @@ app.listen(PORT, '0.0.0.0', () => {
         console.log('markdownlint library loaded successfully');
     }
 });
+}
+
+// Initialize the server
+initializeServer();
