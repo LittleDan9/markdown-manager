@@ -155,7 +155,7 @@ service_deploy_order:
 ui:
   build_context: "./services/ui"
   build_command: "npm install && npm run build:clean"
-  dist_path: "./services/ui/dist"
+  dist_path: "~/ramcache/markdown-manager/dist"
   nginx_root: "/var/www/littledan.com"
   node_version: "24"
 

@@ -36,6 +36,72 @@
         }
       }
 
+      // KaTeX mathematical expressions styling
+      .katex,
+      .katex-display {
+        color: var(--bs-body-color) !important;
+        
+        // Ensure text color applies to all KaTeX elements
+        * {
+          color: inherit !important;
+        }
+        
+        // Make sure display math is centered
+        &.katex-display {
+          text-align: center;
+          margin: 1rem 0;
+          padding: 0.5rem;
+          display: block;
+        }
+      }
+
+      // Inline math styling
+      p .katex,
+      span .katex {
+        display: inline;
+        vertical-align: baseline;
+        font-size: 1em;
+      }
+
+      // Display math styling
+      .katex-display {
+        display: block !important;
+        text-align: center;
+        margin: 1rem 0;
+        padding: 0.5rem;
+        overflow-wrap: break-word;
+      }
+
+      // KaTeX error handling
+      .katex-error {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        border-radius: 0.25rem;
+        font-size: 0.875em;
+        font-family: var(--bs-font-monospace);
+        
+        @include mixins.dark {
+          background-color: #3d1a1a;
+          color: #f5c6cb;
+          border-color: #f5c6cb;
+        }
+      }
+
+      // Theme support for dark mode
+      @include mixins.dark {
+        .katex,
+        .katex-display {
+          color: #fff !important;
+          
+          * {
+            color: inherit !important;
+          }
+        }
+      }
+
       p > code:not([class*="language-"]) {
         color: #e83e8c;
         background: #f8f9fa;

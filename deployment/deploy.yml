@@ -28,6 +28,11 @@
         name: infrastructure
       tags: [infra, infrastructure]
 
+    - name: Fix sudoers configuration for passwordless sudo
+      import_role:
+        name: sudoers_fix
+      tags: [infra, infrastructure, sudoers]
+
     # SSH tunnel not needed since we build directly on Danbian
     # - name: Setup Docker registry tunnel
     #   include_role:
@@ -128,7 +133,7 @@
 
 
     - name: Deploy UI static files
-      include_role:
+      import_role:
         name: ui_deployment
       when: deploy_service is not defined or deploy_service == 'all' or deploy_service == 'ui'
       tags: [ui, frontend]

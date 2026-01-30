@@ -2,11 +2,15 @@
 # UI Build and Deployment Role
 # Builds React UI locally and deploys to production with idempotency
 
-- name: Check if UI source exists
+- name: Debug - Check if UI source exists
   stat:
     path: "{{ playbook_dir }}/../services/ui"
   delegate_to: localhost
   register: ui_source_check
+
+- name: Debug - Display UI source check
+  debug:
+    msg: "UI source path: {{ playbook_dir }}/../services/ui, exists: {{ ui_source_check.stat.exists }}"
 
 - name: Fail if UI source not found
   fail:
@@ -30,6 +34,7 @@
     fi
   register: deployed_ui_hash
   changed_when: false
+  failed_when: false
 
 - name: Install UI dependencies (if needed)
   shell: |
@@ -56,23 +61,25 @@
   when: ui_source_hash.stdout != deployed_ui_hash.stdout
   changed_when: ui_build_result.rc == 0
 
-- name: "📤 Deploy UI files to production (using rsync like Makefile)"
+- name: "📤 Create nginx root directory"
   shell: |
-    # Use the same approach as the working Makefile deploy-ui
-    # Ensure target directory exists with proper permissions
     sudo mkdir -p "{{ ui.nginx_root }}"
-    sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
-
-    # Sync files using rsync (same as Makefile)
-    rsync -av --delete "{{ playbook_dir }}/../services/ui/dist/" "{{ ui.nginx_root }}/"
-
-    # Set final ownership
-    sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
-
-    echo "✅ UI files deployed successfully"
-  register: ui_sync_result
+    sudo chown www-data:www-data "{{ ui.nginx_root }}"
+    sudo chmod 755 "{{ ui.nginx_root }}"
   when: ui_source_hash.stdout != deployed_ui_hash.stdout
-  changed_when: ui_sync_result.rc == 0
+  changed_when: true
+
+- name: "📤 Deploy UI files to production"
+  shell: |
+    rsync -avz --delete {{ ansible_env.HOME }}/ramcache/markdown-manager/dist/ dlittle@{{ ansible_host }}:/tmp/ui_deploy/
+    ssh dlittle@{{ ansible_host }} "sudo rm -rf {{ ui.nginx_root }}/*"
+    ssh dlittle@{{ ansible_host }} "sudo cp -r /tmp/ui_deploy/* {{ ui.nginx_root }}/"
+    ssh dlittle@{{ ansible_host }} "sudo chown -R www-data:www-data {{ ui.nginx_root }}/"
+    ssh dlittle@{{ ansible_host }} "sudo chmod -R 755 {{ ui.nginx_root }}/"
+    ssh dlittle@{{ ansible_host }} "rm -rf /tmp/ui_deploy"
+  delegate_to: localhost
+  when: ui_source_hash.stdout != deployed_ui_hash.stdout
+  changed_when: true
 
 - name: Save build hash to prevent unnecessary rebuilds
   shell: |
@@ -80,7 +87,7 @@
     sudo chown www-data:www-data "{{ ui.nginx_root }}/.build_hash"
     sudo chmod 664 "{{ ui.nginx_root }}/.build_hash"
   when: ui_source_hash.stdout != deployed_ui_hash.stdout
-  changed_when: false
+  changed_when: true
 
 - name: Display UI deployment status
   debug:
