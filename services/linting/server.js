@@ -8,9 +8,9 @@ let markdownlint;
 
 async function initializeServer() {
     try {
-        const markdownlintModule = await import('markdownlint');
-        markdownlint = markdownlintModule.default;
-        console.log('markdownlint ES module loaded successfully');
+        const markdownlintModule = await import('markdownlint/sync');
+        markdownlint = markdownlintModule.lint;
+        console.log('markdownlint sync module loaded successfully');
         
         // Start server after markdownlint is loaded
         startServer();
@@ -91,8 +91,8 @@ app.post('/lint', async (req, res) => {
             config: processedConfig
         };
 
-        // Run markdownlint
-        const results = markdownlint.sync(options);
+        // Run markdownlint (API changed in v0.40.0)
+        const results = markdownlint(options);
 
         // Parse results into our response format
         const issues = parseMarkdownlintResults(results, chunk_offset);
