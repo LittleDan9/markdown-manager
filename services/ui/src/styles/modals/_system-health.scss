@@ -1,0 +1,39 @@
+// System Health Modal Styles
+.system-health-modal {
+  .consumer-details-card {
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color) !important;
+    
+    [data-bs-theme="dark"] & {
+      background: var(--bs-gray-800);
+      border-color: var(--bs-gray-700) !important;
+    }
+    
+    .card-body {
+      background: transparent;
+    }
+  }
+
+  // Consumer status indicators
+  .consumer-status {
+    .bi-check-circle-fill {
+      color: var(--bs-success);
+    }
+    
+    .bi-x-circle-fill {
+      color: var(--bs-danger);
+    }
+  }
+
+  // Small text improvements for dark mode
+  .small.text-muted {
+    [data-bs-theme="dark"] & {
+      color: var(--bs-gray-400) !important;
+    }
+  }
+
+  // Badge improvements
+  .badge.small {
+    font-size: 0.75rem;
+  }
+}

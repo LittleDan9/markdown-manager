@@ -30,6 +30,12 @@ class Settings(BaseSettings):
         description="Seconds to wait between polling for events"
     )
 
+    # HTTP server configuration
+    http_port: int = Field(
+        default=8004,
+        description="Port for HTTP health check server"
+    )
+
     max_retry_attempts: int = Field(
         default=5,
         description="Maximum number of retry attempts for failed events"

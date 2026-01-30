@@ -6,6 +6,7 @@ import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import RegisterModal from "@/components/auth/modals/RegisterModal";
 import UserSettingsModal from "@/components/user/modals/UserSettingsModal";
 import SpellCheckSettingsModal from "@/components/editor/spell-check/SpellCheckSettingsModal";
+import SystemHealthModal from "@/components/system/SystemHealthModal";
 import UserAPI from "@/api/userApi";
 import { useNotification } from "@/components/NotificationProvider";
 import { useAuth } from "@/providers/AuthProvider";
@@ -33,6 +34,7 @@ function UserMenuLoggedOut() {
 
   const [showDictionaryModal, setShowDictionaryModal] = useState(false);
   const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
+  const [showSystemHealthModal, setShowSystemHealthModal] = useState(false);
 
 
   const handleShowRegister = () => {
@@ -94,6 +96,10 @@ function UserMenuLoggedOut() {
     setShowSpellCheckModal(true);
   };
 
+  const handleSystemHealth = () => {
+    setShowSystemHealthModal(true);
+  };
+
   return (
     <>
     <Dropdown.Menu>
@@ -114,6 +120,9 @@ function UserMenuLoggedOut() {
           </Dropdown.Item>
           <Dropdown.Item id="spellCheckBtn" onClick={handleSpellCheck}>
             <i className="bi bi-spellcheck me-2"></i>Spell Check
+          </Dropdown.Item>
+          <Dropdown.Item id="systemHealthBtn" onClick={handleSystemHealth}>
+            <i className="bi bi-activity me-2"></i>System Health
           </Dropdown.Item>
         </>
       )}
@@ -151,6 +160,10 @@ function UserMenuLoggedOut() {
         // For guest users, we could save to localStorage
         console.log('Guest spell check settings changed:', newSettings);
       }}
+    />
+    <SystemHealthModal
+      show={showSystemHealthModal}
+      onHide={() => setShowSystemHealthModal(false)}
     />
     </>
   );

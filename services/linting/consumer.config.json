@@ -1,6 +1,6 @@
 {
   "service": {
-    "name": "markdown-lint-consumer",
+    "name": "linting_consumer",
     "domain": "linting",
     "schema": "linting"
   },

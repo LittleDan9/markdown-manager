@@ -10,6 +10,7 @@ import IconManagementModal from "../icons/modals/IconManagementModal";
 import AdminModal from "../admin/AdminModal";
 import GitManagementModal from "../git/GitManagementModal";
 import SpellCheckSettingsModal from "../editor/spell-check/SpellCheckSettingsModal";
+import SystemHealthModal from "../system/SystemHealthModal";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
@@ -21,6 +22,7 @@ function UserMenuLoggedIn() {
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
   const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
+  const [showSystemHealthModal, setShowSystemHealthModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
 
@@ -76,6 +78,10 @@ function UserMenuLoggedIn() {
     setShowSpellCheckModal(true);
   };
 
+  const handleSystemHealth = () => {
+    setShowSystemHealthModal(true);
+  };
+
   const handleGitHub = () => {
     setShowGitHubModal(true);
   };
@@ -109,6 +115,7 @@ function UserMenuLoggedIn() {
   const handleIconModalHide = useCallback(() => setShowIconModal(false), []);
   const handleAdminModalHide = useCallback(() => setShowAdminModal(false), []);
   const handleSpellCheckModalHide = useCallback(() => setShowSpellCheckModal(false), []);
+  const handleSystemHealthModalHide = useCallback(() => setShowSystemHealthModal(false), []);
 
   return (
     <>
@@ -135,6 +142,9 @@ function UserMenuLoggedIn() {
         </Dropdown.Item>
         <Dropdown.Item id="spellCheckBtn" onClick={handleSpellCheck}>
           <i className="bi bi-spellcheck me-2"></i>Spell Check
+        </Dropdown.Item>
+        <Dropdown.Item id="systemHealthBtn" onClick={handleSystemHealth}>
+          <i className="bi bi-activity me-2"></i>System Health
         </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item
@@ -238,6 +248,10 @@ function UserMenuLoggedIn() {
           // For global settings, we could save to localStorage or user preferences
           console.log('Global spell check settings changed:', newSettings);
         }}
+      />
+      <SystemHealthModal
+        show={showSystemHealthModal}
+        onHide={handleSystemHealthModalHide}
       />
     </>
   );
