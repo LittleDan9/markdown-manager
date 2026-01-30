@@ -1,0 +1,40 @@
+---
+# Check and fix sudoers configuration for markdown-manager deployment
+
+- name: "Check current sudoers configuration"
+  command: "sudo -l"
+  register: current_sudoers
+  changed_when: false
+
+- name: "Display current sudo permissions"
+  debug:
+    msg: "Current sudo permissions: {{ current_sudoers.stdout_lines }}"
+
+- name: "Check if systemctl is allowed without password"
+  shell: "sudo -n systemctl --version"
+  register: systemctl_check
+  ignore_errors: true
+  changed_when: false
+
+- name: "Add missing systemctl permissions to sudoers"
+  lineinfile:
+    path: /etc/sudoers.d/dlittle-nopasswd
+    line: "dlittle ALL=(ALL) NOPASSWD: /bin/systemctl"
+    create: true
+    validate: 'visudo -cf %s'
+  become: true
+  when: systemctl_check.rc != 0
+
+- name: "Add missing file operations to sudoers"
+  lineinfile:
+    path: /etc/sudoers.d/dlittle-nopasswd
+    line: "dlittle ALL=(ALL) NOPASSWD: /bin/mkdir, /bin/cp, /bin/chmod, /bin/chown"
+    create: true
+    validate: 'visudo -cf %s'
+  become: true
+  when: systemctl_check.rc != 0
+
+- name: "Verify sudoers configuration"
+  command: "sudo -n systemctl --version"
+  register: final_check
+  changed_when: false

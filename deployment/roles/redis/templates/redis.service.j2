@@ -1,0 +1,27 @@
+[Unit]
+Description=Redis Docker Container for {{ redis.name }}
+Requires=docker.service
+After=docker.service
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=-/usr/bin/docker stop {{ redis.name }}
+ExecStartPre=-/usr/bin/docker rm {{ redis.name }}
+ExecStart=/usr/bin/docker run -d \
+  --name {{ redis.name }} \
+  --restart {{ redis.restart_policy }} \
+  --network {{ docker.network_name }} \
+  -p {{ redis.port }}:6379 \
+  -v {{ redis.data_volume }}:/data \
+  -v {{ redis.config_file }}:/etc/redis/redis.conf:ro \
+  {{ redis.image }}:{{ redis.tag }} \
+  redis-server /etc/redis/redis.conf
+ExecStop=/usr/bin/docker stop {{ redis.name }}
+ExecStopPost=/usr/bin/docker rm {{ redis.name }}
+Restart=on-failure
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,62 @@
+---
+- name: Ensure Docker is installed and running
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Create Docker network for services
+  docker_network:
+    name: "{{ docker.network_name }}"
+    state: present
+
+- name: Check for containers using port 5000
+  shell: "docker ps | grep ':5000->' || echo 'none'"
+  register: registry_check
+  failed_when: false
+  changed_when: false
+
+- name: Display existing registry status
+  debug:
+    msg: "Registry on port 5000: {{ 'found' if registry_check.stdout != 'none' else 'not found' }}"
+
+- name: Registry setup status
+  debug:
+    msg: "Using existing registry - skipping creation"
+  when: registry_check.stdout != 'none'
+
+- name: Verify registry is accessible
+  uri:
+    url: "http://localhost:{{ registry.port }}/v2/"
+    method: GET
+  register: registry_health
+  retries: 3
+  delay: 2
+  ignore_errors: true
+
+- name: Create systemd directory for services
+  file:
+    path: /etc/systemd/system
+    state: directory
+    mode: '0755'
+
+- name: Create environment file directory
+  file:
+    path: /etc
+    state: directory
+    mode: '0755'
+
+- name: Check if environment file exists
+  stat:
+    path: /etc/markdown-manager.env
+  register: env_file_stat
+
+- name: Create basic environment file if it doesn't exist
+  copy:
+    content: |
+      # Markdown Manager Environment Configuration
+      # Add your environment variables here
+      ENVIRONMENT=production
+    dest: /etc/markdown-manager.env
+    mode: '0600'
+  when: not env_file_stat.stat.exists

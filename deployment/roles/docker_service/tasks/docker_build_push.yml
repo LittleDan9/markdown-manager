@@ -1,0 +1,80 @@
+---
+- name: "Set source path for {{ service_name }}"
+  set_fact:
+    source_path: "{{ playbook_dir }}/../{{ service.build_context | regex_replace('^\\./', '') }}"
+
+- name: "Build {{ service_name }} image locally"
+  shell: |
+    echo "🔨 Building Docker image for {{ service_name }} locally..."
+    echo "📦 This may take several minutes for Python/Node.js dependencies"
+
+    if [ ! -d "{{ source_path }}" ]; then
+      echo "❌ Source directory not found: {{ source_path }}"
+      echo "Available services:"
+      ls -la "{{ playbook_dir }}/../services/" 2>/dev/null || echo "No services directory found"
+      exit 1
+    fi
+
+    cd "{{ source_path }}"
+    # Calculate source hash
+    SOURCE_HASH=$(find . -name '*.py' -o -name '*.js' -o -name '*.json' -o -name 'Dockerfile' | sort | xargs cat | sha256sum | cut -d' ' -f1)
+    echo "📝 Source hash: $SOURCE_HASH"
+
+    if ! docker build -f {{ service.dockerfile }} -t {{ service.image }}:{{ service.tag }} . \
+      --label "source_hash=$SOURCE_HASH" \
+      --label "build_date=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+      --progress=plain; then
+      echo "❌ Build failed for {{ service_name }}"
+      exit 1
+    fi
+    echo "✅ Build completed for {{ service_name }}"
+  register: build_result
+  changed_when: build_result.rc == 0
+  failed_when: build_result.rc != 0
+  delegate_to: localhost
+
+- name: "Tag {{ service_name }} image for local registry"
+  shell: |
+    echo "🏷️ Tagging {{ service_name }} image for registry..."
+    # Verify image exists before tagging
+    if ! docker images {{ service.image }}:{{ service.tag }} | grep -q {{ service.image }}; then
+      echo "❌ Image {{ service.image }}:{{ service.tag }} not found"
+      echo "Available images:"
+      docker images | grep {{ service.image | basename }} || true
+      exit 1
+    fi
+    if ! docker tag {{ service.image }}:{{ service.tag }} {{ ansible_default_ipv4.address }}:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }}; then
+      echo "❌ Tag failed for {{ service_name }}"
+      exit 1
+    fi
+    echo "✅ Tagged {{ service_name }} for local registry"
+  register: tag_result
+  failed_when: tag_result.rc != 0
+  delegate_to: localhost
+
+- name: "Push {{ service_name }} to local registry"
+  shell: |
+    echo "⬆️ Pushing {{ service_name }} to local registry..."
+    if ! docker push {{ ansible_default_ipv4.address }}:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }}; then
+      echo "❌ Push failed for {{ service_name }}"
+      exit 1
+    fi
+    echo "✅ Successfully pushed {{ service_name }} to registry"
+  register: push_result
+  failed_when: push_result.rc != 0
+  changed_when: push_result.rc == 0
+  delegate_to: localhost
+
+- name: "Pull {{ service_name }} image on production server"
+  shell: |
+    echo "⬇️ Pulling {{ service_name }} from local registry..."
+    if ! docker pull localhost:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }}; then
+      echo "❌ Failed to pull {{ service_name }} image from registry"
+      echo "Available images in registry:"
+      curl -s http://localhost:{{ registry.port }}/v2/_catalog 2>/dev/null || echo "Registry unreachable"
+      exit 1
+    fi
+    echo "✅ Successfully pulled {{ service_name }} image"
+  register: pull_result
+  failed_when: pull_result.rc != 0
+  changed_when: pull_result.rc == 0

@@ -1,0 +1,85 @@
+---
+# Phase 1 Cleanup Tasks from Remediation Plan
+
+- name: "Remove legacy markdown-manager-api service"
+  shell: |
+    changed=false
+    if systemctl is-active --quiet markdown-manager-api 2>/dev/null; then
+      sudo systemctl stop markdown-manager-api
+      changed=true
+    fi
+    if systemctl is-enabled --quiet markdown-manager-api 2>/dev/null; then
+      sudo systemctl disable markdown-manager-api
+      changed=true
+    fi
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: legacy_service_result
+  changed_when: "'changed' in legacy_service_result.stdout"
+  ignore_errors: true
+
+- name: "Remove legacy service file"
+  shell: |
+    if [ -f /etc/systemd/system/markdown-manager-api.service ]; then
+      sudo rm -f /etc/systemd/system/markdown-manager-api.service
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: legacy_file_result
+  changed_when: "'changed' in legacy_file_result.stdout"
+
+- name: "Reload systemd daemon after cleanup"
+  shell: |
+    if [ "{{ legacy_service_result.stdout | default('') }}" = "changed" ] || [ "{{ legacy_file_result.stdout | default('') }}" = "changed" ]; then
+      sudo systemctl daemon-reload
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: daemon_reload_result
+  changed_when: "'changed' in daemon_reload_result.stdout"
+
+- name: "Clean up Docker system (containers, networks, volumes)"
+  command: "docker system prune -f --volumes"
+  register: docker_system_prune
+  changed_when: "'reclaimed' in docker_system_prune.stdout"
+
+- name: Clean up old Docker images
+  shell: |
+    changed=false
+    # Clean up old images for each service (keep 3 latest)
+    for service in backend export linting spell-check event-publisher; do
+      old_images=$(docker images --format "{{ '{{' }}.ID{{ '}}' }}" localhost:{{ registry.port }}/markdown-manager-$service | tail -n +4)
+      if [ -n "$old_images" ]; then
+        echo "Cleaning up images for markdown-manager-$service..."
+        echo "$old_images" | xargs -r docker rmi -f 2>/dev/null || true
+        changed=true
+      fi
+    done
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: cleanup_images_result
+  changed_when: "'changed' in cleanup_images_result.stdout"
+  ignore_errors: true
+
+- name: Remove dangling images
+  shell: |
+    pruned=$(docker image prune -f)
+    if echo "$pruned" | grep -q "Total reclaimed space"; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: prune_images_result
+  changed_when: "'changed' in prune_images_result.stdout"
+
+- name: Display cleanup summary
+  debug:
+    msg: "✅ Image cleanup completed - kept {{ docker.keep_image_count | default(3) }} images per service"

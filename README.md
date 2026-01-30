@@ -136,16 +136,29 @@ The application follows a modern microservices architecture with Nginx as the ce
 
 ### Production Deployment
 
-```bash
-# Build and deploy all services
-make deploy
+The application uses a mature Ansible-based deployment system that ensures services are actually operational before marking deployment as successful.
 
-# Deploy individual components
-make deploy-front    # Frontend + Nginx config
-make deploy-back     # Backend services + Nginx config
+```bash
+# Deploy all services with health validation
+make deploy-ansible
+
+# Deploy individual services
+make deploy-ansible-backend      # Backend API service
+make deploy-ansible-export       # Export service  
+make deploy-ansible-linting      # Linting service
+make deploy-ansible-spell-check  # Spell check service
+
+# Dry run (check what would be deployed)
+make deploy-ansible-dry-run
 ```
 
-For detailed deployment information, see [deployment documentation](docs/deployment/).
+**Key Features:**
+- 🔍 **Health validation** - Services must pass health checks to be marked successful
+- 🛠️ **Auto-installation** - Ansible automatically installed if needed
+- 📊 **Proper error detection** - No more silent failures
+- 🔄 **Rollback capabilities** - Mature deployment orchestration
+
+For detailed deployment information, see [deployment documentation](deployment/).
 
 ## 📚 Documentation
 
@@ -170,10 +183,11 @@ make test             # Run all tests
 make test-backend     # Backend tests with coverage
 make quality          # Run linting and quality checks
 
-# Deployment
-make deploy           # Full deployment
-make deploy-front     # Frontend deployment
-make deploy-back      # Backend services deployment
+# Deployment (Production)
+make deploy-ansible              # All services with health validation
+make deploy-ansible-backend      # Backend service only
+make deploy-ansible-export       # Export service only
+make deploy-ansible-dry-run      # Check deployment without changes
 
 # Utilities
 make status           # Check development server status
@@ -201,7 +215,8 @@ services/
 
 Infrastructure:
 ├── nginx/                   # Nginx configuration
-├── scripts/                 # Build and deployment scripts
+├── scripts/                 # Build and utility scripts
+├── deployment/              # Ansible deployment system
 └── docs/                    # Documentation
 ```
 

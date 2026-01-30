@@ -1,0 +1,136 @@
+---
+# Nginx configuration deployment
+# UI deployment is handled by the ui_deployment role
+
+- name: Create nginx web root directory
+  shell: |
+    if [ ! -d "{{ ui.nginx_root }}" ] || [ "$(stat -c '%U:%G' {{ ui.nginx_root }})" != "www-data:www-data" ]; then
+      sudo mkdir -p "{{ ui.nginx_root }}"
+      sudo chown www-data:www-data "{{ ui.nginx_root }}"
+      sudo chmod 755 "{{ ui.nginx_root }}"
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: nginx_root_result
+  changed_when: "'changed' in nginx_root_result.stdout"
+
+- name: Ensure nginx directories exist
+  shell: |
+    changed=false
+    for dir in /etc/nginx/sites-available /etc/nginx/sites-enabled /etc/nginx/conf.d; do
+      if [ ! -d "$dir" ]; then
+        sudo mkdir -p "$dir"
+        changed=true
+      fi
+    done
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: nginx_dirs_result
+  changed_when: "'changed' in nginx_dirs_result.stdout"
+
+- name: Copy site configuration to remote server
+  copy:
+    src: "{{ playbook_dir }}/../nginx/sites-available/littledan.com.conf"
+    dest: /tmp/littledan.com.conf
+    mode: '0644'
+  become: false
+
+- name: Deploy site-specific nginx configuration
+  shell: |
+    if ! cmp -s /tmp/littledan.com.conf /etc/nginx/sites-available/littledan.com.conf 2>/dev/null; then
+      sudo cp /tmp/littledan.com.conf /etc/nginx/sites-available/littledan.com.conf
+      sudo chown root:root /etc/nginx/sites-available/littledan.com.conf
+      sudo chmod 644 /etc/nginx/sites-available/littledan.com.conf
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: nginx_site_result
+  changed_when: "'changed' in nginx_site_result.stdout"
+
+- name: Enable site configuration
+  shell: |
+    changed=false
+    if [ ! -L /etc/nginx/sites-enabled/littledan.com.conf ] || [ "$(readlink /etc/nginx/sites-enabled/littledan.com.conf)" != "/etc/nginx/sites-available/littledan.com.conf" ]; then
+      sudo ln -sf /etc/nginx/sites-available/littledan.com.conf /etc/nginx/sites-enabled/
+      changed=true
+    fi
+    if [ -f /etc/nginx/sites-enabled/default ]; then
+      sudo rm -f /etc/nginx/sites-enabled/default
+      changed=true
+    fi
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: nginx_enable_result
+  changed_when: "'changed' in nginx_enable_result.stdout"
+
+- name: Copy nginx configuration files
+  shell: |
+    changed=false
+    sudo mkdir -p /etc/nginx/conf.d/
+    for file in "{{ playbook_dir }}/../nginx/conf.d/"*; do
+      [ -f "$file" ] || continue
+      basename=$(basename "$file")
+      if ! cmp -s "$file" "/etc/nginx/conf.d/$basename" 2>/dev/null; then
+        sudo cp "$file" /etc/nginx/conf.d/
+        sudo chown root:root "/etc/nginx/conf.d/$basename"
+        sudo chmod 644 "/etc/nginx/conf.d/$basename"
+        changed=true
+      fi
+    done
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: nginx_conf_result
+  changed_when: "'changed' in nginx_conf_result.stdout"
+
+- name: Copy nginx scripts
+  shell: |
+    changed=false
+    sudo mkdir -p /etc/nginx/scripts/
+    for item in "{{ playbook_dir }}/../nginx/scripts/"*; do
+      [ -e "$item" ] || continue
+      basename=$(basename "$item")
+      if [ ! -e "/etc/nginx/scripts/$basename" ]; then
+        sudo cp -r "$item" /etc/nginx/scripts/
+        sudo chmod -R 755 /etc/nginx/scripts/
+        changed=true
+      fi
+    done
+    if [ "$changed" = "true" ]; then
+      echo "changed"
+    else
+      echo "unchanged"
+    fi
+  register: nginx_scripts_result
+  changed_when: "'changed' in nginx_scripts_result.stdout"
+
+- name: Test and reload nginx configuration
+  shell: |
+    if sudo nginx -t 2>/dev/null; then
+      if [ "{{ nginx_site_result.stdout | default('') }}" = "changed" ] || [ "{{ nginx_conf_result.stdout | default('') }}" = "changed" ] || [ "{{ nginx_scripts_result.stdout | default('') }}" = "changed" ]; then
+        sudo systemctl reload nginx
+        echo "changed"
+      else
+        echo "unchanged"
+      fi
+    else
+      echo "nginx config test failed" >&2
+      exit 1
+    fi
+  register: nginx_reload_result
+  changed_when: "'changed' in nginx_reload_result.stdout"
+  failed_when: nginx_reload_result.rc != 0
+
+- name: Display nginx deployment status
+  debug:
+    msg: "✅ Nginx configuration deployed successfully"

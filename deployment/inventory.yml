@@ -1,0 +1,12 @@
+---
+production:
+  hosts:
+    danbian:
+      ansible_host: 10.0.1.51
+      ansible_user: dlittle
+      ansible_ssh_private_key_file: ~/.ssh/id_danbian
+      ansible_python_interpreter: /usr/bin/python3
+      ansible_become_method: sudo
+      ansible_become_user: root
+      ansible_become_pass: ""
+      ansible_sudo_pass: ""

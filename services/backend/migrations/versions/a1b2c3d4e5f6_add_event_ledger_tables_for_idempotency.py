@@ -17,6 +17,9 @@ depends_on = None
 
 
 def upgrade() -> None:
+    # Ensure identity schema exists first
+    op.execute("CREATE SCHEMA IF NOT EXISTS identity")
+    
     # Create event_ledger table for identity service
     op.execute("""
         CREATE TABLE IF NOT EXISTS identity.event_ledger (

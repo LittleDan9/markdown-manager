@@ -1,0 +1,5 @@
+---
+# Production environment variables
+registry_port: 5000
+ssh_key_path: "/tmp/id_danbian"
+deploy_user: "dlittle"

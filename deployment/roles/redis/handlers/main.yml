@@ -1,0 +1,17 @@
+---
+- name: reload systemd
+  ansible.builtin.systemd:
+    daemon_reload: yes
+  become: yes
+
+- name: restart redis
+  community.docker.docker_container:
+    name: "{{ redis.name }}"
+    restart: yes
+  become: yes
+
+- name: restart redis service
+  ansible.builtin.systemd:
+    name: "{{ redis.name }}"
+    state: restarted
+  become: yes

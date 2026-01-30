@@ -48,8 +48,8 @@ endif
 # PATHS & PORTS
 # ────────────────────────────────────────────────────────────────────────────
 
-FRONTEND_DIR         := services/frontend
-FRONT_DIST_DIR       := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,services/frontend/dist)
+UI_DIR              := services/ui
+FRONT_DIST_DIR       := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,services/ui/dist)
 BACKEND_DIR          := services/backend
 EXPORT_DIR           := services/export
 LINT_DIR             := services/linting
@@ -70,9 +70,9 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 # ────────────────────────────────────────────────────────────────────────────
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
-.PHONY: deploy deploy-front deploy-back deploy-nginx deploy-nginx-frontend deploy-nginx-api deploy-nginx-all
-.PHONY: deploy-backend-only deploy-export-only deploy-lint-only deploy-spell-check-only deploy-consumer-only
-.PHONY: deploy-build-only deploy-remote-only deploy-cleanup-only deploy-infra-only
+.PHONY: deploy deploy-quiet deploy-verbose deploy-dry-run deploy-status
+.PHONY: deploy-backend deploy-export deploy-lint deploy-spell-check deploy-event-publisher deploy-redis
+.PHONY: deploy-linting-consumer deploy-spell-check-consumer deploy-nginx deploy-ui deploy-cleanup deploy-infra
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -85,17 +85,11 @@ help: ## Show this help
 	@echo "$(BLUE)Build & Development:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^dev|dev-frontend|dev-backend/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(BLUE)Deployment - Full:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy[^-]|^deploy-front|^deploy-back|^deploy-nginx[^-]/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo "$(BLUE)Deployment - Ansible (Production):$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^deploy[^-]|^deploy-dry-run/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Deployment - Individual Services:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy-.*-only/ && !/deploy-(build|remote|cleanup|infra)-only/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "$(BLUE)Deployment - Phases:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy-(build|remote|cleanup|infra)-only/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "$(BLUE)Deployment - Nginx:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy-nginx-/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*##"} /^deploy-.*/ && !/^deploy[^-]/ && !/deploy-dry-run/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Utilities:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^test|test-backend|status|stop/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -110,13 +104,13 @@ quality: ## Run pre-commit hooks
 	@echo "$(GREEN)✅ Quality checks complete$(NC)"
 
 install: ## Install frontend + backend deps
-	@./scripts/install.sh $(FRONTEND_DIR) $(BACKEND_DIR) $(EXPORT_DIR)
+	@./scripts/install.sh $(UI_DIR) $(BACKEND_DIR) $(EXPORT_DIR)
 
 clean: ## Clean build artifacts
 	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
 
 build: ## Build production assets
-	@./scripts/build.sh $(FRONTEND_DIR)
+	@./scripts/build.sh $(UI_DIR)
 
 # ────────────────────────────────────────────────────────────────────────────
 dev: ## Start frontend & backend dev servers
@@ -125,10 +119,10 @@ dev: ## Start frontend & backend dev servers
 
 dev-frontend: ## Frontend dev server
 ifeq ($(DETECTED_OS),Windows)
-	@cd $(FRONTEND_DIR) && npm run serve -- --port $(FRONTEND_PORT)
+	@cd $(UI_DIR) && npm run serve -- --port $(FRONTEND_PORT)
 else
 	@docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker not running$(NC)" && exit 1)
-	cd $(FRONTEND_DIR) && docker compose up --build -d frontend
+	cd $(UI_DIR) && docker compose up --build -d frontend
 endif
 
 dev-backend: ## Backend dev server
@@ -138,14 +132,14 @@ dev-backend: ## Backend dev server
 # ────────────────────────────────────────────────────────────────────────────
 test: ## Run backend (pytest with coverage) and frontend (Jest) tests
 	@echo "$(YELLOW)🧪 Running backend tests with coverage...$(NC)"
-	cd $(BACKEND_DIR) && ./scripts/test-coverage.sh
+	cd $(BACKEND_DIR) && poetry run pytest --cov=app --cov-report=html --cov-report=term-missing
 	@echo "$(YELLOW)🧪 Running frontend tests...$(NC)"
-	cd $(FRONTEND_DIR) && npm test
+	cd $(UI_DIR) && npm test
 	@echo "$(GREEN)✅ All tests complete$(NC)"
 
 test-backend: ## Run backend tests with coverage
 	@echo "$(YELLOW)🧪 Running backend tests with coverage...$(NC)"
-	cd $(BACKEND_DIR) && ./scripts/test-coverage.sh
+	cd $(BACKEND_DIR) && poetry run pytest --cov=app --cov-report=html --cov-report=term-missing
 	@echo "$(GREEN)✅ Backend tests complete$(NC)"
 
 status: ## Check dev server status
@@ -174,58 +168,109 @@ else
 endif
 
 # ────────────────────────────────────────────────────────────────────────────
-deploy: deploy-front deploy-back
+# LEGACY SHELL SCRIPT DEPLOYMENT SYSTEM REMOVED
+# ────────────────────────────────────────────────────────────────────────────
+#
+# The old shell script deployment system has been replaced with Ansible.
+#
+# OLD TARGETS REMOVED:
+#   deploy, deploy-front, deploy-back, deploy-nginx-*, deploy-*-only, etc.
+#
+# NEW ANSIBLE TARGETS:
+#   make deploy              # Deploy all services
+#   make deploy-backend      # Deploy backend only
+#   make deploy-export       # Deploy export only
+#   make deploy-linting      # Deploy linting only
+#   make deploy-spell-check  # Deploy spell-check only
+#   etc.
+#
+# Benefits of Ansible deployment:
+# - Proper error detection and health validation
+# - Configuration-driven deployment
+# - Mature orchestration with rollback capabilities
+# - No more "convoluted" shell scripts
+#
+# Migration complete: deployment/MIGRATION-COMPLETE.md
 
-deploy-front: build ## Build and deploy frontend (includes nginx config)
-	@./scripts/deploy-frontend.sh $(FRONT_DIST_DIR) $(REMOTE_USER_HOST) $(DEPLOY_BASE)
-	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
+# ────────────────────────────────────────────────────────────────────────────
+# ANSIBLE DEPLOYMENT (New System)
+# ────────────────────────────────────────────────────────────────────────────
 
-deploy-back: ## Deploy backend services (includes nginx config)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000
+deploy: ## Deploy all services using Ansible (native)
+	@echo "$(BLUE)🚀 Starting Markdown Manager Deployment$(NC)"
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -v --diff
 
-# Nginx-only deployment targets
-deploy-nginx-frontend: ## Deploy only frontend nginx config
-	@./scripts/deploy-nginx.sh deploy_frontend $(REMOTE_USER_HOST)
+deploy-backend: ## Deploy only backend service using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags backend -e deploy_service=backend
 
-deploy-nginx-api: ## Deploy only API nginx config
-	@./scripts/deploy-nginx.sh deploy_api $(REMOTE_USER_HOST)
+deploy-export: ## Deploy only export service using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags export -e deploy_service=export
 
-deploy-nginx-all: ## Deploy all nginx configs
-	@./scripts/deploy-nginx.sh deploy_all $(REMOTE_USER_HOST)
+deploy-lint: ## Deploy only lint service using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags lint -e deploy_service=lint
 
-deploy-nginx: deploy-nginx-all ## Alias for deploy-nginx-all
+deploy-linting-consumer: ## Deploy only linting event consumer using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags linting-consumer
 
-# Individual service deployment targets
-deploy-backend-only: ## Deploy only the main backend API service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 backend
+deploy-spell-check: ## Deploy only spell-check service using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags spell-check
 
-deploy-export-only: ## Deploy only the export service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 export
+deploy-spell-check-consumer: ## Deploy only spell-check event consumer using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags spell-check-consumer
 
-deploy-linting-only: ## Deploy only the linting service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 linting
+deploy-event-publisher: ## Deploy only event-publisher service using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags event-publisher
 
-deploy-spell-check-only: ## Deploy only the spell check service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 spell-check
+deploy-redis: ## Deploy only Redis service using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags redis
 
-deploy-event-consumer-only: ## Deploy only the event consumer service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 event-consumer
+deploy-cleanup-legacy: ## Clean up legacy shell script deployment artifacts
+	@echo "⚠️  WARNING: This will remove legacy deployment artifacts!"
+	@echo "Make sure you have backups before continuing."
+	@./deployment/cleanup-legacy.sh
 
-deploy-event-publisher-only: ## Deploy only the event publisher service
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 event-publisher
+deploy-infra: ## Setup infrastructure only using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags infra
 
-# Deployment phase targets
-deploy-infra-only: ## Setup deployment infrastructure (SSH tunnels, registry)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 infra
+deploy-nginx: ## Update nginx configuration only using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags nginx
 
-deploy-build-only: ## Build and push images only (no deployment)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 build
+deploy-ui: ## Build and deploy UI static files using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags ui -e deploy_service=ui
 
-deploy-remote-only: ## Deploy to remote servers only (assumes images exist)
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 remote
+deploy-cleanup: ## Run cleanup operations using Ansible
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags cleanup
 
-deploy-cleanup-only: ## Run cleanup operations only
-	@./scripts/deploy-backend.sh $(BACKEND_DIR) $(EXPORT_DIR) $(LINT_DIR) $(SPELL_CHECK_DIR) $(CONSUMER_DIR) $(REMOTE_USER_HOST) 5000 cleanup
+deploy-status: ## Check deployment status
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml status.yml
+
+deploy-quiet: ## Deploy all services with minimal output
+	@echo "$(BLUE)🚀 Quiet Deployment Started$(NC)"
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --diff 2>/dev/null || (echo "$(RED)❌ Deployment failed$(NC)" && exit 1)
+	@echo "$(GREEN)✅ Deployment completed$(NC)"
+
+deploy-verbose: ## Deploy all services with detailed output
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -vvv --diff
+
+deploy-dry-run: ## Run Ansible deployment in check mode (dry run)
+	@./scripts/setup-ansible.sh
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --check --diff
 
 # ────────────────────────────────────────────────────────────────────────────
 # DATABASE OPERATIONS

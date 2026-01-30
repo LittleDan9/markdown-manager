@@ -1,0 +1,173 @@
+---
+- name: "📦 Deploying {{ service_name }}"
+  debug:
+    msg: "Deploying: {{ service_name }} ({{ service.image }}:{{ service.tag }})"
+  when: ansible_verbosity >= 1
+
+- name: "Check if systemd service exists"
+  stat:
+    path: "/etc/systemd/system/{{ service.name }}.service"
+  register: existing_service
+
+- name: "Get current systemd service checksum"
+  shell: "sha256sum /etc/systemd/system/{{ service.name }}.service | cut -d' ' -f1"
+  register: current_service_checksum
+  when: existing_service.stat.exists
+  ignore_errors: true
+  changed_when: false
+
+- name: "Create workspace directory for consumer config for {{ service_name }}"
+  file:
+    path: "/workspace/{{ service.consumer_config | dirname }}"
+    state: directory
+    mode: '0755'
+  become: true
+  when: service.consumer_config is defined
+
+- name: "Copy consumer config file for {{ service_name }}"
+  copy:
+    src: "{{ playbook_dir }}/../{{ service.consumer_config }}"
+    dest: "/workspace/{{ service.consumer_config }}"
+    mode: '0644'
+  become: true
+  when: service.consumer_config is defined
+
+- name: "Create systemd service template for {{ service_name }}"
+  template:
+    src: docker-service.service.j2
+    dest: "/tmp/{{ service.name }}.service"
+    mode: '0644'
+  when: service.systemd_service | default(false)
+  register: systemd_template_result
+
+- name: "Get new service template checksum"
+  shell: "sha256sum /tmp/{{ service.name }}.service | cut -d' ' -f1"
+  register: new_service_checksum
+  when: systemd_template_result is not skipped
+  changed_when: false
+
+- name: "Check if systemd service changed"
+  set_fact:
+    service_changed: "{{ not existing_service.stat.exists or (current_service_checksum.stdout | default('')) != new_service_checksum.stdout }}"
+  when: systemd_template_result is not skipped
+
+- name: "Install systemd service for {{ service_name }}"
+  shell: |
+    if [ "{{ service_changed | default(true) }}" = "True" ]; then
+      {% if existing_service.stat.exists %}
+      sudo systemctl stop {{ service.name }} 2>/dev/null || true
+      {% endif %}
+      sudo cp /tmp/{{ service.name }}.service /etc/systemd/system/{{ service.name }}.service
+      sudo systemctl daemon-reload
+      sudo systemctl enable {{ service.name }}
+    fi
+  register: systemd_install_result
+  when:
+    - service.systemd_service | default(false)
+    - service_changed | default(true)
+  changed_when: service_changed | default(true)
+
+- name: "Check if Docker image exists locally"
+  shell: docker images localhost:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }} --quiet
+  register: image_check
+  ignore_errors: true
+  changed_when: false
+
+- name: "Get source code hash for {{ service_name }}"
+  shell: |
+    cd "{{ playbook_dir }}/../{{ service.build_context | regex_replace('^\\./', '') }}"
+    find . -name '*.py' -o -name '*.js' -o -name '*.json' -o -name 'Dockerfile' | sort | xargs cat | sha256sum | cut -d' ' -f1
+  register: source_hash
+  ignore_errors: true
+  changed_when: false
+  delegate_to: localhost
+  when: service.build_context is defined
+
+- name: "Get current image build hash (if image exists)"
+  shell: |
+    docker inspect localhost:{{ registry.port }}/{{ service.image | basename }}:{{ service.tag }} --format '{{ '{{' }}.Config.Labels.source_hash{{ '}}' }}' 2>/dev/null || echo ""
+  register: image_hash
+  ignore_errors: true
+  changed_when: false
+  when: image_check.stdout != ""
+
+- name: "Determine if rebuild is needed"
+  set_fact:
+    rebuild_needed: "{{ image_check.stdout == '' or (source_hash.stdout | default('')) != (image_hash.stdout | default('')) or force_rebuild | default(false) }}"
+
+- name: "Build and push Docker image (only if needed)"
+  include_tasks: docker_build_push.yml
+  when:
+    - service.build_context is defined
+    - rebuild_needed | default(false)
+
+- name: "Check if service needs restart"
+  set_fact:
+    needs_restart: "{{ service_changed | default(false) or rebuild_needed | default(false) }}"
+
+- name: "Start/restart systemd service for {{ service_name }}"
+  shell: >
+    sudo systemctl {{ 'restart' if (needs_restart | default(false)) else 'start' }} {{ service.name }}
+  when: service.systemd_service | default(false)
+  register: systemd_start_result
+  changed_when: needs_restart | default(false) or systemd_start_result.rc == 0
+
+- name: "Wait for {{ service_name }} health check"
+  uri:
+    url: "http://localhost:{{ service.port }}{{ service.health_check }}"
+    method: GET
+    status_code: 200
+  retries: 30
+  delay: 2
+  when:
+    - service.health_check is defined
+    - service.port != 0
+  register: health_check_result
+
+- name: "Wait for systemd service to be active"
+  shell: |
+    for i in {1..10}; do
+      if sudo systemctl is-active {{ service.name }} --quiet; then
+        exit 0
+      fi
+      sleep 2
+    done
+    echo "❌ Service {{ service.name }} failed to start"
+    sudo systemctl status {{ service.name }} --no-pager -l
+    exit 1
+  register: systemd_check
+  failed_when: systemd_check.rc != 0
+  when: service.systemd_service | default(false)
+  changed_when: false
+
+- name: "Verify container is running (with retries)"
+  shell: |
+    for i in {1..5}; do
+      if docker ps --filter "name={{ service.name }}" --filter "status=running" | grep -q {{ service.name }}; then
+        exit 0
+      fi
+      sleep 3
+    done
+    echo "❌ Container verification failed for {{ service.name }}"
+    docker logs {{ service.name }} --tail 10 2>/dev/null || echo "No container logs"
+    exit 1
+  register: container_verification
+  failed_when: container_verification.rc != 0
+  when: service.systemd_service | default(false)
+  changed_when: false
+  retries: 2
+  delay: 5
+
+- name: "✅ {{ service_name }} deployed successfully"
+  debug:
+    msg: "Service {{ service_name }} is running and healthy"
+  when: ansible_verbosity >= 1
+
+- name: "Fail deployment if health check failed"
+  fail:
+    msg: "❌ {{ service_name }} deployment failed: Health check unreachable after retries"
+  when:
+    - health_check_result is defined
+    - health_check_result is failed
+    - service.health_check is defined
+    - service.port != 0

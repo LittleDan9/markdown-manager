@@ -147,7 +147,7 @@ class LintingApi extends Api {
    * @param {number} chunkOffset - Offset for chunked processing
    */
   async processText(text, options = {}) {
-    const response = await this.apiCall('/markdown-lint/process', 'POST', {
+    const response = await this.apiCall('/markdown-lint/lint', 'POST', {
       text: text,
       rules: options.rules || {},
       chunk_offset: options.chunk_offset || 0
