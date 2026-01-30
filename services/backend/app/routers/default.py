@@ -232,13 +232,13 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
         overall_status = "degraded"
 
     # Check spell-check service health
-    spell_check_health = await _check_http_service("http://spell-check:8003", "spell_check_service")
+    spell_check_health = await _check_http_service(settings.spell_check_service_url, "spell_check_service")
     services["spell_check_service"] = spell_check_health
     if spell_check_health.status != "healthy":
         overall_status = "degraded"
 
     # Check event-publisher service health
-    event_publisher_health = await _check_http_service("http://event-publisher:8004", "event_publisher")
+    event_publisher_health = await _check_http_service(settings.event_publisher_service_url, "event_publisher")
     services["event_publisher"] = event_publisher_health
     if event_publisher_health.status != "healthy":
         overall_status = "degraded"
