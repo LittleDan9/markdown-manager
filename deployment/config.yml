@@ -25,6 +25,7 @@ services:
       - "EXPORT_SERVICE_URL"
       - "MARKDOWN_LINT_SERVICE_URL"
       - "SPELL_CHECK_SERVICE_URL"
+      - "EVENT_PUBLISHER_SERVICE_URL"
       - "REDIS_URL"
       - "ENVIRONMENT"
       - "GITHUB_CLIENT_ID"
@@ -108,7 +109,7 @@ services:
     name: "markdown-manager-event-publisher"
     image: "littledan9/markdown-manager-event-publisher"
     tag: "latest"
-    port: 0  # No exposed port (background service)
+    port: 8004  # HTTP health check server port
     build_context: "./services/event-publisher"
     dockerfile: "Dockerfile"
     systemd_service: true

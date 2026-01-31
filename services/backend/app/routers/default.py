@@ -28,6 +28,7 @@ class HealthResponse(BaseModel):
     status: str
     version: str
     services: dict[str, ServiceHealth]
+    services_with_details: list[str] = []
 
 
 async def _check_http_service(service_url: str, service_name: str) -> ServiceHealth:
@@ -237,14 +238,11 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
     if spell_check_health.status != "healthy":
         overall_status = "degraded"
 
-    # Note: Event publisher is a background service without HTTP endpoints in production
-    # so we skip the HTTP health check for now
-    # TODO: Consider implementing a different health check mechanism for background services
-    services["event_publisher"] = ServiceHealth(
-        status="healthy", 
-        details="Background service (not HTTP checkable)",
-        consumer_groups=None
-    )
+    # Check event publisher health via HTTP endpoint
+    event_publisher_health = await _check_http_service(settings.event_publisher_service_url, "event_publisher")
+    services["event_publisher"] = event_publisher_health
+    if event_publisher_health.status != "healthy":
+        overall_status = "degraded"
 
     # Check Redis health
     try:
@@ -295,4 +293,9 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
         )
         overall_status = "degraded"
 
-    return HealthResponse(status=overall_status, version="1.0.0", services=services)
+    return HealthResponse(
+        status=overall_status, 
+        version="1.0.0", 
+        services=services,
+        services_with_details=["event_publisher", "spell_check_service", "linting_service", "export_service"]
+    )

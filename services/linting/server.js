@@ -46,21 +46,101 @@ function startServer() {
     app.use(cors());
     app.use(express.json({ limit: '10mb' })); // Support large markdown files
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', service: 'markdown-lint' });
-});
+    // Performance and statistics tracking
+    const stats = {
+        startTime: Date.now(),
+        requestsProcessed: 0,
+        totalProcessingTime: 0,
+        successfulLints: 0,
+        failedLints: 0,
+        totalFilesSize: 0,
+        rulePerformance: {},
+        memoryUsage: process.memoryUsage()
+    };
+
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+        res.json({ status: 'healthy', service: 'markdown-lint' });
+    });
+
+    // Detailed health check endpoint
+    app.get('/health/detailed', (req, res) => {
+        const uptimeMs = Date.now() - stats.startTime;
+        const memUsage = process.memoryUsage();
+        
+        res.json({
+            status: 'healthy',
+            service: 'markdown-lint',
+            version: '1.0.0',
+            uptime: {
+                milliseconds: uptimeMs,
+                seconds: Math.floor(uptimeMs / 1000),
+                minutes: Math.floor(uptimeMs / 60000),
+                hours: Math.floor(uptimeMs / 3600000)
+            },
+            statistics: {
+                requestsProcessed: stats.requestsProcessed,
+                successfulLints: stats.successfulLints,
+                failedLints: stats.failedLints,
+                successRate: stats.requestsProcessed > 0 ? 
+                    ((stats.successfulLints / stats.requestsProcessed) * 100).toFixed(2) + '%' : '100%',
+                averageProcessingTime: stats.requestsProcessed > 0 ? 
+                    Math.round(stats.totalProcessingTime / stats.requestsProcessed) + 'ms' : '0ms',
+                totalFilesProcessed: stats.requestsProcessed,
+                totalDataProcessed: formatBytes(stats.totalFilesSize)
+            },
+            rules: {
+                totalRulesAvailable: Object.keys(ruleDefinitions).length,
+                rulesLoaded: Object.keys(ruleDefinitions).length,
+                ruleCategories: [...new Set(Object.values(ruleDefinitions).map(rule => rule.category || 'uncategorized'))],
+                recommendedDefaults: Object.keys(recommendedDefaults.rules || {}).length
+            },
+            memory: {
+                rss: formatBytes(memUsage.rss),
+                heapTotal: formatBytes(memUsage.heapTotal),
+                heapUsed: formatBytes(memUsage.heapUsed),
+                external: formatBytes(memUsage.external),
+                arrayBuffers: formatBytes(memUsage.arrayBuffers || 0)
+            },
+            system: {
+                nodeVersion: process.version,
+                platform: process.platform,
+                cpuUsage: process.cpuUsage()
+            },
+            configuration: {
+                maxFileSize: '10mb',
+                port: PORT
+            }
+        });
+    });
+
+    // Helper function to format bytes
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
 
 // Lint endpoint
 app.post('/lint', async (req, res) => {
+    const startTime = Date.now();
+    
     try {
         const { text, rules, chunk_offset = 0 } = req.body;
 
         if (!text || !rules) {
+            stats.failedLints++;
+            stats.requestsProcessed++;
             return res.status(400).json({
                 error: 'Missing required fields: text and rules'
             });
         }
+
+        // Track request statistics
+        stats.totalFilesSize += text.length;
 
         console.log(`Processing lint request - text length: ${text.length}, rules: ${Object.keys(rules).length}`);
 
@@ -99,6 +179,12 @@ app.post('/lint', async (req, res) => {
 
         console.log(`Found ${issues.length} issues`);
 
+        // Update statistics
+        const processingTime = Date.now() - startTime;
+        stats.totalProcessingTime += processingTime;
+        stats.requestsProcessed++;
+        stats.successfulLints++;
+
         res.json({
             issues: issues,
             processed_length: text.length,
@@ -107,6 +193,13 @@ app.post('/lint', async (req, res) => {
 
     } catch (error) {
         console.error('Linting error:', error);
+        
+        // Update failure statistics
+        const processingTime = Date.now() - startTime;
+        stats.totalProcessingTime += processingTime;
+        stats.requestsProcessed++;
+        stats.failedLints++;
+        
         res.status(500).json({
             error: 'Linting failed',
             details: error.message

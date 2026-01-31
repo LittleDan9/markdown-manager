@@ -252,6 +252,7 @@ function UserMenuLoggedIn() {
       <SystemHealthModal
         show={showSystemHealthModal}
         onHide={handleSystemHealthModalHide}
+        isAdmin={user?.is_admin || false}
       />
     </>
   );

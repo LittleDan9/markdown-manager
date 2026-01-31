@@ -164,6 +164,7 @@ function UserMenuLoggedOut() {
     <SystemHealthModal
       show={showSystemHealthModal}
       onHide={() => setShowSystemHealthModal(false)}
+      isAdmin={false}
     />
     </>
   );
