@@ -169,7 +169,13 @@ class DocumentService {
       if (error.response?.status === 403) {
         throw new Error('Authentication expired. Please log in again.');
       } else if (error.response?.status === 409) {
-        throw new Error('Document name already exists. Please choose a different name.');
+        // Check for specific constraint error types
+        const errorData = error.response?.data?.error;
+        if (errorData?.type === 'duplicate_document_name') {
+          throw new Error(`A document named "${document.name}" already exists in this folder. Please choose a different name.`);
+        } else {
+          throw new Error('Document name already exists. Please choose a different name.');
+        }
       } else if (error.response?.status >= 500) {
         throw new Error('Server error. Please try again later.');
       } else if (!navigator.onLine) {

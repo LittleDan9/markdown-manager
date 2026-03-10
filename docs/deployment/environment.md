@@ -111,6 +111,27 @@ WORKER_TIMEOUT=30
 CACHE_TTL=300  # 5 minutes
 REDIS_URL=redis://redis:6379/0  # If using Redis
 
+# ────────────────────────────────────────────────────────────────────────────
+# EVENT PUBLISHER CONFIGURATION
+# ────────────────────────────────────────────────────────────────────────────
+
+# Event publisher service (RELAY_ prefix required)
+RELAY_DATABASE_URL=postgresql://markdown_manager:secure_password@db:5432/markdown_manager
+RELAY_REDIS_URL=redis://redis:6379/0
+RELAY_BATCH_SIZE=50
+RELAY_POLL_INTERVAL=5
+RELAY_MAX_RETRY_ATTEMPTS=5
+RELAY_LOG_LEVEL=INFO
+
+# Event stream names
+RELAY_STREAM_NAME=identity.user.v1
+RELAY_DLQ_STREAM_NAME=identity.user.v1.dlq
+RELAY_RETRY_BASE_DELAY=60
+
+# ────────────────────────────────────────────────────────────────────────────
+# RATE LIMITING & PERFORMANCE
+# ────────────────────────────────────────────────────────────────────────────
+
 # Rate limiting
 RATE_LIMIT_REQUESTS=100
 RATE_LIMIT_WINDOW=60  # seconds

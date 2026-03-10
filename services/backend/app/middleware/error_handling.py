@@ -143,9 +143,52 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
     ) -> JSONResponse:
         """Handle database errors."""
         request_id = get_request_id()
+        error_message = str(exc)
 
+        # Parse specific database constraint errors for better user feedback
+        if "duplicate key value violates unique constraint" in error_message:
+            if "uq_user_folder_name" in error_message:
+                # Extract document name from the error detail if possible
+                doc_name = "document"
+                if "name)=(" in error_message:
+                    try:
+                        # Extract the name from the error message
+                        detail_part = error_message.split("name)=(")[1]
+                        parts = detail_part.split(",")
+                        if len(parts) >= 3:
+                            doc_name = parts[2].strip().rstrip(")").strip("'\"")
+                    except (IndexError, AttributeError):
+                        pass
+
+                logger.warning(
+                    f"Duplicate document name constraint violation: {doc_name}",
+                    extra={
+                        "request_id": request_id,
+                        "error_type": "duplicate_document_name",
+                        "document_name": doc_name,
+                        "path": request.url.path,
+                        "method": request.method,
+                    },
+                )
+
+                response_data = {
+                    "error": {
+                        "type": "duplicate_document_name",
+                        "message": f"A document with the name '{doc_name}' already exists in this folder",
+                        "request_id": request_id,
+                        "field": "name",
+                        "constraint": "uq_user_folder_name",
+                    }
+                }
+
+                return JSONResponse(
+                    status_code=status.HTTP_409_CONFLICT,
+                    content=response_data,
+                )
+
+        # Log as error for other database issues
         logger.error(
-            f"Database error: {str(exc)}",
+            f"Database error: {error_message}",
             extra={
                 "request_id": request_id,
                 "error_type": type(exc).__name__,

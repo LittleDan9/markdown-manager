@@ -35,8 +35,41 @@ def signal_handler(signum, frame):
     shutdown_flag.set()
 
 
+async def start_http_server(settings: Settings, relay: OutboxRelay):
+    """Start HTTP health check server."""
+    app = FastAPI(title="Event Publisher Health Check")
+    
+    # Setup health endpoints
+    def get_session_factory():
+        from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
+        engine = create_async_engine(settings.database_url)
+        return async_sessionmaker(engine, expire_on_commit=False)
+    
+    session_factory = get_session_factory()
+    setup_health_endpoints(app, settings, session_factory)
+    
+    # Add relay status endpoint
+    @app.get("/status")
+    async def relay_status():
+        """Get relay service status."""
+        return {
+            "status": "running" if relay and relay.is_running() else "stopped",
+            "service": "event-publisher",
+            "version": "1.0.0"
+        }
+    
+    config = uvicorn.Config(
+        app=app,
+        host="0.0.0.0",
+        port=settings.http_port,
+        log_level="info"
+    )
+    server = uvicorn.Server(config)
+    await server.serve()
+
+
 async def main():
-    """Main relay service loop."""
+    """Main relay service with HTTP health server."""
     # Register signal handlers
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
@@ -52,13 +85,31 @@ async def main():
         # Initialize connections
         await relay.initialize()
         logger.info("Relay service initialized successfully")
+        
+        logger.info(f"Starting HTTP health server on port {settings.http_port}")
 
-        # Start processing loop
-        await relay.run(shutdown_flag)
+        # Start both HTTP server and relay processing concurrently
+        async with asyncio.TaskGroup() as tg:
+            # Start HTTP health server
+            health_task = tg.create_task(start_http_server(settings, relay))
+            
+            # Start relay processing
+            relay_task = tg.create_task(relay.run(shutdown_flag))
+            
+            # Wait for shutdown signal
+            await shutdown_flag.wait()
+            
+            # Cancel tasks gracefully
+            health_task.cancel()
+            relay_task.cancel()
 
-    except Exception as e:
-        logger.error(f"Relay service error: {e}", exc_info=True)
-        sys.exit(1)
+    except* (asyncio.CancelledError, Exception) as eg:
+        for exc in eg.exceptions:
+            if isinstance(exc, asyncio.CancelledError):
+                logger.info("Services cancelled during shutdown")
+            else:
+                logger.error(f"Relay service error: {exc}", exc_info=True)
+                sys.exit(1)
     finally:
         # Cleanup
         await relay.cleanup()

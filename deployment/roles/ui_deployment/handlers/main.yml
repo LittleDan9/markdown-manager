@@ -1,0 +1,5 @@
+---
+- name: fix ui permissions
+  shell: |
+    sudo chown -R www-data:www-data "{{ ui.nginx_root }}"
+    sudo chmod -R 755 "{{ ui.nginx_root }}"

@@ -1,49 +1,146 @@
 const express = require('express');
 const cors = require('cors');
-const markdownlint = require('markdownlint');
 const fs = require('fs');
 const path = require('path');
 
-const app = express();
-const PORT = process.env.MARKDOWN_LINT_PORT || 8002;
+// Dynamic import for markdownlint (ES module)
+let markdownlint;
 
-// Load rule definitions and recommended defaults from JSON files
-let ruleDefinitions = {};
-let recommendedDefaults = {};
-
-try {
-    const rulesPath = path.join(__dirname, 'rules-definitions.json');
-    const defaultsPath = path.join(__dirname, 'recommended-defaults.json');
-
-    ruleDefinitions = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
-    recommendedDefaults = JSON.parse(fs.readFileSync(defaultsPath, 'utf8'));
-
-    console.log(`Loaded ${Object.keys(ruleDefinitions).length} rule definitions`);
-    console.log(`Loaded recommended defaults for ${Object.keys(recommendedDefaults.rules).length} rules`);
-} catch (error) {
-    console.error('Failed to load rule configuration files:', error);
-    process.exit(1);
+async function initializeServer() {
+    try {
+        const markdownlintModule = await import('markdownlint/sync');
+        markdownlint = markdownlintModule.lint;
+        console.log('markdownlint sync module loaded successfully');
+        
+        // Start server after markdownlint is loaded
+        startServer();
+    } catch (error) {
+        console.error('Failed to load markdownlint:', error);
+        process.exit(1);
+    }
 }
 
-// Middleware
-app.use(cors());
-app.use(express.json({ limit: '10mb' })); // Support large markdown files
+function startServer() {
+    const app = express();
+    const PORT = process.env.MARKDOWN_LINT_PORT || 8002;
 
-// Health check endpoint
-app.get('/health', (req, res) => {
-    res.json({ status: 'healthy', service: 'markdown-lint' });
-});
+    // Load rule definitions and recommended defaults from JSON files
+    let ruleDefinitions = {};
+    let recommendedDefaults = {};
+
+    try {
+        const rulesPath = path.join(__dirname, 'rules-definitions.json');
+        const defaultsPath = path.join(__dirname, 'recommended-defaults.json');
+
+        ruleDefinitions = JSON.parse(fs.readFileSync(rulesPath, 'utf8'));
+        recommendedDefaults = JSON.parse(fs.readFileSync(defaultsPath, 'utf8'));
+
+        console.log(`Loaded ${Object.keys(ruleDefinitions).length} rule definitions`);
+        console.log(`Loaded recommended defaults for ${Object.keys(recommendedDefaults.rules).length} rules`);
+    } catch (error) {
+        console.error('Failed to load rule configuration files:', error);
+        process.exit(1);
+    }
+
+    // Middleware
+    app.use(cors());
+    app.use(express.json({ limit: '10mb' })); // Support large markdown files
+
+    // Performance and statistics tracking
+    const stats = {
+        startTime: Date.now(),
+        requestsProcessed: 0,
+        totalProcessingTime: 0,
+        successfulLints: 0,
+        failedLints: 0,
+        totalFilesSize: 0,
+        rulePerformance: {},
+        memoryUsage: process.memoryUsage()
+    };
+
+    // Health check endpoint
+    app.get('/health', (req, res) => {
+        res.json({ status: 'healthy', service: 'markdown-lint' });
+    });
+
+    // Detailed health check endpoint
+    app.get('/health/detailed', (req, res) => {
+        const uptimeMs = Date.now() - stats.startTime;
+        const memUsage = process.memoryUsage();
+        
+        res.json({
+            status: 'healthy',
+            service: 'markdown-lint',
+            version: '1.0.0',
+            uptime: {
+                milliseconds: uptimeMs,
+                seconds: Math.floor(uptimeMs / 1000),
+                minutes: Math.floor(uptimeMs / 60000),
+                hours: Math.floor(uptimeMs / 3600000)
+            },
+            statistics: {
+                requestsProcessed: stats.requestsProcessed,
+                successfulLints: stats.successfulLints,
+                failedLints: stats.failedLints,
+                successRate: stats.requestsProcessed > 0 ? 
+                    ((stats.successfulLints / stats.requestsProcessed) * 100).toFixed(2) + '%' : '100%',
+                averageProcessingTime: stats.requestsProcessed > 0 ? 
+                    Math.round(stats.totalProcessingTime / stats.requestsProcessed) + 'ms' : '0ms',
+                totalFilesProcessed: stats.requestsProcessed,
+                totalDataProcessed: formatBytes(stats.totalFilesSize)
+            },
+            rules: {
+                totalRulesAvailable: Object.keys(ruleDefinitions).length,
+                rulesLoaded: Object.keys(ruleDefinitions).length,
+                ruleCategories: [...new Set(Object.values(ruleDefinitions).map(rule => rule.category || 'uncategorized'))],
+                recommendedDefaults: Object.keys(recommendedDefaults.rules || {}).length
+            },
+            memory: {
+                rss: formatBytes(memUsage.rss),
+                heapTotal: formatBytes(memUsage.heapTotal),
+                heapUsed: formatBytes(memUsage.heapUsed),
+                external: formatBytes(memUsage.external),
+                arrayBuffers: formatBytes(memUsage.arrayBuffers || 0)
+            },
+            system: {
+                nodeVersion: process.version,
+                platform: process.platform,
+                cpuUsage: process.cpuUsage()
+            },
+            configuration: {
+                maxFileSize: '10mb',
+                port: PORT
+            }
+        });
+    });
+
+    // Helper function to format bytes
+    function formatBytes(bytes, decimals = 2) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const dm = decimals < 0 ? 0 : decimals;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+    }
 
 // Lint endpoint
 app.post('/lint', async (req, res) => {
+    const startTime = Date.now();
+    
     try {
         const { text, rules, chunk_offset = 0 } = req.body;
 
         if (!text || !rules) {
+            stats.failedLints++;
+            stats.requestsProcessed++;
             return res.status(400).json({
                 error: 'Missing required fields: text and rules'
             });
         }
+
+        // Track request statistics
+        stats.totalFilesSize += text.length;
 
         console.log(`Processing lint request - text length: ${text.length}, rules: ${Object.keys(rules).length}`);
 
@@ -74,13 +171,19 @@ app.post('/lint', async (req, res) => {
             config: processedConfig
         };
 
-        // Run markdownlint
-        const results = markdownlint.sync(options);
+        // Run markdownlint (API changed in v0.40.0)
+        const results = markdownlint(options);
 
         // Parse results into our response format
         const issues = parseMarkdownlintResults(results, chunk_offset);
 
         console.log(`Found ${issues.length} issues`);
+
+        // Update statistics
+        const processingTime = Date.now() - startTime;
+        stats.totalProcessingTime += processingTime;
+        stats.requestsProcessed++;
+        stats.successfulLints++;
 
         res.json({
             issues: issues,
@@ -90,6 +193,13 @@ app.post('/lint', async (req, res) => {
 
     } catch (error) {
         console.error('Linting error:', error);
+        
+        // Update failure statistics
+        const processingTime = Date.now() - startTime;
+        stats.totalProcessingTime += processingTime;
+        stats.requestsProcessed++;
+        stats.failedLints++;
+        
         res.status(500).json({
             error: 'Linting failed',
             details: error.message
@@ -185,3 +295,7 @@ app.listen(PORT, '0.0.0.0', () => {
         console.log('markdownlint library loaded successfully');
     }
 });
+}
+
+// Initialize the server
+initializeServer();

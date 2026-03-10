@@ -1,0 +1,132 @@
+/* System Health Modal Styling */
+
+/* Detailed Health Display Component */
+.detailed-health-display {
+  font-size: 0.875rem;
+}
+
+.detailed-health-header {
+  border-radius: 0.375rem;
+  background-color: var(--bs-gray-50, #f8f9fa);
+  border: 1px solid var(--bs-gray-200, #dee2e6);
+}
+
+[data-bs-theme="dark"] .detailed-health-header {
+  background-color: var(--bs-gray-800, #2d3748);
+  border-color: var(--bs-gray-600, #4a5568);
+}
+
+.detailed-health-section {
+  border-radius: 0.375rem;
+  border: 1px solid var(--bs-gray-200, #dee2e6);
+  background-color: var(--bs-white, #ffffff);
+}
+
+[data-bs-theme="dark"] .detailed-health-section {
+  border-color: var(--bs-gray-600, #4a5568);
+  background-color: var(--bs-gray-900, #1a1e23);
+}
+
+.detailed-health-row {
+  border-bottom: 1px solid var(--bs-gray-100, #f8f9fa);
+  transition: background-color 0.15s ease-in-out;
+}
+
+.detailed-health-row:last-child {
+  border-bottom: none;
+}
+
+.detailed-health-row:hover {
+  background-color: var(--bs-gray-50, #f8f9fa);
+}
+
+[data-bs-theme="dark"] .detailed-health-row {
+  border-color: var(--bs-gray-700, #374151);
+}
+
+[data-bs-theme="dark"] .detailed-health-row:hover {
+  background-color: var(--bs-gray-800, #2d3748);
+}
+
+.detailed-health-key {
+  font-weight: 500;
+  color: var(--bs-gray-700, #495057);
+}
+
+[data-bs-theme="dark"] .detailed-health-key {
+  color: var(--bs-gray-300, #e2e8f0);
+}
+
+.detailed-health-value {
+  font-family: var(--bs-font-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace);
+  font-size: 0.8125rem;
+}
+
+.detailed-health-code {
+  background-color: var(--bs-gray-100, #f8f9fa);
+  color: var(--bs-gray-800, #212529);
+  padding: 0.125rem 0.375rem;
+  border-radius: 0.25rem;
+  border: 1px solid var(--bs-gray-200, #dee2e6);
+  font-size: 0.8125rem;
+  font-family: var(--bs-font-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace);
+}
+
+[data-bs-theme="dark"] .detailed-health-code {
+  background-color: var(--bs-gray-800, #2d3748);
+  color: var(--bs-gray-200, #e2e8f0);
+  border-color: var(--bs-gray-600, #4a5568);
+}
+
+.detailed-health-json {
+  background-color: var(--bs-gray-50, #f8f9fa);
+  color: var(--bs-gray-800, #212529);
+  padding: 0.75rem;
+  border-radius: 0.375rem;
+  border: 1px solid var(--bs-gray-200, #dee2e6);
+  font-size: 0.75rem;
+  font-family: var(--bs-font-monospace, 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace);
+  max-height: 300px;
+  overflow-y: auto;
+  margin: 0;
+}
+
+[data-bs-theme="dark"] .detailed-health-json {
+  background-color: var(--bs-gray-900, #1a1e23);
+  color: var(--bs-gray-100, #f1f3f4);
+  border-color: var(--bs-gray-600, #4a5568);
+}
+
+/* Detailed Health Card styling */
+.detailed-health-card {
+  border-color: var(--bs-gray-300, #dee2e6) !important;
+}
+
+[data-bs-theme="dark"] .detailed-health-card {
+  border-color: var(--bs-gray-600, #4a5568) !important;
+  background-color: var(--bs-gray-800, #2d3748);
+}
+
+/* Consumer status styling for consistency */
+.consumer-status {
+  border-bottom: 1px solid var(--bs-gray-100, #f8f9fa);
+}
+
+.consumer-status:last-child {
+  border-bottom: none;
+}
+
+[data-bs-theme="dark"] .consumer-status {
+  border-color: var(--bs-gray-700, #374151);
+}
+
+/* Icon colors for better contrast */
+[data-bs-theme="dark"] .text-muted {
+  color: var(--bs-gray-400, #9ca3af) !important;
+}
+
+/* Loading spinner in dark mode */
+[data-bs-theme="dark"] .spinner-border {
+  border-color: var(--bs-gray-400, #9ca3af);
+  border-right-color: transparent;
+}

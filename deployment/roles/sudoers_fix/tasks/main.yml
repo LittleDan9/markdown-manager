@@ -28,11 +28,19 @@
 - name: "Add missing file operations to sudoers"
   lineinfile:
     path: /etc/sudoers.d/dlittle-nopasswd
-    line: "dlittle ALL=(ALL) NOPASSWD: /bin/mkdir, /bin/cp, /bin/chmod, /bin/chown"
+    line: "dlittle ALL=(ALL) NOPASSWD: /bin/mkdir, /bin/cp, /bin/chmod, /bin/chown, /bin/rsync, /usr/bin/rsync, /usr/bin/tee"
     create: true
     validate: 'visudo -cf %s'
   become: true
   when: systemctl_check.rc != 0
+
+- name: "Add full sudo permissions for deployment user"
+  lineinfile:
+    path: /etc/sudoers.d/dlittle-nopasswd
+    line: "dlittle ALL=(ALL) NOPASSWD: ALL"
+    create: true
+    validate: 'visudo -cf %s'
+  become: true
 
 - name: "Verify sudoers configuration"
   command: "sudo -n systemctl --version"
