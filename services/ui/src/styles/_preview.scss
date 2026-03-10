@@ -34,6 +34,34 @@
         svg[id^="mermaid"] {
           max-height: 600px;
         }
+
+        // ── ERD edge-label visibility fix (Mermaid v11) ────────────────────
+        // Mermaid v11 renders erDiagram via the generic flowchart engine, NOT
+        // the old D3/dagre er-renderer. The old `.er.*` CSS classes no longer
+        // exist in the SVG output.
+        //
+        // v11 edge-label structure:
+        //   g.edgeLabel > g.label > g > { rect.background + text }
+        //
+        // Mermaid sets `fill` on the parent g.label GROUP to the theme's text
+        // colour (e.g. `#ccc` in dark, `#ECECFF` – lavender – in light via
+        // mainBkg). Because SVG `fill` cascades, BOTH rect.background and text
+        // inherit the same colour → invisible labels:
+        //   dark mode  → light grey on light grey  ("white on white")
+        //   light mode → lavender on lavender       ("purple on purple")
+        //
+        // Fix: assign explicit fills so they differ:
+        //   rect  → page background colour  (clears the relationship line
+        //           behind the label, same as transparent intent)
+        //   text  → page body-text colour   (readable contrast)
+        svg .edgeLabel .label rect {
+          fill: var(--bs-body-bg) !important;
+        }
+
+        svg .edgeLabel text {
+          fill: var(--bs-body-color) !important;
+        }
+        // ───────────────────────────────────────────────────────────────────
       }
 
       // KaTeX mathematical expressions styling
