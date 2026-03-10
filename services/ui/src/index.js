@@ -8,6 +8,9 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 // import * as bootstrap from "bootstrap";
 
+// Import KaTeX CSS for mathematical expressions
+import "katex/dist/katex.min.css";
+
 import "./styles/main.scss";
 
 const container = document.getElementById("root");
@@ -17,3 +20,5 @@ root.render(
     <App />
   </AppProviders>
 );
+/* Force rebuild for KaTeX deployment Thu Jan 29 23:44:07 EST 2026 */
+/* Force rebuild for KaTeX deployment Thu Jan 29 23:48:36 EST 2026 */

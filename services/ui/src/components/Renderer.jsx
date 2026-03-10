@@ -81,14 +81,18 @@ const RendererContent = ({
       let finalHtml = htmlString;
 
       // Check if we need to process Mermaid diagrams
-      if (htmlString && htmlString.includes && htmlString.includes("data-mermaid-source")) {
+      if (finalHtml && finalHtml.includes && finalHtml.includes("data-mermaid-source")) {
         console.log(`🧜‍♀️ Processing Mermaid diagrams for render ${renderId}`);
-        finalHtml = await renderDiagrams(htmlString, _theme);
-        setPreviewHTML(finalHtml);
-      } else {
-        console.log(`📄 Setting preview HTML for render ${renderId} (no Mermaid)`);
-        setPreviewHTML(finalHtml);
+        finalHtml = await renderDiagrams(finalHtml, _theme);
       }
+      
+      if (finalHtml !== htmlString) {
+        console.log(`📄 Setting processed HTML for render ${renderId} (Mermaid)`);
+      } else {
+        console.log(`📄 Setting preview HTML for render ${renderId} (no processing needed)`);
+      }
+      
+      setPreviewHTML(finalHtml);
 
       // Update the App's renderedHTML state for PDF export
       // Note: Rendering is now centralized - previewHTML is updated directly in context
@@ -99,7 +103,7 @@ const RendererContent = ({
       // The orchestrator will handle setting isRendering to false
 
     } catch (error) {
-      console.error(`❌ Error processing Mermaid for render ${renderId}:`, error);
+      console.error(`❌ Error processing content for render ${renderId}:`, error);
       // Fall back to original HTML if available
       if (htmlString) {
         setPreviewHTML(htmlString);

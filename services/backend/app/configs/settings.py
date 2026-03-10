@@ -92,6 +92,16 @@ class Settings(BaseSettings):
         default="http://linting:8002", description="Markdown lint service URL"
     )
 
+    # Spell Check Service configuration
+    spell_check_service_url: str = Field(
+        default="http://spell-check:8003", description="Spell check service URL"
+    )
+
+    # Event Publisher Service configuration
+    event_publisher_service_url: str = Field(
+        default="http://event-publisher:8004", description="Event publisher service URL"
+    )
+
     # Filesystem storage configuration
     markdown_storage_root: str = Field(
         default="/documents", description="Root directory for document storage"

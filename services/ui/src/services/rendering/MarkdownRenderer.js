@@ -1,4 +1,5 @@
 import MarkdownIt from "markdown-it";
+import markdownItKatex from "markdown-it-katex";
 import { HighlightService } from '../editor';
 import { Mermaid } from './index';
 import ImageCacheService from './ImageCacheService';
@@ -7,6 +8,32 @@ const md = new MarkdownIt({
   html: true,
   linkify: true,
   typographer: true
+});
+
+// Configure KaTeX plugin
+md.use(markdownItKatex, {
+  throwOnError: false,
+  errorColor: '#cc0000',
+  strict: false,
+  output: 'html',
+  displayMode: false,
+  delimiters: [
+    {left: '$$', right: '$$', display: true},
+    {left: '$', right: '$', display: false},
+    {left: '\\[', right: '\\]', display: true},
+    {left: '\\(', right: '\\)', display: false}
+  ],
+  macros: {
+    // Common mathematical macros
+    '\\RR': '\\mathbb{R}',
+    '\\NN': '\\mathbb{N}',
+    '\\ZZ': '\\mathbb{Z}',
+    '\\QQ': '\\mathbb{Q}',
+    '\\CC': '\\mathbb{C}',
+    '\\eps': '\\epsilon',
+    '\\implies': '\\Rightarrow',
+    '\\iff': '\\Leftrightarrow'
+  }
 });
 
 // Helper: map token index to source line number

@@ -72,6 +72,10 @@ class OutboxRelay:
         if self.engine:
             await self.engine.dispose()
 
+    def is_running(self) -> bool:
+        """Check if the relay is currently running."""
+        return getattr(self, 'running', False)
+
     async def run(self, shutdown_flag: asyncio.Event):
         """Main processing loop."""
         self.running = True

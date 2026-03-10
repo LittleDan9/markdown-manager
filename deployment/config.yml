@@ -25,6 +25,7 @@ services:
       - "EXPORT_SERVICE_URL"
       - "MARKDOWN_LINT_SERVICE_URL"
       - "SPELL_CHECK_SERVICE_URL"
+      - "EVENT_PUBLISHER_SERVICE_URL"
       - "REDIS_URL"
       - "ENVIRONMENT"
       - "GITHUB_CLIENT_ID"
@@ -108,7 +109,7 @@ services:
     name: "markdown-manager-event-publisher"
     image: "littledan9/markdown-manager-event-publisher"
     tag: "latest"
-    port: 0  # No exposed port (background service)
+    port: 8004  # HTTP health check server port
     build_context: "./services/event-publisher"
     dockerfile: "Dockerfile"
     systemd_service: true
@@ -119,6 +120,10 @@ services:
     environment_variables:
       - "DATABASE_URL"
       - "REDIS_URL"
+      - "BATCH_SIZE"
+      - "POLL_INTERVAL"
+      - "MAX_RETRY_ATTEMPTS"
+      - "LOG_LEVEL"
       - "ENVIRONMENT"
 
 # Event consumer service template (used automatically for services with consumer_config)
@@ -155,7 +160,7 @@ service_deploy_order:
 ui:
   build_context: "./services/ui"
   build_command: "npm install && npm run build:clean"
-  dist_path: "./services/ui/dist"
+  dist_path: "~/ramcache/markdown-manager/dist"
   nginx_root: "/var/www/littledan.com"
   node_version: "24"
 
