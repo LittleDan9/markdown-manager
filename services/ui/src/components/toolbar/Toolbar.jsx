@@ -51,7 +51,7 @@ function Toolbar({
   };
 
   return (
-    <nav id="toolbar" className="navbar navbar-expand-lg bg-body-tertiary px-3">
+    <nav id="toolbar" className="navbar bg-body px-3">
       <div className="d-flex align-items-center justify-content-between w-100">
         {/* Left side: File Menu & Document Title or Shared Document Info */}
         <div className="d-flex align-items-center gap-3">

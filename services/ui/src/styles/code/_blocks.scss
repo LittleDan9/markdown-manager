@@ -6,31 +6,22 @@
 
 .code-block {
   position: relative;
-  margin: 2rem 0;
-  border: 1px solid variables.$color-border;
-  border-radius: 4px;
+  margin: variables.$space-6 0;
+  border: 1px solid var(--mm-border);
+  border-radius: variables.$radius-md;
   overflow: hidden;
-
-  @include mixins.dark {
-    border-color: variables.$color-border-dark;
-  }
+  @include mixins.elevation("xs");
 
   &-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 1rem;
-    background-color: variables.$color-bg-light;
-    border-bottom: 1px solid variables.$color-border;
-    font-size: 0.875rem;
-    font-weight: 500;
+    padding: variables.$space-2 variables.$space-4;
+    background-color: var(--mm-bg-surface);
+    border-bottom: 1px solid var(--mm-border);
+    font-size: variables.$font-size-base;
+    font-weight: variables.$font-weight-medium;
     margin: 0;
-
-    [data-bs-theme="dark"] & {
-      background-color: variables.$color-bg-dark;
-      border-bottom-color: variables.$color-border-dark;
-      color: variables.$color-text-dark;
-    }
   }
 
   &-lang {

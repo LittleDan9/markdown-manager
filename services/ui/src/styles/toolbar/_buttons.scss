@@ -7,22 +7,31 @@
 // Utility controls styling - remove borders for clean look
 #utilityControls {
   .btn {
-    min-width: 40px;
-    height: 38px;
+    min-width: 36px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: center;
     border: none !important;
     background: transparent !important;
-    color: var(--bs-body-color);
+    color: var(--mm-text);
+    border-radius: variables.$radius-md;
+    @include mixins.interactive-transition(background-color, color, box-shadow);
 
     &:hover {
-      background-color: var(--bs-secondary-bg) !important;
-      color: var(--bs-body-color);
+      background-color: var(--mm-bg-surface) !important;
+      color: var(--mm-primary);
+      box-shadow: 0 0 0 1px rgba(79, 109, 245, 0.15), 0 2px 8px rgba(79, 109, 245, 0.1);
     }
 
-    &:focus {
-      box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+    &:active {
+      transform: scale(0.95);
+      box-shadow: none;
+    }
+
+    &:focus-visible {
+      box-shadow: 0 0 0 2px var(--mm-primary);
+      outline: none;
     }
 
     &:disabled {

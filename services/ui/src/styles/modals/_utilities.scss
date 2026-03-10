@@ -66,11 +66,7 @@
     font-size: 1.25rem !important;
     font-weight: 600 !important;
     margin-bottom: 0.5rem !important;
-    color: #495057 !important;
-
-    [data-bs-theme="dark"] & {
-      color: #f8f9fa !important;
-    }
+    color: var(--mm-text) !important;
   }
 
   .empty-message {
@@ -98,8 +94,8 @@
     color: #6c757d !important;
 
     [data-bs-theme="dark"] & {
-      background: #2a2a2a !important;
-      border-bottom-color: #444 !important;
+      background: var(--mm-bg-elevated) !important;
+      border-bottom-color: var(--mm-border) !important;
       color: #adb5bd !important;
     }
   }
@@ -170,7 +166,7 @@
     margin: 0 !important;
 
     [data-bs-theme="dark"] & {
-      border-right-color: #444 !important;
+      border-right-color: var(--mm-border) !important;
     }
 
     .nav-link {
@@ -184,8 +180,8 @@
         background: #fff !important;
 
         [data-bs-theme="dark"] & {
-          border-color: #444 #444 #444 transparent !important;
-          background: #1a1a1a !important;
+          border-color: var(--mm-border) var(--mm-border) var(--mm-border) transparent !important;
+          background: var(--mm-bg) !important;
         }
       }
     }
@@ -225,10 +221,10 @@
       display: block !important;
       margin-bottom: 0.5rem !important;
       font-weight: 500 !important;
-      color: #495057 !important;
+      color: var(--mm-text-secondary) !important;
 
       [data-bs-theme="dark"] & {
-        color: #f8f9fa !important;
+        color: var(--mm-text) !important;
       }
 
       &.required::after {

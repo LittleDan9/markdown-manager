@@ -1,49 +1,51 @@
-// Navigation Toolbar Component Styles
-// Main navigation toolbar with document controls
-
 @use "../variables";
 @use "../mixins";
 
 // ─── NAVIGATION TOOLBAR ───
 #toolbar {
-  border-bottom: 1px solid var(--bs-border-color);
-  min-height: 56px;
+  border-bottom: 1px solid var(--mm-border);
+  min-height: 48px;
+  background-color: var(--mm-bg);
+  @include mixins.elevation("xs");
+  position: relative;
+  z-index: 20;
 
   .toolbar-section {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: variables.$space-3;
 
-    &.toolbar-start {
-      flex: 0 0 auto;
-    }
+    &.toolbar-start { flex: 0 0 auto; }
+    &.toolbar-center { flex: 1 1 auto; justify-content: center; }
+    &.toolbar-end { flex: 0 0 auto; justify-content: flex-end; }
+  }
 
-    &.toolbar-center {
-      flex: 1 1 auto;
-      justify-content: center;
-    }
-
-    &.toolbar-end {
-      flex: 0 0 auto;
-      justify-content: flex-end;
-    }
+  // Dark theme — glassmorphism effect
+  @include mixins.dark {
+    background-color: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom-color: rgba(255, 255, 255, 0.06);
   }
 }
 
-// File menu button styling - borderless like utility buttons
+// File menu and category dropdown
 #fileMenuDropdown,
 #categoryDropdown {
   border: none !important;
   background: transparent !important;
-  color: var(--bs-body-color);
+  color: var(--mm-text);
+  border-radius: variables.$radius-md;
+  @include mixins.interactive-transition(background-color, color);
 
   &:hover {
-    background-color: var(--bs-secondary-bg) !important;
-    color: var(--bs-body-color);
+    background-color: var(--mm-bg-surface) !important;
+    color: var(--mm-text);
   }
 
-  &:focus {
-    box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--mm-primary);
+    outline: none;
   }
 
   .dropdown-item {
@@ -54,36 +56,39 @@
   }
 }
 
-// Vertical separator styling
+// Vertical separator — refined
 .vr {
   width: 1px;
-  height: 1.5rem;
-  background-color: var(--bs-border-color);
+  height: 1.25rem;
+  background-color: var(--mm-border);
+  opacity: 0.6;
+  margin: 0 variables.$space-1;
 }
 
-// Document title styling
+// Document title
 #documentTitle {
   cursor: pointer;
-  padding: 0.375rem 0.75rem;
-  border-radius: 0.375rem;
-  transition: all 0.2s ease;
-  font-weight: 500;
-  font-size: 0.95rem;
+  padding: variables.$space-1 variables.$space-3;
+  border-radius: variables.$radius-md;
+  @include mixins.interactive-transition(background-color, color, box-shadow);
+  font-weight: variables.$font-weight-medium;
+  font-size: variables.$font-size-base;
   max-width: 300px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: var(--mm-text);
 
   &:hover {
-    background-color: var(--bs-secondary-bg);
-    color: var(--bs-body-color);
+    background-color: var(--mm-bg-surface);
   }
 
   &.editing {
-    background-color: var(--bs-body-bg);
-    border: 2px solid #0d6efd;
+    background-color: var(--mm-bg);
+    border: 2px solid var(--mm-primary);
     outline: none;
-    color: var(--bs-body-color);
+    color: var(--mm-text);
+    box-shadow: 0 0 0 3px var(--mm-primary-subtle);
   }
 
   &.has-changes {
@@ -91,19 +96,19 @@
 
     &::after {
       content: "●";
-      color: var(--bs-warning);
-      margin-left: 0.25rem;
-      font-size: 0.8rem;
+      color: variables.$color-warning;
+      margin-left: variables.$space-1;
+      font-size: variables.$font-size-xs;
     }
   }
 }
 
 // Document info button styling
 .btn-link.text-muted:not(:disabled) {
-  transition: all 0.2s ease;
+  @include mixins.interactive-transition(color, transform);
 
   &:hover {
-    color: var(--bs-primary) !important;
+    color: var(--mm-primary) !important;
     transform: scale(1.1);
   }
 
@@ -118,7 +123,7 @@
     margin: 0;
     padding: 0;
     background: none;
-    font-size: 0.875rem;
+    font-size: variables.$font-size-base;
 
     .breadcrumb-item {
       &::before {

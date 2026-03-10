@@ -1,4 +1,23 @@
 // ─── COMPONENT STYLES INDEX ───
 // Exports all component-specific styles
 
+@use "../variables";
 @use "diagram-controls";
+
+// ─── INTERACTIVE CARD HOVER ───
+.card-interactive {
+  transition:
+    transform variables.$transition-base,
+    box-shadow variables.$transition-base;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--mm-shadow-md);
+  }
+
+  &:active {
+    transform: translateY(0);
+    box-shadow: var(--mm-shadow-sm);
+  }
+}

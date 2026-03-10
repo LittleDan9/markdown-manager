@@ -1,3 +1,5 @@
+@use "variables";
+
 // ─── SASS MIXINS ───
 
 // Dark theme wrapper: wraps styles inside [data-bs-theme="dark"] selector
@@ -11,5 +13,45 @@
 @mixin light {
   @at-root [data-bs-theme="light"] & {
     @content;
+  }
+}
+
+// ─── SURFACE MIXINS ───
+
+// Apply elevation shadow with dark mode variant
+@mixin elevation($level: "sm") {
+  @if $level == "xs" {
+    box-shadow: variables.$shadow-xs;
+    @include dark { box-shadow: variables.$shadow-sm-dark; }
+  } @else if $level == "sm" {
+    box-shadow: variables.$shadow-sm;
+    @include dark { box-shadow: variables.$shadow-sm-dark; }
+  } @else if $level == "md" {
+    box-shadow: variables.$shadow-md;
+    @include dark { box-shadow: variables.$shadow-md-dark; }
+  } @else if $level == "lg" {
+    box-shadow: variables.$shadow-lg;
+    @include dark { box-shadow: variables.$shadow-lg-dark; }
+  }
+}
+
+// Smooth transition for interactive elements
+@mixin interactive-transition($properties...) {
+  transition: #{$properties} variables.$transition-base;
+}
+
+// Surface background with dark mode variant
+@mixin surface($light-bg, $dark-bg) {
+  background-color: $light-bg;
+  @include dark {
+    background-color: $dark-bg;
+  }
+}
+
+// Border with dark mode variant
+@mixin themed-border($light-color: variables.$color-border, $dark-color: variables.$color-border-dark) {
+  border: 1px solid $light-color;
+  @include dark {
+    border-color: $dark-color;
   }
 }

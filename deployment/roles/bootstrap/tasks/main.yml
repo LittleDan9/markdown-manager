@@ -1,0 +1,139 @@
+---
+# Bootstrap role — Prepare a fresh Debian host for Docker Compose deployments
+#
+# Idempotent: safe to re-run on already-configured hosts.
+# Replaces old roles: infrastructure, registry, sudoers_fix
+
+- name: Update apt cache
+  become: true
+  command: apt-get update
+  changed_when: false
+  # Tolerate warnings from third-party repos with stale GPG keys
+
+- name: Install prerequisite packages
+  become: true
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+      - ufw
+      - rsync
+    state: present
+
+- name: Check if Docker is installed
+  command: docker --version
+  register: docker_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Docker CE
+  when: docker_check.rc != 0
+  block:
+    - name: Add Docker GPG key
+      become: true
+      shell: |
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+
+    - name: Add Docker apt repository
+      become: true
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+          > /etc/apt/sources-docker.list
+      args:
+        creates: /etc/apt/sources-docker.list
+
+    - name: Install Docker packages
+      become: true
+      apt:
+        update_cache: true
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+
+- name: Ensure Docker is running
+  become: true
+  systemd:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add deploy user to docker group
+  become: true
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: true
+
+- name: Create application directory
+  become: true
+  file:
+    path: "{{ app_dir }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+
+- name: Create data directories for Docker volumes
+  become: true
+  file:
+    path: "{{ item }}"
+    state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0755"
+  loop:
+    - "{{ app_dir }}/data"
+
+- name: Configure UFW — allow SSH
+  become: true
+  ufw:
+    rule: allow
+    port: "22"
+    proto: tcp
+
+- name: Configure UFW — allow HTTP
+  become: true
+  ufw:
+    rule: allow
+    port: "80"
+    proto: tcp
+
+- name: Configure UFW — allow HTTPS
+  become: true
+  ufw:
+    rule: allow
+    port: "443"
+    proto: tcp
+
+- name: Enable UFW
+  become: true
+  ufw:
+    state: enabled
+    policy: deny
+    direction: incoming
+
+- name: Allow outgoing traffic
+  become: true
+  ufw:
+    direction: outgoing
+    policy: allow
+
+- name: Verify Docker Compose plugin
+  command: docker compose version
+  register: compose_version
+  changed_when: false
+
+- name: Display Docker Compose version
+  debug:
+    msg: "{{ compose_version.stdout }}"

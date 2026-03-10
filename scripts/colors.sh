@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Colors - respects NO_COLOR environment variable
 
-if [[ -n "$NO_COLOR" ]]; then
+if [[ -n "${NO_COLOR:-}" ]]; then
     RED=''
     GREEN=''
     YELLOW=''

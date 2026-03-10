@@ -1,6 +1,100 @@
 @use "variables";
 @use "mixins";
 
+// ─── CSS CUSTOM PROPERTIES (Design Tokens) ───
+// Expose SCSS tokens as CSS custom properties for runtime access
+:root {
+  // Brand
+  --mm-primary: #{variables.$color-primary};
+  --mm-primary-hover: #{variables.$color-primary-hover};
+  --mm-primary-subtle: #{variables.$color-primary-subtle};
+  --mm-accent: #{variables.$color-accent};
+
+  // Surfaces (light defaults)
+  --mm-bg: #{variables.$color-bg-light};
+  --mm-bg-surface: #{variables.$color-bg-surface-light};
+  --mm-bg-elevated: #{variables.$color-bg-elevated-light};
+  --mm-text: #{variables.$color-text-light};
+  --mm-text-secondary: #{variables.$color-text-secondary-light};
+  --mm-border: #{variables.$color-border};
+  --mm-border-subtle: #{variables.$color-border-light};
+
+  // Shadows
+  --mm-shadow-sm: #{variables.$shadow-sm};
+  --mm-shadow-md: #{variables.$shadow-md};
+  --mm-shadow-lg: #{variables.$shadow-lg};
+
+  // Radii
+  --mm-radius-sm: #{variables.$radius-sm};
+  --mm-radius-md: #{variables.$radius-md};
+  --mm-radius-lg: #{variables.$radius-lg};
+
+  // Transitions
+  --mm-transition-fast: #{variables.$transition-fast};
+  --mm-transition-base: #{variables.$transition-base};
+  --mm-transition-slow: #{variables.$transition-slow};
+}
+
+// ── Dark theme overrides ──
+[data-bs-theme="dark"] {
+  --mm-primary: #{variables.$color-primary};
+  --mm-primary-hover: #{variables.$color-primary-dark-hover};
+  --mm-primary-subtle: rgba(79, 109, 245, 0.15);
+  --mm-accent: #{variables.$color-accent};
+
+  --mm-bg: #{variables.$color-bg-dark};
+  --mm-bg-surface: #{variables.$color-bg-surface-dark};
+  --mm-bg-elevated: #{variables.$color-bg-elevated-dark};
+  --mm-text: #{variables.$color-text-dark};
+  --mm-text-secondary: #{variables.$color-text-secondary-dark};
+  --mm-border: #{variables.$color-border-dark};
+  --mm-border-subtle: #{variables.$color-border-dark};
+
+  --mm-shadow-sm: #{variables.$shadow-sm-dark};
+  --mm-shadow-md: #{variables.$shadow-md-dark};
+  --mm-shadow-lg: #{variables.$shadow-lg-dark};
+}
+
+// ─── THEME TRANSITION ───
+// Smooth color transitions on theme toggle.
+// Scoped to key structural elements only — avoids painting every DOM node
+// simultaneously which causes choppiness on complex pages.
+body,
+#container,
+#appHeader,
+#toolbar,
+#main,
+#editorContainer,
+#previewContainer,
+#preview,
+.modal-content,
+.modal-header,
+.modal-body,
+.modal-footer,
+.custom-modal-content,
+.custom-modal-header,
+.custom-modal-footer,
+.dropdown-menu,
+.code-block,
+.code-block-header,
+.preview-scroll blockquote,
+.preview-scroll pre,
+.preview-scroll hr {
+  transition:
+    background-color var(--mm-transition-base),
+    border-color var(--mm-transition-base),
+    box-shadow var(--mm-transition-fast);
+}
+
+// Opt-out class for elements that shouldn't transition (e.g., Monaco editor, Mermaid diagrams)
+.no-theme-transition,
+.no-theme-transition *,
+#editor *,
+.mermaid *,
+.mermaid-diagram * {
+  transition: none !important;
+}
+
 // ─── GLOBAL RESET AND BASE STYLES ───
 *, *::before, *::after {
   box-sizing: border-box;
@@ -64,29 +158,50 @@ body {
 // Dark theme scrollbar overrides
 [data-bs-theme="dark"] {
   ::-webkit-scrollbar-track {
-    background: var(--bs-dark);
+    background: var(--mm-bg);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: var(--bs-secondary);
-    border: 1px solid var(--bs-dark);
+    background: var(--mm-border);
+    border: 1px solid var(--mm-bg);
 
     &:hover {
-      background: var(--bs-secondary-text-emphasis);
+      background: variables.$color-gray-500;
     }
 
     &:active {
-      background: var(--bs-light);
+      background: variables.$color-gray-400;
     }
   }
 
   ::-webkit-scrollbar-corner {
-    background: var(--bs-dark);
+    background: var(--mm-bg);
   }
 
   * {
-    scrollbar-color: var(--bs-secondary) var(--bs-dark);
+    scrollbar-color: var(--mm-border) var(--mm-bg);
   }
+}
+
+// ─── FOCUS RING ───
+// Consistent focus-visible ring for accessibility
+:focus-visible {
+  outline: 2px solid var(--mm-primary);
+  outline-offset: 2px;
+}
+
+// Remove default focus for mouse users
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+// Specific overrides for inputs and buttons that have their own focus styles
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--mm-primary-subtle);
+  border-color: var(--mm-primary);
 }
 
 // Global cursor utilities

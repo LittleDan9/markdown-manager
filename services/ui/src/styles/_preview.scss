@@ -1,15 +1,11 @@
 @use 'mixins';
+@use 'variables';
 
 .preview-line-highlight {
-  background: none;
-  transition: background 0.3s, color 0.3s;
-  color: #f7e06e !important;
-  font-weight: bold;
-
-  @include mixins.dark {
-    background: #232323 !important;
-    color: #f7e06e !important;
-  }
+  background: var(--mm-primary-subtle);
+  transition: background variables.$transition-slow, color variables.$transition-slow;
+  color: var(--mm-primary);
+  font-weight: variables.$font-weight-bold;
 }
 
 #previewContainer {
@@ -130,52 +126,111 @@
         }
       }
 
+      // KaTeX mathematical expressions styling
+      .katex,
+      .katex-display {
+        color: var(--bs-body-color) !important;
+
+        // Ensure text color applies to all KaTeX elements
+        * {
+          color: inherit !important;
+        }
+
+        // Make sure display math is centered
+        &.katex-display {
+          text-align: center;
+          margin: 1rem 0;
+          padding: 0.5rem;
+          display: block;
+        }
+      }
+
+      // Inline math styling
+      p .katex,
+      span .katex {
+        display: inline;
+        vertical-align: baseline;
+        font-size: 1em;
+      }
+
+      // Display math styling
+      .katex-display {
+        display: block !important;
+        text-align: center;
+        margin: 1rem 0;
+        padding: 0.5rem;
+        overflow-wrap: break-word;
+      }
+
+      // KaTeX error handling
+      .katex-error {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+        border-radius: 0.25rem;
+        font-size: 0.875em;
+        font-family: var(--bs-font-monospace);
+
+        @include mixins.dark {
+          background-color: #3d1a1a;
+          color: #f5c6cb;
+          border-color: #f5c6cb;
+        }
+      }
+
+      // Theme support for dark mode
+      @include mixins.dark {
+        .katex,
+        .katex-display {
+          color: #fff !important;
+
+          * {
+            color: inherit !important;
+          }
+        }
+      }
+
       p > code:not([class*="language-"]) {
-        color: #e83e8c;
-        background: #f8f9fa;
-        border-radius: 4px;
-        padding: 2px 4px;
+        color: variables.$color-code-inline-text;
+        background: var(--mm-bg-surface);
+        border-radius: variables.$radius-sm;
+        padding: 2px 6px;
         font-size: 0.95em;
 
         @include mixins.dark {
-          color: #f7e06e !important; // Muted yellow for dark theme
-          background: #232323 !important;
+          color: variables.$color-code-inline-text-dark;
         }
       }
 
       ul,
       ol {
-        /* Reduced vertical margins and left padding for lists */
-        margin: 0.75rem 0 0.75rem 1rem;
-        padding-left: 1rem;
+        margin: variables.$space-3 0 variables.$space-3 variables.$space-4;
+        padding-left: variables.$space-4;
 
-        /* Tighter list item spacing */
         & > li {
-          margin: 0.25rem 0;
+          margin: variables.$space-1 0;
         }
-        /* Reset paragraph margins inside list items to eliminate extra gaps */
         & > li > p {
           margin: 0;
           padding: 0;
-        }
-
-        @include mixins.dark {
-          color: #fff;
-          /* Apply same spacing in dark theme */
-          & > li { margin: 0.25rem 0; }
-          /* Reset paragraph margins in dark theme lists */
-          & > li > p { margin: 0; padding: 0; }
         }
       }
 
       hr {
         border: none;
-        border-top: 2px solid #212529;
-        margin: 2rem 0;
-
-        @include mixins.dark {
-          border-top: 2px solid #666;
-        }
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          var(--mm-border) 20%,
+          var(--mm-primary) 50%,
+          var(--mm-border) 80%,
+          transparent 100%
+        );
+        opacity: 0.5;
+        margin: variables.$space-8 0;
       }
 
       h1,
@@ -184,14 +239,25 @@
       h4,
       h5,
       h6 {
-        font-weight: bold;
-        margin-top: 1rem;
-        margin-bottom: 1rem;
+        font-weight: variables.$font-weight-bold;
+        margin-top: variables.$space-4;
+        margin-bottom: variables.$space-4;
         line-height: 1.2;
+        color: var(--mm-text);
+      }
 
-        @include mixins.dark {
-          color: #fff;
-        }
+      // Decorative bottom borders on major headings
+      h1 {
+        padding-bottom: variables.$space-3;
+        border-bottom: 2px solid transparent;
+        border-image: linear-gradient(90deg, var(--mm-primary) 0%, var(--mm-accent) 40%, transparent 80%) 1;
+      }
+
+      h2 {
+        padding-bottom: variables.$space-2;
+        border-bottom: 1px solid transparent;
+        border-image: linear-gradient(90deg, var(--mm-primary) 0%, transparent 60%) 1;
+        opacity: 1; // needed to keep border-image visible
       }
       // Heading sizes adjustments for better distinction
       h3 {
@@ -210,70 +276,57 @@
       img {
         max-width: 100%;
         height: auto;
-        border-radius: 0.25rem;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-        margin: 1rem 0;
+        border-radius: variables.$radius-md;
+        box-shadow: var(--mm-shadow-sm);
+        margin: variables.$space-4 0;
       }
 
       a {
-        color: #0d6efd;
+        color: var(--mm-primary);
         text-decoration: underline;
-        transition: color 0.2s;
+        text-decoration-color: transparent;
+        text-underline-offset: 2px;
+        transition: color variables.$transition-fast, text-decoration-color variables.$transition-fast;
 
         &:hover {
-          color: #0056b3;
-        }
-
-        @include mixins.dark {
-          color: #66b3ff;
-          &:hover { color: #99ccff; }
+          color: var(--mm-primary-hover);
+          text-decoration-color: var(--mm-primary-hover);
         }
       }
 
       strong,
       b {
-        font-weight: bold;
-
-        @include mixins.dark { color: #fff; }
+        font-weight: variables.$font-weight-bold;
+        color: var(--mm-text);
       }
 
       em,
       i {
         font-style: italic;
-
-        @include mixins.dark { color: #cccccc; }
+        color: var(--mm-text-secondary);
       }
 
       pre {
-        background: #f8f9fa;
-        color: #212529;
-        border-radius: 0.25rem;
-        padding: 1rem;
+        background: var(--mm-bg-surface);
+        color: var(--mm-text);
+        border-radius: variables.$radius-md;
+        padding: variables.$space-4;
         overflow-x: auto;
-        margin: 1rem 0;
-
-        @include mixins.dark {
-          background: #2d2d2d;
-          color: #f8f8f2;
-        }
+        margin: variables.$space-4 0;
       }
 
       blockquote {
-        color: #6c757d;
-        border-left: 4px solid #dee2e6;
-        background-color: #f8f9fa;
-        padding: 1rem;
-        margin: 1rem 0;
-        border-radius: 4px;
+        color: var(--mm-text-secondary);
+        border-left: 4px solid transparent;
+        border-image: linear-gradient(180deg, var(--mm-primary) 0%, var(--mm-accent) 100%) 1;
+        background-color: var(--mm-bg-surface);
+        padding: variables.$space-4;
+        margin: variables.$space-4 0;
+        border-radius: 0 variables.$radius-md variables.$radius-md 0;
+        position: relative;
 
         p {
           margin: 0;
-        }
-
-        @include mixins.dark {
-          color: #cccccc;
-          border-left: 4px solid #666;
-          background-color: #2d2d2d;
         }
       }
 
@@ -283,30 +336,35 @@
         width: auto !important;
         max-width: none !important;
         border-collapse: collapse;
-        margin-bottom: 1rem;
-        background: #fff;
+        margin-bottom: variables.$space-4;
+        background: var(--mm-bg-elevated);
+        border-radius: variables.$radius-md;
+        overflow: hidden;
 
         th,
         td {
-          border: 2px solid #212529;
-          padding: 0.75rem;
+          border: 1px solid var(--mm-border);
+          padding: variables.$space-3;
           text-align: left;
+          color: var(--mm-text);
         }
 
         th {
-          font-weight: bold;
-          background: #f8f9fa;
+          font-weight: variables.$font-weight-semibold;
+          background: var(--mm-bg-surface);
+          border-bottom: 2px solid var(--mm-primary);
+        }
+
+        tr {
+          transition: background-color variables.$transition-fast;
         }
 
         tr:nth-child(even) td {
-          background: #f3f3f3;
+          background: var(--mm-bg-surface);
         }
 
-        @include mixins.dark {
-          background: #2d2d2d;
-          th, td { border: 2px solid #666; color: #fff; }
-          th { background: #404040; }
-          tr:nth-child(even) td { background: #353535; }
+        tr:hover td {
+          background-color: var(--mm-primary-subtle);
         }
       }
     }
