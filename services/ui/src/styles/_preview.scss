@@ -126,7 +126,16 @@
 
       hr {
         border: none;
-        border-top: 1px solid var(--mm-border);
+        height: 1px;
+        background: linear-gradient(
+          90deg,
+          transparent 0%,
+          var(--mm-border) 20%,
+          var(--mm-primary) 50%,
+          var(--mm-border) 80%,
+          transparent 100%
+        );
+        opacity: 0.5;
         margin: variables.$space-8 0;
       }
 
@@ -141,6 +150,20 @@
         margin-bottom: variables.$space-4;
         line-height: 1.2;
         color: var(--mm-text);
+      }
+
+      // Decorative bottom borders on major headings
+      h1 {
+        padding-bottom: variables.$space-3;
+        border-bottom: 2px solid transparent;
+        border-image: linear-gradient(90deg, var(--mm-primary) 0%, var(--mm-accent) 40%, transparent 80%) 1;
+      }
+
+      h2 {
+        padding-bottom: variables.$space-2;
+        border-bottom: 1px solid transparent;
+        border-image: linear-gradient(90deg, var(--mm-primary) 0%, transparent 60%) 1;
+        opacity: 1; // needed to keep border-image visible
       }
       // Heading sizes adjustments for better distinction
       h3 {
@@ -200,11 +223,13 @@
 
       blockquote {
         color: var(--mm-text-secondary);
-        border-left: 4px solid var(--mm-primary);
+        border-left: 4px solid transparent;
+        border-image: linear-gradient(180deg, var(--mm-primary) 0%, var(--mm-accent) 100%) 1;
         background-color: var(--mm-bg-surface);
         padding: variables.$space-4;
         margin: variables.$space-4 0;
-        border-radius: variables.$radius-md;
+        border-radius: 0 variables.$radius-md variables.$radius-md 0;
+        position: relative;
 
         p {
           margin: 0;
@@ -233,10 +258,19 @@
         th {
           font-weight: variables.$font-weight-semibold;
           background: var(--mm-bg-surface);
+          border-bottom: 2px solid var(--mm-primary);
+        }
+
+        tr {
+          transition: background-color variables.$transition-fast;
         }
 
         tr:nth-child(even) td {
           background: var(--mm-bg-surface);
+        }
+
+        tr:hover td {
+          background-color: var(--mm-primary-subtle);
         }
       }
     }

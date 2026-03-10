@@ -114,6 +114,11 @@
         overflow: hidden; // Monaco editor will handle its own scrolling
         min-height: 0; // allow editor to shrink if needed
         @include mixins.elevation("xs");
+
+        @include mixins.dark {
+          border-color: rgba(255, 255, 255, 0.08);
+          box-shadow: variables.$shadow-sm-dark, inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+        }
       }
     }
 
@@ -138,6 +143,12 @@
         flex: 1 1 auto; // Ensure it fills available height
         min-height: 0; // Allow content to shrink if needed
         @include mixins.elevation("xs");
+
+        @include mixins.dark {
+          border-color: rgba(255, 255, 255, 0.08);
+          background: linear-gradient(170deg, variables.$color-bg-surface-dark 0%, variables.$color-bg-dark 100%);
+          box-shadow: variables.$shadow-sm-dark, inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+        }
       }
 
       .preview-scroll {

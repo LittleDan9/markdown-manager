@@ -49,10 +49,11 @@
     width: 28px;
     height: 28px;
     border-radius: variables.$radius-md;
-    background: var(--mm-primary);
+    background: linear-gradient(135deg, var(--mm-primary) 0%, var(--mm-accent) 100%);
     color: #ffffff;
     font-size: variables.$font-size-base;
     flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(79, 109, 245, 0.3);
   }
 
   .brand-text {
@@ -68,9 +69,11 @@
     font-weight: variables.$font-weight-bold;
   }
 
-  // Dark theme
+  // Dark theme — glassmorphism effect
   @include mixins.dark {
-    background-color: var(--mm-bg-surface);
-    border-bottom-color: var(--mm-border);
+    background-color: rgba(30, 41, 59, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom-color: rgba(255, 255, 255, 0.06);
   }
 }

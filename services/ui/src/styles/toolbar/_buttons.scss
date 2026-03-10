@@ -20,11 +20,13 @@
 
     &:hover {
       background-color: var(--mm-bg-surface) !important;
-      color: var(--mm-text);
+      color: var(--mm-primary);
+      box-shadow: 0 0 0 1px rgba(79, 109, 245, 0.15), 0 2px 8px rgba(79, 109, 245, 0.1);
     }
 
     &:active {
       transform: scale(0.95);
+      box-shadow: none;
     }
 
     &:focus-visible {

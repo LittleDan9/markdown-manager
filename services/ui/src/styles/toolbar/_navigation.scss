@@ -20,9 +20,12 @@
     &.toolbar-end { flex: 0 0 auto; justify-content: flex-end; }
   }
 
+  // Dark theme — glassmorphism effect
   @include mixins.dark {
-    background-color: var(--mm-bg-surface);
-    border-bottom-color: var(--mm-border);
+    background-color: rgba(30, 41, 59, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom-color: rgba(255, 255, 255, 0.06);
   }
 }
 
