@@ -1,70 +1,76 @@
-// App Header Component Styles
-// Main application header and branding
-
 @use "../variables";
 @use "../mixins";
 
 // ─── APP HEADER ───
 #appHeader {
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background-color: var(--mm-bg);
+  border-bottom: 1px solid var(--mm-border);
+  position: relative;
+  z-index: 10;
+  @include mixins.elevation("xs");
 
-  h1 {
-    margin: 0;
-    font-weight: 600;
-    color: var(--bs-body-color);
+  // Accent line at the bottom
+  &::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: linear-gradient(
+      90deg,
+      var(--mm-primary) 0%,
+      var(--mm-accent) 100%
+    );
+    opacity: 0.8;
+  }
 
-    i {
-      color: #0d6efd;
-    }
+  .header-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: variables.$space-2 variables.$space-4;
+    max-height: 44px;
   }
 
   .app-brand {
     display: flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: variables.$space-2;
     text-decoration: none;
     color: inherit;
-
-    &:hover {
-      text-decoration: none;
-      color: inherit;
-    }
-
-    .brand-icon {
-      font-size: 1.5rem;
-      color: var(--bs-primary);
-    }
-
-    .brand-text {
-      font-size: 1.25rem;
-      font-weight: 600;
-      margin: 0;
-    }
+    user-select: none;
   }
 
-  .header-actions {
-    display: flex;
+  .brand-icon-wrapper {
+    display: inline-flex;
     align-items: center;
-    gap: 0.75rem;
-
-    .btn {
-      display: flex;
-      align-items: center;
-      gap: 0.375rem;
-    }
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: variables.$radius-md;
+    background: var(--mm-primary);
+    color: #ffffff;
+    font-size: variables.$font-size-base;
+    flex-shrink: 0;
   }
 
-  // Dark theme adjustments
-  [data-bs-theme="dark"] & {
-    border-bottom: 1px solid var(--bs-border-color);
-    background-color: var(--bs-dark);
+  .brand-text {
+    font-size: variables.$font-size-lg;
+    font-weight: variables.$font-weight-semibold;
+    color: var(--mm-text);
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
 
-    h1 {
-      color: var(--bs-light);
-    }
+  .brand-text-accent {
+    color: var(--mm-primary);
+    font-weight: variables.$font-weight-bold;
+  }
 
-    .brand-text {
-      color: var(--bs-light);
-    }
+  // Dark theme
+  @include mixins.dark {
+    background-color: var(--mm-bg-surface);
+    border-bottom-color: var(--mm-border);
   }
 }

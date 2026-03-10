@@ -187,7 +187,7 @@
   // Ensure proper theming
   @include mixins.dark {
     background-color: var(--bs-dark);
-    border-color: #495057;
+    border-color: var(--mm-border);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
   }
 

@@ -1,44 +1,35 @@
 // ─── BASE MODAL STYLES ───
+@use "../variables";
 
 // Bootstrap Modal improvements
 .modal-content {
-  border-radius: 0.5rem;
-  border: none;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+  border-radius: variables.$radius-lg;
+  border: 1px solid var(--mm-border);
+  box-shadow: var(--mm-shadow-lg);
+  background-color: var(--mm-bg-elevated);
 }
 
 .modal-header {
-  border-bottom: 1px solid #dee2e6;
-  border-top-left-radius: 0.5rem;
-  border-top-right-radius: 0.5rem;
-
-  [data-bs-theme="dark"] & {
-    border-bottom-color: #444;
-    background-color: #2a2a2a;
-    color: #fff;
-  }
+  border-bottom: 1px solid var(--mm-border);
+  border-top-left-radius: variables.$radius-lg;
+  border-top-right-radius: variables.$radius-lg;
+  background-color: var(--mm-bg-surface);
 }
 
 .modal-body {
-  [data-bs-theme="dark"] & {
-    background-color: #1a1a1a;
-    color: #fff;
-  }
+  background-color: var(--mm-bg-elevated);
+  color: var(--mm-text);
 }
 
 .modal-footer {
   height: auto !important;
-  padding: 0.5rem 1rem !important; // Adjust padding to ensure proper spacing
-  min-height: unset !important; // Remove any minimum height constraints
+  padding: variables.$space-2 variables.$space-4 !important;
+  min-height: unset !important;
 
-  border-top: 1px solid #dee2e6;
-  border-bottom-left-radius: 0.5rem;
-  border-bottom-right-radius: 0.5rem;
-
-  [data-bs-theme="dark"] & {
-    border-top-color: #444;
-    background-color: #2a2a2a;
-  }
+  border-top: 1px solid var(--mm-border);
+  border-bottom-left-radius: variables.$radius-lg;
+  border-bottom-right-radius: variables.$radius-lg;
+  background-color: var(--mm-bg-surface);
 }
 
 // Custom Modal Implementation - Higher specificity to override Bootstrap
@@ -100,29 +91,20 @@ body .custom-modal-content {
   position: relative !important;
   display: flex !important;
   flex-direction: column !important;
-  background-color: #fff !important;
-  border: 1px solid rgba(0, 0, 0, 0.175) !important;
-  border-radius: 0.5rem !important;
-  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+  background-color: var(--mm-bg-elevated) !important;
+  border: 1px solid var(--mm-border) !important;
+  border-radius: variables.$radius-lg !important;
+  box-shadow: var(--mm-shadow-lg) !important;
   overflow: hidden !important;
-
-  [data-bs-theme="dark"] & {
-    background-color: #2a2a2a !important;
-    border-color: #495057 !important;
-    color: #fff !important;
-  }
 }
 
 .custom-modal-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem;
-  border-bottom: 1px solid #dee2e6;
-
-  [data-bs-theme="dark"] & {
-    border-bottom-color: #495057;
-  }
+  padding: variables.$space-4;
+  border-bottom: 1px solid var(--mm-border);
+  background-color: var(--mm-bg-surface);
 }
 
 .custom-modal-title {
@@ -170,13 +152,10 @@ body .custom-modal-content {
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  gap: 0.5rem;
-  padding: 1rem;
-  border-top: 1px solid #dee2e6;
-
-  [data-bs-theme="dark"] & {
-    border-top-color: #495057;
-  }
+  gap: variables.$space-2;
+  padding: variables.$space-4;
+  border-top: 1px solid var(--mm-border);
+  background-color: var(--mm-bg-surface);
 }
 
 // ─── RECENT FILES DROPDOWN ───

@@ -67,14 +67,14 @@
       #previewContainer {
         width: 100% !important;
         flex: 1 1 100% !important;
-        padding: 0.5rem !important;
-        border-radius: 0.5rem !important;
-        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+        padding: variables.$space-2 !important;
+        border-radius: variables.$radius-md !important;
+        box-shadow: var(--mm-shadow-sm) !important;
 
         #preview {
           width: 100% !important;
-          border: #ced4da 1px solid;
-          border-radius: 0.5rem;
+          border: 1px solid var(--mm-border);
+          border-radius: variables.$radius-md;
 
           .preview-scroll {
             width: 100% !important;
@@ -101,22 +101,19 @@
       flex-direction: column;
       min-height: 0; // allow #editor to shrink/grow inside
       max-height: 100%; // prevent overflow beyond container height
-      border-top-left-radius: 0.5rem;
-      border-bottom-left-radius: 0.5rem;
-      padding: 0.5rem; // Reduced from 1rem (50% reduction)
+      border-top-left-radius: variables.$radius-md;
+      border-bottom-left-radius: variables.$radius-md;
+      padding: variables.$space-2;
       box-sizing: border-box;
       overflow: hidden; // ensure content doesn't overflow container
 
       #editor {
         flex: 1 1 auto; // fill entire height of #editorContainer
-        border: 1px solid #ced4da;
-        border-radius: 0.5rem;
+        border: 1px solid var(--mm-border);
+        border-radius: variables.$radius-md;
         overflow: hidden; // Monaco editor will handle its own scrolling
         min-height: 0; // allow editor to shrink if needed
-
-        @include mixins.dark {
-          border-color: #495057;
-        }
+        @include mixins.elevation("xs");
       }
     }
 
@@ -126,27 +123,21 @@
       height: 100%; // fill #main's height
       display: flex; // align #preview inside it
       flex-direction: column;
-      // background-color: #ffffff;
       min-height: 0; // allow #preview to shrink/grow
-      padding: 0.5rem; // Reduced from 1rem (50% reduction)
-      padding-top: 0.5rem; // Match editor top padding
-      /* Optionally, if you want a dropped‐shadow around the preview: */
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      padding: variables.$space-2;
+      padding-top: variables.$space-2;
 
       #preview {
         width: 100%;
         display: flex; // center its children (the Mermaid SVG)
         flex-direction: column;
-        border-radius: 0.5rem;
-        border: #ced4da 1px solid;
-        padding: 0.25rem;
+        border-radius: variables.$radius-md;
+        border: 1px solid var(--mm-border);
+        padding: variables.$space-1;
         box-sizing: border-box;
         flex: 1 1 auto; // Ensure it fills available height
         min-height: 0; // Allow content to shrink if needed
-
-        @include mixins.dark {
-          border-color: #495057;
-        }
+        @include mixins.elevation("xs");
       }
 
       .preview-scroll {
@@ -216,5 +207,36 @@
         background-color: rgba(255, 255, 255, 0.05);
       }
     }
+  }
+}
+
+// ─── RESIZER VISUAL CUE ───
+// The InvisibleResizer component creates a .resize-handle div for drag area
+// with position: absolute injected via a <style> tag. Do NOT override position here.
+// This only adds the hover indicator via ::after.
+.resize-handle,
+#resize-handle {
+  &::after {
+    content: "";
+    position: absolute;
+    top: 20%;
+    bottom: 20%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 3px;
+    border-radius: variables.$radius-full;
+    background-color: var(--mm-border);
+    opacity: 0;
+    transition: opacity variables.$transition-base, background-color variables.$transition-base;
+  }
+
+  &:hover::after {
+    opacity: 0.6;
+    background-color: var(--mm-primary);
+  }
+
+  &:active::after {
+    opacity: 1;
+    background-color: var(--mm-primary);
   }
 }

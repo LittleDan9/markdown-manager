@@ -13,9 +13,19 @@
     display: flex;
     align-items: center;
     color: #333;
-    transition: all 0.2s ease;
+    transition: all variables.$transition-base;
     border-radius: 0.25rem;
     font-size: 0.8rem;
+    opacity: 0;
+
+    .code-block:hover & {
+      opacity: 1;
+    }
+
+    &:focus,
+    &:focus-visible {
+      opacity: 1;
+    }
 
     &:hover {
       color: variables.$color-primary;
@@ -70,8 +80,13 @@
     display: flex;
     gap: 0.25rem;
     opacity: 0;
-    transition: opacity 0.2s ease;
+    transition: opacity variables.$transition-base;
     z-index: 10;
+
+    // Always show on focus for keyboard accessibility
+    &:focus-within {
+      opacity: 1;
+    }
 
     .action-btn {
       background: rgba(var(--bs-body-bg-rgb), 0.9);

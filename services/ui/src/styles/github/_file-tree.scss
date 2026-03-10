@@ -62,8 +62,8 @@
 
     // Dark theme enhancements
     [data-bs-theme="dark"] & {
-      background: linear-gradient(135deg, #2a2a2a, #3a3a3a);
-      color: #fff;
+      background: var(--mm-bg-surface);
+      color: var(--mm-text);
     }
 
     // Bootstrap handles overflow with overflow-auto class

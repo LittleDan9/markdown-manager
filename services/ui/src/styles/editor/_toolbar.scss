@@ -209,11 +209,11 @@
   }
 
   @include mixins.dark {
-    border-color: #495057;
+    border-color: var(--mm-border);
     background-color: var(--bs-dark);
 
     .toolbar-separator {
-      background-color: #495057;
+      background-color: var(--mm-border);
     }
   }
 

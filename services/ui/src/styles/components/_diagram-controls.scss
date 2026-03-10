@@ -137,21 +137,21 @@
   /* Use Bootstrap's default dropdown styling with proper overrides */
   .dropdown-menu {
     min-width: 220px;
-    
+
     .dropdown-item {
       color: var(--bs-dropdown-link-color, #212529) !important;
       text-decoration: none !important;
       padding: 0.25rem 1rem;
       font-size: 0.875rem;
       white-space: nowrap;
-      
+
       &:hover:not(:disabled),
       &:focus:not(:disabled) {
         color: var(--bs-dropdown-link-hover-color, #1e2125) !important;
         background-color: var(--bs-dropdown-link-hover-bg, #e9ecef) !important;
         text-decoration: none !important;
       }
-      
+
       &:disabled {
         color: var(--bs-dropdown-link-disabled-color, #adb5bd) !important;
         background-color: transparent !important;
@@ -163,13 +163,13 @@
         text-align: center;
       }
     }
-    
+
     .dropdown-divider {
       margin: 0 !important;
       margin-top: 0.25rem !important;
       margin-bottom: 0.25rem !important;
     }
-    
+
     hr.dropdown-divider {
       margin: 0 !important;
       margin-top: 0.25rem !important;
@@ -224,14 +224,14 @@
     .dropdown-menu {
       .dropdown-item {
         color: var(--bs-dropdown-dark-link-color, #dee2e6) !important;
-        
+
         &:hover:not(:disabled),
         &:focus:not(:disabled) {
           color: var(--bs-dropdown-dark-link-hover-color, #fff) !important;
           background-color: var(--bs-dropdown-dark-link-hover-bg, #424649) !important;
           text-decoration: none !important;
         }
-        
+
         &:disabled {
           color: var(--bs-dropdown-dark-link-disabled-color, #adb5bd) !important;
         }
@@ -341,13 +341,13 @@
 [data-bs-theme="dark"] {
   .diagram-fullscreen-modal {
     .modal-content {
-      background-color: #212529;
-      border-color: #495057;
+      background-color: var(--mm-bg);
+      border-color: var(--mm-border);
     }
 
     .modal-header,
     .modal-footer {
-      border-color: #495057;
+      border-color: var(--mm-border);
     }
 
     .diagram-metadata {

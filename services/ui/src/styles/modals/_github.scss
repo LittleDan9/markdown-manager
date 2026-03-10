@@ -38,8 +38,8 @@
       background: #f8f9fa;
 
       [data-bs-theme="dark"] & {
-        background: #2a2a2a;
-        border-color: #495057;
+        background: var(--mm-bg-elevated);
+        border-color: var(--mm-border);
         color: #ffffff;
       }
 
@@ -55,7 +55,7 @@
         font-weight: bold;
 
         [data-bs-theme="dark"] & {
-          background: #495057;
+          background: var(--mm-bg-elevated);
         }
       }
 
@@ -91,8 +91,8 @@
           }
 
           [data-bs-theme="dark"] & {
-            background: #1a1a1a;
-            border-color: #495057;
+            background: var(--mm-bg);
+            border-color: var(--mm-border);
             color: #ffffff;
           }
         }
@@ -118,8 +118,8 @@
         position: relative;
 
         [data-bs-theme="dark"] & {
-          background: #1a1a1a;
-          border-color: #495057;
+          background: var(--mm-bg);
+          border-color: var(--mm-border);
           color: #ffffff;
         }
 
@@ -179,7 +179,7 @@
         }
 
         [data-bs-theme="dark"] & {
-          background: #495057;
+          background: var(--mm-bg-elevated);
 
           &.active {
             background: #007bff;
@@ -201,7 +201,7 @@
           transform: translateY(-50%);
 
           [data-bs-theme="dark"] & {
-            background: #495057;
+            background: var(--mm-bg-elevated);
           }
         }
 
@@ -309,12 +309,12 @@
       }
 
       [data-bs-theme="dark"] & {
-        border-color: #495057;
-        background: #2a2a2a;
+        border-color: var(--mm-border);
+        background: var(--mm-bg-elevated);
 
         &:hover {
           border-color: #007bff;
-          background: #1a1a1a;
+          background: var(--mm-bg);
         }
       }
 
@@ -353,7 +353,7 @@
     border-radius: 4px;
 
     [data-bs-theme="dark"] & {
-      border-color: #495057;
+      border-color: var(--mm-border);
     }
 
     .repo-item {
@@ -382,10 +382,10 @@
       }
 
       [data-bs-theme="dark"] & {
-        border-bottom-color: #495057;
+        border-bottom-color: var(--mm-border);
 
         &:hover {
-          background: #1a1a1a;
+          background: var(--mm-bg);
         }
       }
 
@@ -441,7 +441,7 @@
     border-left: 4px solid #007bff;
 
     [data-bs-theme="dark"] & {
-      background: #2a2a2a;
+      background: var(--mm-bg-elevated);
     }
 
     .sync-title {
@@ -460,7 +460,7 @@
         overflow: hidden;
 
         [data-bs-theme="dark"] & {
-          background: #495057;
+          background: var(--mm-bg-elevated);
         }
 
         .progress-bar {
@@ -492,8 +492,8 @@
       border: 1px solid #e9ecef;
 
       [data-bs-theme="dark"] & {
-        background: #1a1a1a;
-        border-color: #495057;
+        background: var(--mm-bg);
+        border-color: var(--mm-border);
         color: #ffffff;
       }
 
@@ -545,7 +545,7 @@
     border-bottom: 1px solid #dee2e6;
 
     [data-bs-theme="dark"] & {
-      border-bottom-color: #495057;
+      border-bottom-color: var(--mm-border);
     }
   }
 
@@ -561,7 +561,7 @@
     border-top: 1px solid #dee2e6;
 
     [data-bs-theme="dark"] & {
-      border-top-color: #495057;
+      border-top-color: var(--mm-border);
     }
   }
 
@@ -574,8 +574,8 @@
     background: #f8f9fa;
 
     [data-bs-theme="dark"] & {
-      background: #2a2a2a;
-      border-bottom-color: #495057;
+      background: var(--mm-bg-elevated);
+      border-bottom-color: var(--mm-border);
     }
 
     .nav-link {
@@ -639,8 +639,8 @@
       border-bottom: 1px solid #dee2e6;
 
       [data-bs-theme="dark"] & {
-        background: #2a2a2a;
-        border-bottom-color: #495057;
+        background: var(--mm-bg-elevated);
+        border-bottom-color: var(--mm-border);
       }
     }
 
@@ -653,21 +653,17 @@
 
   // Form sections with proper spacing
   h6 {
-    color: #495057;
+    color: var(--mm-text-secondary);
     font-size: 1rem;
     font-weight: 600;
     margin-bottom: 1rem;
-
-    [data-bs-theme="dark"] & {
-      color: #adb5bd;
-    }
 
     &.border-bottom {
       padding-bottom: 0.5rem;
       border-bottom: 1px solid #dee2e6 !important;
 
       [data-bs-theme="dark"] & {
-        border-bottom-color: #495057 !important;
+        border-bottom-color: var(--mm-border) !important;
       }
     }
 
