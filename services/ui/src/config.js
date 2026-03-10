@@ -19,23 +19,13 @@ function isDevelopment() {
 
 /**
  * Get the appropriate API base URL for the current environment
- * Same-domain architecture: API served from /api path
+ * Same-domain architecture: API served from /api path on same origin
  * @returns {string} API base URL (with /api prefix)
  */
 function getApiBaseUrl() {
-  const isDev = isDevelopment();
-  let baseUrl;
-
-  if (isDev) {
-    // Development: Use same domain with /api path
-    baseUrl = "http://localhost/api";
-  } else {
-    // Production: Use same domain with /api path
-    baseUrl = "https://littledan.com/api";
-  }
-
-  console.log('Config: isDevelopment =', isDev, ', apiBaseUrl =', baseUrl);
-  return baseUrl;
+  // Always use a relative path so requests go to the same host:port
+  // the page was loaded from (works for both dev and production).
+  return "/api";
 }
 
 /**

@@ -1,0 +1,240 @@
+# littledan.com — host nginx configuration (managed by Ansible)
+#
+# Proxy-passes all traffic to the Docker Compose container nginx on port 8080.
+# TLS, rate limiting, bot blocking, and security headers are handled here.
+# The container nginx handles internal service routing.
+
+server {
+    server_name littledan.com www.littledan.com;
+
+    # Security headers
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: https://api.littledan.com; worker-src 'self' blob:; frame-ancestors 'self';" always;
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
+
+    # Block suspicious query strings
+    if ($query_string ~* "(\<|%3C).*script.*(\>|%3E)") {
+        return 444;
+    }
+    if ($query_string ~* "GLOBALS(=|\[|\%[0-9A-Z]{0,2})") {
+        return 444;
+    }
+    if ($query_string ~* "_REQUEST(=|\[|\%[0-9A-Z]{0,2})") {
+        return 444;
+    }
+    if ($query_string ~* "proc/self/environ") {
+        return 444;
+    }
+    if ($query_string ~* "mosConfig_[a-zA-Z_]{1,21}(=|\%3D)") {
+        return 444;
+    }
+    if ($query_string ~* "base64_(en|de)code\(.*\)") {
+        return 444;
+    }
+
+    # Block suspicious request methods
+    if ($request_method !~ ^(GET|HEAD|POST|PUT|PATCH|DELETE|OPTIONS)$ ) {
+        return 444;
+    }
+
+    # Connection limiting
+    limit_conn perip 10;
+
+    # Block bots
+    if ($block_bot = 1) {
+        return 444;
+    }
+
+    gzip on;
+    gzip_static on;
+    gzip_types text/plain text/css application/javascript application/json image/svg+xml;
+
+    # ── Auth endpoints — strict rate limiting ────────────────────────────
+    location ~* ^/api/(?!github/)(auth|login|register|password) {
+        limit_req zone=auth burst=5 nodelay;
+        limit_conn api_conn 2;
+
+        if ($block_bot = 1) {
+            return 444;
+        }
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    # ── GitHub OAuth — moderate rate limiting ────────────────────────────
+    location /api/github/auth/ {
+        limit_req zone=api burst=20 nodelay;
+        limit_conn api_conn 3;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # ── Syntax highlighting — very permissive ────────────────────────────
+    location = /api/highlight/syntax {
+        limit_req zone=highlight burst=5000 nodelay;
+        limit_conn highlight_conn 1000;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+
+    # ── Image serving — permissive with caching ──────────────────────────
+    location /api/images/ {
+        limit_req zone=static burst=200 nodelay;
+        limit_conn api_conn 10;
+
+        if ($block_bot = 1) {
+            return 444;
+        }
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+        expires 1d;
+        add_header Cache-Control "public, max-age=86400";
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    # ── Icons metadata — permissive for UI loading ───────────────────────
+    location /api/icons/metadata/ {
+        limit_req zone=api burst=100 nodelay;
+        limit_conn api_conn 10;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_connect_timeout 30s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+    }
+
+    # ── General API — standard rate limiting ─────────────────────────────
+    location /api/ {
+        limit_req zone=api burst=50 nodelay;
+        limit_conn api_conn 5;
+        client_max_body_size 50m;
+
+        if ($block_bot = 1) {
+            return 444;
+        }
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $server_name;
+        proxy_read_timeout 300s;
+        proxy_send_timeout 300s;
+        proxy_buffering on;
+        proxy_buffer_size 256k;
+        proxy_buffers 8 512k;
+        proxy_busy_buffers_size 1m;
+    }
+
+    # ── Static assets — cache headers ────────────────────────────────────
+    location ~* \.(?:ico|css|js|map|gif|jpe?g|png|woff2?|eot|ttf|svg)$ {
+        limit_req zone=static burst=200 nodelay;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        expires 30d;
+        access_log off;
+        add_header Cache-Control "public";
+    }
+
+    # ── Frontend SPA — all remaining requests ────────────────────────────
+    location / {
+        limit_req zone=general burst=100 nodelay;
+
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # ── Block sensitive files ────────────────────────────────────────────
+    location ~* \.(env|git|svn|htaccess|htpasswd|ini|log|sh|sql|bak|backup|old|tmp|temp)$ {
+        return 444;
+    }
+
+    location ~ /\. {
+        return 444;
+    }
+
+    location = /robots.txt {
+        limit_req zone=general burst=5 nodelay;
+        proxy_pass http://127.0.0.1:8080;
+        access_log off;
+    }
+
+    location = /sitemap.xml {
+        limit_req zone=general burst=5 nodelay;
+        proxy_pass http://127.0.0.1:8080;
+        access_log off;
+    }
+
+    location ~* ^(?!/api/.*admin)/(wp-|admin|phpmyadmin|mysql|sql|database) {
+        return 444;
+    }
+
+    # TLS — managed by Certbot (these lines will be added by certbot)
+    listen 443 ssl;
+    ssl_certificate /etc/letsencrypt/live/littledan.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/littledan.com/privkey.pem;
+    include /etc/letsencrypt/options-ssl-nginx.conf;
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+}
+
+server {
+    if ($host = www.littledan.com) {
+        return 301 https://$host$request_uri;
+    }
+
+    if ($host = littledan.com) {
+        return 301 https://$host$request_uri;
+    }
+
+    listen 80;
+    server_name littledan.com www.littledan.com;
+    return 404;
+}

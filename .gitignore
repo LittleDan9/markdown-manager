@@ -16,6 +16,7 @@ backend/dist/
 .env.local
 .env.production
 backend/.env
+deployment/production.env
 
 # Logs
 *.log
@@ -113,5 +114,6 @@ backend/htmlcov
 
 redis-data/
 **/postgres-data/
+backups/
 
 backup-*/

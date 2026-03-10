@@ -70,26 +70,22 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 # ────────────────────────────────────────────────────────────────────────────
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
-.PHONY: deploy deploy-quiet deploy-verbose deploy-dry-run deploy-status
-.PHONY: deploy-backend deploy-export deploy-lint deploy-spell-check deploy-event-publisher deploy-redis
-.PHONY: deploy-linting-consumer deploy-spell-check-consumer deploy-nginx deploy-ui deploy-cleanup deploy-infra
+.PHONY: deploy deploy-update deploy-bootstrap deploy-nginx deploy-status deploy-logs
+.PHONY: deploy-db-backup deploy-db-migrate deploy-dry-run
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
 help: ## Show this help
 	@echo "Markdown Manager — Available Commands:"
 	@echo ""
-	@echo "$(BLUE)Quality & Linting:$(NC)"
+	@echo "$(BLUE)Quality & Build:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^quality|install|clean|build/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(BLUE)Build & Development:$(NC)"
+	@echo "$(BLUE)Development:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^dev|dev-frontend|dev-backend/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
-	@echo "$(BLUE)Deployment - Ansible (Production):$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy[^-]|^deploy-dry-run/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
-	@echo ""
-	@echo "$(BLUE)Deployment - Individual Services:$(NC)"
-	@awk 'BEGIN {FS = ":.*##"} /^deploy-.*/ && !/^deploy[^-]/ && !/deploy-dry-run/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
+	@echo "$(BLUE)Deployment:$(NC)"
+	@awk 'BEGIN {FS = ":.*##"} /^deploy/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "$(BLUE)Utilities:$(NC)"
 	@awk 'BEGIN {FS = ":.*##"} /^test|test-backend|status|stop/ { printf "  \033[36m%-20s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -168,109 +164,64 @@ else
 endif
 
 # ────────────────────────────────────────────────────────────────────────────
-# LEGACY SHELL SCRIPT DEPLOYMENT SYSTEM REMOVED
+# DEPLOYMENT (Docker Compose + Ansible)
 # ────────────────────────────────────────────────────────────────────────────
-#
-# The old shell script deployment system has been replaced with Ansible.
-#
-# OLD TARGETS REMOVED:
-#   deploy, deploy-front, deploy-back, deploy-nginx-*, deploy-*-only, etc.
-#
-# NEW ANSIBLE TARGETS:
-#   make deploy              # Deploy all services
-#   make deploy-backend      # Deploy backend only
-#   make deploy-export       # Deploy export only
-#   make deploy-linting      # Deploy linting only
-#   make deploy-spell-check  # Deploy spell-check only
-#   etc.
-#
-# Benefits of Ansible deployment:
-# - Proper error detection and health validation
-# - Configuration-driven deployment
-# - Mature orchestration with rollback capabilities
-# - No more "convoluted" shell scripts
-#
-# Migration complete: deployment/MIGRATION-COMPLETE.md
+# Usage:
+#   make deploy                      # Full deploy (bootstrap + app + nginx)
+#   make deploy-update               # App update only (routine deploys)
+#   make deploy HOST=192.168.1.50    # Deploy to a different host
+#   make deploy-bootstrap            # First-time server setup only
+#   make deploy-nginx                # Update host nginx config only
+#   make deploy-status               # Check container health
+#   make deploy-logs                 # Tail production logs
+#   make deploy-db-migrate           # Run database migrations
+#   make deploy-db-backup            # Backup production database
+#   make deploy-dry-run              # Ansible dry run
 
-# ────────────────────────────────────────────────────────────────────────────
-# ANSIBLE DEPLOYMENT (New System)
-# ────────────────────────────────────────────────────────────────────────────
+# Ansible extra vars for host override
+DEPLOY_HOST_ARGS := $(if $(HOST),-e target_ip=$(HOST),)
 
-deploy: ## Deploy all services using Ansible (native)
-	@echo "$(BLUE)🚀 Starting Markdown Manager Deployment$(NC)"
+deploy: ## Deploy all services (bootstrap + app + nginx)
+	@echo "$(BLUE)Starting Markdown Manager Deployment$(NC)"
 	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -v --diff
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -v --diff -K $(DEPLOY_HOST_ARGS)
 
-deploy-backend: ## Deploy only backend service using Ansible
+deploy-update: ## Deploy app update only (skip bootstrap)
+	@echo "$(BLUE)Deploying application update$(NC)"
 	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags backend -e deploy_service=backend
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags deploy -v --diff $(DEPLOY_HOST_ARGS)
 
-deploy-export: ## Deploy only export service using Ansible
+deploy-bootstrap: ## First-time server setup (Docker, UFW, dirs)
 	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags export -e deploy_service=export
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags bootstrap -v --diff -K $(DEPLOY_HOST_ARGS)
 
-deploy-lint: ## Deploy only lint service using Ansible
+deploy-nginx: ## Update host nginx configuration only
 	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags lint -e deploy_service=lint
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags nginx -v --diff -K $(DEPLOY_HOST_ARGS)
 
-deploy-linting-consumer: ## Deploy only linting event consumer using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags linting-consumer
+deploy-status: ## Check production container status and health
+	@echo "$(BLUE)Checking production status$(NC)"
+	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
+		"cd /opt/markdown-manager && docker compose -f docker-compose.prod.yml --env-file deployment/production.env ps && echo '' && docker compose -f docker-compose.prod.yml --env-file deployment/production.env exec -T backend curl -sf http://localhost:8000/health || echo 'Backend health check failed'"
 
-deploy-spell-check: ## Deploy only spell-check service using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags spell-check
+deploy-logs: ## Tail production container logs
+	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
+		"cd /opt/markdown-manager && docker compose -f docker-compose.prod.yml --env-file deployment/production.env logs -f --tail=50"
 
-deploy-spell-check-consumer: ## Deploy only spell-check event consumer using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags spell-check-consumer
+deploy-db-migrate: ## Run database migrations in production
+	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
+		"cd /opt/markdown-manager && docker compose -f docker-compose.prod.yml --env-file deployment/production.env exec -T backend python -m alembic upgrade head"
 
-deploy-event-publisher: ## Deploy only event-publisher service using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags event-publisher
-
-deploy-redis: ## Deploy only Redis service using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags redis
-
-deploy-cleanup-legacy: ## Clean up legacy shell script deployment artifacts
-	@echo "⚠️  WARNING: This will remove legacy deployment artifacts!"
-	@echo "Make sure you have backups before continuing."
-	@./deployment/cleanup-legacy.sh
-
-deploy-infra: ## Setup infrastructure only using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags infra
-
-deploy-nginx: ## Update nginx configuration only using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags nginx
-
-deploy-ui: ## Build and deploy UI static files using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags ui -e deploy_service=ui
-
-deploy-cleanup: ## Run cleanup operations using Ansible
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags cleanup
-
-deploy-status: ## Check deployment status
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml status.yml
-
-deploy-quiet: ## Deploy all services with minimal output
-	@echo "$(BLUE)🚀 Quiet Deployment Started$(NC)"
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --diff 2>/dev/null || (echo "$(RED)❌ Deployment failed$(NC)" && exit 1)
-	@echo "$(GREEN)✅ Deployment completed$(NC)"
-
-deploy-verbose: ## Deploy all services with detailed output
-	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -vvv --diff
+deploy-db-backup: ## Backup production database
+	@echo "$(BLUE)Backing up production database$(NC)"
+	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
+		"cd /opt/markdown-manager && docker compose -f docker-compose.prod.yml --env-file deployment/production.env exec -T db pg_dump -U markdown_manager markdown_manager" \
+		> backups/db-backup-$$(date +%Y%m%d-%H%M%S).sql
+	@echo "$(GREEN)Backup saved to backups/$(NC)"
 
 deploy-dry-run: ## Run Ansible deployment in check mode (dry run)
 	@./scripts/setup-ansible.sh
-	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --check --diff
+	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --check --diff -K $(DEPLOY_HOST_ARGS)
 
 # ────────────────────────────────────────────────────────────────────────────
 # DATABASE OPERATIONS
