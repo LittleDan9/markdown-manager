@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
 import {
-  isInCodeFence,
+  CodeFenceCache,
   getListPattern,
   analyzeOrderedListPattern,
   findPreviousIndentationLevel
@@ -24,6 +24,10 @@ export default function useEditorListBehavior(editor, enabled = true) {
       return;
     }
 
+    // Create and attach code fence cache for O(log n) lookups per keystroke
+    const fenceCache = new CodeFenceCache();
+    fenceCache.attach(editor);
+
     // Use onKeyDown for more precise control instead of addCommand
     const keyDownDisposable = editor.onKeyDown((e) => {
       if (e.keyCode === monaco.KeyCode.Enter) {
@@ -37,11 +41,10 @@ export default function useEditorListBehavior(editor, enabled = true) {
 
         const lineNumber = position.lineNumber;
         const currentLine = model.getLineContent(lineNumber);
-        const _lineUpToPosition = currentLine.substring(0, position.column - 1);
         const lineAfterPosition = currentLine.substring(position.column - 1);
 
-        // Don't interfere if we're in a code fence
-        if (isInCodeFence(model, lineNumber)) {
+        // Don't interfere if we're in a code fence (O(log n) cached lookup)
+        if (fenceCache.isInCodeFence(lineNumber)) {
           return; // Let default behavior handle it
         }
 
@@ -60,8 +63,9 @@ export default function useEditorListBehavior(editor, enabled = true) {
               const range = new monaco.Range(lineNumber, 1, lineNumber, currentLine.length + 1);
               editor.executeEdits('listBehavior', [{
                 range,
-                text: '\n'
+                text: ''
               }]);
+              editor.setPosition(new monaco.Position(lineNumber, 1));
               return;
             }
 
@@ -74,7 +78,7 @@ export default function useEditorListBehavior(editor, enabled = true) {
               const range = new monaco.Range(lineNumber, 1, lineNumber, currentLine.length + 1);
               editor.executeEdits('listBehavior', [{
                 range,
-                text: '\n'
+                text: ''
               }]);
               return;
             }
@@ -124,22 +128,24 @@ export default function useEditorListBehavior(editor, enabled = true) {
             nextPrefix = `${listPattern.indentation}${listPattern.marker} `;
           }
 
-          const edit = {
-            range: new monaco.Range(lineNumber, position.column, lineNumber, position.column),
-            text: `\n${nextPrefix}`
-          };
-
-          // If there's content after cursor, move it to next line without list marker
+          // If there's content after cursor, move it into the new list item
           if (lineAfterPosition.trim()) {
-            edit.text += `\n${lineAfterPosition}`;
-            // Remove the content after cursor from current line
+            const insertEdit = {
+              range: new monaco.Range(lineNumber, position.column, lineNumber, position.column),
+              text: `\n${nextPrefix}${lineAfterPosition}`
+            };
             const removeEdit = {
               range: new monaco.Range(lineNumber, position.column, lineNumber, currentLine.length + 1),
               text: ''
             };
-            editor.executeEdits('listBehavior', [edit, removeEdit]);
+            editor.executeEdits('listBehavior', [insertEdit, removeEdit]);
+            // Keep cursor on the now-empty marker line so a second Enter exits the list
+            editor.setPosition(new monaco.Position(lineNumber, position.column));
           } else {
-            editor.executeEdits('listBehavior', [edit]);
+            editor.executeEdits('listBehavior', [{
+              range: new monaco.Range(lineNumber, position.column, lineNumber, position.column),
+              text: `\n${nextPrefix}`
+            }]);
           }
         }
         // If no list pattern, let default Enter behavior happen (don't prevent default)
@@ -154,8 +160,8 @@ export default function useEditorListBehavior(editor, enabled = true) {
         const lineNumber = position.lineNumber;
         const currentLine = model.getLineContent(lineNumber);
 
-        // Don't interfere if we're in a code fence
-        if (isInCodeFence(model, lineNumber)) {
+        // Don't interfere if we're in a code fence (O(log n) cached lookup)
+        if (fenceCache.isInCodeFence(lineNumber)) {
           return; // Let default behavior handle it
         }
 
@@ -202,8 +208,8 @@ export default function useEditorListBehavior(editor, enabled = true) {
         const lineNumber = position.lineNumber;
         const currentLine = model.getLineContent(lineNumber);
 
-        // Don't interfere if we're in a code fence
-        if (isInCodeFence(model, lineNumber)) {
+        // Don't interfere if we're in a code fence (O(log n) cached lookup)
+        if (fenceCache.isInCodeFence(lineNumber)) {
           return false; // Let default behavior handle it
         }
 
@@ -250,6 +256,7 @@ export default function useEditorListBehavior(editor, enabled = true) {
 
     // Cleanup function
     return () => {
+      fenceCache.dispose();
       if (keyDownDisposable && typeof keyDownDisposable.dispose === 'function') {
         keyDownDisposable.dispose();
       }

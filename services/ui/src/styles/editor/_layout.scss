@@ -10,9 +10,9 @@
   z-index: 1 !important; // Lower than tooltip z-index
 }
 
-// CRITICAL: Fix the split-view layout to allow tooltips to escape
+// CRITICAL: Fix the split-view layout
 #main.split-view {
-  overflow: visible !important; // Allow tooltips to escape the main container
+  overflow: visible !important; // Allow toolbar dropdowns and tooltips to escape
 
   .editor-wrapper {
     overflow: visible !important; // Allow tooltips to escape the editor wrapper

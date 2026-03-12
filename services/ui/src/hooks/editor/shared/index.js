@@ -1,6 +1,7 @@
 // Barrel export for shared utilities - includes list indentation functions
 export { useTypingDetection, useDebounce } from './useTypingDetection';
 export {
+  CodeFenceCache,
   isInCodeFence,
   getListPattern,
   analyzeOrderedListPattern,

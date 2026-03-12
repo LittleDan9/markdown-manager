@@ -51,7 +51,7 @@ export function HeadingGroup({ insertHeading, buttonVariant, buttonStyle }) {
         size="sm"
         style={{
           ...buttonStyle,
-          height: '27px', // Match the actual height of regular buttons
+          height: '27px',
           display: 'flex',
           alignItems: 'center'
         }}

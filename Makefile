@@ -71,7 +71,7 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
 .PHONY: deploy deploy-update deploy-bootstrap deploy-nginx deploy-status deploy-logs
-.PHONY: deploy-db-backup deploy-db-migrate deploy-dry-run
+.PHONY: deploy-db-backup deploy-db-migrate deploy-dry-run sync-locks
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -181,12 +181,23 @@ endif
 # Ansible extra vars for host override
 DEPLOY_HOST_ARGS := $(if $(HOST),-e target_ip=$(HOST),)
 
-deploy: ## Deploy all services (bootstrap + app + nginx)
+sync-locks: ## Regenerate all lock files to match manifests
+	@echo "$(YELLOW)Syncing lock files...$(NC)"
+	@cd $(UI_DIR) && npm install --package-lock-only --silent 2>&1 | tail -1
+	@cd $(LINT_DIR) && npm install --package-lock-only --silent 2>&1 | tail -1
+	@cd $(SPELL_CHECK_DIR) && npm install --package-lock-only --silent 2>&1 | tail -1
+	@cd $(BACKEND_DIR) && poetry lock --quiet 2>/dev/null
+	@cd $(EVENT_PUBLISHER_DIR) && poetry lock --quiet 2>/dev/null
+	@cd $(CONSUMER_DIR) && poetry lock --quiet 2>/dev/null
+	@cd $(EXPORT_DIR) && poetry lock --quiet 2>/dev/null
+	@echo "$(GREEN)Lock files synced$(NC)"
+
+deploy: sync-locks ## Deploy all services (bootstrap + app + nginx)
 	@echo "$(BLUE)Starting Markdown Manager Deployment$(NC)"
 	@./scripts/setup-ansible.sh
 	@cd deployment && ansible-playbook -i inventory.yml deploy.yml -v --diff -K $(DEPLOY_HOST_ARGS)
 
-deploy-update: ## Deploy app update only (skip bootstrap)
+deploy-update: sync-locks ## Deploy app update only (skip bootstrap)
 	@echo "$(BLUE)Deploying application update$(NC)"
 	@./scripts/setup-ansible.sh
 	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags deploy -v --diff $(DEPLOY_HOST_ARGS)

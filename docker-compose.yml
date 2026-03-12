@@ -124,9 +124,6 @@ services:
       - NODE_ENV=development
     ports:
       - "8002:8002"
-    volumes:
-      - ./services/linting/server.js:/app/server.js  # Mount only server.js for hot reload
-    command: ["npm", "start"]     # Use standard start command
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
       interval: 30s

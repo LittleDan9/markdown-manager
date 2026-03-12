@@ -24,6 +24,7 @@
       - "--exclude=coverage"
       - "--exclude=.pytest_cache"
       - "--exclude=.mypy_cache"
+      - "--exclude=core.*"
       - "--exclude=services/backend/postgres-data"
       - "--exclude=redis-data"
       - "--exclude=/storage"
@@ -56,6 +57,12 @@
   args:
     chdir: "{{ app_dir }}"
   register: compose_result
+
+- name: Restart nginx to refresh upstream DNS
+  command: docker restart markdown-manager-nginx-1
+  args:
+    chdir: "{{ app_dir }}"
+  when: compose_result.changed
 
 - name: Wait for database to be healthy
   command: >
