@@ -1,6 +1,7 @@
 // Authenticated Image Component
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/providers/AuthProvider';
+import imageCacheService from '@/services/rendering/ImageCacheService';
 import imageApi from '@/api/imageApi';
 
 /**
@@ -22,6 +23,7 @@ export default function AuthenticatedImage({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const { user } = useAuth();
+  const blobUrlRef = useRef(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -37,12 +39,26 @@ export default function AuthenticatedImage({
         setLoading(true);
         setError(false);
 
-        const url = useThumbnail
-          ? await imageApi.getThumbnailBlobUrl(filename, user.id)
-          : await imageApi.getImageBlobUrl(filename, user.id);
+        // Use ImageCacheService for memory-level caching
+        const cacheKey = `auth:${user.id}:${useThumbnail ? 'thumb:' : ''}${filename}`;
+        const cached = imageCacheService.cache.get(cacheKey);
+
+        let url;
+        if (cached) {
+          url = cached;
+        } else {
+          url = useThumbnail
+            ? await imageApi.getThumbnailBlobUrl(filename, user.id)
+            : await imageApi.getImageBlobUrl(filename, user.id);
+
+          if (url) {
+            imageCacheService.cache.set(cacheKey, url);
+          }
+        }
 
         if (isMounted) {
           if (url) {
+            blobUrlRef.current = url;
             setBlobUrl(url);
           } else {
             setError(true);
@@ -60,23 +76,10 @@ export default function AuthenticatedImage({
 
     loadImage();
 
-    // Cleanup function to revoke blob URL
     return () => {
       isMounted = false;
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
     };
-  }, [filename, useThumbnail, user?.id, blobUrl]);
-
-  // Cleanup blob URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (blobUrl) {
-        URL.revokeObjectURL(blobUrl);
-      }
-    };
-  }, [blobUrl]);
+  }, [filename, useThumbnail, user?.id]);
 
   const handleLoad = (e) => {
     setLoading(false);

@@ -11,6 +11,8 @@ import AdminModal from "../admin/AdminModal";
 import GitManagementModal from "../git/GitManagementModal";
 import SpellCheckSettingsModal from "../editor/spell-check/SpellCheckSettingsModal";
 import SystemHealthModal from "../system/SystemHealthModal";
+import ImageBrowserModal from "../images/ImageBrowserModal";
+import { useImageManagement } from "@/hooks/image/useImageManagement";
 import { useTheme } from "../../providers/ThemeProvider";
 
 function UserMenuLoggedIn() {
@@ -23,8 +25,10 @@ function UserMenuLoggedIn() {
   const [showGitModal, setShowGitModal] = useState(false);
   const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
   const [showSystemHealthModal, setShowSystemHealthModal] = useState(false);
+  const [showImageBrowserModal, setShowImageBrowserModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
+  const { generateMarkdown } = useImageManagement();
 
   // Set up return callback for FileOpen Modal → GitHub Modal navigation
   useEffect(() => {
@@ -82,6 +86,27 @@ function UserMenuLoggedIn() {
     setShowSystemHealthModal(true);
   };
 
+  const handleImageManager = () => {
+    setShowImageBrowserModal(true);
+  };
+
+  const handleImageSelected = useCallback((image) => {
+    if (image && window.editorInstance) {
+      const editor = window.editorInstance;
+      const selection = editor.getSelection();
+      const markdown = generateMarkdown(image, 'Image', '');
+
+      if (selection) {
+        editor.executeEdits('insert-image', [{
+          range: selection,
+          text: markdown
+        }]);
+      }
+
+      editor.focus();
+    }
+  }, [generateMarkdown]);
+
   const handleGitHub = () => {
     setShowGitHubModal(true);
   };
@@ -116,6 +141,7 @@ function UserMenuLoggedIn() {
   const handleAdminModalHide = useCallback(() => setShowAdminModal(false), []);
   const handleSpellCheckModalHide = useCallback(() => setShowSpellCheckModal(false), []);
   const handleSystemHealthModalHide = useCallback(() => setShowSystemHealthModal(false), []);
+  const handleImageBrowserModalHide = useCallback(() => setShowImageBrowserModal(false), []);
 
   return (
     <>
@@ -139,6 +165,9 @@ function UserMenuLoggedIn() {
         </Dropdown.Item>
         <Dropdown.Item id="storageBtn" onClick={handleStorage}>
           <i className="bi bi-hdd me-2"></i>Storage
+        </Dropdown.Item>
+        <Dropdown.Item id="imageManagerBtn" onClick={handleImageManager}>
+          <i className="bi bi-file-image me-2"></i>Image Manager
         </Dropdown.Item>
         <Dropdown.Item id="spellCheckBtn" onClick={handleSpellCheck}>
           <i className="bi bi-spellcheck me-2"></i>Spell Check
@@ -253,6 +282,12 @@ function UserMenuLoggedIn() {
         show={showSystemHealthModal}
         onHide={handleSystemHealthModalHide}
         isAdmin={user?.is_admin || false}
+      />
+      <ImageBrowserModal
+        show={showImageBrowserModal}
+        onHide={handleImageBrowserModalHide}
+        onImageSelected={handleImageSelected}
+        allowMultiple={false}
       />
     </>
   );

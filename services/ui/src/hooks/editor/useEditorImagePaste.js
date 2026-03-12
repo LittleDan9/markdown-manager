@@ -1,163 +1,260 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useImageManagement } from '@/hooks/image/useImageManagement';
-import * as monaco from 'monaco-editor/esm/vs/editor/editor.api';
+
+const UPLOAD_TIMEOUT_MS = 30000;
 
 /**
- * Hook for handling image paste functionality in Monaco editor
+ * Generate a unique marker ID for tracking placeholders across async gaps.
+ * Uses HTML comment syntax so it's invisible in rendered markdown.
+ */
+function generateMarkerId() {
+  const rand = Math.random().toString(36).substring(2, 8);
+  const ts = Date.now().toString(36);
+  return `img-upload-${ts}-${rand}`;
+}
+
+/**
+ * Generate a unique filename for clipboard images to avoid backend dedup collisions.
+ */
+function generateClipboardFilename() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  const ts = `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const rand = Math.random().toString(36).substring(2, 6);
+  return `clipboard_${ts}_${rand}.png`;
+}
+
+/**
+ * Build the loading placeholder text that includes a searchable marker.
+ */
+function buildPlaceholder(markerId) {
+  return `<!-- ${markerId} -->![Uploading image...]()`;
+}
+
+/**
+ * Find a marker's range in the editor model using findMatches.
+ * Returns the full placeholder range (marker comment + image syntax), or null.
+ */
+function findPlaceholderRange(editor, markerId) {
+  const model = editor.getModel();
+  if (!model) return null;
+
+  const searchText = `<!-- ${markerId} -->![Uploading image...]()`;
+  const matches = model.findMatches(searchText, false, false, true, null, false);
+  if (matches.length > 0) {
+    return matches[0].range;
+  }
+  return null;
+}
+
+/**
+ * Replace a tracked placeholder with new text, found by marker ID.
+ * Returns true if replacement succeeded.
+ */
+function replacePlaceholder(editor, markerId, newText) {
+  const range = findPlaceholderRange(editor, markerId);
+  if (!range) {
+    console.warn(`⚠️ Could not find placeholder for marker ${markerId} — it may have been manually deleted`);
+    return false;
+  }
+  editor.executeEdits('paste-image-complete', [{ range, text: newText }]);
+  return true;
+}
+
+/**
+ * Hook for handling image paste and drop functionality in Monaco editor.
+ * Uses unique HTML comment markers to track placeholders across async gaps,
+ * eliminating stale-coordinate bugs when multiple pastes or edits occur
+ * during upload.
+ *
  * @param {Object} editor - Monaco editor instance
  * @param {boolean} enabled - Whether image paste is enabled
- * @returns {Object} Image paste handlers
+ * @returns {Object} Image paste/drop state and handlers
  */
 export default function useEditorImagePaste(editor, enabled = true) {
-  const { handlePasteImage, generateMarkdown } = useImageManagement();
+  const { uploadImageFile, generateMarkdown } = useImageManagement();
+  const activeUploadsRef = useRef(new Map()); // markerId -> AbortController
 
-  const handlePaste = useCallback(async (event) => {
+  /**
+   * Core upload pipeline shared by paste and drop.
+   * Inserts a tracked placeholder, uploads, then replaces placeholder with result.
+   * @param {File} imageFile - The image File/Blob to upload
+   * @param {Object} [insertionSelection] - Optional Monaco selection for insertion point
+   */
+  const processImageUpload = useCallback(async (imageFile, insertionSelection) => {
     if (!editor || !enabled) return;
 
-    const selection = editor.getSelection();
+    const selection = insertionSelection || editor.getSelection();
     if (!selection) return;
 
-    // Insert loading placeholder immediately
-    const loadingMarkdown = '![Uploading image...](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjOTk5Ij5VcGxvYWRpbmcuLi48L3RleHQ+PC9zdmc+)';
+    const markerId = generateMarkerId();
+    const placeholder = buildPlaceholder(markerId);
+    const filename = generateClipboardFilename();
 
-    const loadingEdit = {
-      range: selection,
-      text: loadingMarkdown
-    };
+    // Insert placeholder at cursor/drop position
+    editor.executeEdits('paste-image-loading', [{ range: selection, text: placeholder }]);
 
-    editor.executeEdits('paste-image-loading', [loadingEdit]);
+    // Set up abort controller for cancellation
+    const abortController = new AbortController();
+    activeUploadsRef.current.set(markerId, abortController);
 
-    // Calculate where the loading text was inserted
-    const startLine = selection.startLineNumber;
-    const startColumn = selection.startColumn;
-    const endColumn = startColumn + loadingMarkdown.length;
+    // Set up timeout
+    const timeoutId = setTimeout(() => {
+      abortController.abort();
+      console.warn(`⏱️ Image upload timed out after ${UPLOAD_TIMEOUT_MS / 1000}s (marker: ${markerId})`);
+    }, UPLOAD_TIMEOUT_MS);
 
     try {
-      const result = await handlePasteImage(event, {
+      const result = await uploadImageFile(imageFile, filename, {
         optimizeForPdf: true,
-        createThumbnail: true
+        createThumbnail: true,
+        signal: abortController.signal
       });
 
+      clearTimeout(timeoutId);
+
       if (result && result.image) {
-        // Replace loading text with actual image markdown
         const markdown = generateMarkdown(result.image, 'Pasted Image', '');
-
-        const replaceRange = {
-          startLineNumber: startLine,
-          startColumn: startColumn,
-          endLineNumber: startLine,
-          endColumn: endColumn
-        };
-
-        editor.executeEdits('paste-image-complete', [{
-          range: replaceRange,
-          text: markdown
-        }]);
-
-        console.log('✅ Image pasted successfully:', result.image.filename);
+        const replaced = replacePlaceholder(editor, markerId, markdown);
+        if (replaced) {
+          console.log('✅ Image pasted successfully:', result.image.filename);
+        }
       } else {
-        // Replace loading text with error message
-        const errorMarkdown = '![Image upload failed](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmZlZGVkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjZGM2NzY2Ij5VcGxvYWQgZmFpbGVkPC90ZXh0Pjwvc3ZnPg==)';
-
-        const replaceRange = {
-          startLineNumber: startLine,
-          startColumn: startColumn,
-          endLineNumber: startLine,
-          endColumn: endColumn
-        };
-
-        editor.executeEdits('paste-image-error', [{
-          range: replaceRange,
-          text: errorMarkdown
-        }]);
+        replacePlaceholder(editor, markerId, '<!-- image upload returned no data -->');
       }
     } catch (error) {
-      console.error('Failed to handle pasted image:', error);
+      clearTimeout(timeoutId);
 
-      // Replace loading text with error message
-      const errorMarkdown = '![Image upload failed - check console](data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjEwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZmZlZGVkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtc2l6ZT0iMTQiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIiBmaWxsPSIjZGM2NzY2Ij5VcGxvYWQgZXJyb3I8L3RleHQ+PC9zdmc+)';
-
-      const replaceRange = {
-        startLineNumber: startLine,
-        startColumn: startColumn,
-        endLineNumber: startLine,
-        endColumn: endColumn
-      };
-
-      editor.executeEdits('paste-image-error', [{
-        range: replaceRange,
-        text: errorMarkdown
-      }]);
+      if (error.name === 'AbortError' || abortController.signal.aborted) {
+        console.log('🚫 Image upload cancelled (marker:', markerId, ')');
+        replacePlaceholder(editor, markerId, '');
+      } else {
+        console.error('Failed to handle image upload:', error);
+        replacePlaceholder(editor, markerId, '<!-- image upload failed -->');
+      }
+    } finally {
+      activeUploadsRef.current.delete(markerId);
+      editor.focus();
     }
+  }, [editor, enabled, uploadImageFile, generateMarkdown]);
 
-    // Focus back to editor
-    editor.focus();
-  }, [editor, enabled, handlePasteImage, generateMarkdown]);
+  /**
+   * Cancel all in-flight image uploads (e.g., on Escape key).
+   */
+  const cancelAllUploads = useCallback(() => {
+    for (const [markerId, controller] of activeUploadsRef.current) {
+      controller.abort();
+      console.log('🚫 Cancelled upload:', markerId);
+    }
+  }, []);
 
-  // Attach paste event listener to editor
+  // Attach paste and drop event listeners to editor DOM
   useEffect(() => {
     if (!editor || !enabled) return;
 
     const editorDomNode = editor.getDomNode();
     if (!editorDomNode) return;
 
-    // Add paste event listener
+    // --- Paste handler ---
+    // Must be on document capture phase to fire BEFORE Monaco's internal
+    // CopyPasteController. If Monaco sees an image paste event, it corrupts
+    // its internal state machine and throws "Canceled" errors on subsequent pastes.
     const pasteHandler = (event) => {
-      // Check if clipboard contains image data
-      const items = event.clipboardData?.items;
+      // Only intercept when editor has focus
+      if (!editor.hasTextFocus()) return;
 
-      if (items) {
-        for (let i = 0; i < items.length; i++) {
-          if (items[i].type.startsWith('image/')) {
-            event.preventDefault(); // Prevent default paste behavior
-            event.stopPropagation(); // Stop event from bubbling
-            event.stopImmediatePropagation(); // Stop other handlers from running
-            handlePaste(event);
-            break;
-          }
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        if (items[i].type.startsWith('image/')) {
+          // Extract file synchronously before async gap
+          const file = items[i].getAsFile();
+          if (!file) continue;
+
+          event.preventDefault();
+          event.stopPropagation();
+          event.stopImmediatePropagation();
+          processImageUpload(file);
+          return; // Handle first image only
         }
       }
     };
 
-    // Try multiple approaches to ensure we capture the event
-    // 1. On the document for broader coverage
-    document.addEventListener('paste', pasteHandler, true);
+    // --- Drop handler ---
+    const dropHandler = (event) => {
+      const files = event.dataTransfer?.files;
+      if (!files || files.length === 0) return;
 
-    // 2. On the editor DOM node as well
-    editorDomNode.addEventListener('paste', pasteHandler, true);
+      const imageFiles = Array.from(files).filter(f => f.type.startsWith('image/'));
+      if (imageFiles.length === 0) return;
 
-    // 3. Also try on the container's parent to catch events higher up
-    const container = editorDomNode.closest('.monaco-container');
-    if (container) {
-      container.addEventListener('paste', pasteHandler, true);
-    }
+      event.preventDefault();
+      event.stopPropagation();
 
-    // 4. Try adding a keyboard listener as another approach
-    let keyboardListener = null;
-    try {
-      keyboardListener = editor.onKeyDown((e) => {
-        // Check for Ctrl+V (or Cmd+V on Mac)
-        if ((e.ctrlKey || e.metaKey) && e.keyCode === monaco.KeyCode.KeyV) {
-          // Don't prevent default here, let the paste event handlers deal with it
-        }
+      // Determine drop position in editor
+      const target = editor.getTargetAtClientPoint(event.clientX, event.clientY);
+      let dropSelection = editor.getSelection();
+      if (target?.position) {
+        const pos = target.position;
+        dropSelection = {
+          startLineNumber: pos.lineNumber,
+          startColumn: pos.column,
+          endLineNumber: pos.lineNumber,
+          endColumn: pos.column
+        };
+      }
+
+      // Upload each dropped image file
+      imageFiles.forEach((file, index) => {
+        // Offset insertion for multiple files to avoid same position
+        const sel = index === 0 ? dropSelection : editor.getSelection();
+        processImageUpload(file, sel);
       });
-    } catch (error) {
-      // Silently handle keyboard listener errors
-    }
+    };
+
+    const dragOverHandler = (event) => {
+      // Check if dragged items include images
+      if (event.dataTransfer?.types?.includes('Files')) {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = 'copy';
+      }
+    };
+
+    // --- Escape key to cancel uploads ---
+    const keydownHandler = editor.onKeyDown((e) => {
+      if (e.keyCode === 9 /* Escape */ && activeUploadsRef.current.size > 0) {
+        cancelAllUploads();
+      }
+    });
+
+    // Paste on document capture (must be before Monaco's internal handler)
+    document.addEventListener('paste', pasteHandler, true);
+    // Drop/dragover on editor DOM node (Monaco doesn't have conflicting drop handlers)
+    editorDomNode.addEventListener('drop', dropHandler, true);
+    editorDomNode.addEventListener('dragover', dragOverHandler, true);
 
     return () => {
       document.removeEventListener('paste', pasteHandler, true);
-      editorDomNode.removeEventListener('paste', pasteHandler, true);
-      if (container) {
-        container.removeEventListener('paste', pasteHandler, true);
-      }
-      if (keyboardListener && keyboardListener.dispose) {
-        keyboardListener.dispose();
-      }
+      editorDomNode.removeEventListener('drop', dropHandler, true);
+      editorDomNode.removeEventListener('dragover', dragOverHandler, true);
+      if (keydownHandler?.dispose) keydownHandler.dispose();
     };
-  }, [editor, enabled, handlePaste]);
+  }, [editor, enabled, processImageUpload, cancelAllUploads]);
+
+  // Clean up in-flight uploads on unmount
+  useEffect(() => {
+    return () => {
+      for (const [, controller] of activeUploadsRef.current) {
+        controller.abort();
+      }
+      activeUploadsRef.current.clear();
+    };
+  }, []);
 
   return {
-    handlePaste
+    processImageUpload,
+    cancelAllUploads,
+    activeUploads: activeUploadsRef
   };
 }
