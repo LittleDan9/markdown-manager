@@ -10,6 +10,14 @@
   position: relative;
   z-index: 20;
 
+  // Disable the dropdown-enter animation for toolbar menus.
+  // The animation ends with transform:translateY(0) which overrides Popper.js's
+  // computed inline transform (e.g. translate(0px, 31px)), landing the dropdown
+  // at the 0,0 point of the toggle button instead of below it.
+  .dropdown-menu {
+    animation: none !important;
+  }
+
   .toolbar-section {
     display: flex;
     align-items: center;

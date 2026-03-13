@@ -27,6 +27,7 @@
     min-height: 0; // allow its children to shrink
     overflow: hidden;
     position: relative; // Allow positioning of the resizer
+    z-index: 1; // Establish stacking context below #toolbar (z-index: 20), so editor components (z-index: 100) don't bleed above the toolbar's dropdown menus
 
 
     &.split-view {
