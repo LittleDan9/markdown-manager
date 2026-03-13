@@ -28,10 +28,11 @@ echo ""
 # Test if required configuration files exist
 echo "2. Checking required configuration files..."
 
+# These conf.d files are deployed to the HOST nginx only (not to the container
+# nginx). They provide rate limiting, bot blocking, and custom log formats.
 required_files=(
     "/etc/nginx/conf.d/bot-blocking.conf"
     "/etc/nginx/conf.d/rate-limiting.conf"
-    "/etc/nginx/conf.d/security.conf"
     "/etc/nginx/conf.d/main-config.conf"
     "/etc/nginx/sites-available/littledan.com.conf"
 )

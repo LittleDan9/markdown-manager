@@ -183,39 +183,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     }
   };
 
-  const handleStashChanges = async () => {
-    if (!currentDocument?.id) {
-      showError('No document selected');
-      return;
-    }
-
-    const stashMessage = prompt('Enter stash message (optional):');
-    // Don't return on empty message - it's optional
-
-    setGitLoading(true);
-    try {
-      const response = await documentsApi.stashDocumentChanges(currentDocument.id, {
-        message: stashMessage?.trim() || null,
-        include_untracked: true
-      });
-
-      if (response.success) {
-        const message = response.stash_id
-          ? `Changes stashed successfully as ${response.stash_id}`
-          : response.message || 'Changes stashed successfully';
-        showSuccess(message);
-        refreshGitStatus();
-      } else {
-        showError(`Failed to stash changes: ${response.message || 'Unknown error'}`, null, null, 'git');
-      }
-    } catch (error) {
-      console.error('Failed to stash changes:', error);
-      showError(`Failed to stash changes: ${error.message}`, null, error.response?.data, 'git');
-    } finally {
-      setGitLoading(false);
-    }
-  };
-
   // File operation handlers
   const handleNew = () => {
     if (hasUnsavedChanges) {
@@ -421,10 +388,6 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 <>
                   <Dropdown.Item onClick={handleCreateBranch} disabled={gitLoading}>
                     <i className="bi bi-diagram-3 me-2"></i>Create Branch
-                  </Dropdown.Item>
-
-                  <Dropdown.Item onClick={handleStashChanges} disabled={gitLoading}>
-                    <i className="bi bi-archive me-2"></i>Stash Changes
                   </Dropdown.Item>
                 </>
               )}

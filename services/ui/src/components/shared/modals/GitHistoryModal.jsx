@@ -1,11 +1,24 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { Modal, Button, Spinner, Badge, Alert } from "react-bootstrap";
 import documentsApi from "@/api/documentsApi";
+import DiffViewerModal from "@/components/git/DiffViewerModal";
 
 function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBranch }) {
   const [commits, setCommits] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [restoring, setRestoring] = useState(null); // hash being restored
+
+  // Diff viewer state
+  const [diffModal, setDiffModal] = useState({ show: false, originalHash: null, modifiedHash: null, title: '' });
+
+  const openDiff = useCallback((originalHash, modifiedHash, title) => {
+    setDiffModal({ show: true, originalHash, modifiedHash, title });
+  }, []);
+
+  const closeDiff = useCallback(() => {
+    setDiffModal({ show: false, originalHash: null, modifiedHash: null, title: '' });
+  }, []);
 
   const loadCommitHistory = useCallback(async () => {
     setLoading(true);
@@ -43,8 +56,25 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
   const handleClose = () => {
     setCommits([]);
     setError(null);
+    setRestoring(null);
+    setDiffModal({ show: false, originalHash: null, modifiedHash: null, title: '' });
     onHide();
   };
+
+  const handleRestore = useCallback(async (commit) => {
+    if (!window.confirm(`Restore document to the state at "${commit.message}" (${commit.shortHash})?\n\nA new restore commit will be created on top of the current HEAD.`)) {
+      return;
+    }
+    setRestoring(commit.hash);
+    try {
+      await documentsApi.restoreDocumentVersion(documentId, commit.hash);
+      await loadCommitHistory();
+    } catch (err) {
+      setError(`Failed to restore: ${err.message}`);
+    } finally {
+      setRestoring(null);
+    }
+  }, [documentId, loadCommitHistory]);
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Unknown date';
@@ -82,6 +112,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
   };
 
   return (
+    <>
     <Modal
       show={show}
       onHide={handleClose}
@@ -175,6 +206,55 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
                     <i className="bi bi-calendar3 me-1"></i>
                     <span>{formatDate(commit.date)}</span>
                   </div>
+
+                  {/* Per-commit actions */}
+                  <div className="commit-actions mt-2 d-flex gap-2 flex-wrap">
+                    {/* "What changed in this commit?" = diff from previous commit to this one */}
+                    {!commit.isCurrent && _index < commits.length - 1 && (
+                      <Button
+                        variant="outline-secondary"
+                        size="sm"
+                        onClick={() => openDiff(
+                          commits[_index + 1].hash,
+                          commit.hash,
+                          `Changes in ${commit.shortHash}: ${commit.message}`
+                        )}
+                      >
+                        <i className="bi bi-file-diff me-1"></i>
+                        View Changes
+                      </Button>
+                    )}
+                    {/* "Compare to current" = diff from this commit to HEAD */}
+                    {!commit.isCurrent && (
+                      <Button
+                        variant="outline-primary"
+                        size="sm"
+                        onClick={() => openDiff(
+                          commit.hash,
+                          commits[0].hash,
+                          `${commit.shortHash} vs Current`
+                        )}
+                      >
+                        <i className="bi bi-arrows-expand me-1"></i>
+                        Compare to Current
+                      </Button>
+                    )}
+                    {/* Restore */}
+                    {!commit.isCurrent && (
+                      <Button
+                        variant="outline-warning"
+                        size="sm"
+                        disabled={restoring === commit.hash}
+                        onClick={() => handleRestore(commit)}
+                      >
+                        {restoring === commit.hash ? (
+                          <><Spinner animation="border" size="sm" className="me-1" />Restoring…</>
+                        ) : (
+                          <><i className="bi bi-arrow-counterclockwise me-1"></i>Restore</>
+                        )}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -186,7 +266,7 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
         <div className="d-flex justify-content-between w-100">
           <div className="small text-muted">
             <i className="bi bi-info-circle me-1"></i>
-            Full git log integration coming soon
+            Showing {commits.length} recent commit{commits.length !== 1 ? 's' : ''}
           </div>
           <div>
             {!loading && !error && commits.length > 0 && (
@@ -202,6 +282,16 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
         </div>
       </Modal.Footer>
     </Modal>
+
+    <DiffViewerModal
+      show={diffModal.show}
+      onHide={closeDiff}
+      documentId={documentId}
+      originalHash={diffModal.originalHash}
+      modifiedHash={diffModal.modifiedHash}
+      title={diffModal.title}
+    />
+  </>
   );
 }
 

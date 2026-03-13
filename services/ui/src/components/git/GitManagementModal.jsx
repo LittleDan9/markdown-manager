@@ -14,7 +14,6 @@ export default function GitManagementModal({ show, onHide }) {
   // Data states
   const [overview, setOverview] = useState({ repositories: [], total_repositories: 0, total_documents: 0 });
   const [branches, setBranches] = useState({ repositories: [], total_repositories: 0, total_branches: 0 });
-  const [stashes, setStashes] = useState({ stashes: [], total: 0, repositories_checked: 0 });
   const [operationLogs, setOperationLogs] = useState({ logs: [], total: 0 });
   const [settings, setSettings] = useState({});
 
@@ -37,15 +36,6 @@ export default function GitManagementModal({ show, onHide }) {
       setBranches(data);
     } catch (error) {
       setBranches({ repositories: [], total_repositories: 0, total_branches: 0, error: error.message });
-    }
-  };
-
-  const loadStashes = async () => {
-    try {
-      const data = await documentsApi.getAllGitStashes();
-      setStashes(data);
-    } catch (error) {
-      setStashes({ stashes: [], total: 0, repositories_checked: 0, error: error.message });
     }
   };
 
@@ -85,9 +75,6 @@ export default function GitManagementModal({ show, onHide }) {
         case 'branches':
           await loadBranches();
           break;
-        case 'stash':
-          await loadStashes();
-          break;
         case 'history':
           await loadOperationLogs();
           break;
@@ -124,75 +111,6 @@ export default function GitManagementModal({ show, onHide }) {
     if (!durationMs) return 'Unknown';
     if (durationMs < 1000) return `${durationMs}ms`;
     return `${(durationMs / 1000).toFixed(2)}s`;
-  };
-
-  const handleApplyStash = async (stash, pop = false) => {
-    try {
-      setLoading(true);
-      const result = await documentsApi.applyGitStash({
-        repository_path: stash.repository_path,
-        stash_id: stash.stash_id,
-        pop: pop
-      });
-
-      if (result.success) {
-        showSuccess(
-          `Stash ${pop ? 'popped' : 'applied'} successfully`,
-          `${stash.stash_id} from ${stash.repository_name}`,
-          result.message
-        );
-        // Reload stashes to update the list
-        await loadStashes();
-      } else {
-        showError('Failed to apply stash', null, result.error, 'git');
-      }
-    } catch (error) {
-      console.error('Failed to apply stash:', error);
-      showError('Failed to apply stash', null, error.message, 'git');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleCreateStash = async () => {
-    try {
-      // Get available repositories first
-      const branchData = await documentsApi.getAllGitBranches();
-
-      if (!branchData.repositories || branchData.repositories.length === 0) {
-        showError('No repositories found', null, 'No git repositories available to stash changes', 'git');
-        return;
-      }
-
-      // For now, create stash in the first available repository
-      // In a more advanced implementation, you could show a modal to select repository
-      const firstRepo = branchData.repositories[0];
-      const message = `Stash created from Git Management modal - ${new Date().toLocaleString()}`;
-
-      setLoading(true);
-      const result = await documentsApi.createGitStash({
-        repository_path: firstRepo.repository_path,
-        message: message,
-        include_untracked: true
-      });
-
-      if (result.success) {
-        showSuccess(
-          'Stash created successfully',
-          `In repository: ${firstRepo.repository_name}`,
-          result.message
-        );
-        // Reload stashes to update the list
-        await loadStashes();
-      } else {
-        showError('Failed to create stash', null, result.error, 'git');
-      }
-    } catch (error) {
-      console.error('Failed to create stash:', error);
-      showError('Failed to create stash', null, error.message, 'git');
-    } finally {
-      setLoading(false);
-    }
   };
 
   const handleSaveSettings = async (e) => {
@@ -459,117 +377,10 @@ export default function GitManagementModal({ show, onHide }) {
             </div>
           </Tab>
 
-          <Tab eventKey="stash" title={
-            <span>
-              <i className="bi bi-archive me-1"></i>
-              Stash
-            </span>
-          }>
-            <div className="stash-management">
-              <Row className="mb-3">
-                <Col>
-                  <h5>
-                    <i className="bi bi-archive me-2"></i>
-                    Git Stash Management
-                  </h5>
-                  <p className="text-muted">
-                    Found {stashes.total} stashes across {stashes.repositories_checked} repositories
-                  </p>
-                </Col>
-                <Col xs="auto">
-                  <ActionButton
-                    variant="primary"
-                    onClick={handleCreateStash}
-                    loading={loading}
-                    icon="plus-circle"
-                  >
-                    Create Stash
-                  </ActionButton>
-                </Col>
-              </Row>
-
-              {loading && (
-                <div className="text-center p-4">
-                  <Spinner animation="border" />
-                  <div className="mt-2">Loading stashes...</div>
-                </div>
-              )}
-
-              {stashes.error && (
-                <Alert variant="warning">
-                  <i className="bi bi-exclamation-triangle me-2"></i>
-                  {stashes.error}
-                </Alert>
-              )}
-
-              {!loading && !stashes.error && stashes.stashes.length > 0 && (
-                <Card>
-                  <Card.Body>
-                    <Table responsive>
-                      <thead>
-                        <tr>
-                          <th>Repository</th>
-                          <th>Stash ID</th>
-                          <th>Message</th>
-                          <th>Date</th>
-                          <th>Commit Hash</th>
-                          <th>Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {stashes.stashes.map((stash, index) => (
-                          <tr key={index}>
-                            <td>
-                              <i className="bi bi-folder me-2"></i>
-                              {stash.repository_name}
-                            </td>
-                            <td>
-                              <code>{stash.stash_id}</code>
-                            </td>
-                            <td>{stash.message || 'No message'}</td>
-                            <td>{new Date(stash.date).toLocaleString()}</td>
-                            <td>
-                              <code className="small">{stash.commit_hash}</code>
-                            </td>
-                            <td>
-                              <div className="d-flex gap-1">
-                                <ActionButton
-                                  variant="success"
-                                  size="sm"
-                                  onClick={() => handleApplyStash(stash, false)}
-                                  title="Apply stash (keep stash)"
-                                  icon="arrow-down-circle"
-                                />
-                                <ActionButton
-                                  variant="warning"
-                                  size="sm"
-                                  onClick={() => handleApplyStash(stash, true)}
-                                  title="Pop stash (apply and remove)"
-                                  icon="arrow-up-circle-fill"
-                                />
-                              </div>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </Table>
-                  </Card.Body>
-                </Card>
-              )}
-
-              {!loading && !stashes.error && stashes.stashes.length === 0 && (
-                <Alert variant="info">
-                  <i className="bi bi-info-circle me-2"></i>
-                  No stashes found. Use &quot;Create Stash&quot; to save uncommitted changes temporarily.
-                </Alert>
-              )}
-            </div>
-          </Tab>
-
           <Tab eventKey="history" title={
             <span>
               <i className="bi bi-clock-history me-1"></i>
-              Operation History
+              Activity Log
             </span>
           }>
             <div className="git-operation-history">
@@ -780,11 +591,11 @@ export default function GitManagementModal({ show, onHide }) {
                                   onChange={(e) => setSettingsForm({...settingsForm, auto_commit_on_save: e.target.checked})}
                                 />
                                 <label className="form-check-label" htmlFor="autoCommit">
-                                  <strong>Auto-commit on Save</strong>
+                                  <strong>Auto-commit on Session Close</strong>
                                 </label>
                               </div>
                               <small className="text-muted">
-                                Automatically commit changes when documents are saved
+                                Automatically commit changes when an editing session ends
                               </small>
                             </div>
 

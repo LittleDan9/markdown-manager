@@ -250,3 +250,35 @@ async def pull_changes(repo_path: Path, branch: Optional[str] = None) -> bool:
     except Exception as e:
         logger.error(f"Failed to pull changes for {repo_path}: {e}")
         return False
+
+
+async def run_gc(repo_path: Path, aggressive: bool = False) -> bool:
+    """
+    Run git garbage collection to pack loose objects and reduce repository size.
+
+    Args:
+        repo_path: Path to the git repository
+        aggressive: Whether to run a more thorough (slower) gc
+
+    Returns:
+        True if successful, False otherwise
+    """
+    try:
+        if not (repo_path / ".git").exists():
+            logger.warning(f"Not a git repository, skipping gc: {repo_path}")
+            return False
+
+        command = ["gc", "--quiet"]
+        if aggressive:
+            command.append("--aggressive")
+
+        success, _, stderr = await run_git_command(repo_path, command)
+        if success:
+            logger.info(f"git gc completed for {repo_path}")
+        else:
+            logger.warning(f"git gc reported issues for {repo_path}: {stderr}")
+        return success
+
+    except Exception as e:
+        logger.error(f"Failed to run git gc for {repo_path}: {e}")
+        return False

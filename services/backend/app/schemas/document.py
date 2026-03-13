@@ -48,6 +48,11 @@ class DocumentUpdate(BaseModel):
         None, description="Category ID for dictionary scope"
     )
     folder_path: Optional[str] = Field(None, min_length=1, max_length=1000)
+    skip_commit: bool = Field(
+        False,
+        description="When True, write content to disk but skip the git commit. "
+                    "Use for auto-save; call POST /git/session-commit when the editing session ends."
+    )
 
     @field_validator('folder_path')
     @classmethod
@@ -59,6 +64,8 @@ class DocumentUpdate(BaseModel):
 
 class DocumentInDB(DocumentBase):
     """Schema for document in database."""
+
+    content: str = ""  # Content is stored on filesystem, not in the DB
 
     id: int
     user_id: int
@@ -192,7 +199,7 @@ class DocumentResponse(BaseModel):
 
     id: int
     name: str
-    content: str
+    content: str = ""  # Content is stored on filesystem, may not be populated in all responses
     folder_path: str
     created_at: datetime
     updated_at: datetime

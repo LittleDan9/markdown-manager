@@ -210,7 +210,7 @@ function UserMenuLoggedIn() {
           ) : (
             <i className="bi bi-toggle-off text-secondary me-2"></i>
           )}
-          Auto-commit on Save
+          Auto-commit on Session Close
         </Dropdown.Item>
         <Dropdown.Divider />
         <Dropdown.Item id="githubBtn" onClick={handleGitHub}>

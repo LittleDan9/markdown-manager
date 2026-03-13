@@ -58,9 +58,15 @@ def _create_lifespan():
         await create_tables()
         logger.info("Database tables created/verified")
 
+        # Start background git gc service (runs daily to keep repos compact)
+        from app.services.storage.git.maintenance import git_maintenance_service
+        await git_maintenance_service.start()
+
         yield
 
-        # Shutdown: cleanup if needed
+        # Shutdown: stop background services
+        from app.services.storage.git.maintenance import git_maintenance_service
+        git_maintenance_service.stop()
         logger.info("Shutting down application...")
 
     return lifespan

@@ -168,3 +168,42 @@ async def get_file_content_at_commit(repo_path: Path, file_path: str, commit_has
     except Exception as e:
         logger.error(f"Failed to get file content at commit {commit_hash}: {e}")
         return None
+
+
+async def get_file_diff(
+    repo_path: Path,
+    file_path: str,
+    commit_a: str,
+    commit_b: str
+) -> Optional[str]:
+    """
+    Get the unified diff for a file between two commits.
+
+    Args:
+        repo_path: Path to the git repository
+        file_path: Relative path to the file within the repository
+        commit_a: Base commit hash (older)
+        commit_b: Target commit hash (newer), or "HEAD" for current state
+
+    Returns:
+        Unified diff string or None on error
+    """
+    try:
+        if not (repo_path / ".git").exists():
+            logger.warning(f"Not a git repository: {repo_path}")
+            return None
+
+        success, diff_output, stderr = await run_git_command(
+            repo_path,
+            ["diff", commit_a, commit_b, "--", file_path]
+        )
+
+        if success:
+            return diff_output
+        else:
+            logger.warning(f"Failed to get diff for {file_path} ({commit_a}..{commit_b}): {stderr}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Failed to get diff for {file_path}: {e}")
+        return None

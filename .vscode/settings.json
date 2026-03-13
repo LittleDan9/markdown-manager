@@ -17,5 +17,10 @@
     "python.testing.pytestEnabled": false,
     "github.copilot.chat.codeGeneration.useInstructionFiles": true,
     "files.eol": "\n",
-    "mypy-type-checker.path": ["./backend/.venv/bin/mypy", "./backend/venv/Scripts/mypy.exe"],
+    "mypy-type-checker.path": [
+        "./backend/.venv/bin/mypy",
+        "./backend/venv/Scripts/mypy.exe"
+    ],
+    "jupyter.interactiveWindow.cellMarker.codeRegex": "^# COMMAND ----------|^# Databricks notebook source|^(#\\s*%%|#\\s*\\<codecell\\>|#\\s*In\\[\\d*?\\]|#\\s*In\\[ \\])",
+    "jupyter.interactiveWindow.cellMarker.default": "# COMMAND ----------",
 }

@@ -194,6 +194,8 @@ class TestGitHubAccountCRUD:
         github_crud.get_account = AsyncMock(return_value=sample_github_account)
         mock_db.delete = AsyncMock()
         mock_db.commit = AsyncMock()
+        # execute is called to look up repository IDs; return an empty list so we skip the documents branch
+        mock_db.execute = AsyncMock(return_value=MagicMock(fetchall=MagicMock(return_value=[])))
 
         result = await github_crud.delete_account(mock_db, account_id=1)
 

@@ -17,6 +17,7 @@ import documentsApi from '../../api/documentsApi';
 import GitHubPullModal from '../github/modals/GitHubPullModal';
 import GitHubConflictModal from '../github/modals/GitHubConflictModal';
 import GitHubPRModal from '../github/modals/GitHubPRModal';
+import GitHistoryModal from '../shared/modals/GitHistoryModal';
 import { serviceFactory } from '../../services/injectors';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 import { useGitStatus } from '../../hooks/document';
@@ -34,6 +35,7 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
   const [autoCreatePR, setAutoCreatePR] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [syncHistory, setSyncHistory] = useState([]);
+  const [gitHistoryModalVisible, setGitHistoryModalVisible] = useState(false);
   const [branchMode, setBranchMode] = useState('current'); // 'current' or 'new'
 
   // Phase 3: New modal states
@@ -333,18 +335,8 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
     }
   };
 
-  const showGitHistory = async () => {
-    try {
-      setLoading(true);
-      const history = await documentsApi.getDocumentGitHistory(documentId, 20);
-      setSyncHistory(history.commits || []);
-      setHistoryModalVisible(true);
-    } catch (error) {
-      console.error('Failed to load git history:', error);
-      showError('Failed to load git history', null, error.response?.data, 'git');
-    } finally {
-      setLoading(false);
-    }
+  const showGitHistory = () => {
+    setGitHistoryModalVisible(true);
   };
 
   // Phase 3: New handlers
@@ -890,6 +882,15 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
         repository={currentRepository}
         headBranch={status?.github_branch || 'main'}
         onPRCreated={handlePRCreated}
+      />
+
+      {/* Local git history modal with diff/restore support */}
+      <GitHistoryModal
+        show={gitHistoryModalVisible}
+        onHide={() => setGitHistoryModalVisible(false)}
+        documentId={documentId}
+        repositoryType={status?.repository_type}
+        currentBranch={status?.current_branch}
       />
     </>
   );

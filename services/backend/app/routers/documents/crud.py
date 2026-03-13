@@ -125,17 +125,18 @@ async def _update_document_content(
     document: Document,
     storage_service,
     user_id: int,
-    new_content: str
+    new_content: str,
+    skip_commit: bool = False
 ) -> bool:
     """Helper function to update document content."""
     if document.file_path:
-        # Update filesystem content
+        # Update filesystem content; skip commit for auto-save (session commit fires on session end)
         return await storage_service.write_document(
             user_id=user_id,
             file_path=document.file_path,
             content=new_content,
             commit_message=f"Update content: {document.name}",
-            auto_commit=True
+            auto_commit=not skip_commit
         )
     else:
         # Legacy: Update database content directly (during migration)
@@ -313,7 +314,8 @@ async def update_document(
     # Handle content updates
     if document_data.content is not None:
         success = await _update_document_content(
-            document, storage_service, current_user.id, document_data.content
+            document, storage_service, current_user.id, document_data.content,
+            skip_commit=document_data.skip_commit
         )
         if not success:
             raise HTTPException(

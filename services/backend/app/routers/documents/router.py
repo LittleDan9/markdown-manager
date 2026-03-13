@@ -47,20 +47,6 @@ class CommitRequest(BaseModel):
     commit_message: str = Field(..., description="Commit message")
 
 
-class StashRequest(BaseModel):
-    """Request for stashing changes."""
-    message: Optional[str] = Field(None, description="Optional stash message")
-    include_untracked: bool = Field(False, description="Include untracked files in stash")
-
-
-class StashResponse(BaseModel):
-    """Response for stash operations."""
-    success: bool
-    stash_id: Optional[str] = None
-    message: str
-    operation: Optional[str] = None
-
-
 class CreateBranchRequest(BaseModel):
     """Request for creating a new branch."""
     branch_name: str = Field(..., description="Name of the new branch")
@@ -337,6 +323,82 @@ async def commit_document_changes(
         )
 
 
+@router.post("/{document_id}/git/session-commit")
+async def session_commit_document(
+    document_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Commit accumulated auto-save changes as a single session commit.
+
+    Called by the frontend when an editing session ends (document close, tab switch,
+    or page unload). Only creates a commit when there are actual staged changes.
+    GitHub repositories are not supported and return a no-op success.
+    """
+    from datetime import datetime, timezone
+    from pathlib import Path
+    from app.configs.settings import settings
+
+    document = await document_crud.document.get(db=db, id=document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    # GitHub repos don't use local session commits
+    if document.repository_type == "github" or document.github_repository_id:
+        return {"success": True, "committed": False, "reason": "GitHub repository — use explicit commit"}
+
+    if not document.file_path or not document.file_path.startswith("local/"):
+        return {"success": True, "committed": False, "reason": "Document has no local file path"}
+
+    try:
+        user_storage_path = Path(settings.markdown_storage_root) / str(current_user.id)
+        path_parts = document.file_path.split("/")
+        if len(path_parts) < 2:
+            return {"success": True, "committed": False, "reason": "Cannot resolve category directory"}
+
+        category_name = path_parts[1]
+        repo_path = user_storage_path / "local" / category_name
+
+        if not repo_path.exists() or not (repo_path / ".git").exists():
+            return {"success": True, "committed": False, "reason": "No git repository found"}
+
+        # Stage all pending changes
+        await github_filesystem_service._run_git_command(repo_path, ["add", "-A"])
+
+        # Check if there is anything to commit (guard against empty commits)
+        check_success, _, _ = await github_filesystem_service._run_git_command(
+            repo_path, ["diff", "--cached", "--quiet"]
+        )
+        if check_success:
+            # Exit code 0 means no staged changes
+            return {"success": True, "committed": False, "reason": "No changes to commit"}
+
+        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+        commit_message = f"Session update: {document.name} ({timestamp})"
+
+        commit_success, _, stderr = await github_filesystem_service._run_git_command(
+            repo_path, ["commit", "-m", commit_message]
+        )
+
+        if not commit_success:
+            raise HTTPException(status_code=400, detail=f"Failed to commit session: {stderr}")
+
+        _, commit_hash, _ = await github_filesystem_service._run_git_command(repo_path, ["rev-parse", "HEAD"])
+
+        return {
+            "success": True,
+            "committed": True,
+            "commit_hash": commit_hash.strip(),
+            "commit_message": commit_message,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to create session commit: {str(e)}")
+
+
 @router.get("/{document_id}/git/history")
 async def get_document_git_history(
     document_id: int,
@@ -496,82 +558,153 @@ async def get_document_git_history(
         )
 
 
-@router.post("/{document_id}/git/stash", response_model=StashResponse)
-async def stash_document_changes(
+@router.get("/{document_id}/git/diff")
+async def get_document_git_diff(
     document_id: int,
-    stash_request: StashRequest,
+    commit_a: str = Query(..., description="Base commit hash (older)"),
+    commit_b: str = Query(..., description="Target commit hash (newer), or 'HEAD' for working copy"),
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> StashResponse:
-    """Stash uncommitted changes in a document's repository."""
+):
+    """
+    Get the unified diff for a document file between two commits.
 
-    # Get the document
+    Used by the diff viewer UI to show what changed between versions.
+    Returns a unified diff string that can be rendered by Monaco DiffEditor.
+    """
+    from pathlib import Path
+    from app.configs.settings import settings
+    from app.services.storage.git.history import get_file_diff
+
     document = await document_crud.document.get(db=db, id=document_id)
     if not document or document.user_id != current_user.id:
         raise HTTPException(status_code=404, detail="Document not found")
 
+    if document.repository_type == "github" or document.github_repository_id:
+        raise HTTPException(status_code=501, detail="Diff not yet implemented for GitHub repositories")
+
+    if not document.file_path or not document.file_path.startswith("local/"):
+        raise HTTPException(status_code=400, detail="Document has no local file path")
+
     try:
-        # For now, we'll implement local stash operations
-        # GitHub repos can use local git stash on cloned repositories
-        from pathlib import Path
-        from app.configs.settings import settings
-        from app.services.storage.git_service import GitService
-
-        git_service = GitService()
         user_storage_path = Path(settings.markdown_storage_root) / str(current_user.id)
+        path_parts = document.file_path.split("/")
+        if len(path_parts) < 2:
+            raise HTTPException(status_code=400, detail="Cannot resolve category directory")
 
-        if document.repository_type == "github" and document.github_repository_id:
-            # For GitHub documents, we need the cloned repository path
-            # This would need to be implemented based on the GitHub cloning structure
-            raise HTTPException(
-                status_code=501,
-                detail="Stash operations for GitHub repositories not yet implemented"
-            )
-        else:
-            # For local documents, get category repository
-            if document.file_path and document.file_path.startswith("local/"):
-                path_parts = document.file_path.split("/")
-                if len(path_parts) >= 2:
-                    category_name = path_parts[1]
-                    repo_path = user_storage_path / "local" / category_name
-                else:
-                    repo_path = user_storage_path
-            else:
-                repo_path = user_storage_path
+        category_name = path_parts[1]
+        repo_path = user_storage_path / "local" / category_name
+        file_name = path_parts[-1]
 
         if not repo_path.exists() or not (repo_path / ".git").exists():
-            raise HTTPException(
-                status_code=404,
-                detail="Git repository not found for document"
-            )
+            raise HTTPException(status_code=404, detail="Git repository not found")
 
-        # Perform stash operation
-        result = await git_service.stash_changes(
-            repo_path,
-            message=stash_request.message,
-            include_untracked=stash_request.include_untracked
-        )
+        diff_output = await get_file_diff(repo_path, file_name, commit_a, commit_b)
 
-        if result["success"]:
-            return StashResponse(
-                success=True,
-                stash_id=result.get("stash_id"),
-                message=result["message"],
-                operation="stash"
-            )
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=result.get("error", "Failed to stash changes")
-            )
+        if diff_output is None:
+            raise HTTPException(status_code=500, detail="Failed to generate diff")
+
+        return {
+            "diff": diff_output,
+            "document_id": document_id,
+            "document_name": document.name,
+            "commit_a": commit_a,
+            "commit_b": commit_b,
+        }
 
     except HTTPException:
         raise
     except Exception as e:
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to stash changes: {str(e)}"
+        raise HTTPException(status_code=500, detail=f"Failed to get diff: {str(e)}")
+
+
+class RestoreVersionRequest(BaseModel):
+    """Request to restore a document to a specific version."""
+    confirm: bool = Field(..., description="Must be True to confirm the destructive restore operation")
+
+
+@router.post("/{document_id}/git/restore/{commit_hash}")
+async def restore_document_version(
+    document_id: int,
+    commit_hash: str,
+    restore_request: RestoreVersionRequest,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Restore a document to its content at a specific commit.
+
+    Overwrites the current content with the version at commit_hash and
+    creates a new commit recording the restore operation. Requires
+    { "confirm": true } in the request body since this is destructive.
+    """
+    from pathlib import Path
+    from app.configs.settings import settings
+    from app.services.storage.git.history import get_file_content_at_commit
+
+    if not restore_request.confirm:
+        raise HTTPException(status_code=400, detail="Restore requires confirm=true in request body")
+
+    document = await document_crud.document.get(db=db, id=document_id)
+    if not document or document.user_id != current_user.id:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if document.repository_type == "github" or document.github_repository_id:
+        raise HTTPException(status_code=501, detail="Restore not yet implemented for GitHub repositories")
+
+    if not document.file_path or not document.file_path.startswith("local/"):
+        raise HTTPException(status_code=400, detail="Document has no local file path")
+
+    try:
+        from app.services.storage import UserStorage
+
+        user_storage_path = Path(settings.markdown_storage_root) / str(current_user.id)
+        path_parts = document.file_path.split("/")
+        if len(path_parts) < 2:
+            raise HTTPException(status_code=400, detail="Cannot resolve category directory")
+
+        category_name = path_parts[1]
+        repo_path = user_storage_path / "local" / category_name
+        file_name = path_parts[-1]
+
+        if not repo_path.exists() or not (repo_path / ".git").exists():
+            raise HTTPException(status_code=404, detail="Git repository not found")
+
+        # Retrieve file content at the requested commit
+        content_at_commit = await get_file_content_at_commit(repo_path, file_name, commit_hash)
+        if content_at_commit is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Document content not found at commit {commit_hash}"
+            )
+
+        short_hash = commit_hash[:7]
+
+        # Write restored content with an explicit commit message
+        storage_service = UserStorage()
+        success = await storage_service.write_document(
+            user_id=current_user.id,
+            file_path=document.file_path,
+            content=content_at_commit,
+            commit_message=f"Restore {document.name} to version {short_hash}",
+            auto_commit=True
         )
+
+        if not success:
+            raise HTTPException(status_code=500, detail="Failed to write restored content")
+
+        return {
+            "success": True,
+            "document_id": document_id,
+            "document_name": document.name,
+            "restored_from_commit": commit_hash,
+            "content": content_at_commit,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to restore version: {str(e)}")
 
 
 @router.post("/{document_id}/git/branches", response_model=CreateBranchResponse)
@@ -1023,61 +1156,6 @@ async def get_git_operation_logs(
         }
 
 
-@router.get("/git/stashes")
-async def get_all_git_stashes(
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Get git stashes from all user repositories."""
-    try:
-        from pathlib import Path
-        from app.configs.settings import settings
-        from app.services.storage.git_service import GitService
-
-        git_service = GitService()
-        user_storage_path = Path(settings.markdown_storage_root) / str(current_user.id)
-        all_stashes = []
-
-        # Get stashes from local repositories
-        local_path = user_storage_path / "local"
-        if local_path.exists():
-            for category_dir in local_path.iterdir():
-                if category_dir.is_dir() and (category_dir / ".git").exists():
-                    try:
-                        stashes = await git_service.list_stashes(category_dir)
-                        if stashes:  # stashes is a list, not a dict
-                            all_stashes.extend([
-                                {
-                                    **stash,
-                                    "repository_name": category_dir.name,
-                                    "repository_type": "local",
-                                    "repository_path": str(category_dir)
-                                }
-                                for stash in stashes  # stashes is already the list
-                            ])
-                    except Exception:
-                        # Skip repositories with stash errors
-                        continue
-
-        repo_count = 0
-        if (user_storage_path / "local").exists():
-            repo_count = len([d for d in (user_storage_path / "local").iterdir()
-                             if d.is_dir() and (d / ".git").exists()])
-
-        return {
-            "stashes": all_stashes,
-            "total": len(all_stashes),
-            "repositories_checked": repo_count
-        }
-
-    except Exception as e:
-        return {
-            "stashes": [],
-            "total": 0,
-            "error": f"Failed to load stashes: {str(e)}"
-        }
-
-
 @router.get("/git/branches/all")
 async def get_all_git_branches(
     db: AsyncSession = Depends(get_db),
@@ -1229,68 +1307,6 @@ async def get_all_git_branches(
             "total_branches": 0,
             "error": f"Failed to load branch information: {str(e)}"
         }
-
-
-@router.post("/git/stash/apply")
-async def apply_git_stash(
-    request: dict,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Apply a git stash from any repository."""
-    try:
-        from pathlib import Path
-        from app.services.storage.git_service import GitService
-
-        repository_path = request.get("repository_path")
-        stash_id = request.get("stash_id", "stash@{0}")
-        pop = request.get("pop", False)
-
-        if not repository_path:
-            return {"success": False, "error": "Repository path is required"}
-
-        repo_path = Path(repository_path)
-        if not repo_path.exists() or not (repo_path / ".git").exists():
-            return {"success": False, "error": "Git repository not found"}
-
-        git_service = GitService()
-        result = await git_service.apply_stash(repo_path, stash_id, pop)
-
-        return result
-
-    except Exception as e:
-        return {"success": False, "error": f"Failed to apply stash: {str(e)}"}
-
-
-@router.post("/git/stash/create")
-async def create_git_stash(
-    request: dict,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """Create a git stash in a specific repository."""
-    try:
-        from pathlib import Path
-        from app.services.storage.git_service import GitService
-
-        repository_path = request.get("repository_path")
-        message = request.get("message", "")
-        include_untracked = request.get("include_untracked", False)
-
-        if not repository_path:
-            return {"success": False, "error": "Repository path is required"}
-
-        repo_path = Path(repository_path)
-        if not repo_path.exists() or not (repo_path / ".git").exists():
-            return {"success": False, "error": "Git repository not found"}
-
-        git_service = GitService()
-        result = await git_service.stash_changes(repo_path, message, include_untracked)
-
-        return result
-
-    except Exception as e:
-        return {"success": False, "error": f"Failed to create stash: {str(e)}"}
 
 
 @router.get("/git/settings")

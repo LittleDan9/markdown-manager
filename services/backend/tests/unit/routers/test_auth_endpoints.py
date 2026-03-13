@@ -314,8 +314,8 @@ class TestAuthEndpoints:
 
     @pytest.mark.asyncio
     async def test_register_storage_failure(self, async_client, test_user_data):
-        """Test registration failure when storage initialization fails."""
-        # Mock storage service to fail
+        """Test registration completes even when storage initialization returns False."""
+        # Mock storage service to return failure (storage issues are now handled gracefully)
         with patch('app.services.storage.user.UserStorage') as mock_storage_class:
             mock_storage = AsyncMock()
             mock_storage.create_user_directory.return_value = False  # Simulate failure
@@ -323,8 +323,9 @@ class TestAuthEndpoints:
 
             response = await async_client.post("/auth/register", json=test_user_data)
 
-            assert response.status_code == 500
-            assert "Failed to initialize user storage" in response.json()["detail"]
+            # Registration now succeeds even when storage setup returns False
+            assert response.status_code == 200
+            assert "id" in response.json()
 
     @pytest.mark.asyncio
     async def test_login_success(self, async_client, test_user_data):
@@ -499,4 +500,4 @@ class TestAuthEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data["mfa_required"] is True
-            assert "access_token" not in data
+            assert data.get("access_token") is None

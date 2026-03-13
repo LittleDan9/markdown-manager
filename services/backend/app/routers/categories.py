@@ -78,6 +78,22 @@ async def create_category(
     new_category = await crud_category.create_category(
         db, category_data, int(current_user.id)
     )
+
+    # Initialize a git repository for the new category so version history
+    # is available immediately (registration does this for default categories;
+    # this covers user-created categories).
+    try:
+        from app.services.storage import UserStorage
+        storage_service = UserStorage()
+        await storage_service.initialize_category_repo(int(current_user.id), new_category.name)
+    except Exception as exc:
+        # Non-fatal: category is created in DB; git init failure only means
+        # version history won't be available until the repo is lazily created.
+        import logging
+        logging.getLogger(__name__).warning(
+            f"Failed to initialize git repo for category '{new_category.name}': {exc}"
+        )
+
     return new_category
 
 

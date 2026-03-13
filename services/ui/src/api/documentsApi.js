@@ -129,7 +129,7 @@ class DocumentsApi extends Api {
     return res.data;
   }
 
-  async updateDocument(id, { name, content, category, category_id }) {
+  async updateDocument(id, { name, content, category, category_id, skip_commit }) {
     // If category_id is provided, use it; otherwise try to resolve category name to ID
     let finalCategoryId = category_id;
 
@@ -152,6 +152,7 @@ class DocumentsApi extends Api {
       // Ensure category_id is an integer
       requestData.category_id = parseInt(finalCategoryId, 10);
     }
+    if (skip_commit !== undefined) requestData.skip_commit = skip_commit;
 
     const res = await this.apiCall(`/documents/${id}`, "PUT", requestData);
     return res.data;
@@ -385,19 +386,6 @@ class DocumentsApi extends Api {
   }
 
   /**
-   * Stash changes in a document's repository
-   * @param {number} documentId - Document ID
-   * @param {Object} stashData - Stash configuration
-   * @param {string} stashData.message - Optional stash message
-   * @param {boolean} stashData.include_untracked - Include untracked files
-   * @returns {Promise<Object>} - Stash result
-   */
-  async stashDocumentChanges(documentId, stashData) {
-    const res = await this.apiCall(`/documents/${documentId}/git/stash`, "POST", stashData);
-    return res.data;
-  }
-
-  /**
    * Create a new branch for a document's repository
    * @param {number} documentId - Document ID
    * @param {Object} branchData - Branch configuration
@@ -454,15 +442,6 @@ class DocumentsApi extends Api {
   }
 
   /**
-   * Get git stashes from all user repositories
-   * @returns {Promise<Object>} - All git stashes
-   */
-  async getAllGitStashes() {
-    const res = await this.apiCall('/documents/git/stashes', 'GET');
-    return res.data;
-  }
-
-  /**
    * Get branches from all user repositories
    * @returns {Promise<Object>} - All repository branches
    */
@@ -472,54 +451,55 @@ class DocumentsApi extends Api {
   }
 
   /**
-   * Apply a git stash
+   * Get document content at a specific git commit.
    * @param {number} documentId - Document ID
-   * @param {Object} stashData - Stash configuration
-   * @param {string} stashData.stashId - Stash ID to apply (default: "stash@{0}")
-   * @param {boolean} stashData.pop - Whether to pop the stash (remove after applying)
-   * @returns {Promise<Object>} - Stash apply result
+   * @param {string} commitHash - Commit hash to retrieve content from
+   * @returns {Promise<Object>} - { document_id, document_name, commit_hash, content }
    */
-  async applyDocumentStash(documentId, stashData = {}) {
-    const res = await this.apiCall(`/documents/${documentId}/git/stash/apply`, "POST", stashData);
+  async getDocumentAtCommit(documentId, commitHash) {
+    const res = await this.apiCall(`/documents/${documentId}/history/${commitHash}`, 'GET');
     return res.data;
   }
 
   /**
-   * Switch git branch for a document's repository
+   * Trigger a session commit for a document.
+   * Call when an editing session ends (document switch, page close).
+   * No-ops gracefully when there are no pending changes or the doc is on GitHub.
    * @param {number} documentId - Document ID
-   * @param {Object} branchData - Branch switch configuration
-   * @param {string} branchData.branchName - Name of branch to switch to
-   * @param {boolean} branchData.createIfNotExists - Create branch if it doesn't exist
-   * @returns {Promise<Object>} - Branch switch result
+   * @returns {Promise<Object>} - { success, committed, commit_hash?, reason? }
    */
-  async switchDocumentBranch(documentId, branchData) {
-    const res = await this.apiCall(`/documents/${documentId}/git/branch/switch`, "POST", branchData);
+  async sessionCommit(documentId) {
+    const res = await this.apiCall(`/documents/${documentId}/git/session-commit`, "POST");
     return res.data;
   }
 
   /**
-   * Apply a git stash from any repository
-   * @param {Object} stashData - Stash apply configuration
-   * @param {string} stashData.repository_path - Repository path
-   * @param {string} stashData.stash_id - Stash ID to apply (default: "stash@{0}")
-   * @param {boolean} stashData.pop - Whether to pop the stash (remove after applying)
-   * @returns {Promise<Object>} - Stash apply result
+   * Get a unified diff between two commits for a document.
+   * @param {number} documentId - Document ID
+   * @param {string} commitA - Base commit hash
+   * @param {string} commitB - Target commit hash (defaults to HEAD)
+   * @returns {Promise<Object>} - { diff: string }
    */
-  async applyGitStash(stashData) {
-    const res = await this.apiCall('/documents/git/stash/apply', 'POST', stashData);
+  async getDocumentDiff(documentId, commitA, commitB) {
+    const params = { commit_a: commitA };
+    if (commitB) params.commit_b = commitB;
+    const res = await this.apiCall(`/documents/${documentId}/git/diff`, "GET", null, params);
     return res.data;
   }
 
   /**
-   * Create a git stash in a specific repository
-   * @param {Object} stashData - Stash creation configuration
-   * @param {string} stashData.repository_path - Repository path
-   * @param {string} stashData.message - Stash message
-   * @param {boolean} stashData.include_untracked - Include untracked files
-   * @returns {Promise<Object>} - Stash creation result
+   * Restore a document's content to the state at a specific commit.
+   * Creates a new restore commit on top of HEAD.
+   * @param {number} documentId - Document ID
+   * @param {string} commitHash - Commit hash to restore to
+   * @returns {Promise<Object>} - Restored document data
    */
-  async createGitStash(stashData) {
-    const res = await this.apiCall('/documents/git/stash/create', 'POST', stashData);
+  async restoreDocumentVersion(documentId, commitHash) {
+    const res = await this.apiCall(
+      `/documents/${documentId}/git/restore/${commitHash}`,
+      "POST",
+      { confirm: true }
+    );
     return res.data;
   }
 
