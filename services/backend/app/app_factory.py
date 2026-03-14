@@ -5,8 +5,14 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.formparsers import MultiPartParser
 
 from app.configs import settings
+
+# Raise python-multipart's per-part size cap to match the platform-wide 50MB
+# limit. The default (1MB) is hit when pasting large images as base64 form fields.
+MultiPartParser.max_part_size = 50 * 1024 * 1024  # 50MB
+MultiPartParser.max_file_size = 50 * 1024 * 1024  # 50MB
 from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
 from app.middleware import (

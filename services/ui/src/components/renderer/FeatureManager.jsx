@@ -198,22 +198,35 @@ const FeatureManager = () => {
     };
   }, [previewScrollRef]);
 
+  /**
+   * Listen for image-expand events dispatched by ImageControls portals
+   */
+  useEffect(() => {
+    const handleImageExpand = (event) => {
+      const { src, alt, title, filename, lineNumber } = event.detail;
+      setSelectedImage({ src, alt, title, filename, lineNumber });
+      setShowImageModal(true);
+    };
+
+    window.addEventListener('image-expand', handleImageExpand);
+    return () => window.removeEventListener('image-expand', handleImageExpand);
+  }, [setSelectedImage, setShowImageModal]);
+
   return (
     <>
-      {/* Image Modal for expand functionality */}
-      <Modal show={showImageModal} onHide={() => setShowImageModal(false)} size="lg" centered>
+      {/* Image fullscreen modal */}
+      <Modal show={showImageModal} onHide={() => setShowImageModal(false)} fullscreen className="image-fullscreen-modal">
         <Modal.Header closeButton>
           <Modal.Title>
-            {selectedImage?.filename || 'Image'}
+            {selectedImage?.title || selectedImage?.filename || 'Image'}
           </Modal.Title>
         </Modal.Header>
-        <Modal.Body className="text-center">
+        <Modal.Body className="d-flex align-items-center justify-content-center p-2" style={{ overflow: 'hidden' }}>
           {selectedImage && (
             <img
               src={selectedImage.src}
               alt={selectedImage.alt}
-              className="img-fluid"
-              style={{ maxHeight: '70vh', maxWidth: '100%' }}
+              style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
             />
           )}
         </Modal.Body>
@@ -227,7 +240,7 @@ const FeatureManager = () => {
               onClick={() => {
                 const link = document.createElement('a');
                 link.href = selectedImage.src;
-                link.download = selectedImage.alt || 'image';
+                link.download = selectedImage.filename || selectedImage.alt || 'image';
                 link.click();
               }}
             >

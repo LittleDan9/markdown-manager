@@ -34,10 +34,15 @@ class ImageStorageService:
         'image/tiff': ['.tiff', '.tif']
     }
 
-    # PDF optimization settings
-    PDF_MAX_WIDTH = 612  # 8.5 inches at 72 DPI
-    PDF_MAX_HEIGHT = 792  # 11 inches at 72 DPI
-    PDF_QUALITY = 85  # JPEG quality for optimization
+    # PDF optimization settings — only applied when explicitly exporting to PDF
+    PDF_MAX_WIDTH = 1700   # ~8.5 inches at 200 DPI (crisp on high-DPI screens)
+    PDF_MAX_HEIGHT = 2200  # ~11 inches at 200 DPI
+    PDF_QUALITY = 92       # JPEG quality for PDF export
+
+    # Storage optimization settings — applied to every uploaded image
+    STORAGE_MAX_WIDTH = 4096   # Generous cap; preserves retina/4K screenshots
+    STORAGE_MAX_HEIGHT = 4096
+    STORAGE_QUALITY = 95       # High quality JPEG when conversion is needed
     THUMBNAIL_SIZE = (200, 200)  # Thumbnail dimensions
 
     def __init__(self):
@@ -118,54 +123,44 @@ class ImageStorageService:
             with Image.open(io.BytesIO(image_data)) as img:
                 # Auto-rotate based on EXIF data
                 img = ImageOps.exif_transpose(img)
-                
-                # Convert to RGB if necessary (for JPEG compatibility)
-                if img.mode in ('RGBA', 'P', 'LA'):
-                    # Create white background for transparency
-                    background = Image.new('RGB', img.size, (255, 255, 255))
-                    if img.mode == 'P':
-                        img = img.convert('RGBA')
-                    if 'transparency' in img.info:
-                        background.paste(img, mask=img.split()[-1])
-                    else:
-                        background.paste(img)
-                    img = background
-                elif img.mode != 'RGB':
-                    img = img.convert('RGB')
 
-                # Calculate optimal size for PDF (8.5x11 paper)
                 original_width, original_height = img.size
-                aspect_ratio = original_width / original_height
+                original_ext = Path(filename).suffix.lower()
 
-                # Calculate new dimensions to fit PDF page
-                if aspect_ratio > (self.PDF_MAX_WIDTH / self.PDF_MAX_HEIGHT):
-                    # Landscape orientation or wide image
-                    new_width = min(original_width, self.PDF_MAX_WIDTH)
-                    new_height = int(new_width / aspect_ratio)
+                # Only convert to RGB / resize when the image actually exceeds the
+                # storage caps.  PNGs with transparency are kept as PNG so that
+                # alpha channels are not lost.
+                has_transparency = img.mode in ('RGBA', 'LA', 'P')
+
+                # Decide target format first
+                if has_transparency or original_ext == '.png':
+                    target_format = 'png'
                 else:
-                    # Portrait orientation or tall image
-                    new_height = min(original_height, self.PDF_MAX_HEIGHT)
-                    new_width = int(new_height * aspect_ratio)
+                    target_format = 'jpg'
 
-                # Only resize if image is larger than target
-                if original_width > new_width or original_height > new_height:
+                # Resize only if larger than storage caps
+                new_width, new_height = original_width, original_height
+                if original_width > self.STORAGE_MAX_WIDTH or original_height > self.STORAGE_MAX_HEIGHT:
+                    aspect_ratio = original_width / original_height
+                    if aspect_ratio > (self.STORAGE_MAX_WIDTH / self.STORAGE_MAX_HEIGHT):
+                        new_width = self.STORAGE_MAX_WIDTH
+                        new_height = int(new_width / aspect_ratio)
+                    else:
+                        new_height = self.STORAGE_MAX_HEIGHT
+                        new_width = int(new_height * aspect_ratio)
                     img = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
 
-                # Save optimized image
-                output_buffer = io.BytesIO()
-                
-                # Choose optimal format
-                original_ext = Path(filename).suffix.lower()
-                if original_ext in ['.png'] and img.mode == 'RGBA':
-                    # Keep PNG for transparency
-                    img.save(output_buffer, format='PNG', optimize=True)
-                    optimized_format = 'png'
-                else:
-                    # Use JPEG for smaller file size
-                    img.save(output_buffer, format='JPEG', quality=self.PDF_QUALITY, optimize=True)
-                    optimized_format = 'jpg'
+                # Convert mode only when required by target format
+                if target_format == 'jpg' and img.mode != 'RGB':
+                    img = img.convert('RGB')
 
-                return output_buffer.getvalue(), optimized_format
+                output_buffer = io.BytesIO()
+                if target_format == 'png':
+                    img.save(output_buffer, format='PNG', optimize=True)
+                else:
+                    img.save(output_buffer, format='JPEG', quality=self.STORAGE_QUALITY, optimize=True)
+
+                return output_buffer.getvalue(), target_format
 
         # Run image processing in thread pool to avoid blocking
         loop = asyncio.get_event_loop()

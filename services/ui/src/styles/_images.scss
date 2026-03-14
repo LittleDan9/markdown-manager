@@ -47,43 +47,82 @@
   height: auto;
 }
 
-// Image controls (crop, expand buttons)
+// Image controls — fullscreen hover button, mirrors .diagram-controls style
 .image-controls {
   position: absolute;
   top: 8px;
   right: 8px;
-  display: flex;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.7);
-  border-radius: 4px;
-  padding: 4px;
+  z-index: 10;
   opacity: 0;
-  transition: opacity 0.2s ease;
-  z-index: 20;
+  transition: opacity 0.2s ease-in-out;
+  pointer-events: auto;
+
+  // Keep visible when the button itself is hovered or focused
+  &:hover,
+  &:focus-within {
+    opacity: 1;
+  }
 
   .btn {
-    width: 24px;
-    height: 24px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 12px;
-    border: none;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.9);
-    color: #333;
-    transition: all 0.2s ease;
+    background-color: rgba(255, 255, 255, 0.95);
+    border-color: rgba(0, 0, 0, 0.15);
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 
-    &:hover {
-      background: rgba(255, 255, 255, 1);
-      transform: scale(1.1);
+    &:hover:not(:disabled) {
+      background-color: rgba(255, 255, 255, 1);
+      border-color: rgba(0, 0, 0, 0.25);
     }
 
-    &.active,
-    &:active {
-      background: #007bff;
-      color: white;
+    &:focus {
+      box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+    }
+  }
+}
+
+[data-bs-theme="dark"] {
+  .image-controls {
+    .btn {
+      background-color: rgba(33, 37, 41, 0.95);
+      border-color: rgba(255, 255, 255, 0.15);
+      color: #f8f9fa;
+
+      &:hover:not(:disabled) {
+        background-color: rgba(33, 37, 41, 1);
+        border-color: rgba(255, 255, 255, 0.25);
+        color: #fff;
+      }
+    }
+  }
+}
+
+@media print {
+  .image-controls {
+    display: none !important;
+  }
+}
+
+// Fullscreen image modal — make the body stretch between header and footer
+// so the image can fill all available space.
+.image-fullscreen-modal {
+  .modal-dialog {
+    margin: 0;
+  }
+
+  .modal-content {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .modal-body {
+    flex: 1;
+    min-height: 0; // allow flex child to shrink below content size
+    overflow: hidden;
+
+    img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
     }
   }
 }

@@ -9,13 +9,13 @@ import logging
 from pathlib import Path
 
 from app.configs.settings import get_settings
-from .operations import run_gc.venv/bin/pytest --no-cov --ignore=tests/e2e --ignore=tests/integration/test_storage_services.py --ignore=tests/test_category_crud_simple.py -q 2>&1 | tail -20
+from .operations import run_gc
 
 logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
-class GitMaintenanceService:.venv/bin/pytest --no-cov --ignore=tests/e2e --ignore=tests/integration/test_storage_services.py --ignore=tests/test_category_crud_simple.py -q 2>&1 | tail -20
+class GitMaintenanceService:
     """
     Background service that runs git gc on all user repositories daily.
 
