@@ -3,6 +3,7 @@ from .base import Base, BaseModel
 from .category import Category
 from .custom_dictionary import CustomDictionary
 from .document import Document
+from .document_embedding import DocumentEmbedding
 from .git_operations import GitOperationLog
 from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
 from .github_settings import GitHubSettings
@@ -16,6 +17,7 @@ __all__ = [
     "Category",
     "CustomDictionary",
     "Document",
+    "DocumentEmbedding",
     "GitOperationLog",
     "GitHubAccount",
     "GitHubRepository",

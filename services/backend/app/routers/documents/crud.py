@@ -346,6 +346,21 @@ async def update_document(
     await db.commit()
     await db.refresh(document)
 
+    # Re-embed after update (best-effort)
+    try:
+        from app.services.search.embedding_client import EmbeddingClient
+        from app.services.search.semantic import SemanticSearchService
+        from app.configs.settings import get_settings as _get_settings
+        _settings = _get_settings()
+        _client = EmbeddingClient(base_url=_settings.embedding_service_url)
+        _search = SemanticSearchService(_client)
+        await _search.index_document(db, current_user.id, document)
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "Non-fatal: failed to re-embed document %s after update", document.id, exc_info=True
+        )
+
     # Use the helper function to create the response
     return await create_document_response(
         document=document,

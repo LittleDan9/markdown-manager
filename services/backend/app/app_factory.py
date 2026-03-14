@@ -41,6 +41,7 @@ from app.routers import (
     users,
 )
 from app.routers.admin import router as admin_router
+from app.routers import chat
 
 logger = logging.getLogger(__name__)
 
@@ -164,6 +165,7 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(
         github_settings.router, prefix="/github/settings", tags=["github-settings"]
     )
+    app.include_router(chat.router)  # /chat/ask and /chat/health
 
     # Static file serving
     from .routers import static

@@ -36,7 +36,7 @@ services:
     init: true
 
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -92,6 +92,45 @@ services:
         condition: service_healthy
       linting:
         condition: service_healthy
+      embedding:
+        condition: service_healthy
+    environment:
+      - EMBEDDING_SERVICE_URL=http://embedding:8005
+      - OLLAMA_URL=http://ollama:11434
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Embedding microservice — sentence-transformers CPU inference
+  # ──────────────────────────────────────────────────────────────────────────
+  embedding:
+    build:
+      context: ./services/embedding
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Ollama — self-hosted LLM for document Q&A (mistral:7b)
+  # ──────────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama-data:/root/.ollama
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
   export:
     build:
