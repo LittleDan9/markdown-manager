@@ -60,15 +60,22 @@ class ImageApi extends Api {
     formData.append('optimize_for_pdf', options.optimizeForPdf !== false);
     formData.append('create_thumbnail', options.createThumbnail !== false);
 
+    const apiOptions = {
+      isFormData: true,
+      timeout: 60000
+    };
+
+    // Pass AbortController signal if provided
+    if (options.signal) {
+      apiOptions.signal = options.signal;
+    }
+
     const response = await this.apiCall(
       '/images/upload-from-clipboard',
       'POST',
       formData,
       {},
-      {
-        isFormData: true,
-        timeout: 60000
-      }
+      apiOptions
     );
     return response.data;
   }

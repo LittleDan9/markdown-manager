@@ -12,7 +12,7 @@ export function useToolbarStyling() {
       padding: '8px 12px',
       backgroundColor: theme === 'dark' ? 'var(--bs-dark)' : 'var(--bs-light)',
       minWidth: 0, // Allow toolbar to shrink below content width
-      overflow: 'hidden' // Hide overflow to prevent horizontal scroll
+      overflow: 'visible' // Must be visible so dropdown menus can escape the toolbar bounds
     },
     button: {
       border: 'none',
@@ -28,7 +28,7 @@ export function useToolbarStyling() {
     }
   }), [theme]);
 
-  const buttonVariant = useMemo(() => 
+  const buttonVariant = useMemo(() =>
     theme === 'dark' ? 'outline-light' : 'outline-secondary'
   , [theme]);
 
@@ -58,8 +58,7 @@ export function useToolbarStyling() {
 
       /* Responsive toolbar styles */
       .markdown-toolbar {
-        container-type: inline-size;
-        container-name: toolbar;
+        /* container-type removed: creates layout containment that traps dropdown z-index */
       }
 
       .markdown-toolbar .analysis-tools {

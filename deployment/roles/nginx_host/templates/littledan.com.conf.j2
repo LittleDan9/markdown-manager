@@ -7,6 +7,10 @@
 server {
     server_name littledan.com www.littledan.com;
 
+    # Global body size limit — applied to any location that doesn't override it.
+    # Prevents 413 on paste/image uploads across all endpoints.
+    client_max_body_size 50m;
+
     # Security headers
     add_header X-Frame-Options "SAMEORIGIN" always;
     add_header X-Content-Type-Options "nosniff" always;
@@ -109,6 +113,7 @@ server {
     location /api/images/ {
         limit_req zone=static burst=200 nodelay;
         limit_conn api_conn 10;
+        client_max_body_size 50m;
 
         if ($block_bot = 1) {
             return 444;

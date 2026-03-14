@@ -316,16 +316,22 @@ export function SpellCheckSettingsPanel({
                         onChange={(e) => setSelectedLanguage(e.target.value)}
                         size="sm"
                       >
-                        {availableLanguages.map(lang => (
-                          <option key={lang} value={lang}>
-                            {lang === 'en-US' ? 'English (US)' :
-                             lang === 'en-GB' ? 'English (UK)' :
-                             lang === 'es-ES' ? 'Spanish' :
-                             lang === 'fr-FR' ? 'French' :
-                             lang === 'de-DE' ? 'German' :
-                             lang}
-                          </option>
-                        ))}
+                        {availableLanguages.map(lang => {
+                          const code = typeof lang === 'string' ? lang : lang.code;
+                          const label = typeof lang === 'string' ? null : lang.name;
+                          return (
+                            <option key={code} value={code}>
+                              {label || (
+                                code === 'en-US' ? 'English (US)' :
+                                code === 'en-GB' ? 'English (UK)' :
+                                code === 'es-ES' ? 'Spanish' :
+                                code === 'fr-FR' ? 'French' :
+                                code === 'de-DE' ? 'German' :
+                                code
+                              )}
+                            </option>
+                          );
+                        })}
                       </Form.Select>
                     </Col>
                   </Row>

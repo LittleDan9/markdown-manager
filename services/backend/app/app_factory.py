@@ -5,8 +5,14 @@ from typing import AsyncGenerator
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.formparsers import MultiPartParser
 
 from app.configs import settings
+
+# Raise python-multipart's per-part size cap to match the platform-wide 50MB
+# limit. The default (1MB) is hit when pasting large images as base64 form fields.
+MultiPartParser.max_part_size = 50 * 1024 * 1024  # 50MB
+MultiPartParser.max_file_size = 50 * 1024 * 1024  # 50MB
 from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
 from app.middleware import (
@@ -58,9 +64,15 @@ def _create_lifespan():
         await create_tables()
         logger.info("Database tables created/verified")
 
+        # Start background git gc service (runs daily to keep repos compact)
+        from app.services.storage.git.maintenance import git_maintenance_service
+        await git_maintenance_service.start()
+
         yield
 
-        # Shutdown: cleanup if needed
+        # Shutdown: stop background services
+        from app.services.storage.git.maintenance import git_maintenance_service
+        git_maintenance_service.stop()
         logger.info("Shutting down application...")
 
     return lifespan

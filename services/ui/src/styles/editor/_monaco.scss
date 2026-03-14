@@ -20,36 +20,16 @@
 
 // Allow hover widgets to escape the editor bounds while keeping editor scrolling intact
 #editorContainer {
-  // Allow the entire editor container to show overflow for tooltips
-  overflow: visible !important;
-  // Ensure editor container can layer above preview for tooltips
   position: relative;
-  z-index: 10; // Higher than preview but lower than tooltips
 }
 
 #editor.has-toolbar {
-  // Allow overflow for the main editor container
-  overflow: visible !important;
-
   .monaco-container {
-    // Allow overflow for the Monaco container
-    overflow: visible !important;
-
-    // Target all Monaco editor elements to allow overflow
+    // Target all Monaco editor elements
     .monaco-editor {
-      overflow: visible !important;
-
-      // But keep the view lines container with proper overflow for scrolling
+      // Keep the view lines container with proper overflow for scrolling
       .view-lines {
         overflow: hidden;
-      }
-
-      // Ensure hover widgets can escape all containers
-      .monaco-hover-widget,
-      .monaco-hover,
-      .monaco-hover-content {
-        z-index: 10000 !important;
-        // Let Monaco handle positioning naturally
       }
     }
   }
@@ -60,6 +40,10 @@
   border-top: none !important; // Remove top border since toolbar provides it
   border-radius: 0 0 0.5rem 0.5rem !important; // Bottom corners rounded
 
+  // Sibling SC below toolbar — contains all Monaco z-indexes
+  position: relative;
+  z-index: 1;
+
   // Ensure proper flex layout to prevent Monaco from pushing status bar out
   display: flex !important;
   flex-direction: column !important;
@@ -68,7 +52,6 @@
   .monaco-container {
     flex: 1 1 auto !important;
     min-height: 0 !important; // Allow shrinking
-    overflow: visible !important;
     border: none !important;
     border-radius: 0 !important; // No radius for Monaco itself
 

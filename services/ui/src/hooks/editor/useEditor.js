@@ -128,7 +128,9 @@ export default function useEditor({
 
     // Image paste interface
     imagePaste: finalConfig.imagePaste.enabled ? {
-      handlePaste: imagePasteResult.handlePaste
+      processImageUpload: imagePasteResult.processImageUpload,
+      cancelAllUploads: imagePasteResult.cancelAllUploads,
+      activeUploads: imagePasteResult.activeUploads
     } : undefined
   };
 }

@@ -16,12 +16,14 @@ from .operations import (
     initialize_repository,
     commit_changes,
     clone_repository,
-    pull_changes
+    pull_changes,
+    run_gc
 )
 from .history import (
     get_repository_status,
     get_file_history,
-    get_file_content_at_commit
+    get_file_content_at_commit,
+    get_file_diff
 )
 
 logger = logging.getLogger(__name__)
@@ -73,6 +75,14 @@ class Git:
     async def file_at_commit(self, repo_path: Path, file_path: str, commit_hash: str) -> Optional[str]:
         """Get the content of a file at a specific commit."""
         return await get_file_content_at_commit(repo_path, file_path, commit_hash)
+
+    async def diff(self, repo_path: Path, file_path: str, commit_a: str, commit_b: str) -> Optional[str]:
+        """Get the unified diff for a file between two commits."""
+        return await get_file_diff(repo_path, file_path, commit_a, commit_b)
+
+    async def gc(self, repo_path: Path, aggressive: bool = False) -> bool:
+        """Run git garbage collection to reduce repository size."""
+        return await run_gc(repo_path, aggressive)
 
     # Utility methods
     def is_repository(self, path: Path) -> bool:

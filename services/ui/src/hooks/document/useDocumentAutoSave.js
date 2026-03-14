@@ -37,7 +37,7 @@ export default function useDocumentAutoSave(
 
     try {
       console.log('Auto-save triggered: content has changed');
-      const docWithCurrentContent = { ...currentDocument, content };
+      const docWithCurrentContent = { ...currentDocument, content, skip_commit: true };
       await saveDocument(docWithCurrentContent, false); // No notifications for auto-save
       lastSavedContentRef.current = content; // Update last saved content
     } catch (error) {

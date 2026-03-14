@@ -43,7 +43,7 @@ async def upload_image(
 ) -> Dict[str, Any]:
     """
     Upload an image file with optimization options.
-    
+
     The image will be stored in the user's image directory with automatic
     optimization for PDF rendering and thumbnail generation.
     """
@@ -107,7 +107,7 @@ async def upload_multiple_images(
 ) -> Dict[str, Any]:
     """
     Upload multiple image files with batch processing.
-    
+
     Returns success and error information for each file.
     """
     try:
@@ -236,13 +236,13 @@ async def get_image(
 ) -> StreamingResponse:
     """
     Retrieve an image file.
-    
+
     Returns the image as a streaming response with appropriate content type.
     """
     try:
         # Get image data
         image_data = await image_service.retrieve_image(user_id, filename)
-        
+
         if not image_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -291,17 +291,17 @@ async def get_thumbnail(
 ) -> StreamingResponse:
     """
     Retrieve a thumbnail image.
-    
+
     Returns the thumbnail as a streaming response.
     """
     try:
         # Construct thumbnail filename from original filename
         from pathlib import Path
         thumbnail_filename = f"thumb_{Path(filename).stem}.jpg"
-        
+
         # Get thumbnail data
         thumbnail_data = await image_service.retrieve_thumbnail(user_id, thumbnail_filename)
-        
+
         if not thumbnail_data:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -365,7 +365,7 @@ async def delete_image(
     """
     try:
         success = await image_service.delete_image(current_user.id, filename)
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -422,7 +422,7 @@ async def upload_from_clipboard(
 ) -> Dict[str, Any]:
     """
     Upload an image from clipboard data (base64 encoded).
-    
+
     This endpoint is designed for paste functionality from the frontend.
     """
     try:
@@ -439,6 +439,17 @@ async def upload_from_clipboard(
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="Invalid base64 image data"
+            )
+
+        # Validate that decoded data is actually a valid image
+        try:
+            from PIL import Image as PILImage
+            img = PILImage.open(io.BytesIO(decoded_data))
+            img.verify()
+        except Exception:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid image data. Supported formats: {list(ImageStorageService.SUPPORTED_FORMATS.keys())}"
             )
 
         # Check file size (max 10MB)

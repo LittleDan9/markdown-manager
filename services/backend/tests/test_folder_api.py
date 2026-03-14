@@ -1,6 +1,6 @@
 """Tests for folder-based document API endpoints."""
 import pytest
-from fastapi.testclient import TestClient
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
@@ -10,9 +10,9 @@ from app.models.user import User
 class TestFolderAPI:
     """Test class for folder-based document operations."""
 
-    def test_get_folder_structure(self, client: TestClient, auth_headers: dict):
+    async def test_get_folder_structure(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test folder structure endpoint."""
-        response = client.get("/documents/folders", headers=auth_headers)
+        response = await client.get("/documents/folders", headers=auth_headers)
         assert response.status_code == 200
 
         data = response.json()
@@ -22,10 +22,9 @@ class TestFolderAPI:
         assert isinstance(data["tree"], dict)
         assert isinstance(data["total_folders"], int)
 
-    def test_get_documents_in_folder(self, client: TestClient, auth_headers: dict):
+    async def test_get_documents_in_folder(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test getting documents in a specific folder."""
-        # Test with a standard folder path
-        response = client.get("/documents/folders/Work", headers=auth_headers)
+        response = await client.get("/documents/folders/Work", headers=auth_headers)
         assert response.status_code == 200
 
         documents = response.json()
@@ -35,9 +34,9 @@ class TestFolderAPI:
         for doc in documents:
             assert doc["folder_path"].startswith("/Work")
 
-    def test_get_documents_in_folder_with_subfolders(self, client: TestClient, auth_headers: dict):
+    async def test_get_documents_in_folder_with_subfolders(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test getting documents with subfolder inclusion."""
-        response = client.get(
+        response = await client.get(
             "/documents/folders/Work",
             params={"include_subfolders": True},
             headers=auth_headers
@@ -47,13 +46,13 @@ class TestFolderAPI:
         documents = response.json()
         assert isinstance(documents, list)
 
-    def test_create_folder(self, client: TestClient, auth_headers: dict):
+    async def test_create_folder(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test creating a virtual folder."""
         folder_data = {
             "path": "/Projects/TestProject"
         }
 
-        response = client.post(
+        response = await client.post(
             "/documents/folders",
             json=folder_data,
             headers=auth_headers
@@ -65,21 +64,20 @@ class TestFolderAPI:
         assert "exists" in data
         assert "document_count" in data
 
-    def test_create_folder_validation(self, client: TestClient, auth_headers: dict):
+    async def test_create_folder_validation(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test folder creation validation."""
-        # Test invalid folder path
         folder_data = {
             "path": "/"
         }
 
-        response = client.post(
+        response = await client.post(
             "/documents/folders",
             json=folder_data,
             headers=auth_headers
         )
         assert response.status_code == 400
 
-    def test_create_document_with_folder(self, client: TestClient, auth_headers: dict):
+    async def test_create_document_with_folder(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test creating document with folder path."""
         document_data = {
             "name": "test-folder-doc.md",
@@ -87,8 +85,8 @@ class TestFolderAPI:
             "folder_path": "/Projects/TestProject"
         }
 
-        response = client.post(
-            "/documents/",
+        response = await client.post(
+            "/documents",
             json=document_data,
             headers=auth_headers
         )
@@ -98,7 +96,7 @@ class TestFolderAPI:
         assert doc["folder_path"] == "/Projects/TestProject"
         assert doc["name"] == "test-folder-doc.md"
 
-    def test_create_document_duplicate_in_folder(self, client: TestClient, auth_headers: dict):
+    async def test_create_document_duplicate_in_folder(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test creating duplicate document in same folder."""
         document_data = {
             "name": "duplicate-test.md",
@@ -107,48 +105,43 @@ class TestFolderAPI:
         }
 
         # Create first document
-        response1 = client.post(
-            "/documents/",
+        response1 = await client.post(
+            "/documents",
             json=document_data,
             headers=auth_headers
         )
         assert response1.status_code == 200
 
         # Try to create duplicate
-        response2 = client.post(
-            "/documents/",
+        response2 = await client.post(
+            "/documents",
             json=document_data,
             headers=auth_headers
         )
         assert response2.status_code == 400
-        assert "already exists" in response2.json()["detail"]
+        assert "already exists" in response2.json()["detail"]["detail"]
 
-    @pytest.mark.asyncio
     async def test_move_document(
         self,
-        client: TestClient,
+        client: httpx.AsyncClient,
         auth_headers: dict,
-        async_db: AsyncSession,
-        test_user: User
     ):
         """Test moving document to different folder."""
-        # Create a test document first
-        document = Document(
-            name="move-test.md",
-            content="# Test Content",
-            folder_path="/Original",
-            user_id=test_user.id
+        # Create a test document via the API as the authenticated user
+        create_response = await client.post(
+            "/documents",
+            json={"name": "move-test.md", "content": "# Move Test", "folder_path": "/Original"},
+            headers=auth_headers
         )
-        async_db.add(document)
-        await async_db.commit()
-        await async_db.refresh(document)
+        assert create_response.status_code == 200
+        document_id = create_response.json()["id"]
 
         move_data = {
             "new_folder_path": "/Archive"
         }
 
-        response = client.put(
-            f"/documents/{document.id}/move",
+        response = await client.put(
+            f"/documents/{document_id}/move",
             json=move_data,
             headers=auth_headers
         )
@@ -157,22 +150,22 @@ class TestFolderAPI:
         doc = response.json()
         assert doc["folder_path"] == "/Archive"
 
-    def test_move_nonexistent_document(self, client: TestClient, auth_headers: dict):
+    async def test_move_nonexistent_document(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test moving a document that doesn't exist."""
         move_data = {
             "new_folder_path": "/Archive"
         }
 
-        response = client.put(
+        response = await client.put(
             "/documents/99999/move",
             json=move_data,
             headers=auth_headers
         )
         assert response.status_code == 404
 
-    def test_search_documents(self, client: TestClient, auth_headers: dict):
+    async def test_search_documents(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test document search without folder filter."""
-        response = client.get(
+        response = await client.get(
             "/documents/search",
             params={"q": "test"},
             headers=auth_headers
@@ -182,9 +175,9 @@ class TestFolderAPI:
         documents = response.json()
         assert isinstance(documents, list)
 
-    def test_search_documents_with_folder_filter(self, client: TestClient, auth_headers: dict):
+    async def test_search_documents_with_folder_filter(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test document search with folder filtering."""
-        response = client.get(
+        response = await client.get(
             "/documents/search",
             params={"q": "test", "folder_path": "/Work"},
             headers=auth_headers
@@ -198,19 +191,19 @@ class TestFolderAPI:
         for doc in documents:
             assert doc["folder_path"].startswith("/Work")
 
-    def test_search_documents_invalid_query(self, client: TestClient, auth_headers: dict):
+    async def test_search_documents_invalid_query(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test search with invalid query."""
-        response = client.get(
+        response = await client.get(
             "/documents/search",
             params={"q": ""},  # Empty query
             headers=auth_headers
         )
         assert response.status_code == 422  # Validation error
 
-    def test_get_documents_with_folder_filter(self, client: TestClient, auth_headers: dict):
+    async def test_get_documents_with_folder_filter(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test the enhanced get_documents endpoint with folder filtering."""
-        response = client.get(
-            "/documents/",
+        response = await client.get(
+            "/documents",
             params={"folder_path": "/Work"},
             headers=auth_headers
         )
@@ -225,10 +218,10 @@ class TestFolderAPI:
         for doc in data["documents"]:
             assert doc["folder_path"].startswith("/Work")
 
-    def test_get_documents_backward_compatibility(self, client: TestClient, auth_headers: dict):
+    async def test_get_documents_backward_compatibility(self, client: httpx.AsyncClient, auth_headers: dict):
         """Test that category filtering still works."""
-        response = client.get(
-            "/documents/",
+        response = await client.get(
+            "/documents",
             params={"category": "General"},
             headers=auth_headers
         )

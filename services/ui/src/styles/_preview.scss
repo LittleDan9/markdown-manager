@@ -64,12 +64,12 @@
       .katex,
       .katex-display {
         color: var(--bs-body-color) !important;
-        
+
         // Ensure text color applies to all KaTeX elements
         * {
           color: inherit !important;
         }
-        
+
         // Make sure display math is centered
         &.katex-display {
           text-align: center;
@@ -106,7 +106,7 @@
         border-radius: 0.25rem;
         font-size: 0.875em;
         font-family: var(--bs-font-monospace);
-        
+
         @include mixins.dark {
           background-color: #3d1a1a;
           color: #f5c6cb;
@@ -119,7 +119,7 @@
         .katex,
         .katex-display {
           color: #fff !important;
-          
+
           * {
             color: inherit !important;
           }
@@ -331,8 +331,8 @@
       }
 
       table {
-        /* Force table to size to content only */
-        display: inline-table !important;
+        /* Size table to content only, not full-width Bootstrap default */
+        display: table;
         width: auto !important;
         max-width: none !important;
         border-collapse: collapse;
@@ -373,7 +373,7 @@
 
 // Override Bootstrap table defaults within preview to size table to content only
 #previewContainer #preview .preview-scroll table {
-  display: inline-table !important;
+  display: table !important;
   width: auto !important;
   max-width: none !important;
   table-layout: auto !important;

@@ -3,7 +3,99 @@
  */
 
 /**
- * Check if cursor is inside a code fence
+ * Cache for code fence boundary lines.
+ * Maintains a sorted array of line numbers where ``` fences occur,
+ * rebuilt only when content changes involve backticks.
+ */
+export class CodeFenceCache {
+  constructor() {
+    this._fenceLines = [];
+    this._disposable = null;
+  }
+
+  /**
+   * Attach to a Monaco editor and keep the cache in sync with content changes.
+   * @param {Object} editor - Monaco editor instance
+   * @returns {Function} Cleanup/dispose function
+   */
+  attach(editor) {
+    this._rebuild(editor.getModel());
+
+    this._disposable = editor.onDidChangeModelContent((e) => {
+      const needsRebuild = e.changes.some(change =>
+        change.text.includes('```') ||
+        this._rangeContainsFence(change.range)
+      );
+      if (needsRebuild) {
+        this._rebuild(editor.getModel());
+      }
+    });
+
+    return () => this.dispose();
+  }
+
+  /**
+   * Check if a range overlaps any known fence line.
+   * @param {Object} range - Monaco range with startLineNumber/endLineNumber
+   * @returns {boolean}
+   */
+  _rangeContainsFence(range) {
+    for (const line of this._fenceLines) {
+      if (line >= range.startLineNumber && line <= range.endLineNumber) {
+        return true;
+      }
+      if (line > range.endLineNumber) break;
+    }
+    return false;
+  }
+
+  /**
+   * Full rebuild of the fence line cache from the model.
+   * @param {Object} model - Monaco text model
+   */
+  _rebuild(model) {
+    this._fenceLines = [];
+    if (!model) return;
+    const lineCount = model.getLineCount();
+    for (let i = 1; i <= lineCount; i++) {
+      if (model.getLineContent(i).trim().startsWith('```')) {
+        this._fenceLines.push(i);
+      }
+    }
+  }
+
+  /**
+   * O(log n) check whether a line number is inside a code fence.
+   * Counts how many fence boundaries exist at or before the given line;
+   * an odd count means we're inside a fence.
+   * @param {number} lineNumber - 1-based line number
+   * @returns {boolean}
+   */
+  isInCodeFence(lineNumber) {
+    let lo = 0;
+    let hi = this._fenceLines.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      if (this._fenceLines[mid] <= lineNumber) {
+        lo = mid + 1;
+      } else {
+        hi = mid;
+      }
+    }
+    return lo % 2 === 1;
+  }
+
+  dispose() {
+    if (this._disposable) {
+      this._disposable.dispose();
+      this._disposable = null;
+    }
+    this._fenceLines = [];
+  }
+}
+
+/**
+ * Check if cursor is inside a code fence (uncached O(n) fallback)
  * @param {Object} model - Monaco model instance
  * @param {number} lineNumber - Line number to check
  * @returns {boolean} True if inside code fence
@@ -98,34 +190,26 @@ export function analyzeOrderedListPattern(editor, currentLineNumber, indentation
     return { allOnes: false, nextNumber: 1 };
   }
 
-  const listItems = [];
+  // Find the start of this ordered list by scanning backward
   let startLine = currentLineNumber;
-
-  // Look backwards for list start
   for (let i = currentLineNumber - 1; i >= 1; i--) {
     const lineContent = model.getLineContent(i);
     const pattern = getListPattern(lineContent);
-
     if (!pattern || pattern.type !== 'ordered' || pattern.indentation !== indentation) {
       break;
     }
-
     startLine = i;
-    listItems.unshift(pattern.number);
   }
 
-  // Look forwards to get complete list context
+  // Collect all numbers in a single forward pass
+  const listItems = [];
   for (let i = startLine; i <= model.getLineCount(); i++) {
     const lineContent = model.getLineContent(i);
     const pattern = getListPattern(lineContent);
-
     if (!pattern || pattern.type !== 'ordered' || pattern.indentation !== indentation) {
       break;
     }
-
-    if (i >= startLine) {
-      listItems.push(pattern.number);
-    }
+    listItems.push(pattern.number);
   }
 
   const allOnes = listItems.every(num => num === 1);

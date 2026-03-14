@@ -53,7 +53,10 @@ class Editor {
         allowedCharacters: {},
         allowedLocales: true
       },
-      direction: "LTR"
+      direction: "LTR",
+      // Render hover/autocomplete widgets in a fixed-position container on document.body
+      // so they escape any overflow:hidden ancestors without needing overflow:visible hacks
+      fixedOverflowWidgets: true
     };
 
     // Apply performance optimizations for large documents

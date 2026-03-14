@@ -10,6 +10,7 @@ import { useRendererContext } from './RendererContext';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 import { useTheme } from '../../providers/ThemeProvider';
 import DiagramControls from './DiagramControls';
+import ImageControls from './ImageControls';
 import { ThemeProvider } from '../../providers/ThemeProvider';
 
 const LifecycleManager = ({ onFirstRender }) => {
@@ -105,8 +106,51 @@ const LifecycleManager = ({ onFirstRender }) => {
   }, [diagramControlsRefs]);
 
   /**
-   * Clean up controls that are no longer in the DOM
+   * Add fullscreen controls to rendered user images
    */
+  const addImageControls = useCallback((previewElement) => {
+    if (!previewElement) return;
+
+    const containers = previewElement.querySelectorAll('.user-image-container');
+
+    containers.forEach((container, index) => {
+      const imageId = `image-${index}`;
+
+      // Skip if controls already added and still in DOM
+      const existingControls = container.querySelector('.image-controls-container');
+      if (existingControls && existingControls.isConnected) return;
+
+      const filename = container.getAttribute('data-filename');
+      if (!filename) return;
+
+      const lineNumber = parseInt(container.getAttribute('data-line-number') || '1');
+
+      // Remove any orphaned controls first
+      container.querySelectorAll('.image-controls-container').forEach(c => c.remove());
+
+      // Create a container for the controls
+      const controlsContainer = document.createElement('div');
+      controlsContainer.className = 'image-controls-container';
+      controlsContainer.style.cssText = 'position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;';
+      container.appendChild(controlsContainer);
+
+      // Create React root and render controls with providers
+      const root = ReactDOM.createRoot(controlsContainer);
+      root.render(
+        <ThemeProvider>
+          <ImageControls
+            imageElement={container}
+            imageId={imageId}
+            filename={filename}
+            lineNumber={lineNumber}
+          />
+        </ThemeProvider>
+      );
+
+      // Store the root for cleanup
+      imageControlsRefs.current.set(container, root);
+    });
+  }, [imageControlsRefs]);
   const cleanupStaleControls = useCallback(() => {
     const validDiagrams = new Set();
     const validImages = new Set();
@@ -134,18 +178,13 @@ const LifecycleManager = ({ onFirstRender }) => {
       });
 
       // Cleanup image controls
-      imageControlsRefs.current.forEach((controlsData, container) => {
+      imageControlsRefs.current.forEach((root, container) => {
         if (!validImages.has(container)) {
           try {
-            if (controlsData.cleanup) {
-              controlsData.cleanup();
-            }
-            if (controlsData.observer) {
-              controlsData.observer.disconnect();
-            }
+            root.unmount();
             imageControlsRefs.current.delete(container);
           } catch (error) {
-            console.warn('Error cleaning up image controls:', error);
+            console.warn('Error unmounting image controls:', error);
           }
         }
       });
@@ -209,12 +248,13 @@ const LifecycleManager = ({ onFirstRender }) => {
         console.log('LifecycleManager: Adding controls after delay');
         if (previewScrollRef.current) {
           addDiagramControls(previewScrollRef.current);
+          addImageControls(previewScrollRef.current);
         } else {
           console.log('LifecycleManager: No previewScrollRef.current available in timeout');
         }
       }, 200); // Increased delay for stability
     }
-  }, [previewHTML, isRendering, addDiagramControls, cleanupStaleControls, previewScrollRef]);
+  }, [previewHTML, isRendering, addDiagramControls, addImageControls, cleanupStaleControls, previewScrollRef]);
 
   // Call onFirstRender when ready
   useEffect(() => {
@@ -278,16 +318,11 @@ const LifecycleManager = ({ onFirstRender }) => {
         currentDiagramControlsRefs.clear();
 
         // Cleanup image controls
-        currentImageControlsRefs.forEach((controlsData, _container) => {
+        currentImageControlsRefs.forEach((root, _container) => {
           try {
-            if (controlsData.cleanup) {
-              controlsData.cleanup();
-            }
-            if (controlsData.observer) {
-              controlsData.observer.disconnect();
-            }
+            root.unmount();
           } catch (error) {
-            console.warn('Error cleaning up image controls on cleanup:', error);
+            console.warn('Error unmounting image controls on cleanup:', error);
           }
         });
         currentImageControlsRefs.clear();

@@ -74,7 +74,9 @@ export function useSpellCheckSettings({
     try {
       setLoading(true);
       const languages = await spellCheckApi.getAvailableLanguages();
-      setAvailableLanguages(languages.length > 0 ? languages : ['en-US']);
+      // Normalize: API may return objects {code, name, loaded, loading} or plain strings
+      const codes = languages.map(l => typeof l === 'string' ? l : l.code);
+      setAvailableLanguages(codes.length > 0 ? codes : ['en-US']);
     } catch (error) {
       console.error('Failed to load available languages:', error);
       setAvailableLanguages(['en-US']);

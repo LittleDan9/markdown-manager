@@ -137,23 +137,24 @@ export default function Editor({ value, fullscreenPreview = false }) {
     <div style={{
       height: "100%",
       width: "100%",
-      position: "relative",
       display: fullscreenPreview ? "none" : "flex",
       flexDirection: "column"
     }}>
-      <MarkdownToolbar
-        editorRef={{ current: editor }}
-        onSpellCheck={handleSpellCheck}
-        spellCheckProgress={progress}
-        onMarkdownLint={runMarkdownLint}
-        markdownLintProgress={lintProgress}
-        // Phase 5: Pass new props
-        onSpellCheckSettings={handleSpellCheckSettings}
-        spellCheckSettings={spellCheckSettings}
-        readabilityData={readabilityData}
-        serviceInfo={serviceInfo}
-      />
-      <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column" }}>
+      <div style={{ position: 'relative', zIndex: 100 }}>
+        <MarkdownToolbar
+          editorRef={{ current: editor }}
+          onSpellCheck={handleSpellCheck}
+          spellCheckProgress={progress}
+          onMarkdownLint={runMarkdownLint}
+          markdownLintProgress={lintProgress}
+          // Phase 5: Pass new props
+          onSpellCheckSettings={handleSpellCheckSettings}
+          spellCheckSettings={spellCheckSettings}
+          readabilityData={readabilityData}
+          serviceInfo={serviceInfo}
+        />
+      </div>
+      <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", position: 'relative', zIndex: 1 }}>
         <div ref={containerRef} className="monaco-container" style={{ flex: 1, width: "100%" }} />
 
         {/* Phase 5: Readability metrics display */}

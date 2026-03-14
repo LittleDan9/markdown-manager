@@ -14,31 +14,77 @@
   align-items: center;
   gap: 0.25rem;
   flex-wrap: wrap;
+  overflow: visible;
 
-  // Ensure consistent height for dropdown buttons
-  .heading-dropdown,
-  .media-dropdown,
-  .format-dropdown {
-    .btn {
-      height: 27px !important; // Match actual btn-sm height (27px)
-      min-height: 27px !important;
-      max-height: 27px !important;
-      display: flex !important;
-      align-items: center !important;
-      padding: 0.25rem 0.5rem !important; // Match btn-sm padding
-      line-height: 1 !important; // Remove any line-height differences
-      box-sizing: border-box !important;
-      border: 1px solid transparent !important; // Match other toolbar buttons
+  // ── All toolbar dropdowns: consistent styling ──────────────────────────────
+  .dropdown-menu {
+    z-index: 10050 !important;
+    // animation: none — the entrance animation ends with transform:translateY(0)
+    // which overrides Popper's inline transform (CSS animations > inline styles)
+    animation: none !important;
+    padding: 0.125rem 0 !important;
+    margin: 0 !important;
+    border-radius: 0.25rem !important;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important;
+    min-width: 140px !important;
+    max-width: 200px !important;
+  }
+
+  .dropdown-item {
+    padding: 0.25rem 0.5rem !important;
+    font-size: 0.8125rem !important;
+    line-height: 1.2 !important;
+    white-space: nowrap !important;
+
+    i {
+      width: 14px !important;
+      text-align: center !important;
+      font-size: 0.75rem !important;
     }
 
+    strong {
+      font-size: 0.8125rem !important;
+      font-weight: 600 !important;
+    }
+
+    .text-muted {
+      font-size: 0.75rem !important;
+    }
+
+    &:hover,
+    &:focus {
+      background-color: var(--bs-secondary-bg-subtle) !important;
+      color: var(--bs-body-color) !important;
+    }
+
+    &:active {
+      background-color: var(--bs-primary-bg-subtle) !important;
+      color: var(--bs-primary-text-emphasis) !important;
+    }
+  }
+
+  // ── Dropdown toggle button sizing (all dropdown buttons in toolbar) ─────────
+  .heading-dropdown,
+  .media-dropdown,
+  .image-dropdown,
+  .format-dropdown {
+    .btn,
     .dropdown-toggle {
       height: 27px !important;
       min-height: 27px !important;
       max-height: 27px !important;
-      border: 1px solid transparent !important; // Remove white border
+      display: flex !important;
+      align-items: center !important;
+      padding: 0.25rem 0.5rem !important;
+      line-height: 1 !important;
+      box-sizing: border-box !important;
+      border: 1px solid transparent !important;
     }
 
-    // Match button variant styling for light/dark modes
+    .dropdown-toggle::after {
+      margin-left: 0.255em !important;
+    }
+
     .btn-outline-secondary {
       border-color: transparent !important;
       background-color: transparent !important;
@@ -49,61 +95,6 @@
     .btn-outline-secondary.show {
       border-color: var(--bs-secondary-border-subtle) !important;
       background-color: var(--bs-secondary-bg-subtle) !important;
-    }
-
-    .dropdown-toggle::after {
-      margin-left: 0.255em !important; // Adjust dropdown arrow spacing
-    }
-
-    // Style the dropdown menu itself - use higher specificity
-    &.show .dropdown-menu,
-    .dropdown-menu {
-      padding: 0.125rem 0 !important; // Very minimal top/bottom padding
-      margin: 0 !important; // Remove any margin
-      border-radius: 0.25rem !important; // Smaller border radius
-      box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075) !important; // Subtle shadow
-      min-width: 140px !important; // Smaller minimum width
-      max-width: 180px !important; // Prevent it from getting too wide
-    }
-
-    // Style dropdown items - use higher specificity
-    &.show .dropdown-item,
-    .dropdown-item {
-      padding: 0.25rem 0.5rem !important; // Much more compact padding
-      font-size: 0.8125rem !important; // Slightly smaller font
-      line-height: 1.2 !important; // Tighter line height
-      white-space: nowrap !important; // Prevent text wrapping
-
-      // Icon spacing
-      i {
-        width: 14px !important; // Smaller icon width
-        text-align: center !important;
-        font-size: 0.75rem !important; // Smaller icons
-      }
-
-      // Make strong text slightly smaller too
-      strong {
-        font-size: 0.8125rem !important;
-        font-weight: 600 !important; // Slightly less bold
-      }
-
-      // Muted text (keyboard shortcuts) smaller
-      .text-muted {
-        font-size: 0.75rem !important;
-      }
-
-      // Hover/focus states
-      &:hover,
-      &:focus {
-        background-color: var(--bs-secondary-bg-subtle) !important;
-        color: var(--bs-body-color) !important;
-      }
-
-      // Active state
-      &:active {
-        background-color: var(--bs-primary-bg-subtle) !important;
-        color: var(--bs-primary-text-emphasis) !important;
-      }
     }
   }
 

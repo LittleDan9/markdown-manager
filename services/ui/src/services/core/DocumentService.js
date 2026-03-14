@@ -160,7 +160,8 @@ class DocumentService {
         const result = await DocumentsApi.updateDocument(document.id, {
           name: document.name,
           content: document.content,
-          category: document.category || 'General'
+          category: document.category || 'General',
+          skip_commit: document.skip_commit
         });
         return result;
       }

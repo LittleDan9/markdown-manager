@@ -20,7 +20,6 @@ services:
       - "8080:80"
     volumes:
       - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ui-static:/var/www/html:ro
     depends_on:
       frontend-build:

@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useRef, useCallback } from "react";
 import Header from "@/components/Header";
 import Toolbar from "@/components/toolbar/Toolbar";
 import LogLevelController from "@/components/LogLevelController";
@@ -14,6 +14,57 @@ import AppModals from "@/components/shared/modals/AppModals";
 function App() {
   const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
   const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser } = useDocumentContext();
+
+  // Track previous document ID so we can trigger a session commit on switch
+  const prevDocIdRef = useRef(null);
+
+  // Fire-and-forget session commit for a local document
+  const triggerSessionCommit = useCallback(async (documentId) => {
+    if (!documentId) return;
+    try {
+      const { default: documentsApi } = await import('@/api/documentsApi');
+      await documentsApi.sessionCommit(documentId);
+    } catch (_err) {
+      // Non-fatal: session commit is best-effort
+    }
+  }, []);
+
+  // Session commit on document switch
+  useEffect(() => {
+    const prevId = prevDocIdRef.current;
+    const newId = currentDocument?.id ?? null;
+
+    if (prevId && prevId !== newId) {
+      triggerSessionCommit(prevId);
+    }
+
+    prevDocIdRef.current = newId;
+  }, [currentDocument?.id, triggerSessionCommit]);
+
+  // Session commit on page/tab close
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      const docId = prevDocIdRef.current;
+      if (!docId) return;
+      const token = localStorage.getItem('authToken');
+      try {
+        fetch(`/api/documents/${docId}/git/session-commit`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: '{}',
+          keepalive: true,
+        });
+      } catch (_err) {
+        // Browser may reject keepalive fetch; ignore silently
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, []);
 
   // Handle GitHub OAuth results from URL parameters (fallback for popup failures)
   useGitHubOAuth();

@@ -52,7 +52,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
       const editor = editorRef.current;
       const selection = editor.getSelection();
       const markdown = generateMarkdown(image, 'Image', '');
-      
+
       if (selection) {
         // Replace selected text or insert at cursor
         editor.executeEdits('insert-image', [{
@@ -60,7 +60,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           text: markdown
         }]);
       }
-      
+
       // Focus back to editor
       editor.focus();
     }
@@ -125,7 +125,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           onImageSelected={handleImageSelected}
           allowMultiple={false}
         />
-        
+
         <ImageUploadModal
           show={showImageUpload}
           onHide={() => setShowImageUpload(false)}
@@ -146,7 +146,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
         >
           <i className="bi bi-link-45deg"></i>
         </Button>
-        
+
         {/* Image dropdown */}
         <DropdownButton
           as={ButtonGroup}
@@ -155,6 +155,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           variant={buttonVariant}
           size="sm"
           style={buttonStyle}
+          className="image-dropdown"
         >
           <Dropdown.Item onClick={() => setShowImageBrowser(true)}>
             <i className="bi bi-images me-2"></i>
@@ -169,7 +170,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
             Image URL
           </Dropdown.Item>
         </DropdownButton>
-        
+
         <Button
           variant={buttonVariant}
           style={buttonStyle}
@@ -195,7 +196,7 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
         onImageSelected={handleImageSelected}
         allowMultiple={false}
       />
-      
+
       <ImageUploadModal
         show={showImageUpload}
         onHide={() => setShowImageUpload(false)}

@@ -105,7 +105,43 @@ export function useImageManagement() {
     } finally {
       setUploading(false);
     }
-  }, [showSuccess, showError]);  // Delete image
+  }, [showSuccess, showError]);
+
+  // Upload image from a File/Blob object (used by paste and drag-drop)
+  const uploadImageFile = useCallback(async (file, filename, options = {}) => {
+    setUploading(true);
+    try {
+      // Convert File to base64
+      const base64Data = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+
+      const result = await imageApi.uploadFromClipboard(
+        base64Data,
+        filename || file.name || 'clipboard_image.png',
+        options
+      );
+
+      // Add to local state
+      if (result.image) {
+        setImages(prev => [result.image, ...prev]);
+      }
+
+      return result;
+    } catch (error) {
+      // Don't show toast for aborted uploads
+      if (error.name !== 'AbortError' && error.name !== 'CanceledError') {
+        console.error('Failed to upload image file:', error);
+        showError('Failed to upload image: ' + (error.response?.data?.detail || error.message));
+      }
+      throw error;
+    } finally {
+      setUploading(false);
+    }
+  }, [showError]);  // Delete image
   const deleteImage = useCallback(async (filename) => {
     try {
       await imageApi.deleteImage(filename);
@@ -200,6 +236,7 @@ export function useImageManagement() {
     uploadImage,
     uploadMultipleImages,
     uploadFromClipboard,
+    uploadImageFile,
     deleteImage,
     getImageMetadata,
     handlePasteImage,

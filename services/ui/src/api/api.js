@@ -65,7 +65,7 @@ export class Api {
       headers,
       data: body,
       timeout: options.timeout || 40000, // Use custom timeout or default 40 seconds
-      // Spread other options (like responseType, withCredentials, etc.)
+      // Spread other options (like responseType, withCredentials, signal, etc.)
       ...Object.fromEntries(Object.entries(options).filter(([key]) =>
         !['timeout', 'noAuth', 'isFormData'].includes(key)
       ))
