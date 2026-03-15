@@ -118,3 +118,4 @@ backups/
 
 backup-*/
 .databricks
+ollama-data/
