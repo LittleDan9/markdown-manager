@@ -15,7 +15,7 @@ function SemanticSearch() {
   const wrapperRef = useRef(null);
   const debounceRef = useRef(null);
 
-  const { openDocument } = useDocumentContext();
+  const { loadDocument } = useDocumentContext();
 
   // Focus input when expanded
   useEffect(() => {
@@ -73,8 +73,8 @@ function SemanticSearch() {
   };
 
   const handleResultClick = (result) => {
-    if (openDocument) {
-      openDocument(result.document);
+    if (result.document?.id) {
+      loadDocument(result.document.id);
     }
     handleClear();
   };

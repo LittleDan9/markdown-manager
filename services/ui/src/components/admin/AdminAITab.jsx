@@ -6,6 +6,7 @@ import {
   Card,
   Col,
   Form,
+  ProgressBar,
   Row,
   Spinner,
   Table,
@@ -39,6 +40,11 @@ function AdminAITab() {
   const [editUrl, setEditUrl] = useState('');
   const [llmSaving, setLlmSaving] = useState(false);
   const [llmDirty, setLlmDirty] = useState(false);
+
+  // Model pull/download
+  const [pulling, setPulling] = useState(false);
+  const [pullProgress, setPullProgress] = useState(null); // { status, completed, total }
+  const [pullModel, setPullModel] = useState('');
 
   // Reindex
   const [reindexStatus, setReindexStatus] = useState(null);
@@ -95,13 +101,56 @@ function AdminAITab() {
 
   // ── LLM config actions ───────────────────────────────────────────────────
 
+  const handlePullModel = async (modelTag) => {
+    setPulling(true);
+    setPullProgress({ status: 'starting…', completed: 0, total: 0 });
+    setPullModel(modelTag);
+    try {
+      await adminSystemApi.pullModel(modelTag, (data) => {
+        setPullProgress({
+          status: data.status || '',
+          completed: data.completed || 0,
+          total: data.total || 0,
+        });
+      });
+      showSuccess(`Model "${modelTag}" downloaded successfully.`);
+      await loadLLMConfig(); // refresh available_models list
+    } catch (err) {
+      showError(`Failed to pull model "${modelTag}": ${err.message}`);
+    } finally {
+      setPulling(false);
+      setPullProgress(null);
+      setPullModel('');
+    }
+  };
+
   const handleSaveLLM = async () => {
     setLlmSaving(true);
     try {
+      // If the selected model is not already downloaded, pull it first
+      const isDownloaded = llmConfig?.available_models?.includes(editModel);
+      if (!isDownloaded && editModel) {
+        setPulling(true);
+        setPullProgress({ status: 'starting…', completed: 0, total: 0 });
+        setPullModel(editModel);
+        try {
+          await adminSystemApi.pullModel(editModel, (data) => {
+            setPullProgress({
+              status: data.status || '',
+              completed: data.completed || 0,
+              total: data.total || 0,
+            });
+          });
+        } finally {
+          setPulling(false);
+          setPullProgress(null);
+          setPullModel('');
+        }
+      }
       const data = await adminSystemApi.updateLLMConfig({ model: editModel, url: editUrl });
       setLlmConfig(data);
       setLlmDirty(false);
-      showSuccess('LLM configuration saved. New settings apply immediately.');
+      showSuccess(`LLM switched to "${editModel}". New settings apply immediately.`);
       loadStats();
     } catch (err) {
       showError(`Failed to save LLM config: ${err.message}`);
@@ -205,74 +254,192 @@ function AdminAITab() {
       {llmLoading ? (
         <div className="text-center py-3"><Spinner animation="border" size="sm" /></div>
       ) : llmConfig ? (
-        <Card className="mb-4">
-          <Card.Body>
-            <Row className="g-3">
-              <Col md={5}>
-                <Form.Group>
-                  <Form.Label className="small fw-semibold">Active Model</Form.Label>
-                  {llmConfig.available_models.length > 0 ? (
+        <>
+          {/* Active model + URL controls */}
+          <Card className="mb-3">
+            <Card.Body>
+              <Row className="g-3">
+                <Col md={5}>
+                  <Form.Group>
+                    <Form.Label className="small fw-semibold">Active Model</Form.Label>
                     <Form.Select
                       size="sm"
                       value={editModel}
                       onChange={(e) => { setEditModel(e.target.value); setLlmDirty(true); }}
+                      disabled={pulling || llmSaving}
                     >
-                      {llmConfig.available_models.map((m) => (
-                        <option key={m} value={m}>{m}</option>
-                      ))}
-                      {!llmConfig.available_models.includes(editModel) && (
-                        <option value={editModel}>{editModel} (not found in Ollama)</option>
+                      {/* Currently downloaded models */}
+                      {llmConfig.available_models.length > 0 && (
+                        <optgroup label="Downloaded (ready to use)">
+                          {llmConfig.available_models.map((m) => (
+                            <option key={m} value={m}>{m}</option>
+                          ))}
+                        </optgroup>
+                      )}
+                      {/* Recommended models not yet downloaded */}
+                      {(() => {
+                        const notDownloaded = (llmConfig.recommended_models || []).filter(
+                          (r) => !llmConfig.available_models.includes(r.model)
+                        );
+                        if (notDownloaded.length === 0) return null;
+                        return (
+                          <optgroup label="Recommended (will download on save)">
+                            {notDownloaded.map((r) => (
+                              <option key={r.model} value={r.model}>
+                                {r.name} — {r.size} (not downloaded)
+                              </option>
+                            ))}
+                          </optgroup>
+                        );
+                      })()}
+                      {/* If current model is neither downloaded nor recommended */}
+                      {!llmConfig.available_models.includes(editModel) &&
+                       !(llmConfig.recommended_models || []).some((r) => r.model === editModel) && (
+                        <option value={editModel}>{editModel} (custom)</option>
                       )}
                     </Form.Select>
-                  ) : (
+                    <Form.Text className="text-muted">
+                      {llmConfig.available_models.length === 0
+                        ? 'Ollama unreachable — models listed from curated catalog'
+                        : `${llmConfig.available_models.length} model(s) downloaded`}
+                    </Form.Text>
+                  </Form.Group>
+                </Col>
+                <Col md={5}>
+                  <Form.Group>
+                    <Form.Label className="small fw-semibold">Ollama URL</Form.Label>
                     <Form.Control
                       size="sm"
-                      value={editModel}
-                      onChange={(e) => { setEditModel(e.target.value); setLlmDirty(true); }}
-                      placeholder="e.g. mistral, phi3:mini"
+                      value={editUrl}
+                      onChange={(e) => { setEditUrl(e.target.value); setLlmDirty(true); }}
+                      placeholder="http://ollama:11434"
+                      disabled={pulling || llmSaving}
                     />
-                  )}
-                  <Form.Text className="text-muted">
-                    {llmConfig.available_models.length === 0
-                      ? 'Ollama unreachable — enter model name manually'
-                      : `${llmConfig.available_models.length} model(s) available`}
-                  </Form.Text>
-                </Form.Group>
-              </Col>
-              <Col md={5}>
-                <Form.Group>
-                  <Form.Label className="small fw-semibold">Ollama URL</Form.Label>
-                  <Form.Control
+                  </Form.Group>
+                </Col>
+                <Col md={2} className="d-flex align-items-end gap-2">
+                  <Button
                     size="sm"
-                    value={editUrl}
-                    onChange={(e) => { setEditUrl(e.target.value); setLlmDirty(true); }}
-                    placeholder="http://ollama:11434"
-                  />
-                </Form.Group>
-              </Col>
-              <Col md={2} className="d-flex align-items-end gap-2">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleSaveLLM}
-                  disabled={llmSaving || !llmDirty}
-                >
-                  {llmSaving ? <Spinner size="sm" animation="border" /> : 'Save'}
-                </Button>
-                {llmConfig.source === 'db' && (
-                  <Button size="sm" variant="outline-secondary" onClick={handleResetLLM} disabled={llmSaving}>
-                    Reset
+                    variant="primary"
+                    onClick={handleSaveLLM}
+                    disabled={llmSaving || pulling || !llmDirty}
+                  >
+                    {(llmSaving || pulling) ? <Spinner size="sm" animation="border" /> : 'Save'}
                   </Button>
-                )}
-              </Col>
-            </Row>
-            {llmDirty && (
-              <Alert variant="warning" className="mt-2 mb-0 py-1 small">
-                Unsaved changes — save to apply across all users immediately.
-              </Alert>
-            )}
-          </Card.Body>
-        </Card>
+                  {llmConfig.source === 'db' && (
+                    <Button size="sm" variant="outline-secondary" onClick={handleResetLLM} disabled={llmSaving || pulling}>
+                      Reset
+                    </Button>
+                  )}
+                </Col>
+              </Row>
+              {llmDirty && !pulling && (
+                <Alert variant="info" className="mt-2 mb-0 py-1 small">
+                  {!llmConfig.available_models.includes(editModel)
+                    ? <>Model &quot;{editModel}&quot; is not downloaded yet — saving will download it first (this may take a few minutes).</>
+                    : <>Unsaved changes — save to apply across all users immediately.</>
+                  }
+                </Alert>
+              )}
+
+              {/* Pull progress bar */}
+              {pulling && pullProgress && (
+                <div className="mt-3">
+                  <div className="d-flex justify-content-between small text-muted mb-1">
+                    <span>Downloading &quot;{pullModel}&quot;…</span>
+                    <span>{pullProgress.status}</span>
+                  </div>
+                  <ProgressBar
+                    now={pullProgress.total > 0 ? (pullProgress.completed / pullProgress.total) * 100 : 100}
+                    animated
+                    striped
+                    variant="info"
+                    label={pullProgress.total > 0
+                      ? `${Math.round((pullProgress.completed / pullProgress.total) * 100)}%`
+                      : ''}
+                  />
+                  {pullProgress.total > 0 && (
+                    <div className="text-muted small mt-1">
+                      {(pullProgress.completed / 1e9).toFixed(2)} / {(pullProgress.total / 1e9).toFixed(2)} GB
+                    </div>
+                  )}
+                </div>
+              )}
+            </Card.Body>
+          </Card>
+
+          {/* Recommended models catalog */}
+          {(llmConfig.recommended_models || []).length > 0 && (
+            <Card className="mb-4">
+              <Card.Header className="py-2">
+                <span className="small fw-semibold"><i className="bi bi-stars me-1" />Recommended CPU-Friendly Models</span>
+              </Card.Header>
+              <Card.Body className="p-0">
+                <Table size="sm" hover responsive className="mb-0">
+                  <thead className="table-light">
+                    <tr>
+                      <th>Model</th>
+                      <th>Size</th>
+                      <th>Description</th>
+                      <th className="text-center">Status</th>
+                      <th />
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {llmConfig.recommended_models.map((rec) => {
+                      const isDownloaded = llmConfig.available_models.includes(rec.model);
+                      const isActive = llmConfig.model === rec.model;
+                      const isPulling = pulling && pullModel === rec.model;
+                      return (
+                        <tr key={rec.model} className={isActive ? 'table-success' : ''}>
+                          <td className="fw-semibold">{rec.name}</td>
+                          <td className="text-nowrap">{rec.size}</td>
+                          <td className="text-muted small">{rec.description}</td>
+                          <td className="text-center">
+                            {isActive ? (
+                              <Badge bg="success">Active</Badge>
+                            ) : isDownloaded ? (
+                              <Badge bg="secondary">Downloaded</Badge>
+                            ) : isPulling ? (
+                              <Spinner size="sm" animation="border" />
+                            ) : (
+                              <Badge bg="outline-secondary" className="text-muted border">Not downloaded</Badge>
+                            )}
+                          </td>
+                          <td className="text-end text-nowrap">
+                            {!isDownloaded && !isPulling && (
+                              <Button
+                                size="sm"
+                                variant="outline-primary"
+                                onClick={() => handlePullModel(rec.model)}
+                                disabled={pulling || llmSaving}
+                                title={`Download ${rec.name}`}
+                                className="me-1"
+                              >
+                                <i className="bi bi-download" />
+                              </Button>
+                            )}
+                            {isDownloaded && !isActive && (
+                              <Button
+                                size="sm"
+                                variant="outline-success"
+                                onClick={() => { setEditModel(rec.model); setLlmDirty(true); }}
+                                disabled={pulling || llmSaving}
+                                title={`Switch to ${rec.name}`}
+                              >
+                                <i className="bi bi-check2-circle me-1" />Use
+                              </Button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </Table>
+              </Card.Body>
+            </Card>
+          )}
+        </>
       ) : null}
 
       <hr />

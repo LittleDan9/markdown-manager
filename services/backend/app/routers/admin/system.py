@@ -7,6 +7,7 @@ from typing import Any, Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy import Integer as sa_Integer, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +27,55 @@ router = APIRouter(tags=["Admin - System"])
 _KEY_LLM_MODEL = "llm.model"
 _KEY_LLM_URL = "llm.url"
 
+# Curated list of small, CPU-friendly LLMs that work well without a GPU.
+# Each entry: (model_tag, display_name, size_label, description)
+_RECOMMENDED_MODELS: list[dict[str, str]] = [
+    {
+        "model": "mistral", "name": "Mistral 7B",
+        "size": "4.1 GB", "description": "General-purpose, strong reasoning.",
+    },
+    {
+        "model": "phi3:mini", "name": "Phi-3 Mini (3.8B)",
+        "size": "2.3 GB", "description": "Microsoft's compact model. Fast on CPU.",
+    },
+    {
+        "model": "gemma2:2b", "name": "Gemma 2 2B",
+        "size": "1.6 GB", "description": "Google's lightweight model. Very fast.",
+    },
+    {
+        "model": "llama3.2:1b", "name": "Llama 3.2 1B",
+        "size": "1.3 GB", "description": "Meta's smallest Llama. Ultra-lightweight.",
+    },
+    {
+        "model": "llama3.2:3b", "name": "Llama 3.2 3B",
+        "size": "2.0 GB", "description": "Good balance of speed and quality.",
+    },
+    {
+        "model": "qwen2.5:3b", "name": "Qwen 2.5 3B",
+        "size": "1.9 GB", "description": "Strong multilingual support.",
+    },
+    {
+        "model": "qwen2.5:7b", "name": "Qwen 2.5 7B",
+        "size": "4.7 GB", "description": "Excellent quality mid-size model.",
+    },
+    {
+        "model": "tinyllama", "name": "TinyLlama (1.1B)",
+        "size": "637 MB", "description": "Smallest viable model. Minimal resources.",
+    },
+    {
+        "model": "stablelm2:1.6b", "name": "StableLM 2 1.6B",
+        "size": "984 MB", "description": "Stability AI's small model.",
+    },
+    {
+        "model": "deepseek-r1:1.5b", "name": "DeepSeek-R1 1.5B",
+        "size": "1.1 GB", "description": "Compact reasoning model.",
+    },
+    {
+        "model": "deepseek-r1:7b", "name": "DeepSeek-R1 7B",
+        "size": "4.7 GB", "description": "Strong analytical reasoning.",
+    },
+]
+
 
 # ── Pydantic schemas ──────────────────────────────────────────────────────────
 
@@ -33,12 +83,17 @@ class LLMConfig(BaseModel):
     model: str
     url: str
     available_models: list[str] = []
+    recommended_models: list[dict[str, str]] = []
     source: str = "env"  # "env" | "db"
 
 
 class LLMUpdateRequest(BaseModel):
     model: Optional[str] = None
     url: Optional[str] = None
+
+
+class LLMPullRequest(BaseModel):
+    model: str
 
 
 class ReindexRequest(BaseModel):
@@ -156,7 +211,10 @@ async def get_llm_config(
     """Get current LLM configuration and list of available models from Ollama."""
     model, url, source = await _effective_llm_config(db)
     available = await _list_ollama_models(url)
-    return LLMConfig(model=model, url=url, available_models=available, source=source)
+    return LLMConfig(
+        model=model, url=url, available_models=available,
+        recommended_models=_RECOMMENDED_MODELS, source=source,
+    )
 
 
 @router.put("/llm", response_model=LLMConfig)
@@ -178,7 +236,52 @@ async def update_llm_config(
 
     model, url, source = await _effective_llm_config(db)
     available = await _list_ollama_models(url)
-    return LLMConfig(model=model, url=url, available_models=available, source=source)
+    return LLMConfig(
+        model=model, url=url, available_models=available,
+        recommended_models=_RECOMMENDED_MODELS, source=source,
+    )
+
+
+@router.post("/llm/pull")
+async def pull_model(
+    request: LLMPullRequest,
+    admin_user: User = Depends(get_admin_user),
+) -> StreamingResponse:
+    """
+    Pull (download) a model from the Ollama registry.
+
+    Streams newline-delimited JSON progress updates::
+
+        {"status": "pulling ...", "completed": 123456, "total": 999999}
+        ...
+        {"status": "success"}
+    """
+    from app.configs.settings import get_settings
+    settings = get_settings()
+    ollama_url = settings.ollama_url.rstrip("/")
+    model_name = request.model
+
+    async def _stream():
+        try:
+            async with httpx.AsyncClient(timeout=None) as client:
+                async with client.stream(
+                    "POST",
+                    f"{ollama_url}/api/pull",
+                    json={"name": model_name, "stream": True},
+                ) as resp:
+                    if resp.status_code != 200:
+                        import json as _json
+                        yield _json.dumps({"status": "error", "error": f"Ollama returned {resp.status_code}"}) + "\n"
+                        return
+                    async for line in resp.aiter_lines():
+                        if line.strip():
+                            yield line + "\n"
+        except Exception as exc:
+            import json as _json
+            logger.exception("Model pull failed for %s", model_name)
+            yield _json.dumps({"status": "error", "error": str(exc)}) + "\n"
+
+    return StreamingResponse(_stream(), media_type="application/x-ndjson")
 
 
 @router.delete("/llm")
