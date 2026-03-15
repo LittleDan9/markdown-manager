@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Offcanvas } from "react-bootstrap";
 import PropTypes from "prop-types";
 import MarkdownIt from "markdown-it";
@@ -8,11 +8,83 @@ import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 // Shared markdown-it instance — html disabled for XSS safety
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
 
+// Detect natural-language intent to open a document.
+// Returns the matched document object, or null if no clear intent.
+const OPEN_INTENT_RE =
+  /^(?:please\s+)?(?:open|load|show|view|read|navigate\s+to|go\s+to|switch\s+to)\s+(?:the\s+)?(?:document\s+)?["'«»]?(.+?)["'«»]?\s*[?.]?\s*$/i;
+
+function detectOpenIntent(question, documents) {
+  if (!documents?.length) return null;
+  const match = question.trim().match(OPEN_INTENT_RE);
+  if (!match) return null;
+  const query = match[1].trim().replace(/^["'«»]|["'«»]$/g, "").trim();
+  if (!query) return null;
+  const ql = query.toLowerCase();
+  // Exact match first, then prefix match
+  return (
+    documents.find((d) => d.name.toLowerCase() === ql) ||
+    documents.find(
+      (d) =>
+        d.name.toLowerCase().startsWith(ql) ||
+        ql.startsWith(d.name.toLowerCase())
+    ) ||
+    null
+  );
+}
+
+// Wrap occurrences of document names in the rendered HTML with <a data-doc-id> links.
+// Processes only text nodes (splits on HTML tags) so it never corrupts tag attributes
+// or creates invalid nested anchors inside existing <a> elements.
+function injectDocumentLinks(html, documents) {
+  if (!html || !documents?.length) return html;
+  // Longest names first to prevent shorter names eating part of longer ones
+  const sorted = [...documents]
+    .filter((d) => d.name && d.name.length > 2)
+    .sort((a, b) => b.name.length - a.name.length);
+
+  // Split into HTML-tag tokens and text-node tokens (tags are kept as delimiters)
+  const parts = html.split(/(<[^>]*>)/);
+  let anchorDepth = 0;
+
+  const processed = parts.map((part) => {
+    if (part.startsWith("<")) {
+      if (/^<a\b/i.test(part)) anchorDepth++;
+      else if (/^<\/a>/i.test(part)) anchorDepth = Math.max(0, anchorDepth - 1);
+      return part;
+    }
+    // Text node — skip if we are inside an existing <a> element
+    if (anchorDepth > 0) return part;
+    let text = part;
+    for (const doc of sorted) {
+      const esc = doc.name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      text = text.replace(
+        new RegExp(`(${esc})`, "gi"),
+        `<a href="#" class="doc-link" data-doc-id="${doc.id}">$1</a>`
+      );
+    }
+    return text;
+  });
+
+  return processed.join("");
+}
+
+// Format duration in milliseconds to "nn m jj s" format
+const formatDuration = (durationMs) => {
+  const totalSeconds = Math.round(durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  if (minutes > 0) {
+    return `${minutes} m ${seconds} s`;
+  }
+  return `${seconds} s`;
+};
+
 const SCOPE_ALL = "all";
 const SCOPE_CURRENT = "current";
 
 function ChatDrawer({ show, onHide }) {
-  const { currentDocument } = useDocumentContext();
+  const { currentDocument, documents, loadDocument } = useDocumentContext();
 
   const [scope, setScope] = useState(SCOPE_ALL);
   const [deepThink, setDeepThink] = useState(false);
@@ -43,12 +115,61 @@ function ChatDrawer({ show, onHide }) {
     }
   }, [currentDocument]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Event-delegation click handler for doc-link anchors injected into assistant HTML
+  const handleMessagesClick = useCallback(
+    (e) => {
+      const link = e.target.closest("a.doc-link[data-doc-id]");
+      if (!link) return;
+      e.preventDefault();
+      const id = parseInt(link.dataset.docId, 10);
+      if (id) loadDocument(id);
+    },
+    [loadDocument]
+  );
+
   const handleSend = useCallback(async () => {
     const question = input.trim();
     if (!question || isStreaming) return;
 
+    // --- Open-document intent: handle locally without calling AI ---
+    const docToOpen = detectOpenIntent(question, documents);
+    if (docToOpen) {
+      setInput("");
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: question },
+        { role: "assistant", content: `Opening **${docToOpen.name}**…`, streaming: false, isAction: true },
+      ]);
+      try {
+        await loadDocument(docToOpen.id);
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.isAction) {
+            updated[updated.length - 1] = { ...last, content: `✓ Opened **${docToOpen.name}**.` };
+          }
+          return updated;
+        });
+      } catch {
+        setMessages((prev) => {
+          const updated = [...prev];
+          const last = updated[updated.length - 1];
+          if (last?.isAction) {
+            updated[updated.length - 1] = {
+              ...last,
+              content: `Could not open **${docToOpen.name}**. Please try again.`,
+            };
+          }
+          return updated;
+        });
+      }
+      return;
+    }
+
     setInput("");
     setIsStreaming(true);
+
+    const startTime = Date.now();
 
     const documentId =
       scope === SCOPE_CURRENT && currentDocument ? currentDocument.id : null;
@@ -63,7 +184,7 @@ function ChatDrawer({ show, onHide }) {
     // Start assistant message (empty, will be filled by streaming)
     setMessages((prev) => [
       ...prev,
-      { role: "assistant", content: "", streaming: true },
+      { role: "assistant", content: "", streaming: true, startTime },
     ]);
 
     const controller = new AbortController();
@@ -91,14 +212,18 @@ function ChatDrawer({ show, onHide }) {
       );
     } catch (err) {
       if (err.name !== "AbortError") {
+        const endTime = Date.now();
         setMessages((prev) => {
           const updated = [...prev];
           const last = updated[updated.length - 1];
           if (last?.role === "assistant") {
+            const duration = endTime - (last.startTime || endTime);
             updated[updated.length - 1] = {
               ...last,
               content: last.content || "An error occurred. Please try again.",
               streaming: false,
+              endTime,
+              duration,
             };
           }
           return updated;
@@ -106,17 +231,19 @@ function ChatDrawer({ show, onHide }) {
       }
     } finally {
       // Mark streaming as done
+      const endTime = Date.now();
       setMessages((prev) => {
         const updated = [...prev];
         const last = updated[updated.length - 1];
         if (last?.role === "assistant") {
-          updated[updated.length - 1] = { ...last, streaming: false };
+          const duration = endTime - (last.startTime || endTime);
+          updated[updated.length - 1] = { ...last, streaming: false, endTime, duration };
         }
         return updated;
       });
       setIsStreaming(false);
     }
-  }, [input, isStreaming, scope, currentDocument, deepThink]);
+  }, [input, isStreaming, scope, currentDocument, deepThink, documents, loadDocument]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -201,7 +328,8 @@ function ChatDrawer({ show, onHide }) {
         )}
 
         {/* Messages */}
-        <div className="chat-messages">
+        {/* onClick uses event delegation to capture doc-link anchor clicks */}
+        <div className="chat-messages" onClick={handleMessagesClick}>
           {messages.length === 0 ? (
             <div className="chat-empty-state">
               <i className="bi bi-chat-square-text" />
@@ -218,13 +346,22 @@ function ChatDrawer({ show, onHide }) {
                 <div className={`message-bubble${msg.streaming ? " streaming-cursor" : ""}`}>
                   {msg.role === "assistant" ? (
                     <div
-                      // markdown-it escapes all HTML so dangerouslySetInnerHTML is safe here
-                      dangerouslySetInnerHTML={{ __html: md.render(msg.content || "") }}
+                      // markdown-it output with doc-name links injected for completed messages
+                      dangerouslySetInnerHTML={{
+                        __html: msg.streaming
+                          ? md.render(msg.content || "")
+                          : injectDocumentLinks(md.render(msg.content || ""), documents),
+                      }}
                     />
                   ) : (
                     msg.content
                   )}
                 </div>
+                {msg.role === "assistant" && msg.duration && !msg.streaming && (
+                  <div className="message-timing">
+                    {formatDuration(msg.duration)}
+                  </div>
+                )}
               </div>
             ))
           )}
