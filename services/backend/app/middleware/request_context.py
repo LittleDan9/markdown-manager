@@ -22,6 +22,11 @@ class RequestContextMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with context management."""
+        # Streaming endpoints (SSE) must bypass BaseHTTPMiddleware — its anyio cancel
+        # scope fires when dispatch returns, killing the stream before it finishes.
+        if request.url.path.startswith("/chat"):
+            return await call_next(request)
+
         # Generate or extract request ID
         request_id = self._get_or_generate_request_id(request)
 

@@ -29,6 +29,11 @@ class ErrorHandlingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable):
         """Process request with comprehensive error handling."""
+        # Streaming endpoints (SSE) must bypass BaseHTTPMiddleware — its anyio cancel
+        # scope fires when dispatch returns, killing the stream before it finishes.
+        if request.url.path.startswith("/chat"):
+            return await call_next(request)
+
         try:
             response = await call_next(request)
             return response

@@ -1,8 +1,12 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Offcanvas } from "react-bootstrap";
 import PropTypes from "prop-types";
+import MarkdownIt from "markdown-it";
 import { searchApi } from "@/api/searchApi";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+
+// Shared markdown-it instance — html disabled for XSS safety
+const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
 
 const SCOPE_ALL = "all";
 const SCOPE_CURRENT = "current";
@@ -11,6 +15,7 @@ function ChatDrawer({ show, onHide }) {
   const { currentDocument } = useDocumentContext();
 
   const [scope, setScope] = useState(SCOPE_ALL);
+  const [deepThink, setDeepThink] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -47,6 +52,7 @@ function ChatDrawer({ show, onHide }) {
 
     const documentId =
       scope === SCOPE_CURRENT && currentDocument ? currentDocument.id : null;
+    const useDeepThink = deepThink && scope === SCOPE_CURRENT && Boolean(currentDocument);
 
     // Append user message
     setMessages((prev) => [
@@ -81,6 +87,7 @@ function ChatDrawer({ show, onHide }) {
           });
         },
         controller.signal,
+        useDeepThink,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -109,7 +116,7 @@ function ChatDrawer({ show, onHide }) {
       });
       setIsStreaming(false);
     }
-  }, [input, isStreaming, scope, currentDocument]);
+  }, [input, isStreaming, scope, currentDocument, deepThink]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -173,6 +180,26 @@ function ChatDrawer({ show, onHide }) {
           </button>
         </div>
 
+        {/* Deep Think toggle — only visible in Current Doc scope */}
+        {scope === SCOPE_CURRENT && hasCurrentDoc && (
+          <div className="chat-deep-think">
+            <label className="deep-think-label" htmlFor="deep-think-toggle">
+              <i className="bi bi-stars" />
+              Deep Think
+              <span className="deep-think-hint">Full document context</span>
+            </label>
+            <div
+              className={`deep-think-toggle${deepThink ? " on" : ""}`}
+              id="deep-think-toggle"
+              role="switch"
+              aria-checked={deepThink}
+              tabIndex={0}
+              onClick={() => setDeepThink((v) => !v)}
+              onKeyDown={(e) => e.key === "Enter" || e.key === " " ? setDeepThink((v) => !v) : null}
+            />
+          </div>
+        )}
+
         {/* Messages */}
         <div className="chat-messages">
           {messages.length === 0 ? (
@@ -189,7 +216,14 @@ function ChatDrawer({ show, onHide }) {
             messages.map((msg, idx) => (
               <div key={idx} className={`chat-message ${msg.role}-message`}>
                 <div className={`message-bubble${msg.streaming ? " streaming-cursor" : ""}`}>
-                  {msg.content}
+                  {msg.role === "assistant" ? (
+                    <div
+                      // markdown-it escapes all HTML so dangerouslySetInnerHTML is safe here
+                      dangerouslySetInnerHTML={{ __html: md.render(msg.content || "") }}
+                    />
+                  ) : (
+                    msg.content
+                  )}
                 </div>
               </div>
             ))

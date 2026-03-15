@@ -86,7 +86,7 @@ def _mermaid_to_natural_language(mermaid_source: str) -> str:
             for line in mermaid_source.splitlines()
             if line.strip() and not line.strip().startswith('%')
         ]
-        parts.extend(l for l in raw_lines if l)
+        parts.extend(line for line in raw_lines if line)
 
     return " ".join(parts)
 
@@ -124,6 +124,96 @@ def _strip_markdown_syntax(text: str) -> str:
 class ProcessedContent:
     text: str          # Final text to embed
     has_mermaid: bool  # Whether any mermaid blocks were found
+    summary: str       # Structural summary: headings + first paragraph per section
+
+
+# ---------------------------------------------------------------------------
+# Summary extraction
+# ---------------------------------------------------------------------------
+
+# Matches ATX headings: ## Heading Text
+_HEADING_RE = re.compile(r"^(#{1,3})\s+(.+)$", re.MULTILINE)
+# Matches fenced code blocks (to strip from summary)
+_CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
+# Matches blank lines
+_BLANK_LINES_RE = re.compile(r"\n{2,}")
+
+
+def extract_summary(title: str, content: str, max_chars: int = 800) -> str:
+    """
+    Build a compact structural summary of a markdown document.
+
+    Extracts:
+    - Document title
+    - All H1-H3 headings (preserving hierarchy)
+    - The first non-empty paragraph under each heading (up to ~120 chars)
+    - Natural-language descriptions of any mermaid diagrams
+
+    This gives the LLM a map of what the document covers without sending the
+    full raw content, and is computed once at index time rather than per query.
+    """
+    # Extract mermaid blocks BEFORE stripping, so we can describe them
+    mermaid_blocks = _MERMAID_FENCE_RE.findall(content)
+
+    # Strip mermaid + other code blocks and fences before extracting prose
+    stripped = _CODE_FENCE_RE.sub("", content)
+    # Remove image syntax
+    stripped = re.sub(r"!\[[^\]]*\]\([^\)]*\)", "", stripped)
+    # Normalise links: keep text
+    stripped = re.sub(r"\[([^\]]+)\]\([^\)]*\)", r"\1", stripped)
+
+    lines = stripped.splitlines()
+    parts: list[str] = [f"# {title}"]
+    i = 0
+    current_section_lines: list[str] = []
+
+    def _flush_section():
+        """Add up to one short paragraph from buffered section lines."""
+        para = " ".join(
+            line.strip()
+            for line in current_section_lines
+            if line.strip() and not line.strip().startswith("#")
+        )
+        # Remove residual markdown markers
+        para = re.sub(r"[*_`]{1,3}", "", para).strip()
+        if para:
+            # Take first sentence or first 120 chars, whichever is shorter
+            dot = para.find(". ")
+            snippet = para[: dot + 1] if 0 < dot < 120 else para[:120]
+            parts.append(f"  {snippet}")
+
+    while i < len(lines):
+        line = lines[i]
+        m = _HEADING_RE.match(line)
+        if m:
+            _flush_section()
+            current_section_lines = []
+            level = len(m.group(1))
+            heading_text = m.group(2).strip()
+            prefix = "  " * (level - 1) + "-"
+            parts.append(f"{prefix} {heading_text}")
+        else:
+            current_section_lines.append(line)
+        i += 1
+
+    _flush_section()
+
+    # Append mermaid diagram descriptions
+    if mermaid_blocks:
+        parts.append("- Diagrams:")
+        for block in mermaid_blocks:
+            desc = _mermaid_to_natural_language(block)
+            # Take first 120 chars of each diagram description
+            parts.append(f"  {desc[:120]}")
+
+    summary = "\n".join(parts)
+    # Trim to max_chars at a line boundary to avoid cutting mid-sentence
+    if len(summary) > max_chars:
+        trimmed = summary[:max_chars]
+        last_newline = trimmed.rfind("\n")
+        summary = trimmed[:last_newline] if last_newline > 0 else trimmed
+
+    return summary
 
 
 def prepare_document_content(title: str, content: str) -> ProcessedContent:
@@ -156,4 +246,5 @@ def prepare_document_content(title: str, content: str) -> ProcessedContent:
     return ProcessedContent(
         text=" ".join(parts),
         has_mermaid=has_mermaid,
+        summary=extract_summary(title, content),
     )

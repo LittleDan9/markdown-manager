@@ -19,14 +19,18 @@ class SearchApi extends Api {
    * @param {number|null} documentId - Limit to this doc (null = all docs)
    * @param {function} onToken - Called with each streamed token string
    * @param {AbortSignal} signal - Optional abort signal to cancel the stream
+   * @param {boolean} deepThink - Send full document context instead of summary (single-doc only)
    * @returns {Promise<void>}
    */
-  async askQuestion(question, documentId, onToken, signal) {
+  async askQuestion(question, documentId, onToken, signal, deepThink = false) {
+    const token = this.getToken();
     const response = await fetch("/api/chat/ask", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "include",
-      body: JSON.stringify({ question, document_id: documentId ?? null }),
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ question, document_id: documentId ?? null, deep_think: deepThink ?? false }),
       signal,
     });
 
@@ -42,13 +46,19 @@ class SearchApi extends Api {
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-      // Parse SSE format: "data: <token>\n\n"
+      // Parse SSE format: "data: <json-encoded-token>\n\n"
+      // Tokens are JSON-encoded so newlines and special chars survive transport.
       const lines = chunk.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ")) {
-          const token = line.slice(6);
+          let token;
+          try {
+            token = JSON.parse(line.slice(6));
+          } catch {
+            continue; // malformed line, skip
+          }
           if (token === "[DONE]") return;
-          if (token === "[ERROR]") throw new Error("Streaming error from server");
+          if (typeof token === "string" && token.startsWith("[ERROR]")) throw new Error("Streaming error from server");
           if (token) onToken(token);
         }
       }

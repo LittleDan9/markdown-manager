@@ -1,4 +1,5 @@
 """Chat / Q&A router — streams answers from Ollama using document context."""
+import json
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -19,20 +20,21 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/chat", tags=["chat"])
 
 
-def _get_qa_service() -> QAService:
+def _get_qa_service(model: str | None = None, ollama_url: str | None = None) -> QAService:
     settings = get_settings()
     client = EmbeddingClient(base_url=settings.embedding_service_url)
     search_service = SemanticSearchService(client)
     return QAService(
         search_service=search_service,
-        ollama_url=settings.ollama_url,
-        model=settings.ollama_model,
+        ollama_url=ollama_url or settings.ollama_url,
+        model=model or settings.ollama_model,
     )
 
 
 class AskRequest(BaseModel):
     question: str
     document_id: int | None = None  # None = search all docs, int = current doc only
+    deep_think: bool = False        # True = full doc context (only valid with document_id)
 
 
 @router.post("/ask")
@@ -52,7 +54,18 @@ async def ask(
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
 
-    qa = _get_qa_service()
+    # Read LLM config from DB (admin overrides), fall back to env defaults
+    from app.models.site_setting import SiteSetting
+    from sqlalchemy import select as _select
+    _db_model = await db.scalar(_select(SiteSetting).where(SiteSetting.key == "llm.model"))
+    _db_url = await db.scalar(_select(SiteSetting).where(SiteSetting.key == "llm.url"))
+    qa = _get_qa_service(
+        model=_db_model.value if _db_model else None,
+        ollama_url=_db_url.value if _db_url else None,
+    )
+
+    # deep_think only meaningful in single-doc mode; ignore for all-docs queries
+    deep_think = request.deep_think and request.document_id is not None
 
     async def token_stream():
         try:
@@ -61,14 +74,15 @@ async def ask(
                 current_user.id,
                 request.question,
                 document_id=request.document_id,
+                deep_think=deep_think,
             ):
-                # SSE format: each token as a data line
-                yield f"data: {token}\n\n"
+                # JSON-encode so embedded newlines and special chars survive SSE transport
+                yield f"data: {json.dumps(token)}\n\n"
         except Exception:
             logger.exception("Error during Q&A streaming")
-            yield "data: [ERROR] An error occurred while generating the answer.\n\n"
+            yield f"data: {json.dumps('[ERROR] An error occurred while generating the answer.')}\n\n"
         finally:
-            yield "data: [DONE]\n\n"
+            yield f"data: {json.dumps('[DONE]')}\n\n"
 
     return StreamingResponse(
         token_stream(),

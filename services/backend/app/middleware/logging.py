@@ -31,6 +31,11 @@ class LoggingMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with enhanced logging."""
+        # Streaming endpoints (SSE) must bypass BaseHTTPMiddleware — its anyio cancel
+        # scope fires when dispatch returns, killing the stream before it finishes.
+        if request.url.path.startswith("/chat"):
+            return await call_next(request)
+
         # Generate unique request ID
         request_id = str(uuid.uuid4())
 

@@ -5,13 +5,13 @@ import hashlib
 import logging
 from dataclasses import dataclass
 
-from pgvector.sqlalchemy import Vector
+from pgvector.sqlalchemy import Vector  # noqa: F401 — registered by SQLAlchemy for Vector columns
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
 from app.models.document_embedding import DocumentEmbedding
-from app.services.search.content_processor import prepare_document_content
+from app.services.search.content_processor import extract_summary, prepare_document_content
 from app.services.search.embedding_client import EmbeddingClient
 from app.services.storage.filesystem import Filesystem
 
@@ -27,6 +27,7 @@ def _get_filesystem() -> Filesystem:
 class SearchResult:
     document: Document
     score: float  # cosine similarity, 0.0–1.0 (higher = more similar)
+    embedding: DocumentEmbedding | None = None  # carries pre-computed summary
 
 
 def _sha256(text: str) -> str:
@@ -83,9 +84,12 @@ class SemanticSearchService:
             logger.exception("Failed to get embedding for doc %s", document.id)
             return False
 
+        summary = extract_summary(document.name, content)
+
         if existing:
             existing.embedding = vector
             existing.content_hash = content_hash
+            existing.summary = summary
         else:
             db.add(
                 DocumentEmbedding(
@@ -94,6 +98,7 @@ class SemanticSearchService:
                     embedding=vector,
                     content_hash=content_hash,
                     chunk_index=0,
+                    summary=summary,
                 )
             )
 
@@ -150,10 +155,12 @@ class SemanticSearchService:
         user_id: int,
         query: str,
         limit: int = 10,
+        min_score: float = 0.0,
     ) -> list[SearchResult]:
         """
         Embed *query* and return the most semantically similar documents.
         Results are filtered to the requesting user's documents only.
+        Pass min_score > 0 to exclude low-relevance documents.
         """
         try:
             query_vector = await self._client.embed_query(query)
@@ -161,12 +168,13 @@ class SemanticSearchService:
             logger.exception("Failed to embed search query")
             return []
 
-        # pgvector cosine distance: <=> operator (0 = identical, 2 = opposite)
+        # pgvector cosine distance via registered column operator (0 = identical, 2 = opposite)
         # We convert to similarity: 1 - distance
         stmt = (
             select(
                 Document,
-                (1 - DocumentEmbedding.embedding.op("<=>")(query_vector)).label("score"),
+                DocumentEmbedding,
+                (1 - DocumentEmbedding.embedding.cosine_distance(query_vector)).label("score"),
             )
             .join(DocumentEmbedding, DocumentEmbedding.document_id == Document.id)
             .where(DocumentEmbedding.user_id == user_id)
@@ -177,4 +185,8 @@ class SemanticSearchService:
         result = await db.execute(stmt)
         rows = result.all()
 
-        return [SearchResult(document=row.Document, score=float(row.score)) for row in rows]
+        return [
+            SearchResult(document=row.Document, score=float(row.score), embedding=row.DocumentEmbedding)
+            for row in rows
+            if float(row.score) >= min_score
+        ]

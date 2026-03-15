@@ -9,6 +9,7 @@ from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
 from .github_settings import GitHubSettings
 from .icon_models import IconMetadata, IconPack
 from .markdown_lint_rule import MarkdownLintRule
+from .site_setting import SiteSetting
 from .user import User
 
 __all__ = [
@@ -26,5 +27,6 @@ __all__ = [
     "IconMetadata",
     "IconPack",
     "MarkdownLintRule",
+    "SiteSetting",
     "User"
 ]

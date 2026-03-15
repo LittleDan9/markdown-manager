@@ -75,6 +75,8 @@ services:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
       - MARKDOWN_STORAGE_ROOT=/documents
+      - EMBEDDING_SERVICE_URL=http://embedding:8005
+      - OLLAMA_URL=http://ollama:11434
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -94,9 +96,6 @@ services:
         condition: service_healthy
       embedding:
         condition: service_healthy
-    environment:
-      - EMBEDDING_SERVICE_URL=http://embedding:8005
-      - OLLAMA_URL=http://ollama:11434
 
   # ──────────────────────────────────────────────────────────────────────────
   # Embedding microservice — sentence-transformers CPU inference
@@ -131,6 +130,20 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+
+  # One-shot container: pulls mistral on first deploy, exits immediately if already present.
+  # The model is stored in the shared ollama-data volume so it survives redeployments.
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ./ollama-data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama pull mistral"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
   export:
     build:

@@ -5,7 +5,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -44,6 +44,8 @@ class DocumentEmbedding(Base):
     )
     # SHA256 hash of embedded content — skip re-embedding if unchanged
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Structural summary (headings + first paragraph per section) used as LLM context
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Reserved for multi-chunk support in future; 0 = whole-document embedding
     chunk_index: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     embedded_at: Mapped[datetime] = mapped_column(
