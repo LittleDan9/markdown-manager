@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import AsyncIterator
 
 import httpx
@@ -15,7 +16,10 @@ from app.services.storage.filesystem import Filesystem
 logger = logging.getLogger(__name__)
 
 DEFAULT_OLLAMA_URL = "http://ollama:11434"
-DEFAULT_MODEL = "mistral"
+DEFAULT_MODEL = "qwen2.5:1.5b"
+
+# Cap deep-think document content to ~2000 tokens to bound CPU prefill time
+_DEEP_THINK_MAX_CHARS = 8000
 
 
 def _get_filesystem() -> Filesystem:
@@ -63,7 +67,7 @@ class QAService:
         question: str,
         document_id: int | None = None,
         deep_think: bool = False,
-    ) -> AsyncIterator[str]:
+    ) -> AsyncIterator[str | dict]:
         """
         Yield answer tokens as they stream from Ollama.
 
@@ -72,11 +76,16 @@ class QAService:
         instead of the pre-computed summary.
         If *document_id* is None, All Docs mode is used: a document catalogue is always
         included, plus semantic search excerpts for the top matching docs.
+
+        The final yielded value is a dict with timing metrics (not a token string).
         """
+        t_start = time.monotonic()
+
         all_docs_mode = document_id is None
         context_chunks, catalogue = await self._build_context(
             db, user_id, question, document_id, deep_think=deep_think
         )
+        t_context = time.monotonic()
 
         if not catalogue and not context_chunks:
             yield "Your document library appears to be empty. Add some documents first."
@@ -84,8 +93,30 @@ class QAService:
 
         prompt = self._build_prompt(question, context_chunks, catalogue, all_docs_mode)
 
+        t_first_token = None
+        token_count = 0
         async for token in self._stream_ollama(prompt):
+            if t_first_token is None:
+                t_first_token = time.monotonic()
+            token_count += 1
             yield token
+
+        t_done = time.monotonic()
+        metrics = {
+            "__metrics__": True,
+            "context_ms": round((t_context - t_start) * 1000),
+            "first_token_ms": round(((t_first_token or t_done) - t_start) * 1000),
+            "generation_ms": round((t_done - (t_first_token or t_done)) * 1000),
+            "total_ms": round((t_done - t_start) * 1000),
+            "tokens": token_count,
+            "model": self._model,
+        }
+        logger.info(
+            "Chat Q&A completed: model=%s context=%dms first_token=%dms generation=%dms total=%dms tokens=%d",
+            self._model, metrics["context_ms"], metrics["first_token_ms"],
+            metrics["generation_ms"], metrics["total_ms"], metrics["tokens"],
+        )
+        yield metrics
 
     async def health_check(self) -> bool:
         """Return True if Ollama is reachable."""
@@ -215,11 +246,11 @@ class QAService:
             return []
 
         if deep_think:
-            # Full document text — let Ollama see everything
+            # Full document text — let Ollama see everything (capped to bound prefill)
             content = await _get_filesystem().read_document(user_id, doc.file_path)
             if not content:
                 return []
-            return [{"name": doc.name, "content": content}]
+            return [{"name": doc.name, "content": content[:_DEEP_THINK_MAX_CHARS]}]
 
         # Normal mode: use stored summary (fast)
         if embedding and embedding.summary:
@@ -269,14 +300,22 @@ class QAService:
     async def _stream_ollama(self, prompt: str) -> AsyncIterator[str]:
         """Stream response tokens from Ollama's generate endpoint."""
         import json
+        import os
+
+        num_thread = int(os.environ.get("OLLAMA_NUM_THREAD", 0)) or None
+
+        options = {
+            "num_ctx": 4096,
+            "num_predict": 512,
+        }
+        if num_thread:
+            options["num_thread"] = num_thread
 
         payload = {
             "model": self._model,
             "prompt": prompt,
             "stream": True,
-            # 4096 context: sufficient for our prompts (~1500 tokens) and halves
-            # the KV-cache size from 1024 MiB to 512 MiB, improving prefill speed.
-            "options": {"num_ctx": 4096},
+            "options": options,
         }
 
         # No read timeout — CPU prefill can take minutes for large prompts.

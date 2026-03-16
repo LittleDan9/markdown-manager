@@ -151,7 +151,7 @@ server {
     # ── General API — standard rate limiting ─────────────────────────────
     location /api/ {
         limit_req zone=api burst=50 nodelay;
-        limit_conn api_conn 5;
+        limit_conn api_conn 15;
         client_max_body_size 50m;
 
         if ($block_bot = 1) {

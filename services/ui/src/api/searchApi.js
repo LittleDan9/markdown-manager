@@ -17,7 +17,7 @@ class SearchApi extends Api {
    * Ask a question about documents and get a streaming answer from Ollama.
    * @param {string} question - The question to ask
    * @param {number|null} documentId - Limit to this doc (null = all docs)
-   * @param {function} onToken - Called with each streamed token string
+   * @param {function} onToken - Called with each streamed token string, or a metrics object {type:'metrics', data:{...}}
    * @param {AbortSignal} signal - Optional abort signal to cancel the stream
    * @param {boolean} deepThink - Send full document context instead of summary (single-doc only)
    * @returns {Promise<void>}
@@ -51,15 +51,20 @@ class SearchApi extends Api {
       const lines = chunk.split("\n");
       for (const line of lines) {
         if (line.startsWith("data: ")) {
-          let token;
+          let parsed;
           try {
-            token = JSON.parse(line.slice(6));
+            parsed = JSON.parse(line.slice(6));
           } catch {
             continue; // malformed line, skip
           }
-          if (token === "[DONE]") return;
-          if (typeof token === "string" && token.startsWith("[ERROR]")) throw new Error("Streaming error from server");
-          if (token) onToken(token);
+          if (parsed === "[DONE]") return;
+          if (typeof parsed === "string" && parsed.startsWith("[ERROR]")) throw new Error("Streaming error from server");
+          // Pass metrics objects through as-is for the component to handle
+          if (parsed && typeof parsed === "object" && parsed.type === "metrics") {
+            onToken(parsed);
+          } else if (parsed) {
+            onToken(parsed);
+          }
         }
       }
     }

@@ -76,8 +76,16 @@ async def ask(
                 document_id=request.document_id,
                 deep_think=deep_think,
             ):
-                # JSON-encode so embedded newlines and special chars survive SSE transport
-                yield f"data: {json.dumps(token)}\n\n"
+                if isinstance(token, dict) and token.get("__metrics__"):
+                    metrics_payload = {
+                        k: v for k, v in token.items()
+                        if k != "__metrics__"
+                    }
+                    event = {"type": "metrics", "data": metrics_payload}
+                    yield f"data: {json.dumps(event)}\n\n"
+                else:
+                    # JSON-encode so embedded newlines and special chars survive SSE transport
+                    yield f"data: {json.dumps(token)}\n\n"
         except Exception:
             logger.exception("Error during Q&A streaming")
             yield f"data: {json.dumps('[ERROR] An error occurred while generating the answer.')}\n\n"

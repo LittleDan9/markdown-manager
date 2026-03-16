@@ -80,6 +80,17 @@ const formatDuration = (durationMs) => {
   return `${seconds} s`;
 };
 
+// Format server-side metrics for display
+const formatMetrics = (metrics) => {
+  if (!metrics) return null;
+  const parts = [];
+  if (metrics.first_token_ms) parts.push(`first token ${formatDuration(metrics.first_token_ms)}`);
+  if (metrics.generation_ms) parts.push(`generation ${formatDuration(metrics.generation_ms)}`);
+  if (metrics.tokens) parts.push(`${metrics.tokens} tokens`);
+  if (metrics.model) parts.push(metrics.model);
+  return parts.join(" · ");
+};
+
 const SCOPE_ALL = "all";
 const SCOPE_CURRENT = "current";
 
@@ -195,6 +206,18 @@ function ChatDrawer({ show, onHide }) {
         question,
         documentId,
         (token) => {
+          // Handle metrics object from server
+          if (token && typeof token === "object" && token.type === "metrics") {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === "assistant") {
+                updated[updated.length - 1] = { ...last, serverMetrics: token.data };
+              }
+              return updated;
+            });
+            return;
+          }
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
@@ -360,6 +383,9 @@ function ChatDrawer({ show, onHide }) {
                 {msg.role === "assistant" && msg.duration && !msg.streaming && (
                   <div className="message-timing">
                     {formatDuration(msg.duration)}
+                    {msg.serverMetrics && (
+                      <span className="message-metrics"> — {formatMetrics(msg.serverMetrics)}</span>
+                    )}
                   </div>
                 )}
               </div>

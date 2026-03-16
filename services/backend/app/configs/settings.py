@@ -112,7 +112,7 @@ class Settings(BaseSettings):
         default="http://ollama:11434", description="Ollama LLM service URL"
     )
     ollama_model: str = Field(
-        default="mistral", description="Ollama model to use for Q&A"
+        default="qwen2.5:1.5b", description="Ollama model to use for Q&A"
     )
 
     # Filesystem storage configuration
