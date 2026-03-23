@@ -51,6 +51,10 @@ class User(BaseModel):
     autosave_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     editor_width_percentage: Mapped[int] = mapped_column(Integer, default=40)
 
+    # Tab display preferences
+    tab_position: Mapped[str] = mapped_column(String(10), default="above", nullable=False)
+    tab_sort_order: Mapped[str] = mapped_column(String(10), default="name", nullable=False)
+
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)

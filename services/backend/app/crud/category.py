@@ -79,6 +79,7 @@ async def create_category(
     db_category = Category(
         user_id=user_id,
         name=category_data.name.strip(),
+        tabs_enabled=getattr(category_data, 'tabs_enabled', True),
     )
     db.add(db_category)
     await db.commit()
@@ -102,6 +103,8 @@ async def update_category(
 
     if category_data.name is not None:
         db_category.name = category_data.name.strip()
+    if getattr(category_data, 'tabs_enabled', None) is not None:
+        db_category.tabs_enabled = category_data.tabs_enabled
 
     await db.commit()
     await db.refresh(db_category)

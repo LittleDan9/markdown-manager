@@ -13,8 +13,8 @@ import { useSaveDocument } from '../document';
  * - Ctrl+O: Open document
  * - etc.
  */
-export default function useGlobalKeyboardShortcuts() {
-  const handleSave = useSaveDocument();
+export default function useGlobalKeyboardShortcuts({ onDraftPromote } = {}) {
+  const handleSave = useSaveDocument({ onDraftPromote });
   const handleSaveRef = useRef(handleSave);
   // Always keep ref up to date with latest handleSave
   handleSaveRef.current = handleSave;

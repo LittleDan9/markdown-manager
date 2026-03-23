@@ -3,7 +3,7 @@ from __future__ import annotations
 """Category model for organizing documents."""
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy import Boolean, ForeignKey, Integer, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -29,6 +29,9 @@ class Category(BaseModel):
 
     # Category name
     name: Mapped[str] = mapped_column(String(100), nullable=False)
+
+    # Tab display setting
+    tabs_enabled: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Relationships
     user: Mapped["User"] = relationship("User", back_populates="categories")

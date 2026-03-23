@@ -5,3 +5,4 @@ export { default as useSaveDocument } from './useSaveDocument';
 export { default as useChangeTracker } from './useChangeTracker';
 export { useFileOperations } from './useFileOperations';
 export { useGitStatus } from './useGitStatus';
+export { default as useSiblingDocs } from './useSiblingDocs';

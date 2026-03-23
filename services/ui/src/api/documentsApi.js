@@ -669,6 +669,17 @@ class DocumentsApi extends Api {
       throw error;
     }
   }
+
+  /**
+   * Get sibling documents in the same category (lightweight metadata for tab bar)
+   * @param {number} documentId - Document ID
+   * @param {string} sort - Sort order: 'name', 'created', or 'modified'
+   * @returns {Promise<Object>} - { siblings, category_id, category_name, tabs_enabled }
+   */
+  async getSiblingDocuments(documentId, sort = 'name') {
+    const res = await this.apiCall(`/documents/${documentId}/siblings?sort=${sort}`);
+    return res.data;
+  }
 }
 
 export default new DocumentsApi();

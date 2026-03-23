@@ -2,7 +2,11 @@ import React, { useState, useCallback, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Container, Alert, Button } from 'react-bootstrap';
 import Renderer from '../Renderer';
+import CategoryTabBar from '../editor/CategoryTabBar';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
+import { useAuth } from '../../providers/AuthProvider';
+import { useConfirmModal } from '../../hooks/ui/useConfirmModal';
+import ConfirmModal from '../shared/modals/ConfirmModal';
 
 /**
  * RendererSection - Wrapper component for the renderer area
@@ -20,7 +24,20 @@ function RendererSection({
   cursorLine,
   fullscreenPreview
 }) {
-  const { content } = useDocumentContext();
+  const {
+    content,
+    currentDocument,
+    siblingDocs,
+    tabsEnabled,
+    siblingCategoryName,
+    loadDocument,
+    createDocument,
+    deleteDocument,
+    refreshSiblings,
+    isAuthenticated,
+  } = useDocumentContext();
+  const { tabPosition } = useAuth();
+  const { show: showDeleteModal, modalConfig: deleteModalConfig, openModal, handleAction: handleDeleteAction } = useConfirmModal();
   const [hasRendered, setHasRendered] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
 
@@ -64,6 +81,98 @@ function RendererSection({
 
   const scrollToLineValue = isSharedView ? null : (syncPreviewScrollEnabled ? cursorLine : null);
 
+  // Tab bar callbacks
+  const handleTabClick = useCallback((docId) => {
+    if (docId !== currentDocument?.id) {
+      loadDocument(docId);
+    }
+  }, [currentDocument?.id, loadDocument]);
+
+  const handleRename = useCallback(async (docId, newName) => {
+    try {
+      if (isAuthenticated && !String(docId).startsWith('doc_')) {
+        const documentsApi = (await import('../../api/documentsApi')).default;
+        await documentsApi.updateDocument(docId, { name: newName });
+      } else {
+        // Guest: update localStorage
+        const { default: DocumentStorageService } = await import('../../services/core/DocumentStorageService');
+        const doc = DocumentStorageService.getDocument(docId);
+        if (doc) {
+          doc.name = newName;
+          DocumentStorageService.setDocument(doc);
+        }
+      }
+      refreshSiblings();
+    } catch (error) {
+      console.error('Failed to rename document:', error);
+    }
+  }, [isAuthenticated, refreshSiblings]);
+
+  const handleDeleteDocument = useCallback((docId, docName) => {
+    if (!docId) return;
+    const isActive = docId === currentDocument?.id;
+    // Pre-compute the first remaining sibling (excluding the one being deleted)
+    const remainingSiblings = siblingDocs.filter(d => d.id !== docId);
+    const firstSiblingId = remainingSiblings.length > 0 ? remainingSiblings[0].id : null;
+
+    openModal(
+      async (actionKey) => {
+        if (actionKey === 'delete') {
+          try {
+            await deleteDocument(docId);
+            if (isActive) {
+              if (firstSiblingId) {
+                // Switch to the first remaining doc in the category
+                loadDocument(firstSiblingId);
+              }
+              // If no siblings left, document is already cleared by deleteDocument
+            }
+            // Always refresh after a short delay to let state settle
+            setTimeout(() => refreshSiblings(), 200);
+          } catch (error) {
+            console.error('Failed to delete document from tab:', error);
+          }
+        }
+      },
+      {
+        title: 'Delete Document',
+        message: `Are you sure you want to delete '${docName}'? This cannot be undone.`,
+        buttons: [
+          { text: 'Delete', variant: 'danger', action: 'delete', autoFocus: true },
+          { text: 'Cancel', variant: 'secondary', action: 'cancel' },
+        ],
+        icon: <i className="bi bi-trash text-danger me-2"></i>,
+      },
+    );
+  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, openModal]);
+
+  const handleAddDocument = useCallback(() => {
+    const category = currentDocument?.category || 'General';
+    const categoryId = currentDocument?.category_id;
+    createDocument({
+      name: 'Untitled',
+      category,
+      category_id: categoryId,
+    });
+    setTimeout(() => {
+      refreshSiblings();
+    }, 300);
+  }, [currentDocument?.category, currentDocument?.category_id, createDocument, refreshSiblings]);
+
+  const showTabs = !isSharedView && tabsEnabled && siblingDocs.length > 0;
+  const tabBar = showTabs ? (
+    <CategoryTabBar
+      siblings={siblingDocs}
+      activeDocId={currentDocument?.id}
+      categoryName={siblingCategoryName}
+      position={tabPosition}
+      onTabClick={handleTabClick}
+      onRename={handleRename}
+      onDelete={handleDeleteDocument}
+      onAddDocument={handleAddDocument}
+    />
+  ) : null;
+
   return (
     <>
       {isSharedView && !sharedDocument && !sharedLoading ? (
@@ -85,12 +194,28 @@ function RendererSection({
           </Container>
         </div>
       ) : (
-        <Renderer
-          scrollToLine={scrollToLineValue}
-          fullscreenPreview={fullscreenPreview}
-          onFirstRender={handleFirstRender}
-          showLoadingOverlay={showSpinner}
-          loadingMessage={loadingMessage}
+        <>
+          <Renderer
+            scrollToLine={scrollToLineValue}
+            fullscreenPreview={fullscreenPreview}
+            onFirstRender={handleFirstRender}
+            showLoadingOverlay={showSpinner}
+            loadingMessage={loadingMessage}
+            tabBarAbove={tabPosition === 'above' ? tabBar : null}
+            tabBarBelow={tabPosition === 'below' ? tabBar : null}
+          />
+        </>
+      )}
+
+      {showDeleteModal && deleteModalConfig && (
+        <ConfirmModal
+          show={showDeleteModal}
+          title={deleteModalConfig.title}
+          message={deleteModalConfig.message}
+          icon={deleteModalConfig.icon}
+          buttons={deleteModalConfig.buttons}
+          onAction={handleDeleteAction}
+          onHide={() => handleDeleteAction('cancel')}
         />
       )}
     </>

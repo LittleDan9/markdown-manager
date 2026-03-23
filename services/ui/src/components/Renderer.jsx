@@ -20,7 +20,9 @@ const RendererContent = ({
   fullscreenPreview: _fullscreenPreview,
   onFirstRender,
   showLoadingOverlay,
-  loadingMessage
+  loadingMessage,
+  tabBarAbove,
+  tabBarBelow,
 }) => {
   const { theme: _theme } = useTheme();
   const { currentDocument, previewHTML, setPreviewHTML, isRendering: _isRendering } = useDocumentContext();
@@ -119,6 +121,8 @@ const RendererContent = ({
 
   return (
     <div id="previewContainer">
+      {tabBarAbove}
+
       {/* Central rendering orchestrator replaces MarkdownProcessor */}
       <RenderingOrchestrator
         theme={_theme}
@@ -158,6 +162,8 @@ const RendererContent = ({
           </div>
         )}
       </div>
+
+      {tabBarBelow}
     </div>
   );
 };

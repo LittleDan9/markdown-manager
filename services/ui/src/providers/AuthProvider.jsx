@@ -48,6 +48,12 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem("autoCommitEnabled");
     return saved === null ? true : saved === "true";
   });
+  const [tabPosition, setTabPositionState] = useState(() => {
+    return localStorage.getItem("tabPosition") || "above";
+  });
+  const [tabSortOrder, setTabSortOrderState] = useState(() => {
+    return localStorage.getItem("tabSortOrder") || "name";
+  });
 
   // Update auth state when service state changes
   const updateAuthState = useCallback(() => {
@@ -215,6 +221,16 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
+  const setTabPosition = useCallback(async (value) => {
+    setTabPositionState(value);
+    await AuthService.updateSetting('tabPosition', value);
+  }, []);
+
+  const setTabSortOrder = useCallback(async (value) => {
+    setTabSortOrderState(value);
+    await AuthService.updateSetting('tabSortOrder', value);
+  }, []);
+
   // Password reset API for modal
   const passwordResetApi = {
     request: requestPasswordReset,
@@ -252,6 +268,10 @@ export function AuthProvider({ children }) {
     setSyncPreviewScrollEnabled,
     autoCommitEnabled,
     setAutoCommitEnabled,
+    tabPosition,
+    setTabPosition,
+    tabSortOrder,
+    setTabSortOrder,
 
     // Modal controls
     showLoginModal,
