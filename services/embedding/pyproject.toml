@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "embedding-service"
+version = "0.1.0"
+description = "Sentence-transformers embedding microservice for markdown-manager RAG"
+authors = ["Dan Little <dan@littledan.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.32.0"}
+sentence-transformers = "^3.3.1"
+# CPU-only torch — avoids pulling in the full CUDA stack (~7GB → ~1GB)
+torch = {version = "^2.5.0", source = "pytorch-cpu"}
+pydantic = "^2.11.0"
+
+[tool.poetry.group.dev.dependencies]
+httpx = "^0.28.0"
+
+[[tool.poetry.source]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+priority = "explicit"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

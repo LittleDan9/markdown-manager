@@ -10,10 +10,11 @@ import SharedViewLayout from "@/components/layout/SharedViewLayout";
 import EditorSection from "@/components/sections/EditorSection";
 import RendererSection from "@/components/sections/RendererSection";
 import AppModals from "@/components/shared/modals/AppModals";
+import ChatDrawer from "@/components/chat/ChatDrawer";
 
 function App() {
   const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer } = useDocumentContext();
 
   // Track previous document ID so we can trigger a session commit on switch
   const prevDocIdRef = useRef(null);
@@ -138,6 +139,11 @@ function App() {
         showIconBrowser={showIconBrowser}
         onHideIconBrowser={() => setShowIconBrowser(false)}
         migrationStatus={migrationStatus}
+      />
+
+      <ChatDrawer
+        show={showChatDrawer}
+        onHide={() => setShowChatDrawer(false)}
       />
 
       <LogLevelController />

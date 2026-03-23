@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Nav, Tab } from 'react-bootstrap';
 import PropTypes from 'prop-types';
 import AdminStorageTab from './AdminStorageTab';
+import AdminAITab from './AdminAITab';
 import UserManagementTab from './UserManagementTab';
 
 function AdminModal({ show, onHide }) {
@@ -42,12 +43,12 @@ function AdminModal({ show, onHide }) {
                 Storage Management
               </Nav.Link>
             </Nav.Item>
-            {/* Future admin tabs can be added here */}
-            {/* <Nav.Item>
-              <Nav.Link eventKey="system">
-                System Settings
+            <Nav.Item>
+              <Nav.Link eventKey="ai">
+                <i className="bi bi-robot me-2"></i>
+                AI &amp; Embeddings
               </Nav.Link>
-            </Nav.Item> */}
+            </Nav.Item>
           </Nav>
 
           <Tab.Content className="tab-content">
@@ -57,7 +58,9 @@ function AdminModal({ show, onHide }) {
             <Tab.Pane eventKey="storage" className="tab-pane">
               <AdminStorageTab />
             </Tab.Pane>
-            {/* Future tab content can be added here */}
+            <Tab.Pane eventKey="ai" className="tab-pane">
+              <AdminAITab />
+            </Tab.Pane>
           </Tab.Content>
         </Tab.Container>
       </Modal.Body>

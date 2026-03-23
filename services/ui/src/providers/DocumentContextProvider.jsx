@@ -20,6 +20,7 @@ export function DocumentContextProvider({ children }) {
   const [cursorLine, setCursorLine] = useState(1);
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [showIconBrowser, setShowIconBrowser] = useState(false);
+  const [showChatDrawer, setShowChatDrawer] = useState(false);
 
   // Debug logging for UI state changes
   useEffect(() => {
@@ -103,6 +104,8 @@ export function DocumentContextProvider({ children }) {
       setFullscreenPreview,
       showIconBrowser,
       setShowIconBrowser,
+      showChatDrawer,
+      setShowChatDrawer,
       // Auth context values
       token: auth.token,
       user: auth.user,

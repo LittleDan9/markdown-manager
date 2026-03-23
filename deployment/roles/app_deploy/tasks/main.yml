@@ -34,6 +34,7 @@
       - "--exclude=services/ui/node_modules"
       - "--exclude=services/ui/dist"
       - "--exclude=services/ui/coverage"
+      - "--exclude=ollama-data"
     delete: true
     recursive: true
   register: sync_result

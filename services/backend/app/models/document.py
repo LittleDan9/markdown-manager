@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.user import User
     from app.models.github_models import GitHubRepository, GitHubSyncHistory
     from app.models.git_operations import GitOperationLog
+    from app.models.document_embedding import DocumentEmbedding
 
 
 from sqlalchemy import UniqueConstraint
@@ -143,6 +144,11 @@ class Document(Base):  # type: ignore[misc]
     # Git operation logs
     git_operation_logs: Mapped[list["GitOperationLog"]] = relationship(
         "GitOperationLog", back_populates="document"
+    )
+
+    # RAG embedding (one-to-one, optional)
+    embedding: Mapped["DocumentEmbedding | None"] = relationship(
+        "DocumentEmbedding", back_populates="document", uselist=False, cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

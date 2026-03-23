@@ -16,6 +16,20 @@ docker compose logs frontend  # Check for HMR heap issues
 docker compose restart frontend  # Restart if AI agents cause memory overflow
 ```
 
+## Test Account (dev only)
+Use this account to get a fresh JWT for API testing:
+- **Email:** `copilot@markdown-test.com`
+- **Password:** `CopilotTest123!`
+
+```bash
+# Get a fresh token (valid ~30 min)
+TOKEN=$(curl -s -X POST http://localhost/api/auth/login \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"copilot@markdown-test.com","password":"CopilotTest123!"}' \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
+echo "Token: $TOKEN"
+```
+
 ## Component Patterns
 Keep components ≤300 lines. Example structure:
 function ComponentName({ prop1, prop2 }) {

@@ -8,6 +8,7 @@ import { ActionButton } from "@/components/shared";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
+import SemanticSearch from "@/components/toolbar/SemanticSearch";
 
 function Toolbar({
   fullscreenPreview,
@@ -17,7 +18,7 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML } = useDocumentContext();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML, setShowChatDrawer } = useDocumentContext();
   const { showWarning: _showWarning } = useNotification();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
@@ -112,6 +113,9 @@ function Toolbar({
         {/* Right side: Utility Controls */}
         <div className="d-flex align-items-center gap-2" id="utilityControls">
           {!isSharedView && (
+            <SemanticSearch />
+          )}
+          {!isSharedView && (
             <ShareButton />
           )}
           {!isSharedView && (
@@ -129,12 +133,15 @@ function Toolbar({
           )}
           {!isSharedView && (
             <ActionButton
-              id="searchBtn"
+              id="chatBtn"
               variant="outline-secondary"
               size="sm"
-              title="Search (Coming Soon)"
-              disabled
-              icon="bi bi-search"
+              title="Ask your documents (AI Q&A)"
+              onClick={(e) => {
+                e.preventDefault();
+                setShowChatDrawer(prev => !prev);
+              }}
+              icon="bi bi-chat-dots"
             />
           )}
           <ActionButton

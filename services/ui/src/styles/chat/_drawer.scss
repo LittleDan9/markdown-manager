@@ -1,0 +1,326 @@
+// Chat drawer — slide-out panel for document Q&A
+
+// ----- DRAWER SHELL -----
+.chat-drawer {
+  // React Bootstrap Offcanvas handles positioning; we override width and style
+  &.offcanvas.offcanvas-end {
+    width: 420px;
+    max-width: 90vw;
+    background: var(--bs-body-bg);
+    border-left: 1px solid var(--bs-border-color);
+  }
+
+  .offcanvas-header {
+    border-bottom: 1px solid var(--bs-border-color);
+    padding: 12px 16px;
+
+    .chat-drawer-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .bi { color: var(--bs-primary); }
+    }
+  }
+
+  .offcanvas-body {
+    display: flex;
+    flex-direction: column;
+    padding: 0;
+    overflow: hidden;
+  }
+}
+
+// ----- SCOPE TOGGLE -----
+.chat-scope-toggle {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bs-secondary-bg);
+  border-radius: 20px;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--bs-border-color);
+  margin: 10px 14px;
+
+  .scope-btn {
+    flex: 1;
+    text-align: center;
+    padding: 4px 12px;
+    border-radius: 16px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    border: none;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    transition: all 0.15s ease;
+
+    &.active {
+      background: var(--bs-body-bg);
+      color: var(--bs-body-color);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+      font-weight: 500;
+    }
+
+    &:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+  }
+}
+
+// ----- MESSAGE AREA -----
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  .chat-message {
+    display: flex;
+    flex-direction: column;
+    max-width: 90%;
+    min-width: 0;              // allow flex child to shrink for overflow
+
+    &.user-message {
+      align-self: flex-end;
+      align-items: flex-end;
+
+      .message-bubble {
+        background: var(--bs-primary);
+        color: #fff;
+        border-radius: 16px 16px 4px 16px;
+      }
+    }
+
+    &.assistant-message {
+      align-self: flex-start;
+      align-items: flex-start;
+
+      .message-bubble {
+        background: var(--bs-secondary-bg);
+        color: var(--bs-body-color);
+        border-radius: 16px 16px 16px 4px;
+      }
+    }
+
+    .message-bubble {
+      padding: 10px 14px;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      word-break: break-word;
+      overflow: hidden;        // prevent children from expanding bubble
+      min-width: 0;            // allow flex child to shrink below content size
+
+      // Markdown rendered inside assistant bubbles
+      p { margin-bottom: 0.5em; &:last-child { margin-bottom: 0; } }
+      ul, ol { margin: 0.25em 0 0.5em 1.25em; padding: 0; }
+      li { margin-bottom: 0.2em; }
+      h1, h2, h3 { font-size: 0.95em; font-weight: 600; margin: 0.5em 0 0.25em; }
+      strong { font-weight: 600; }
+      blockquote { border-left: 3px solid var(--bs-border-color); margin: 0.25em 0; padding-left: 0.75em; opacity: 0.8; }
+      code { font-size: 0.8em; background: var(--bs-tertiary-bg); padding: 0.1em 0.3em; border-radius: 3px; }
+      pre {
+        font-size: 0.8em;
+        overflow-x: auto;
+        background: var(--bs-tertiary-bg);
+        padding: 0.5em;
+        border-radius: 4px;
+        max-width: 100%;        // constrain within bubble
+        code { background: none; padding: 0; }
+      }
+    }
+
+    .message-sources {
+      margin-top: 6px;
+      font-size: 0.75rem;
+      color: var(--bs-secondary-color);
+
+      .source-label { font-weight: 500; margin-right: 4px; }
+    }
+
+    .message-timing {
+      margin-top: 4px;
+      font-size: 0.7rem;
+      color: var(--bs-secondary-color);
+      opacity: 0.8;
+      font-style: italic;
+
+      .message-metrics { opacity: 0.7; }
+    }
+
+    // Clickable document-name links injected into assistant responses
+    .doc-link {
+      color: var(--bs-primary);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+      cursor: pointer;
+      font-weight: 500;
+
+      &:hover {
+        opacity: 0.75;
+        text-decoration: none;
+      }
+    }
+  }
+
+  // Doc-link action dropdown — uses Bootstrap .dropdown-menu base,
+  // just adds a subtle shadow to match toolbar feel.
+  .doc-link-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 220px;
+  }
+
+  .chat-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    color: var(--bs-secondary-color);
+    padding: 40px 20px;
+
+    .bi { font-size: 2.5rem; margin-bottom: 12px; opacity: 0.5; }
+    .empty-title { font-size: 0.95rem; font-weight: 500; margin-bottom: 6px; }
+    .empty-hint { font-size: 0.8rem; }
+  }
+
+  // Blinking cursor for streaming
+  .streaming-cursor::after {
+    content: "▋";
+    animation: blink 0.7s step-end infinite;
+  }
+
+  @keyframes blink {
+    50% { opacity: 0; }
+  }
+}
+
+// ----- DEEP THINK TOGGLE -----
+.chat-deep-think {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--bs-border-color);
+  animation: slide-in 0.15s ease;
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .deep-think-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--bs-body-color);
+    cursor: default;
+    margin: 0;
+
+    .bi-stars { color: var(--bs-warning); font-size: 0.85rem; }
+
+    .deep-think-hint {
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  // iOS-style toggle pill
+  .deep-think-toggle {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--bs-secondary-bg);
+    border: 1.5px solid var(--bs-border-color);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--bs-secondary-color);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    &.on {
+      background: var(--bs-warning);
+      border-color: var(--bs-warning);
+
+      &::after {
+        transform: translateX(16px);
+        background: #fff;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--bs-warning);
+      outline-offset: 2px;
+    }
+  }
+}
+
+// ----- INPUT AREA -----
+.chat-input-area {
+  border-top: 1px solid var(--bs-border-color);
+  padding: 12px 14px;
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+
+  .chat-textarea {
+    flex: 1;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    resize: none;
+    outline: none;
+    min-height: 38px;
+    max-height: 120px;
+    overflow-y: auto;
+
+    &:focus {
+      border-color: var(--bs-primary);
+      box-shadow: 0 0 0 2px rgba(var(--bs-primary-rgb), 0.2);
+    }
+
+    &::placeholder {
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  .chat-send-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: none;
+    background: var(--bs-primary);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s;
+
+    &:hover:not(:disabled) { background: var(--bs-primary-darken, #0b5ed7); }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+}

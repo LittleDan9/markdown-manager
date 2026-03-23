@@ -1,0 +1,88 @@
+import { Api } from "./api";
+
+class SearchApi extends Api {
+  /**
+   * Semantic document search — finds documents by meaning using vector similarity.
+   * @param {string} query - Natural language query
+   * @param {number} limit - Max results (default 10)
+   * @returns {Promise<Array<{document: object, score: number}>>}
+   */
+  async semanticSearch(query, limit = 10) {
+    const params = new URLSearchParams({ q: query, limit });
+    const response = await this.apiCall(`/documents/semantic-search?${params}`);
+    return response.data;
+  }
+
+  /**
+   * Ask a question about documents and get a streaming answer from Ollama.
+   * @param {string} question - The question to ask
+   * @param {number|null} documentId - Limit to this doc (null = all docs)
+   * @param {function} onToken - Called with each streamed token string, or a metrics object {type:'metrics', data:{...}}
+   * @param {AbortSignal} signal - Optional abort signal to cancel the stream
+   * @param {boolean} deepThink - Send full document context instead of summary (single-doc only)
+   * @returns {Promise<void>}
+   */
+  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = []) {
+    const token = this.getToken();
+    const response = await fetch("/api/chat/ask", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({
+        question,
+        document_id: documentId ?? null,
+        deep_think: deepThink ?? false,
+        history: history.map(({ role, content }) => ({ role, content })),
+      }),
+      signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Chat request failed: ${response.status}`);
+    }
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      const chunk = decoder.decode(value, { stream: true });
+      // Parse SSE format: "data: <json-encoded-token>\n\n"
+      // Tokens are JSON-encoded so newlines and special chars survive transport.
+      const lines = chunk.split("\n");
+      for (const line of lines) {
+        if (line.startsWith("data: ")) {
+          let parsed;
+          try {
+            parsed = JSON.parse(line.slice(6));
+          } catch {
+            continue; // malformed line, skip
+          }
+          if (parsed === "[DONE]") return;
+          if (typeof parsed === "string" && parsed.startsWith("[ERROR]")) throw new Error("Streaming error from server");
+          // Pass metrics objects through as-is for the component to handle
+          if (parsed && typeof parsed === "object" && parsed.type === "metrics") {
+            onToken(parsed);
+          } else if (parsed) {
+            onToken(parsed);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Check health of embedding service and Ollama.
+   * @returns {Promise<{status: string, embedding_service: string, ollama: string}>}
+   */
+  async getChatHealth() {
+    const response = await this.apiCall("/chat/health");
+    return response.data;
+  }
+}
+
+export const searchApi = new SearchApi();

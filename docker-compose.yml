@@ -36,7 +36,7 @@ services:
     init: true
 
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -75,6 +75,9 @@ services:
       - POETRY_VIRTUALENVS_IN_PROJECT=true
       - DEBUG_PASSWORD_RESET_TOKEN=true
       - MARKDOWN_STORAGE_ROOT=/documents
+      - EMBEDDING_SERVICE_URL=http://embedding:8005
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -92,6 +95,61 @@ services:
         condition: service_healthy
       linting:
         condition: service_healthy
+      embedding:
+        condition: service_healthy
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Embedding microservice — sentence-transformers CPU inference
+  # ──────────────────────────────────────────────────────────────────────────
+  embedding:
+    build:
+      context: ./services/embedding
+      dockerfile: Dockerfile
+    ports:
+      - "8005:8005"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Ollama — self-hosted LLM for document Q&A (qwen2.5:1.5b default, mistral available)
+  # ──────────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    ports:
+      - "11434:11434"
+    volumes:
+      - ./ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # One-shot container: pulls mistral on first deploy, exits immediately if already present.
+  # The model is stored in the shared ollama-data volume so it survives redeployments.
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ./ollama-data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama pull qwen2.5:1.5b && ollama pull mistral"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
 
   export:
     build:

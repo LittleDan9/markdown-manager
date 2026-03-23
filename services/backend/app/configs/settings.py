@@ -102,6 +102,19 @@ class Settings(BaseSettings):
         default="http://event-publisher:8004", description="Event publisher service URL"
     )
 
+    # Embedding Service configuration (sentence-transformers microservice)
+    embedding_service_url: str = Field(
+        default="http://embedding:8005", description="Embedding microservice URL"
+    )
+
+    # Ollama LLM service configuration
+    ollama_url: str = Field(
+        default="http://ollama:11434", description="Ollama LLM service URL"
+    )
+    ollama_model: str = Field(
+        default="qwen2.5:1.5b", description="Ollama model to use for Q&A"
+    )
+
     # Filesystem storage configuration
     markdown_storage_root: str = Field(
         default="/documents", description="Root directory for document storage"

@@ -63,6 +63,11 @@ class MonitoringMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         """Process request with monitoring."""
+        # Streaming endpoints (SSE) must bypass BaseHTTPMiddleware — its anyio cancel
+        # scope fires when dispatch returns, killing the stream before it finishes.
+        if request.url.path.startswith("/chat"):
+            return await call_next(request)
+
         if not self.enable_metrics:
             return await call_next(request)
 

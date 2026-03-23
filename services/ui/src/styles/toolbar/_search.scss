@@ -1,0 +1,205 @@
+// Search bar and results dropdown
+// Pill-shaped expandable input — expands on click like a maps search bar
+
+.semantic-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.semantic-search-input-group {
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color);
+  border-radius: 20px;
+  background: var(--bs-body-bg);
+  transition: width 0.25s ease, box-shadow 0.2s ease;
+  width: 32px;  // collapsed: icon only
+
+  &.expanded {
+    width: 280px;
+    box-shadow: 0 0 0 2px rgba(var(--bs-primary-rgb), 0.25);
+  }
+
+  .search-icon-btn {
+    flex-shrink: 0;
+    width: 32px;
+    height: 30px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-secondary-color);
+    padding: 0;
+    font-size: 0.85rem;
+
+    &:hover {
+      color: var(--bs-body-color);
+    }
+  }
+
+  .search-input {
+    flex: 1;
+    border: none;
+    background: transparent;
+    outline: none;
+    padding: 3px 4px 3px 0;
+    font-size: 0.85rem;
+    color: var(--bs-body-color);
+    min-width: 0;
+
+    &::placeholder {
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  .search-clear-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    margin-right: 3px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    border-radius: 50%;
+    padding: 0;
+
+    &:hover {
+      background: var(--bs-secondary-bg);
+      color: var(--bs-body-color);
+    }
+  }
+}
+
+// Results dropdown
+.semantic-search-results {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  width: 360px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: var(--bs-body-bg);
+  border: 1px solid var(--bs-border-color);
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  z-index: 1050;
+
+  .search-results-header {
+    padding: 8px 12px 4px;
+    font-size: 0.75rem;
+    color: var(--bs-secondary-color);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  .search-result-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    cursor: pointer;
+    border-bottom: 1px solid var(--bs-border-color-translucent);
+    transition: background 0.12s ease;
+
+    &:last-child {
+      border-bottom: none;
+    }
+
+    &:hover {
+      background: var(--bs-secondary-bg);
+    }
+
+    .result-icon {
+      font-size: 1rem;
+      margin-top: 1px;
+      color: var(--bs-secondary-color);
+      flex-shrink: 0;
+    }
+
+    .result-info {
+      flex: 1;
+      min-width: 0;
+
+      .result-name {
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--bs-body-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .result-path {
+        font-size: 0.75rem;
+        color: var(--bs-secondary-color);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin-top: 2px;
+      }
+    }
+
+    .result-score {
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+
+      .score-bar {
+        width: 36px;
+        height: 4px;
+        background: var(--bs-secondary-bg);
+        border-radius: 2px;
+        overflow: hidden;
+
+        .score-fill {
+          height: 100%;
+          background: var(--bs-success);
+          border-radius: 2px;
+        }
+      }
+
+      .score-label {
+        font-size: 0.65rem;
+        color: var(--bs-secondary-color);
+      }
+    }
+  }
+
+  .search-empty-state,
+  .search-loading-state {
+    padding: 20px 12px;
+    text-align: center;
+    color: var(--bs-secondary-color);
+    font-size: 0.85rem;
+
+    .bi {
+      display: block;
+      font-size: 1.5rem;
+      margin-bottom: 6px;
+    }
+  }
+}
+
+// --- Responsive ---
+@media (max-width: 768px) {
+  .semantic-search-input-group.expanded {
+    width: 200px;
+  }
+
+  .semantic-search-results {
+    width: 280px;
+  }
+}

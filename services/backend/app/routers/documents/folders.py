@@ -2,6 +2,7 @@
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -14,6 +15,9 @@ from app.schemas.document import (
     FolderStructureResponse,
     MoveDocumentRequest,
 )
+from app.services.search.embedding_client import EmbeddingClient
+from app.services.search.semantic import SemanticSearchService
+from app.configs.settings import get_settings
 
 router = APIRouter()
 
@@ -209,3 +213,57 @@ async def search_documents(
         response_docs.append(doc_data)
 
     return response_docs
+
+
+# ---------------------------------------------------------------------------
+# Semantic (vector) search
+# ---------------------------------------------------------------------------
+
+class SemanticSearchResult(BaseModel):
+    document: DocumentResponse
+    score: float
+
+
+def _get_search_service() -> SemanticSearchService:
+    settings = get_settings()
+    client = EmbeddingClient(base_url=settings.embedding_service_url)
+    return SemanticSearchService(client)
+
+
+@router.get("/semantic-search", response_model=list[SemanticSearchResult])
+async def semantic_search_documents(
+    q: str = Query(..., min_length=1, description="Natural language search query"),
+    limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Semantic Document Search
+
+    Find documents using natural language — searches document content and mermaid
+    diagram descriptions using vector similarity. Results ordered by relevance.
+
+    Args:
+        q: Natural language query (e.g. "cloud deployment architecture")
+        limit: Maximum results to return (default 10, max 50)
+
+    Returns:
+        List of matching documents with similarity scores
+    """
+    service = _get_search_service()
+    results = await service.search(db, current_user.id, q, limit=limit)
+
+    response = []
+    for result in results:
+        doc = result.document
+        doc_data = DocumentResponse.model_validate(doc, from_attributes=True)
+        if hasattr(doc, "root_folder"):
+            doc_data.root_folder = doc.root_folder
+        if hasattr(doc, "display_path"):
+            doc_data.display_path = doc.display_path
+        if hasattr(doc, "get_folder_breadcrumbs"):
+            doc_data.breadcrumbs = doc.get_folder_breadcrumbs()
+        response.append(SemanticSearchResult(document=doc_data, score=result.score))
+
+    return response
+

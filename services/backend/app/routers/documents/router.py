@@ -1008,6 +1008,21 @@ async def create_document(
     await db.commit()
     await db.refresh(document)
 
+    # Async-fire embedding (best-effort — never fail document creation if embedding fails)
+    try:
+        from app.services.search.embedding_client import EmbeddingClient
+        from app.services.search.semantic import SemanticSearchService
+        from app.configs.settings import get_settings as _get_settings
+        _settings = _get_settings()
+        _client = EmbeddingClient(base_url=_settings.embedding_service_url)
+        _search = SemanticSearchService(_client)
+        await _search.index_document(db, current_user.id, document)
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning(
+            "Non-fatal: failed to embed document %s after creation", document.id, exc_info=True
+        )
+
     # Use the helper function to create the response
     return await create_document_response(
         document=document,
@@ -1674,3 +1689,32 @@ router.include_router(folders.router, tags=["documents"])  # NEW: folder operati
 router.include_router(categories.router, tags=["documents"])
 router.include_router(sharing.router, tags=["documents"])
 router.include_router(crud.router, tags=["documents"])  # /{document_id} must come last
+
+
+# ---------------------------------------------------------------------------
+# Bulk reindex endpoint — regenerates embeddings for all user documents
+# ---------------------------------------------------------------------------
+
+@router.post("/reindex-embeddings", tags=["search"])
+async def reindex_embeddings(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Bulk Re-index Document Embeddings
+
+    Re-embeds all documents for the current user. Documents whose content
+    hasn't changed (same SHA256 hash) are skipped.
+
+    Use this after initial deployment or when swapping embedding models.
+    """
+    from app.services.search.embedding_client import EmbeddingClient
+    from app.services.search.semantic import SemanticSearchService
+    from app.configs.settings import get_settings as _get_settings
+
+    _settings = _get_settings()
+    _client = EmbeddingClient(base_url=_settings.embedding_service_url)
+    _search = SemanticSearchService(_client)
+    counts = await _search.bulk_reindex(db, current_user.id)
+    return {"status": "ok", **counts}
+

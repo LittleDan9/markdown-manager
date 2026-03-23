@@ -56,7 +56,7 @@ services:
   # PostgreSQL
   # ──────────────────────────────────────────────────────────────────────────
   db:
-    image: postgres:16
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-markdown_manager}
@@ -118,6 +118,9 @@ services:
       - SPELL_CHECK_SERVICE_URL=http://spell-check:8003
       - MARKDOWN_STORAGE_ROOT=/documents
       - ENVIRONMENT=production
+      - EMBEDDING_SERVICE_URL=http://embedding:8005
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
     volumes:
       - document-storage:/documents
     healthcheck:
@@ -137,11 +140,78 @@ services:
         condition: service_healthy
       spell-check:
         condition: service_healthy
+      embedding:
+        condition: service_healthy
     deploy:
       resources:
         limits:
           memory: 512M
           cpus: "1.0"
+    networks:
+      - markdown-manager
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Embedding microservice — sentence-transformers CPU inference
+  # ──────────────────────────────────────────────────────────────────────────
+  embedding:
+    build:
+      context: ./services/embedding
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+    networks:
+      - markdown-manager
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Ollama — self-hosted LLM for document Q&A (qwen2.5:1.5b default, mistral available)
+  # ──────────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
+    healthcheck:
+      test: ["CMD", "/usr/bin/ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "8.0"
+    networks:
+      - markdown-manager
+
+  # One-shot container: pulls mistral on first deploy, exits immediately if already present.
+  # The model is stored in the mm-ollama-data named volume so it survives redeployments.
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama pull qwen2.5:1.5b && ollama pull mistral"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
     networks:
       - markdown-manager
 
@@ -329,6 +399,8 @@ volumes:
     name: mm-document-storage
   ui-static:
     name: mm-ui-static
+  ollama-data:
+    name: mm-ollama-data
 
 # ==============================================================================
 # Network — all services communicate on internal network
