@@ -51,6 +51,8 @@ async def get_current_user_profile(
         sync_preview_scroll_enabled=current_user.sync_preview_scroll_enabled,
         autosave_enabled=current_user.autosave_enabled,
         editor_width_percentage=current_user.editor_width_percentage,
+        tab_position=current_user.tab_position,
+        tab_sort_order=current_user.tab_sort_order,
         current_doc_id=current_user.current_doc_id,
         current_document=current_document
     )

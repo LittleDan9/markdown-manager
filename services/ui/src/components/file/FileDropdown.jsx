@@ -9,12 +9,14 @@ import RecentFilesDropdown from "@/components/file/RecentFilesDropdown";
 import UnsavedDocumentsDropdown from "@/components/file/UnsavedDocumentsDropdown";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import GitHistoryModal from "@/components/shared/modals/GitHistoryModal";
+import PromoteDraftModal from "@/components/document/modals/PromoteDraftModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useConfirmModal, useFileModal, useResponsiveMenu } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations, useGitStatus } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
+import { markDraftAcknowledged, isDraftAcknowledged } from "@/hooks/document/useSaveDocument";
 import gitHubApi from "@/api/gitHubApi";
 import documentsApi from "@/api/documentsApi";
 
@@ -49,6 +51,9 @@ function FileDropdown({ setDocumentTitle, setContent }) {
 
   // Git history modal state
   const [showGitHistoryModal, setShowGitHistoryModal] = useState(false);
+
+  // Draft promotion modal state (for File > Save on Drafts docs)
+  const [showPromoteDraft, setShowPromoteDraft] = useState(false);
 
   // Local loading state for git operations
   const [gitLoading, setGitLoading] = useState(false);
@@ -188,20 +193,36 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     if (hasUnsavedChanges) {
       fileOps.openSaveAs && fileOps.openSaveAs(content, currentDocument?.name || 'Untitled Document');
     } else {
-      createDocument();
+      createDocument({ category: 'Drafts' });
       setDocumentTitle("Untitled Document");
-      showSuccess("New document created.");
+      showSuccess("New document created in Drafts.");
     }
   };
 
   const handleSave = () => {
     if (!currentDocument) return;
+    // Draft promotion check
+    if (currentDocument.category === 'Drafts' && !isDraftAcknowledged(currentDocument.id)) {
+      setShowPromoteDraft(true);
+      return;
+    }
     saveDocument({ ...currentDocument, content });
     setDocumentTitle(currentDocument.name);
   };
 
+  const handlePromoteConfirm = (category, name) => {
+    if (!currentDocument) return;
+    if (category === 'Drafts') {
+      markDraftAcknowledged(currentDocument.id);
+    }
+    const updatedDoc = { ...currentDocument, name, category, content };
+    saveDocument(updatedDoc, true);
+    setDocumentTitle(name);
+    setShowPromoteDraft(false);
+  };
+
   const handleClose = () => {
-    createDocument();
+    createDocument({ category: 'Drafts' });
     setDocumentTitle("Untitled Document");
     showSuccess("Document closed.");
   };
@@ -581,6 +602,14 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         documentId={currentDocument?.id}
         repositoryType={gitStatus?.repository_type}
         currentBranch={gitStatus?.current_branch}
+      />
+
+      {/* Draft Promotion Modal */}
+      <PromoteDraftModal
+        show={showPromoteDraft}
+        onHide={() => setShowPromoteDraft(false)}
+        defaultName={currentDocument?.name || 'Untitled Document'}
+        onConfirm={handlePromoteConfirm}
       />
     </>
   );

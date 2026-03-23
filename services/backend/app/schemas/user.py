@@ -32,6 +32,8 @@ class UserUpdate(BaseModel):
     sync_preview_scroll_enabled: Optional[bool] = None
     autosave_enabled: Optional[bool] = None
     editor_width_percentage: Optional[int] = Field(None, ge=10, le=90)
+    tab_position: Optional[str] = Field(None, pattern="^(above|below)$")
+    tab_sort_order: Optional[str] = Field(None, pattern="^(name|created|modified)$")
 
 
 class UserUpdatePassword(BaseModel):
@@ -75,6 +77,8 @@ class UserResponse(UserBase):
     sync_preview_scroll_enabled: bool
     autosave_enabled: bool
     editor_width_percentage: int
+    tab_position: str
+    tab_sort_order: str
     current_doc_id: Optional[int] = None
     current_document: Optional["Document"] = None  # Should match Document schema
 

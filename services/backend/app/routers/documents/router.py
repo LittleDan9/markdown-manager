@@ -81,6 +81,87 @@ class GitHistoryResponse(BaseModel):
     repository_type: str
 
 
+class SiblingDocument(BaseModel):
+    """Lightweight document metadata for tab bar display."""
+    id: int
+    name: str
+    created_at: str
+    updated_at: str
+
+
+class SiblingDocumentsResponse(BaseModel):
+    """Response for sibling documents endpoint."""
+    siblings: list[SiblingDocument]
+    category_id: Optional[int] = None
+    category_name: Optional[str] = None
+    tabs_enabled: bool = True
+
+
+@router.get("/{document_id}/siblings", response_model=SiblingDocumentsResponse)
+async def get_sibling_documents(
+    document_id: int,
+    sort: Optional[str] = Query("name", regex="^(name|created|modified)$"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get all documents in the same category as the given document (lightweight metadata only)."""
+    from app.models.document import Document as DocumentModel
+    from app.models.category import Category
+
+    # Get the target document
+    result = await db.execute(
+        select(DocumentModel).where(
+            DocumentModel.id == document_id,
+            DocumentModel.user_id == current_user.id,
+        )
+    )
+    document = result.scalar_one_or_none()
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    if not document.category_id:
+        return SiblingDocumentsResponse(siblings=[], tabs_enabled=True)
+
+    # Get category to check tabs_enabled
+    cat_result = await db.execute(
+        select(Category).where(Category.id == document.category_id)
+    )
+    category = cat_result.scalar_one_or_none()
+    tabs_enabled = category.tabs_enabled if category else True
+    category_name = category.name if category else None
+
+    # Build sort order
+    order_col = DocumentModel.name
+    if sort == "created":
+        order_col = DocumentModel.created_at
+    elif sort == "modified":
+        order_col = DocumentModel.updated_at
+
+    # Get all documents in the same category
+    siblings_result = await db.execute(
+        select(DocumentModel).where(
+            DocumentModel.category_id == document.category_id,
+            DocumentModel.user_id == current_user.id,
+        ).order_by(order_col)
+    )
+    siblings = siblings_result.scalars().all()
+
+    return SiblingDocumentsResponse(
+        siblings=[
+            SiblingDocument(
+                id=s.id,
+                name=s.name,
+                created_at=s.created_at.isoformat(),
+                updated_at=s.updated_at.isoformat(),
+            )
+            for s in siblings
+        ],
+        category_id=document.category_id,
+        category_name=category_name,
+        tabs_enabled=tabs_enabled,
+    )
+
+
 @router.get("/{document_id}/git/status", response_model=DocumentGitStatus)
 async def get_document_git_status(
     document_id: int,

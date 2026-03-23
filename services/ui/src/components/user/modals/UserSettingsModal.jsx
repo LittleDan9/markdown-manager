@@ -6,6 +6,7 @@ import MFATab from "../../security/modals/MFATab";
 import DictionaryTab from "../../dictionary/modals/DictionaryTab";
 import MarkdownLintTab from "../../linting/modals/MarkdownLintTab";
 import StorageTab from "../../storage/StorageTab";
+import DisplayTab from "./DisplayTab";
 
 import userApi from "../../../api/userApi";
 import { useAuth } from "../../../providers/AuthProvider";
@@ -134,6 +135,11 @@ function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey =
                 <i className="bi bi-check2-square me-1"></i>Markdown Linting
               </Nav.Link>
             </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="display">
+                <i className="bi bi-layout-text-sidebar me-1"></i>Display
+              </Nav.Link>
+            </Nav.Item>
             {!guestMode && (
               <Nav.Item>
                 <Nav.Link eventKey="storage">
@@ -176,6 +182,9 @@ function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey =
             </Tab.Pane>
             <Tab.Pane eventKey="markdown-lint">
               <MarkdownLintTab />
+            </Tab.Pane>
+            <Tab.Pane eventKey="display">
+              <DisplayTab />
             </Tab.Pane>
             {!guestMode && (
               <Tab.Pane eventKey="storage">

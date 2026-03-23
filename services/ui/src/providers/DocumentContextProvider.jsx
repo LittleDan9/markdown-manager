@@ -2,7 +2,7 @@ import React, { createContext, useContext, useMemo, useState, useCallback, useEf
 import PropTypes from 'prop-types';
 import { useAuth } from './AuthProvider';
 import { useNotification } from '../components/NotificationProvider.jsx';
-import { useDocumentState } from '../hooks/document';
+import { useDocumentState, useSiblingDocs } from '../hooks/document';
 import { useSharedViewState, usePreviewHTMLState, useRenderingState } from '../hooks/ui';
 
 // Consolidated context for document, shared view, and preview HTML
@@ -45,6 +45,13 @@ export function DocumentContextProvider({ children }) {
     auth,
     previewHTMLState.setPreviewHTML,
     sharedViewState.isSharedView  // Add shared view flag
+  );
+
+  // Sibling docs for category tab bar
+  const siblingDocsState = useSiblingDocs(
+    documentState.currentDocument,
+    auth.isAuthenticated,
+    auth.tabSortOrder
   );
 
   // Centralized content update trigger
@@ -95,6 +102,12 @@ export function DocumentContextProvider({ children }) {
       ...previewHTMLState,
       ...renderingState,
       ...selectors,
+      // Sibling docs for tab bar
+      siblingDocs: siblingDocsState.siblingDocs,
+      tabsEnabled: siblingDocsState.tabsEnabled,
+      siblingCategoryName: siblingDocsState.categoryName,
+      siblingDocsLoading: siblingDocsState.isLoading,
+      refreshSiblings: siblingDocsState.refreshSiblings,
       // Centralized functions
       triggerContentUpdate,
       // UI state
@@ -112,7 +125,7 @@ export function DocumentContextProvider({ children }) {
       isAuthenticated: auth.isAuthenticated,
       isInitializing: auth.isInitializing
     };
-  }, [documentState, sharedViewState, previewHTMLState, renderingState, triggerContentUpdate, cursorLine, fullscreenPreview, showIconBrowser, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
+  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, cursorLine, fullscreenPreview, showIconBrowser, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
 
   return (
     <DocumentContext.Provider value={value}>

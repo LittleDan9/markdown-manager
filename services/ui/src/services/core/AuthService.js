@@ -70,6 +70,12 @@ class AuthService {
           if (user.autosave_enabled !== undefined) {
             localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
           }
+          if (user.tab_position) {
+            localStorage.setItem("tabPosition", user.tab_position);
+          }
+          if (user.tab_sort_order) {
+            localStorage.setItem("tabSortOrder", user.tab_sort_order);
+          }
         } else {
           console.log('AuthService: User validation failed after refresh');
           this.performLogout();
@@ -95,6 +101,12 @@ class AuthService {
             }
             if (user.autosave_enabled !== undefined) {
               localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
+            }
+            if (user.tab_position) {
+              localStorage.setItem("tabPosition", user.tab_position);
+            }
+            if (user.tab_sort_order) {
+              localStorage.setItem("tabSortOrder", user.tab_sort_order);
             }
           } else {
             console.log('AuthService: Stored token is invalid');
@@ -471,7 +483,9 @@ class AuthService {
     if (this.isAuthenticated) {
       const settingMap = {
         autosaveEnabled: 'autosave_enabled',
-        syncPreviewScrollEnabled: 'sync_preview_scroll_enabled'
+        syncPreviewScrollEnabled: 'sync_preview_scroll_enabled',
+        tabPosition: 'tab_position',
+        tabSortOrder: 'tab_sort_order'
       };
 
       const backendKey = settingMap[key];

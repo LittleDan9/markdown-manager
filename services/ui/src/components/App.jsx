@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useRef, useCallback, useState } from "react";
 import Header from "@/components/Header";
 import Toolbar from "@/components/toolbar/Toolbar";
 import LogLevelController from "@/components/LogLevelController";
@@ -11,10 +11,40 @@ import EditorSection from "@/components/sections/EditorSection";
 import RendererSection from "@/components/sections/RendererSection";
 import AppModals from "@/components/shared/modals/AppModals";
 import ChatDrawer from "@/components/chat/ChatDrawer";
+import PromoteDraftModal from "@/components/document/modals/PromoteDraftModal";
+import { markDraftAcknowledged } from "@/hooks/document/useSaveDocument";
 
 function App() {
   const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
   const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer } = useDocumentContext();
+
+  // --- Draft promotion modal state ---
+  const [showPromoteDraft, setShowPromoteDraft] = useState(false);
+  const promoteDraftRef = useRef({ doc: null, content: '', saveFn: null });
+
+  const handleDraftPromote = useCallback((doc, docContent, saveFn) => {
+    promoteDraftRef.current = { doc, content: docContent, saveFn };
+    setShowPromoteDraft(true);
+  }, []);
+
+  const handlePromoteConfirm = useCallback(async (category, name) => {
+    const { doc, content: docContent, saveFn } = promoteDraftRef.current;
+    if (!doc || !saveFn) return;
+
+    const updatedDoc = { ...doc, name, category, content: docContent };
+    setShowPromoteDraft(false);
+
+    // If user chose to keep in Drafts, mark as acknowledged so we don't re-prompt
+    if (category === 'Drafts') {
+      markDraftAcknowledged(doc.id);
+    }
+
+    await saveFn(updatedDoc, true);
+  }, []);
+
+  const handlePromoteHide = useCallback(() => {
+    setShowPromoteDraft(false);
+  }, []);
 
   // Track previous document ID so we can trigger a session commit on switch
   const prevDocIdRef = useRef(null);
@@ -71,7 +101,7 @@ function App() {
   useGitHubOAuth();
 
   // Setup global keyboard shortcuts (Ctrl+S, etc.)
-  useGlobalKeyboardShortcuts();
+  useGlobalKeyboardShortcuts({ onDraftPromote: handleDraftPromote });
 
   // Debug fullscreen state changes
   useEffect(() => {
@@ -147,6 +177,13 @@ function App() {
       />
 
       <LogLevelController />
+
+      <PromoteDraftModal
+        show={showPromoteDraft}
+        onHide={handlePromoteHide}
+        defaultName={promoteDraftRef.current.doc?.name || 'Untitled Document'}
+        onConfirm={handlePromoteConfirm}
+      />
     </>
   );
 }

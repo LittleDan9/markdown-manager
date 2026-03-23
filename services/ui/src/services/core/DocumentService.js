@@ -355,11 +355,11 @@ class DocumentService {
   /**
    * Create new document
    */
-  createNewDocument() {
+  createNewDocument(options = {}) {
     // Generate a unique untitled name
-    const untitledBase = 'Untitled Document';
+    const untitledBase = options.name || 'Untitled Document';
     const allDocs = this.getAllDocuments();
-    const regex = new RegExp(`^${untitledBase}(?: (\\d+))?$`);
+    const regex = new RegExp(`^${untitledBase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?: (\\d+))?$`);
     const counts = allDocs
       .map(d => {
         const m = d.name.match(regex);
@@ -372,7 +372,8 @@ class DocumentService {
     return {
       id: null,
       name: newName,
-      category: 'General',
+      category: options.category || 'Drafts',
+      category_id: options.category_id || null,
       content: ''
     };
   }

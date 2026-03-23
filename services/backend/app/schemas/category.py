@@ -16,7 +16,7 @@ class CategoryBase(BaseModel):
 class CategoryCreate(CategoryBase):
     """Schema for creating a category."""
 
-    pass
+    tabs_enabled: bool = True
 
 
 class CategoryUpdate(CategoryBase):
@@ -25,6 +25,7 @@ class CategoryUpdate(CategoryBase):
     name: Optional[str] = Field(
         None, min_length=1, max_length=100, description="The category name"
     )
+    tabs_enabled: Optional[bool] = None
 
 
 class CategoryResponse(CategoryBase):
@@ -32,6 +33,7 @@ class CategoryResponse(CategoryBase):
 
     id: int
     user_id: int
+    tabs_enabled: bool
     created_at: datetime
     updated_at: datetime
 

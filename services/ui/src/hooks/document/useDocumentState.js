@@ -12,7 +12,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const DRAFTS_CATEGORY = 'Drafts';
   const [migrationStatus, setMigrationStatus] = useState('idle');
   const [hasSyncedOnMount, setHasSyncedOnMount] = useState(false);
-  const [currentDocument, setCurrentDocument] = useState({ id: null, name: 'Untitled Document', category: DEFAULT_CATEGORY, content: '' });
+  const [currentDocument, setCurrentDocument] = useState({ id: null, name: 'Untitled Document', category: DRAFTS_CATEGORY, content: '' });
   const [content, setContent] = useState('');
   const [documents, setDocuments] = useState([]);
   const [categories, setCategories] = useState([DRAFTS_CATEGORY, DEFAULT_CATEGORY]);
@@ -358,27 +358,22 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
   }, []);
 
-  const createDocument = useCallback(() => {
-    console.log('createDocument: Starting new document creation');
-    const newDoc = DocumentService.createNewDocument();
-    console.log('createDocument: Created new document', {
-      id: newDoc.id,
-      name: newDoc.name,
-      content: newDoc.content?.length || 0,
-      contentValue: newDoc.content
-    });
+  const createDocument = useCallback((options = {}) => {
+    console.log('createDocument: Starting new document creation', options);
+    const newDoc = DocumentService.createNewDocument(options);
 
-    console.log('createDocument: Current state before update', {
-      currentDocumentId: currentDocument?.id,
-      currentDocumentContent: currentDocument?.content?.length || 0,
-      contentState: content?.length || 0
+    // Save to storage to assign an ID and persist in the documents collection
+    const savedDoc = DocumentStorageService.saveDocument(newDoc);
+    console.log('createDocument: Saved new document', {
+      id: savedDoc.id,
+      name: savedDoc.name,
     });
 
     // First clear the content explicitly
     setContent('');
 
     // Then set the new document - this ensures content is empty when document changes
-    setCurrentDocument(newDoc);
+    setCurrentDocument(savedDoc);
 
     // Clear the preview HTML when creating a new document
     if (setPreviewHTML) {
@@ -386,13 +381,13 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
     // Clear syntax highlighting cache for new document
     setHighlightedBlocks({});
-    DocumentStorageService.setCurrentDocument(newDoc);
+    DocumentStorageService.setCurrentDocument(savedDoc);
+
+    // Refresh documents list so the new doc appears
+    const docs = DocumentService.getAllDocuments();
+    setDocuments(docs);
 
     console.log('createDocument: Document creation completed, new state should be empty content');
-
-    // Note: We don't clear the current document on the backend when creating a new document
-    // because new documents don't have backend IDs, and the backend API doesn't support
-    // clearing the current document (it requires a valid doc_id)
   }, [setPreviewHTML, currentDocument, content]);
 
   const loadDocument = useCallback(async (id) => {
@@ -511,7 +506,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       // but don't automatically switch to another document - let the caller decide
       if (currentDocument.id === id) {
         // Clear current document state
-        setCurrentDocument({ id: null, name: 'Untitled Document', category: 'General', content: '' });
+        setCurrentDocument({ id: null, name: 'Untitled Document', category: DRAFTS_CATEGORY, content: '' });
         setContent('');
         // Clear preview HTML and highlighted blocks when deleting current document
         if (setPreviewHTML) {
@@ -520,7 +515,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         setHighlightedBlocks({});
 
         // Clear current document from storage and backend
-        DocumentStorageService.setCurrentDocument({ id: null, name: 'Untitled Document', category: 'General', content: '' });
+        DocumentStorageService.setCurrentDocument({ id: null, name: 'Untitled Document', category: DRAFTS_CATEGORY, content: '' });
         if (isAuthenticated && token) {
           documentsApi.setCurrentDocumentId(null).catch(err => {
             console.warn('Failed to clear current document on backend:', err);
