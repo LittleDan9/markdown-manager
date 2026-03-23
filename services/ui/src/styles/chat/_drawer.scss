@@ -83,6 +83,7 @@
     display: flex;
     flex-direction: column;
     max-width: 90%;
+    min-width: 0;              // allow flex child to shrink for overflow
 
     &.user-message {
       align-self: flex-end;
@@ -111,6 +112,8 @@
       font-size: 0.875rem;
       line-height: 1.5;
       word-break: break-word;
+      overflow: hidden;        // prevent children from expanding bubble
+      min-width: 0;            // allow flex child to shrink below content size
 
       // Markdown rendered inside assistant bubbles
       p { margin-bottom: 0.5em; &:last-child { margin-bottom: 0; } }
@@ -120,7 +123,13 @@
       strong { font-weight: 600; }
       blockquote { border-left: 3px solid var(--bs-border-color); margin: 0.25em 0; padding-left: 0.75em; opacity: 0.8; }
       code { font-size: 0.8em; background: var(--bs-tertiary-bg); padding: 0.1em 0.3em; border-radius: 3px; }
-      pre { font-size: 0.8em; overflow-x: auto; background: var(--bs-tertiary-bg); padding: 0.5em; border-radius: 4px;
+      pre {
+        font-size: 0.8em;
+        overflow-x: auto;
+        background: var(--bs-tertiary-bg);
+        padding: 0.5em;
+        border-radius: 4px;
+        max-width: 100%;        // constrain within bubble
         code { background: none; padding: 0; }
       }
     }
@@ -156,6 +165,13 @@
         text-decoration: none;
       }
     }
+  }
+
+  // Doc-link action dropdown — uses Bootstrap .dropdown-menu base,
+  // just adds a subtle shadow to match toolbar feel.
+  .doc-link-menu {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    min-width: 220px;
   }
 
   .chat-empty-state {

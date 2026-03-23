@@ -21,6 +21,11 @@ DEFAULT_MODEL = "qwen2.5:1.5b"
 # Cap deep-think document content to ~2000 tokens to bound CPU prefill time
 _DEEP_THINK_MAX_CHARS = 8000
 
+# TTL-based in-memory catalogue cache keyed by user_id.
+# Avoids re-querying the DB on every chat message when docs rarely change.
+_CATALOGUE_TTL = 60  # seconds
+_catalogue_cache: dict[int, tuple[float, str]] = {}  # user_id -> (expires_at, text)
+
 
 def _get_filesystem() -> Filesystem:
     """Lazily create Filesystem to avoid path creation errors at import time."""
@@ -28,23 +33,18 @@ def _get_filesystem() -> Filesystem:
 
 
 # System prompt for single-document mode (Current Doc / Deep Think)
-_SYSTEM_PROMPT_SINGLE = """You are a helpful assistant focused on one specific document.
-Answer questions using the document content provided below.
-If the answer is not in the document, say so clearly.
-When quoting or paraphrasing, reference the document by name.
-Be concise and direct."""
+_SYSTEM_PROMPT_SINGLE = (
+    "Answer questions about the document below. "
+    "If the answer isn't in the document, say so. "
+    "Reference the document by name. Be concise."
+)
 
-# System prompt for all-docs mode — LLM always receives both a catalogue and semantic results
-_SYSTEM_PROMPT_ALL = """You are a helpful assistant with access to the user's personal document library.
-You are given two things:
-1. DOCUMENT CATALOGUE — a full list of all documents in the library with folder, date, and a brief summary.
-2. RELEVANT EXCERPTS — detailed content from the documents most relevant to the question
-   (may be empty if the question is general).
-
-Use the catalogue to answer questions about what documents exist, when they were created, or what topics the library covers.
-Use the relevant excerpts to answer specific questions about document content.
-When referencing information, mention the document name it came from.
-Be concise and direct."""
+# System prompt for all-docs mode
+_SYSTEM_PROMPT_ALL = """Answer questions about the user's document library.
+You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content from the most relevant documents.
+Use the catalogue for questions about what exists. Use excerpts for content questions.
+Always mention the exact document name when citing information so the user can find it.
+Be concise."""
 
 
 class QAService:
@@ -67,6 +67,7 @@ class QAService:
         question: str,
         document_id: int | None = None,
         deep_think: bool = False,
+        history: list | None = None,
     ) -> AsyncIterator[str | dict]:
         """
         Yield answer tokens as they stream from Ollama.
@@ -76,6 +77,7 @@ class QAService:
         instead of the pre-computed summary.
         If *document_id* is None, All Docs mode is used: a document catalogue is always
         included, plus semantic search excerpts for the top matching docs.
+        *history* contains prior conversation turns for multi-turn context.
 
         The final yielded value is a dict with timing metrics (not a token string).
         """
@@ -91,7 +93,14 @@ class QAService:
             yield "Your document library appears to be empty. Add some documents first."
             return
 
-        prompt = self._build_prompt(question, context_chunks, catalogue, all_docs_mode)
+        prompt = self._build_prompt(
+            question, context_chunks, catalogue, all_docs_mode, history=history,
+        )
+        logger.info(
+            "Chat prompt built: chars=%d estimated_tokens=%d chunks=%d catalogue_lines=%d",
+            len(prompt), len(prompt) // 4, len(context_chunks),
+            catalogue.count("\n") + 1 if catalogue else 0,
+        )
 
         t_first_token = None
         token_count = 0
@@ -159,32 +168,40 @@ class QAService:
         # 2. Semantic search — top-3 regardless of score (model can judge relevance)
         results = await self._search.search(db, user_id, question, limit=3)
         chunks = []
+        _EXCERPT_MAX_CHARS = 300  # Keep excerpts short to bound prompt size
         for result in results:
             doc = result.document
             if not doc.file_path:
                 continue
             embedding = result.embedding
             if embedding and embedding.summary:
-                chunks.append({"name": doc.name, "content": embedding.summary})
+                chunks.append({"name": doc.name, "content": embedding.summary[:_EXCERPT_MAX_CHARS]})
             else:
                 content = await _get_filesystem().read_document(user_id, doc.file_path)
                 if content:
-                    chunks.append({"name": doc.name, "content": content[:500]})
+                    chunks.append({"name": doc.name, "content": content[:_EXCERPT_MAX_CHARS]})
         return chunks, catalogue
 
     async def _build_catalogue(self, db: AsyncSession, user_id: int) -> str:
-        """Build a compact listing of all user documents for the LLM catalogue section."""
-        from app.models.document_embedding import DocumentEmbedding as _Emb
+        """Build a compact listing of user documents for the LLM catalogue section.
 
-        # Order by most recently opened first so the cap keeps the most relevant docs.
-        # Hard cap at 25 to keep prompt tokens manageable on CPU inference.
-        _CATALOGUE_LIMIT = 25
+        Cached in-memory with a short TTL so consecutive queries skip the DB
+        round-trip AND produce an identical prompt prefix, enabling Ollama's
+        automatic KV cache reuse (the 2nd+ query skips prefill for the
+        matching prefix).
+        """
+        now = time.monotonic()
+        cached = _catalogue_cache.get(user_id)
+        if cached and cached[0] > now:
+            return cached[1]
+
+        # Cap at 10 most-recently-opened docs to keep prompt small.
+        _CATALOGUE_LIMIT = 10
         rows = await db.execute(
-            select(Document, _Emb.summary)
-            .outerjoin(_Emb, _Emb.document_id == Document.id)
+            select(Document)
             .where(Document.user_id == user_id)
             .order_by(Document.last_opened_at.desc().nullslast(), Document.created_at.desc())
-            .limit(_CATALOGUE_LIMIT + 1)  # fetch one extra to detect truncation
+            .limit(_CATALOGUE_LIMIT + 1)
         )
         docs = rows.all()
         truncated = len(docs) > _CATALOGUE_LIMIT
@@ -194,25 +211,22 @@ class QAService:
         if not docs:
             return ""
 
-        total_note = f" (showing {len(docs)} most recently opened)" if truncated else ""
-        lines = [f"Library contains {len(docs)} document(s){total_note}:"]
+        # Count total docs for context
+        from sqlalchemy import func as _func
+
+        total_count_result = await db.execute(
+            select(_func.count()).select_from(Document).where(Document.user_id == user_id)
+        )
+        total_count = total_count_result.scalar() or 0
+
+        lines = [f"Library: {total_count} documents (showing {len(docs)} most recent):"]
         for row in docs:
-            doc = row.Document
+            doc = row[0]
             folder = (doc.folder_path or "/").lstrip("/") or "root"
-            created = doc.created_at.strftime("%Y-%m-%d") if doc.created_at else "unknown"
-            last_open = (
-                doc.last_opened_at.strftime("%Y-%m-%d") if doc.last_opened_at else "never"
-            )
-            # Compact single-line entry keeps the catalogue token-efficient
-            summary_hint = ""
-            if row.summary:
-                first_line = row.summary.splitlines()[0].lstrip("# ").strip()
-                if first_line:
-                    summary_hint = f" — {first_line[:70]}"
-            lines.append(
-                f"  - {folder}/{doc.name} (created {created}, last opened {last_open}){summary_hint}"
-            )
-        return "\n".join(lines)
+            lines.append(f"  - {folder}/{doc.name}")
+        text = "\n".join(lines)
+        _catalogue_cache[user_id] = (now + _CATALOGUE_TTL, text)
+        return text
 
     async def _context_for_document(
         self,
@@ -262,13 +276,42 @@ class QAService:
             return []
         return [{"name": doc.name, "content": content[:500]}]
 
+    @staticmethod
+    def _format_history(history: list | None, max_chars: int = 400) -> str:
+        """Condense prior turns into a compact string, newest last.
+
+        Caps total history text to *max_chars* so it doesn't bloat the prompt.
+        Only the last few turns are kept.
+        """
+        if not history:
+            return ""
+        lines: list[str] = []
+        budget = max_chars
+        # Walk backwards so the most recent turns survive truncation
+        for msg in reversed(history):
+            role = msg.role if hasattr(msg, "role") else msg.get("role", "")
+            content = msg.content if hasattr(msg, "content") else msg.get("content", "")
+            # Trim individual messages
+            line = f"{role.capitalize()}: {content[:150]}"
+            if len(line) > budget:
+                break
+            lines.append(line)
+            budget -= len(line)
+        if not lines:
+            return ""
+        lines.reverse()
+        return "=== CONVERSATION HISTORY ===\n" + "\n".join(lines) + "\n"
+
     def _build_prompt(
         self,
         question: str,
         context_chunks: list[dict],
         catalogue: str,
         all_docs_mode: bool,
+        history: list | None = None,
     ) -> str:
+        history_section = self._format_history(history)
+
         if all_docs_mode:
             cat_section = f"=== DOCUMENT CATALOGUE ===\n{catalogue}\n" if catalogue else ""
             if context_chunks:
@@ -283,6 +326,7 @@ class QAService:
                 f"{_SYSTEM_PROMPT_ALL}\n\n"
                 f"{cat_section}"
                 f"{content_section}\n"
+                f"{history_section}"
                 f"=== QUESTION ===\n{question}"
             )
 
@@ -294,6 +338,7 @@ class QAService:
         return (
             f"{_SYSTEM_PROMPT_SINGLE}\n\n"
             f"=== DOCUMENT CONTEXT ===\n{context_text}\n\n"
+            f"{history_section}"
             f"=== QUESTION ===\n{question}"
         )
 
@@ -305,8 +350,9 @@ class QAService:
         num_thread = int(os.environ.get("OLLAMA_NUM_THREAD", 0)) or None
 
         options = {
-            "num_ctx": 4096,
+            "num_ctx": 2048,
             "num_predict": 512,
+            "temperature": 0.3,
         }
         if num_thread:
             options["num_thread"] = num_thread
@@ -316,6 +362,7 @@ class QAService:
             "prompt": prompt,
             "stream": True,
             "options": options,
+            "keep_alive": "10m",
         }
 
         # No read timeout — CPU prefill can take minutes for large prompts.

@@ -102,10 +102,12 @@ function ChatDrawer({ show, onHide }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [docMenu, setDocMenu] = useState(null); // { docId, docName, x, y }
 
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
   const textareaRef = useRef(null);
+  const docMenuRef = useRef(null);
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -126,6 +128,18 @@ function ChatDrawer({ show, onHide }) {
     }
   }, [currentDocument]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Close doc-link dropdown on outside click
+  useEffect(() => {
+    if (!docMenu) return;
+    const handleOutsideClick = (e) => {
+      if (docMenuRef.current && !docMenuRef.current.contains(e.target)) {
+        setDocMenu(null);
+      }
+    };
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [docMenu]);
+
   // Event-delegation click handler for doc-link anchors injected into assistant HTML
   const handleMessagesClick = useCallback(
     (e) => {
@@ -133,10 +147,31 @@ function ChatDrawer({ show, onHide }) {
       if (!link) return;
       e.preventDefault();
       const id = parseInt(link.dataset.docId, 10);
-      if (id) loadDocument(id);
+      if (!id) return;
+      const doc = documents?.find((d) => d.id === id);
+      const rect = link.getBoundingClientRect();
+      setDocMenu({
+        docId: id,
+        docName: doc?.name || "Document",
+        x: rect.left,
+        y: rect.bottom + 4,
+      });
     },
-    [loadDocument]
+    [documents]
   );
+
+  const handleDocMenuOpen = useCallback(() => {
+    if (!docMenu) return;
+    loadDocument(docMenu.docId);
+    setDocMenu(null);
+  }, [docMenu, loadDocument]);
+
+  const handleDocMenuChat = useCallback(() => {
+    if (!docMenu) return;
+    loadDocument(docMenu.docId);
+    setScope(SCOPE_CURRENT);
+    setDocMenu(null);
+  }, [docMenu, loadDocument]);
 
   const handleSend = useCallback(async () => {
     const question = input.trim();
@@ -201,6 +236,11 @@ function ChatDrawer({ show, onHide }) {
     const controller = new AbortController();
     abortRef.current = controller;
 
+    // Build conversation history from prior completed messages (last few turns)
+    const priorMessages = messages
+      .filter((m) => !m.streaming && !m.isAction && m.content)
+      .map(({ role, content }) => ({ role, content }));
+
     try {
       await searchApi.askQuestion(
         question,
@@ -232,6 +272,7 @@ function ChatDrawer({ show, onHide }) {
         },
         controller.signal,
         useDeepThink,
+        priorMessages,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -393,6 +434,25 @@ function ChatDrawer({ show, onHide }) {
           )}
           <div ref={messagesEndRef} />
         </div>
+
+        {/* Doc-link action dropdown — styled as Bootstrap dropdown */}
+        {docMenu && (
+          <div
+            ref={docMenuRef}
+            className="dropdown-menu show doc-link-menu"
+            style={{ position: "fixed", left: docMenu.x, top: docMenu.y, zIndex: 1060 }}
+          >
+            <h6 className="dropdown-header text-truncate" style={{ maxWidth: 240 }}>
+              {docMenu.docName}
+            </h6>
+            <button type="button" className="dropdown-item" onClick={handleDocMenuOpen}>
+              <i className="bi bi-file-earmark-text me-2" />Open Document
+            </button>
+            <button type="button" className="dropdown-item" onClick={handleDocMenuChat}>
+              <i className="bi bi-chat-dots me-2" />Chat About This Document
+            </button>
+          </div>
+        )}
 
         {/* Input */}
         <div className="chat-input-area">

@@ -22,7 +22,7 @@ class SearchApi extends Api {
    * @param {boolean} deepThink - Send full document context instead of summary (single-doc only)
    * @returns {Promise<void>}
    */
-  async askQuestion(question, documentId, onToken, signal, deepThink = false) {
+  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = []) {
     const token = this.getToken();
     const response = await fetch("/api/chat/ask", {
       method: "POST",
@@ -30,7 +30,12 @@ class SearchApi extends Api {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
       },
-      body: JSON.stringify({ question, document_id: documentId ?? null, deep_think: deepThink ?? false }),
+      body: JSON.stringify({
+        question,
+        document_id: documentId ?? null,
+        deep_think: deepThink ?? false,
+        history: history.map(({ role, content }) => ({ role, content })),
+      }),
       signal,
     });
 

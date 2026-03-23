@@ -31,10 +31,16 @@ def _get_qa_service(model: str | None = None, ollama_url: str | None = None) -> 
     )
 
 
+class ChatMessage(BaseModel):
+    role: str   # "user" or "assistant"
+    content: str
+
+
 class AskRequest(BaseModel):
     question: str
     document_id: int | None = None  # None = search all docs, int = current doc only
     deep_think: bool = False        # True = full doc context (only valid with document_id)
+    history: list[ChatMessage] = []  # Previous turns for conversational context
 
 
 @router.post("/ask")
@@ -75,6 +81,7 @@ async def ask(
                 request.question,
                 document_id=request.document_id,
                 deep_think=deep_think,
+                history=request.history,
             ):
                 if isinstance(token, dict) and token.get("__metrics__"):
                     metrics_payload = {
