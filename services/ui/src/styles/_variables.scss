@@ -138,3 +138,14 @@ $transition-fast: 0.15s ease;
 $transition-base: 0.2s ease;
 $transition-slow: 0.3s ease;
 $transition-theme: 0.25s ease;  // Theme switch transition
+
+// ────────────────────────────────────────
+// 6. RESPONSIVE BREAKPOINTS
+// ────────────────────────────────────────
+
+$breakpoint-sm: 576px;   // Mobile phones (iPhone 13 Mini = 375px, SE = 375px)
+$breakpoint-md: 768px;   // Tablets (iPad Mini portrait)
+$breakpoint-lg: 1024px;  // Desktops / tablets landscape
+
+// Minimum touch target size (Apple HIG)
+$touch-target-min: 44px;

@@ -4,8 +4,8 @@
 @use "../variables";
 @use "../mixins";
 
-// ─── RESPONSIVE DESIGN ───
-@media (max-width: 768px) {
+// ─── TABLET AND BELOW: ≤768px ───
+@include mixins.tablet-down {
   #appHeader {
     h1 {
       font-size: 1.1rem;
@@ -84,7 +84,8 @@
   }
 }
 
-@media (max-width: 576px) {
+// ─── MOBILE: ≤576px ───
+@include mixins.mobile {
   #appHeader {
     padding: 0.5rem 1rem;
 
@@ -111,12 +112,13 @@
   }
 
   #toolbar {
-    padding: 0.5rem 1rem;
-    min-height: 48px;
+    padding: 0.375rem 0.75rem;
+    min-height: auto;
+    flex-wrap: nowrap;
 
     .toolbar-section {
       &.toolbar-center {
-        margin-top: 0.5rem;
+        margin-top: 0;
       }
     }
 
@@ -126,12 +128,9 @@
       padding: 0.25rem 0.5rem;
     }
 
+    // Hide desktop utility controls on mobile (hamburger replaces them)
     #utilityControls {
-      .btn {
-        min-width: 32px;
-        height: 32px;
-        font-size: 0.8rem;
-      }
+      display: none !important;
     }
 
     .vr {
@@ -175,5 +174,363 @@
     .dropdown-item {
       font-size: 0.75rem;
     }
+  }
+}
+
+// ─── MOBILE INLINE VIEW TOGGLE (Edit / Preview) ───
+.mobile-view-toggle-inline {
+  display: flex;
+  align-items: center;
+  background: var(--bs-tertiary-bg);
+  border-radius: variables.$radius-md;
+  padding: 2px;
+  gap: 2px;
+
+  .toggle-seg {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border: none;
+    background: transparent;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    font-weight: variables.$font-weight-medium;
+    border-radius: calc(#{variables.$radius-md} - 2px);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all variables.$transition-fast;
+    line-height: 1;
+
+    i {
+      font-size: 0.8rem;
+    }
+
+    &.active {
+      background: var(--bs-body-bg);
+      color: var(--bs-body-color);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    &:not(.active):hover {
+      color: var(--bs-body-color);
+    }
+  }
+}
+
+// ─── MOBILE HAMBURGER BUTTON ───
+.mobile-hamburger-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--bs-body-color);
+  border-radius: variables.$radius-md;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity variables.$transition-fast, background-color variables.$transition-fast;
+
+  &:hover,
+  &:active {
+    opacity: 1;
+    background: var(--bs-tertiary-bg);
+  }
+}
+
+// ─── MOBILE FILE MENU BUTTON ───
+.mobile-file-menu-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 1.125rem;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: var(--bs-body-color);
+  border-radius: variables.$radius-md;
+  cursor: pointer;
+  opacity: 0.7;
+  transition: opacity variables.$transition-fast, background-color variables.$transition-fast;
+
+  &:hover,
+  &:active {
+    opacity: 1;
+    background: var(--bs-tertiary-bg);
+  }
+
+  .mobile-file-menu-badge {
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    font-size: 0.5rem;
+    color: var(--bs-warning);
+  }
+}
+
+// ─── MOBILE FILE MENU OFFCANVAS ───
+.mobile-file-menu {
+  max-width: 300px;
+
+  .mobile-menu-nav {
+    display: flex;
+    flex-direction: column;
+    gap: variables.$space-1;
+  }
+
+  .mobile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: variables.$space-3;
+    padding: variables.$space-2 variables.$space-3;
+    border: none;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-size: variables.$font-size-sm;
+    border-radius: variables.$radius-md;
+    cursor: pointer;
+    min-height: variables.$touch-target-min;
+    width: 100%;
+    text-align: left;
+    transition: background-color variables.$transition-fast;
+
+    &:hover,
+    &:active {
+      background: var(--bs-tertiary-bg);
+    }
+
+    &:disabled {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    &.text-danger {
+      color: var(--bs-danger) !important;
+    }
+
+    i {
+      font-size: 1rem;
+      width: 1.25rem;
+      text-align: center;
+      opacity: 0.65;
+    }
+  }
+
+  .mobile-menu-section-header {
+    padding: variables.$space-1 variables.$space-3;
+    font-size: variables.$font-size-xs;
+    font-weight: variables.$font-weight-semibold;
+    color: var(--bs-secondary-color);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .mobile-menu-divider {
+    margin: variables.$space-1 0;
+    opacity: 0.15;
+  }
+}
+
+// ─── MOBILE OFFCANVAS MENU ───
+.mobile-toolbar-menu {
+  .mobile-menu-nav {
+    display: flex;
+    flex-direction: column;
+    gap: variables.$space-1;
+  }
+
+  .mobile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: variables.$space-3;
+    padding: variables.$space-3 variables.$space-4;
+    border: none;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-size: variables.$font-size-md;
+    border-radius: variables.$radius-md;
+    cursor: pointer;
+    min-height: variables.$touch-target-min;
+    width: 100%;
+    text-align: left;
+    transition: background-color variables.$transition-fast;
+
+    &:hover,
+    &:active {
+      background: var(--bs-tertiary-bg);
+    }
+
+    i {
+      font-size: 1.125rem;
+      width: 1.5rem;
+      text-align: center;
+      opacity: 0.7;
+    }
+  }
+
+  .mobile-menu-divider {
+    margin: variables.$space-2 0;
+    opacity: 0.15;
+  }
+
+  // Document info summary at top of offcanvas
+  .mobile-menu-doc-info {
+    padding: variables.$space-2 variables.$space-4;
+    margin-bottom: variables.$space-1;
+    border-radius: variables.$radius-md;
+    background: var(--bs-tertiary-bg);
+
+    .doc-info-name {
+      font-weight: variables.$font-weight-medium;
+      font-size: variables.$font-size-base;
+      display: flex;
+      align-items: center;
+      margin-bottom: variables.$space-1;
+
+      i {
+        opacity: 0.6;
+      }
+
+      // Tappable name label
+      .doc-name-label {
+        cursor: pointer;
+        flex: 1;
+        min-width: 0;
+
+        &:hover {
+          text-decoration: underline;
+          text-decoration-style: dotted;
+        }
+      }
+
+      // Inline edit input
+      .doc-name-input {
+        flex: 1;
+        min-width: 0;
+        font-size: inherit;
+        font-weight: inherit;
+        padding: 0.125rem 0.375rem;
+        border: 1px solid var(--bs-primary);
+        border-radius: variables.$radius-sm;
+        outline: none;
+      }
+    }
+
+    .doc-info-meta {
+      display: flex;
+      align-items: center;
+      gap: variables.$space-2;
+      font-size: variables.$font-size-xs;
+      color: var(--bs-secondary-color);
+      padding-left: 1.5rem; // align with text after icon
+
+      .doc-category-btn {
+        cursor: pointer;
+        border: none;
+        background: none;
+        padding: 0;
+
+        &:hover .badge {
+          opacity: 0.8;
+        }
+      }
+    }
+  }
+
+  // Category selection list in offcanvas
+  .mobile-category-list {
+    list-style: none;
+    padding: 0;
+    margin: variables.$space-2 0 0;
+
+    li {
+      padding: variables.$space-2 variables.$space-3;
+      border-radius: variables.$radius-sm;
+      cursor: pointer;
+      font-size: variables.$font-size-sm;
+      display: flex;
+      align-items: center;
+      gap: variables.$space-2;
+
+      &:hover,
+      &:active {
+        background: var(--bs-tertiary-bg);
+      }
+
+      &.active {
+        background: var(--bs-primary);
+        color: #fff;
+        font-weight: variables.$font-weight-medium;
+      }
+
+      i {
+        font-size: 0.75rem;
+        width: 1rem;
+        text-align: center;
+      }
+    }
+  }
+}
+
+// ─── MOBILE USER MENU OFFCANVAS ───
+.mobile-user-menu {
+  .mobile-menu-nav {
+    display: flex;
+    flex-direction: column;
+    gap: variables.$space-1;
+  }
+
+  .mobile-menu-item {
+    display: flex;
+    align-items: center;
+    gap: variables.$space-3;
+    padding: variables.$space-3 variables.$space-4;
+    border: none;
+    background: transparent;
+    color: var(--bs-body-color);
+    font-size: variables.$font-size-md;
+    border-radius: variables.$radius-md;
+    cursor: pointer;
+    min-height: variables.$touch-target-min;
+    width: 100%;
+    text-align: left;
+    transition: background-color variables.$transition-fast;
+
+    &:hover,
+    &:active {
+      background: var(--bs-tertiary-bg);
+    }
+
+    &.text-danger {
+      color: var(--bs-danger) !important;
+    }
+
+    i {
+      font-size: 1.125rem;
+      width: 1.5rem;
+      text-align: center;
+      opacity: 0.7;
+    }
+  }
+
+  .mobile-menu-divider {
+    margin: variables.$space-2 0;
+    opacity: 0.15;
+  }
+}
+
+// ─── SCROLLABLE DROPDOWN MENUS ON SMALL SCREENS ───
+@include mixins.mobile {
+  // All dropdown menus: make scrollable so they don't render off-screen
+  .dropdown-menu.show {
+    max-height: calc(100vh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }

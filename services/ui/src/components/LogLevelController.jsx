@@ -1,8 +1,17 @@
 import React from 'react';
+import { Dropdown } from 'react-bootstrap';
 import { useLogger, LogLevel } from '../providers/LoggerProvider.jsx';
 
+const LOG_LEVELS = [
+  { value: LogLevel.ERROR, label: 'Error' },
+  { value: LogLevel.WARN, label: 'Warn' },
+  { value: LogLevel.INFO, label: 'Info' },
+  { value: LogLevel.DEBUG, label: 'Debug' },
+];
+
 /**
- * Development-only component for managing log levels
+ * Development-only log level selector rendered as a dropdown submenu.
+ * Intended for use inside the user profile dropdown menu.
  */
 export function LogLevelController() {
   const logger = useLogger();
@@ -12,41 +21,34 @@ export function LogLevelController() {
     return null;
   }
 
-  const handleLogLevelChange = (event) => {
-    const newLevel = parseInt(event.target.value, 10);
-    logger.setLogLevel(newLevel);
-    console.info('Log level changed to:', event.target.options[event.target.selectedIndex].text);
-  };
-
   const currentLevel = logger.level;
+  const currentLabel = LOG_LEVELS.find(l => l.value === currentLevel)?.label || 'Info';
 
   return (
-    <div
-      className="position-fixed bg-body border rounded p-2"
-      style={{
-        top: '10px',
-        right: '10px',
-        zIndex: 9999,
-        fontSize: '0.75rem',
-        fontFamily: 'monospace'
-      }}
-    >
-      <label htmlFor="log-level-select" className="form-label me-2 mb-0 text-body-secondary">
-        Debug Level:
-      </label>
-      <select
-        id="log-level-select"
-        className="form-select form-select-sm"
-        value={currentLevel}
-        onChange={handleLogLevelChange}
-        style={{ fontSize: '0.75rem', width: 'auto', display: 'inline-block' }}
+    <Dropdown as="div" drop="start" className="log-level-submenu">
+      <Dropdown.Toggle
+        as="button"
+        className="dropdown-item d-flex align-items-center w-100"
       >
-        <option value={LogLevel.ERROR}>ERROR</option>
-        <option value={LogLevel.WARN}>WARN</option>
-        <option value={LogLevel.INFO}>INFO</option>
-        <option value={LogLevel.DEBUG}>DEBUG</option>
-      </select>
-    </div>
+        <i className="bi bi-bug me-2"></i>
+        Log Level
+        <span className="badge bg-secondary ms-auto">{currentLabel}</span>
+      </Dropdown.Toggle>
+      <Dropdown.Menu>
+        {LOG_LEVELS.map(({ value, label }) => (
+          <Dropdown.Item
+            key={value}
+            active={currentLevel === value}
+            onClick={() => {
+              logger.setLogLevel(value);
+              console.info('Log level changed to:', label);
+            }}
+          >
+            {label}
+          </Dropdown.Item>
+        ))}
+      </Dropdown.Menu>
+    </Dropdown>
   );
 }
 

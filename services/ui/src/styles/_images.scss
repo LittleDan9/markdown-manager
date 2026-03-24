@@ -114,6 +114,11 @@
     flex-direction: column;
   }
 
+  .modal-header {
+    flex-shrink: 0;
+    padding: 0.5rem 0.75rem;
+  }
+
   .modal-body {
     flex: 1;
     min-height: 0; // allow flex child to shrink below content size
@@ -123,6 +128,49 @@
       max-width: 100%;
       max-height: 100%;
       object-fit: contain;
+    }
+  }
+
+  .modal-footer {
+    flex-shrink: 0;
+    padding: 0.375rem 0.75rem;
+  }
+}
+
+// Small mobile: image fullscreen modal
+@media (max-width: 576px) {
+  .image-fullscreen-modal {
+    .modal-header {
+      padding: 0.375rem 0.5rem;
+
+      .modal-title {
+        font-size: 0.85rem;
+      }
+    }
+
+    .modal-body {
+      padding: 4px;
+    }
+
+    .modal-footer {
+      padding: 0.25rem 0.5rem;
+    }
+  }
+
+  // Also compact the image controls overlay on small screens
+  .image-controls {
+    top: 4px;
+    right: 4px;
+
+    .btn {
+      padding: 0.15rem 0.3rem;
+      font-size: 0.7rem;
+      min-width: 0;
+      min-height: 0;
+
+      i {
+        font-size: 0.7rem;
+      }
     }
   }
 }

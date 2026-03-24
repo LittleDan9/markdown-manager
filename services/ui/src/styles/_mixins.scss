@@ -55,3 +55,33 @@
     border-color: $dark-color;
   }
 }
+
+// ─── RESPONSIVE MIXINS ───
+
+// Mobile only: ≤576px
+@mixin mobile {
+  @media (max-width: variables.$breakpoint-sm) {
+    @content;
+  }
+}
+
+// Tablet only: 577px–768px
+@mixin tablet {
+  @media (min-width: #{variables.$breakpoint-sm + 1px}) and (max-width: variables.$breakpoint-md) {
+    @content;
+  }
+}
+
+// Tablet and below: ≤768px
+@mixin tablet-down {
+  @media (max-width: variables.$breakpoint-md) {
+    @content;
+  }
+}
+
+// Desktop: ≥769px
+@mixin desktop {
+  @media (min-width: #{variables.$breakpoint-md + 1px}) {
+    @content;
+  }
+}

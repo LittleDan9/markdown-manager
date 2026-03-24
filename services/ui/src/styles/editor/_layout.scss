@@ -27,7 +27,7 @@
   }
 
   // Split view responsive behavior
-  @media (max-width: 768px) {
+  @include mixins.tablet-down {
     flex-direction: column;
 
     .editor-wrapper,

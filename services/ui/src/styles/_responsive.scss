@@ -3,8 +3,51 @@
 
 // ─── RESPONSIVE DESIGN AND MEDIA QUERIES ───
 
-// Mobile and tablet responsive styles
-@media (max-width: 768px) {
+// ─── MOBILE: ≤576px (iPhone 13 Mini, SE, etc.) ───
+@include mixins.mobile {
+  // Single-pane layout: show only active pane
+  #main {
+    flex-direction: column;
+
+    &.split-view {
+      #editorContainer,
+      #previewContainer {
+        width: 100% !important;
+        flex: 1 1 100% !important;
+        height: 100% !important;
+      }
+
+      // Hide inactive pane based on data attribute
+      &[data-mobile-view="editor"] #previewContainer {
+        display: none !important;
+      }
+
+      &[data-mobile-view="preview"] #editorContainer {
+        display: none !important;
+      }
+    }
+  }
+
+  // Hide resizer on mobile
+  .invisible-resizer {
+    display: none !important;
+  }
+
+  // Layout padding reduction
+  #editorContainer,
+  #previewContainer {
+    padding: variables.$space-1 !important;
+  }
+
+  // Touch-friendly control sizes
+  .btn-sm {
+    min-width: variables.$touch-target-min;
+    min-height: variables.$touch-target-min;
+  }
+}
+
+// ─── TABLET AND BELOW: ≤768px ───
+@include mixins.tablet-down {
   #toolbar {
     flex-wrap: wrap;
 
@@ -17,7 +60,7 @@
       font-size: 0.875rem;
     }
 
-    // Stack controls vertically on mobile
+    // Stack controls vertically on smaller screens
     .d-flex.justify-content-between {
       flex-direction: column;
       align-items: flex-start;
@@ -32,15 +75,18 @@
     }
   }
 
-  #main {
-    flex-direction: column;
+  // On mobile: single-line toolbar — no wrapping
+  @include mixins.mobile {
+    #toolbar {
+      flex-wrap: nowrap;
+      padding: 0.375rem 0.75rem;
 
-    #editorContainer {
-      flex: 0 0 50%;
-    }
-
-    #previewContainer {
-      flex: 0 0 50%;
+      // Keep file dropdown + hamburger on one row
+      > .d-flex.justify-content-between {
+        flex-direction: row;
+        align-items: center;
+        flex-wrap: nowrap;
+      }
     }
   }
 
@@ -52,18 +98,40 @@
   }
 }
 
-// ─── RESPONSIVE FLEX BEHAVIOR OVERRIDE ───
-// Fix for when window size decreases - allow panels to shrink proportionally
-@media screen and (min-width: 769px) {
+// ─── TABLET ONLY: 577px–768px ───
+@include mixins.tablet {
   #main {
-    #editorContainer {
-      flex: 0 1 40% !important; // Allow shrinking while maintaining proportion
-      min-width: 250px; // Minimum width before mobile layout kicks in
-    }
+    &.split-view {
+      #editorContainer {
+        flex: 0 1 50% !important;
+        width: 50% !important;
+        min-width: 200px;
+      }
 
-    #previewContainer {
-      flex: 0 1 60% !important; // Allow shrinking while maintaining proportion
-      min-width: 250px; // Minimum width before mobile layout kicks in
+      #previewContainer {
+        flex: 0 1 50% !important;
+        width: 50% !important;
+        min-width: 200px;
+      }
     }
   }
 }
+
+// ─── DESKTOP: ≥769px ───
+@include mixins.desktop {
+  #main {
+    #editorContainer {
+      flex: 0 1 40% !important;
+      min-width: 250px;
+    }
+
+    #previewContainer {
+      flex: 0 1 60% !important;
+      min-width: 250px;
+    }
+  }
+}
+
+// ─── MOBILE VIEW TOGGLE ───
+// Toggle is now inline in the toolbar — see toolbar/_responsive.scss
+

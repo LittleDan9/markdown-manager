@@ -14,6 +14,7 @@ import SystemHealthModal from "../system/SystemHealthModal";
 import ImageBrowserModal from "../images/ImageBrowserModal";
 import { useImageManagement } from "@/hooks/image/useImageManagement";
 import { useTheme } from "../../providers/ThemeProvider";
+import LogLevelController from "@/components/LogLevelController";
 
 function UserMenuLoggedIn() {
   const { showSuccess, showError: _showError } = useNotification();
@@ -234,6 +235,7 @@ function UserMenuLoggedIn() {
         <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
           <ThemeToggle idPrefix="userMenu"/>
         </Dropdown.Item>
+        <LogLevelController />
         <Dropdown.Divider />
         <Dropdown.Item id="logoutBtn" onClick={handleLogout}>
           <i className="bi bi-box-arrow-right me-2"></i>Logout

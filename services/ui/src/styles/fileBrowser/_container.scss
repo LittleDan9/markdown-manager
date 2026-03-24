@@ -1,6 +1,9 @@
 // File Browser Container Styles
 // Main layout and structure for the unified file browser
 
+@use "../variables";
+@use "../mixins";
+
 .unified-file-browser {
   position: relative;
   z-index: 1;
@@ -103,6 +106,25 @@
   [data-bs-theme="dark"] & {
     .bottom-gradient {
       background: linear-gradient(to top, rgba(33, 37, 41, 0.9), transparent) !important;
+    }
+  }
+
+  // ─── MOBILE: single-panel file browser ───
+  @include mixins.mobile {
+    .file-browser-content {
+      // Hide tree and preview panels — show only list
+      .file-browser-tree-panel {
+        display: none;
+      }
+
+      .file-browser-preview-panel {
+        display: none;
+      }
+
+      .file-browser-list-panel {
+        width: 100%;
+        flex: 1 1 100%;
+      }
     }
   }
 }

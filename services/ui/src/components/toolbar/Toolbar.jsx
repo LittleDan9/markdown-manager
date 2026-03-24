@@ -4,10 +4,14 @@ import DocumentToolbar from "@/components/toolbar/Document";
 import UserToolbar from "@/components/toolbar/User";
 import ShareButton from "@/components/shared/ShareButton";
 import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
+import MobileToolbarMenu from "@/components/toolbar/MobileToolbarMenu";
+import MobileUserMenu from "@/components/toolbar/MobileUserMenu";
 import { ActionButton } from "@/components/shared";
 import { useTheme } from "@/providers/ThemeProvider";
+import { useAuth } from "@/providers/AuthProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
+import { useViewport } from "@/hooks";
 import SemanticSearch from "@/components/toolbar/SemanticSearch";
 
 function Toolbar({
@@ -18,13 +22,17 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML, setShowChatDrawer } = useDocumentContext();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode } = useDocumentContext();
   const { showWarning: _showWarning } = useNotification();
+  const { user } = useAuth();
+  const { isMobile } = useViewport();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
   );
   const [_importMarkdownFile, setImportMarkdownFile] = useState(null);
   const [showDocumentInfoModal, setShowDocumentInfoModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showMobileUserMenu, setShowMobileUserMenu] = useState(false);
 
   // Memoize setDocumentTitle to prevent infinite re-renders
   const setDocumentTitle = useCallback((title) => {
@@ -50,6 +58,21 @@ function Toolbar({
     if (!currentDocument || !currentDocument.id) return;
     setShowDocumentInfoModal(true);
   };
+
+  const handleMobileRename = useCallback(async (newTitle) => {
+    if (!currentDocument) return;
+    if (currentDocument.id) {
+      await renameDocument(currentDocument.id, newTitle, currentDocument.category);
+    } else {
+      await saveDocument({ ...currentDocument, name: newTitle, content });
+    }
+    setDocumentTitleState(newTitle);
+  }, [currentDocument, renameDocument, saveDocument, content]);
+
+  const handleMobileCategoryChange = useCallback(async (category) => {
+    if (!currentDocument || currentDocument.repository_type === 'github') return;
+    await saveDocument({ ...currentDocument, category });
+  }, [currentDocument, saveDocument]);
 
   return (
     <nav id="toolbar" className="navbar bg-body px-3">
@@ -91,26 +114,76 @@ function Toolbar({
             // Normal document controls
             <>
               <FileDropdown setDocumentTitle={setDocumentTitle} setContent={setContent} />
-              <div className="vr opacity-50"></div>
-              <div className="d-flex align-items-center">
-                <ActionButton
-                  variant="link"
-                  size="sm"
-                  className="p-0 me-2 text-muted"
-                  onClick={handleShowDocumentInfo}
-                  disabled={!currentDocument?.id}
-                  title={currentDocument?.id ? "View Document Information" : "No document loaded"}
-                  icon={`bi bi-${currentDocument?.repository_type === 'github' ? 'github' : 'file-earmark-text'}`}
-                />
-                <DocumentToolbar
-                  documentTitle={documentTitle}
-                  setDocumentTitle={setDocumentTitle}
-                />
-              </div>
+              {!isMobile && (
+                <>
+                  <div className="vr opacity-50"></div>
+                  <div className="d-flex align-items-center">
+                    <ActionButton
+                      variant="link"
+                      size="sm"
+                      className="p-0 me-2 text-muted"
+                      onClick={handleShowDocumentInfo}
+                      disabled={!currentDocument?.id}
+                      title={currentDocument?.id ? "View Document Information" : "No document loaded"}
+                      icon={`bi bi-${currentDocument?.repository_type === 'github' ? 'github' : 'file-earmark-text'}`}
+                    />
+                    <DocumentToolbar
+                      documentTitle={documentTitle}
+                      setDocumentTitle={setDocumentTitle}
+                    />
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
+
+        {/* Center: Edit/Preview toggle (mobile only) */}
+        {isMobile && !isSharedView && !fullscreenPreview && (
+          <div className="mobile-view-toggle-inline">
+            <button
+              type="button"
+              className={`toggle-seg${mobileViewMode === 'editor' ? ' active' : ''}`}
+              onClick={() => setMobileViewMode('editor')}
+            >
+              <i className="bi bi-pencil-square" />
+              Edit
+            </button>
+            <button
+              type="button"
+              className={`toggle-seg${mobileViewMode === 'preview' ? ' active' : ''}`}
+              onClick={() => setMobileViewMode('preview')}
+            >
+              <i className="bi bi-eye" />
+              Preview
+            </button>
+          </div>
+        )}
+
         {/* Right side: Utility Controls */}
+        {isMobile ? (
+          /* Mobile: profile icon + hamburger icon */
+          <div className="d-flex align-items-center gap-1">
+            <button
+              type="button"
+              className="mobile-hamburger-btn"
+              onClick={() => setShowMobileUserMenu(true)}
+              aria-label="User menu"
+            >
+              <i className={`bi ${user?.is_active ? 'bi-person-circle' : 'bi-person'}`} />
+            </button>
+            {!isSharedView && (
+              <button
+                type="button"
+                className="mobile-hamburger-btn"
+                onClick={() => setShowMobileMenu(true)}
+                aria-label="Open menu"
+              >
+                <i className="bi bi-three-dots-vertical" />
+              </button>
+            )}
+          </div>
+        ) : (
         <div className="d-flex align-items-center gap-2" id="utilityControls">
           {!isSharedView && (
             <SemanticSearch />
@@ -167,7 +240,37 @@ function Toolbar({
             isSharedView={isSharedView}
           />
         </div>
+        )}
       </div>
+
+      {/* Mobile user menu */}
+      {isMobile && (
+        <MobileUserMenu
+          show={showMobileUserMenu}
+          onHide={() => setShowMobileUserMenu(false)}
+        />
+      )}
+
+      {/* Mobile offcanvas menu */}
+      {isMobile && !isSharedView && (
+        <MobileToolbarMenu
+          show={showMobileMenu}
+          onHide={() => setShowMobileMenu(false)}
+          onSearch={() => {}}
+          onShare={null}
+          onIconBrowser={() => setShowIconBrowser(true)}
+          onChat={() => setShowChatDrawer(prev => !prev)}
+          onFullscreen={() => setFullscreenPreview(prev => !prev)}
+          onThemeToggle={handleThemeToggle}
+          onDocumentInfo={handleShowDocumentInfo}
+          onRenameDocument={handleMobileRename}
+          onChangeCategory={handleMobileCategoryChange}
+          fullscreenPreview={fullscreenPreview}
+          theme={theme}
+          currentDocument={currentDocument}
+          categories={categories}
+        />
+      )}
 
       {/* Document Info Modal */}
       <DocumentInfoModal

@@ -21,6 +21,7 @@ export function DocumentContextProvider({ children }) {
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [showIconBrowser, setShowIconBrowser] = useState(false);
   const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [mobileViewMode, setMobileViewMode] = useState('editor'); // 'editor' | 'preview'
 
   // Debug logging for UI state changes
   useEffect(() => {
@@ -119,13 +120,15 @@ export function DocumentContextProvider({ children }) {
       setShowIconBrowser,
       showChatDrawer,
       setShowChatDrawer,
+      mobileViewMode,
+      setMobileViewMode,
       // Auth context values
       token: auth.token,
       user: auth.user,
       isAuthenticated: auth.isAuthenticated,
       isInitializing: auth.isInitializing
     };
-  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, cursorLine, fullscreenPreview, showIconBrowser, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
+  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, mobileViewMode, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
 
   return (
     <DocumentContext.Provider value={value}>

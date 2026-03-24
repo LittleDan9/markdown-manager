@@ -1,12 +1,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import PropTypes from 'prop-types';
 import { useUserSettings } from '@/providers/UserSettingsProvider';
+import { useViewport } from '@/hooks';
 
 /**
  * InvisibleResizer - Adds invisible resize functionality to the existing layout
  * Creates a draggable area between editor and preview without visual changes
  */
 function InvisibleResizer({ fullscreenPreview = false }) {
+  const { isMobile } = useViewport();
   const { editorWidthPercentage, updateEditorWidth: updateEditorWidthSetting } = useUserSettings();
   const [localEditorWidth, setLocalEditorWidth] = useState(editorWidthPercentage);
   const isDragging = useRef(false);
@@ -34,14 +36,23 @@ function InvisibleResizer({ fullscreenPreview = false }) {
     if (editorContainer && previewContainer) {
       // Apply or remove custom widths based on fullscreen state and screen size
       const applyCustomWidths = () => {
-        console.log('InvisibleResizer: applyCustomWidths called');
-        console.log('InvisibleResizer: Applying styles, fullscreenPreview:', fullscreenPreview, 'windowWidth:', window.innerWidth);
-        console.log('InvisibleResizer: editorContainer exists:', !!editorContainer);
-        console.log('InvisibleResizer: previewContainer exists:', !!previewContainer);
+        // On mobile, always clear inline styles so responsive CSS takes over
+        if (isMobile) {
+          editorContainer.style.removeProperty('flex');
+          previewContainer.style.removeProperty('flex');
+          editorContainer.style.removeProperty('width');
+          previewContainer.style.removeProperty('width');
+          editorContainer.style.removeProperty('padding');
+          editorContainer.style.removeProperty('border');
+          editorContainer.style.removeProperty('overflow');
+          previewContainer.style.removeProperty('padding');
+          previewContainer.style.removeProperty('border-radius');
+          previewContainer.style.removeProperty('box-shadow');
+          return;
+        }
 
         if (fullscreenPreview) {
           // In fullscreen mode, remove all custom styles to let CSS take over
-          console.log('InvisibleResizer: Removing custom styles for fullscreen - CSS will handle it');
           editorContainer.style.removeProperty('flex');
           previewContainer.style.removeProperty('flex');
           editorContainer.style.removeProperty('width');
@@ -54,7 +65,6 @@ function InvisibleResizer({ fullscreenPreview = false }) {
           previewContainer.style.removeProperty('box-shadow');
         } else if (window.innerWidth > 768) {
           // Apply custom widths for normal split view on desktop
-          console.log('InvisibleResizer: Applying custom widths:', localEditorWidth + '%');
           editorContainer.style.setProperty('flex', `0 1 ${localEditorWidth}%`, 'important');
           previewContainer.style.setProperty('flex', `0 1 ${100 - localEditorWidth}%`, 'important');
           editorContainer.style.setProperty('width', `${localEditorWidth}%`, 'important');
@@ -67,8 +77,7 @@ function InvisibleResizer({ fullscreenPreview = false }) {
           previewContainer.style.removeProperty('border-radius');
           previewContainer.style.removeProperty('box-shadow');
         } else {
-          // Remove custom styles to let responsive CSS take over (mobile)
-          console.log('InvisibleResizer: Removing custom styles for mobile');
+          // Remove custom styles to let responsive CSS take over (mobile/tablet)
           editorContainer.style.removeProperty('flex');
           previewContainer.style.removeProperty('flex');
           editorContainer.style.removeProperty('width');
@@ -78,15 +87,6 @@ function InvisibleResizer({ fullscreenPreview = false }) {
           editorContainer.style.removeProperty('overflow');
           previewContainer.style.removeProperty('border-radius');
           previewContainer.style.removeProperty('box-shadow');
-
-          // Log current computed styles after removal
-          console.log('InvisibleResizer: After removal - editor computed style:', window.getComputedStyle(editorContainer).width);
-          console.log('InvisibleResizer: After removal - preview computed style:', window.getComputedStyle(previewContainer).width);
-
-          // Log main container class
-          if (mainContainer) {
-            console.log('InvisibleResizer: Main container classes:', mainContainer.className);
-          }
         }
       };
 
@@ -103,7 +103,7 @@ function InvisibleResizer({ fullscreenPreview = false }) {
         clearTimeout(delayedApply);
       };
     }
-  }, [localEditorWidth, fullscreenPreview]); // Added fullscreenPreview as dependency
+  }, [localEditorWidth, fullscreenPreview, isMobile]);
 
   // Update editor width percentage
   const updateEditorWidth = useCallback(async (widthPercentage) => {

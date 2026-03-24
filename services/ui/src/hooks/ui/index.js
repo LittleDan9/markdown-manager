@@ -8,3 +8,4 @@ export { default as useSharedViewEffects } from './useSharedViewEffects';
 export { default as useFileModal } from './useFileModal';
 export { useCodeCopy } from './useCodeCopy';
 export { default as useResponsiveMenu } from './useResponsiveMenu';
+export { useViewport } from './useViewport';
