@@ -12,11 +12,13 @@
   padding: 4px 4px 0;
   gap: 1px;
   flex-shrink: 0;
+  border: 1px solid $color-border;
   border-bottom: 1px solid $color-border;
+  border-radius: $radius-md $radius-md 0 0;
 
   [data-bs-theme="dark"] & {
     background: darken($color-bg-surface-dark, 4%);
-    border-bottom-color: $color-border-dark;
+    border-color: $color-border-dark;
   }
 
   // Category name label
@@ -313,6 +315,7 @@
     padding: 0 4px 4px;
     border-bottom: none;
     border-top: 1px solid $color-border;
+    border-radius: 0 0 $radius-md $radius-md;
 
     [data-bs-theme="dark"] & {
       border-top-color: $color-border-dark;
@@ -373,5 +376,23 @@
         }
       }
     }
+  }
+}
+
+// ─── Preview corner alignment when tabs are present ───
+// Flatten #preview corners adjacent to the tab bar so they form one visual unit
+#previewContainer {
+  // Tabs above: flatten preview's top corners, remove double border
+  &:has(.category-tab-bar:not(.category-tab-bar--below)) #preview {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-top: none !important;
+  }
+
+  // Tabs below: flatten preview's bottom corners, remove double border
+  &:has(.category-tab-bar--below) #preview {
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+    border-bottom: none !important;
   }
 }

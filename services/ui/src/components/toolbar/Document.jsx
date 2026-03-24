@@ -16,7 +16,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError } = useNotification();
   const documentService = serviceFactory.createDocumentService();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument } = useDocumentContext();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings } = useDocumentContext();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const categories = useMemo(() => {
@@ -111,6 +111,8 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
         }
         // Update the toolbar title display
         setDocumentTitle(newTitle);
+        // Refresh tab bar to reflect the new name
+        refreshSiblings();
       } catch (error) {
         console.error('Failed to update document title:', error);
         showError('Failed to update document title');

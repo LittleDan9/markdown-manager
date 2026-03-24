@@ -33,8 +33,8 @@ function RendererSection({
     loadDocument,
     createDocument,
     deleteDocument,
+    renameDocument,
     refreshSiblings,
-    isAuthenticated,
   } = useDocumentContext();
   const { tabPosition } = useAuth();
   const { show: showDeleteModal, modalConfig: deleteModalConfig, openModal, handleAction: handleDeleteAction } = useConfirmModal();
@@ -90,23 +90,13 @@ function RendererSection({
 
   const handleRename = useCallback(async (docId, newName) => {
     try {
-      if (isAuthenticated && !String(docId).startsWith('doc_')) {
-        const documentsApi = (await import('../../api/documentsApi')).default;
-        await documentsApi.updateDocument(docId, { name: newName });
-      } else {
-        // Guest: update localStorage
-        const { default: DocumentStorageService } = await import('../../services/core/DocumentStorageService');
-        const doc = DocumentStorageService.getDocument(docId);
-        if (doc) {
-          doc.name = newName;
-          DocumentStorageService.setDocument(doc);
-        }
-      }
+      const category = currentDocument?.category || 'General';
+      await renameDocument(docId, newName, category);
       refreshSiblings();
     } catch (error) {
       console.error('Failed to rename document:', error);
     }
-  }, [isAuthenticated, refreshSiblings]);
+  }, [currentDocument?.category, renameDocument, refreshSiblings]);
 
   const handleDeleteDocument = useCallback((docId, docName) => {
     if (!docId) return;
@@ -154,10 +144,10 @@ function RendererSection({
       category,
       category_id: categoryId,
     });
-    setTimeout(() => {
-      refreshSiblings();
-    }, 300);
-  }, [currentDocument?.category, currentDocument?.category_id, createDocument, refreshSiblings]);
+    // No manual refreshSiblings needed — the auto-refresh effect in useSiblingDocs
+    // triggers when currentDocument changes. A stale setTimeout here would use the
+    // old currentDocument's API path, overwriting the correct localStorage results.
+  }, [currentDocument?.category, currentDocument?.category_id, createDocument]);
 
   const showTabs = !isSharedView && tabsEnabled && siblingDocs.length > 0;
   const tabBar = showTabs ? (

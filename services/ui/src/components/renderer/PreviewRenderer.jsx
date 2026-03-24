@@ -5,6 +5,7 @@
  * while maintaining proper scroll synchronization and cursor following.
  */
 import React, { useEffect, useRef, useCallback } from 'react';
+import morphdom from 'morphdom';
 import { applyCachedImages } from '../../services/rendering/MarkdownRenderer';
 
 const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
@@ -92,7 +93,7 @@ const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
     }, 50); // Reduced from 300ms to 50ms for more responsive cursor following
   }, []);
 
-  // Handle HTML content updates with intelligent scroll preservation
+  // Handle HTML content updates using DOM morphing (no full DOM teardown)
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -103,71 +104,46 @@ const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
     if (htmlContent === lastHtmlRef.current) return;
 
     const container = containerRef.current;
+    const isFirstRender = lastHtmlRef.current === '';
 
-    // For content changes during typing, use anchor-based scroll preservation
-    const shouldPreserveScroll = lastHtmlRef.current !== '' && htmlContent.length > 0;
-
-    let anchorElement = null;
-    let anchorOffset = 0;
-
-    if (shouldPreserveScroll) {
-      // Find an element that's currently visible to use as an anchor
-      const viewportTop = container.scrollTop;
-      const viewportBottom = viewportTop + container.clientHeight;
-
-      // Find the first element with data-line that's in the viewport
-      const elementsWithLines = container.querySelectorAll('[data-line]');
-      for (const element of elementsWithLines) {
-        const rect = element.getBoundingClientRect();
-        const containerRect = container.getBoundingClientRect();
-        const elementTop = rect.top - containerRect.top + container.scrollTop;
-
-        if (elementTop >= viewportTop && elementTop <= viewportBottom) {
-          anchorElement = element;
-          anchorOffset = elementTop - viewportTop; // How far from top of viewport
-          break;
-        }
-      }
-    }
-
-    // Update content using innerHTML (this will clear the container if htmlContent is empty)
-    container.innerHTML = htmlContent;
     lastHtmlRef.current = htmlContent;
 
-    console.log('PreviewRenderer: Updated HTML content', {
-      contentLength: htmlContent.length,
-      wasEmpty: htmlContent === '',
-      previousLength: lastHtmlRef.current?.length || 0
-    });
+    if (isFirstRender || htmlContent === '') {
+      // First render or clearing: use innerHTML for clean setup
+      container.innerHTML = htmlContent;
+    } else {
+      // Subsequent updates: morph the DOM in place, preserving unchanged nodes
+      // Wrap in a temporary container so morphdom can diff children
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = htmlContent;
 
-    // Apply cached images after HTML is inserted
+      morphdom(container, wrapper, {
+        childrenOnly: true,
+        // Preserve loaded images by skipping updates to img elements whose
+        // src hasn't changed at the attribute level
+        onBeforeElUpdated(fromEl, toEl) {
+          if (fromEl.tagName === 'IMG' && toEl.tagName === 'IMG') {
+            // If the image is fully loaded and the logical source matches,
+            // keep the existing DOM node entirely to avoid re-fetch/re-paint
+            const fromKey = fromEl.getAttribute('data-original-src')
+              || fromEl.getAttribute('data-auth-url')
+              || fromEl.getAttribute('src');
+            const toKey = toEl.getAttribute('data-original-src')
+              || toEl.getAttribute('data-auth-url')
+              || toEl.getAttribute('src');
+            if (fromKey === toKey && fromEl.complete && fromEl.naturalWidth > 0) {
+              return false; // skip update — keep existing loaded image node
+            }
+          }
+          return true; // proceed with update for all other elements
+        },
+      });
+    }
+
+    // Apply cached images for any newly inserted image elements
     applyCachedImages(container).catch(error => {
       console.warn('Failed to apply cached images:', error);
     });
-
-    // Restore scroll using anchor element if we found one
-    if (shouldPreserveScroll && anchorElement) {
-      const dataLine = anchorElement.getAttribute('data-line');
-      if (dataLine) {
-        // Find the same element in the new DOM
-        const newAnchorElement = container.querySelector(`[data-line='${dataLine}']`);
-        if (newAnchorElement) {
-          const newRect = newAnchorElement.getBoundingClientRect();
-          const containerRect = container.getBoundingClientRect();
-          const newElementTop = newRect.top - containerRect.top + container.scrollTop;
-
-          // Scroll to maintain the same relative position
-          const newScrollTop = newElementTop - anchorOffset;
-          container.scrollTop = Math.max(0, newScrollTop);
-
-          console.log(`📍 Anchor-based scroll: line ${dataLine}, offset ${anchorOffset}px`);
-        } else {
-          console.log(`📄 Content updated, anchor element lost`);
-        }
-      }
-    } else if (!shouldPreserveScroll) {
-      console.log(`📄 Content updated, natural scroll behavior`);
-    }
 
   }, [htmlContent]);
 
