@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useCallback, useState } from "react";
 import Header from "@/components/Header";
 import Toolbar from "@/components/toolbar/Toolbar";
-import LogLevelController from "@/components/LogLevelController";
+
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
 import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useSharedViewEffects, useGitHubOAuth } from "@/hooks";
@@ -162,6 +162,7 @@ function App() {
           }
           rendererSection={rendererComponent}
           fullscreenPreview={fullscreenPreview}
+          isSharedView={isSharedView}
         />
       )}
 
@@ -175,8 +176,6 @@ function App() {
         show={showChatDrawer}
         onHide={() => setShowChatDrawer(false)}
       />
-
-      <LogLevelController />
 
       <PromoteDraftModal
         show={showPromoteDraft}

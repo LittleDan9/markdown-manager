@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Dropdown, ButtonGroup, Badge, Spinner } from "react-bootstrap";
+import { Dropdown, ButtonGroup, Badge, Spinner, Offcanvas } from "react-bootstrap";
 import FileOpenModal from "@/components/file/FileOpenModal";
 import FileImportModal from "@/components/file/FileImportModal";
 import FileSaveAsModal from "@/components/file/FileSaveAsModal";
@@ -16,6 +16,7 @@ import { useNotification } from "@/components/NotificationProvider";
 import { useFileOperations, useGitStatus } from "@/hooks/document";
 import { useTheme } from "@/providers/ThemeProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
+import { useViewport } from "@/hooks";
 import { markDraftAcknowledged, isDraftAcknowledged } from "@/hooks/document/useSaveDocument";
 import gitHubApi from "@/api/gitHubApi";
 import documentsApi from "@/api/documentsApi";
@@ -23,6 +24,7 @@ import documentsApi from "@/api/documentsApi";
 function FileDropdown({ setDocumentTitle, setContent }) {
   const { isAuthenticated } = useAuth();
   const { theme } = useTheme();
+  const { isMobile } = useViewport();
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const {
     createDocument, saveDocument, currentDocument,
@@ -48,6 +50,9 @@ function FileDropdown({ setDocumentTitle, setContent }) {
 
   // GitHub save modal state
   const [showGitHubSaveModal, setShowGitHubSaveModal] = React.useState(false);
+
+  // Mobile file menu offcanvas state
+  const [showMobileFileMenu, setShowMobileFileMenu] = useState(false);
 
   // Git history modal state
   const [showGitHistoryModal, setShowGitHistoryModal] = useState(false);
@@ -292,8 +297,138 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     }
   };
 
+  // Helper to run an action and close mobile menu
+  const mobileAction = (action) => {
+    setShowMobileFileMenu(false);
+    action();
+  };
+
+  // Shared menu items renderer for mobile offcanvas
+  const renderMobileFileMenu = () => (
+    <Offcanvas
+      show={showMobileFileMenu}
+      onHide={() => setShowMobileFileMenu(false)}
+      placement="start"
+      className="mobile-file-menu"
+    >
+      <Offcanvas.Header closeButton>
+        <Offcanvas.Title>
+          <i className="bi bi-folder2 me-2" />File
+        </Offcanvas.Title>
+      </Offcanvas.Header>
+      <Offcanvas.Body>
+        <nav className="mobile-menu-nav">
+          {/* Core Operations */}
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleNew)}>
+            <i className="bi bi-file-plus" /><span>New Document</span>
+          </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(() => openFileModal('local'))}>
+            <i className="bi bi-folder2-open" /><span>Open Document</span>
+          </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleClose)} disabled={isDefaultDoc && !hasUnsavedChanges}>
+            <i className="bi bi-x-circle" /><span>Close Document</span>
+          </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleSave)} disabled={gitLoading}>
+            <i className="bi bi-save" />
+            <span className="d-flex align-items-center gap-2">
+              Save
+              {gitLoading && <Spinner size="sm" />}
+              {gitStatus && (gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
+                <Badge bg="warning" text="dark" style={{ fontSize: '0.7em' }}>Changes</Badge>
+              )}
+            </span>
+          </button>
+          <button type="button" className="mobile-menu-item text-danger" onClick={() => mobileAction(handleDelete)} disabled={isDefaultDoc}>
+            <i className="bi bi-trash" /><span>Delete Document</span>
+          </button>
+
+          {gitStatus && (gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
+            <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleSaveAndCommit)} disabled={gitLoading || isDefaultDoc}>
+              <i className="bi bi-check-square" /><span>Save & Commit</span>
+            </button>
+          )}
+
+          <hr className="mobile-menu-divider" />
+
+          {/* Version Control */}
+          {gitStatus && (
+            <>
+              <div className="mobile-menu-section-header">
+                <i className="bi bi-git me-2" />Version Control
+                <small className="text-muted ms-2">({gitStatus.repository_type} • {gitStatus.current_branch})</small>
+              </div>
+
+              <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleCommit)}
+                disabled={gitLoading || (!gitStatus?.has_uncommitted_changes && !gitStatus?.has_staged_changes && !gitStatus?.has_untracked_files)}>
+                <i className="bi bi-check-square" /><span>Commit Changes</span>
+              </button>
+              <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleCreateBranch)} disabled={gitLoading}>
+                <i className="bi bi-diagram-3" /><span>Create Branch</span>
+              </button>
+              <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleViewGitFiles)} disabled={gitLoading}>
+                <i className="bi bi-folder" /><span>Browse Repository</span>
+              </button>
+              <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleViewGitHistory)} disabled={gitLoading}>
+                <i className="bi bi-clock-history" /><span>View History</span>
+              </button>
+
+              <hr className="mobile-menu-divider" />
+            </>
+          )}
+
+          {/* GitHub */}
+          {isAuthenticated && (
+            <>
+              <div className="mobile-menu-section-header">
+                <i className="bi bi-github me-2" />GitHub
+              </div>
+              <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleSaveToGitHub)} disabled={isDefaultDoc}>
+                <i className="bi bi-cloud-arrow-up" /><span>Save to GitHub</span>
+              </button>
+              {gitStatus?.repository_type === 'github' && (
+                <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleGitSync)} disabled={gitLoading}>
+                  <i className="bi bi-cloud-arrow-up-down" /><span>Sync with GitHub</span>
+                </button>
+              )}
+              <hr className="mobile-menu-divider" />
+            </>
+          )}
+
+          {/* Import/Export */}
+          <div className="mobile-menu-section-header">Import/Export</div>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(fileOps.handleImport)}>
+            <i className="bi bi-file-earmark-arrow-up" /><span>Import Markdown</span>
+          </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(fileOps.handleExportMarkdown)}>
+            <i className="bi bi-filetype-md" /><span>Export Markdown</span>
+          </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(fileOps.handleExportPDF)}
+            disabled={!currentDocument || !content || content.trim() === ""}>
+            <i className="bi bi-filetype-pdf" /><span>Export PDF</span>
+          </button>
+        </nav>
+      </Offcanvas.Body>
+    </Offcanvas>
+  );
+
   return (
     <>
+      {isMobile ? (
+        /* Mobile: icon button that opens offcanvas */
+        <button
+          type="button"
+          className="mobile-file-menu-btn position-relative"
+          onClick={() => setShowMobileFileMenu(true)}
+          aria-label="File menu"
+        >
+          <i className="bi bi-folder2" />
+          {gitStatus && (gitStatus.has_uncommitted_changes || gitStatus.has_staged_changes || gitStatus.has_untracked_files) && (
+            <span className="mobile-file-menu-badge">
+              <i className="bi bi-exclamation-circle"></i>
+            </span>
+          )}
+        </button>
+      ) : (
       <Dropdown as={ButtonGroup}>
         <Dropdown.Toggle id="fileMenuDropdown" size="sm" variant="secondary" className="dropdownToggle position-relative">
           <i className="bi bi-folder me-1"></i>File
@@ -485,6 +620,10 @@ function FileDropdown({ setDocumentTitle, setContent }) {
           )}
         </Dropdown.Menu>
       </Dropdown>
+      )}
+
+      {/* Mobile file menu offcanvas */}
+      {isMobile && renderMobileFileMenu()}
 
       <input
         type="file"

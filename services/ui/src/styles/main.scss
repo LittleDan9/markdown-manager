@@ -25,5 +25,5 @@
 @use "components/index" as components;
 @use "chat/index" as chat;
 
-// // 4. Responsive design (should come last to override other styles)
-// @use "responsive";
+// 4. Responsive design (should come last to override other styles)
+@use "responsive";

@@ -5,7 +5,7 @@
  * Handles feature registration, initialization, and coordinates between features.
  */
 import React, { useEffect, useRef, useCallback } from 'react';
-import { Modal, Button } from 'react-bootstrap';
+import { Modal } from 'react-bootstrap';
 import { useImageMetadata } from '../../services/image/ImageMetadataService';
 import { useRendererContext } from '../renderer/RendererContext';
 import { applyCropStyles, getDefaultCropData } from '../renderer/utils/cropUtils';
@@ -216,8 +216,8 @@ const FeatureManager = () => {
     <>
       {/* Image fullscreen modal */}
       <Modal show={showImageModal} onHide={() => setShowImageModal(false)} fullscreen className="image-fullscreen-modal">
-        <Modal.Header closeButton>
-          <Modal.Title>
+        <Modal.Header closeButton className="py-2">
+          <Modal.Title className="text-truncate fs-6">
             {selectedImage?.title || selectedImage?.filename || 'Image'}
           </Modal.Title>
         </Modal.Header>
@@ -230,24 +230,26 @@ const FeatureManager = () => {
             />
           )}
         </Modal.Body>
-        <Modal.Footer>
-          <Button variant="secondary" onClick={() => setShowImageModal(false)}>
-            Close
-          </Button>
-          {selectedImage && (
-            <Button
-              variant="primary"
-              onClick={() => {
-                const link = document.createElement('a');
-                link.href = selectedImage.src;
-                link.download = selectedImage.filename || selectedImage.alt || 'image';
-                link.click();
-              }}
-            >
-              <i className="bi bi-download me-2"></i>
-              Download
-            </Button>
-          )}
+        <Modal.Footer className="modal-toolbar">
+          <div className="toolbar-actions ms-auto">
+            <button className="toolbar-btn toolbar-btn--dismiss" onClick={() => setShowImageModal(false)}>
+              <i className="bi bi-x-lg"></i>
+            </button>
+            {selectedImage && (
+              <button
+                className="toolbar-btn toolbar-btn--primary"
+                onClick={() => {
+                  const link = document.createElement('a');
+                  link.href = selectedImage.src;
+                  link.download = selectedImage.filename || selectedImage.alt || 'image';
+                  link.click();
+                }}
+              >
+                <i className="bi bi-download"></i>
+                Download
+              </button>
+            )}
+          </div>
         </Modal.Footer>
       </Modal>
     </>

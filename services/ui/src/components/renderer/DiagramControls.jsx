@@ -370,6 +370,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
           {/* Fullscreen Button */}
           <Button
             variant="outline-secondary"
+            size="sm"
             onClick={handleFullscreen}
             title="View fullscreen"
           >
@@ -384,7 +385,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
               disabled={isExporting}
               title="Export diagram"
               id={`export-dropdown-${diagramId}`}
-              className="border-start-0"
+              className="border-start-0 dropdown-toggle-no-caret"
             >
               {isExporting ? (
                 <>

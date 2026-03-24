@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Modal, Button, ButtonGroup, Badge } from 'react-bootstrap';
+import { Modal, Badge } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
 import { serviceFactory } from '../../services/injectors';
 
@@ -173,33 +173,33 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
         {renderDiagramContent()}
       </Modal.Body>
 
-      <Modal.Footer className="d-flex justify-content-between">
+      <Modal.Footer className="modal-toolbar">
         {/* Diagram Metadata */}
-        <div className="diagram-metadata">
+        <div className="toolbar-meta">
           {diagramMetadata && (
-            <div className="d-flex gap-2 align-items-center">
-              <Badge bg="secondary">
+            <div className="d-flex flex-wrap gap-1 align-items-center">
+              <Badge bg="secondary" className="text-truncate">
                 {diagramMetadata.type}
               </Badge>
 
               {diagramMetadata.hasArchitectureBeta && (
                 <Badge bg="warning">
                   <i className="bi bi-diagram-2 me-1"></i>
-                  Architecture
+                  Arch
                 </Badge>
               )}
 
               {diagramMetadata.hasCustomIcons && (
                 <Badge bg="info">
                   <i className="bi bi-image me-1"></i>
-                  Custom Icons
+                  Icons
                 </Badge>
               )}
 
               {diagramMetadata.hasAdvancedFeatures && (
                 <Badge bg="warning">
                   <i className="bi bi-github me-1"></i>
-                  Needs Conversion
+                  Convert
                 </Badge>
               )}
             </div>
@@ -207,84 +207,49 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
         </div>
 
         {/* Export Controls */}
-        <ButtonGroup>
-          <Button
-            variant="outline-primary"
+        <div className="toolbar-actions">
+          <button
+            className="toolbar-btn"
             onClick={() => handleExport('svg')}
             disabled={isExporting}
           >
             {isExporting && exportFormat === 'svg' ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-1" />
-                Exporting SVG...
-              </>
+              <span className="spinner-border spinner-border-sm" />
             ) : (
-              <>
-                <i className="bi bi-file-earmark-image me-1"></i>
-                Export SVG
-              </>
+              <><i className="bi bi-file-earmark-image"></i>SVG</>
             )}
-          </Button>
+          </button>
 
-          <Button
-            variant="outline-secondary"
+          <button
+            className="toolbar-btn"
             onClick={() => handleExport('png')}
             disabled={isExporting}
           >
             {isExporting && exportFormat === 'png' ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-1" />
-                Exporting PNG...
-              </>
+              <span className="spinner-border spinner-border-sm" />
             ) : (
-              <>
-                <i className="bi bi-file-earmark-image-fill me-1"></i>
-                Export PNG
-              </>
+              <><i className="bi bi-file-earmark-image-fill"></i>PNG</>
             )}
-          </Button>
+          </button>
 
-          <Button
-            variant="outline-info"
+          <button
+            className="toolbar-btn"
             onClick={() => handleExport('drawio-xml')}
             disabled={isExporting}
           >
             {isExporting && exportFormat === 'drawio-xml' ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-1" />
-                Exporting Draw.io XML...
-              </>
+              <span className="spinner-border spinner-border-sm" />
             ) : (
-              <>
-                <i className="bi bi-diagram-3 me-1"></i>
-                Export Draw.io XML
-              </>
+              <><i className="bi bi-diagram-3"></i>Draw.io</>
             )}
-          </Button>
+          </button>
 
-          <Button
-            variant="outline-success"
-            onClick={() => handleExport('drawio-png')}
-            disabled={isExporting}
-          >
-            {isExporting && exportFormat === 'drawio-png' ? (
-              <>
-                <span className="spinner-border spinner-border-sm me-1" />
-                Exporting Draw.io PNG...
-              </>
-            ) : (
-              <>
-                <i className="bi bi-diagram-3-fill me-1"></i>
-                Export Draw.io PNG
-              </>
-            )}
-          </Button>
+          <span className="toolbar-divider"></span>
 
-          <Button variant="secondary" onClick={onHide}>
-            <i className="bi bi-x-lg me-1"></i>
-            Close
-          </Button>
-        </ButtonGroup>
+          <button className="toolbar-btn toolbar-btn--dismiss" onClick={onHide}>
+            <i className="bi bi-x-lg"></i>
+          </button>
+        </div>
       </Modal.Footer>
     </Modal>
   );
