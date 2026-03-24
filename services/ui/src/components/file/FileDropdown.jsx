@@ -28,7 +28,8 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   const { show, modalConfig, openModal, handleAction } = useConfirmModal();
   const {
     createDocument, saveDocument, currentDocument,
-    loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML
+    loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML,
+    categories, openCategory
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
@@ -59,6 +60,9 @@ function FileDropdown({ setDocumentTitle, setContent }) {
 
   // Draft promotion modal state (for File > Save on Drafts docs)
   const [showPromoteDraft, setShowPromoteDraft] = useState(false);
+
+  // Open Category submenu state
+  const [showCategorySubmenu, setShowCategorySubmenu] = useState(false);
 
   // Local loading state for git operations
   const [gitLoading, setGitLoading] = useState(false);
@@ -325,6 +329,26 @@ function FileDropdown({ setDocumentTitle, setContent }) {
           <button type="button" className="mobile-menu-item" onClick={() => mobileAction(() => openFileModal('local'))}>
             <i className="bi bi-folder2-open" /><span>Open Document</span>
           </button>
+
+          {/* Open Category - Mobile */}
+          {categories && categories.length > 0 && (
+            <>
+              <div className="mobile-menu-section-header">
+                <i className="bi bi-folder2-open me-2" />Open Category
+              </div>
+              {categories.map((cat) => (
+                <button
+                  key={cat}
+                  type="button"
+                  className="mobile-menu-item"
+                  onClick={() => mobileAction(() => openCategory(cat))}
+                >
+                  <i className={`bi ${cat === currentDocument?.category ? 'bi-folder-fill' : 'bi-folder'}`} />
+                  <span>{cat}</span>
+                </button>
+              ))}
+            </>
+          )}
           <button type="button" className="mobile-menu-item" onClick={() => mobileAction(handleClose)} disabled={isDefaultDoc && !hasUnsavedChanges}>
             <i className="bi bi-x-circle" /><span>Close Document</span>
           </button>
@@ -441,6 +465,61 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         <Dropdown.Menu>
           <RecentFilesDropdown onFileSelect={handleRecentFileSelect} onClose={closeDropdown} />
           <UnsavedDocumentsDropdown onFileSelect={handleRecentFileSelect} onClose={closeDropdown} />
+
+          {/* Open Category submenu */}
+          {categories && categories.length > 0 && (
+            <div
+              className="dropdown-submenu"
+              onMouseEnter={() => setShowCategorySubmenu(true)}
+              onMouseLeave={() => setShowCategorySubmenu(false)}
+            >
+              <Dropdown.Item
+                as="div"
+                className="d-flex justify-content-between align-items-center"
+                style={{ cursor: 'pointer' }}
+              >
+                <span>
+                  <i className="bi bi-folder2-open me-2"></i>
+                  Open Category
+                </span>
+                <i className="bi bi-chevron-right"></i>
+              </Dropdown.Item>
+
+              {showCategorySubmenu && (
+                <div
+                  className="dropdown-submenu-menu show"
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: '100%',
+                    zIndex: 1001,
+                    minWidth: '200px',
+                    marginTop: '-0.5rem',
+                    marginLeft: '0.125rem',
+                    backgroundColor: 'var(--bs-body-bg)',
+                    border: '1px solid var(--bs-border-color)',
+                    borderRadius: '0.375rem',
+                    boxShadow: '0 0.5rem 1rem rgba(0, 0, 0, 0.175)',
+                    padding: '0.5rem 0'
+                  }}
+                >
+                  {categories.map((cat) => (
+                    <Dropdown.Item
+                      key={cat}
+                      onClick={() => {
+                        openCategory(cat);
+                        setShowCategorySubmenu(false);
+                        closeDropdown();
+                      }}
+                    >
+                      <i className={`bi ${cat === currentDocument?.category ? 'bi-folder-fill' : 'bi-folder'} me-2`}></i>
+                      {cat}
+                    </Dropdown.Item>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Core Operations - Always visible */}
           <Dropdown.Item onClick={handleNew}>

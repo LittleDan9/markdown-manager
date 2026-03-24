@@ -16,7 +16,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError } = useNotification();
   const documentService = serviceFactory.createDocumentService();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings } = useDocumentContext();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory } = useDocumentContext();
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const categories = useMemo(() => {
@@ -283,21 +283,36 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
                     ${category === currentCategory ? "text-bg-secondary" : ""}`}
               >
                 <span className="text-truncate">{category}</span>
-                {category !== "General" && category !== "Drafts" && (
+                <span className="d-flex align-items-center gap-1 ms-2">
                   <button
                     type="button"
-                    className="btn btn-link btn-sm p-0 ms-2 text-danger"
-                    title={`Delete ${category}`}
+                    className="btn btn-link btn-sm p-0 text-muted"
+                    title={`Open ${category}`}
                     tabIndex={-1}
                     onClick={(e) => {
                       e.stopPropagation();
-                      handleDeleteCategory(category);
+                      openCategory(category);
                     }}
-                    aria-label={`Delete ${category}`}
+                    aria-label={`Open ${category}`}
                   >
-                    <i className="bi bi-trash fw-bold"></i>
+                    <i className="bi bi-folder2-open"></i>
                   </button>
-                )}
+                  {category !== "General" && category !== "Drafts" && (
+                    <button
+                      type="button"
+                      className="btn btn-link btn-sm p-0 text-danger"
+                      title={`Delete ${category}`}
+                      tabIndex={-1}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteCategory(category);
+                      }}
+                      aria-label={`Delete ${category}`}
+                    >
+                      <i className="bi bi-trash fw-bold"></i>
+                    </button>
+                  )}
+                </span>
               </Dropdown.Item>
             ))}
             <Dropdown.Divider />
