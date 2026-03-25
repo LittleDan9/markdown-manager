@@ -22,7 +22,7 @@ class SearchApi extends Api {
    * @param {boolean} deepThink - Send full document context instead of summary (single-doc only)
    * @returns {Promise<void>}
    */
-  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = []) {
+  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = [], categoryId = null) {
     const token = this.getToken();
     const response = await fetch("/api/chat/ask", {
       method: "POST",
@@ -33,6 +33,7 @@ class SearchApi extends Api {
       body: JSON.stringify({
         question,
         document_id: documentId ?? null,
+        category_id: categoryId ?? null,
         deep_think: deepThink ?? false,
         history: history.map(({ role, content }) => ({ role, content })),
       }),

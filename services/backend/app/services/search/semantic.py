@@ -156,11 +156,13 @@ class SemanticSearchService:
         query: str,
         limit: int = 10,
         min_score: float = 0.0,
+        category_id: int | None = None,
     ) -> list[SearchResult]:
         """
         Embed *query* and return the most semantically similar documents.
         Results are filtered to the requesting user's documents only.
         Pass min_score > 0 to exclude low-relevance documents.
+        If *category_id* is provided, results are limited to that category.
         """
         try:
             query_vector = await self._client.embed_query(query)
@@ -181,6 +183,8 @@ class SemanticSearchService:
             .order_by(text("score DESC"))
             .limit(limit)
         )
+        if category_id is not None:
+            stmt = stmt.where(Document.category_id == category_id)
 
         result = await db.execute(stmt)
         rows = result.all()

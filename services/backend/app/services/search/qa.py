@@ -24,7 +24,8 @@ _DEEP_THINK_MAX_CHARS = 8000
 # TTL-based in-memory catalogue cache keyed by user_id.
 # Avoids re-querying the DB on every chat message when docs rarely change.
 _CATALOGUE_TTL = 60  # seconds
-_catalogue_cache: dict[int, tuple[float, str]] = {}  # user_id -> (expires_at, text)
+# Cache key is (user_id, category_id) — category_id=None for unfiltered queries.
+_catalogue_cache: dict[tuple[int, int | None], tuple[float, str]] = {}
 
 
 def _get_filesystem() -> Filesystem:
@@ -66,6 +67,7 @@ class QAService:
         user_id: int,
         question: str,
         document_id: int | None = None,
+        category_id: int | None = None,
         deep_think: bool = False,
         history: list | None = None,
     ) -> AsyncIterator[str | dict]:
@@ -77,6 +79,7 @@ class QAService:
         instead of the pre-computed summary.
         If *document_id* is None, All Docs mode is used: a document catalogue is always
         included, plus semantic search excerpts for the top matching docs.
+        If *category_id* is provided (All Docs mode only), results are limited to that category.
         *history* contains prior conversation turns for multi-turn context.
 
         The final yielded value is a dict with timing metrics (not a token string).
@@ -85,7 +88,8 @@ class QAService:
 
         all_docs_mode = document_id is None
         context_chunks, catalogue = await self._build_context(
-            db, user_id, question, document_id, deep_think=deep_think
+            db, user_id, question, document_id, deep_think=deep_think,
+            category_id=category_id,
         )
         t_context = time.monotonic()
 
@@ -147,11 +151,13 @@ class QAService:
         question: str,
         document_id: int | None,
         deep_think: bool = False,
+        category_id: int | None = None,
     ) -> tuple[list[dict], str]:
         """Return (context_chunks, catalogue_text).
 
         - catalogue_text: always populated for All Docs mode; empty for single-doc mode.
         - context_chunks: detailed content dicts [{name, content}] for the semantic matches.
+        - category_id: optional filter for All Docs mode to limit to a single category.
         """
         if document_id is not None:
             chunks = await self._context_for_document(
@@ -162,11 +168,11 @@ class QAService:
         # ------------------------------------------------------------------
         # All Docs mode
         # ------------------------------------------------------------------
-        # 1. Build a compact catalogue of every document in the library
-        catalogue = await self._build_catalogue(db, user_id)
+        # 1. Build a compact catalogue of documents (optionally filtered by category)
+        catalogue = await self._build_catalogue(db, user_id, category_id=category_id)
 
         # 2. Semantic search — top-3 regardless of score (model can judge relevance)
-        results = await self._search.search(db, user_id, question, limit=3)
+        results = await self._search.search(db, user_id, question, limit=3, category_id=category_id)
         chunks = []
         _EXCERPT_MAX_CHARS = 300  # Keep excerpts short to bound prompt size
         for result in results:
@@ -182,27 +188,35 @@ class QAService:
                     chunks.append({"name": doc.name, "content": content[:_EXCERPT_MAX_CHARS]})
         return chunks, catalogue
 
-    async def _build_catalogue(self, db: AsyncSession, user_id: int) -> str:
+    async def _build_catalogue(
+        self, db: AsyncSession, user_id: int, category_id: int | None = None,
+    ) -> str:
         """Build a compact listing of user documents for the LLM catalogue section.
 
         Cached in-memory with a short TTL so consecutive queries skip the DB
         round-trip AND produce an identical prompt prefix, enabling Ollama's
         automatic KV cache reuse (the 2nd+ query skips prefill for the
         matching prefix).
+
+        If *category_id* is provided, only documents in that category are listed.
         """
         now = time.monotonic()
-        cached = _catalogue_cache.get(user_id)
+        cache_key = (user_id, category_id)
+        cached = _catalogue_cache.get(cache_key)
         if cached and cached[0] > now:
             return cached[1]
 
         # Cap at 10 most-recently-opened docs to keep prompt small.
         _CATALOGUE_LIMIT = 10
-        rows = await db.execute(
+        stmt = (
             select(Document)
             .where(Document.user_id == user_id)
             .order_by(Document.last_opened_at.desc().nullslast(), Document.created_at.desc())
             .limit(_CATALOGUE_LIMIT + 1)
         )
+        if category_id is not None:
+            stmt = stmt.where(Document.category_id == category_id)
+        rows = await db.execute(stmt)
         docs = rows.all()
         truncated = len(docs) > _CATALOGUE_LIMIT
         if truncated:
@@ -214,18 +228,20 @@ class QAService:
         # Count total docs for context
         from sqlalchemy import func as _func
 
-        total_count_result = await db.execute(
-            select(_func.count()).select_from(Document).where(Document.user_id == user_id)
-        )
+        count_stmt = select(_func.count()).select_from(Document).where(Document.user_id == user_id)
+        if category_id is not None:
+            count_stmt = count_stmt.where(Document.category_id == category_id)
+        total_count_result = await db.execute(count_stmt)
         total_count = total_count_result.scalar() or 0
 
-        lines = [f"Library: {total_count} documents (showing {len(docs)} most recent):"]
+        label = "Category" if category_id is not None else "Library"
+        lines = [f"{label}: {total_count} documents (showing {len(docs)} most recent):"]
         for row in docs:
             doc = row[0]
             folder = (doc.folder_path or "/").lstrip("/") or "root"
             lines.append(f"  - {folder}/{doc.name}")
         text = "\n".join(lines)
-        _catalogue_cache[user_id] = (now + _CATALOGUE_TTL, text)
+        _catalogue_cache[cache_key] = (now + _CATALOGUE_TTL, text)
         return text
 
     async def _context_for_document(
