@@ -18,10 +18,13 @@ from fastapi.responses import StreamingResponse
 from typing import List, Dict, Any
 import io
 import logging
+import tempfile
+from pathlib import Path
 
 from app.core.auth import get_current_user, get_current_user_optional
 from app.models.user import User
 from app.services.storage.image_storage_service import ImageStorageService
+from app.services.virus_scan_service import virus_scan_service
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +72,25 @@ async def upload_image(
             raise HTTPException(
                 status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                 detail="Image file too large. Maximum size is 10MB."
+            )
+
+        # Virus scan (fail-closed: reject if ClamAV unavailable)
+        try:
+            with tempfile.NamedTemporaryFile(delete=True, suffix=Path(file.filename).suffix) as tmp:
+                tmp.write(content)
+                tmp.flush()
+                scan_result = virus_scan_service.scan_file(Path(tmp.name))
+            if scan_result.status == "infected":
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Virus detected: {scan_result.detail}",
+                )
+            if scan_result.status == "error":
+                logger.warning("Virus scan error for image %s: %s", file.filename, scan_result.detail)
+        except ConnectionError:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Virus scanning service is unavailable. Upload rejected.",
             )
 
         # Store the image
@@ -157,6 +179,29 @@ async def upload_multiple_images(
                         "filename": file.filename,
                         "success": False,
                         "error": "Total batch size too large (max 50MB)"
+                    })
+                    continue
+
+                # Virus scan
+                try:
+                    with tempfile.NamedTemporaryFile(delete=True, suffix=Path(file.filename).suffix) as tmp:
+                        tmp.write(content)
+                        tmp.flush()
+                        scan_result = virus_scan_service.scan_file(Path(tmp.name))
+                    if scan_result.status == "infected":
+                        results.append({
+                            "filename": file.filename,
+                            "success": False,
+                            "error": f"Virus detected: {scan_result.detail}"
+                        })
+                        continue
+                    if scan_result.status == "error":
+                        logger.warning("Virus scan error for image %s: %s", file.filename, scan_result.detail)
+                except ConnectionError:
+                    results.append({
+                        "filename": file.filename,
+                        "success": False,
+                        "error": "Virus scanning service unavailable"
                     })
                     continue
 
