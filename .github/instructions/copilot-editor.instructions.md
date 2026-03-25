@@ -23,12 +23,48 @@ The Editor is the primary content creation interface built on Monaco Editor with
 ```
 
 ### Hook-Based Integration (`useEditor`)
-The editor uses a consolidated `useEditor` hook that orchestrates:
-- Monaco editor lifecycle
-- Spell check integration
-- Keyboard shortcuts
-- List behavior (auto-indentation)
-- Content change handling
+The editor uses a consolidated `useEditor` hook that orchestrates sub-hooks:
+- `useEditorCore` → Monaco instance lifecycle and configuration
+- `useEditorContent` → Content state, change detection, value sync
+- `useEditorSpellCheck` → Spell check integration with SpellCheckService
+- `useEditorMarkdownLint` → Markdown lint integration with MarkdownLintService
+- `useEditorImagePaste` → Clipboard image paste-to-upload flow
+- `useEditorKeyboardShortcuts` → Monaco keybinding registration
+- `useEditorListBehavior` → Auto-indentation and list continuation
+- `useDebouncedCursorChange` → Throttled cursor position reporting
+- `useSpellCheckSettings` → Per-user spell check preferences
+- `useTypingDetection` → Detects active typing to defer expensive operations
+
+## Markdown Lint System
+
+### Architecture
+Parallel to spell check, markdown lint provides real-time style enforcement:
+
+- **MarkdownLintService**: Sends content to linting microservice, receives rule violations
+- **MarkdownLintMarkers**: Manages Monaco markers for lint issues
+- **MarkdownLintMarkerAdapter**: Converts lint issues to Monaco marker format
+- **MarkdownLintActions**: Quick fix actions for auto-fixable rules
+
+### Integration Hook (`useEditorMarkdownLint`)
+```javascript
+// Lint checking runs after typing pauses, coordinated with spell check
+const { lintIssues, isLinting } = useEditorMarkdownLint(editor, content, {
+  enabled: lintEnabled,
+  rules: effectiveRules
+});
+```
+
+### Rule Categories
+Rules organized by domain: Headings, Lists, Code, Whitespace, Links, etc.
+User/category/folder-scoped rule configuration via lintingApi.
+
+## Image Paste Support
+
+### Hook (`useEditorImagePaste`)
+Handles clipboard paste events containing images:
+1. Intercepts paste event with image data
+2. Uploads image via imageApi
+3. Inserts markdown image reference at cursor position
 
 ## Spell Check System
 
@@ -142,7 +178,10 @@ Global shortcuts managed through `useGlobalKeyboardShortcuts`:
 - Ctrl+S: Save document
 - Ctrl+B: Bold text
 - Ctrl+I: Italic text
+- Ctrl+Shift+X: Strikethrough
 - F7: Run spell check
+- Ctrl+Shift+L: Toggle markdown lint
+- Escape: Exit fullscreen / close modals
 
 ## Performance Optimizations
 

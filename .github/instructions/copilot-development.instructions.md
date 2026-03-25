@@ -25,8 +25,17 @@ docker compose restart frontend         # Restart if AI agents cause memory over
 - `backend` → port 8000 (FastAPI with hot reload via volume mounts)
 - `frontend` → **http://localhost/** (nginx proxy, NOT :3000)
 - `db` (PostgreSQL) → port 5432 (accessible from host machine)
-- `pdf-service` → port 8001 (dedicated PDF generation)
+- `export` → port 8001 (PDF/diagram/Draw.io export with Playwright)
 - `nginx` → port 80 (reverse proxy with `/api/*` routing)
+- `redis` → port 6379 (event streams, caching)
+- `embedding` → port 8002 (sentence-transformers vector embeddings)
+- `spell-check` → port 3001 (Node.js, nspell/cspell/NLP analyzers)
+- `linting` → port 3002 (Node.js, markdownlint wrapper)
+- `event-publisher` → outbox relay (DB → Redis Streams)
+- `event-consumer` → stream consumer (Redis Streams → DB projections)
+
+**Shared Packages**:
+- `packages/events-core/` → JSON Schema contracts + generated TS/Python types for domain events
 
 **Hot Module Replacement (HMR)**:
 - **Frontend**: Automatic via Docker volume mounts, HMR enabled by default
@@ -234,6 +243,11 @@ docker compose restart frontend
 - Test locally before pushing
 - Use feature branches for complex changes
 - Include both frontend and backend changes in same PR when related
+
+---
+
+### Related Instructions
+- `copilot-deployment.instructions.md` — Production deployment, Ansible, dual-layer nginx, SSH access, backup/restore, environment management
 
 ---
 
