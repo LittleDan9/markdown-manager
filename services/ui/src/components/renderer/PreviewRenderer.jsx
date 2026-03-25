@@ -52,6 +52,19 @@ const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
           }
         }
 
+        // Check if cursor is inside a block with a line range (e.g., Mermaid diagram, code block)
+        if (!el) {
+          const rangeElements = containerRef.current.querySelectorAll('[data-line][data-line-end]');
+          for (const element of rangeElements) {
+            const start = parseInt(element.getAttribute('data-line'));
+            const end = parseInt(element.getAttribute('data-line-end'));
+            if (lineNumber >= start && lineNumber <= end) {
+              el = element;
+              break;
+            }
+          }
+        }
+
         // If still not found, find closest element
         if (!el) {
           const allElements = containerRef.current.querySelectorAll('[data-line]');
@@ -76,14 +89,26 @@ const PreviewRenderer = ({ htmlContent, className, onRef, scrollToLine }) => {
         // Check if element is already reasonably visible to avoid unnecessary scrolling during typing
         const rect = el.getBoundingClientRect();
         const containerRect = containerRef.current.getBoundingClientRect();
-        const isInTopHalf = rect.top >= containerRect.top && rect.top <= (containerRect.top + containerRect.height / 2);
 
-        // Only scroll if the element is not in the top half of the viewport
-        if (!isInTopHalf) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          console.log(`📍 Scrolled to line ${lineNumber} (positioned at top)`);
+        // For Mermaid diagrams / tall blocks, check if ANY part is visible
+        const isMermaidOrBlock = el.classList.contains('mermaid') || el.hasAttribute('data-line-end');
+        if (isMermaidOrBlock) {
+          const isAnyPartVisible = rect.bottom > containerRect.top && rect.top < containerRect.bottom;
+          if (!isAnyPartVisible) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            console.log(`📍 Scrolled to line ${lineNumber} (block/diagram, nearest)`);
+          } else {
+            console.log(`📍 Line ${lineNumber} diagram already visible, no scroll needed`);
+          }
         } else {
-          console.log(`📍 Line ${lineNumber} already visible, no scroll needed`);
+          const isInTopHalf = rect.top >= containerRect.top && rect.top <= (containerRect.top + containerRect.height / 2);
+          // Only scroll if the element is not in the top half of the viewport
+          if (!isInTopHalf) {
+            el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            console.log(`📍 Scrolled to line ${lineNumber} (positioned at top)`);
+          } else {
+            console.log(`📍 Line ${lineNumber} already visible, no scroll needed`);
+          }
         }
 
         lastScrollLineRef.current = lineNumber;

@@ -46,6 +46,15 @@ function getLineAttr(tokens, idx) {
   return "";
 }
 
+// Helper: get the end-line attribute for range-based scroll targeting
+function getLineEndAttr(tokens, idx) {
+  const token = tokens[idx];
+  if (token && token.map && token.map.length >= 2) {
+    return `data-line-end="${token.map[1]}"`;
+  }
+  return "";
+}
+
 
 md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
   const token = tokens[idx];
@@ -54,6 +63,7 @@ md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
   const diagramSource = token.content?.trim() || "";
   const encodedSource = encodeURIComponent(diagramSource);
   const lineAttr = getLineAttr(tokens, idx);
+  const lineEndAttr = getLineEndAttr(tokens, idx);
   if (info.toLowerCase() === "mermaid") {
     const mermaidDiagram = Mermaid.cache.get(diagramSource);
     if (mermaidDiagram) {
@@ -62,6 +72,7 @@ md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
         data-processed="true"
         data-mermaid-source="${encodedSource}"
         ${lineAttr}
+        ${lineEndAttr}
       >
         ${mermaidDiagram}
       </div>`;
@@ -71,6 +82,7 @@ md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
       data-processed="false"
       data-mermaid-source="${encodedSource}"
       ${lineAttr}
+      ${lineEndAttr}
     >
       <div class="code-block">
         <div class="code-block-header">
@@ -102,7 +114,7 @@ md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
   }
 
   return `
-    <div class="code-block" ${lineAttr}>
+    <div class="code-block" ${lineAttr} ${lineEndAttr}>
     <div class="code-block-header">
       <span class="code-block-lang">${lang.toUpperCase()}</span>
       <button class="code-block-copy-btn" data-prismjs-copy>

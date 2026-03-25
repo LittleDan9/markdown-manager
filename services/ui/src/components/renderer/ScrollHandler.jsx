@@ -47,6 +47,21 @@ const ScrollHandler = ({ scrollToLine }) => {
             }
           }
 
+          // Check if cursor is inside a block with a line range (e.g., Mermaid diagram, code block)
+          if (!el) {
+            const rangeElements = previewScrollRef.current?.querySelectorAll('[data-line][data-line-end]');
+            if (rangeElements) {
+              for (const element of rangeElements) {
+                const start = parseInt(element.getAttribute('data-line'));
+                const end = parseInt(element.getAttribute('data-line-end'));
+                if (scrollToLine >= start && scrollToLine <= end) {
+                  el = element;
+                  break;
+                }
+              }
+            }
+          }
+
           // If still not found, try to find any element with a line number close to the target
           if (!el) {
             const allElements = previewScrollRef.current?.querySelectorAll('[data-line]');
