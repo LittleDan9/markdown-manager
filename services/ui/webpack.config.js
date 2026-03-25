@@ -7,12 +7,18 @@ const CopyWebpackPlugin = require('copy-webpack-plugin');
 const { RuntimeGlobals, experiments } = require('webpack');
 const { EsbuildPlugin } = require('esbuild-loader');
 const ReactRefreshWebpackPlugin = require('@pmmmwh/react-refresh-webpack-plugin');
+const crypto = require('crypto');
 
 // Determine if we're in production mode
 const isProduction = process.env.NODE_ENV === 'production' || process.argv.includes('--mode=production');
 const isDevelopment = !isProduction;
 
+// Generate a unique build hash for cache-busting / version detection
+const BUILD_HASH = crypto.randomBytes(8).toString('hex');
+const BUILD_TIME = new Date().toISOString();
+
 console.log(`🔧 Webpack building in ${isProduction ? 'PRODUCTION' : 'DEVELOPMENT'} mode`);
+if (isProduction) console.log(`📦 Build hash: ${BUILD_HASH}`);
 
 module.exports = {
   // 1) Enable filesystem cache for ALL modes (including production)
@@ -166,6 +172,23 @@ module.exports = {
       overlay: false, // Disable error overlay since we have our own
       exclude: [/node_modules/, /\.worker\.js$/], // Exclude workers and node_modules
     })] : []),
+    // Inject build hash as a compile-time constant for runtime version checking
+    new (require('webpack').DefinePlugin)({
+      __BUILD_HASH__: JSON.stringify(BUILD_HASH),
+    }),
+    // Generate version.json for runtime new-version detection
+    ...(isProduction ? [{
+      apply(compiler) {
+        compiler.hooks.emit.tapAsync('VersionJsonPlugin', (compilation, callback) => {
+          const versionJson = JSON.stringify({ buildHash: BUILD_HASH, buildTime: BUILD_TIME });
+          compilation.assets['version.json'] = {
+            source: () => versionJson,
+            size: () => versionJson.length,
+          };
+          callback();
+        });
+      }
+    }] : []),
     new CopyWebpackPlugin({
       patterns: [
         // Copy hunspell dictionary files for spell checker (needed in all modes)

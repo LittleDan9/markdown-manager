@@ -1,6 +1,6 @@
 # AI Agent Backend Guidelines
 
-applyTo: "backend/**/*"
+applyTo: "services/backend/**/*"
 
 ---
 
@@ -23,12 +23,13 @@ app = create_app()  # In main.py
 
 **Multi-Service Architecture**:
 
-- `backend` (main API) → port 8000, handles auth, documents, GitHub integration
-- `pdf-service` → port 8001, dedicated PDF generation with headless browser
+- `backend` (main API) → port 8000, handles auth, documents, GitHub, icons, chat, search
+- `export` → port 8001, PDF/diagram/Draw.io export with Playwright/Chromium
 - `db` (PostgreSQL) → port 5432, async SQLAlchemy with connection pooling
+- `redis` → port 6379, event streams and caching
 - `nginx` → port 80, reverse proxy with API routing to `/api/*`
 
-**Cross-Service Communication**: Use `PDFServiceClient` for PDF operations, `IconService` for icon management. Services communicate via HTTP with health check endpoints (`/health`).
+**Cross-Service Communication**: Use `ExportServiceClient` for PDF/diagram operations, `IconService` for icon management, `EmbeddingClient` for vector embeddings. Services communicate via HTTP with health check endpoints (`/health`). Event-driven communication via Redis Streams with outbox pattern (`OutboxService`, `DatabaseOutbox`).
 
 ### 🔄 Request Processing Flow
 
@@ -40,18 +41,31 @@ app = create_app()  # In main.py
 4. `LoggingMiddleware` → request/response logging with context
 5. `CORSMiddleware` → browser request handling
 
-**Router Organization**: Nested structure with prefix patterns:
+**Router Organization**: Nested router-of-routers with prefix patterns:
 
 ```python
-# Core routes (no prefix)
+# Core routes (no prefix beyond /api root_path)
 app.include_router(default.router)  # /, /health
 app.include_router(public.router)   # public endpoints
 
-# Feature routes (with prefix)
-app.include_router(auth.router, prefix="/auth")     # /auth/login, /auth/mfa/*
-app.include_router(documents.router, prefix="/documents")
-app.include_router(github.router, prefix="/github")
+# Feature route packages (with prefix)
+app.include_router(auth.router, prefix="/auth")           # login, mfa, profile, registration, password_reset
+app.include_router(documents.router, prefix="/documents")  # CRUD, categories, folders, sharing, recents
+app.include_router(github.router, prefix="/github")        # accounts, repos, sync, files, commits, PRs, save, git ops
+app.include_router(icons.router, prefix="/icons")          # search, packs, batch, metadata, statistics, cache
+app.include_router(admin.router, prefix="/admin")          # users, github, icons, system management
+app.include_router(chat.router, prefix="/chat")            # AI chat with SSE streaming
 ```
+
+**Route Order**: Dynamic path routes (e.g., `/{document_id}`) MUST be registered last within sub-routers to prevent shadowing static paths.
+
+### Domain-Specific Instructions
+- `copilot-backend-github.instructions.md` - GitHub integration (23+ routers, 13 services, save sub-package)
+- `copilot-backend-documents-storage.instructions.md` - Documents, categories, filesystem, git operations
+- `copilot-backend-icons.instructions.md` - Icon management, third-party providers (Iconify, SVGL)
+- `copilot-backend-auth-admin.instructions.md` - Auth (JWT, MFA, OAuth), admin panel, user management
+- `copilot-backend-chat-search.instructions.md` - AI chat, RAG Q&A, semantic search, embedding integration
+- `copilot-backend-content-services.instructions.md` - PDF export gateway, syntax highlighting, lint rules, custom dictionary backend
 
 ### 🗄️ Database Patterns
 
@@ -66,8 +80,13 @@ async def endpoint(db: AsyncSession = Depends(get_db)):
 **Model Architecture**:
 
 - `BaseModel` → common fields (id, created_at, updated_at)
-- Domain models extend `BaseModel` → User, Document, Category, GitHubAccount
-- Repository pattern in `crud/` modules for data access layer
+- Domain models extend `BaseModel`:
+  - **Core**: User, Document, Category
+  - **GitHub**: GitHubAccount, GitHubRepository, GitHubSettings
+  - **Content**: CustomDictionary, MarkdownLintRule, DocumentEmbedding
+  - **System**: IconModels (IconPack, Icon), SiteSetting, GitOperations
+- Repository pattern in `crud/` modules: document, category, user, github_crud, github_settings, custom_dictionary
+- Schemas in `schemas/`: document, category, user, github, github_save, github_settings, icon_schemas, custom_dictionary
 
 **Migration Strategy**: **CRITICAL - Run migrations from local machine, NOT container**:
 

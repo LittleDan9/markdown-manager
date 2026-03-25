@@ -684,6 +684,56 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   // --- CHANGE TRACKING ---
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
 
+  // --- OPEN CATEGORY ---
+  // Load the first document in a category based on sort order, activating the tab bar
+  const openCategory = useCallback(async (categoryName, sortOrder = 'name') => {
+    setLoading(true);
+    try {
+      let firstDoc = null;
+
+      if (isAuthenticated && token) {
+        // Authenticated: fetch docs in this category from backend
+        const docs = await documentsApi.getAllDocuments(categoryName, 'local');
+        if (docs && docs.length > 0) {
+          // Sort according to user preference
+          const sorted = [...docs];
+          if (sortOrder === 'created') {
+            sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          } else if (sortOrder === 'modified') {
+            sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+          } else {
+            sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          }
+          firstDoc = sorted[0];
+        }
+      } else {
+        // Guest: filter localStorage docs by category
+        const allDocs = DocumentStorageService.getAllDocuments();
+        const categoryDocs = allDocs.filter(d => (d.category || 'General') === categoryName);
+        if (categoryDocs.length > 0) {
+          if (sortOrder === 'created') {
+            categoryDocs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+          } else if (sortOrder === 'modified') {
+            categoryDocs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+          } else {
+            categoryDocs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          }
+          firstDoc = categoryDocs[0];
+        }
+      }
+
+      if (firstDoc && firstDoc.id) {
+        await loadDocument(firstDoc.id);
+      } else {
+        showWarning(`No documents found in category "${categoryName}"`);
+      }
+    } catch (error) {
+      showError(`Failed to open category: ${error.message}`);
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, token, loadDocument, showWarning, showError]);
+
   return {
     migrationStatus, setMigrationStatus, hasSyncedOnMount, setHasSyncedOnMount,
     currentDocument, setCurrentDocument, content, setContent, documents, setDocuments,
@@ -691,6 +741,6 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     showWarning, showSuccess, showError,
     createDocument, loadDocument, saveDocument, deleteDocument, renameDocument,
     addCategory, deleteCategory, renameCategory, syncWithBackend, addDocumentToState,
-    exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges
+    exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges, openCategory
   };
 }

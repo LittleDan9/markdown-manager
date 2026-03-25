@@ -210,6 +210,102 @@
   }
 }
 
+// ----- CATEGORY FILTER -----
+.chat-category-filter {
+  padding: 6px 14px 8px;
+  border-bottom: 1px solid var(--bs-border-color);
+  animation: cat-slide-in 0.15s ease;
+
+  @keyframes cat-slide-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .category-filter-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .category-filter-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: var(--bs-body-color);
+    cursor: default;
+    margin: 0;
+
+    .bi-funnel { color: var(--bs-info); font-size: 0.85rem; }
+
+    .category-filter-hint {
+      font-size: 0.72rem;
+      font-weight: 400;
+      color: var(--bs-secondary-color);
+    }
+  }
+
+  // iOS-style toggle pill (same as deep-think-toggle)
+  .category-filter-toggle {
+    width: 36px;
+    height: 20px;
+    border-radius: 10px;
+    background: var(--bs-secondary-bg);
+    border: 1.5px solid var(--bs-border-color);
+    position: relative;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.2s ease, border-color 0.2s ease;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 2px;
+      left: 2px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--bs-secondary-color);
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    &.on {
+      background: var(--bs-info);
+      border-color: var(--bs-info);
+
+      &::after {
+        transform: translateX(16px);
+        background: #fff;
+      }
+    }
+
+    &:focus-visible {
+      outline: 2px solid var(--bs-info);
+      outline-offset: 2px;
+    }
+  }
+
+  .category-filter-select {
+    display: block;
+    width: 100%;
+    margin-top: 6px;
+    padding: 4px 8px;
+    font-size: 0.78rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    background: var(--bs-body-bg);
+    color: var(--bs-body-color);
+    outline: none;
+    appearance: auto;
+
+    &:focus {
+      border-color: var(--bs-info);
+      box-shadow: 0 0 0 2px rgba(var(--bs-info-rgb), 0.2);
+    }
+  }
+}
+
 // ----- DEEP THINK TOGGLE -----
 .chat-deep-think {
   display: flex;

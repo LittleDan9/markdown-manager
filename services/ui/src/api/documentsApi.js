@@ -140,8 +140,11 @@ class DocumentsApi extends Api {
         const categories = await categoriesApi.getCategories();
         const categoryObj = categories.find(cat => cat.name === category);
         finalCategoryId = categoryObj?.id;
+        if (!finalCategoryId) {
+          console.error(`Category "${category}" not found in categories list — category will not be updated`);
+        }
       } catch (error) {
-        console.warn('Could not resolve category name to ID:', error);
+        console.error('Failed to resolve category name to ID — category will not be updated:', error);
       }
     }
 

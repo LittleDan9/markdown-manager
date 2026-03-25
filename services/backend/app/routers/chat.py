@@ -38,8 +38,9 @@ class ChatMessage(BaseModel):
 
 class AskRequest(BaseModel):
     question: str
-    document_id: int | None = None  # None = search all docs, int = current doc only
-    deep_think: bool = False        # True = full doc context (only valid with document_id)
+    document_id: int | None = None   # None = search all docs, int = current doc only
+    category_id: int | None = None   # None = all categories, int = limit to this category
+    deep_think: bool = False         # True = full doc context (only valid with document_id)
     history: list[ChatMessage] = []  # Previous turns for conversational context
 
 
@@ -56,6 +57,7 @@ async def ask(
 
     - `document_id=null` → searches all user documents (All Docs mode)
     - `document_id=<id>` → uses only that document as context (Current Doc mode)
+    - `category_id=<id>` → restricts All Docs search to a specific category
     """
     if not request.question.strip():
         raise HTTPException(status_code=400, detail="question must not be empty")
@@ -72,6 +74,8 @@ async def ask(
 
     # deep_think only meaningful in single-doc mode; ignore for all-docs queries
     deep_think = request.deep_think and request.document_id is not None
+    # category_id only meaningful in all-docs mode; ignore for single-doc queries
+    category_id = request.category_id if request.document_id is None else None
 
     async def token_stream():
         try:
@@ -80,6 +84,7 @@ async def ask(
                 current_user.id,
                 request.question,
                 document_id=request.document_id,
+                category_id=category_id,
                 deep_think=deep_think,
                 history=request.history,
             ):

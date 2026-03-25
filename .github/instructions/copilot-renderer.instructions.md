@@ -27,6 +27,15 @@ Component composition:
 2. **Syntax Highlighting**: `HighlightService` processes code blocks with Prism.js
 3. **Mermaid Integration**: `useMermaid` hook handles diagram rendering
 4. **Icon Loading**: On-demand icon loading for Mermaid architecture diagrams
+5. **Diagram Controls**: `DiagramControls` overlays added via ReactDOM portals
+6. **Image Caching**: `ImageCacheService` optimizes authenticated image loading
+
+### Rendering Orchestrator (`useRenderingOrchestrator`)
+Coordinates the full rendering pipeline:
+- Manages render scheduling and debouncing
+- Coordinates syntax highlighting with Mermaid processing
+- Handles loading states across all rendering phases
+- Prevents render cascades from content + theme changes
 
 ## Mermaid Integration (architecture-beta)
 
@@ -193,6 +202,37 @@ useEffect(() => {
 {showLoadingOverlay && (
   <LoadingOverlay message={loadingMessage || "Loading..."} />
 )}
+```
+
+## Diagram Controls & Export
+
+### DiagramControls Component
+Hover overlay for individual Mermaid diagrams, rendered via ReactDOM portals:
+```javascript
+// Dynamic attachment after diagram rendering
+addDiagramControls(containerEl); // Scans for .mermaid elements, attaches portals
+```
+- **Fullscreen button**: Opens `DiagramFullscreenModal` for enhanced viewing
+- **Export dropdown**: SVG/PNG export via export service
+- **GitHub indicators**: Warns about advanced diagrams needing conversion
+- **Portal rendering**: Wraps in ThemeProvider + NotificationProvider for context access
+
+### DiagramFullscreenModal
+Modal-based fullscreen diagram viewing with integrated export controls and dark mode support.
+
+### MermaidExportService
+Server-side diagram export using the export microservice:
+```javascript
+MermaidExportService.exportAsSVG(mermaidSource, options);  // Chromium-rendered SVG
+MermaidExportService.exportAsPNG(mermaidSource, options);  // Rasterized PNG
+MermaidExportService.needsGitHubConversion(source);        // Advanced feature detection
+```
+
+### Diagram Controls Styling
+```scss
+// _diagram-controls.scss
+.diagram-controls { /* Hover-based opacity transitions */ }
+.diagram-fullscreen-modal { /* Responsive fullscreen layout */ }
 ```
 
 ## Icon Browser Integration

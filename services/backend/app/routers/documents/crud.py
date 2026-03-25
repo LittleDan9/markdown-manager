@@ -364,7 +364,8 @@ async def update_document(
     # Use the helper function to create the response
     return await create_document_response(
         document=document,
-        user_id=current_user.id
+        user_id=current_user.id,
+        db=db
     )
 
 

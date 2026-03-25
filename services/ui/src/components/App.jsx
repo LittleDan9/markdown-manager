@@ -4,7 +4,7 @@ import Toolbar from "@/components/toolbar/Toolbar";
 
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
-import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useSharedViewEffects, useGitHubOAuth } from "@/hooks";
+import { useGlobalKeyboardShortcuts, useDocumentAutoSave, useSharedViewEffects, useGitHubOAuth, useVersionCheck } from "@/hooks";
 import AppLayout from "@/components/layout/AppLayout";
 import SharedViewLayout from "@/components/layout/SharedViewLayout";
 import EditorSection from "@/components/sections/EditorSection";
@@ -99,6 +99,9 @@ function App() {
 
   // Handle GitHub OAuth results from URL parameters (fallback for popup failures)
   useGitHubOAuth();
+
+  // Check for new deployments and prompt user to refresh
+  useVersionCheck();
 
   // Setup global keyboard shortcuts (Ctrl+S, etc.)
   useGlobalKeyboardShortcuts({ onDraftPromote: handleDraftPromote });

@@ -3,6 +3,7 @@ import { Offcanvas } from "react-bootstrap";
 import PropTypes from "prop-types";
 import MarkdownIt from "markdown-it";
 import { searchApi } from "@/api/searchApi";
+import categoriesApi from "@/api/categoriesApi";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 
 // Shared markdown-it instance — html disabled for XSS safety
@@ -103,11 +104,31 @@ function ChatDrawer({ show, onHide }) {
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [docMenu, setDocMenu] = useState(null); // { docId, docName, x, y }
+  const [categoryFilterEnabled, setCategoryFilterEnabled] = useState(false);
+  const [selectedCategoryId, setSelectedCategoryId] = useState(null);
+  const [categoryList, setCategoryList] = useState([]); // [{ id, name }]
 
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
   const textareaRef = useRef(null);
   const docMenuRef = useRef(null);
+
+  // Fetch categories with IDs when drawer opens
+  useEffect(() => {
+    if (!show) return;
+    let cancelled = false;
+    categoriesApi.getCategories()
+      .then((cats) => { if (!cancelled) setCategoryList(cats || []); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [show]);
+
+  // Default selected category to the current document's category
+  useEffect(() => {
+    if (currentDocument?.category_id && !selectedCategoryId) {
+      setSelectedCategoryId(currentDocument.category_id);
+    }
+  }, [currentDocument?.category_id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -220,6 +241,8 @@ function ChatDrawer({ show, onHide }) {
     const documentId =
       scope === SCOPE_CURRENT && currentDocument ? currentDocument.id : null;
     const useDeepThink = deepThink && scope === SCOPE_CURRENT && Boolean(currentDocument);
+    const categoryId = categoryFilterEnabled && scope === SCOPE_ALL && selectedCategoryId
+      ? selectedCategoryId : null;
 
     // Append user message
     setMessages((prev) => [
@@ -273,6 +296,7 @@ function ChatDrawer({ show, onHide }) {
         controller.signal,
         useDeepThink,
         priorMessages,
+        categoryId,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -307,7 +331,7 @@ function ChatDrawer({ show, onHide }) {
       });
       setIsStreaming(false);
     }
-  }, [input, isStreaming, scope, currentDocument, deepThink, documents, loadDocument]);
+  }, [input, isStreaming, scope, currentDocument, deepThink, documents, loadDocument, categoryFilterEnabled, selectedCategoryId]);
 
   const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -371,6 +395,41 @@ function ChatDrawer({ show, onHide }) {
           </button>
         </div>
 
+        {/* Category filter — only visible in All Docs scope */}
+        {scope === SCOPE_ALL && categoryList.length > 0 && (
+          <div className="chat-category-filter">
+            <div className="category-filter-row">
+              <label className="category-filter-label" htmlFor="category-filter-toggle">
+                <i className="bi bi-funnel" />
+                Category
+                <span className="category-filter-hint">Limit to one category</span>
+              </label>
+              <div
+                className={`category-filter-toggle${categoryFilterEnabled ? " on" : ""}`}
+                id="category-filter-toggle"
+                role="switch"
+                aria-checked={categoryFilterEnabled}
+                tabIndex={0}
+                onClick={() => setCategoryFilterEnabled((v) => !v)}
+                onKeyDown={(e) => e.key === "Enter" || e.key === " " ? setCategoryFilterEnabled((v) => !v) : null}
+              />
+            </div>
+            {categoryFilterEnabled && (
+              <select
+                className="category-filter-select"
+                value={selectedCategoryId || ""}
+                onChange={(e) => setSelectedCategoryId(e.target.value ? parseInt(e.target.value, 10) : null)}
+                aria-label="Select category"
+              >
+                <option value="">All categories</option>
+                {categoryList.map((cat) => (
+                  <option key={cat.id} value={cat.id}>{cat.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
+        )}
+
         {/* Deep Think toggle — only visible in Current Doc scope */}
         {scope === SCOPE_CURRENT && hasCurrentDoc && (
           <div className="chat-deep-think">
@@ -400,7 +459,9 @@ function ChatDrawer({ show, onHide }) {
               <div className="empty-title">Ask anything about your documents</div>
               <div className="empty-hint">
                 {scope === SCOPE_ALL
-                  ? "Answers are sourced from your entire document library."
+                  ? categoryFilterEnabled && selectedCategoryId
+                    ? `Answers are sourced from documents in the "${categoryList.find((c) => c.id === selectedCategoryId)?.name || "selected"}" category.`
+                    : "Answers are sourced from your entire document library."
                   : `Answers are limited to "${currentDocument?.name}".`}
               </div>
             </div>

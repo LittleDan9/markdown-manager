@@ -98,6 +98,9 @@ function CategoryTabBar({
   }, []);
 
   const handleKeyDown = useCallback((e) => {
+    // Stop all keyboard events from bubbling to the Nav.Link parent,
+    // which otherwise intercepts Space (WAI-ARIA tab activation)
+    e.stopPropagation();
     if (e.key === 'Enter') {
       commitRename();
     } else if (e.key === 'Escape') {
