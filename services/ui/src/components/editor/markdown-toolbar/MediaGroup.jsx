@@ -2,7 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { Button, ButtonGroup, Dropdown, DropdownButton } from 'react-bootstrap';
 import ImageBrowserModal from '@/components/images/ImageBrowserModal';
 import ImageUploadModal from '@/components/images/ImageUploadModal';
+import AttachmentBrowserModal from '@/components/attachments/AttachmentBrowserModal';
+import AttachmentUploadModal from '@/components/attachments/AttachmentUploadModal';
 import { useImageManagement } from '@/hooks/image/useImageManagement';
+import { useDocumentContext } from '@/providers/DocumentContextProvider';
+import attachmentsApi from '@/api/attachmentsApi';
 
 /**
  * Media and Links toolbar group (Link, Image, Quote, Horizontal Rule) - responsive version
@@ -12,7 +16,11 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
   const [useDropdown, setUseDropdown] = useState(false);
   const [showImageBrowser, setShowImageBrowser] = useState(false);
   const [showImageUpload, setShowImageUpload] = useState(false);
+  const [showAttachmentBrowser, setShowAttachmentBrowser] = useState(false);
+  const [showAttachmentUpload, setShowAttachmentUpload] = useState(false);
   const { generateMarkdown } = useImageManagement();
+  const { currentDocument } = useDocumentContext();
+  const currentDocumentId = currentDocument?.id;
 
   // Check container width to determine if we should use dropdown
   useEffect(() => {
@@ -75,6 +83,23 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
     insertMarkdown('![', '](image-url)', 'alt text');
   };
 
+  const handleAttachmentSelected = (attachment) => {
+    if (attachment && editorRef?.current) {
+      const editor = editorRef.current;
+      const selection = editor.getSelection();
+      const markdown = attachmentsApi.generateMarkdownLink(attachment);
+
+      if (selection) {
+        editor.executeEdits('insert-attachment', [{
+          range: selection,
+          text: markdown
+        }]);
+      }
+      editor.focus();
+    }
+    setShowAttachmentBrowser(false);
+  };
+
   if (useDropdown) {
     return (
       <>
@@ -108,6 +133,16 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
             <i className="bi bi-image me-2"></i>
             <strong>Image URL</strong>
           </Dropdown.Item>
+          <Dropdown.Divider />
+          <Dropdown.Item onClick={() => setShowAttachmentBrowser(true)}>
+            <i className="bi bi-paperclip me-2"></i>
+            <strong>Browse Attachments</strong>
+          </Dropdown.Item>
+          <Dropdown.Item onClick={() => setShowAttachmentUpload(true)} disabled={!currentDocumentId}>
+            <i className="bi bi-file-earmark-arrow-up me-2"></i>
+            <strong>Upload Attachment</strong>
+          </Dropdown.Item>
+          <Dropdown.Divider />
           <Dropdown.Item onClick={() => insertMarkdown('> ', '', 'quote text')}>
             <i className="bi bi-quote me-2"></i>
             <strong>Quote</strong>
@@ -130,6 +165,19 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           show={showImageUpload}
           onHide={() => setShowImageUpload(false)}
           onImageUploaded={handleImageUploaded}
+        />
+
+        <AttachmentBrowserModal
+          show={showAttachmentBrowser}
+          onHide={() => setShowAttachmentBrowser(false)}
+          documentId={currentDocumentId}
+          onAttachmentSelected={handleAttachmentSelected}
+        />
+
+        <AttachmentUploadModal
+          show={showAttachmentUpload}
+          onHide={() => setShowAttachmentUpload(false)}
+          documentId={currentDocumentId}
         />
       </>
     );
@@ -171,6 +219,26 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           </Dropdown.Item>
         </DropdownButton>
 
+        {/* Attachment dropdown */}
+        <DropdownButton
+          as={ButtonGroup}
+          id="attachment-dropdown"
+          title={<i className="bi bi-paperclip"></i>}
+          variant={buttonVariant}
+          size="sm"
+          style={buttonStyle}
+          className="attachment-dropdown"
+        >
+          <Dropdown.Item onClick={() => setShowAttachmentBrowser(true)}>
+            <i className="bi bi-folder2-open me-2"></i>
+            Browse Attachments
+          </Dropdown.Item>
+          <Dropdown.Item onClick={() => setShowAttachmentUpload(true)} disabled={!currentDocumentId}>
+            <i className="bi bi-file-earmark-arrow-up me-2"></i>
+            Upload Attachment
+          </Dropdown.Item>
+        </DropdownButton>
+
         <Button
           variant={buttonVariant}
           style={buttonStyle}
@@ -201,6 +269,19 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
         show={showImageUpload}
         onHide={() => setShowImageUpload(false)}
         onImageUploaded={handleImageUploaded}
+      />
+
+      <AttachmentBrowserModal
+        show={showAttachmentBrowser}
+        onHide={() => setShowAttachmentBrowser(false)}
+        documentId={currentDocumentId}
+        onAttachmentSelected={handleAttachmentSelected}
+      />
+
+      <AttachmentUploadModal
+        show={showAttachmentUpload}
+        onHide={() => setShowAttachmentUpload(false)}
+        documentId={currentDocumentId}
       />
     </>
   );

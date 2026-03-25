@@ -120,6 +120,14 @@ class Settings(BaseSettings):
         default="/documents", description="Root directory for document storage"
     )
 
+    # ClamAV virus scanning configuration
+    clamav_host: str = Field(
+        default="clamav", description="ClamAV daemon hostname"
+    )
+    clamav_port: int = Field(
+        default=3310, description="ClamAV daemon port"
+    )
+
     # GitHub repository storage configuration
     github_max_repo_size_mb: int = Field(
         default=100, description="Maximum size per GitHub repository in MB"

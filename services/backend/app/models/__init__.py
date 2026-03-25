@@ -1,4 +1,5 @@
 """Database models."""
+from .attachment import Attachment
 from .base import Base, BaseModel
 from .category import Category
 from .custom_dictionary import CustomDictionary
@@ -13,6 +14,7 @@ from .site_setting import SiteSetting
 from .user import User
 
 __all__ = [
+    "Attachment",
     "Base",
     "BaseModel",
     "Category",

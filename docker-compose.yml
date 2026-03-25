@@ -78,6 +78,8 @@ services:
       - EMBEDDING_SERVICE_URL=http://embedding:8005
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -130,7 +132,7 @@ services:
       - OLLAMA_FLASH_ATTENTION=1
       - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
+      test: ["CMD", "ollama", "ps"]
       interval: 30s
       timeout: 10s
       retries: 5
@@ -226,6 +228,21 @@ services:
       start_period: 40s
     restart: unless-stopped
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # ClamAV — virus scanning for file attachments
+  # ──────────────────────────────────────────────────────────────────────────
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+
   redis:
     image: redis:7-alpine
     ports:
@@ -316,3 +333,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+
+volumes:
+  clamav-data:

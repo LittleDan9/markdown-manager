@@ -405,7 +405,19 @@ async def delete_document(
             logger = logging.getLogger(__name__)
             logger.warning(f"Failed to delete filesystem file for document {document_id}: {document.file_path}")
 
-    # Delete from database
+    # Delete attachment files from disk before removing DB records
+    from app.crud.attachment import attachment_crud
+    from app.services.storage.attachment_storage_service import attachment_storage_service
+
+    attachments = await attachment_crud.get_by_document(
+        db, document_id=document_id, user_id=current_user.id
+    )
+    for att in attachments:
+        attachment_storage_service.delete_attachment_file(
+            user_id=current_user.id, stored_filename=att.stored_filename
+        )
+
+    # Delete from database (attachment DB records cascade via FK)
     await db.delete(document)
     await db.commit()
 

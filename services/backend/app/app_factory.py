@@ -22,6 +22,7 @@ from app.middleware import (
     RequestContextMiddleware,
 )
 from app.routers import (
+    attachments,
     auth,
     categories,
     custom_dictionary,
@@ -133,6 +134,9 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         images.router, tags=["images"]  # Image management endpoints - nginx handles /api prefix
+    )
+    app.include_router(
+        attachments.router, tags=["attachments"]  # File attachment endpoints
     )
     app.include_router(
         iconify_router.router  # Iconify browser endpoints

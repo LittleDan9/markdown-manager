@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import BaseModel
@@ -96,6 +96,17 @@ class User(BaseModel):
     # GitHub settings relationship
     github_settings: Mapped[Optional["GitHubSettings"]] = relationship(
         "GitHubSettings", back_populates="user", uselist=False
+    )
+
+    # File attachment storage quota (nullable = use site default)
+    attachment_quota_bytes: Mapped[int | None] = mapped_column(
+        BigInteger, nullable=True, default=None,
+        comment="Per-user attachment storage quota in bytes (NULL = use site default)"
+    )
+
+    # File attachments relationship
+    attachments = relationship(
+        "Attachment", back_populates="owner", cascade="all, delete-orphan"
     )
 
     @property

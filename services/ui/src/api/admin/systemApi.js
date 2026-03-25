@@ -99,6 +99,20 @@ export class AdminSystemApi extends Api {
     const response = await this.apiCall('/admin/system/reindex', 'POST', body);
     return response.data;
   }
+
+  // ── Attachment Quota ────────────────────────────────────────────────────
+
+  async getAttachmentQuota() {
+    const response = await this.apiCall('/admin/system/attachment-quota', 'GET');
+    return response.data;
+  }
+
+  async updateAttachmentQuota(quotaBytes) {
+    const response = await this.apiCall('/admin/system/attachment-quota', 'PUT', {
+      quota_bytes: quotaBytes,
+    });
+    return response.data;
+  }
 }
 
 const adminSystemApi = new AdminSystemApi();

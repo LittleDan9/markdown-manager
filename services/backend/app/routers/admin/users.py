@@ -40,6 +40,7 @@ class AdminUserResponse(BaseModel):
     reset_token_expires: Optional[datetime] = None
     document_count: Optional[int] = 0
     github_account_count: Optional[int] = 0
+    attachment_quota_bytes: Optional[int] = None
 
     class Config:
         from_attributes = True
@@ -55,6 +56,7 @@ class UserUpdateAdmin(BaseModel):
     last_name: Optional[str] = None
     display_name: Optional[str] = None
     bio: Optional[str] = None
+    attachment_quota_bytes: Optional[int] = None
 
 
 class ResetMFARequest(BaseModel):

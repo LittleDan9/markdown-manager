@@ -11,6 +11,7 @@ from sqlalchemy.sql import func, text
 from app.models.base import Base
 
 if TYPE_CHECKING:
+    from app.models.attachment import Attachment
     from app.models.category import Category
     from app.models.user import User
     from app.models.github_models import GitHubRepository, GitHubSyncHistory
@@ -149,6 +150,11 @@ class Document(Base):  # type: ignore[misc]
     # RAG embedding (one-to-one, optional)
     embedding: Mapped["DocumentEmbedding | None"] = relationship(
         "DocumentEmbedding", back_populates="document", uselist=False, cascade="all, delete-orphan"
+    )
+
+    # File attachments
+    attachments: Mapped[list["Attachment"]] = relationship(
+        "Attachment", back_populates="document", cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

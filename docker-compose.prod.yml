@@ -121,6 +121,8 @@ services:
       - EMBEDDING_SERVICE_URL=http://embedding:8005
       - OLLAMA_URL=http://ollama:11434
       - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
     volumes:
       - document-storage:/documents
     healthcheck:
@@ -387,6 +389,28 @@ services:
     networks:
       - markdown-manager
 
+  # ──────────────────────────────────────────────────────────────────────────
+  # ClamAV — virus scanning for file attachments
+  # ──────────────────────────────────────────────────────────────────────────
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+    networks:
+      - markdown-manager
+
 # ==============================================================================
 # Named volumes — persistent data survives container recreation
 # ==============================================================================
@@ -401,6 +425,8 @@ volumes:
     name: mm-ui-static
   ollama-data:
     name: mm-ollama-data
+  clamav-data:
+    name: mm-clamav-data
 
 # ==============================================================================
 # Network — all services communicate on internal network

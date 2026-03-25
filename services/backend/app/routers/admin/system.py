@@ -16,6 +16,7 @@ from app.core.auth import get_admin_user
 from app.database import get_db
 from app.models.document import Document
 from app.models.document_embedding import DocumentEmbedding
+from app.models.attachment import Attachment
 from app.models.site_setting import SiteSetting
 from app.models.user import User
 
@@ -114,6 +115,8 @@ class SiteStats(BaseModel):
     total_embeddings: int
     embeddings_with_summary: int
     embeddings_missing: int
+    total_attachments: int = 0
+    total_attachment_bytes: int = 0
     llm_model: str
     llm_url: str
     generated_at: datetime
@@ -190,6 +193,11 @@ async def get_site_stats(
 
     model, url, _ = await _effective_llm_config(db)
 
+    total_attachments = await db.scalar(select(func.count(Attachment.id))) or 0
+    total_attachment_bytes = await db.scalar(
+        select(func.coalesce(func.sum(Attachment.file_size_bytes), 0))
+    ) or 0
+
     return SiteStats(
         total_users=total_users,
         active_users=active_users,
@@ -197,6 +205,8 @@ async def get_site_stats(
         total_embeddings=total_embeddings,
         embeddings_with_summary=embeddings_with_summary,
         embeddings_missing=total_documents - total_embeddings,
+        total_attachments=total_attachments,
+        total_attachment_bytes=total_attachment_bytes,
         llm_model=model,
         llm_url=url,
         generated_at=datetime.utcnow(),
@@ -382,3 +392,56 @@ async def get_reindex_status(
         }
         for r in data
     ]
+
+
+# ── Attachment Quota Settings ─────────────────────────────────────────────────
+
+_KEY_ATTACHMENT_QUOTA = "attachment.quota_bytes"
+_DEFAULT_ATTACHMENT_QUOTA = 500 * 1024 * 1024  # 500 MB
+
+
+def _format_bytes(size: int) -> str:
+    for unit in ("B", "KB", "MB", "GB"):
+        if abs(size) < 1024:
+            return f"{size:.0f} {unit}"
+        size /= 1024  # type: ignore[assignment]
+    return f"{size:.0f} TB"
+
+
+class AttachmentQuotaRequest(BaseModel):
+    quota_bytes: int
+
+
+@router.get("/system/attachment-quota")
+async def get_attachment_quota(
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_admin_user),
+) -> dict[str, Any]:
+    """Get the site-wide default attachment storage quota."""
+    raw = await _get_setting(db, _KEY_ATTACHMENT_QUOTA)
+    quota_bytes = int(raw) if raw else _DEFAULT_ATTACHMENT_QUOTA
+    return {
+        "quota_bytes": quota_bytes,
+        "quota_display": _format_bytes(quota_bytes),
+    }
+
+
+@router.put("/system/attachment-quota")
+async def set_attachment_quota(
+    request: AttachmentQuotaRequest,
+    db: AsyncSession = Depends(get_db),
+    _admin: User = Depends(get_admin_user),
+) -> dict[str, Any]:
+    """Set the site-wide default attachment storage quota."""
+    if request.quota_bytes < 0:
+        raise HTTPException(status_code=422, detail="Quota must be non-negative")
+    await _set_setting(
+        db,
+        _KEY_ATTACHMENT_QUOTA,
+        str(request.quota_bytes),
+        "Default attachment storage quota per user (bytes)",
+    )
+    return {
+        "quota_bytes": request.quota_bytes,
+        "quota_display": _format_bytes(request.quota_bytes),
+    }

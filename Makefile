@@ -201,6 +201,7 @@ deploy-update: sync-locks ## Deploy app update only (skip bootstrap)
 	@echo "$(BLUE)Deploying application update$(NC)"
 	@./scripts/setup-ansible.sh
 	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags deploy -v --diff $(DEPLOY_HOST_ARGS)
+	@echo "$(GREEN)Deploy completed at $$(date '+%Y-%m-%d %H:%M:%S')$(NC)"
 
 deploy-bootstrap: ## First-time server setup (Docker, UFW, dirs)
 	@./scripts/setup-ansible.sh

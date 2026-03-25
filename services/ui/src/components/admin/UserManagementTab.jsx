@@ -129,6 +129,18 @@ function UserManagementTab() {
     }
   };
 
+  const handleUpdateQuota = async (userId, quotaBytes) => {
+    try {
+      await adminUsersApi.updateUser(userId, {
+        attachment_quota_bytes: quotaBytes,
+      });
+      setSelectedUser((prev) => prev ? { ...prev, attachment_quota_bytes: quotaBytes } : prev);
+      showSuccess('Attachment quota updated');
+    } catch (err) {
+      showError(err.message);
+    }
+  };
+
   const handleConfirmAction = (action, user) => {
     setConfirmAction({ action, user });
     setShowConfirmModal(true);
@@ -415,6 +427,35 @@ function UserManagementTab() {
                   <Row className="mb-2">
                     <Col sm={4}><strong>GitHub Accounts:</strong></Col>
                     <Col sm={8}>{selectedUser.github_account_count}</Col>
+                  </Row>
+                </div>
+
+                {/* Attachment Quota Override */}
+                <div className="mb-4">
+                  <h6 className="text-muted mb-3">Attachment Storage Quota</h6>
+                  <Row className="align-items-end">
+                    <Col sm={4}><strong>Override:</strong></Col>
+                    <Col sm={8}>
+                      <InputGroup size="sm">
+                        <Form.Control
+                          type="number"
+                          min={0}
+                          placeholder="Use site default"
+                          value={selectedUser.attachment_quota_bytes
+                            ? Math.round(selectedUser.attachment_quota_bytes / (1024 * 1024))
+                            : ''}
+                          onChange={(e) => {
+                            const mb = parseInt(e.target.value);
+                            const bytes = mb > 0 ? mb * 1024 * 1024 : null;
+                            handleUpdateQuota(selectedUser.id, bytes);
+                          }}
+                        />
+                        <InputGroup.Text>MB</InputGroup.Text>
+                      </InputGroup>
+                      <Form.Text className="text-muted">
+                        Leave empty to use site default. Set to 0 to block uploads.
+                      </Form.Text>
+                    </Col>
                   </Row>
                 </div>
 
