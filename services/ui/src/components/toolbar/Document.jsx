@@ -1,5 +1,5 @@
 import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModal";
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown } from "react-bootstrap";
@@ -55,6 +55,11 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }, 1000);
   }, [getLastSavedText]);
 
+  // Tracks a user-initiated category selection that hasn't yet been reflected
+  // in currentDocument.category (i.e. the save is still in-flight).
+  // Cleared only when currentDocument.category catches up, not on a timer.
+  const pendingCategoryRef = useRef(null);
+
   // Save document immediately when changing category (only for local files)
   const handleCategorySelect = async (category) => {
     // Don't allow category changes for GitHub files
@@ -62,12 +67,16 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
       return;
     }
 
+    pendingCategoryRef.current = category;
     setCurrentCategory(category);
     try {
       const updatedDoc = { ...currentDocument, category };
-      const _saved = await saveDocument(updatedDoc);
+      await saveDocument(updatedDoc);
       // The saveDocument in DocumentProvider will handle current document tracking
     } catch (err) {
+      // Revert dropdown to document's actual category on failure
+      pendingCategoryRef.current = null;
+      setCurrentCategory(currentDocument?.category || 'General');
       showError("Failed to update document category.");
     }
   };
@@ -80,14 +89,26 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }
 
     if (currentDocument && currentDocument.category) {
-      // If currentDocument.category is missing from categories, fallback to 'General'
+      // If a user-initiated category change is pending, check if the document
+      // has caught up to the pending value before allowing sync
+      if (pendingCategoryRef.current !== null) {
+        if (currentDocument.category === pendingCategoryRef.current) {
+          // Document state now reflects the user's selection — clear the pending flag
+          pendingCategoryRef.current = null;
+        }
+        // Either way, don't override the optimistic currentCategory while pending
+        return;
+      }
+
+      // No pending change — sync dropdown from document state (external change)
       if (!categories.includes(currentDocument.category)) {
         setCurrentCategory("General");
-      } else if (currentDocument.category !== currentCategory) {
+      } else {
         setCurrentCategory(currentDocument.category);
       }
     }
-  }, [currentDocument?.category, currentDocument?.updated_at, currentDocument?.repository_type, categories, currentCategory, currentDocument]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit currentCategory to prevent bounce-back on optimistic updates
+  }, [currentDocument?.category, currentDocument?.updated_at, currentDocument?.repository_type, categories, currentDocument]);
 
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");

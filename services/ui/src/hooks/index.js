@@ -28,6 +28,9 @@ export * from './performance';
 // LocalStorage hooks - Browser storage management and persistence
 export { useLocalStorage, useEditorWidth } from './useLocalStorage';
 
+// Version check hook - Detects new deployments and prompts reload
+export { useVersionCheck } from './useVersionCheck';
+
 // This allows importing from specific categories:
 // import { useDocumentState, useSaveDocument } from '@/hooks/document';
 // import { useEditor, useGlobalKeyboardShortcuts } from '@/hooks/editor';
