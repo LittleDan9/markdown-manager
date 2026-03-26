@@ -5,6 +5,8 @@ from .category import Category
 from .comment import Comment
 from .custom_dictionary import CustomDictionary
 from .document import Document
+from .document_collaborator import DocumentCollaborator
+from .document_collab_state import DocumentCollabState
 from .document_embedding import DocumentEmbedding
 from .git_operations import GitOperationLog
 from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
@@ -23,6 +25,8 @@ __all__ = [
     "Comment",
     "CustomDictionary",
     "Document",
+    "DocumentCollaborator",
+    "DocumentCollabState",
     "DocumentEmbedding",
     "GitOperationLog",
     "GitHubAccount",

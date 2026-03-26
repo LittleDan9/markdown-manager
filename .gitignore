@@ -119,3 +119,4 @@ backups/
 backup-*/
 .databricks
 ollama-data/
+core.*

@@ -7,7 +7,7 @@ import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
-export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount }) {
+export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount, collab }) {
   const containerRef = useRef(null);
   const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
@@ -93,12 +93,32 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
   // Debounced cursor line change handler
   const debouncedLineChange = useDebouncedCursorChange(setCursorLine, 300);
 
+  // In collab mode, wrap triggerContentUpdate to also apply to Y.Doc
+  const handleContentChange = useCallback((newContent, options) => {
+    if (collab?.collabActive) {
+      // Apply change to the shared Y.Doc — the server will relay to peers
+      collab.applyLocalChange(newContent);
+    }
+    // Always update local state and preview
+    triggerContentUpdate(newContent, options);
+  }, [collab, triggerContentUpdate]);
+
+  // Register remote change handler so the editor picks up peer edits
+  useEffect(() => {
+    if (collab?.onRemoteChange) {
+      collab.onRemoteChange((remoteContent) => {
+        // Update document context (preview, state) but skip rendering a loop
+        triggerContentUpdate(remoteContent, { reason: 'remote-collab' });
+      });
+    }
+  }, [collab, triggerContentUpdate]);
+
 
       // Use consolidated editor hook with Phase 5 settings
   const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
     value, // RE-ENABLED: Reconnect value prop
-    onChange: triggerContentUpdate,
+    onChange: handleContentChange,
     onCursorLineChange: debouncedLineChange,
     enableSpellCheck: true, // ENABLED: Turn on spell check
     enableMarkdownLint: true, // ENABLED: Turn on markdown lint

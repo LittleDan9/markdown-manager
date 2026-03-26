@@ -3,6 +3,7 @@ import FileDropdown from "@/components/file/FileDropdown";
 import DocumentToolbar from "@/components/toolbar/Document";
 import UserToolbar from "@/components/toolbar/User";
 import ShareButton from "@/components/shared/ShareButton";
+import SharedWithMeModal from "@/components/shared/modals/SharedWithMeModal";
 import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
 import MobileToolbarMenu from "@/components/toolbar/MobileToolbarMenu";
 import MobileUserMenu from "@/components/toolbar/MobileUserMenu";
@@ -39,6 +40,7 @@ function Toolbar({
   const [showDocumentInfoModal, setShowDocumentInfoModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showMobileUserMenu, setShowMobileUserMenu] = useState(false);
+  const [showSharedWithMe, setShowSharedWithMe] = useState(false);
 
   // Memoize setDocumentTitle to prevent infinite re-renders
   const setDocumentTitle = useCallback((title) => {
@@ -205,6 +207,16 @@ function Toolbar({
           )}
           {!isSharedView && (
             <ActionButton
+              id="sharedWithMeBtn"
+              variant="outline-secondary"
+              size="sm"
+              title="Documents shared with you"
+              onClick={() => setShowSharedWithMe(true)}
+              icon="bi bi-people"
+            />
+          )}
+          {!isSharedView && (
+            <ActionButton
               id="chatBtn"
               variant="outline-secondary"
               size="sm"
@@ -287,6 +299,12 @@ function Toolbar({
         onHide={() => setShowDocumentInfoModal(false)}
         document={currentDocument}
         gitStatus={null} // We don't have git status in toolbar, but modal can handle null
+      />
+
+      {/* Shared With Me Modal */}
+      <SharedWithMeModal
+        show={showSharedWithMe}
+        onHide={() => setShowSharedWithMe(false)}
       />
     </nav>
   );

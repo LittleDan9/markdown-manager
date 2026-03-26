@@ -22,7 +22,7 @@ from app.services.github.filesystem import github_filesystem_service
 from app.services.github.conversion import get_diagram_conversion_service
 from app.services.github.api import GitHubAPIService
 from app.services.unified_document import unified_document_service
-from . import categories, crud, current, sharing, folders, recents, github_open
+from . import categories, collaboration, crud, current, sharing, folders, recents, github_open
 from .docs import DOCUMENT_CRUD_DOCS
 
 router = APIRouter()
@@ -1769,6 +1769,7 @@ router.include_router(current.router, tags=["documents"])  # /current before /{d
 router.include_router(folders.router, tags=["documents"])  # NEW: folder operations
 router.include_router(categories.router, tags=["documents"])
 router.include_router(sharing.router, tags=["documents"])
+router.include_router(collaboration.router, tags=["documents"])  # collaborator management
 router.include_router(crud.router, tags=["documents"])  # /{document_id} must come last
 
 
