@@ -12,6 +12,8 @@ from app.models.document import Document
 from app.models.github_models import GitHubRepository
 from app.crud.document import DocumentCRUD
 
+from app.routers.notifications import create_notification
+
 from .base import BaseGitHubService
 from .api import GitHubAPIService
 from .sync import GitHubSyncService
@@ -151,6 +153,13 @@ class GitHubBackgroundService(BaseGitHubService):
                 # Mark as error but don't fail the sync
                 document.github_sync_status = "error"
                 document.last_github_sync_at = datetime.utcnow()
+                await create_notification(
+                    db, document.user_id,
+                    "GitHub sync failed",
+                    f"Failed to sync \"{document.name}\" from GitHub: {e}",
+                    category="github",
+                    link=f"/documents/{document.id}",
+                )
                 return False
 
             # Check if content has changed
@@ -180,17 +189,38 @@ class GitHubBackgroundService(BaseGitHubService):
                 document.github_sync_status = "synced"
                 document.last_github_sync_at = datetime.utcnow()
                 logger.info(f"Document {document.id} synced successfully")
+                await create_notification(
+                    db, document.user_id,
+                    "GitHub sync completed",
+                    f"\"{document.name}\" synced from GitHub successfully",
+                    category="github",
+                    link=f"/documents/{document.id}",
+                )
                 return True
             else:
                 document.github_sync_status = "error"
                 document.last_github_sync_at = datetime.utcnow()
                 logger.error(f"Failed to sync document {document.id}")
+                await create_notification(
+                    db, document.user_id,
+                    "GitHub sync failed",
+                    f"Failed to pull changes for \"{document.name}\"",
+                    category="github",
+                    link=f"/documents/{document.id}",
+                )
                 return False
 
         except Exception as e:
             logger.error(f"Error syncing document {document.id}: {e}")
             document.github_sync_status = "error"
             document.last_github_sync_at = datetime.utcnow()
+            await create_notification(
+                db, document.user_id,
+                "GitHub sync failed",
+                f"Error syncing \"{document.name}\": {e}",
+                category="github",
+                link=f"/documents/{document.id}",
+            )
             return False
 
     async def sync_specific_document(self, document_id: int) -> bool:

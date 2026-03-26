@@ -4,6 +4,11 @@ import { useDocumentContext } from '../../providers/DocumentContextProvider';
 import { render } from '../../services/rendering/MarkdownRenderer';
 import HighlightService from '../../services/editor/HighlightService';
 
+// Enable verbose render logging via: window.__RENDER_DEBUG = true
+const debug = (...args) => {
+  if (window.__RENDER_DEBUG) console.log(...args);
+};
+
 // Render request priorities
 const PRIORITY = {
   HIGH: 0,     // User just changed document
@@ -14,10 +19,8 @@ const PRIORITY = {
 // Render states
 const RENDER_STATE = {
   IDLE: 'idle',
-  QUEUED: 'queued',
   PROCESSING: 'processing',
   HIGHLIGHTING: 'highlighting',
-  MERMAID: 'mermaid',
   FINALIZING: 'finalizing',
   COMPLETED: 'completed',
   CANCELLED: 'cancelled',
@@ -63,7 +66,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       cancelToken,
       cancel: () => {
         cancelToken.cancelled = true;
-        console.log(`🚫 Render request ${renderId} cancelled (${reason})`);
+        debug(`🚫 Render request ${renderId} cancelled (${reason})`);
       }
     };
   }, []);
@@ -74,7 +77,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   const queueRender = useCallback((content, theme, priority = PRIORITY.NORMAL, reason = 'content-change') => {
     // Don't queue new renders while in crop mode to prevent interruption
     if (isCropModeActive()) {
-      console.log(`🚫 Skipping render - crop mode is active`);
+      debug(`🚫 Skipping render - crop mode is active`);
       return;
     }
 
@@ -83,13 +86,13 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     if (reason === 'content-change' &&
         content === lastProcessedContentRef.current &&
         theme === lastProcessedThemeRef.current) {
-      console.log(`⏭️ Skipping render - no changes detected (content-change only)`);
+      debug(`⏭️ Skipping render - no changes detected (content-change only)`);
       return;
     }
 
     const request = createRenderRequest(content, theme, priority, reason);
 
-    console.log(`📋 Queuing render request ${request.id}:`, {
+    debug(`📋 Queuing render request ${request.id}:`, {
       reason,
       priority,
       contentLength: content?.length || 0,
@@ -115,17 +118,13 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   }, [createRenderRequest, renderQueue.length, isCropModeActive]);
 
   /**
-   * Process incremental render for content changes
+   * Process incremental render for content changes.
+   * Renders full markdown-to-HTML, then morphdom handles efficient DOM patching
+   * downstream in PreviewRenderer (only updating changed DOM nodes).
    */
   const processIncrementalRender = useCallback(async (newContent, _oldContent, _cancelToken) => {
-    console.log('🔄 Processing incremental render');
-
-    // For now, fall back to full render for incremental updates
-    // TODO: Implement true incremental DOM updates
-    console.log('🔄 Falling back to full render for incremental update');
     const htmlString = render(newContent);
-    // Don't set html in RendererContext for incremental - only update previewHTML
-    onRenderComplete(htmlString, { renderId: Date.now(), reason: 'incremental-fallback', incremental: false });
+    onRenderComplete(htmlString, { renderId: Date.now(), reason: 'incremental', incremental: false });
   }, [onRenderComplete]);
 
   /**
@@ -137,7 +136,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     const codeBlocks = Array.from(tempDiv.querySelectorAll("[data-syntax-placeholder]"));
     const blocksToHighlight = [];
 
-    console.log(`🎨 Processing ${codeBlocks.length} code blocks for full render`);
+    debug(`🎨 Processing ${codeBlocks.length} code blocks for full render`);
 
     codeBlocks.forEach(block => {
       const code = decodeURIComponent(block.dataset.code);
@@ -162,7 +161,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
 
     // Highlight new blocks if needed
     if (blocksToHighlight.length > 0) {
-      console.log(`✨ Highlighting ${blocksToHighlight.length} new blocks`);
+      debug(`✨ Highlighting ${blocksToHighlight.length} new blocks`);
 
       const results = await HighlightService.highlightBlocks(blocksToHighlight);
 
@@ -225,7 +224,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       }
       cancelTokenRef.current = cancelToken;
 
-      console.log(`🎬 Starting render ${id} (${reason})`);
+      debug(`🎬 Starting render ${id} (${reason})`);
 
       // Check for cancellation
       if (cancelToken.cancelled) {
@@ -239,17 +238,17 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       let htmlString = null; // Will be set for full renders
 
       if (isIncrementalUpdate) {
-        console.log(`🔄 Incremental render for ${id} - content change detected`);
+        debug(`🔄 Incremental render for ${id} - content change detected`);
 
         // Process incremental updates
         await processIncrementalRender(content, oldContent, cancelToken);
 
       } else {
-        console.log(`🔄 Full render for ${id} - ${reason}`);
+        debug(`🔄 Full render for ${id} - ${reason}`);
 
         // Step 1: Markdown to HTML conversion (full render)
         htmlString = render(content);
-        console.log(`📝 Markdown rendered for ${id}`);
+        debug(`📝 Markdown rendered for ${id}`);
 
         if (cancelToken.cancelled) throw new Error('cancelled');
 
@@ -262,7 +261,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
         // Step 3: Finalize render
         setRenderState(RENDER_STATE.FINALIZING);
 
-        console.log(`✅ Full render ${id} completed successfully`);
+        debug(`✅ Full render ${id} completed successfully`);
 
         // Update state and tracking
         setHtml(htmlString);
@@ -290,7 +289,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
 
     } catch (error) {
       if (error.message === 'cancelled') {
-        console.log(`🚫 Render ${id} was cancelled`);
+        debug(`🚫 Render ${id} was cancelled`);
         setRenderState(RENDER_STATE.CANCELLED);
       } else {
         console.error(`❌ Render ${id} failed:`, error);
@@ -322,7 +321,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       const validRequests = currentQueue.filter(req => !req.cancelToken.cancelled);
 
       if (validRequests.length === 0) {
-        console.log(`📭 Queue empty - no requests to process`);
+        debug(`📭 Queue empty - no requests to process`);
         renderQueueRef.current = [];
         return [];
       }
@@ -330,7 +329,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       const request = validRequests[0];
       const remaining = validRequests.slice(1);
 
-      console.log(`🔄 Processing render request ${request.id}:`, {
+      debug(`🔄 Processing render request ${request.id}:`, {
         reason: request.reason,
         remaining: remaining.length
       });
@@ -356,7 +355,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
 
     // For high priority requests (document changes, initial render), skip debouncing
     if (priority === PRIORITY.HIGH) {
-      console.log(`⚡ Immediate render: HIGH_PRIORITY (${reason})`);
+      debug(`⚡ Immediate render: HIGH_PRIORITY (${reason})`);
       queueRender(content, theme, priority, reason);
       return;
     }
@@ -381,7 +380,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     if (reason !== 'content-change' &&
         content === lastProcessedContentRef.current &&
         theme === lastProcessedThemeRef.current) {
-      console.log(`⏭️ Skipping render - no changes detected (${reason})`);
+      debug(`⏭️ Skipping render - no changes detected (${reason})`);
       return;
     }
 
@@ -427,7 +426,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     // Update the last document ID reference
     lastDocumentIdRef.current = currentDocId;
 
-    console.log("🔄 RenderingOrchestrator: Content change detected", {
+    debug("🔄 RenderingOrchestrator: Content change detected", {
       contentLength: content.length,
       documentId: currentDocId,
       previousDocId,
@@ -447,7 +446,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   // Handle theme changes
   useEffect(() => {
     if (theme !== lastProcessedThemeRef.current && lastProcessedContentRef.current) {
-      console.log("🎨 RenderingOrchestrator: Theme change detected", { theme });
+      debug("🎨 RenderingOrchestrator: Theme change detected", { theme });
       triggerRender(lastProcessedContentRef.current, theme, {
         priority: PRIORITY.LOW,
         reason: 'theme-change'

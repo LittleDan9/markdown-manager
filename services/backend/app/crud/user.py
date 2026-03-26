@@ -123,18 +123,18 @@ async def verify_password_reset_token(db: AsyncSession, token: str) -> Optional[
 
 async def reset_password_with_token(
     db: AsyncSession, token: str, new_password: str
-) -> bool:
-    """Reset password using valid token."""
+) -> Optional[User]:
+    """Reset password using valid token. Returns the user on success, None on failure."""
     user = await verify_password_reset_token(db, token)
     if not user:
-        return False
+        return None
 
     # Update password and clear reset token
     object.__setattr__(user, "hashed_password", get_password_hash(new_password))
     object.__setattr__(user, "reset_token", None)
     object.__setattr__(user, "reset_token_expires", None)
     await db.commit()
-    return True
+    return user
 
 
 async def setup_mfa(

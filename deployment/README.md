@@ -24,27 +24,28 @@ Development Machine → Ansible → SSH → Production Server (Danbian)
 - Docker installed locally (for building images)
 - Ubuntu/Debian system (Ansible auto-installed)
 
-### Deploy Everything
+### Deploy Commands
 ```bash
-make deploy                    # Deploy all services
-make deploy-quiet             # Minimal output
-make deploy-verbose           # Debug mode
+make deploy                    # Full deploy (bootstrap + app + nginx)
+make deploy-update             # App update only (skip bootstrap)
+make deploy-bootstrap          # First-time server setup (Docker, UFW, dirs)
+make deploy-nginx              # Update host nginx configuration only
 ```
 
-### Deploy Individual Services
+### Status & Monitoring
 ```bash
-make deploy-backend           # Backend API only
-make deploy-nginx             # Nginx + UI only
-make deploy-redis             # Redis only
-make deploy-export            # Export service only
-make deploy-linting           # Linting service + consumer
-make deploy-spell-check       # Spell-check service + consumer
+make deploy-status             # Check production container status and health
+make deploy-logs               # Tail production container logs
+make deploy-dry-run            # Preview changes without deploying (Ansible check mode)
 ```
 
-### Status & Validation
+### Database Management
 ```bash
-make deploy-status            # Check all service status
-make deploy-dry-run           # Preview changes without deploying
+make deploy-db-migrate         # Run Alembic migrations in production
+make deploy-db-backup          # Backup production database
+make backup-db                 # Backup production database to JSON
+make restore-db BACKUP_FILE=path  # Restore database from backup file
+make backup-restore-cycle      # Run backup then restore in sequence
 ```
 
 ## 📁 Directory Structure

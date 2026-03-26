@@ -15,6 +15,7 @@ from fastapi import (
     Form
 )
 from fastapi.responses import StreamingResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
 import io
 import logging
@@ -22,7 +23,9 @@ import tempfile
 from pathlib import Path
 
 from app.core.auth import get_current_user, get_current_user_optional
+from app.database import get_db
 from app.models.user import User
+from app.routers.notifications import create_notification
 from app.services.storage.image_storage_service import ImageStorageService
 from app.services.virus_scan_service import virus_scan_service
 
@@ -42,7 +45,8 @@ async def upload_image(
     optimize_for_pdf: bool = Form(default=True, description="Optimize image for PDF rendering"),
     create_thumbnail: bool = Form(default=True, description="Create thumbnail"),
     current_user: User = Depends(get_current_user),
-    image_service: ImageStorageService = Depends(get_image_service)
+    image_service: ImageStorageService = Depends(get_image_service),
+    db: AsyncSession = Depends(get_db),
 ) -> Dict[str, Any]:
     """
     Upload an image file with optimization options.
@@ -81,6 +85,13 @@ async def upload_image(
                 tmp.flush()
                 scan_result = virus_scan_service.scan_file(Path(tmp.name))
             if scan_result.status == "infected":
+                await create_notification(
+                    db, current_user.id,
+                    "Virus detected in upload",
+                    f"File \"{file.filename}\" was rejected: {scan_result.detail}",
+                    category="security",
+                )
+                await db.commit()
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                     detail=f"Virus detected: {scan_result.detail}",

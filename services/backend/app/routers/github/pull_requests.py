@@ -13,6 +13,7 @@ from app.schemas.github import (
     GitHubPRResponse,
     GitHubPRListResponse
 )
+from app.routers.notifications import create_notification
 from app.services.github.pull_requests import github_pr_service
 
 router = APIRouter()
@@ -55,6 +56,15 @@ async def create_pull_request(
         head_branch=pr_request.head_branch,
         base_branch=pr_request.base_branch
     )
+
+    await create_notification(
+        db, current_user.id,
+        "Pull request created",
+        f'PR #{pr_data["number"]} "{pr_request.title}" created on {owner}/{repo_name}',
+        category="github",
+        link=pr_data["html_url"],
+    )
+    await db.commit()
 
     return GitHubPRResponse(
         number=pr_data["number"],

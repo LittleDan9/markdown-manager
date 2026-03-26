@@ -1,8 +1,8 @@
-# AI Agent Development Environment Guidelines
-
-applyTo: "**/*"
-
 ---
+description: "Use when working on the development environment: Docker Compose, local setup, dev tools, debugging, or project configuration."
+applyTo: "docker-compose.yml,.env*,package.json,Makefile"
+---
+# AI Agent Development Environment Guidelines
 
 ## Markdown Manager Development Environment: Docker + Local Hybrid
 

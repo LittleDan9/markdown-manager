@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.configs import settings
 from app.crud import user as crud_user
 from app.database import get_db
+from app.routers.notifications import create_notification
 from app.schemas.user import PasswordResetConfirm, PasswordResetRequest
 
 router = APIRouter()
@@ -88,14 +89,22 @@ async def confirm_password_reset(
     reset_data: PasswordResetConfirm, db: AsyncSession = Depends(get_db)
 ) -> Any:
     """Confirm password reset with token."""
-    success = await crud_user.reset_password_with_token(
+    user = await crud_user.reset_password_with_token(
         db, reset_data.token, reset_data.new_password
     )
 
-    if not success:
+    if not user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid or expired reset token",
         )
+
+    await create_notification(
+        db, user.id,
+        "Password changed",
+        "Your password was reset successfully.",
+        category="security",
+    )
+    await db.commit()
 
     return {"message": "Password has been reset successfully"}

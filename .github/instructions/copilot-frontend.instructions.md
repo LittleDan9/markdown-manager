@@ -1,3 +1,7 @@
+---
+description: "Use when working on the React frontend: components, providers, hooks, services, API clients, styles, webpack, or general UI architecture."
+applyTo: "services/ui/**/*"
+---
 # Frontend Instructions - Markdown Manager
 
 ## Architecture

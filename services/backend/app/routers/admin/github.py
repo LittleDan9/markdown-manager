@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.auth import get_current_user
+from app.core.auth import get_current_user, get_admin_user
 from app.database import get_db
 from app.models.user import User
 from app.schemas.user import UserResponse
@@ -251,14 +251,13 @@ async def get_orphaned_documents(
 # Admin endpoints for managing any user's storage
 @router.get("/users", response_model=List[UserResponse])
 async def get_all_users(
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Admin endpoint: Get list of all users for user selection.
+    Requires admin privileges.
     """
-    # TODO: Add admin role check when available
-    # For now, allow any authenticated user to get basic user list
 
     try:
         result = await db.execute(
@@ -300,16 +299,13 @@ async def get_all_users(
 @router.get("/users/{user_id}/storage-stats")
 async def get_user_storage_stats(
     user_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Admin endpoint: Get storage statistics for any user.
     Requires admin privileges.
     """
-    # TODO: Add admin permission check
-    # if not current_user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
     from app.models.document import Document
     from app.services.storage.filesystem import Filesystem
@@ -413,16 +409,14 @@ async def get_user_storage_stats(
 @router.get("/users/{user_id}/orphaned-repositories")
 async def get_user_orphaned_repositories(
     user_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Admin endpoint: Get orphaned repositories for a specific user.
     Returns repositories that exist on filesystem but have no documents in database.
+    Requires admin privileges.
     """
-    # TODO: Add admin permission check
-    # if not current_user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
     try:
         orphaned_repos = await get_orphaned_repositories(user_id, db)
@@ -436,16 +430,14 @@ async def get_user_orphaned_repositories(
 @router.delete("/users/{user_id}/orphaned-repositories")
 async def cleanup_user_orphaned_repositories(
     user_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Admin endpoint: Clean up orphaned repositories for a specific user.
     Removes repositories that exist on filesystem but have no documents in database.
+    Requires admin privileges.
     """
-    # TODO: Add admin permission check
-    # if not current_user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
     try:
         from app.services.storage.filesystem import Filesystem
@@ -563,16 +555,13 @@ async def cleanup_my_orphaned_repositories(
 @router.get("/users/{user_id}/orphaned-documents")
 async def get_user_orphaned_documents(
     user_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Admin endpoint: Get orphaned documents for any user.
     Requires admin privileges.
     """
-    # TODO: Add admin permission check
-    # if not current_user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
     # Reuse the existing orphan detection logic but for specified user
     from app.models.document import Document
@@ -642,16 +631,13 @@ async def get_user_orphaned_documents(
 @router.delete("/users/{user_id}/orphaned-documents")
 async def cleanup_user_orphaned_documents(
     user_id: int,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
     db: AsyncSession = Depends(get_db)
 ):
     """
     Admin endpoint: Clean up orphaned documents for any user.
     Requires admin privileges.
     """
-    # TODO: Add admin permission check
-    # if not current_user.is_admin:
-    #     raise HTTPException(status_code=403, detail="Admin access required")
 
     return await perform_orphan_cleanup(user_id, db)
 

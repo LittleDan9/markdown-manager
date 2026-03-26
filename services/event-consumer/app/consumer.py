@@ -24,9 +24,9 @@ except ImportError:
             return True
 
     class EventTypes:
-        USER_CREATED = "user.created.v1"
-        USER_UPDATED = "user.updated.v1"
-        USER_DISABLED = "user.disabled.v1"
+        USER_CREATED = "UserCreated"
+        USER_UPDATED = "UserUpdated"
+        USER_DISABLED = "UserDisabled"
 
 # Import event models from top-level events_core package
 try:
@@ -85,9 +85,9 @@ class ConfigurableConsumer:
         for topic in self.topics:
             if topic == "identity.user.v1":
                 handlers.update({
-                    "user.created.v1": f"handle_{self.domain}_user_created",
-                    "user.updated.v1": f"handle_{self.domain}_user_updated",
-                    "user.disabled.v1": f"handle_{self.domain}_user_disabled"
+                    "UserCreated": f"handle_{self.domain}_user_created",
+                    "UserUpdated": f"handle_{self.domain}_user_updated",
+                    "UserDisabled": f"handle_{self.domain}_user_disabled"
                 })
             # Add more topics as needed
 
@@ -285,8 +285,8 @@ class ConfigurableConsumer:
             await handler_method(session, envelope, payload)
         else:
             # Default handling - just update identity projection for user events
-            if envelope.event_type.startswith('user.'):
-                status = 'disabled' if envelope.event_type == 'user.disabled.v1' else 'active'
+            if envelope.event_type.startswith('User'):
+                status = 'disabled' if envelope.event_type == 'UserDisabled' else 'active'
 
                 await self.db_manager.upsert_identity_projection(
                     session,

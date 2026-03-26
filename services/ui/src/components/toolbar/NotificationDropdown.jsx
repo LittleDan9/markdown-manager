@@ -1,0 +1,144 @@
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
+import { Dropdown, Badge } from 'react-bootstrap';
+import { formatDistanceToNow } from 'date-fns';
+
+/**
+ * NotificationDropdown — Toolbar dropdown showing recent notifications.
+ */
+function NotificationDropdown({
+  notifications,
+  unreadCount,
+  onMarkRead,
+  onMarkAllRead,
+  onDelete,
+  onClearAll,
+}) {
+  const [show, setShow] = useState(false);
+
+  const handleToggle = (isOpen) => {
+    setShow(isOpen);
+  };
+
+  return (
+    <Dropdown show={show} onToggle={handleToggle} align="end">
+      <Dropdown.Toggle
+        variant="outline-secondary"
+        size="sm"
+        id="notification-dropdown"
+        title="Notifications"
+        className="position-relative"
+      >
+        <i className="bi bi-bell" />
+        {unreadCount > 0 && (
+          <Badge
+            bg="danger"
+            pill
+            className="position-absolute top-0 start-100 translate-middle"
+            style={{ fontSize: '0.6em' }}
+          >
+            {unreadCount > 99 ? '99+' : unreadCount}
+          </Badge>
+        )}
+      </Dropdown.Toggle>
+
+      <Dropdown.Menu style={{ width: '340px', maxHeight: '400px', overflowY: 'auto', overflowX: 'hidden' }}>
+        <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+          <strong>Notifications</strong>
+          <div className="d-flex gap-2">
+            {unreadCount > 0 && (
+              <button
+                className="btn btn-link btn-sm p-0 text-decoration-none"
+                onClick={(e) => { e.stopPropagation(); onMarkAllRead(); }}
+              >
+                Mark all read
+              </button>
+            )}
+            {notifications.length > 0 && (
+              <button
+                className="btn btn-link btn-sm p-0 text-danger text-decoration-none"
+                onClick={(e) => { e.stopPropagation(); onClearAll(); }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+
+        {notifications.length === 0 ? (
+          <div className="text-center text-muted py-4">
+            <i className="bi bi-bell-slash d-block mb-2" style={{ fontSize: '1.5em' }} />
+            No notifications
+          </div>
+        ) : (
+          notifications.slice(0, 20).map((n) => (
+            <NotificationItem
+              key={n.id}
+              notification={n}
+              onMarkRead={onMarkRead}
+              onDelete={onDelete}
+            />
+          ))
+        )}
+      </Dropdown.Menu>
+    </Dropdown>
+  );
+}
+
+function NotificationItem({ notification, onMarkRead, onDelete }) {
+  const categoryIcons = {
+    info: 'bi-info-circle text-info',
+    success: 'bi-check-circle text-success',
+    warning: 'bi-exclamation-triangle text-warning',
+    error: 'bi-x-circle text-danger',
+  };
+
+  const icon = categoryIcons[notification.category] || categoryIcons.info;
+  const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: true });
+
+  return (
+    <div
+      className={`d-flex align-items-start gap-2 px-3 py-2 border-bottom ${!notification.is_read ? 'bg-light' : ''}`}
+      style={{ cursor: 'pointer' }}
+      onClick={() => !notification.is_read && onMarkRead(notification.id)}
+    >
+      <i className={`bi ${icon} mt-1`} />
+      <div className="flex-grow-1" style={{ minWidth: 0 }}>
+        <div className="d-flex justify-content-between align-items-start">
+          <strong className={`small ${!notification.is_read ? '' : 'fw-normal'}`} style={{ wordBreak: 'break-word' }}>
+            {notification.title}
+          </strong>
+          <button
+            className="btn btn-link btn-sm p-0 text-muted flex-shrink-0 ms-1"
+            onClick={(e) => { e.stopPropagation(); onDelete(notification.id); }}
+            title="Dismiss"
+          >
+            <i className="bi bi-x" />
+          </button>
+        </div>
+        <div className="small text-muted" style={{ wordBreak: 'break-word' }}>{notification.message}</div>
+        <div className="small text-muted" style={{ fontSize: '0.75em' }}>{timeAgo}</div>
+      </div>
+      {!notification.is_read && (
+        <span className="badge rounded-pill bg-primary" style={{ width: 8, height: 8, padding: 0, marginTop: 6 }}>&nbsp;</span>
+      )}
+    </div>
+  );
+}
+
+NotificationDropdown.propTypes = {
+  notifications: PropTypes.array.isRequired,
+  unreadCount: PropTypes.number.isRequired,
+  onMarkRead: PropTypes.func.isRequired,
+  onMarkAllRead: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  onClearAll: PropTypes.func.isRequired,
+};
+
+NotificationItem.propTypes = {
+  notification: PropTypes.object.isRequired,
+  onMarkRead: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+};
+
+export default NotificationDropdown;

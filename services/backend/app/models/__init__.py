@@ -2,6 +2,7 @@
 from .attachment import Attachment
 from .base import Base, BaseModel
 from .category import Category
+from .comment import Comment
 from .custom_dictionary import CustomDictionary
 from .document import Document
 from .document_embedding import DocumentEmbedding
@@ -10,6 +11,7 @@ from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
 from .github_settings import GitHubSettings
 from .icon_models import IconMetadata, IconPack
 from .markdown_lint_rule import MarkdownLintRule
+from .notification import Notification
 from .site_setting import SiteSetting
 from .user import User
 
@@ -18,6 +20,7 @@ __all__ = [
     "Base",
     "BaseModel",
     "Category",
+    "Comment",
     "CustomDictionary",
     "Document",
     "DocumentEmbedding",
@@ -29,6 +32,7 @@ __all__ = [
     "IconMetadata",
     "IconPack",
     "MarkdownLintRule",
+    "Notification",
     "SiteSetting",
     "User"
 ]

@@ -1,3 +1,7 @@
+---
+description: "Use when working on the markdown preview renderer, Mermaid diagram rendering, syntax highlighting pipeline, morphdom DOM updates, or rendering orchestrator."
+applyTo: "services/ui/src/components/renderer/**,services/ui/src/hooks/renderer/**,services/ui/src/services/rendering/**"
+---
 # Renderer Component Instructions - Markdown Manager
 
 ## Renderer Overview

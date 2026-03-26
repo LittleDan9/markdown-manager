@@ -1,3 +1,7 @@
+---
+description: "Use when working on the Monaco editor component, spell check system, editor keyboard shortcuts, markdown toolbar, or editor-related hooks and services."
+applyTo: "services/ui/src/components/editor/**,services/ui/src/hooks/editor/**,services/ui/src/services/editor/**"
+---
 # Editor Component Instructions - Markdown Manager
 
 ## Editor Overview

@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.auth import get_current_user
 from app.database import get_db
 from app.models.user import User
+from app.routers.notifications import create_notification
 from app.services.github.importer import GitHubImportService
 from app.services.github_service import GitHubService
 
@@ -112,6 +113,19 @@ async def import_repository_files(
 
     # Get folder structure for response
     folder_structure = await github_import_service.get_folder_structure_for_user(current_user.id)
+
+    imported_count = len(results.get("imported", []))
+    error_count = len(results.get("errors", []))
+    summary = f"Imported {imported_count} file(s) from GitHub"
+    if error_count:
+        summary += f" ({error_count} error(s))"
+    await create_notification(
+        db, current_user.id,
+        "GitHub import completed",
+        summary,
+        category="github",
+    )
+    await db.commit()
 
     return {
         "repository_id": repository_id,

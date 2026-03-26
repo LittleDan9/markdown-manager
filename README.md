@@ -139,17 +139,24 @@ The application follows a modern microservices architecture with Nginx as the ce
 The application uses a mature Ansible-based deployment system that ensures services are actually operational before marking deployment as successful.
 
 ```bash
-# Deploy all services with health validation
-make deploy-ansible
+# Full deploy (bootstrap + app + nginx)
+make deploy
 
-# Deploy individual services
-make deploy-ansible-backend      # Backend API service
-make deploy-ansible-export       # Export service  
-make deploy-ansible-linting      # Linting service
-make deploy-ansible-spell-check  # Spell check service
+# App update only (skip bootstrap)
+make deploy-update
+
+# First-time server setup (Docker, UFW, dirs)
+make deploy-bootstrap
+
+# Update nginx configuration only
+make deploy-nginx
 
 # Dry run (check what would be deployed)
-make deploy-ansible-dry-run
+make deploy-dry-run
+
+# Status & logs
+make deploy-status               # Check container status and health
+make deploy-logs                  # Tail production logs
 ```
 
 **Key Features:**
@@ -184,10 +191,19 @@ make test-backend     # Backend tests with coverage
 make quality          # Run linting and quality checks
 
 # Deployment (Production)
-make deploy-ansible              # All services with health validation
-make deploy-ansible-backend      # Backend service only
-make deploy-ansible-export       # Export service only
-make deploy-ansible-dry-run      # Check deployment without changes
+make deploy                      # Full deploy (bootstrap + app + nginx)
+make deploy-update               # App update only
+make deploy-nginx                # Nginx configuration only
+make deploy-status               # Check production health
+make deploy-logs                 # Tail production logs
+make deploy-dry-run              # Preview changes without deploying
+make deploy-db-migrate           # Run database migrations
+make deploy-db-backup            # Backup production database
+
+# Database
+make backup-db                   # Export database to JSON
+make restore-db BACKUP_FILE=path # Restore from backup
+make backup-restore-cycle        # Backup then restore
 
 # Utilities
 make status           # Check development server status

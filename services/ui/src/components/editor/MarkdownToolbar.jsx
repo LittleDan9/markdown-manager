@@ -1,5 +1,7 @@
 import React from 'react';
+import { Button } from 'react-bootstrap';
 import { useMarkdownActions, useToolbarStyling } from '@/hooks/markdown';
+import { useDocumentContext } from '@/providers/DocumentContextProvider';
 import {
   TextFormattingGroup,
   HeadingGroup,
@@ -19,10 +21,19 @@ const MarkdownToolbar = ({
   onSpellCheckSettings = () => {},
   spellCheckSettings = {},
   readabilityData = null,
-  serviceInfo = null
+  serviceInfo = null,
+  // Outline toggle
+  onToggleOutline,
+  outlineVisible = false,
+  hasOutlineHeadings = false,
+  // Comments toggle
+  onToggleComments,
+  commentsVisible = false,
+  commentCount = 0
 }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
+  const { setShowIconBrowser } = useDocumentContext();
 
   return (
     <div className="markdown-toolbar d-flex align-items-center gap-1 flex-wrap" style={styles.toolbar}>
@@ -78,6 +89,56 @@ const MarkdownToolbar = ({
         readabilityData={readabilityData}
         serviceInfo={serviceInfo}
       />
+
+      <ToolbarSeparator style={styles.separator} />
+
+      {/* Icon Browser for Mermaid diagrams */}
+      <Button
+        variant={buttonVariant}
+        size="sm"
+        style={styles.button}
+        onClick={() => setShowIconBrowser(true)}
+        title="Browse AWS Icons for Mermaid"
+      >
+        <i className="bi bi-grid-3x3-gap" />
+      </Button>
+
+      {onToggleOutline && (
+        <>
+          <ToolbarSeparator style={styles.separator} />
+          <Button
+            variant={outlineVisible ? 'primary' : buttonVariant}
+            size="sm"
+            style={outlineVisible ? undefined : styles.button}
+            onClick={onToggleOutline}
+            title="Toggle document outline"
+            disabled={!hasOutlineHeadings}
+          >
+            <i className="bi bi-list-nested" />
+          </Button>
+        </>
+      )}
+
+      {onToggleComments && (
+        <>
+          <ToolbarSeparator style={styles.separator} />
+          <Button
+            variant={commentsVisible ? 'primary' : buttonVariant}
+            size="sm"
+            style={commentsVisible ? undefined : styles.button}
+            onClick={onToggleComments}
+            title="Toggle comments"
+            className="position-relative"
+          >
+            <i className="bi bi-chat-left-text" />
+            {commentCount > 0 && (
+              <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" style={{ fontSize: '0.55em' }}>
+                {commentCount}
+              </span>
+            )}
+          </Button>
+        </>
+      )}
     </div>
   );
 };

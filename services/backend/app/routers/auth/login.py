@@ -137,6 +137,10 @@ async def login(
     if user.mfa_enabled:
         return LoginResponse(mfa_required=True)
 
+    # Track last login (naive UTC — column is DateTime without timezone)
+    user.last_login = datetime.utcnow()
+    await db.commit()
+
     # Normal login flow (no MFA)
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)
     access_token = create_access_token(
@@ -303,6 +307,10 @@ async def login_mfa(
             detail="Invalid TOTP code or backup code",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+    # Track last login (naive UTC — column is DateTime without timezone)
+    user.last_login = datetime.utcnow()
+    await db.commit()
 
     # Generate access token
     access_token_expires = timedelta(minutes=settings.access_token_expire_minutes)

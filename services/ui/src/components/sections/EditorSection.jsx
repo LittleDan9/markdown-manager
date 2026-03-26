@@ -1,11 +1,15 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import PropTypes from 'prop-types';
 import Editor from '../Editor';
+import OutlinePanel from '../editor/OutlinePanel';
+import CommentsPanel from '../editor/CommentsPanel';
+import useDocumentOutline from '../../hooks/ui/useDocumentOutline';
+import useComments from '../../hooks/ui/useComments';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
 /**
  * EditorSection - Wrapper component for the editor area
- * Handles editor rendering with loading states and conditional visibility
+ * Handles editor rendering with loading states, outline panel, comments, and conditional visibility
  */
 function EditorSection({
   isSharedView,
@@ -14,7 +18,23 @@ function EditorSection({
   fullscreenPreview
 }) {
   const { content } = useDocumentContext();
-  // Don't render editor in shared view
+  const [outlineVisible, setOutlineVisible] = useState(false);
+  const [commentsVisible, setCommentsVisible] = useState(false);
+  const { headingTree, activeHeadingLine, hasHeadings } = useDocumentOutline();
+  const { comments, total: commentTotal, loading: commentsLoading, addComment, resolveComment, removeComment } = useComments(currentDocument?.id);
+
+  const handleOutlineHeadingClick = useCallback((line) => {
+    window.dispatchEvent(new CustomEvent('outline-navigate', { detail: { line } }));
+  }, []);
+
+  const toggleOutline = useCallback(() => {
+    setOutlineVisible(prev => !prev);
+  }, []);
+
+  const toggleComments = useCallback(() => {
+    setCommentsVisible(prev => !prev);
+  }, []);
+
   if (isSharedView) {
     return null;
   }
@@ -22,11 +42,36 @@ function EditorSection({
   return (
     <div id="editorContainer">
       {!isInitializing ? (
-        <Editor
-          value={content}
-          categoryId={currentDocument?.category_id}
-          fullscreenPreview={fullscreenPreview}
-        />
+        <div style={{ display: 'flex', height: '100%' }}>
+          <OutlinePanel
+            headingTree={headingTree}
+            activeHeadingLine={activeHeadingLine}
+            onHeadingClick={handleOutlineHeadingClick}
+            visible={outlineVisible}
+          />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Editor
+              value={content}
+              categoryId={currentDocument?.category_id}
+              fullscreenPreview={fullscreenPreview}
+              onToggleOutline={toggleOutline}
+              outlineVisible={outlineVisible}
+              hasOutlineHeadings={hasHeadings}
+              onToggleComments={toggleComments}
+              commentsVisible={commentsVisible}
+              commentCount={commentTotal}
+            />
+          </div>
+          <CommentsPanel
+            comments={comments}
+            total={commentTotal}
+            loading={commentsLoading}
+            onAdd={addComment}
+            onResolve={resolveComment}
+            onDelete={removeComment}
+            visible={commentsVisible}
+          />
+        </div>
       ) : (
         <div style={{ height: "100%", width: "100%", position: "relative", display: "flex", justifyContent: "center", alignItems: "center" }}>
           <div className="editor-loading-container">

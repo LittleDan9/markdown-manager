@@ -8,6 +8,9 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [restoring, setRestoring] = useState(null); // hash being restored
+  const [limit, setLimit] = useState(20);
+  const [hasMore, setHasMore] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Diff viewer state
   const [diffModal, setDiffModal] = useState({ show: false, originalHash: null, modifiedHash: null, title: '' });
@@ -20,14 +23,13 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
     setDiffModal({ show: false, originalHash: null, modifiedHash: null, title: '' });
   }, []);
 
-  const loadCommitHistory = useCallback(async () => {
+  const loadCommitHistory = useCallback(async (requestLimit) => {
+    const fetchLimit = requestLimit || limit;
     setLoading(true);
     setError(null);
     try {
-      // Call the backend API through documentsApi
-      const data = await documentsApi.getDocumentGitHistory(documentId, 20);
+      const data = await documentsApi.getDocumentGitHistory(documentId, fetchLimit);
 
-      // Transform the backend response to match our expected format
       const transformedCommits = data.commits.map((commit, index) => ({
         hash: commit.hash,
         shortHash: commit.short_hash,
@@ -36,16 +38,17 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
         email: commit.author_email,
         date: commit.date,
         relativeDate: commit.relative_date,
-        isCurrent: index === 0 // Mark the first (latest) commit as current
+        isCurrent: index === 0
       }));
 
       setCommits(transformedCommits);
+      setHasMore(transformedCommits.length >= fetchLimit);
     } catch (err) {
       setError(`Failed to load commit history: ${err.message}`);
     } finally {
       setLoading(false);
     }
-  }, [documentId]);
+  }, [documentId, limit]);
 
   useEffect(() => {
     if (show && documentId) {
@@ -57,9 +60,18 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
     setCommits([]);
     setError(null);
     setRestoring(null);
+    setLimit(20);
+    setHasMore(false);
+    setSearchQuery('');
     setDiffModal({ show: false, originalHash: null, modifiedHash: null, title: '' });
     onHide();
   };
+
+  const handleLoadMore = useCallback(() => {
+    const newLimit = limit + 20;
+    setLimit(newLimit);
+    loadCommitHistory(newLimit);
+  }, [limit, loadCommitHistory]);
 
   const handleRestore = useCallback(async (commit) => {
     if (!window.confirm(`Restore document to the state at "${commit.message}" (${commit.shortHash})?\n\nA new restore commit will be created on top of the current HEAD.`)) {
@@ -162,13 +174,33 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
 
         {!loading && !error && commits.length > 0 && (
           <div>
-            <div className="mb-3 text-muted small">
-              <i className="bi bi-info-circle me-1"></i>
-              Showing {commits.length} recent commits
+            <div className="mb-3 d-flex align-items-center gap-2">
+              <div className="text-muted small flex-shrink-0">
+                <i className="bi bi-info-circle me-1"></i>
+                {commits.length} commit{commits.length !== 1 ? 's' : ''}
+              </div>
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="Filter by message, author, or hash..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
             </div>
 
             <div className="git-history-timeline">
-              {commits.map((commit, _index) => (
+              {commits
+                .filter((commit) => {
+                  if (!searchQuery) return true;
+                  const q = searchQuery.toLowerCase();
+                  return (
+                    commit.message.toLowerCase().includes(q) ||
+                    commit.author.toLowerCase().includes(q) ||
+                    commit.shortHash.toLowerCase().includes(q) ||
+                    commit.hash.toLowerCase().includes(q)
+                  );
+                })
+                .map((commit, _index) => (
                 <div key={commit.hash} className="commit-item border-start border-2 border-primary ps-3 pb-3 position-relative">
                   {/* Timeline dot */}
                   <div
@@ -258,6 +290,15 @@ function GitHistoryModal({ show, onHide, documentId, repositoryType, currentBran
                 </div>
               ))}
             </div>
+
+            {hasMore && (
+              <div className="text-center mt-3">
+                <Button variant="outline-secondary" size="sm" onClick={handleLoadMore} disabled={loading}>
+                  <i className="bi bi-arrow-down me-1"></i>
+                  Load More
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </Modal.Body>

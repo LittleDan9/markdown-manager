@@ -17,6 +17,7 @@ from app.core.mfa import (
 from app.crud import user as crud_user
 from app.database import get_db
 from app.models.user import User
+from app.routers.notifications import create_notification
 from app.schemas.user import MFASetupResponse, MFAToggleRequest, MFAVerifyRequest
 
 router = APIRouter()
@@ -117,6 +118,14 @@ async def enable_mfa(
             detail="Failed to enable MFA",
         )
 
+    await create_notification(
+        db, current_user.id,
+        "MFA enabled",
+        "Two-factor authentication has been enabled on your account.",
+        category="security",
+    )
+    await db.commit()
+
     return {"success": True, "message": "MFA enabled successfully"}
 
 
@@ -165,6 +174,14 @@ async def disable_mfa(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to disable MFA",
         )
+
+    await create_notification(
+        db, current_user.id,
+        "MFA disabled",
+        "Two-factor authentication has been disabled on your account.",
+        category="security",
+    )
+    await db.commit()
 
     return {"message": "MFA disabled successfully"}
 

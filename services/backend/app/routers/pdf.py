@@ -4,9 +4,12 @@ import io
 from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
+from app.database import get_db
 from app.models.user import User
+from app.routers.notifications import create_notification
 from app.services.pdf_processor import PDFContentProcessor
 from app.services.export_service_client import export_service_client
 from app.services.pdf_image_processor import get_pdf_image_processor, PDFImageProcessor
@@ -27,6 +30,7 @@ async def export_pdf(
     request: PDFExportRequest,
     current_user: User = Depends(get_current_user),
     pdf_image_processor: PDFImageProcessor = Depends(get_pdf_image_processor),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """Export HTML content as PDF using PDF service."""
     try:
@@ -86,6 +90,14 @@ async def export_pdf(
         filename = request.document_name
         if not filename.endswith(".pdf"):
             filename += ".pdf"
+
+        await create_notification(
+            db, current_user.id,
+            "PDF export ready",
+            f'"{request.document_name}" exported to PDF',
+            category="info",
+        )
+        await db.commit()
 
         # Return PDF as streaming response
         return StreamingResponse(

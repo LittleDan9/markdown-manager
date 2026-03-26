@@ -7,7 +7,7 @@ import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
-export default function Editor({ value, fullscreenPreview = false }) {
+export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount }) {
   const containerRef = useRef(null);
   const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
@@ -116,6 +116,19 @@ export default function Editor({ value, fullscreenPreview = false }) {
   const readabilityData = spellCheck?.readabilityData;
   const serviceInfo = spellCheck?.serviceInfo;
 
+  // Listen for outline-navigate events to scroll editor to a specific line
+  useEffect(() => {
+    const handleOutlineNavigate = (e) => {
+      if (editor && e.detail?.line) {
+        editor.revealLineInCenter(e.detail.line);
+        editor.setPosition({ lineNumber: e.detail.line, column: 1 });
+        editor.focus();
+      }
+    };
+    window.addEventListener('outline-navigate', handleOutlineNavigate);
+    return () => window.removeEventListener('outline-navigate', handleOutlineNavigate);
+  }, [editor]);
+
   // Phase 5: Handle spell check with custom settings
   const handleSpellCheck = (customSettings = null) => {
     const effectiveSettings = customSettings || spellCheckSettings;
@@ -152,6 +165,14 @@ export default function Editor({ value, fullscreenPreview = false }) {
           spellCheckSettings={spellCheckSettings}
           readabilityData={readabilityData}
           serviceInfo={serviceInfo}
+          // Outline toggle
+          onToggleOutline={onToggleOutline}
+          outlineVisible={outlineVisible}
+          hasOutlineHeadings={hasOutlineHeadings}
+          // Comments toggle
+          onToggleComments={onToggleComments}
+          commentsVisible={commentsVisible}
+          commentCount={commentCount}
         />
       </div>
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", position: 'relative', zIndex: 1 }}>

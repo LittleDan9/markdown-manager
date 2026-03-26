@@ -114,8 +114,8 @@ LINTING_SERVICE_URL=http://linting:8002
 SPELL_CHECK_SERVICE_URL=http://spell-check:8003
 
 # GitHub OAuth (development)
-GITHUB_CLIENT_ID=Ov23likBCpFdyxJhTjRL
-GITHUB_CLIENT_SECRET=a8916caf58825c1269549e13f88a903973967efe
+GITHUB_CLIENT_ID=your_github_oauth_client_id
+GITHUB_CLIENT_SECRET=your_github_oauth_client_secret
 GITHUB_REDIRECT_URI=http://localhost/api/github/auth/callback
 
 # Storage

@@ -13,6 +13,10 @@ import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useNotification } from "@/components/NotificationProvider";
 import { useViewport } from "@/hooks";
 import SemanticSearch from "@/components/toolbar/SemanticSearch";
+import PresenceIndicator from "@/components/shared/PresenceIndicator";
+import usePresence from "@/hooks/ui/usePresence";
+import NotificationDropdown from "@/components/toolbar/NotificationDropdown";
+import useNotifications from "@/hooks/ui/useNotifications";
 
 function Toolbar({
   fullscreenPreview,
@@ -26,6 +30,8 @@ function Toolbar({
   const { showWarning: _showWarning } = useNotification();
   const { user } = useAuth();
   const { isMobile } = useViewport();
+  const { users: presenceUsers } = usePresence(currentDocument?.id || null);
+  const { notifications: notifList, unreadCount, markRead, markAllRead, deleteNotification, clearAll } = useNotifications();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
   );
@@ -185,24 +191,17 @@ function Toolbar({
           </div>
         ) : (
         <div className="d-flex align-items-center gap-2" id="utilityControls">
+          {!isSharedView && presenceUsers && presenceUsers.length > 0 && (
+            <>
+              <PresenceIndicator users={presenceUsers} />
+              <div className="vr opacity-50"></div>
+            </>
+          )}
           {!isSharedView && (
             <SemanticSearch />
           )}
           {!isSharedView && (
             <ShareButton />
-          )}
-          {!isSharedView && (
-            <ActionButton
-              id="iconBrowserBtn"
-              variant="outline-secondary"
-              size="sm"
-              title="Browse AWS Icons for Mermaid"
-              onClick={(e) => {
-                e.preventDefault();
-                setShowIconBrowser(true);
-              }}
-              icon="bi bi-grid-3x3-gap"
-            />
           )}
           {!isSharedView && (
             <ActionButton
@@ -215,6 +214,16 @@ function Toolbar({
                 setShowChatDrawer(prev => !prev);
               }}
               icon="bi bi-chat-dots"
+            />
+          )}
+          {!isSharedView && (
+            <NotificationDropdown
+              notifications={notifList}
+              unreadCount={unreadCount}
+              onMarkRead={markRead}
+              onMarkAllRead={markAllRead}
+              onDelete={deleteNotification}
+              onClearAll={clearAll}
             />
           )}
           <ActionButton

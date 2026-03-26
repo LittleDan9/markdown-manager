@@ -148,7 +148,7 @@ async def get_all_users(
             autosave_enabled=user.autosave_enabled,
             editor_width_percentage=user.editor_width_percentage,
             current_doc_id=user.current_doc_id,
-            last_login=None,  # TODO: Implement last_login tracking
+            last_login=user.last_login,
             reset_token_expires=user.reset_token_expires,
             document_count=len(user.documents) if user.documents else 0,
             github_account_count=len(user.github_accounts) if user.github_accounts else 0
@@ -200,7 +200,7 @@ async def get_user_by_id(
         autosave_enabled=user.autosave_enabled,
         editor_width_percentage=user.editor_width_percentage,
         current_doc_id=user.current_doc_id,
-        last_login=None,  # TODO: Implement last_login tracking
+        last_login=user.last_login,
         reset_token_expires=user.reset_token_expires,
         document_count=len(user.documents) if user.documents else 0,
         github_account_count=len(user.github_accounts) if user.github_accounts else 0
@@ -278,7 +278,7 @@ async def update_user_admin(
         autosave_enabled=user.autosave_enabled,
         editor_width_percentage=user.editor_width_percentage,
         current_doc_id=user.current_doc_id,
-        last_login=None,
+        last_login=user.last_login,
         reset_token_expires=user.reset_token_expires,
         document_count=len(user.documents) if user.documents else 0,
         github_account_count=len(user.github_accounts) if user.github_accounts else 0

@@ -43,6 +43,9 @@ from app.routers import (
 )
 from app.routers.admin import router as admin_router
 from app.routers import chat
+from app.routers import comments
+from app.routers import notifications
+from app.routers import ws as ws_router
 
 logger = logging.getLogger(__name__)
 
@@ -70,11 +73,18 @@ def _create_lifespan():
         from app.services.storage.git.maintenance import git_maintenance_service
         await git_maintenance_service.start()
 
+        # Start presence tracking cleanup
+        from app.services.presence import presence_manager
+        await presence_manager.start()
+
         yield
 
         # Shutdown: stop background services
         from app.services.storage.git.maintenance import git_maintenance_service
         git_maintenance_service.stop()
+
+        from app.services.presence import presence_manager
+        presence_manager.stop()
         logger.info("Shutting down application...")
 
     return lifespan
@@ -170,6 +180,9 @@ def setup_routers(app: FastAPI) -> None:
         github_settings.router, prefix="/github/settings", tags=["github-settings"]
     )
     app.include_router(chat.router)  # /chat/ask and /chat/health
+    app.include_router(notifications.router)  # /notifications
+    app.include_router(comments.router)  # /documents/{id}/comments and /comments/{id}
+    app.include_router(ws_router.router)  # WebSocket presence
 
     # Static file serving
     from .routers import static

@@ -5,13 +5,16 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 
+from app.configs.settings import get_settings
 from app.core.auth import get_current_user
+from app.crud.github_crud import GitHubCRUD
 from app.database import get_db
 from app.models import User
 from app.services.github.filesystem import github_filesystem_service
 from pathlib import Path
 
 router = APIRouter()
+settings = get_settings()
 
 
 class GitCommitRequest(BaseModel):
@@ -63,28 +66,31 @@ class GitHistoryResponse(BaseModel):
     total_commits: int
 
 
-async def _get_repository_path(user_id: int, repository_id: int) -> Path:
-    """Get the local repository path for a user's repository."""
-    # For now, we'll determine the path based on repository structure
-    # This is a simplified approach - in production, you'd want to look up
-    # the actual repository data to get account_id and repo_name
-    
-    # You would need to implement logic to:
-    # 1. Look up repository by ID
-    # 2. Get account_id and repo_name
-    # 3. Construct the path
-    
-    # For demonstration, using a placeholder pattern
-    # In real implementation, fetch repository details from database
-    
-    # This is a placeholder - you'd need actual repository lookup
-    # repo_path = base_path / "github" / str(account_id) / repo_name
-    
-    # For now, return a generic path that would need proper implementation
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Repository path resolution not yet implemented - needs database lookup"
-    )
+async def _get_repository_path(user_id: int, repository_id: int, db: AsyncSession) -> Path:
+    """Resolve the local filesystem path for a user's GitHub repository.
+
+    Looks up the repository by ID, verifies user ownership through the
+    linked account, and constructs the clone path:
+      {storage_root}/{user_id}/GitHub/{repo_owner}/{repo_name}
+    """
+    github_crud = GitHubCRUD()
+    repo = await github_crud.get_repository(db, repository_id)
+    if not repo:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Repository not found",
+        )
+
+    # Verify ownership: repo → account → user
+    account = repo.account
+    if not account or account.user_id != user_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized to access this repository",
+        )
+
+    storage_root = Path(settings.markdown_storage_root)
+    return storage_root / str(user_id) / "GitHub" / repo.repo_owner / repo.repo_name
 
 
 @router.post("/repositories/{repository_id}/commit", response_model=GitCommitResponse)
@@ -96,14 +102,14 @@ async def commit_changes(
 ) -> GitCommitResponse:
     """Commit changes to a repository."""
     try:
-        repo_path = await _get_repository_path(current_user.id, repository_id)
-        
+        repo_path = await _get_repository_path(current_user.id, repository_id, db)
+
         if not repo_path.exists() or not (repo_path / ".git").exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Repository not found locally"
             )
-        
+
         # Add files to staging if specified
         if commit_request.files:
             for file_path in commit_request.files:
@@ -125,39 +131,39 @@ async def commit_changes(
                     status_code=status.HTTP_400_BAD_REQUEST,
                     detail=f"Failed to stage files: {stderr}"
                 )
-        
+
         # Commit the changes
         success, stdout, stderr = await github_filesystem_service._run_git_command(
             repo_path, ["commit", "-m", commit_request.message]
         )
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to commit: {stderr}"
             )
-        
+
         # Get the commit hash
         success, commit_hash, _ = await github_filesystem_service._run_git_command(
             repo_path, ["rev-parse", "HEAD"]
         )
-        
+
         commit_hash = commit_hash.strip() if success else "unknown"
-        
+
         # Get list of files in the commit
         success, file_list, _ = await github_filesystem_service._run_git_command(
             repo_path, ["diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD"]
         )
-        
+
         files_committed = file_list.strip().split('\n') if success and file_list.strip() else []
-        
+
         return GitCommitResponse(
             success=True,
             commit_hash=commit_hash,
             message=f"Successfully committed changes: {commit_request.message}",
             files_committed=files_committed
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -176,48 +182,48 @@ async def stash_changes(
 ) -> GitStashResponse:
     """Stash uncommitted changes."""
     try:
-        repo_path = await _get_repository_path(current_user.id, repository_id)
-        
+        repo_path = await _get_repository_path(current_user.id, repository_id, db)
+
         if not repo_path.exists() or not (repo_path / ".git").exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Repository not found locally"
             )
-        
+
         # Build stash command
         stash_cmd = ["stash", "push"]
-        
+
         if stash_request.message:
             stash_cmd.extend(["-m", stash_request.message])
-        
+
         if stash_request.include_untracked:
             stash_cmd.append("-u")
-        
+
         # Execute stash command
         success, stdout, stderr = await github_filesystem_service._run_git_command(
             repo_path, stash_cmd
         )
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to stash changes: {stderr}"
             )
-        
+
         # Get stash list to find the stash ID
         success, stash_list, _ = await github_filesystem_service._run_git_command(
             repo_path, ["stash", "list", "-1"]
         )
-        
+
         stash_id = stash_list.strip().split(':')[0] if success and stash_list.strip() else "stash@{0}"
-        
+
         return GitStashResponse(
             success=True,
             stash_id=stash_id,
-            message=f"Successfully stashed changes",
+            message="Successfully stashed changes",
             files_stashed=[]  # Would need additional command to get stashed files
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -236,43 +242,43 @@ async def create_branch(
 ) -> GitBranchResponse:
     """Create a new git branch."""
     try:
-        repo_path = await _get_repository_path(current_user.id, repository_id)
-        
+        repo_path = await _get_repository_path(current_user.id, repository_id, db)
+
         if not repo_path.exists() or not (repo_path / ".git").exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Repository not found locally"
             )
-        
+
         # Create new branch
         create_cmd = ["checkout", "-b", branch_request.branch_name]
         if branch_request.base_branch:
             create_cmd.append(branch_request.base_branch)
-        
+
         success, stdout, stderr = await github_filesystem_service._run_git_command(
             repo_path, create_cmd
         )
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to create branch: {stderr}"
             )
-        
+
         # Get current branch to confirm
         success, current_branch, _ = await github_filesystem_service._run_git_command(
             repo_path, ["branch", "--show-current"]
         )
-        
+
         current_branch = current_branch.strip() if success else branch_request.branch_name
-        
+
         return GitBranchResponse(
             success=True,
             branch_name=branch_request.branch_name,
             message=f"Successfully created and switched to branch '{branch_request.branch_name}'",
             current_branch=current_branch
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -291,32 +297,32 @@ async def get_git_history(
 ) -> GitHistoryResponse:
     """Get git commit history for a repository."""
     try:
-        repo_path = await _get_repository_path(current_user.id, repository_id)
-        
+        repo_path = await _get_repository_path(current_user.id, repository_id, db)
+
         if not repo_path.exists() or not (repo_path / ".git").exists():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Repository not found locally"
             )
-        
+
         # Get current branch
         success, current_branch, _ = await github_filesystem_service._run_git_command(
             repo_path, ["branch", "--show-current"]
         )
         current_branch = current_branch.strip() if success else "unknown"
-        
+
         # Get commit history
         success, history_output, stderr = await github_filesystem_service._run_git_command(
             repo_path,
             ["log", f"--max-count={limit}", "--format=%H|%s|%an|%ai|%ae"]
         )
-        
+
         if not success:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail=f"Failed to get history: {stderr}"
             )
-        
+
         commits = []
         for line in history_output.split('\n'):
             if line.strip():
@@ -329,13 +335,13 @@ async def get_git_history(
                         "date": parts[3],
                         "email": parts[4]
                     })
-        
+
         return GitHistoryResponse(
             commits=commits,
             current_branch=current_branch,
             total_commits=len(commits)
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:

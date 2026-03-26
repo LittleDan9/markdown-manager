@@ -1,8 +1,8 @@
-# AI Agent Backend Guidelines
-
-applyTo: "services/backend/**/*"
-
 ---
+description: "Use when working on the FastAPI backend: application factory, middleware, database, routers, services, models, schemas, or general backend architecture."
+applyTo: "services/backend/**/*"
+---
+# AI Agent Backend Guidelines
 
 ## Markdown Manager Backend: FastAPI + SQLAlchemy + Docker Architecture
 

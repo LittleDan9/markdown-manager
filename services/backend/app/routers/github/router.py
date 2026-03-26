@@ -22,4 +22,3 @@ router.include_router(cache.router, prefix="/cache", tags=["github-cache"])
 router.include_router(import_enhanced.router, tags=["github-import-enhanced"])
 router.include_router(save_router, prefix="/save", tags=["github-save"])
 router.include_router(git_operations.router, prefix="/git", tags=["git-operations"])
-# admin.router REMOVED - admin endpoints moved to /admin/github/*

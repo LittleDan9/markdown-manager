@@ -6,6 +6,7 @@ from app.core.auth import get_current_user
 from app.crud import document as document_crud
 from app.database import get_db
 from app.models.user import User
+from app.routers.notifications import create_notification
 from app.schemas.document import ShareResponse
 from .docs import SHARING_DOCS
 
@@ -24,6 +25,15 @@ async def enable_document_sharing(
     )
     if not share_token:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    await create_notification(
+        db, current_user.id,
+        "Document sharing enabled",
+        "You enabled sharing for a document. Anyone with the link can view it.",
+        category="sharing",
+        link=f"/documents/{document_id}",
+    )
+    await db.commit()
 
     return ShareResponse(share_token=share_token, is_shared=True)
 

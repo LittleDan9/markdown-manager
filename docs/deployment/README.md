@@ -49,27 +49,45 @@ The deployment system uses a sophisticated multi-phase approach with Docker cont
 Deploy the entire application stack:
 
 ```bash
-make deploy
+make deploy                    # Full deploy (bootstrap + app + nginx)
 ```
 
-This command executes:
+### Routine Updates
 
-1. `make deploy-front` - Builds and deploys frontend + Nginx config
-2. `make deploy-back` - Deploys all backend services + Nginx config
+```bash
+make deploy-update             # App update only (skip bootstrap)
+```
 
 ### Individual Component Deployment
 
 Deploy specific components:
 
 ```bash
-# Frontend only
-make deploy-front
-
-# Backend services only
-make deploy-back
+# First-time server setup (Docker, UFW, dirs)
+make deploy-bootstrap
 
 # Nginx configuration only
-make deploy-nginx-all
+make deploy-nginx
+
+# Database migrations
+make deploy-db-migrate
+```
+
+### Status & Monitoring
+
+```bash
+make deploy-status             # Check production container status + health
+make deploy-logs               # Tail production logs
+make deploy-dry-run            # Preview changes without deploying
+```
+
+### Database Management
+
+```bash
+make deploy-db-backup          # Backup production database
+make backup-db                 # Export database to JSON
+make restore-db BACKUP_FILE=path  # Restore from backup
+make backup-restore-cycle      # Backup then restore in sequence
 ```
 
 ## 📋 Deployment Process
