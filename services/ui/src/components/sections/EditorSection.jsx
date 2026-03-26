@@ -6,6 +6,7 @@ import CommentsPanel from '../editor/CommentsPanel';
 import useDocumentOutline from '../../hooks/ui/useDocumentOutline';
 import useComments from '../../hooks/ui/useComments';
 import useCollaboration from '../../hooks/editor/useCollaboration';
+import useCommentAnchors from '../../hooks/editor/useCommentAnchors';
 import collaborationApi from '../../api/collaborationApi';
 import { useDocumentContext } from '../../providers/DocumentContextProvider';
 
@@ -44,9 +45,20 @@ function EditorSection({
   }, [currentDocument?.id]);
 
   const collab = useCollaboration(currentDocument?.id, hasCollaborators);
+  const { createAnchorFromLine } = useCommentAnchors(collab.ydoc, collab.ytext, collab.collabActive);
+  const [cursorLine, setCursorLine] = useState(null);
+
+  // Wrap createAnchorFromLine to inject current content
+  const handleCreateAnchor = useCallback(async (lineNumber) => {
+    return createAnchorFromLine(lineNumber, content);
+  }, [createAnchorFromLine, content]);
 
   const handleOutlineHeadingClick = useCallback((line) => {
     window.dispatchEvent(new CustomEvent('outline-navigate', { detail: { line } }));
+  }, []);
+
+  const handleCursorChange = useCallback((line) => {
+    setCursorLine(line);
   }, []);
 
   const toggleOutline = useCallback(() => {
@@ -83,6 +95,7 @@ function EditorSection({
               commentsVisible={commentsVisible}
               commentCount={commentTotal}
               collab={collab}
+              onCursorChange={handleCursorChange}
             />
           </div>
           <CommentsPanel
@@ -93,6 +106,9 @@ function EditorSection({
             onResolve={resolveComment}
             onDelete={removeComment}
             visible={commentsVisible}
+            collabActive={collab.collabActive}
+            cursorLine={cursorLine}
+            onCreateAnchor={handleCreateAnchor}
           />
         </div>
       ) : (

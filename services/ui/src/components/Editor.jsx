@@ -7,7 +7,7 @@ import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
-export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount, collab }) {
+export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount, collab, onCursorChange }) {
   const containerRef = useRef(null);
   const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
@@ -91,7 +91,10 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
   };
 
   // Debounced cursor line change handler
-  const debouncedLineChange = useDebouncedCursorChange(setCursorLine, 300);
+  const debouncedLineChange = useDebouncedCursorChange((line) => {
+    setCursorLine(line);
+    if (onCursorChange) onCursorChange(line);
+  }, 300);
 
   // In collab mode, wrap triggerContentUpdate to also apply to Y.Doc
   const handleContentChange = useCallback((newContent, options) => {
