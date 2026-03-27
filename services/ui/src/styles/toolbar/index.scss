@@ -5,5 +5,8 @@
 @use 'navigation';   // Navigation toolbar
 @use 'buttons';      // Utility buttons and controls
 @use 'dropdowns';    // Dropdown menus and submenus
+@use 'notifications'; // Notification dropdown
+@use 'shared-dropdown'; // Shared with me dropdown
+@use 'doc-status';     // Document status popover
 @use 'responsive';   // Responsive design adjustments
 @use 'search';       // Semantic search bar

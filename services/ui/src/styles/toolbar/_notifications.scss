@@ -1,0 +1,92 @@
+// Notification Dropdown Styles
+// Dark-theme-aware styling for the notification dropdown
+
+@use "../variables";
+@use "../mixins";
+
+.notification-dropdown-menu {
+  width: 340px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: var(--mm-bg-elevated);
+  border-color: var(--mm-border);
+}
+
+.notification-header {
+  border-bottom: 1px solid var(--mm-border) !important;
+}
+
+.notification-item {
+  cursor: pointer;
+  border-bottom: 1px solid var(--mm-border) !important;
+  background-color: transparent;
+  @include mixins.interactive-transition(background-color);
+
+  &:hover {
+    background-color: var(--mm-bg-surface);
+  }
+
+  &--unread {
+    background-color: var(--mm-primary-subtle);
+
+    &:hover {
+      background-color: var(--mm-primary-subtle);
+      filter: brightness(0.97);
+    }
+
+    @include mixins.dark {
+      background-color: rgba(variables.$color-primary, 0.1);
+
+      &:hover {
+        background-color: rgba(variables.$color-primary, 0.15);
+        filter: none;
+      }
+    }
+  }
+}
+
+.notification-title {
+  word-break: break-word;
+}
+
+.notification-message {
+  word-break: break-word;
+  color: var(--mm-text-secondary);
+}
+
+.notification-time {
+  font-size: 0.75em;
+  color: var(--mm-text-secondary);
+}
+
+.notification-dismiss {
+  color: var(--mm-text-secondary);
+
+  &:hover {
+    color: var(--mm-text);
+  }
+}
+
+.notification-empty {
+  color: var(--mm-text-secondary);
+}
+
+.notification-action-btn {
+  color: var(--mm-primary);
+  font-size: 0.875rem;
+
+  &:hover {
+    color: var(--mm-primary);
+    filter: brightness(0.85);
+  }
+
+  &--danger {
+    color: variables.$color-danger;
+
+    &:hover {
+      color: variables.$color-danger;
+      filter: brightness(0.85);
+    }
+  }
+}

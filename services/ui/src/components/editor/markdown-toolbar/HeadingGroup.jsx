@@ -49,12 +49,6 @@ export function HeadingGroup({ insertHeading, buttonVariant, buttonStyle }) {
         title="H"
         variant={buttonVariant}
         size="sm"
-        style={{
-          ...buttonStyle,
-          height: '27px',
-          display: 'flex',
-          alignItems: 'center'
-        }}
         className="heading-dropdown"
       >
         <Dropdown.Item onClick={() => insertHeading(1)}>

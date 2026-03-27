@@ -11,6 +11,7 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
   const containerRef = useRef(null);
   const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
+  const [isInMermaidFence, setIsInMermaidFence] = useState(false);
 
   // Debug: Log value prop changes
   useEffect(() => {
@@ -96,6 +97,30 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     if (onCursorChange) onCursorChange(line);
   }, 300);
 
+  // Detect if cursor is inside a mermaid code fence
+  const checkMermaidFence = useCallback((editorInstance) => {
+    if (!editorInstance) return;
+    const model = editorInstance.getModel();
+    const position = editorInstance.getPosition();
+    if (!model || !position) return;
+
+    let inFence = false;
+    let fenceLanguage = '';
+    for (let i = 1; i <= position.lineNumber; i++) {
+      const line = model.getLineContent(i).trim();
+      if (line.startsWith('```')) {
+        if (inFence) {
+          inFence = false;
+          fenceLanguage = '';
+        } else {
+          inFence = true;
+          fenceLanguage = line.slice(3).trim().toLowerCase();
+        }
+      }
+    }
+    setIsInMermaidFence(inFence && fenceLanguage === 'mermaid');
+  }, []);
+
   // In collab mode, wrap triggerContentUpdate to also apply to Y.Doc
   const handleContentChange = useCallback((newContent, options) => {
     if (collab?.collabActive) {
@@ -152,6 +177,17 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     return () => window.removeEventListener('outline-navigate', handleOutlineNavigate);
   }, [editor]);
 
+  // Listen for cursor changes to detect mermaid fence
+  useEffect(() => {
+    if (!editor) return;
+    const disposable = editor.onDidChangeCursorPosition(() => {
+      checkMermaidFence(editor);
+    });
+    // Initial check
+    checkMermaidFence(editor);
+    return () => disposable.dispose();
+  }, [editor, checkMermaidFence]);
+
   // Phase 5: Handle spell check with custom settings
   const handleSpellCheck = (customSettings = null) => {
     const effectiveSettings = customSettings || spellCheckSettings;
@@ -196,6 +232,8 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
           onToggleComments={onToggleComments}
           commentsVisible={commentsVisible}
           commentCount={commentCount}
+          // Mermaid fence detection
+          isInMermaidFence={isInMermaidFence}
         />
       </div>
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", position: 'relative', zIndex: 1 }}>

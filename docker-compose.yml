@@ -7,6 +7,7 @@ services:
       - ./nginx/nginx-dev.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - ./nginx/scripts:/etc/nginx/scripts:ro
+      - ./nginx/error-pages:/etc/nginx/error-pages:ro
     depends_on:
       - backend
 

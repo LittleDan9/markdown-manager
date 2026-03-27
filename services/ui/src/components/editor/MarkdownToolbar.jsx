@@ -29,7 +29,9 @@ const MarkdownToolbar = ({
   // Comments toggle
   onToggleComments,
   commentsVisible = false,
-  commentCount = 0
+  commentCount = 0,
+  // Mermaid fence detection
+  isInMermaidFence = false
 }) => {
   const { insertMarkdown, insertHeading, insertList, insertHorizontalRule } = useMarkdownActions(editorRef);
   const { styles, buttonVariant } = useToolbarStyling();
@@ -93,15 +95,17 @@ const MarkdownToolbar = ({
       <ToolbarSeparator style={styles.separator} />
 
       {/* Icon Browser for Mermaid diagrams */}
-      <Button
-        variant={buttonVariant}
-        size="sm"
-        style={styles.button}
-        onClick={() => setShowIconBrowser(true)}
-        title="Browse AWS Icons for Mermaid"
-      >
-        <i className="bi bi-grid-3x3-gap" />
-      </Button>
+      {isInMermaidFence && (
+        <Button
+          variant={buttonVariant}
+          size="sm"
+          style={styles.button}
+          onClick={() => setShowIconBrowser(true)}
+          title="Browse AWS Icons for Mermaid"
+        >
+          <i className="bi bi-grid-3x3-gap" />
+        </Button>
+      )}
 
       {onToggleOutline && (
         <>

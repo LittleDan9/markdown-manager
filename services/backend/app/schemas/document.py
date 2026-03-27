@@ -97,6 +97,10 @@ class DocumentInDB(DocumentBase):
     # Recent documents tracking
     last_opened_at: Optional[datetime] = None
 
+    # Owner information (populated by CRUD layer for collaboration)
+    owner_name: Optional[str] = None
+    owner_email: Optional[str] = None
+
     model_config = ConfigDict(from_attributes=True)
 
     @field_serializer("created_at", "updated_at", "last_github_sync_at", "last_opened_at")

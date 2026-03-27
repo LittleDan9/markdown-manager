@@ -19,6 +19,13 @@ A sophisticated web-based markdown editor with advanced document management, rea
 - **Draw.io Integration**: Convert Mermaid diagrams to Draw.io format with quality assessment
 - **Icon Libraries**: Extensive Azure, AWS, and custom icon integration
 
+### Real-time Collaboration
+
+- **CRDT-based Editing**: Simultaneous multi-user editing powered by Yjs with automatic conflict resolution
+- **Document Sharing**: Invite collaborators by email with Editor or Viewer roles
+- **Cursor Awareness**: Track collaborator presence and activity in real-time
+- **CRDT-anchored Comments**: Comments stay pinned to their target text even as the document changes
+
 ### Professional Features
 
 - **Document Templates**: Smart snippets and reusable content blocks
@@ -170,6 +177,7 @@ For detailed deployment information, see [deployment documentation](deployment/)
 ## 📚 Documentation
 
 - **[Development Guide](docs/development/)** - Local development setup and workflows
+- **[Collaborative Editing](docs/development/collaborative-editing.md)** - Yjs CRDT architecture, WebSocket protocol, and sharing permissions
 - **[Deployment Guide](docs/deployment/)** - Production deployment and configuration
 - **[Export Service Guide](services/export/README.md)** - Document and diagram export capabilities
 - **[Backend API](services/backend/README.md)** - FastAPI backend service documentation

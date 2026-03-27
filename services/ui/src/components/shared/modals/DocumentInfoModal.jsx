@@ -148,6 +148,20 @@ function DocumentInfoModal({ show, onHide, document, gitStatus }) {
                           )}
                         </td>
                       </tr>
+                      {document.owner_name && (
+                        <tr>
+                          <td className="fw-bold">
+                            <i className="bi bi-person text-primary me-2"></i>
+                            Owner:
+                          </td>
+                          <td>
+                            <div>{document.owner_name}</div>
+                            {document.owner_email && (
+                              <small className="text-muted">{document.owner_email}</small>
+                            )}
+                          </td>
+                        </tr>
+                      )}
                       <tr>
                         <td className="fw-bold">
                           <i className="bi bi-calendar-plus text-success me-2"></i>

@@ -101,7 +101,9 @@ async def create_document_response(
         # Safely access github_repository relationship
         github_repository=None,
         repository_name=None,
-        github_branch=document.github_branch
+        github_branch=document.github_branch,
+        owner_name=getattr(document, 'owner_name', None),
+        owner_email=getattr(document, 'owner_email', None),
     )
 
     # Safely populate GitHub repository information after creating the base response

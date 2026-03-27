@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 from app.core.auth import get_current_user
 from app.crud import document as document_crud
 from app.crud import github_settings as github_settings_crud
+from app.crud.document_collaborator import get_user_role
 from app.models.github_models import GitHubAccount
 from app.database import get_db
 from app.models.user import User
@@ -108,16 +109,24 @@ async def get_sibling_documents(
     from app.models.document import Document as DocumentModel
     from app.models.category import Category
 
-    # Get the target document
+    # Get the target document (no user filter — check access separately)
     result = await db.execute(
         select(DocumentModel).where(
             DocumentModel.id == document_id,
-            DocumentModel.user_id == current_user.id,
         )
     )
     document = result.scalar_one_or_none()
     if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    # Check access: owner or collaborator
+    is_owner = document.user_id == current_user.id
+    if not is_owner:
+        role = await get_user_role(db, document_id, current_user.id)
+        if role is None:
+            raise HTTPException(status_code=404, detail="Document not found")
+        # Shared doc — return empty siblings (tabs don't apply)
+        return SiblingDocumentsResponse(siblings=[], tabs_enabled=False)
 
     if not document.category_id:
         return SiblingDocumentsResponse(siblings=[], tabs_enabled=True)
@@ -172,16 +181,23 @@ async def get_document_git_status(
 
     # Get the document
     document = await document_crud.document.get(db=db, id=document_id)
-    if not document or document.user_id != current_user.id:
+    if not document:
         raise HTTPException(status_code=404, detail="Document not found")
+
+    # Check access: owner or collaborator
+    is_owner = document.user_id == current_user.id
+    if not is_owner:
+        role = await get_user_role(db, document_id, current_user.id)
+        if role is None:
+            raise HTTPException(status_code=404, detail="Document not found")
 
     try:
         # Determine the repository path based on document properties
         from pathlib import Path
         from app.configs.settings import settings
 
-        # Base user storage path
-        user_storage_path = Path(settings.markdown_storage_root) / str(current_user.id)
+        # Base user storage path — use document owner for filesystem access
+        user_storage_path = Path(settings.markdown_storage_root) / str(document.user_id)
 
         if document.repository_type == "github" and document.github_repository_id:
             # For GitHub documents, provide repository status information

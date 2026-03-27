@@ -20,6 +20,24 @@ server {
     add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: https://api.littledan.com; worker-src 'self' blob:; frame-ancestors 'self';" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
+    # Version & origin identification
+    add_header X-MM-Version "1.0.0" always;
+    add_header X-MM-Nginx "host-prod" always;
+
+    # Custom error pages
+    error_page 400 /errors/400.html;
+    error_page 403 /errors/403.html;
+    error_page 404 /errors/404.html;
+    error_page 500 /errors/500.html;
+    error_page 502 /errors/502.html;
+    error_page 503 /errors/503.html;
+    error_page 504 /errors/504.html;
+
+    location ^~ /errors/ {
+        internal;
+        alias {{ app_dir }}/nginx/error-pages/;
+    }
+
     # Block suspicious query strings
     if ($query_string ~* "(\<|%3C).*script.*(\>|%3E)") {
         return 444;
