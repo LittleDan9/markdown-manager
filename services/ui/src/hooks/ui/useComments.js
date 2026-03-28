@@ -36,10 +36,10 @@ export default function useComments(documentId) {
     refresh();
   }, [refresh]);
 
-  const addComment = useCallback(async ({ content, lineNumber, parentId }) => {
+  const addComment = useCallback(async ({ content, lineNumber, parentId, anchorText, anchorYpos }) => {
     if (!documentId) return null;
     try {
-      const created = await commentsApi.create(documentId, { content, lineNumber, parentId });
+      const created = await commentsApi.create(documentId, { content, lineNumber, parentId, anchorText, anchorYpos });
       await refresh();
       return created;
     } catch {

@@ -109,12 +109,6 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           title={<i className="bi bi-paperclip"></i>}
           variant={buttonVariant}
           size="sm"
-          style={{
-            ...buttonStyle,
-            height: '27px',
-            display: 'flex',
-            alignItems: 'center'
-          }}
           className="media-dropdown"
         >
           <Dropdown.Item onClick={() => insertMarkdown('[', '](url)', 'link text')}>
@@ -202,7 +196,6 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           title={<i className="bi bi-image"></i>}
           variant={buttonVariant}
           size="sm"
-          style={buttonStyle}
           className="image-dropdown"
         >
           <Dropdown.Item onClick={() => setShowImageBrowser(true)}>
@@ -226,7 +219,6 @@ export function MediaGroup({ insertMarkdown, insertHorizontalRule, buttonVariant
           title={<i className="bi bi-paperclip"></i>}
           variant={buttonVariant}
           size="sm"
-          style={buttonStyle}
           className="attachment-dropdown"
         >
           <Dropdown.Item onClick={() => setShowAttachmentBrowser(true)}>

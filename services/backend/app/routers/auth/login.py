@@ -4,7 +4,8 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Response, status
-from jose import JWTError, jwt
+import jwt
+from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import settings
@@ -217,7 +218,7 @@ async def refresh_token(
         token_type = payload.get("type")
         if token_type != "refresh":
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
     user = await crud_user.get_user_by_email(db, email=email)
     if user is None or not user.is_active:

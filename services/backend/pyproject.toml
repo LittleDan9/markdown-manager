@@ -23,8 +23,8 @@ psycopg = {extras = ["binary"], version = "^3.2.9"}
 # SQLite driver for development/testing
 aiosqlite = "^0.20.0"
 # Authentication
-passlib = {extras = ["bcrypt", "argon2"], version = "^1.7.4"}
-python-jose = {extras = ["cryptography"], version = "^3.3.0"}
+argon2-cffi = "^25.1.0"
+PyJWT = {extras = ["crypto"], version = "^2.10.0"}
 # MFA and TOTP
 pyotp = "^2.9.0"
 qrcode = {extras = ["pil"], version = "^8.2"}
@@ -44,8 +44,9 @@ aiofiles = "^24.1.0"
 # Virus scanning
 pyclamd = "^0.4.0"
 redis = "^7.1.0"
-aioredis = "^2.0.1"
 pgvector = "^0.3.6"
+# CRDT for collaborative editing
+pycrdt = "^0.12.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.0"

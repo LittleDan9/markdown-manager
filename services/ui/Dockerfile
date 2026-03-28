@@ -13,7 +13,7 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 
 # Install dependencies
-RUN npm ci --ignore-scripts
+RUN npm ci
 
 # Copy source
 COPY . .
@@ -29,5 +29,5 @@ FROM alpine:3.20 AS output
 # Copy built files from build stage
 COPY --from=build /app/dist /dist
 
-# Copy built files to the output volume mount point
-CMD ["cp", "-a", "/dist/.", "/output/"]
+# Clean old files and copy fresh build to the output volume mount point
+CMD ["sh", "-c", "rm -rf /output/* && cp -a /dist/. /output/"]

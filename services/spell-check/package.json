@@ -21,11 +21,10 @@
     "dictionary-en-us": "^3.0.0",
     "dictionary-es": "^4.0.0",
     "dictionary-fr": "^3.0.0",
-    "express": "^4.22.1",
+    "express": "^5.2.1",
     "franc": "^6.2.0",
     "franc-cli": "^8.0.0",
     "ioredis": "^5.9.2",
-    "node-fetch": "^2.7.0",
     "nspell": "^2.1.5",
     "pg": "^8.17.2",
     "retext": "^9.0.0",
@@ -33,7 +32,7 @@
     "retext-equality": "^7.1.0",
     "retext-profanities": "^8.0.0",
     "retext-spell": "^6.1.0",
-    "uuid": "^9.0.1",
+    "uuid": "^11.1.0",
     "write-good": "^1.0.8"
   },
   "devDependencies": {

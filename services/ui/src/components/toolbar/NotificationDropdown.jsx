@@ -42,13 +42,13 @@ function NotificationDropdown({
         )}
       </Dropdown.Toggle>
 
-      <Dropdown.Menu style={{ width: '340px', maxHeight: '400px', overflowY: 'auto', overflowX: 'hidden' }}>
-        <div className="d-flex justify-content-between align-items-center px-3 py-2 border-bottom">
+      <Dropdown.Menu className="notification-dropdown-menu">
+        <div className="d-flex justify-content-between align-items-center px-3 py-2 notification-header">
           <strong>Notifications</strong>
           <div className="d-flex gap-2">
             {unreadCount > 0 && (
               <button
-                className="btn btn-link btn-sm p-0 text-decoration-none"
+                className="btn btn-link btn-sm p-0 text-decoration-none notification-action-btn"
                 onClick={(e) => { e.stopPropagation(); onMarkAllRead(); }}
               >
                 Mark all read
@@ -56,7 +56,7 @@ function NotificationDropdown({
             )}
             {notifications.length > 0 && (
               <button
-                className="btn btn-link btn-sm p-0 text-danger text-decoration-none"
+                className="btn btn-link btn-sm p-0 text-decoration-none notification-action-btn notification-action-btn--danger"
                 onClick={(e) => { e.stopPropagation(); onClearAll(); }}
               >
                 Clear
@@ -66,7 +66,7 @@ function NotificationDropdown({
         </div>
 
         {notifications.length === 0 ? (
-          <div className="text-center text-muted py-4">
+          <div className="text-center notification-empty py-4">
             <i className="bi bi-bell-slash d-block mb-2" style={{ fontSize: '1.5em' }} />
             No notifications
           </div>
@@ -98,26 +98,25 @@ function NotificationItem({ notification, onMarkRead, onDelete }) {
 
   return (
     <div
-      className={`d-flex align-items-start gap-2 px-3 py-2 border-bottom ${!notification.is_read ? 'bg-light' : ''}`}
-      style={{ cursor: 'pointer' }}
+      className={`d-flex align-items-start gap-2 px-3 py-2 notification-item ${!notification.is_read ? 'notification-item--unread' : ''}`}
       onClick={() => !notification.is_read && onMarkRead(notification.id)}
     >
       <i className={`bi ${icon} mt-1`} />
       <div className="flex-grow-1" style={{ minWidth: 0 }}>
         <div className="d-flex justify-content-between align-items-start">
-          <strong className={`small ${!notification.is_read ? '' : 'fw-normal'}`} style={{ wordBreak: 'break-word' }}>
+          <strong className={`small notification-title ${!notification.is_read ? '' : 'fw-normal'}`}>
             {notification.title}
           </strong>
           <button
-            className="btn btn-link btn-sm p-0 text-muted flex-shrink-0 ms-1"
+            className="btn btn-link btn-sm p-0 notification-dismiss flex-shrink-0 ms-1"
             onClick={(e) => { e.stopPropagation(); onDelete(notification.id); }}
             title="Dismiss"
           >
             <i className="bi bi-x" />
           </button>
         </div>
-        <div className="small text-muted" style={{ wordBreak: 'break-word' }}>{notification.message}</div>
-        <div className="small text-muted" style={{ fontSize: '0.75em' }}>{timeAgo}</div>
+        <div className="small notification-message">{notification.message}</div>
+        <div className="small notification-time">{timeAgo}</div>
       </div>
       {!notification.is_read && (
         <span className="badge rounded-pill bg-primary" style={{ width: 8, height: 8, padding: 0, marginTop: 6 }}>&nbsp;</span>

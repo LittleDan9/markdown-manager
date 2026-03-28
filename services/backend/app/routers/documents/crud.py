@@ -7,6 +7,7 @@ from typing import Optional
 
 from app.core.auth import get_current_user
 from app.crud import document as document_crud
+from app.crud.document_collaborator import get_user_role
 from app.database import get_db
 from app.models.user import User
 from app.models.document import Document as DocumentModel
@@ -35,15 +36,24 @@ async def get_document(
     No more branching logic needed in frontend!
     """
     try:
-        # Get document from database with category relationship loaded
+        # Get document from database with category and owner relationships loaded
         result = await db.execute(
             select(DocumentModel)
             .options(selectinload(DocumentModel.category_ref))
-            .filter(DocumentModel.id == document_id, DocumentModel.user_id == current_user.id)
+            .options(selectinload(DocumentModel.owner))
+            .filter(DocumentModel.id == document_id)
         )
         document = result.scalar_one_or_none()
         if not document:
             raise HTTPException(status_code=404, detail="Document not found or access denied")
+
+        # Check access: owner or collaborator
+        is_owner = document.user_id == current_user.id
+        collab_role = None
+        if not is_owner:
+            collab_role = await get_user_role(db, document_id, current_user.id)
+            if collab_role is None:
+                raise HTTPException(status_code=404, detail="Document not found or access denied")
 
         # Pre-load all fields we'll need for the response before any commits
         # This prevents lazy loading issues later
@@ -67,7 +77,7 @@ async def get_document(
         }
 
         # Handle GitHub document sync if needed
-        if document.repository_type == "github" and force_sync:
+        if document.repository_type == "github" and force_sync and is_owner:
             # Use unified service to handle GitHub sync automatically
             from app.services.unified_document import unified_document_service
             try:
@@ -97,15 +107,22 @@ async def get_document(
         else:
             document.category = None
 
+        # Capture owner info before detaching
+        owner_name = document.owner.full_name if document.owner else None
+        owner_email = document.owner.email if document.owner else None
+
         # Create a new DocumentModel instance with the pre-loaded data
         # This avoids lazy loading issues with the committed/expired object
         detached_doc = DocumentModel(**document_data)
         detached_doc.category = getattr(document, 'category', None)
+        detached_doc.owner_name = owner_name
+        detached_doc.owner_email = owner_email
 
         # Use existing response helper for content loading and response construction
+        # Use the document owner's user_id for filesystem access (files stored under owner's dir)
         return await create_document_response(
             document=detached_doc,
-            user_id=current_user.id,
+            user_id=document_data['user_id'],
             content=None,  # Let response helper load content
             db=db  # Pass database session to avoid async context issues
         )
@@ -407,15 +424,26 @@ async def delete_document(
 
     # Delete attachment files from disk before removing DB records
     from app.crud.attachment import attachment_crud
-    from app.services.storage.attachment_storage_service import attachment_storage_service
+    from app.services.storage.attachment_storage_service import AttachmentStorageService
 
-    attachments = await attachment_crud.get_by_document(
-        db, document_id=document_id, user_id=current_user.id
-    )
-    for att in attachments:
-        attachment_storage_service.delete_attachment_file(
-            user_id=current_user.id, stored_filename=att.stored_filename
+    try:
+        storage_service = AttachmentStorageService()
+        attachments = await attachment_crud.get_by_document(
+            db, document_id=document_id, user_id=current_user.id
         )
+        for att in attachments:
+            try:
+                storage_service.delete_attachment_file(
+                    user_id=current_user.id, stored_filename=att.stored_filename
+                )
+            except Exception:
+                import logging
+                logger = logging.getLogger(__name__)
+                logger.warning(f"Failed to delete attachment file {att.stored_filename} for document {document_id}")
+    except Exception:
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.warning(f"Failed to query/delete attachments for document {document_id}")
 
     # Delete from database (attachment DB records cascade via FK)
     await db.delete(document)

@@ -139,12 +139,12 @@ class Document(Base):  # type: ignore[misc]
         "GitHubRepository", back_populates="documents"
     )
     github_sync_history: Mapped[list["GitHubSyncHistory"]] = relationship(
-        "GitHubSyncHistory", back_populates="document"
+        "GitHubSyncHistory", back_populates="document", passive_deletes=True
     )
 
     # Git operation logs
     git_operation_logs: Mapped[list["GitOperationLog"]] = relationship(
-        "GitOperationLog", back_populates="document"
+        "GitOperationLog", back_populates="document", passive_deletes=True
     )
 
     # RAG embedding (one-to-one, optional)

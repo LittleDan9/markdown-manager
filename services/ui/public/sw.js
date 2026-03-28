@@ -39,7 +39,14 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // App shell / static assets — cache first, fall back to network
+  // Navigation requests (HTML pages) and version.json — always network first
+  // so deploys are picked up immediately without waiting for SW update
+  if (request.mode === 'navigate' || url.pathname === '/version.json') {
+    event.respondWith(networkFirst(request));
+    return;
+  }
+
+  // Content-hashed static assets — cache first, fall back to network
   event.respondWith(cacheFirst(request));
 });
 

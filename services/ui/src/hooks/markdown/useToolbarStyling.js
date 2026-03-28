@@ -16,8 +16,7 @@ export function useToolbarStyling() {
     },
     button: {
       border: 'none',
-      padding: '4px 6px', // Reduced padding for more compact buttons
-      margin: '0 1px',
+      padding: '4px 6px',
       color: theme === 'dark' ? '#fff' : '#6c757d',
       flexShrink: 0 // Prevent buttons from shrinking
     },

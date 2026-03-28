@@ -262,34 +262,35 @@ class DocumentService {
   }
 
   /**
-   * Delete document with backend sync
+   * Delete document with backend sync.
+   * For authenticated users with backend IDs, the backend delete runs first
+   * so that a failure prevents local state from going out of sync.
    */
   async deleteDocument(id, showNotification = true) {
     try {
-      // Step 1: Delete from localStorage immediately
+      const { isAuthenticated, token } = this.getAuthState();
+      const isBackendDoc = isAuthenticated && token && !String(id).startsWith('doc_');
+
+      // Step 1: For backend documents, delete from backend FIRST
+      if (isBackendDoc) {
+        const DocumentsApi = (await import('@/api/documentsApi')).default;
+        await DocumentsApi.deleteDocument(id);
+      }
+
+      // Step 2: Delete from localStorage (only reached if backend succeeded or it's a local-only doc)
       const deletedDoc = DocumentStorageService.deleteDocument(id);
 
-      if (!deletedDoc) {
+      // For local-only docs, verify the doc existed
+      if (!isBackendDoc && !deletedDoc) {
         throw new Error('Document not found');
       }
 
       if (showNotification) {
-        NotificationService.success(`Document '${deletedDoc.name}' deleted`);
+        const docName = deletedDoc?.name || 'Document';
+        NotificationService.success(`Document '${docName}' deleted`);
       }
 
-      // Step 2: Delete from backend if authenticated and document exists on backend
-      const { isAuthenticated, token } = this.getAuthState();
-      if (isAuthenticated && token && !String(id).startsWith('doc_')) {
-        try {
-          const DocumentsApi = (await import('@/api/documentsApi')).default;
-          await DocumentsApi.deleteDocument(id);
-        } catch (error) {
-          console.warn('Backend delete failed:', error);
-          // Don't show error to user since local delete succeeded
-        }
-      }
-
-      return deletedDoc;
+      return deletedDoc || { id };
     } catch (error) {
       if (showNotification) {
         NotificationService.error(`Failed to delete document: ${error.message}`);

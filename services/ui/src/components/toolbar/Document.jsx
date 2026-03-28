@@ -2,8 +2,9 @@ import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModa
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
-import { Dropdown } from "react-bootstrap";
+import { Dropdown, OverlayTrigger, Popover } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
+import { useAuth } from "@/providers/AuthProvider";
 import { useNotification } from "@/components/NotificationProvider";
 import { serviceFactory } from "@/services/injectors";
 import { formatDistanceToNow } from "date-fns";
@@ -17,6 +18,8 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const { showError } = useNotification();
   const documentService = serviceFactory.createDocumentService();
   const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory } = useDocumentContext();
+  const { user } = useAuth();
+  const isCollabDocument = currentDocument && user && currentDocument.user_id && currentDocument.user_id !== user.id;
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const categories = useMemo(() => {
@@ -263,6 +266,11 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             </>
           )}
         </span>
+      ) : isCollabDocument ? (
+        /* Read-only category for collaborative documents */
+        <span className="me-1 text-muted small fw-medium">
+          {currentDocument.category || 'General'}
+        </span>
       ) : (
         /* Category dropdown with inline rename for local files */
         <Dropdown as="span" className="me-1">
@@ -370,7 +378,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
         </Dropdown>
       )}
       <span className="mx-1 text-muted">/</span>
-      {editingTitle ? (
+      {editingTitle && !isCollabDocument ? (
         <input
           type="text"
           className="form-control form-control-sm d-inline w-auto"
@@ -384,60 +392,66 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
       ) : (
         <span
           id="documentTitle"
-          className="text-muted cursor-pointer"
-          title="Click to edit"
-          onClick={handleTitleClick()}
+          className={`text-muted${isCollabDocument ? '' : ' cursor-pointer'}`}
+          title={isCollabDocument ? currentDocument.name : 'Click to edit'}
+          onClick={isCollabDocument ? undefined : handleTitleClick()}
           style={{ minWidth: 60, display: "inline-block" }}
         >
           {currentDocument.name || "Untitled Document"}
         </span>
       )}
       <span className="vr opacity-50 mx-2"></span>
-      {/* Storage type and status indicators */}
-      <div className="d-flex align-items-center">
-        {/* Storage location indicator */}
-        {currentDocument?.id && String(currentDocument.id).startsWith('doc_') ? (
-          <span
-            className="me-2 d-flex align-items-center"
-            title="Document stored in browser only - Save to backend to prevent data loss"
-            style={{ cursor: "pointer" }}
-          >
-            <i className="bi bi-exclamation-triangle text-warning me-1"></i>
-            <small className="text-warning">Browser Storage</small>
-          </span>
-        ) : currentDocument?.id && !String(currentDocument.id).startsWith('doc_') ? (
-          <span
-            className="me-2 d-flex align-items-center"
-            title="Document saved to server"
-            style={{ cursor: "pointer" }}
-          >
-            <i className="bi bi-cloud-check text-success me-1"></i>
-            <small className="text-success">Server</small>
-          </span>
-        ) : null}
-
-        {/* Document status indicators */}
-        {/^Untitled Document( \d+)?$/.test(currentDocument.name) ? (
-          <span
-            className="me-2"
-            title="This document will remain your current document but will not be saved until you provide a title."
-            style={{ cursor: "pointer" }}
-          >
+      {/* Document status popover */}
+      <OverlayTrigger
+        trigger={["hover", "focus"]}
+        placement="bottom"
+        overlay={
+          <Popover className="doc-status-popover">
+            <Popover.Body className="py-2 px-3">
+              {currentDocument?.id && String(currentDocument.id).startsWith('doc_') ? (
+                <div className="d-flex align-items-center mb-1">
+                  <i className="bi bi-exclamation-triangle text-warning me-2"></i>
+                  <small>Browser storage only</small>
+                </div>
+              ) : currentDocument?.id ? (
+                <div className="d-flex align-items-center mb-1">
+                  <i className="bi bi-cloud-check text-success me-2"></i>
+                  <small>Saved to server</small>
+                </div>
+              ) : null}
+              {/^Untitled Document( \d+)?$/.test(currentDocument.name) ? (
+                <div className="d-flex align-items-center mb-1">
+                  <i className="bi bi-exclamation-diamond text-danger me-2"></i>
+                  <small>Needs a title before saving</small>
+                </div>
+              ) : hasUnsavedChanges ? (
+                <div className="d-flex align-items-center mb-1">
+                  <i className="bi bi-exclamation-circle text-warning me-2"></i>
+                  <small>Unsaved changes</small>
+                </div>
+              ) : null}
+              <div className="d-flex align-items-center">
+                <i className="bi bi-clock-history text-muted me-2"></i>
+                <small className="text-muted">Last saved: {getLastSavedText()}</small>
+              </div>
+            </Popover.Body>
+          </Popover>
+        }
+      >
+        <span className="doc-status-icon" style={{ cursor: "pointer" }}>
+          {/^Untitled Document( \d+)?$/.test(currentDocument.name) ? (
             <i className="bi bi-exclamation-diamond text-danger"></i>
-          </span>
-        ) : hasUnsavedChanges ? (
-          <span
-            className="me-2"
-            title="You have unsaved changes in this document. Don't forget to save!"
-            style={{ cursor: "pointer" }}
-          >
+          ) : hasUnsavedChanges ? (
             <i className="bi bi-exclamation-circle text-warning"></i>
-          </span>
-        ) : null}
-      </div>
-      <span className="text-muted small">
-        Last saved: {getLastSavedText()}
-      </span>
+          ) : currentDocument?.id && String(currentDocument.id).startsWith('doc_') ? (
+            <i className="bi bi-exclamation-triangle text-warning"></i>
+          ) : currentDocument?.id ? (
+            <i className="bi bi-cloud-check text-success"></i>
+          ) : (
+            <i className="bi bi-file-earmark text-muted"></i>
+          )}
+        </span>
+      </OverlayTrigger>
       <ConfirmModal
         show={show}
         onConfirm={handleConfirm}

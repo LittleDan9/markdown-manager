@@ -49,12 +49,6 @@ export function TextFormattingGroup({ insertMarkdown, buttonVariant, buttonStyle
         title={<i className="bi bi-type-bold"></i>}
         variant={buttonVariant}
         size="sm"
-        style={{
-          ...buttonStyle,
-          height: '27px',
-          display: 'flex',
-          alignItems: 'center'
-        }}
         className="format-dropdown"
       >
         <Dropdown.Item onClick={() => insertMarkdown('**', '**', 'bold text')}>

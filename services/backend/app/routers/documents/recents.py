@@ -91,11 +91,17 @@ async def mark_document_opened(
     db: AsyncSession = Depends(get_db)
 ):
     """Mark a document as recently opened by updating its last_opened_at timestamp."""
+    # Try owner path first, then collaborator path
     document = await document_crud.document.mark_document_opened(
         db=db, document_id=document_id, user_id=current_user.id
     )
 
     if not document:
+        # Could be a shared document — verify collaborator access and skip the update
+        from app.crud.document_collaborator import get_user_role
+        role = await get_user_role(db, document_id, current_user.id)
+        if role is not None:
+            return {"message": "Document marked as opened", "last_opened_at": None}
         raise HTTPException(status_code=404, detail="Document not found")
 
     return {

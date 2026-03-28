@@ -1,0 +1,35 @@
+@use '../variables' as variables;
+@use '../mixins' as mixins;
+
+// Document status icon in toolbar
+.doc-status-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1rem;
+  padding: 0.125rem;
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
+// Document status popover
+.doc-status-popover {
+  --bs-popover-max-width: 260px;
+  font-size: variables.$font-size-sm;
+
+  .popover-body {
+    white-space: nowrap;
+  }
+
+  @include mixins.dark {
+    --bs-popover-bg: #{variables.$color-bg-surface-dark};
+    --bs-popover-body-color: #{variables.$color-text-dark};
+    --bs-popover-border-color: #{variables.$color-border-dark};
+
+    .popover-arrow::after {
+      border-bottom-color: variables.$color-bg-surface-dark;
+    }
+  }
+}

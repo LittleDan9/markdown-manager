@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
 from app.crud import document as document_crud
+from app.crud.document_collaborator import get_user_role
 from app.database import get_db
 from app.models.user import User
 from app.schemas.document import Document
@@ -23,12 +24,16 @@ async def get_current_document(
         document = await document_crud.document.get(
             db=db, id=current_user.current_doc_id
         )
-        if document and document.user_id == current_user.id:
-            # Use the helper function to create response with filesystem content
+        if document:
+            is_owner = document.user_id == current_user.id
+            if not is_owner:
+                role = await get_user_role(db, document.id, current_user.id)
+                if role is None:
+                    return None
             from .response_utils import create_document_response
             return await create_document_response(
                 document=document,
-                user_id=current_user.id
+                user_id=document.user_id
             )
     return None
 
@@ -40,12 +45,19 @@ async def set_current_document(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, object]:
     """Set the user's current document ID."""
-    # Validate document ownership
+    # Validate document access (owner or collaborator)
     document = await document_crud.document.get(db=db, id=doc_id)
-    if not document or document.user_id != current_user.id:
+    if not document:
         raise HTTPException(
             status_code=404, detail="Document not found or not owned by user"
         )
+    is_owner = document.user_id == current_user.id
+    if not is_owner:
+        role = await get_user_role(db, doc_id, current_user.id)
+        if role is None:
+            raise HTTPException(
+                status_code=404, detail="Document not found or not owned by user"
+            )
     # Update user
     await db.execute(
         sa.update(User).where(User.id == current_user.id).values(current_doc_id=doc_id)

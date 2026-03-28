@@ -42,12 +42,15 @@ Production deployment uses **Ansible-driven Docker Compose** on a single remote 
 rsync project to /opt/markdown-manager (with excludes)
 → copy production.env to remote
 → docker compose -f docker-compose.prod.yml build
+→ clean stale files from mm-ui-static volume
 → docker compose -f docker-compose.prod.yml up -d
-→ restart nginx container (DNS refresh for upstream resolution)
+→ restart nginx container (pick up new UI assets + DNS refresh)
 → alembic upgrade head (inside backend container)
 → health check via localhost:8080/api/health
 → docker system prune
 ```
+
+**Important**: The `mm-ui-static` volume is cleaned before each deploy to prevent stale content-hashed bundles from accumulating. The `frontend-build` container's CMD also cleans before copying as defense-in-depth.
 
 ### Legacy Files (DO NOT USE for current deployments)
 

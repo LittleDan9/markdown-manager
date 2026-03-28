@@ -9,8 +9,6 @@ from pgvector.sqlalchemy import Vector  # noqa: F401 — registered by SQLAlchem
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.routers.notifications import create_notification
-
 from app.models.document import Document
 from app.models.document_embedding import DocumentEmbedding
 from app.services.search.content_processor import extract_summary, prepare_document_content
@@ -106,14 +104,7 @@ class SemanticSearchService:
 
         await db.commit()
         logger.info("Indexed document %s (mermaid=%s)", document.id, processed.has_mermaid)
-        await create_notification(
-            db, user_id,
-            "Document indexed",
-            f'"{document.name}" has been indexed for semantic search',
-            category="info",
-            link=f"/documents/{document.id}",
-        )
-        await db.commit()
+
         return True
 
     async def delete_embedding(self, db: AsyncSession, document_id: int) -> None:

@@ -1,0 +1,99 @@
+// Shared With Me Dropdown Styles
+// Dark-theme-aware styling matching the notification dropdown pattern
+
+@use "../variables";
+@use "../mixins";
+
+.shared-dropdown-menu {
+  width: 340px;
+  max-height: 400px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background-color: var(--mm-bg-elevated);
+  border-color: var(--mm-border);
+}
+
+.shared-dropdown-header {
+  border-bottom: 1px solid var(--mm-border) !important;
+}
+
+.shared-dropdown-item {
+  cursor: pointer;
+  border-bottom: 1px solid var(--mm-border) !important;
+  background-color: transparent;
+  @include mixins.interactive-transition(background-color);
+
+  &:hover {
+    background-color: var(--mm-bg-surface);
+  }
+
+  // Unopened shared documents get a subtle highlight
+  &--new {
+    background-color: var(--mm-primary-subtle);
+
+    @include mixins.dark {
+      background-color: rgba(variables.$color-primary, 0.08);
+    }
+
+    &:hover {
+      background-color: var(--mm-bg-surface);
+    }
+
+    .shared-dropdown-icon {
+      color: var(--mm-primary);
+    }
+  }
+}
+
+.shared-dropdown-title {
+  word-break: break-word;
+}
+
+.shared-dropdown-meta {
+  word-break: break-word;
+  color: var(--mm-text-secondary);
+  font-size: 0.75em;
+}
+
+.shared-dropdown-icon {
+  color: var(--mm-text-secondary);
+}
+
+.shared-dropdown-empty {
+  color: var(--mm-text-secondary);
+}
+
+.shared-dropdown-action {
+  color: var(--mm-primary);
+
+  &:hover {
+    color: var(--mm-primary);
+    filter: brightness(0.85);
+  }
+}
+
+// Collab indicator badge shown in toolbar when editing a shared document
+.collab-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: variables.$radius-md;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background-color: var(--mm-primary-subtle);
+  color: var(--mm-primary);
+  border: 1px solid var(--mm-primary);
+  white-space: nowrap;
+
+  @include mixins.dark {
+    background-color: rgba(variables.$color-primary, 0.12);
+    color: variables.$color-primary-dark-hover;
+    border-color: rgba(variables.$color-primary, 0.3);
+  }
+
+  .collab-indicator-owner {
+    opacity: 0.8;
+    font-weight: 400;
+  }
+}

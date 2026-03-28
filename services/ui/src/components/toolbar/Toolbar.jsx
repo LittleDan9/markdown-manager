@@ -3,6 +3,7 @@ import FileDropdown from "@/components/file/FileDropdown";
 import DocumentToolbar from "@/components/toolbar/Document";
 import UserToolbar from "@/components/toolbar/User";
 import ShareButton from "@/components/shared/ShareButton";
+import SharedWithMeDropdown from "@/components/toolbar/SharedWithMeDropdown";
 import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
 import MobileToolbarMenu from "@/components/toolbar/MobileToolbarMenu";
 import MobileUserMenu from "@/components/toolbar/MobileUserMenu";
@@ -26,7 +27,7 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode } = useDocumentContext();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument } = useDocumentContext();
   const { showWarning: _showWarning } = useNotification();
   const { user } = useAuth();
   const { isMobile } = useViewport();
@@ -39,6 +40,10 @@ function Toolbar({
   const [showDocumentInfoModal, setShowDocumentInfoModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showMobileUserMenu, setShowMobileUserMenu] = useState(false);
+  const [collabOwnerName, setCollabOwnerName] = useState(null);
+
+  // Detect whether we're editing a shared (collab) document
+  const isCollabDocument = !!(currentDocument?.user_id && user?.id && currentDocument.user_id !== user.id);
 
   // Memoize setDocumentTitle to prevent infinite re-renders
   const setDocumentTitle = useCallback((title) => {
@@ -53,6 +58,11 @@ function Toolbar({
   useEffect(() => {
     setDocumentTitleState(currentDocument?.name || "Untitled Document");
   }, [currentDocument?.name]);
+
+  // Clear collab owner name when changing documents
+  useEffect(() => {
+    if (!isCollabDocument) setCollabOwnerName(null);
+  }, [currentDocument?.id, isCollabDocument]);
 
   const handleThemeToggle = (e) => {
     e.preventDefault();
@@ -137,6 +147,15 @@ function Toolbar({
                       documentTitle={documentTitle}
                       setDocumentTitle={setDocumentTitle}
                     />
+                    {isCollabDocument && (
+                      <span className="collab-indicator ms-2">
+                        <i className="bi bi-people-fill" />
+                        Collab
+                        {collabOwnerName && (
+                          <span className="collab-indicator-owner">· {collabOwnerName}</span>
+                        )}
+                      </span>
+                    )}
                   </div>
                 </>
               )}
@@ -202,6 +221,14 @@ function Toolbar({
           )}
           {!isSharedView && (
             <ShareButton />
+          )}
+          {!isSharedView && (
+            <SharedWithMeDropdown
+              onOpen={(doc) => {
+                setCollabOwnerName(doc.ownerName || null);
+                loadDocument(doc.id);
+              }}
+            />
           )}
           {!isSharedView && (
             <ActionButton
@@ -286,7 +313,7 @@ function Toolbar({
         show={showDocumentInfoModal}
         onHide={() => setShowDocumentInfoModal(false)}
         document={currentDocument}
-        gitStatus={null} // We don't have git status in toolbar, but modal can handle null
+        gitStatus={null}
       />
     </nav>
   );

@@ -131,6 +131,11 @@
         border-left: none;
       }
     }
+
+    // Nested btn-groups from DropdownButton as={ButtonGroup} — collapse gap
+    > .btn-group {
+      margin-left: -1px !important;
+    }
   }
 
   // Separator

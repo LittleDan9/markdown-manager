@@ -35,8 +35,8 @@ class AuthService {
     this.initializationPromise = null;
     this.isInitialized = false;
 
-    // Initialize auth state
-    this.initializationPromise = this.initializeAuth();
+    // Initialization is deferred to waitForInitialization()
+    // to avoid firing API requests during module evaluation
   }
 
   /**
@@ -134,12 +134,14 @@ class AuthService {
   }
 
   /**
-   * Wait for initialization to complete
+   * Wait for initialization to complete.
+   * Lazily triggers initializeAuth on first call.
    */
   async waitForInitialization() {
-    if (this.initializationPromise) {
-      await this.initializationPromise;
+    if (!this.initializationPromise) {
+      this.initializationPromise = this.initializeAuth();
     }
+    await this.initializationPromise;
     return this.isInitialized;
   }
 

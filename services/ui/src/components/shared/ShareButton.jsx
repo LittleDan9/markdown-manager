@@ -9,7 +9,7 @@ import PropTypes from 'prop-types';
 
 function ShareButton({ className = '', size = 'sm' }) {
   const { currentDocument, isDefaultDoc } = useDocumentContext();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const { showError } = useNotification();
   const [showShareModal, setShowShareModal] = useState(false);
 
@@ -43,8 +43,9 @@ function ShareButton({ className = '', size = 'sm' }) {
     }
   };
 
-  // Don't render if user is not authenticated
-  if (!isAuthenticated) {
+  // Don't render if user is not authenticated or viewing a collaborator's document
+  const isCollabDocument = currentDocument && user && currentDocument.user_id !== user.id;
+  if (!isAuthenticated || isCollabDocument) {
     return null;
   }
 

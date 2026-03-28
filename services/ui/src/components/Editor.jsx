@@ -7,10 +7,11 @@ import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider.jsx';
 import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
-export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount }) {
+export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount, collab, onCursorChange }) {
   const containerRef = useRef(null);
   const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
   const { isAuthenticated } = useAuth();
+  const [isInMermaidFence, setIsInMermaidFence] = useState(false);
 
   // Debug: Log value prop changes
   useEffect(() => {
@@ -91,14 +92,61 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
   };
 
   // Debounced cursor line change handler
-  const debouncedLineChange = useDebouncedCursorChange(setCursorLine, 300);
+  const debouncedLineChange = useDebouncedCursorChange((line) => {
+    setCursorLine(line);
+    if (onCursorChange) onCursorChange(line);
+  }, 300);
+
+  // Detect if cursor is inside a mermaid code fence
+  const checkMermaidFence = useCallback((editorInstance) => {
+    if (!editorInstance) return;
+    const model = editorInstance.getModel();
+    const position = editorInstance.getPosition();
+    if (!model || !position) return;
+
+    let inFence = false;
+    let fenceLanguage = '';
+    for (let i = 1; i <= position.lineNumber; i++) {
+      const line = model.getLineContent(i).trim();
+      if (line.startsWith('```')) {
+        if (inFence) {
+          inFence = false;
+          fenceLanguage = '';
+        } else {
+          inFence = true;
+          fenceLanguage = line.slice(3).trim().toLowerCase();
+        }
+      }
+    }
+    setIsInMermaidFence(inFence && fenceLanguage === 'mermaid');
+  }, []);
+
+  // In collab mode, wrap triggerContentUpdate to also apply to Y.Doc
+  const handleContentChange = useCallback((newContent, options) => {
+    if (collab?.collabActive) {
+      // Apply change to the shared Y.Doc — the server will relay to peers
+      collab.applyLocalChange(newContent);
+    }
+    // Always update local state and preview
+    triggerContentUpdate(newContent, options);
+  }, [collab, triggerContentUpdate]);
+
+  // Register remote change handler so the editor picks up peer edits
+  useEffect(() => {
+    if (collab?.onRemoteChange) {
+      collab.onRemoteChange((remoteContent) => {
+        // Update document context (preview, state) but skip rendering a loop
+        triggerContentUpdate(remoteContent, { reason: 'remote-collab' });
+      });
+    }
+  }, [collab, triggerContentUpdate]);
 
 
       // Use consolidated editor hook with Phase 5 settings
   const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
     value, // RE-ENABLED: Reconnect value prop
-    onChange: triggerContentUpdate,
+    onChange: handleContentChange,
     onCursorLineChange: debouncedLineChange,
     enableSpellCheck: true, // ENABLED: Turn on spell check
     enableMarkdownLint: true, // ENABLED: Turn on markdown lint
@@ -128,6 +176,17 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     window.addEventListener('outline-navigate', handleOutlineNavigate);
     return () => window.removeEventListener('outline-navigate', handleOutlineNavigate);
   }, [editor]);
+
+  // Listen for cursor changes to detect mermaid fence
+  useEffect(() => {
+    if (!editor) return;
+    const disposable = editor.onDidChangeCursorPosition(() => {
+      checkMermaidFence(editor);
+    });
+    // Initial check
+    checkMermaidFence(editor);
+    return () => disposable.dispose();
+  }, [editor, checkMermaidFence]);
 
   // Phase 5: Handle spell check with custom settings
   const handleSpellCheck = (customSettings = null) => {
@@ -173,6 +232,8 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
           onToggleComments={onToggleComments}
           commentsVisible={commentsVisible}
           commentCount={commentCount}
+          // Mermaid fence detection
+          isInMermaidFence={isInMermaidFence}
         />
       </div>
       <div id="editor" className={editorClassName} style={{ flex: 1, width: "100%", display: "flex", flexDirection: "column", position: 'relative', zIndex: 1 }}>

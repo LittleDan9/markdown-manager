@@ -13,6 +13,16 @@ from .docs import SHARING_DOCS
 router = APIRouter()
 
 
+async def _require_owner(db: AsyncSession, document_id: int, user_id: int):
+    """Raise 403 unless the user owns the document."""
+    doc = await document_crud.document.get(db=db, id=document_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="Document not found")
+    if doc.user_id != user_id:
+        raise HTTPException(status_code=403, detail="Only the document owner can manage sharing")
+    return doc
+
+
 @router.post("/{document_id}/share", response_model=ShareResponse, **SHARING_DOCS["enable"])
 async def enable_document_sharing(
     document_id: int,
@@ -20,6 +30,8 @@ async def enable_document_sharing(
     current_user: User = Depends(get_current_user),
 ) -> ShareResponse:
     """Enable sharing for a document and return the share token."""
+    await _require_owner(db, document_id, current_user.id)
+
     share_token = await document_crud.document.enable_sharing(
         db=db, document_id=document_id, user_id=current_user.id
     )
@@ -45,6 +57,8 @@ async def disable_document_sharing(
     current_user: User = Depends(get_current_user),
 ) -> dict[str, str]:
     """Disable sharing for a document."""
+    await _require_owner(db, document_id, current_user.id)
+
     success = await document_crud.document.disable_sharing(
         db=db, document_id=document_id, user_id=current_user.id
     )

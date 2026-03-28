@@ -72,13 +72,23 @@ export function AuthProvider({ children }) {
 
     initializeAuth();
 
+    // Listen for forced logout from API layer (e.g. token refresh failure)
+    const logoutHandler = () => {
+      AuthService.performLogout();
+      updateAuthState();
+    };
+    window.addEventListener('logout', logoutHandler);
+
     // Listen for legacy password reset events if needed
     const handler = (_e) => {
       // Handle password reset token from legacy JS if applicable
       setShowPasswordResetModal(true);
     };
     window.addEventListener("passwordResetTokenFound", handler);
-    return () => window.removeEventListener("passwordResetTokenFound", handler);
+    return () => {
+      window.removeEventListener('logout', logoutHandler);
+      window.removeEventListener("passwordResetTokenFound", handler);
+    };
   }, [updateAuthState]);
 
   // Auth actions

@@ -1,4 +1,5 @@
 """Document comments / annotations endpoints."""
+import base64
 import logging
 from datetime import datetime
 from typing import Optional
@@ -26,6 +27,8 @@ class CommentCreate(BaseModel):
     content: str
     line_number: Optional[int] = None
     parent_id: Optional[int] = None
+    anchor_text: Optional[str] = None
+    anchor_ypos: Optional[str] = None  # base64-encoded Y.RelativePosition bytes
 
 
 class CommentUpdate(BaseModel):
@@ -47,6 +50,8 @@ class CommentOut(BaseModel):
     author: Optional[CommentAuthor] = None
     content: str
     line_number: Optional[int] = None
+    anchor_text: Optional[str] = None
+    anchor_ypos: Optional[str] = None  # base64-encoded
     parent_id: Optional[int] = None
     status: str
     created_at: datetime
@@ -108,12 +113,22 @@ async def create_comment(
     db: AsyncSession = Depends(get_db),
 ):
     """Create a new comment on a document."""
+    # Decode anchor_ypos from base64 if provided
+    anchor_ypos_bytes = None
+    if body.anchor_ypos:
+        try:
+            anchor_ypos_bytes = base64.b64decode(body.anchor_ypos)
+        except Exception:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid anchor_ypos encoding")
+
     comment = Comment(
         document_id=document_id,
         user_id=current_user.id,
         content=body.content,
         line_number=body.line_number,
         parent_id=body.parent_id,
+        anchor_text=body.anchor_text,
+        anchor_ypos=anchor_ypos_bytes,
     )
     db.add(comment)
     await db.flush()
@@ -231,6 +246,8 @@ async def _to_comment_out(comment: Comment, db: AsyncSession) -> CommentOut:
         author=author,
         content=comment.content,
         line_number=comment.line_number,
+        anchor_text=comment.anchor_text,
+        anchor_ypos=base64.b64encode(comment.anchor_ypos).decode() if comment.anchor_ypos else None,
         parent_id=comment.parent_id,
         status=comment.status,
         created_at=comment.created_at,

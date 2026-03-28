@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../providers/AuthProvider';
 
 const WS_RECONNECT_DELAY = 3000;
+const MAX_RECONNECT_DELAY = 30000;
+const MAX_RETRIES = 10;
 const HEARTBEAT_INTERVAL = 25000;
 
 /**
@@ -18,6 +20,7 @@ export default function usePresence(documentId) {
   const wsRef = useRef(null);
   const heartbeatRef = useRef(null);
   const reconnectRef = useRef(null);
+  const retryCountRef = useRef(0);
   const documentIdRef = useRef(documentId);
 
   // Keep ref up to date
@@ -52,6 +55,7 @@ export default function usePresence(documentId) {
 
     ws.onopen = () => {
       setConnected(true);
+      retryCountRef.current = 0;
 
       // Join current document if any
       if (documentIdRef.current) {
@@ -84,9 +88,15 @@ export default function usePresence(documentId) {
         heartbeatRef.current = null;
       }
 
-      // Reconnect unless intentionally closed
-      if (event.code !== 4001 && event.code !== 1000) {
-        reconnectRef.current = setTimeout(connect, WS_RECONNECT_DELAY);
+      // Reconnect with exponential backoff unless intentionally closed or auth failed
+      if (event.code !== 4001 && event.code !== 1000 && event.code !== 4003) {
+        if (retryCountRef.current < MAX_RETRIES) {
+          const delay = Math.min(WS_RECONNECT_DELAY * Math.pow(2, retryCountRef.current), MAX_RECONNECT_DELAY);
+          retryCountRef.current += 1;
+          reconnectRef.current = setTimeout(connect, delay);
+        } else {
+          console.warn('Presence WebSocket: max retries reached, giving up');
+        }
       }
     };
 

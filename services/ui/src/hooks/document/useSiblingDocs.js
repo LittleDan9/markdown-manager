@@ -95,9 +95,14 @@ export default function useSiblingDocs(currentDocument, isAuthenticated, tabSort
     }
   }, [currentDocument?.id, currentDocument?.category, isAuthenticated, sortOrder]);
 
+  // Optimistic removal: immediately filter a doc from the tab list without an API call
+  const removeSibling = useCallback((docId) => {
+    setSiblingDocs(prev => prev.filter(d => d.id !== docId));
+  }, []);
+
   useEffect(() => {
     refreshSiblings();
   }, [refreshSiblings]);
 
-  return { siblingDocs, tabsEnabled, categoryName, isLoading, refreshSiblings };
+  return { siblingDocs, tabsEnabled, categoryName, isLoading, refreshSiblings, removeSibling };
 }

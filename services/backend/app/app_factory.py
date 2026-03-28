@@ -77,11 +77,18 @@ def _create_lifespan():
         from app.services.presence import presence_manager
         await presence_manager.start()
 
+        # Start collaborative editing session manager
+        from app.services.collab import collab_manager
+        await collab_manager.start()
+
         yield
 
         # Shutdown: stop background services
         from app.services.storage.git.maintenance import git_maintenance_service
         git_maintenance_service.stop()
+
+        from app.services.collab import collab_manager as _collab_mgr
+        _collab_mgr.stop()
 
         from app.services.presence import presence_manager
         presence_manager.stop()

@@ -53,17 +53,24 @@
   register: build_result
   when: sync_result.changed or force_rebuild | default(false)
 
+- name: Clean stale files from UI volume before rebuild
+  command: >
+    docker run --rm -v mm-ui-static:/output alpine sh -c "rm -rf /output/*"
+  args:
+    chdir: "{{ app_dir }}"
+  when: sync_result.changed or force_rebuild | default(false)
+
 - name: Start Docker Compose stack
   command: docker compose -f docker-compose.prod.yml --env-file deployment/production.env up -d
   args:
     chdir: "{{ app_dir }}"
   register: compose_result
 
-- name: Restart nginx to refresh upstream DNS
+- name: Restart nginx to pick up new UI assets and refresh upstream DNS
   command: docker restart markdown-manager-nginx-1
   args:
     chdir: "{{ app_dir }}"
-  when: compose_result.changed
+  when: sync_result.changed or force_rebuild | default(false)
 
 - name: Wait for database to be healthy
   command: >

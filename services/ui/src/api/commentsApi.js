@@ -14,10 +14,12 @@ class CommentsApi extends Api {
     return response.data;
   }
 
-  async create(documentId, { content, lineNumber, parentId }) {
+  async create(documentId, { content, lineNumber, parentId, anchorText, anchorYpos }) {
     const body = { content };
     if (lineNumber != null) body.line_number = lineNumber;
     if (parentId != null) body.parent_id = parentId;
+    if (anchorText != null) body.anchor_text = anchorText;
+    if (anchorYpos != null) body.anchor_ypos = anchorYpos;
     const response = await this.apiCall(`/documents/${documentId}/comments`, 'POST', body);
     return response.data;
   }
