@@ -109,6 +109,7 @@ export function DocumentContextProvider({ children }) {
       siblingCategoryName: siblingDocsState.categoryName,
       siblingDocsLoading: siblingDocsState.isLoading,
       refreshSiblings: siblingDocsState.refreshSiblings,
+      removeSibling: siblingDocsState.removeSibling,
       // Centralized functions
       triggerContentUpdate,
       // UI state

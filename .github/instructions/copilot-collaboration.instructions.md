@@ -1,6 +1,6 @@
 ---
 description: "Use when working on real-time collaborative editing, Yjs CRDT integration, document sharing/collaborators, collab WebSocket, comment anchoring, or sharing permissions."
-applyTo: "services/backend/app/services/collab*,services/backend/app/models/document_collab*,services/backend/app/models/document_collaborator*,services/backend/app/crud/document_collaborator*,services/backend/app/routers/documents/collaboration*,services/backend/app/routers/ws*,services/ui/src/hooks/editor/useCollaboration*,services/ui/src/hooks/editor/useCommentAnchors*,services/ui/src/api/collaborationApi*,services/ui/src/components/shared/modals/SharedWithMeModal*,services/ui/src/components/shared/modals/ShareModal*,services/ui/src/components/editor/CommentsPanel*"
+applyTo: "services/backend/app/services/collab*,services/backend/app/models/document_collab*,services/backend/app/models/document_collaborator*,services/backend/app/crud/document_collaborator*,services/backend/app/routers/documents/collaboration*,services/backend/app/routers/ws*,services/ui/src/hooks/editor/useCollaboration*,services/ui/src/hooks/editor/useCommentAnchors*,services/ui/src/api/collaborationApi*,services/ui/src/components/shared/modals/SharedWithMeModal*,services/ui/src/components/shared/modals/ShareModal*,services/ui/src/components/editor/CommentsPanel*,services/ui/src/components/toolbar/SharedWithMeDropdown*"
 ---
 # Collaboration System Instructions — Markdown Manager
 
@@ -202,6 +202,8 @@ Always extend the migration chain from `f5a6b7c8d9e0` (current HEAD).
 | `components/editor/CommentsPanel.jsx` | Dual-mode comment UI |
 | `components/shared/modals/ShareModal.jsx` | Collaborator invite/management |
 | `components/shared/modals/SharedWithMeModal.jsx` | Browse shared documents |
+| `components/toolbar/SharedWithMeDropdown.jsx` | Toolbar dropdown with unseen badge |
+| `styles/toolbar/_shared-dropdown.scss` | Shared dropdown styling |
 
 ## Patterns and Conventions
 
@@ -248,3 +250,35 @@ print('State vector:', len(doc.get_state()), 'bytes')
 print('Content:', str(text))
 "
 ```
+
+## Collab-Aware UI Restrictions
+
+When a user opens a document they don't own (i.e., a collaborative document), several UI elements must be restricted. The ownership check pattern is:
+
+```javascript
+const isCollabDocument = currentDocument && user && currentDocument.user_id !== user.id;
+```
+
+### Restricted UI for Collaborators
+
+| Component | Restriction | Implementation |
+|-----------|-------------|----------------|
+| `ShareButton.jsx` | Hidden entirely | Returns `null` when `isCollabDocument` |
+| `Document.jsx` (toolbar) | Category shows as plain text | No `<Dropdown>`, just `<span>` with category name |
+| `Document.jsx` (toolbar) | Title is non-clickable | No click-to-rename handler |
+| `Toolbar.jsx` | Owner name shown in collab indicator | `collabOwnerName` from collaborators API |
+
+### SharedWithMeDropdown
+
+Toolbar dropdown (`SharedWithMeDropdown.jsx`) showing documents shared with the current user:
+
+- Fetches from `GET /api/documents/shared-with-me` on dropdown open
+- **Unseen badge**: Tracks opened documents via `localStorage` key `sharedWithMe_seen`
+- Badge count = documents not yet in the seen set; uses `bg="info"` (not red/primary)
+- New/unseen items get `.shared-dropdown-item--new` class with `bi-file-earmark-plus` icon
+- Opening a document calls `markSeen(docId)` and delegates to `onOpen({ id, name, ownerName })`
+- Prunes seen IDs on each load to avoid localStorage bloat from removed shares
+
+### Document API Owner Fields
+
+The document response includes `owner_name` and `owner_email` (populated when the Document's `owner` relationship is eagerly loaded via `selectinload`). These are shown in the Document Info modal for collaborative documents.

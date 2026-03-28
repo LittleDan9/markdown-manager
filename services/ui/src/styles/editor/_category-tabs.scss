@@ -71,6 +71,8 @@
     flex-shrink: 0;
 
     .nav-link {
+      display: flex;
+      align-items: center;
       padding: 5px 14px;
       font-size: 0.8rem;
       white-space: nowrap;
@@ -80,9 +82,8 @@
       color: $color-text-secondary-light;
       background: transparent;
       transition: color 0.15s, background 0.15s, border-color 0.15s;
-      max-width: 180px;
+      max-width: 200px;
       overflow: hidden;
-      text-overflow: ellipsis;
       margin-bottom: -1px; // overlap the bar's bottom border
 
       &:hover {
@@ -118,11 +119,11 @@
 
   // Tab name text
   &__name {
-    display: inline-block;
-    max-width: 140px;
+    flex: 1;
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
-    vertical-align: bottom;
+    white-space: nowrap;
   }
 
   // Close/delete button on tabs
@@ -130,6 +131,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    flex-shrink: 0;
     width: 16px;
     height: 16px;
     margin-left: 4px;

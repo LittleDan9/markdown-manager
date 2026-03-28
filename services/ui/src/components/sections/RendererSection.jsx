@@ -35,6 +35,7 @@ function RendererSection({
     deleteDocument,
     renameDocument,
     refreshSiblings,
+    removeSibling,
   } = useDocumentContext();
   const { tabPosition } = useAuth();
   const { show: showDeleteModal, modalConfig: deleteModalConfig, openModal, handleAction: handleDeleteAction } = useConfirmModal();
@@ -110,15 +111,19 @@ function RendererSection({
         if (actionKey === 'delete') {
           try {
             await deleteDocument(docId);
+            // Optimistic removal: immediately hide the tab
+            removeSibling(docId);
             if (isActive) {
               if (firstSiblingId) {
-                // Switch to the first remaining doc in the category
+                // Switch to the first remaining doc in the category.
+                // This triggers useEffect in useSiblingDocs which auto-refreshes.
                 loadDocument(firstSiblingId);
               }
               // If no siblings left, document is already cleared by deleteDocument
+            } else {
+              // Non-active tab deleted: refresh to get authoritative data
+              await refreshSiblings();
             }
-            // Always refresh after a short delay to let state settle
-            setTimeout(() => refreshSiblings(), 200);
           } catch (error) {
             console.error('Failed to delete document from tab:', error);
           }
@@ -134,7 +139,7 @@ function RendererSection({
         icon: <i className="bi bi-trash text-danger me-2"></i>,
       },
     );
-  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, openModal]);
+  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, removeSibling, openModal]);
 
   const handleAddDocument = useCallback(() => {
     const category = currentDocument?.category || 'General';
