@@ -2,6 +2,8 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useAuth } from '../../providers/AuthProvider';
 
 const WS_RECONNECT_DELAY = 3000;
+const MAX_RECONNECT_DELAY = 30000;
+const MAX_RETRIES = 10;
 const MSG_SYNC = 0;
 const MSG_AWARENESS = 1;
 
@@ -35,6 +37,7 @@ export default function useCollaboration(documentId, hasCollaborators = false) {
   const undoManagerRef = useRef(null);
   const wsRef = useRef(null);
   const reconnectRef = useRef(null);
+  const retryCountRef = useRef(0);
   const initialSyncDone = useRef(false);
   const onRemoteChangeRef = useRef(null);
 
@@ -133,6 +136,7 @@ export default function useCollaboration(documentId, hasCollaborators = false) {
     ws.onopen = () => {
       setConnected(true);
       setCollabActive(true);
+      retryCountRef.current = 0;
     };
 
     ws.onmessage = (event) => {
@@ -164,9 +168,15 @@ export default function useCollaboration(documentId, hasCollaborators = false) {
 
     ws.onclose = (event) => {
       setConnected(false);
-      // Reconnect unless intentionally closed
+      // Reconnect with exponential backoff unless intentionally closed
       if (event.code !== 4001 && event.code !== 1000 && event.code !== 4003 && event.code !== 4004) {
-        reconnectRef.current = setTimeout(connect, WS_RECONNECT_DELAY);
+        if (retryCountRef.current < MAX_RETRIES) {
+          const delay = Math.min(WS_RECONNECT_DELAY * Math.pow(2, retryCountRef.current), MAX_RECONNECT_DELAY);
+          retryCountRef.current += 1;
+          reconnectRef.current = setTimeout(connect, delay);
+        } else {
+          console.warn('Collaboration WebSocket: max retries reached, giving up');
+        }
       }
     };
 

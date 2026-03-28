@@ -77,6 +77,12 @@ class DocumentStorageService {
       if (current && current.id === id) {
         this.clearCurrentDocument();
       }
+
+      // Clear lastDocumentId if it matches the deleted doc
+      const lastId = localStorage.getItem(LAST_DOC_ID_KEY);
+      if (lastId && String(lastId) === String(id)) {
+        localStorage.removeItem(LAST_DOC_ID_KEY);
+      }
     }
 
     return deletedDoc;

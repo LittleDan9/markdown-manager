@@ -5,7 +5,7 @@
  * Validates spell-check service independence from backend
  */
 
-const fetch = require('node-fetch');
+// Node 20+ has native fetch
 const { Pool } = require('pg');
 const Redis = require('ioredis');
 

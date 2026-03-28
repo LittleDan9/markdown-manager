@@ -3,7 +3,8 @@ import json
 import logging
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, Query
-from jose import jwt, JWTError
+import jwt
+from jwt.exceptions import InvalidTokenError
 from sqlalchemy import select
 
 from app.configs.settings import get_settings
@@ -25,7 +26,7 @@ async def _authenticate_ws(token: str) -> User | None:
         email = payload.get("sub")
         if not isinstance(email, str):
             return None
-    except JWTError:
+    except InvalidTokenError:
         return None
 
     async with get_db_context() as db:

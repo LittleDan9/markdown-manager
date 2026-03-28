@@ -5,7 +5,7 @@ from datetime import timedelta
 
 from fastapi import HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials
-from jose import jwt
+import jwt
 
 from app.core.auth import (
     authenticate_user,

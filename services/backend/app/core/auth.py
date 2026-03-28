@@ -4,8 +4,9 @@ from typing import Optional
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from jose import JWTError, jwt
-from passlib.context import CryptContext
+import jwt
+from jwt.exceptions import InvalidTokenError
+import argon2
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -14,8 +15,8 @@ from app.configs import settings
 from app.database import get_db
 from app.models.user import User
 
-# Password hashing - using argon2 from passlib extras
-pwd_context = CryptContext(schemes=["argon2"], deprecated="auto")
+# Password hashing - using argon2-cffi
+_password_hasher = argon2.PasswordHasher()
 
 # Token authentication
 security = HTTPBearer()
@@ -23,12 +24,15 @@ security = HTTPBearer()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Verify a password against its hash."""
-    return bool(pwd_context.verify(plain_password, hashed_password))
+    try:
+        return _password_hasher.verify(hashed_password, plain_password)
+    except (argon2.exceptions.VerifyMismatchError, argon2.exceptions.VerificationError, argon2.exceptions.InvalidHashError):
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Generate password hash."""
-    return str(pwd_context.hash(password))
+    return _password_hasher.hash(password)
 
 
 def create_access_token(
@@ -91,7 +95,7 @@ async def get_current_user(
         email = payload.get("sub")
         if not isinstance(email, str) or not email:
             raise credentials_exception
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
     user = await get_user_by_email(db, email=email)
@@ -118,7 +122,7 @@ async def get_current_user_optional(
         email = payload.get("sub")
         if not isinstance(email, str) or not email:
             return None
-    except JWTError:
+    except InvalidTokenError:
         return None
 
     user = await get_user_by_email(db, email=email)

@@ -9,7 +9,7 @@ import UnifiedFileBrowserTab from "./tabs/UnifiedFileBrowserTab";
 import GitHubModal from "../github/modals/GitHubModal";
 
 export default function FileOpenModal({ show, onHide, onOpen, setContent, deleteDocument, setDocumentTitle: _setDocumentTitle }) {
-  const { documents, categories } = useDocumentContext();
+  const { documents, categories, refreshSiblings } = useDocumentContext();
   const [showConfirm, setShowConfirm] = useState(false);
   const [docToDelete, setDocToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -47,6 +47,7 @@ export default function FileOpenModal({ show, onHide, onOpen, setContent, delete
 
     try {
       await deleteDocument(docToDelete.id);
+      await refreshSiblings();
       showSuccess(`"${docToDelete.name}" has been deleted.`);
       setShowConfirm(false);
       setDocToDelete(null);
