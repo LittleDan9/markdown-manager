@@ -444,6 +444,15 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         }
       } else {
         showError('Document not found');
+        // Clear stale state and create a blank document
+        const newDoc = DocumentService.createNewDocument();
+        setCurrentDocument(newDoc);
+        setContent('');
+        if (setPreviewHTML) {
+          setPreviewHTML('');
+        }
+        setHighlightedBlocks({});
+        DocumentStorageService.setCurrentDocument(newDoc);
       }
     } catch (error) {
       showError('Failed to load document');
@@ -526,6 +535,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       if (showNotification) {
         showError('Delete failed: ' + error.message);
       }
+      throw error; // Re-throw so callers (e.g. tab delete) can skip optimistic UI updates
     } finally {
       setSaving(false); // Reset saving state
     }

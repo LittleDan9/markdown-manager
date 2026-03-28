@@ -120,3 +120,4 @@ backup-*/
 .databricks
 ollama-data/
 core.*
+*.har

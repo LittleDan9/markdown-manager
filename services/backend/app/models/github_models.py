@@ -167,7 +167,7 @@ class GitHubSyncHistory(BaseModel):
     )
 
     document_id: Mapped[int | None] = mapped_column(
-        Integer, ForeignKey("documents.id"), nullable=True, index=True
+        Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True
     )
     document: Mapped[Optional["Document"]] = relationship(
         "Document", back_populates="github_sync_history"

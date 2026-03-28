@@ -116,8 +116,9 @@ function RendererSection({
             if (isActive) {
               if (firstSiblingId) {
                 // Switch to the first remaining doc in the category.
-                // This triggers useEffect in useSiblingDocs which auto-refreshes.
-                loadDocument(firstSiblingId);
+                // loadDocument changes currentDocument.id which triggers
+                // the useEffect in useSiblingDocs — no explicit refresh needed.
+                await loadDocument(firstSiblingId);
               }
               // If no siblings left, document is already cleared by deleteDocument
             } else {

@@ -17,7 +17,7 @@ class GitOperationLog(BaseModel):
     __tablename__ = "git_operation_logs"
 
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
-    document_id = Column(Integer, ForeignKey("documents.id"), nullable=True, index=True)
+    document_id = Column(Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True)
 
     # Operation details
     operation_type = Column(String(50), nullable=False, index=True)  # commit, stash, branch, etc.
