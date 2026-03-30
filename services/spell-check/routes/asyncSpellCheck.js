@@ -62,7 +62,10 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
         cspellCodeChecker
       } = services;
 
+      const timings = {};
+
       // --- Stage 1: custom words ---
+      let t0 = Date.now();
       let allCustomWords = [...customWords];
       if (authToken && customDictionaryManager) {
         try {
@@ -74,8 +77,10 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
           console.warn('[AsyncJob] Failed to retrieve custom words:', error.message);
         }
       }
+      timings.customWords = Date.now() - t0;
 
       // --- Stage 2: language detection ---
+      t0 = Date.now();
       let detectedLanguage = language;
       let languageDetectionResult = null;
       if (enableLanguageDetection && !language && languageDetector) {
@@ -86,27 +91,30 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
           console.warn('[AsyncJob] Language detection failed:', error.message);
         }
       }
+      timings.languageDetection = Date.now() - t0;
 
       // Yield to event loop
       await new Promise(r => setImmediate(r));
 
       // --- Stage 3: core spell check ---
+      t0 = Date.now();
       const spellResults = await spellChecker.checkText(text, {
         customWords: allCustomWords,
         language: detectedLanguage,
         autoDetectLanguage: false,
         chunkOffset: chunk_offset
       });
+      timings.spellCheck = Date.now() - t0;
 
       // Yield to event loop
       await new Promise(r => setImmediate(r));
 
       // --- Stage 4: contextual enhancement (batched, capped) ---
-      // Scale down on large docs — contextual NLP is CPU-heavy
-      const MAX_CONTEXTUAL_ISSUES = text.length > 20000 ? 10 : 30;
-      const CONTEXTUAL_BATCH_SIZE = 5;
-
-      if (enableContextualSuggestions && spellResults.spelling && contextualAnalyzer) {
+      // Skip entirely for large docs — too CPU-expensive for marginal gain
+      t0 = Date.now();
+      if (enableContextualSuggestions && text.length <= 10000 && spellResults.spelling && contextualAnalyzer) {
+        const MAX_CONTEXTUAL_ISSUES = 15;
+        const CONTEXTUAL_BATCH_SIZE = 5;
         const issuesToEnhance = spellResults.spelling.slice(0, MAX_CONTEXTUAL_ISSUES);
         for (let i = 0; i < issuesToEnhance.length; i += CONTEXTUAL_BATCH_SIZE) {
           const batch = issuesToEnhance.slice(i, i + CONTEXTUAL_BATCH_SIZE);
@@ -127,8 +135,10 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
           await new Promise(r => setImmediate(r));
         }
       }
+      timings.contextual = Date.now() - t0;
 
       // --- Stage 5: parallel grammar / style / style-guide / code-spell ---
+      t0 = Date.now();
       const [grammarResults, styleResults, styleGuideResults, codeSpellResults] = await Promise.all([
         (async () => {
           if (enableGrammar && grammarChecker) {
@@ -165,6 +175,8 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
         })()
       ]);
 
+      timings.grammarStyleCodeSpell = Date.now() - t0;
+
       const processingTime = Date.now() - startTime;
 
       const combinedResults = {
@@ -177,7 +189,7 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
       console.log(`[AsyncJob ${jobId}] Complete: ${
         combinedResults.spelling.length + combinedResults.grammar.length +
         combinedResults.style.length + combinedResults.codeSpelling.length
-      } issues in ${processingTime}ms`);
+      } issues in ${processingTime}ms | Timings: customWords=${timings.customWords}ms lang=${timings.languageDetection}ms spell=${timings.spellCheck}ms contextual=${timings.contextual}ms grammar/style=${timings.grammarStyleCodeSpell}ms`);
 
       const response = responseBuilder.buildSpellCheckResponse(combinedResults, {
         text,

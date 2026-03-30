@@ -73,19 +73,40 @@ class BasicSpellChecker {
     const wordData = this.extractWordsWithPositions(text);
     const issues = [];
 
+    // Cache suggestions by word to avoid recomputing for duplicates
+    const suggestCache = new Map();
+    const MAX_ISSUES_WITH_SUGGESTIONS = 50;
+    let wordsProcessed = 0;
+
     for (const { word, startPos, endPos, lineNumber, column } of wordData) {
       // Skip if word is in custom dictionary
       if (this.customWords.has(word.toLowerCase())) {
         continue;
       }
 
+      // Yield to event loop periodically
+      wordsProcessed++;
+      if (wordsProcessed % 200 === 0) {
+        await new Promise(r => setImmediate(r));
+      }
+
       // Check spelling
       if (!this.speller.correct(word)) {
-        const suggestions = this.speller.suggest(word);
+        let suggestions = [];
+
+        if (issues.length < MAX_ISSUES_WITH_SUGGESTIONS) {
+          const lowerWord = word.toLowerCase();
+          if (suggestCache.has(lowerWord)) {
+            suggestions = suggestCache.get(lowerWord);
+          } else {
+            suggestions = this.speller.suggest(word).slice(0, 5);
+            suggestCache.set(lowerWord, suggestions);
+          }
+        }
 
         issues.push({
           word,
-          suggestions: suggestions.slice(0, 5), // Limit to top 5 suggestions
+          suggestions,
           position: {
             start: startPos + chunkOffset,
             end: endPos + chunkOffset
@@ -94,7 +115,7 @@ class BasicSpellChecker {
           column,
           type: 'spelling',
           severity: 'error',
-          confidence: this.calculateConfidence(word, suggestions)
+          confidence: suggestions.length > 0 ? this.calculateConfidence(word, suggestions) : 0.5
         });
       }
     }

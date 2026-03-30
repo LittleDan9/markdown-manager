@@ -122,11 +122,10 @@ function setupSpellCheckRoutes(serviceManager, responseBuilder) {
         });
 
         // Enhance suggestions with contextual analysis (batched, capped)
-        // Scale down on large docs — contextual NLP is CPU-heavy
-        const MAX_CONTEXTUAL_ISSUES = text.length > 20000 ? 10 : 30;
-        const CONTEXTUAL_BATCH_SIZE = 5;
-
-        if (enableContextualSuggestions && spellResults.spelling && contextualAnalyzer) {
+        // Skip entirely for large docs — too CPU-expensive for marginal gain
+        if (enableContextualSuggestions && text.length <= 10000 && spellResults.spelling && contextualAnalyzer) {
+          const MAX_CONTEXTUAL_ISSUES = 15;
+          const CONTEXTUAL_BATCH_SIZE = 5;
           const issuesToEnhance = spellResults.spelling.slice(0, MAX_CONTEXTUAL_ISSUES);
           console.log(`Enhancing ${issuesToEnhance.length} of ${spellResults.spelling.length} spelling suggestions with context analysis...`);
 

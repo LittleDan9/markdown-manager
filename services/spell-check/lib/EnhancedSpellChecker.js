@@ -74,26 +74,49 @@ class EnhancedSpellChecker extends BasicSpellChecker {
     const wordData = this.extractWordsWithPositions(text);
     const issues = [];
 
+    // Cache suggestions by word to avoid recomputing for duplicates
+    const suggestCache = new Map();
+    // After this many issues, skip suggest() — it's the CPU bottleneck
+    const MAX_ISSUES_WITH_SUGGESTIONS = 50;
+    let wordsProcessed = 0;
+
     for (const { word, startPos, endPos, lineNumber, column } of wordData) {
       // Skip if word is in custom dictionary
       if (this.customWords.has(word.toLowerCase())) {
         continue;
       }
 
+      // Yield to event loop periodically to prevent CPU starvation
+      wordsProcessed++;
+      if (wordsProcessed % 200 === 0) {
+        await new Promise(r => setImmediate(r));
+      }
+
       // Check spelling with target language dictionary
       if (!speller.correct(word)) {
-        const suggestions = speller.suggest(word);
+        let finalSuggestions = [];
+
+        // Only compute suggestions if under the cap
+        if (issues.length < MAX_ISSUES_WITH_SUGGESTIONS) {
+          const lowerWord = word.toLowerCase();
+          if (suggestCache.has(lowerWord)) {
+            finalSuggestions = suggestCache.get(lowerWord);
+          } else {
+            const suggestions = speller.suggest(word);
+            finalSuggestions = suggestions.slice(0, 5);
         
-        // If no suggestions in target language and it's not English, try English fallback
-        let finalSuggestions = suggestions.slice(0, 5);
-        if (finalSuggestions.length === 0 && targetLanguage !== 'en-US') {
-          const englishSpeller = await this.dictionaryManager.getDictionary('en-US');
-          if (englishSpeller.correct(word)) {
-            // Word is correct in English, might be a proper noun or technical term
-            continue;
+            // If no suggestions in target language and it's not English, try English fallback
+            if (finalSuggestions.length === 0 && targetLanguage !== 'en-US') {
+              const englishSpeller = await this.dictionaryManager.getDictionary('en-US');
+              if (englishSpeller.correct(word)) {
+                // Word is correct in English, skip it
+                continue;
+              }
+              const englishSuggestions = englishSpeller.suggest(word);
+              finalSuggestions = englishSuggestions.slice(0, 3);
+            }
+            suggestCache.set(lowerWord, finalSuggestions);
           }
-          const englishSuggestions = englishSpeller.suggest(word);
-          finalSuggestions = englishSuggestions.slice(0, 3);
         }
         
         issues.push({
@@ -107,7 +130,7 @@ class EnhancedSpellChecker extends BasicSpellChecker {
           column,
           type: 'spelling',
           severity: 'error',
-          confidence: this.calculateConfidence(word, finalSuggestions),
+          confidence: finalSuggestions.length > 0 ? this.calculateConfidence(word, finalSuggestions) : 0.5,
           language: targetLanguage,
           detectedLanguage: autoDetectLanguage ? targetLanguage : null
         });
