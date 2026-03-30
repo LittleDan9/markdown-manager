@@ -1,15 +1,11 @@
 """Test basic integration functionality without database requirements."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_app_factory_creates_valid_app():
+async def test_app_factory_creates_valid_app(sync_client):
     """Test that the app factory creates a properly configured FastAPI app."""
+    from app.app_factory import create_app
+    app = create_app()
     assert app is not None
     assert hasattr(app, "routes")
     assert hasattr(app, "middleware_stack")
@@ -18,9 +14,9 @@ def test_app_factory_creates_valid_app():
     assert len(app.routes) > 10  # Should have multiple routes configured
 
 
-def test_openapi_schema_available():
+async def test_openapi_schema_available(sync_client):
     """Test that OpenAPI schema is properly generated."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     assert response.status_code == 200
 
     schema = response.json()
@@ -36,16 +32,16 @@ def test_openapi_schema_available():
     assert "/auth/login" in paths
 
 
-def test_docs_endpoint():
+async def test_docs_endpoint(sync_client):
     """Test that API documentation is accessible."""
-    response = client.get("/docs")
+    response = await sync_client.get("/docs")
     assert response.status_code == 200
     assert "swagger" in response.text.lower()
 
 
-def test_root_endpoint_functionality():
+async def test_root_endpoint_functionality(sync_client):
     """Test root endpoint provides proper API information."""
-    response = client.get("/")
+    response = await sync_client.get("/")
     assert response.status_code == 200
 
     data = response.json()
@@ -53,9 +49,9 @@ def test_root_endpoint_functionality():
     assert "api" in data["message"].lower() or "markdown" in data["message"].lower()
 
 
-def test_public_endpoints_accessible():
+async def test_public_endpoints_accessible(sync_client):
     """Test public endpoints are accessible without authentication."""
-    response = client.get("/health")
+    response = await sync_client.get("/health")
     assert response.status_code == 200
     data = response.json()
     # In test environment, services may be degraded due to missing external dependencies
@@ -63,14 +59,14 @@ def test_public_endpoints_accessible():
     assert "version" in data
 
 
-def test_middleware_integration():
+async def test_middleware_integration(sync_client):
     """Test that middleware is properly integrated and functioning."""
     # Make a request to generate middleware activity
-    response = client.get("/health")
+    response = await sync_client.get("/health")
     assert response.status_code == 200
 
     # Check that monitoring middleware captured the request
-    metrics_response = client.get("/monitoring/metrics")
+    metrics_response = await sync_client.get("/monitoring/metrics")
     assert metrics_response.status_code == 200
 
     metrics = metrics_response.json()["metrics"]
@@ -78,7 +74,7 @@ def test_middleware_integration():
     assert metrics["success_requests"] > 0
 
     # Check recent requests tracking
-    recent_response = client.get("/monitoring/metrics/recent-requests")
+    recent_response = await sync_client.get("/monitoring/metrics/recent-requests")
     assert recent_response.status_code == 200
 
     recent_data = recent_response.json()
@@ -86,34 +82,34 @@ def test_middleware_integration():
     assert len(recent_data["requests"]) > 0
 
 
-def test_error_handling_middleware():
+async def test_error_handling_middleware(sync_client):
     """Test that error handling middleware works correctly."""
     # Test 404 handling
-    response = client.get("/nonexistent-endpoint")
+    response = await sync_client.get("/nonexistent-endpoint")
     assert response.status_code == 404
 
     data = response.json()
     assert "detail" in data
 
     # Verify the error was tracked in metrics
-    metrics_response = client.get("/monitoring/metrics")
+    metrics_response = await sync_client.get("/monitoring/metrics")
     metrics = metrics_response.json()["metrics"]
     assert metrics["error_requests"] > 0
     assert "404" in metrics["status_codes"]
 
 
-def test_cors_and_security_headers():
+async def test_cors_and_security_headers(sync_client):
     """Test that CORS and security are properly configured."""
-    response = client.get("/health")
+    response = await sync_client.get("/health")
     assert response.status_code == 200
 
     # Check that response has proper headers (CORS middleware should be active)
     # Note: In test client, CORS headers might not be fully present, but we can verify no errors
 
 
-def test_router_organization():
+async def test_router_organization(sync_client):
     """Test that all expected router groups are properly organized."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
     paths = schema["paths"]
 
@@ -130,10 +126,10 @@ def test_router_organization():
     assert len(api_v1_paths) == 0, f"Found legacy /api/v1 paths: {api_v1_paths}"
 
 
-def test_lifespan_events():
+async def test_lifespan_events(sync_client):
     """Test that lifespan events are properly configured."""
     # The fact that the app starts and responds means lifespan startup worked
-    response = client.get("/health")
+    response = await sync_client.get("/health")
     assert response.status_code == 200
 
     # If we had database connectivity, it should be reflected in health check

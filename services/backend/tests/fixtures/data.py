@@ -68,23 +68,6 @@ async def authenticated_user_data(async_client, test_user_data):
 
     return token, user_data
 
-    @staticmethod
-    def category_create_schema(name: Optional[str] = None) -> CategoryCreate:
-        """Create CategoryCreate schema for testing."""
-        data = TestDataFactory.category_data(name)
-        return CategoryCreate(**data)
-
-    @staticmethod
-    def login_data(email: Optional[str] = None, password: str = "testpassword123") -> Dict[str, str]:
-        """Create login data for testing."""
-        if email is None:
-            email = f"test_{str(uuid.uuid4())[:8]}@example.com"
-
-        return {
-            "email": email,
-            "password": password,
-        }
-
 
 @pytest.fixture
 def test_user_data():

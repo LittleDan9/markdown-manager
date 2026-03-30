@@ -1,16 +1,10 @@
 """Test categories endpoints (structure validation without database)."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_categories_endpoints_exist():
+async def test_categories_endpoints_exist(sync_client):
     """Test that categories endpoints exist in the API."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     assert response.status_code == 200
 
     schema = response.json()
@@ -23,9 +17,9 @@ def test_categories_endpoints_exist():
     assert len(categories_paths) > 0
 
 
-def test_categories_crud_endpoints():
+async def test_categories_crud_endpoints(sync_client):
     """Test that categories CRUD endpoints are properly defined."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
     paths = schema["paths"]
 
@@ -52,9 +46,9 @@ def test_categories_crud_endpoints():
     assert len(expected_operations["post"]) > 0
 
 
-def test_categories_authentication():
+async def test_categories_authentication(sync_client):
     """Test that categories endpoints have proper authentication."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
     paths = schema["paths"]
 
@@ -77,9 +71,9 @@ def test_categories_authentication():
         assert authenticated_endpoints >= total_endpoints // 2
 
 
-def test_categories_response_schemas():
+async def test_categories_response_schemas(sync_client):
     """Test that categories endpoints have proper response schemas."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
 
     # Check that we have proper schemas defined

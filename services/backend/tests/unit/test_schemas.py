@@ -72,6 +72,8 @@ class TestUserSchemas:
             "sync_preview_scroll_enabled": True,
             "autosave_enabled": True,
             "editor_width_percentage": 50,
+            "tab_position": "top",
+            "tab_sort_order": "manual",
             "created_at": "2023-01-01T00:00:00",
             "updated_at": "2023-01-01T00:00:00",
         }

@@ -1,16 +1,10 @@
 """Test syntax highlighting endpoints."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_highlight_endpoints_exist():
+async def test_highlight_endpoints_exist(sync_client):
     """Test that syntax highlighting endpoints exist."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     assert response.status_code == 200
 
     schema = response.json()
@@ -23,7 +17,7 @@ def test_highlight_endpoints_exist():
     assert len(highlight_paths) > 0
 
 
-def test_highlight_languages_endpoint():
+async def test_highlight_languages_endpoint(sync_client):
     """Test languages endpoint if it exists."""
     # Try common syntax highlighting endpoints
     test_endpoints = [
@@ -34,7 +28,7 @@ def test_highlight_languages_endpoint():
 
     found_working_endpoint = False
     for endpoint in test_endpoints:
-        response = client.get(endpoint)
+        response = await sync_client.get(endpoint)
         if response.status_code == 200:
             found_working_endpoint = True
             data = response.json()
@@ -47,9 +41,9 @@ def test_highlight_languages_endpoint():
     assert found_working_endpoint  # Commented out for now
 
 
-def test_highlight_api_structure():
+async def test_highlight_api_structure(sync_client):
     """Test that highlight endpoints follow expected patterns."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
     paths = schema["paths"]
 

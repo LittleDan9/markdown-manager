@@ -1,17 +1,11 @@
 """Test public endpoints."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_public_endpoints_exist():
+async def test_public_endpoints_exist(sync_client):
     """Test that public endpoints are accessible and return expected responses."""
     # Check if any public endpoints exist by examining OpenAPI schema
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     assert response.status_code == 200
 
     schema = response.json()
@@ -28,12 +22,12 @@ def test_public_endpoints_exist():
     assert len(public_paths) > 0
 
 
-def test_public_router_structure():
+async def test_public_router_structure(sync_client):
     """Test that public router is properly integrated."""
     # Test that we can access OpenAPI docs (public endpoint)
-    response = client.get("/docs")
+    response = await sync_client.get("/docs")
     assert response.status_code == 200
 
     # Test redoc documentation (another public endpoint)
-    response = client.get("/redoc")
+    response = await sync_client.get("/redoc")
     assert response.status_code == 200

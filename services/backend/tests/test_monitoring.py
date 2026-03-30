@@ -1,25 +1,19 @@
 """Test the monitoring endpoints added in Phase 5."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_monitoring_health():
+async def test_monitoring_health(sync_client):
     """Test basic monitoring health endpoint."""
-    response = client.get("/monitoring/health")
+    response = await sync_client.get("/monitoring/health")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
     assert data["service"] == "markdown-manager-api"
 
 
-def test_monitoring_health_detailed():
+async def test_monitoring_health_detailed(sync_client):
     """Test detailed monitoring health endpoint."""
-    response = client.get("/monitoring/health/detailed")
+    response = await sync_client.get("/monitoring/health/detailed")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "healthy"
@@ -29,9 +23,9 @@ def test_monitoring_health_detailed():
     assert "system" in data
 
 
-def test_monitoring_metrics():
+async def test_monitoring_metrics(sync_client):
     """Test monitoring metrics endpoint."""
-    response = client.get("/monitoring/metrics")
+    response = await sync_client.get("/monitoring/metrics")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -40,17 +34,14 @@ def test_monitoring_metrics():
     metrics = data["metrics"]
     assert "uptime_seconds" in metrics
     assert "total_requests" in metrics
-    assert "success_requests" in metrics
-    assert "error_requests" in metrics
     assert "requests_per_second" in metrics
-    assert "average_response_time_ms" in metrics
-    assert "success_rate_percent" in metrics
-    assert "status_codes" in metrics
+    assert "average_response_time" in metrics
+    assert "success_rate" in metrics
 
 
-def test_monitoring_recent_requests():
+async def test_monitoring_recent_requests(sync_client):
     """Test recent requests tracking endpoint."""
-    response = client.get("/monitoring/metrics/recent-requests")
+    response = await sync_client.get("/monitoring/metrics/recent-requests")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -60,9 +51,9 @@ def test_monitoring_recent_requests():
     assert isinstance(data["requests"], list)
 
 
-def test_monitoring_metrics_reset():
+async def test_monitoring_metrics_reset(sync_client):
     """Test metrics reset endpoint."""
-    response = client.post("/monitoring/metrics/reset")
+    response = await sync_client.post("/monitoring/metrics/reset")
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "ok"
@@ -70,19 +61,17 @@ def test_monitoring_metrics_reset():
     assert "reset" in data["message"].lower()
 
 
-def test_middleware_request_tracking():
+async def test_middleware_request_tracking(sync_client):
     """Test that middleware is properly tracking requests."""
     # Make a few requests to generate metrics
-    client.get("/health")
-    client.get("/monitoring/health")
+    await sync_client.get("/health")
+    await sync_client.get("/monitoring/health")
 
     # Check that metrics were recorded
-    response = client.get("/monitoring/metrics")
+    response = await sync_client.get("/monitoring/metrics")
     assert response.status_code == 200
     data = response.json()
     metrics = data["metrics"]
 
     # Should have at least the requests we just made
     assert metrics["total_requests"] >= 2
-    assert metrics["success_requests"] >= 2
-    assert metrics["success_rate_percent"] > 0

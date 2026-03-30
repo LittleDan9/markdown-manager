@@ -1,16 +1,10 @@
 """Test the health endpoint."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_health_check():
+async def test_health_check(sync_client):
     """Test health check endpoint."""
-    response = client.get("/health")
+    response = await sync_client.get("/health")
     assert response.status_code == 200
     data = response.json()
     # In test environment, services may be degraded due to missing external dependencies
@@ -19,9 +13,9 @@ def test_health_check():
     assert "services" in data
 
 
-def test_root_endpoint():
+async def test_root_endpoint(sync_client):
     """Test root endpoint."""
-    response = client.get("/")
+    response = await sync_client.get("/")
     assert response.status_code == 200
     data = response.json()
     assert "message" in data

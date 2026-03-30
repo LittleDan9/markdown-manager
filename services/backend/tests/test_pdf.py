@@ -1,16 +1,10 @@
 """Test PDF generation endpoints."""
-from fastapi.testclient import TestClient
-
-from app.app_factory import create_app
-
-# Create app using factory function
-app = create_app()
-client = TestClient(app)
+import pytest
 
 
-def test_pdf_endpoints_exist():
+async def test_pdf_endpoints_exist(sync_client):
     """Test that PDF endpoints exist in the API."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     assert response.status_code == 200
 
     schema = response.json()
@@ -23,22 +17,22 @@ def test_pdf_endpoints_exist():
     assert len(pdf_paths) > 0
 
 
-def test_pdf_service_health():
+async def test_pdf_service_health(sync_client):
     """Test PDF service health check if it exists."""
     # Try common PDF service endpoints
     test_endpoints = ["/pdf/health", "/pdf/status"]
 
     for endpoint in test_endpoints:
-        response = client.get(endpoint)
+        response = await sync_client.get(endpoint)
         if response.status_code == 200:
             # If health endpoint exists and works, great!
             break
     # If no health endpoint, that's also fine
 
 
-def test_pdf_generation_endpoint_structure():
+async def test_pdf_generation_endpoint_structure(sync_client):
     """Test that PDF generation endpoints have proper structure."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
     paths = schema["paths"]
 
@@ -60,9 +54,9 @@ def test_pdf_generation_endpoint_structure():
                 assert method.lower() in valid_methods
 
 
-def test_pdf_endpoint_authentication():
+async def test_pdf_endpoint_authentication(sync_client):
     """Test that PDF endpoints require authentication where appropriate."""
-    response = client.get("/openapi.json")
+    response = await sync_client.get("/openapi.json")
     schema = response.json()
     paths = schema["paths"]
 

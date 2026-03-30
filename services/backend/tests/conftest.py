@@ -26,7 +26,15 @@ from app.app_factory import create_app
 from app.database import get_db
 
 
-# Removed event_loop fixture to avoid conflicts with pytest-asyncio
+import asyncio
+
+
+@pytest.fixture(scope="session")
+def event_loop():
+    """Create a session-scoped event loop for async fixtures."""
+    loop = asyncio.new_event_loop()
+    yield loop
+    loop.close()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -67,6 +75,17 @@ async def async_db_session(setup_test_database):
         finally:
             # Close the session cleanly without explicit rollback
             await session.close()
+
+
+@pytest.fixture
+async def sync_client():
+    """Create async test client for non-DB tests."""
+    app = create_app()
+    async with httpx.AsyncClient(
+        transport=httpx.ASGITransport(app=app),
+        base_url="http://test"
+    ) as c:
+        yield c
 
 
 @pytest.fixture
