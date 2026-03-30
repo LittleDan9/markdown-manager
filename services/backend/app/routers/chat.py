@@ -2,6 +2,7 @@
 import json
 import logging
 
+import redis.asyncio as aioredis
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
@@ -23,7 +24,11 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 def _get_qa_service(model: str | None = None, ollama_url: str | None = None) -> QAService:
     settings = get_settings()
     client = EmbeddingClient(base_url=settings.embedding_service_url)
-    search_service = SemanticSearchService(client)
+    try:
+        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    except Exception:
+        redis_client = None
+    search_service = SemanticSearchService(client, redis_client=redis_client)
     return QAService(
         search_service=search_service,
         ollama_url=ollama_url or settings.ollama_url,

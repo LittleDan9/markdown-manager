@@ -12,6 +12,9 @@ sentence-transformers = "^3.3.1"
 # CPU-only torch — avoids pulling in the full CUDA stack (~7GB → ~1GB)
 torch = {version = "^2.5.0", source = "pytorch-cpu"}
 pydantic = "^2.11.0"
+# ONNX Runtime for ~2-3x faster CPU inference (TurboQuant-inspired quantization)
+optimum = {extras = ["onnxruntime"], version = "^1.24.0"}
+onnxruntime = "^1.21.0"
 
 [tool.poetry.group.dev.dependencies]
 httpx = "^0.28.0"

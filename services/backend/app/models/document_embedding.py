@@ -1,11 +1,15 @@
-"""DocumentEmbedding model — stores pgvector embeddings for semantic search."""
+"""DocumentEmbedding model — stores pgvector embeddings for semantic search.
+
+Uses halfvec for 2x storage reduction and BIT column for fast binary
+pre-filtering, inspired by TurboQuant/QJL quantization techniques.
+"""
 from __future__ import annotations
 
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from pgvector.sqlalchemy import Vector
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from pgvector.sqlalchemy import BIT, HALFVEC
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
 
@@ -19,12 +23,18 @@ EMBEDDING_DIM = 384  # all-MiniLM-L6-v2 output dimension
 
 
 class DocumentEmbedding(Base):
-    """Stores the vector embedding for a document, used for semantic search."""
+    """Stores the vector embedding for a document, used for semantic search.
+
+    Uses halfvec(384) for 2x storage reduction over float32 VECTOR(384),
+    and a binary BIT(384) column for fast Hamming distance pre-filtering
+    (QJL-inspired sign-bit quantization).
+    """
 
     __tablename__ = "document_embeddings"
     __table_args__ = (
         Index("ix_document_embeddings_user_id", "user_id"),
         Index("ix_document_embeddings_document_id", "document_id"),
+        UniqueConstraint("document_id", "chunk_index", name="uq_document_embeddings_doc_chunk"),
     )
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
@@ -32,15 +42,19 @@ class DocumentEmbedding(Base):
         Integer,
         ForeignKey("documents.id", ondelete="CASCADE"),
         nullable=False,
-        unique=True,  # one embedding per document
     )
     user_id: Mapped[int] = mapped_column(
         Integer,
         ForeignKey("users.id", ondelete="CASCADE"),
         nullable=False,
     )
+    # Half-precision vector — 2x smaller than float32 VECTOR(384)
     embedding: Mapped[list[float]] = mapped_column(
-        Vector(EMBEDDING_DIM), nullable=False
+        HALFVEC(EMBEDDING_DIM), nullable=False
+    )
+    # Binary sign-bit quantization (QJL-inspired) — for fast Hamming pre-filtering
+    embedding_binary: Mapped[str | None] = mapped_column(
+        BIT(EMBEDDING_DIM), nullable=True
     )
     # SHA256 hash of embedded content — skip re-embedding if unchanged
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -53,5 +67,5 @@ class DocumentEmbedding(Base):
     )
 
     # Relationships
-    document: Mapped["Document"] = relationship("Document", back_populates="embedding")
+    document: Mapped["Document"] = relationship("Document", back_populates="embeddings")
     user: Mapped["User"] = relationship("User")

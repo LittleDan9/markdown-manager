@@ -147,9 +147,9 @@ class Document(Base):  # type: ignore[misc]
         "GitOperationLog", back_populates="document", passive_deletes=True
     )
 
-    # RAG embedding (one-to-one, optional)
-    embedding: Mapped["DocumentEmbedding | None"] = relationship(
-        "DocumentEmbedding", back_populates="document", uselist=False, cascade="all, delete-orphan"
+    # RAG embeddings (one-to-many: multiple chunks per document)
+    embeddings: Mapped[list["DocumentEmbedding"]] = relationship(
+        "DocumentEmbedding", back_populates="document", cascade="all, delete-orphan"
     )
 
     # File attachments

@@ -117,6 +117,7 @@ pythonpath = ["."]
 asyncio_mode = "auto"
 markers = [
     "e2e: marks tests as end-to-end tests (deselect with '-m \"not e2e\"')",
+    "integration: marks tests as integration tests (deselect with '-m \"not integration\"')",
 ]
 
 [tool.bandit]

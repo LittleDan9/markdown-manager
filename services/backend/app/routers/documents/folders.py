@@ -227,7 +227,12 @@ class SemanticSearchResult(BaseModel):
 def _get_search_service() -> SemanticSearchService:
     settings = get_settings()
     client = EmbeddingClient(base_url=settings.embedding_service_url)
-    return SemanticSearchService(client)
+    try:
+        import redis.asyncio as aioredis
+        redis_client = aioredis.from_url(settings.redis_url, decode_responses=True)
+    except Exception:
+        redis_client = None
+    return SemanticSearchService(client, redis_client=redis_client)
 
 
 @router.get("/semantic-search", response_model=list[SemanticSearchResult])

@@ -248,3 +248,70 @@ def prepare_document_content(title: str, content: str) -> ProcessedContent:
         has_mermaid=has_mermaid,
         summary=extract_summary(title, content),
     )
+
+
+# ---------------------------------------------------------------------------
+# Document chunking for multi-vector retrieval
+# ---------------------------------------------------------------------------
+
+# Target ~512 tokens per chunk (~2048 chars assuming ~4 chars/token).
+_CHUNK_TARGET_CHARS = 2048
+# Overlap between chunks to preserve context at boundaries
+_CHUNK_OVERLAP_CHARS = 200
+
+
+@dataclass
+class DocumentChunk:
+    text: str          # Chunk text ready for embedding
+    chunk_index: int   # 0-based position in the document
+    has_mermaid: bool  # Whether this chunk contains mermaid content
+
+
+def chunk_document_content(title: str, content: str) -> list[DocumentChunk]:
+    """Split document content into overlapping chunks for multi-vector embedding.
+
+    Strategy:
+    - Short documents (< 1.5x target) → single chunk (backward compatible)
+    - Longer documents → split at paragraph boundaries with overlap
+    - Each chunk is prefixed with the document title for context
+    - Mermaid blocks are kept intact (not split across chunks)
+    """
+    processed = prepare_document_content(title, content)
+
+    # Short documents: single chunk (preserves backward compatibility)
+    if len(processed.text) <= int(_CHUNK_TARGET_CHARS * 1.5):
+        return [DocumentChunk(text=processed.text, chunk_index=0, has_mermaid=processed.has_mermaid)]
+
+    # Split into paragraphs (double newline or single newline after stripping)
+    paragraphs = [p.strip() for p in processed.text.split(". ") if p.strip()]
+
+    chunks: list[DocumentChunk] = []
+    current_text = title  # Always prefix with title
+    chunk_idx = 0
+
+    for para in paragraphs:
+        candidate = current_text + ". " + para if current_text != title else current_text + " " + para
+
+        if len(candidate) > _CHUNK_TARGET_CHARS and current_text != title:
+            # Emit current chunk
+            chunks.append(DocumentChunk(
+                text=current_text.strip(),
+                chunk_index=chunk_idx,
+                has_mermaid=processed.has_mermaid and chunk_idx == 0,
+            ))
+            chunk_idx += 1
+            # Start next chunk with overlap from the end of current chunk
+            overlap = current_text[-_CHUNK_OVERLAP_CHARS:] if len(current_text) > _CHUNK_OVERLAP_CHARS else current_text
+            current_text = title + " " + overlap + ". " + para
+        else:
+            current_text = candidate
+
+    # Emit final chunk
+    if current_text.strip() and current_text != title:
+        chunks.append(DocumentChunk(
+            text=current_text.strip(),
+            chunk_index=chunk_idx,
+            has_mermaid=False,
+        ))
+
+    return chunks if chunks else [DocumentChunk(text=processed.text, chunk_index=0, has_mermaid=processed.has_mermaid)]

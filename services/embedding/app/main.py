@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from .embedder import EMBEDDING_DIM, MODEL_NAME, embed_texts, load_model
+from .embedder import EMBEDDING_DIM, MODEL_NAME, embed_texts, is_using_onnx, load_model
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -43,7 +43,12 @@ class EmbedQueryResponse(BaseModel):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "model": MODEL_NAME, "dim": EMBEDDING_DIM}
+    return {
+        "status": "ok",
+        "model": MODEL_NAME,
+        "dim": EMBEDDING_DIM,
+        "backend": "onnx-int8" if is_using_onnx() else "pytorch",
+    }
 
 
 @app.post("/embed", response_model=EmbedResponse)

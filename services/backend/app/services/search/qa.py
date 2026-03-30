@@ -18,8 +18,8 @@ logger = logging.getLogger(__name__)
 DEFAULT_OLLAMA_URL = "http://ollama:11434"
 DEFAULT_MODEL = "qwen2.5:1.5b"
 
-# Cap deep-think document content to ~2000 tokens to bound CPU prefill time
-_DEEP_THINK_MAX_CHARS = 8000
+# Cap deep-think document content — q8_0 KV cache quantization allows larger context
+_DEEP_THINK_MAX_CHARS = 16000
 
 # TTL-based in-memory catalogue cache keyed by user_id.
 # Avoids re-querying the DB on every chat message when docs rarely change.
@@ -171,10 +171,10 @@ class QAService:
         # 1. Build a compact catalogue of documents (optionally filtered by category)
         catalogue = await self._build_catalogue(db, user_id, category_id=category_id)
 
-        # 2. Semantic search — top-3 regardless of score (model can judge relevance)
-        results = await self._search.search(db, user_id, question, limit=3, category_id=category_id)
+        # 2. Semantic search — top-5 (KV cache quantization allows larger context)
+        results = await self._search.search(db, user_id, question, limit=5, category_id=category_id)
         chunks = []
-        _EXCERPT_MAX_CHARS = 300  # Keep excerpts short to bound prompt size
+        _EXCERPT_MAX_CHARS = 600  # Larger excerpts enabled by q8_0 KV cache + 4k context
         for result in results:
             doc = result.document
             if not doc.file_path:
@@ -267,6 +267,7 @@ class QAService:
                 Document.id == document_id,
                 Document.user_id == user_id,
             )
+            .order_by(DocumentEmbedding.chunk_index.asc().nullslast())
         )
         row = result.first()
         if not row:
@@ -366,7 +367,7 @@ class QAService:
         num_thread = int(os.environ.get("OLLAMA_NUM_THREAD", 0)) or None
 
         options = {
-            "num_ctx": 2048,
+            "num_ctx": 4096,
             "num_predict": 512,
             "temperature": 0.3,
         }
