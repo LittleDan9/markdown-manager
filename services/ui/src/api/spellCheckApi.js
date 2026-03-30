@@ -50,7 +50,7 @@ class SpellCheckApi extends Api {
         requestPayload.options.codeSpellSettings = options.codeSpellSettings;
       }
 
-      const response = await this.apiCall('/spell-check/check', 'POST', requestPayload);
+      const response = await this.apiCall('/spell-check/check', 'POST', requestPayload, { timeout: 60000 });
       return response.data;
     } catch (error) {
       console.error('Spell check failed:', error);
@@ -221,21 +221,22 @@ class SpellCheckApi extends Api {
    * @param {number} chunkSize - Size of each chunk
    * @returns {Promise<Array>} Combined results from all chunks
    */
-  async processLargeText(text, customWords = [], onProgress = () => {}, chunkSize = 1000) {
+  async processLargeText(text, customWords = [], onProgress = () => {}, chunkSize = 10000) {
     try {
-      // For Phase 4, we'll handle chunking on the backend
-      // This method ensures compatibility with the existing frontend interface
-      const result = await this.checkText(text, customWords, {
-        chunking: true,
-        chunkSize: chunkSize
-      });
+      const response = await this.apiCall('/spell-check/check-batch', 'POST', {
+        text,
+        chunkSize,
+        customWords
+      }, { timeout: 90000 });
+
+      const result = response.data;
 
       // Call progress callback to match existing interface
       if (onProgress) {
         onProgress(100, result.results?.spelling || []);
       }
 
-      return result.results?.spelling || [];
+      return result;
     } catch (error) {
       console.error('Large text processing failed:', error);
       throw error;
@@ -278,7 +279,29 @@ class SpellCheckApi extends Api {
         };
       }
 
-      const result = await this.checkText(text, [], options);
+      // Route large documents to batch endpoint for better performance
+      const LARGE_TEXT_THRESHOLD = 25000;
+      let result;
+
+      if (text.length > LARGE_TEXT_THRESHOLD) {
+        console.log(`Large document detected (${text.length} chars), using batch endpoint`);
+        const batchPayload = {
+          text,
+          chunkSize: 10000,
+          customWords: [],
+          options,
+          enableGrammar: options.analysisTypes?.grammar ?? true,
+          enableStyle: options.analysisTypes?.style ?? true,
+          enableContextualSuggestions: true,
+          enableCodeSpellCheck: !!options.enableCodeSpellCheck,
+          styleGuide: options.styleGuide || null,
+          language: options.language || 'en-US'
+        };
+        const response = await this.apiCall('/spell-check/check-batch', 'POST', batchPayload, { timeout: 90000 });
+        result = response.data;
+      } else {
+        result = await this.checkText(text, [], options);
+      }
 
       // Backend already filtered results based on settings, so combine all returned issues
       const allIssues = [];

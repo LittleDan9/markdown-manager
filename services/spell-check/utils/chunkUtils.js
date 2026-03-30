@@ -1,9 +1,46 @@
 /**
  * Text Chunking Utilities
  * Functions for splitting large texts into manageable chunks for batch processing
+ * Respects markdown structural boundaries (code fences, diagrams, tables)
  */
 
 const { getLineNumber } = require('./textUtils');
+
+/**
+ * Find all fenced block regions in the text (code fences, mermaid diagrams, etc.)
+ * Returns sorted array of {start, end} positions representing protected regions.
+ * @param {string} text - Full document text
+ * @returns {Array<{start: number, end: number}>} Protected regions
+ */
+function findFencedRegions(text) {
+  const regions = [];
+  // Match opening ``` or ~~~ fences (with optional language identifier) through closing fence
+  const fencePattern = /^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1\s*$/gm;
+  let match;
+  while ((match = fencePattern.exec(text)) !== null) {
+    regions.push({ start: match.index, end: match.index + match[0].length });
+  }
+  return regions;
+}
+
+/**
+ * Check if a position falls inside any fenced block region
+ * @param {number} position - Character position to check
+ * @param {Array<{start: number, end: number}>} regions - Fenced regions
+ * @returns {{inside: boolean, regionEnd: number}} Whether position is inside a region, and the region's end
+ */
+function isInsideFencedRegion(position, regions) {
+  for (const region of regions) {
+    if (position > region.start && position < region.end) {
+      return { inside: true, regionEnd: region.end };
+    }
+    // Regions are sorted, so if we're past this region entirely, skip
+    if (position >= region.end) continue;
+    // If position is before this region's start, no further regions will match
+    if (position <= region.start) break;
+  }
+  return { inside: false, regionEnd: -1 };
+}
 
 /**
  * Split text into chunks with smart boundary detection
@@ -16,9 +53,12 @@ function splitTextIntoChunks(text, chunkSize = 10000, options = {}) {
   const {
     preserveSentences = true,
     preserveParagraphs = true,
-    maxBoundarySearch = 200,
+    maxBoundarySearch = 500,
     minChunkSize = 1000
   } = options;
+
+  // Pre-compute fenced regions (code blocks, mermaid diagrams) to avoid splitting inside them
+  const fencedRegions = findFencedRegions(text);
 
   const chunks = [];
   let offset = 0;
@@ -37,9 +77,34 @@ function splitTextIntoChunks(text, chunkSize = 10000, options = {}) {
         { preserveSentences, preserveParagraphs, maxBoundarySearch }
       );
 
+      // Check if the chosen boundary falls inside a fenced block
+      const fenceCheck = isInsideFencedRegion(actualEnd, fencedRegions);
+      if (fenceCheck.inside) {
+        // Push the boundary past the end of the fenced block
+        actualEnd = Math.min(fenceCheck.regionEnd, text.length);
+        // After the fence, try to land on a paragraph/sentence boundary
+        if (actualEnd < text.length) {
+          const postFenceSearch = text.substring(actualEnd, Math.min(actualEnd + maxBoundarySearch, text.length));
+          const newlineBoundary = postFenceSearch.indexOf('\n\n');
+          if (newlineBoundary >= 0) {
+            actualEnd = actualEnd + newlineBoundary + 2;
+          } else {
+            const singleNewline = postFenceSearch.indexOf('\n');
+            if (singleNewline >= 0) {
+              actualEnd = actualEnd + singleNewline + 1;
+            }
+          }
+        }
+      }
+
       // Ensure minimum chunk size
       if (actualEnd - offset < minChunkSize && offset > 0) {
         actualEnd = Math.min(offset + minChunkSize, text.length);
+        // Re-check fence safety after minimum size override
+        const recheck = isInsideFencedRegion(actualEnd, fencedRegions);
+        if (recheck.inside) {
+          actualEnd = Math.min(recheck.regionEnd, text.length);
+        }
       }
     }
 
@@ -329,5 +394,7 @@ module.exports = {
   findParagraphBoundary,
   findSentenceBoundary,
   findWordBoundary,
-  findLineBoundary
+  findLineBoundary,
+  findFencedRegions,
+  isInsideFencedRegion
 };

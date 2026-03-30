@@ -204,75 +204,93 @@ async function processTextChunk(chunkRequest, services) {
     autoDetectLanguage: false
   });
 
-  // Enhance with contextual suggestions if enabled
+  // Enhance with contextual suggestions if enabled (batched, capped)
+  const MAX_CONTEXTUAL_ISSUES = 30;
+  const CONTEXTUAL_BATCH_SIZE = 10;
+
   if (enableContextualSuggestions && spellResults.spelling && contextualAnalyzer) {
-    for (const issue of spellResults.spelling) {
-      try {
-        const contextualResult = await contextualAnalyzer.getContextualSuggestions(
-          issue.word,
-          text,
-          issue.position.start,
-          issue.suggestions || [],
-          options
-        );
+    const issuesToEnhance = spellResults.spelling.slice(0, MAX_CONTEXTUAL_ISSUES);
+    for (let i = 0; i < issuesToEnhance.length; i += CONTEXTUAL_BATCH_SIZE) {
+      const batch = issuesToEnhance.slice(i, i + CONTEXTUAL_BATCH_SIZE);
+      await Promise.all(batch.map(async (issue) => {
+        try {
+          const contextualResult = await contextualAnalyzer.getContextualSuggestions(
+            issue.word,
+            text,
+            issue.position.start,
+            issue.suggestions || [],
+            options
+          );
 
-        issue.suggestions = contextualResult.suggestions.map(s => s.word);
-        issue.confidence = contextualResult.suggestions[0]?.confidence || issue.confidence;
-        issue.enhanced = true;
-      } catch (error) {
-        // Keep original suggestions on error
-      }
-    }
-  }
-
-  // Perform grammar checking
-  let grammarResults = { grammar: [] };
-  if (enableGrammar && grammarChecker) {
-    try {
-      grammarResults = await grammarChecker.checkText(text, options);
-    } catch (error) {
-      console.warn('Grammar checking failed for chunk:', error.message);
-    }
-  }
-
-  // Perform style analysis
-  let styleResults = { style: [] };
-  if (enableStyle && styleAnalyzer) {
-    try {
-      styleResults = await styleAnalyzer.analyzeText(text, options);
-    } catch (error) {
-      console.warn('Style analysis failed for chunk:', error.message);
-    }
-  }
-
-  // Apply style guide rules if specified
-  let styleGuideResults = [];
-  if (styleGuide && styleGuideManager) {
-    try {
-      styleGuideResults = styleGuideManager.analyzeWithStyleGuide(text, styleGuide, options);
-    } catch (error) {
-      console.warn(`Failed to apply style guide ${styleGuide} to chunk:`, error.message);
-    }
-  }
-
-  // CSpell code checking for chunk
-  let codeSpellResults = [];
-  if (enableCodeSpellCheck && cspellCodeChecker) {
-    try {
-      const codeResults = await cspellCodeChecker.checkCodeFences(text, {
-        enableCodeSpellCheck: true,
-        codeSpellSettings: {
-          checkComments: true,
-          checkStrings: false,
-          checkIdentifiers: true,
-          customWords
+          issue.suggestions = contextualResult.suggestions.map(s => s.word);
+          issue.confidence = contextualResult.suggestions[0]?.confidence || issue.confidence;
+          issue.enhanced = true;
+        } catch (error) {
+          // Keep original suggestions on error
         }
-      });
-      codeSpellResults = codeResults.codeSpelling || [];
-    } catch (error) {
-      console.warn('CSpell failed for chunk:', error.message);
+      }));
     }
   }
+
+  // Run grammar, style, style guide, and code spell analyses in parallel
+  const [grammarResults, styleResults, styleGuideResults, codeSpellResults] = await Promise.all([
+    // Grammar checking
+    (async () => {
+      if (enableGrammar && grammarChecker) {
+        try {
+          return await grammarChecker.checkText(text, options);
+        } catch (error) {
+          console.warn('Grammar checking failed for chunk:', error.message);
+        }
+      }
+      return { grammar: [] };
+    })(),
+
+    // Style analysis
+    (async () => {
+      if (enableStyle && styleAnalyzer) {
+        try {
+          return await styleAnalyzer.analyzeText(text, options);
+        } catch (error) {
+          console.warn('Style analysis failed for chunk:', error.message);
+        }
+      }
+      return { style: [] };
+    })(),
+
+    // Style guide rules
+    (async () => {
+      if (styleGuide && styleGuideManager) {
+        try {
+          return styleGuideManager.analyzeWithStyleGuide(text, styleGuide, options);
+        } catch (error) {
+          console.warn(`Failed to apply style guide ${styleGuide} to chunk:`, error.message);
+        }
+      }
+      return [];
+    })(),
+
+    // CSpell code checking
+    (async () => {
+      if (enableCodeSpellCheck && cspellCodeChecker) {
+        try {
+          const codeResults = await cspellCodeChecker.checkCodeFences(text, {
+            enableCodeSpellCheck: true,
+            codeSpellSettings: {
+              checkComments: true,
+              checkStrings: false,
+              checkIdentifiers: true,
+              customWords
+            }
+          });
+          return codeResults.codeSpelling || [];
+        } catch (error) {
+          console.warn('CSpell failed for chunk:', error.message);
+        }
+      }
+      return [];
+    })()
+  ]);
 
   return {
     spelling: spellResults.spelling || [],

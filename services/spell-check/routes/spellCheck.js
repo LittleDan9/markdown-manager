@@ -121,88 +121,112 @@ function setupSpellCheckRoutes(serviceManager, responseBuilder) {
           chunkOffset: chunk_offset
         });
 
-        // Enhance suggestions with contextual analysis
+        // Enhance suggestions with contextual analysis (batched, capped)
+        const MAX_CONTEXTUAL_ISSUES = 30;
+        const CONTEXTUAL_BATCH_SIZE = 10;
+
         if (enableContextualSuggestions && spellResults.spelling && contextualAnalyzer) {
-          console.log(`Enhancing ${spellResults.spelling.length} spelling suggestions with context analysis...`);
+          const issuesToEnhance = spellResults.spelling.slice(0, MAX_CONTEXTUAL_ISSUES);
+          console.log(`Enhancing ${issuesToEnhance.length} of ${spellResults.spelling.length} spelling suggestions with context analysis...`);
 
-          for (const issue of spellResults.spelling) {
-            try {
-              const contextualResult = await contextualAnalyzer.getContextualSuggestions(
-                issue.word,
-                text,
-                issue.position.start,
-                issue.suggestions || [],
-                options
-              );
+          for (let i = 0; i < issuesToEnhance.length; i += CONTEXTUAL_BATCH_SIZE) {
+            const batch = issuesToEnhance.slice(i, i + CONTEXTUAL_BATCH_SIZE);
+            await Promise.all(batch.map(async (issue) => {
+              try {
+                const contextualResult = await contextualAnalyzer.getContextualSuggestions(
+                  issue.word,
+                  text,
+                  issue.position.start,
+                  issue.suggestions || [],
+                  options
+                );
 
-              issue.suggestions = contextualResult.suggestions.map(s => s.word);
-              issue.confidence = contextualResult.suggestions[0]?.confidence || issue.confidence;
-              issue.contextAnalysis = contextualResult.contextAnalysis;
-              issue.enhanced = true;
-            } catch (error) {
-              console.warn(`Failed to enhance suggestions for word "${issue.word}":`, error.message);
-            }
-          }
-        }
-
-        // Perform grammar checking
-        let grammarResults = { grammar: [] };
-        if (enableGrammar && grammarChecker) {
-          try {
-            grammarResults = await grammarChecker.checkText(text, options);
-          } catch (error) {
-            console.warn('Grammar checking failed:', error.message);
-          }
-        }
-
-        // Perform style analysis
-        let styleResults = { style: [], readability: null };
-        if (enableStyle && styleAnalyzer) {
-          try {
-            styleResults = await styleAnalyzer.analyzeText(text, options);
-          } catch (error) {
-            console.warn('Style analysis failed:', error.message);
-          }
-        }
-
-        // Apply style guide rules if specified
-        let styleGuideResults = [];
-        if (styleGuide && styleGuideManager) {
-          try {
-            styleGuideResults = styleGuideManager.analyzeWithStyleGuide(text, styleGuide, options);
-            console.log(`Applied ${styleGuide} style guide - found ${styleGuideResults.length} style guide issues`);
-          } catch (error) {
-            console.warn(`Failed to apply style guide ${styleGuide}:`, error.message);
-          }
-        }
-
-        // CSpell: Check code fences if enabled
-        let codeSpellResults = {
-          codeSpelling: [],
-          codeSpellStatistics: {
-            codeBlocks: 0,
-            languagesDetected: [],
-            issuesFound: 0
-          }
-        };
-
-        if (enableCodeSpellCheck && cspellCodeChecker) {
-          try {
-            console.log('Performing CSpell code fence analysis...');
-            codeSpellResults = await cspellCodeChecker.checkCodeFences(text, {
-              enableCodeSpellCheck: true,
-              codeSpellSettings: {
-                ...codeSpellSettings,
-                customWords: allCustomWords
+                issue.suggestions = contextualResult.suggestions.map(s => s.word);
+                issue.confidence = contextualResult.suggestions[0]?.confidence || issue.confidence;
+                issue.contextAnalysis = contextualResult.contextAnalysis;
+                issue.enhanced = true;
+              } catch (error) {
+                console.warn(`Failed to enhance suggestions for word "${issue.word}":`, error.message);
               }
-            });
-            console.log(`CSpell found ${codeSpellResults.codeSpelling.length} issues in ${codeSpellResults.codeSpellStatistics.codeBlocks} code blocks`);
-          } catch (error) {
-            console.warn('CSpell code fence checking failed:', error.message);
+            }));
           }
         }
+
+        // Run grammar, style, style guide, and code spell analyses in parallel
+        const [grammarResults, styleResults, styleGuideResults, codeSpellResults] = await Promise.all([
+          // Grammar checking
+          (async () => {
+            if (enableGrammar && grammarChecker) {
+              try {
+                return await grammarChecker.checkText(text, options);
+              } catch (error) {
+                console.warn('Grammar checking failed:', error.message);
+              }
+            }
+            return { grammar: [] };
+          })(),
+
+          // Style analysis
+          (async () => {
+            if (enableStyle && styleAnalyzer) {
+              try {
+                return await styleAnalyzer.analyzeText(text, options);
+              } catch (error) {
+                console.warn('Style analysis failed:', error.message);
+              }
+            }
+            return { style: [], readability: null };
+          })(),
+
+          // Style guide rules
+          (async () => {
+            if (styleGuide && styleGuideManager) {
+              try {
+                const results = styleGuideManager.analyzeWithStyleGuide(text, styleGuide, options);
+                console.log(`Applied ${styleGuide} style guide - found ${results.length} style guide issues`);
+                return results;
+              } catch (error) {
+                console.warn(`Failed to apply style guide ${styleGuide}:`, error.message);
+              }
+            }
+            return [];
+          })(),
+
+          // CSpell code fence checking
+          (async () => {
+            const defaultResult = {
+              codeSpelling: [],
+              codeSpellStatistics: {
+                codeBlocks: 0,
+                languagesDetected: [],
+                issuesFound: 0
+              }
+            };
+            if (enableCodeSpellCheck && cspellCodeChecker) {
+              try {
+                console.log('Performing CSpell code fence analysis...');
+                const results = await cspellCodeChecker.checkCodeFences(text, {
+                  enableCodeSpellCheck: true,
+                  codeSpellSettings: {
+                    ...codeSpellSettings,
+                    customWords: allCustomWords
+                  }
+                });
+                console.log(`CSpell found ${results.codeSpelling.length} issues in ${results.codeSpellStatistics.codeBlocks} code blocks`);
+                return results;
+              } catch (error) {
+                console.warn('CSpell code fence checking failed:', error.message);
+              }
+            }
+            return defaultResult;
+          })()
+        ]);
 
         const processingTime = Date.now() - startTime;
+
+        if (processingTime > 10000) {
+          console.warn(`[SLOW] Spell check took ${processingTime}ms - text length: ${text.length}, features: grammar=${enableGrammar}, style=${enableStyle}, contextual=${enableContextualSuggestions}, codeSpell=${enableCodeSpellCheck}, spellingIssues=${(spellResults.spelling || []).length}`);
+        }
 
         // Combine all results
         const combinedResults = {

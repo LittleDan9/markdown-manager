@@ -76,7 +76,7 @@ describe('Refactored Spell Check Service - Core Functionality Tests', () => {
 
       expect(response.status).toBe('healthy');
       expect(response.service).toBe('spell-check');
-      expect(response.version).toBe('1.0.0');
+      expect(response.version).toBe('3.0.0');
       expect(response.phase).toBe(3);
       expect(response.components).toBeDefined();
     });
@@ -85,14 +85,14 @@ describe('Refactored Spell Check Service - Core Functionality Tests', () => {
       const response = await apiRequest('/health');
       const components = response.components;
 
-      expect(components.spellChecker.loaded).toBe(true);
-      expect(components.grammarChecker.loaded).toBe(true);
-      expect(components.styleAnalyzer.loaded).toBe(true);
-      expect(components.languageDetector.loaded).toBe(true);
-      expect(components.customDictionaryManager.loaded).toBe(true);
-      expect(components.contextualAnalyzer.loaded).toBe(true);
-      expect(components.styleGuideManager.loaded).toBe(true);
-      expect(components.cspellCodeChecker.loaded).toBe(true);
+      expect(components.spellChecker.status).toBe('healthy');
+      expect(components.grammarChecker.status).toBe('healthy');
+      expect(components.styleAnalyzer.status).toBe('healthy');
+      expect(components.languageDetector.status).toBe('healthy');
+      expect(components.customDictionaryManager.status).toBe('healthy');
+      expect(components.contextualAnalyzer.status).toBe('healthy');
+      expect(components.styleGuideManager.status).toBe('healthy');
+      expect(components.cspellCodeChecker.status).toBe('healthy');
     });
 
     test('should provide memory usage information', async () => {
@@ -207,7 +207,7 @@ describe('Refactored Spell Check Service - Core Functionality Tests', () => {
       // Check for the actual response structure
       expect(response.processingTime).toBeDefined();
       expect(response.statistics).toBeDefined();
-      expect(response.statistics.processingTimeMs).toBeDefined();
+      expect(response.statistics.processing.timeMs).toBeDefined();
       expect(response.language).toBeDefined();
       expect(typeof response.processingTime).toBe('number');
     });

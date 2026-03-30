@@ -84,14 +84,14 @@ describe('🎯 REFACTORING VALIDATION: Functional Integrity Tests', () => {
       const components = response.components;
 
       // Validate all extracted components are working
-      expect(components.spellChecker.loaded).toBe(true);
-      expect(components.grammarChecker.loaded).toBe(true);
-      expect(components.styleAnalyzer.loaded).toBe(true);
-      expect(components.languageDetector.loaded).toBe(true);
-      expect(components.customDictionaryManager.loaded).toBe(true);
-      expect(components.contextualAnalyzer.loaded).toBe(true);
-      expect(components.styleGuideManager.loaded).toBe(true);
-      expect(components.cspellCodeChecker.loaded).toBe(true);
+      expect(components.spellChecker.status).toBe('healthy');
+      expect(components.grammarChecker.status).toBe('healthy');
+      expect(components.styleAnalyzer.status).toBe('healthy');
+      expect(components.languageDetector.status).toBe('healthy');
+      expect(components.customDictionaryManager.status).toBe('healthy');
+      expect(components.contextualAnalyzer.status).toBe('healthy');
+      expect(components.styleGuideManager.status).toBe('healthy');
+      expect(components.cspellCodeChecker.status).toBe('healthy');
 
       console.log('✅ All 8 service components operational after refactoring');
     });
@@ -100,7 +100,7 @@ describe('🎯 REFACTORING VALIDATION: Functional Integrity Tests', () => {
       const response = await apiRequest('/info');
 
       expect(response.service).toBe('spell-check');
-      expect(response.version).toBe('1.0.0');
+      expect(response.version).toBe('3.0.0');
       expect(response.phase).toBe(3);
 
       // Validate all expected features are available
