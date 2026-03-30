@@ -365,7 +365,7 @@ class SpellCheckApi extends Api {
     }
 
     // Poll for results with exponential back-off
-    const MAX_POLL_TIME_MS = 120000; // 2 minutes absolute max
+    const MAX_POLL_TIME_MS = 180000; // 3 minutes absolute max
     const INITIAL_INTERVAL = 500;
     const MAX_INTERVAL = 4000;
     const start = Date.now();

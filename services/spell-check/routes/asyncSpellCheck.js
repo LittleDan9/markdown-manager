@@ -102,8 +102,9 @@ function processJobInBackground(jobId, body, serviceManager, responseBuilder) {
       await new Promise(r => setImmediate(r));
 
       // --- Stage 4: contextual enhancement (batched, capped) ---
-      const MAX_CONTEXTUAL_ISSUES = 30;
-      const CONTEXTUAL_BATCH_SIZE = 10;
+      // Scale down on large docs — contextual NLP is CPU-heavy
+      const MAX_CONTEXTUAL_ISSUES = text.length > 20000 ? 10 : 30;
+      const CONTEXTUAL_BATCH_SIZE = 5;
 
       if (enableContextualSuggestions && spellResults.spelling && contextualAnalyzer) {
         const issuesToEnhance = spellResults.spelling.slice(0, MAX_CONTEXTUAL_ISSUES);

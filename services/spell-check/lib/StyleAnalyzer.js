@@ -93,9 +93,6 @@ class StyleAnalyzer {
       const customIssues = await this.performCustomStyleChecks(text, codeRegions);
       issues.push(...customIssues);
 
-      // Add readability analysis
-      const readabilityScore = this.calculateReadabilityScore(text);
-
     } catch (error) {
       console.error('[StyleAnalyzer] Error analyzing text:', error);
       // Don't throw - return empty results on error
