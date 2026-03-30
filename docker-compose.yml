@@ -219,6 +219,10 @@ services:
     volumes:
       - ./services/spell-check/server.js:/app/server.js
       - ./services/spell-check/lib:/app/lib
+      - ./services/spell-check/routes:/app/routes
+      - ./services/spell-check/services:/app/services
+      - ./services/spell-check/middleware:/app/middleware
+      - ./services/spell-check/utils:/app/utils
       - ./services/spell-check/config:/app/config:ro
       - ./services/spell-check/dictionaries:/app/dictionaries:ro
     command: ["npm", "run", "dev"]     # Use nodemon for development

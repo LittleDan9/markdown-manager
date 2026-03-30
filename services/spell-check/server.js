@@ -17,6 +17,7 @@ const { SERVICE_INFO, DEFAULT_CONFIG, getEnvironmentConfig } = require('./utils/
 // Import core services
 const ServiceManager = require('./services/ServiceManager');
 const ResponseBuilder = require('./services/ResponseBuilder');
+const asyncJobManager = require('./services/AsyncJobManager');
 
 // Import middleware
 const { requestLogger, performanceLogger } = require('./middleware/logging');
@@ -97,6 +98,9 @@ class SpellCheckApplication {
     this.serviceManager = new ServiceManager(this.config);
     await this.serviceManager.initialize();
 
+    // Initialize async job manager (Redis connection)
+    await asyncJobManager.init();
+
     // Initialize response builder
     this.responseBuilder = new ResponseBuilder(this.config);
 
@@ -129,6 +133,8 @@ class SpellCheckApplication {
         console.log(`[${SERVICE_INFO.name}]   GET  /health/detailed  - Detailed health information`);
         console.log(`[${SERVICE_INFO.name}]   GET  /info             - Service information`);
         console.log(`[${SERVICE_INFO.name}]   POST /check            - Main spell check endpoint`);
+        console.log(`[${SERVICE_INFO.name}]   POST /check-async      - Async spell check (returns jobId)`);
+        console.log(`[${SERVICE_INFO.name}]   GET  /check-status/:id - Poll async job results`);
         console.log(`[${SERVICE_INFO.name}]   POST /check-batch      - Batch processing`);
         console.log(`[${SERVICE_INFO.name}]   POST /detect-language  - Language detection`);
         console.log(`[${SERVICE_INFO.name}]   GET  /languages        - Available languages`);
@@ -159,6 +165,11 @@ class SpellCheckApplication {
         });
         console.log(`[${SERVICE_INFO.name}] HTTP server closed`);
       }
+    });
+
+    // Cleanup async job manager Redis connection
+    this.serviceManager.addShutdownHandler(async () => {
+      await asyncJobManager.cleanup();
     });
   }
 

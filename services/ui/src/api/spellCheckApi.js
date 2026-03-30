@@ -279,26 +279,13 @@ class SpellCheckApi extends Api {
         };
       }
 
-      // Route large documents to batch endpoint for better performance
-      const LARGE_TEXT_THRESHOLD = 25000;
+      // Route large documents to async endpoint to avoid timeouts
+      const ASYNC_TEXT_THRESHOLD = 25000;
       let result;
 
-      if (text.length > LARGE_TEXT_THRESHOLD) {
-        console.log(`Large document detected (${text.length} chars), using batch endpoint`);
-        const batchPayload = {
-          text,
-          chunkSize: 10000,
-          customWords: [],
-          options,
-          enableGrammar: options.analysisTypes?.grammar ?? true,
-          enableStyle: options.analysisTypes?.style ?? true,
-          enableContextualSuggestions: true,
-          enableCodeSpellCheck: !!options.enableCodeSpellCheck,
-          styleGuide: options.styleGuide || null,
-          language: options.language || 'en-US'
-        };
-        const response = await this.apiCall('/spell-check/check-batch', 'POST', batchPayload, { timeout: 90000 });
-        result = response.data;
+      if (text.length > ASYNC_TEXT_THRESHOLD) {
+        console.log(`Large document detected (${text.length} chars), using async endpoint`);
+        result = await this._submitAndPoll(text, options);
       } else {
         result = await this.checkText(text, [], options);
       }
@@ -344,6 +331,65 @@ class SpellCheckApi extends Api {
       // For Phase 4 migration, return empty array to prevent UI breakage
       return [];
     }
+  }
+
+  /**
+   * Submit a spell-check job and poll until results are ready.
+   * @param {string} text - Document text
+   * @param {Object} options - Analysis options
+   * @returns {Promise<Object>} The completed result (same shape as checkText)
+   */
+  async _submitAndPoll(text, options) {
+    const payload = {
+      text,
+      customWords: [],
+      enableGrammar: options.analysisTypes?.grammar ?? true,
+      enableStyle: options.analysisTypes?.style ?? true,
+      enableLanguageDetection: true,
+      enableContextualSuggestions: true,
+      enableCodeSpellCheck: !!options.enableCodeSpellCheck,
+      styleGuide: options.styleGuide !== 'none' ? options.styleGuide : null,
+      language: options.language || 'en-US'
+    };
+
+    if (options.enableCodeSpellCheck && options.codeSpellSettings) {
+      payload.codeSpellSettings = options.codeSpellSettings;
+    }
+
+    // Submit the job
+    const submitResponse = await this.apiCall('/spell-check/check-async', 'POST', payload, { timeout: 10000 });
+    const { jobId } = submitResponse.data;
+
+    if (!jobId) {
+      throw new Error('Async spell-check submission did not return a jobId');
+    }
+
+    // Poll for results with exponential back-off
+    const MAX_POLL_TIME_MS = 120000; // 2 minutes absolute max
+    const INITIAL_INTERVAL = 500;
+    const MAX_INTERVAL = 4000;
+    const start = Date.now();
+    let interval = INITIAL_INTERVAL;
+
+    while (Date.now() - start < MAX_POLL_TIME_MS) {
+      await new Promise(resolve => setTimeout(resolve, interval));
+
+      const statusResponse = await this.apiCall(`/spell-check/check-status/${jobId}`, 'GET', null, { timeout: 10000 });
+      const data = statusResponse.data;
+
+      if (data.status === 'completed') {
+        return data.result;
+      }
+
+      if (data.status === 'failed') {
+        throw new Error(`Async spell-check job failed: ${data.error || 'unknown error'}`);
+      }
+
+      // Exponential back-off, capped
+      interval = Math.min(interval * 1.5, MAX_INTERVAL);
+    }
+
+    throw new Error('Async spell-check timed out after 2 minutes');
   }
 
   /**
