@@ -12,6 +12,7 @@ function DocumentForm({
   setNewCategory,
   categoryError,
   setCategoryError,
+  onSubmit,
 }) {
   const { addCategory, categories: contextCategories } = useDocumentContext();
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -37,7 +38,15 @@ function DocumentForm({
   return (
     <>
       <Dropdown show={dropdownOpen} onToggle={setDropdownOpen} className="mb-2 w-100">
-        <Dropdown.Toggle variant="outline-secondary" className="w-100 d-flex justify-content-between align-items-center">
+        <Dropdown.Toggle
+          variant="outline-secondary"
+          className="w-100 d-flex justify-content-between align-items-center"
+          style={{
+            backgroundColor: 'var(--bs-body-bg)',
+            color: 'var(--bs-body-color)',
+            borderColor: 'var(--bs-border-color)',
+          }}
+        >
           <span>{selectedCategory}</span>
         </Dropdown.Toggle>
         <Dropdown.Menu className="w-100">
@@ -70,7 +79,16 @@ function DocumentForm({
         </Dropdown.Menu>
       </Dropdown>
       <div className="mb-2">Filename:</div>
-      <Form.Control value={filename} onChange={e => onFilenameChange(e.target.value)} />
+      <Form.Control
+        value={filename}
+        onChange={e => onFilenameChange(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && onSubmit) {
+            e.preventDefault();
+            onSubmit();
+          }
+        }}
+      />
       {/* Action buttons (Save, Discard, Cancel) should be rendered by the parent modal, not here */}
     </>
   );

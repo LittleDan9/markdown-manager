@@ -10,6 +10,7 @@ import UnsavedDocumentsDropdown from "@/components/file/UnsavedDocumentsDropdown
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import GitHistoryModal from "@/components/shared/modals/GitHistoryModal";
 import PromoteDraftModal from "@/components/document/modals/PromoteDraftModal";
+import SaveAsDocumentModal from "@/components/document/modals/SaveAsDocumentModal";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useConfirmModal, useFileModal, useResponsiveMenu } from "@/hooks/ui";
 import { useNotification } from "@/components/NotificationProvider";
@@ -60,6 +61,9 @@ function FileDropdown({ setDocumentTitle, setContent }) {
 
   // Draft promotion modal state (for File > Save on Drafts docs)
   const [showPromoteDraft, setShowPromoteDraft] = useState(false);
+
+  // Save As modal state
+  const [showSaveAsDocModal, setShowSaveAsDocModal] = useState(false);
 
   // Open Category submenu state
   const [showCategorySubmenu, setShowCategorySubmenu] = useState(false);
@@ -236,6 +240,24 @@ function FileDropdown({ setDocumentTitle, setContent }) {
     showSuccess("Document closed.");
   };
 
+  const handleSaveAsConfirm = async (category, name) => {
+    try {
+      const newDoc = await documentsApi.createDocument({
+        name,
+        content: content || "",
+        category,
+      });
+      await loadDocument(newDoc.id);
+      setDocumentTitle(name);
+      // Force re-render of preview (content is identical, so trigger rendering explicitly)
+      setContent(content || "");
+      setShowSaveAsDocModal(false);
+      showSuccess(`Document saved as '${name}'.`);
+    } catch (error) {
+      showError(`Failed to save as: ${error.message}`);
+    }
+  };
+
   const handleDelete = () => {
     if (isDefaultDoc) {
       showError("Cannot delete an unsaved document.");
@@ -361,6 +383,9 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 <Badge bg="warning" text="dark" style={{ fontSize: '0.7em' }}>Changes</Badge>
               )}
             </span>
+          </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(() => setShowSaveAsDocModal(true))} disabled={isDefaultDoc}>
+            <i className="bi bi-files" /><span>Save As</span>
           </button>
           <button type="button" className="mobile-menu-item text-danger" onClick={() => mobileAction(handleDelete)} disabled={isDefaultDoc}>
             <i className="bi bi-trash" /><span>Delete Document</span>
@@ -544,6 +569,9 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 Clean
               </Badge>
             )}
+          </Dropdown.Item>
+          <Dropdown.Item onClick={() => setShowSaveAsDocModal(true)} disabled={isDefaultDoc}>
+            <i className="bi bi-files me-2"></i>Save As
           </Dropdown.Item>
           <Dropdown.Item onClick={handleDelete} disabled={isDefaultDoc}>
             <i className="bi bi-trash me-2"></i>Delete Document
@@ -828,6 +856,15 @@ function FileDropdown({ setDocumentTitle, setContent }) {
         onHide={() => setShowPromoteDraft(false)}
         defaultName={currentDocument?.name || 'Untitled Document'}
         onConfirm={handlePromoteConfirm}
+      />
+
+      {/* Save As Modal */}
+      <SaveAsDocumentModal
+        show={showSaveAsDocModal}
+        onHide={() => setShowSaveAsDocModal(false)}
+        defaultName={currentDocument?.name || 'Untitled Document'}
+        defaultCategory={currentDocument?.category || 'General'}
+        onConfirm={handleSaveAsConfirm}
       />
     </>
   );
