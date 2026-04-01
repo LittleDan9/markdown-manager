@@ -12,6 +12,7 @@ from app.database import get_db
 from app.services.icons.third_party import ThirdPartyBrowserService, ThirdPartySource
 from app.services.icons.installer import StandardizedIconPackInstaller
 from app.schemas.icon_schemas import StandardizedIconPackRequest
+from app.routers.notifications import broadcast_notification
 
 logger = logging.getLogger(__name__)
 
@@ -169,6 +170,14 @@ async def install_collection(
         # Install the pack
         installer = StandardizedIconPackInstaller(db)
         result = await installer.install_pack(pack_request)
+
+        await broadcast_notification(
+            db,
+            title="New Icon Pack Installed",
+            message=f"'{result.display_name}' ({result.icon_count} icons) installed from {source}.",
+            category="info",
+        )
+        await db.commit()
 
         action_text = "entire collection" if install_all else f"{len(icon_names)} icons"
         return {

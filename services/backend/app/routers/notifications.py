@@ -71,6 +71,28 @@ async def create_notification(
     return notification
 
 
+async def broadcast_notification(
+    db: AsyncSession,
+    title: str,
+    message: str,
+    category: str = "info",
+    link: str | None = None,
+) -> int:
+    """Create a notification for every active user. Returns count of notifications created."""
+    result = await db.execute(select(User.id).where(User.is_active == True))  # noqa: E712
+    user_ids = result.scalars().all()
+    for uid in user_ids:
+        db.add(Notification(
+            user_id=uid,
+            title=title,
+            message=message,
+            category=category,
+            link=link,
+        ))
+    await db.flush()
+    return len(user_ids)
+
+
 # ---------- Endpoints ----------
 
 @router.post("", response_model=NotificationOut, status_code=status.HTTP_201_CREATED)
