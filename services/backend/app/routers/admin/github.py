@@ -285,6 +285,8 @@ async def get_all_users(
                 sync_preview_scroll_enabled=user.sync_preview_scroll_enabled,
                 autosave_enabled=user.autosave_enabled,
                 editor_width_percentage=user.editor_width_percentage,
+                tab_position=user.tab_position or "above",
+                tab_sort_order=user.tab_sort_order or "name",
                 current_doc_id=user.current_doc_id,
                 current_document=None  # Don't load documents for user list
             ))

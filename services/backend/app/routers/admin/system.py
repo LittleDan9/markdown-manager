@@ -412,7 +412,7 @@ class AttachmentQuotaRequest(BaseModel):
     quota_bytes: int
 
 
-@router.get("/system/attachment-quota")
+@router.get("/attachment-quota")
 async def get_attachment_quota(
     db: AsyncSession = Depends(get_db),
     _admin: User = Depends(get_admin_user),
@@ -426,7 +426,7 @@ async def get_attachment_quota(
     }
 
 
-@router.put("/system/attachment-quota")
+@router.put("/attachment-quota")
 async def set_attachment_quota(
     request: AttachmentQuotaRequest,
     db: AsyncSession = Depends(get_db),

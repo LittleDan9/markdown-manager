@@ -7,7 +7,7 @@ from typing import Optional
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.database import async_session_maker
+from app.database import AsyncSessionLocal
 from app.models.icon_models import IconPack
 from app.schemas.icon_schemas import IconifyIconData, StandardizedIconPackRequest
 from app.services.icons.installer import StandardizedIconPackInstaller
@@ -43,7 +43,7 @@ class IconSeeder:
 
         logger.info("Found %d seed file(s) in %s", len(seed_files), seed_dir)
 
-        async with async_session_maker() as db:
+        async with AsyncSessionLocal() as db:
             for sf in seed_files:
                 try:
                     await self._process_seed_file(db, sf)
