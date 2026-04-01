@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Button, Row, Col, Spinner, Alert, Form, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
-import { cleanSvgBodyForBrowser } from '../../../utils/svgUtils';
+import { cleanSvgBodyForBrowser, downloadSvg, copySvgToClipboard, copyIconUrl } from '../../../utils/svgUtils';
 
 export default function IconViewModal({ icon, show, onHide, initialEditMode = false, onSave }) {
   const [iconData, setIconData] = useState(null);
@@ -229,6 +229,32 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
           <Col md={6}>
             <h6 className="mb-3">Icon Preview</h6>
             {renderLargeIcon()}
+            <div className="d-flex justify-content-center gap-2 mt-2">
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                onClick={() => downloadSvg(displayIcon.icon_data, displayIcon.key)}
+              >
+                <i className="bi bi-download me-1"></i>
+                Download SVG
+              </Button>
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                onClick={() => copySvgToClipboard(displayIcon.icon_data)}
+              >
+                <i className="bi bi-clipboard2 me-1"></i>
+                Copy Image
+              </Button>
+              <Button
+                size="sm"
+                variant="outline-secondary"
+                onClick={() => copyIconUrl(displayIcon.pack?.name, displayIcon.key)}
+              >
+                <i className="bi bi-link-45deg me-1"></i>
+                Copy URL
+              </Button>
+            </div>
           </Col>
 
           {/* Icon Details */}

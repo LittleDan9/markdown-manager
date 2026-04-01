@@ -98,6 +98,16 @@ class IconSVGService(BaseIconService):
                 # Remove namespace declarations from body to avoid duplication
                 cleaned_body = re.sub(namespace_pattern, '', body)
 
+                # Strip <title>, <desc>, and XML comments that confuse
+                # external tools (e.g. Draw.io shows <desc> as a text label)
+                cleaned_body = re.sub(r'<title[^>]*>.*?</title>', '', cleaned_body, flags=re.DOTALL)
+                cleaned_body = re.sub(r'<desc[^>]*>.*?</desc>', '', cleaned_body, flags=re.DOTALL)
+                cleaned_body = re.sub(r'<!--.*?-->', '', cleaned_body, flags=re.DOTALL)
+
+                # Auto-detect xlink usage and add namespace if not explicitly declared
+                if 'xlink:' in cleaned_body and 'xlink' not in namespaces:
+                    namespaces['xlink'] = 'http://www.w3.org/1999/xlink'
+
                 # Build namespace declarations for root SVG
                 xmlns_attrs = 'xmlns="http://www.w3.org/2000/svg"'
                 for prefix, uri in namespaces.items():
@@ -114,6 +124,10 @@ class IconSVGService(BaseIconService):
                 try:
                     with open(metadata.file_path, 'r', encoding='utf-8') as f:
                         svg_content = f.read()
+                    # Strip metadata elements that confuse external tools
+                    svg_content = re.sub(r'<title[^>]*>.*?</title>', '', svg_content, flags=re.DOTALL)
+                    svg_content = re.sub(r'<desc[^>]*>.*?</desc>', '', svg_content, flags=re.DOTALL)
+                    svg_content = re.sub(r'<!--.*?-->', '', svg_content, flags=re.DOTALL)
                 except Exception:
                     # Handle file read errors gracefully
                     svg_content = None

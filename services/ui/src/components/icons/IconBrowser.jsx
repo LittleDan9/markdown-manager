@@ -3,7 +3,7 @@ import { Container, Row, Col, Card, Form, Badge, Alert, InputGroup, Collapse } f
 import { useLogger } from '../../providers/LoggerProvider';
 import { serviceFactory } from '@/services/injectors';
 import { ActionButton } from '@/components/shared';
-import { cleanSvgBodyForBrowser } from '@/utils/svgUtils';
+import { cleanSvgBodyForBrowser, downloadSvg, copySvgToClipboard, copyIconUrl } from '@/utils/svgUtils';
 
 const _ITEMS_PER_ROW = 4;
 const _INITIAL_LOAD_SIZE = 24; // 6 rows
@@ -454,6 +454,32 @@ export default function IconBrowser() {
                             </Badge>
                           )}
                         </div>
+                      </div>
+                      <div className="d-flex flex-column gap-1 ms-2">
+                        <button
+                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
+                          style={{ width: 26, height: 26 }}
+                          title="Download SVG"
+                          onClick={() => downloadSvg(icon.iconData, icon.key)}
+                        >
+                          <i className="bi bi-download" style={{ fontSize: '0.75rem' }}></i>
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
+                          style={{ width: 26, height: 26 }}
+                          title="Copy to clipboard"
+                          onClick={() => copySvgToClipboard(icon.iconData)}
+                        >
+                          <i className="bi bi-clipboard2" style={{ fontSize: '0.75rem' }}></i>
+                        </button>
+                        <button
+                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
+                          style={{ width: 26, height: 26 }}
+                          title="Copy icon URL"
+                          onClick={() => copyIconUrl(icon.pack, icon.key)}
+                        >
+                          <i className="bi bi-link-45deg" style={{ fontSize: '0.75rem' }}></i>
+                        </button>
                       </div>
                     </div>
 

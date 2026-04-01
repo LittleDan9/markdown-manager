@@ -4,7 +4,7 @@ import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
 import { useNotification } from '../../NotificationProvider';
 import IconViewModal from './IconViewModal';
-import { cleanSvgBodyForBrowser } from '../../../utils/svgUtils';
+import { cleanSvgBodyForBrowser, downloadSvg, copySvgToClipboard, copyIconUrl } from '../../../utils/svgUtils';
 
 export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoading = false }) {
   const [selectedPack, setSelectedPack] = useState('all');
@@ -425,6 +425,39 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
                   {/* Actions */}
                   {!isSelectionMode && (
                     <div className="icon-actions">
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        title="Download SVG"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          downloadSvg(icon.icon_data, icon.key);
+                        }}
+                      >
+                        <i className="bi bi-download"></i>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        title="Copy to clipboard"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copySvgToClipboard(icon.icon_data);
+                        }}
+                      >
+                        <i className="bi bi-clipboard2"></i>
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline-secondary"
+                        title="Copy icon URL"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          copyIconUrl(icon.pack?.name, icon.key);
+                        }}
+                      >
+                        <i className="bi bi-link-45deg"></i>
+                      </Button>
                       <Button
                         size="sm"
                         variant="outline-primary"
