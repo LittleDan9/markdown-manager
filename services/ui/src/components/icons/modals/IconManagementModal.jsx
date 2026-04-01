@@ -17,15 +17,8 @@ export default function IconManagementModal({ show, onHide }) {
   const [dataLoaded, setDataLoaded] = useState(false); // Track if we've loaded data for this session
 
   const loadAllData = useCallback(async () => {
-    // Load data sequentially to avoid hitting rate limits
-    // Start with the most critical data first
     try {
-      await loadIconPacks();
-      // Small delay to avoid overwhelming the server
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await loadCategories();
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await loadPackNames();
+      await Promise.all([loadIconPacks(), loadCategories(), loadPackNames()]);
     } catch (error) {
       console.error('Error loading icon management data:', error);
     }

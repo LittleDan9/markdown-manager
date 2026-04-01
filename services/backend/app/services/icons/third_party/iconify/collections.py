@@ -5,10 +5,13 @@ from typing import Dict, List
 import logging
 
 from ..base import IconProviderInterface
+from ..redis_cache import cache, TTL_COLLECTIONS
 from .api import IconifyApiClient
-from .cache import IconifyCache
 
 logger = logging.getLogger(__name__)
+
+_CACHE_COLLECTIONS = "iconify:collections"
+_CACHE_DETAILS_PREFIX = "iconify:details:"
 
 
 class IconifyCollectionBrowser(IconProviderInterface):
@@ -16,22 +19,21 @@ class IconifyCollectionBrowser(IconProviderInterface):
     
     def __init__(self):
         self.api_client = IconifyApiClient()
-        self.cache = IconifyCache()
     
     async def get_collections(self, refresh: bool = False) -> Dict:
         """Get all available Iconify collections with caching"""
         if not refresh:
-            cached = self.cache.get_collections()
+            cached = await cache.get(_CACHE_COLLECTIONS)
             if cached:
                 return cached
         
         try:
             collections = await self.api_client.get_collections()
-            self.cache.set_collections(collections)
+            await cache.set(_CACHE_COLLECTIONS, collections, TTL_COLLECTIONS)
             return collections
-        except Exception as e:
+        except Exception:
             # Return cached data if available, otherwise raise
-            cached = self.cache.get_collections()
+            cached = await cache.get(_CACHE_COLLECTIONS)
             if cached:
                 logger.warning("Using cached collections data due to API error")
                 return cached
@@ -256,4 +258,4 @@ class IconifyCollectionBrowser(IconProviderInterface):
     
     async def refresh_cache(self) -> None:
         """Refresh cache"""
-        self.cache.clear()
+        await cache.clear_prefix("iconify:")

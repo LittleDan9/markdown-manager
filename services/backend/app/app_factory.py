@@ -31,7 +31,6 @@ from app.routers import (
     github,
     github_settings,
     icons,
-    iconify_router,
     images,
     markdown_lint,
     monitoring,
@@ -68,6 +67,13 @@ def _create_lifespan():
 
         await create_tables()
         logger.info("Database tables created/verified")
+
+        # Auto-seed icon packs from bundled seed files
+        from app.services.icons.seeder import IconSeeder
+        try:
+            await IconSeeder().seed_if_needed()
+        except Exception:
+            logger.exception("Icon seeding failed — continuing startup")
 
         # Start background git gc service (runs daily to keep repos compact)
         from app.services.storage.git.maintenance import git_maintenance_service
@@ -156,10 +162,7 @@ def setup_routers(app: FastAPI) -> None:
         attachments.router, tags=["attachments"]  # File attachment endpoints
     )
     app.include_router(
-        iconify_router.router  # Iconify browser endpoints
-    )
-    app.include_router(
-        third_party_router.router  # Unified third-party browser endpoints
+        third_party_router.router  # Unified third-party browser endpoints (includes legacy /iconify/* routes)
     )
     app.include_router(
         categories.router, prefix="/categories", tags=["categories"]

@@ -1,9 +1,9 @@
 /**
  * Icon Management Service
- * Handles installing and managing icon packs
+ * Handles installing and managing icon packs via admin API
  */
 
-import { iconsApi } from '@/api/iconsApi.js';
+import { adminIconsApi } from '@/api/admin';
 
 class IconManagementService {
   /**
@@ -11,34 +11,10 @@ class IconManagementService {
    */
   async installIconPack(packData, mappingConfig, packageType = 'json') {
     try {
-      const result = await iconsApi.installIconPack(packData, mappingConfig, packageType);
+      const result = await adminIconsApi.installIconPack(packData, mappingConfig, packageType);
       return result;
     } catch (error) {
       console.error('Failed to install icon pack:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get cache statistics (for debugging)
-   */
-  async getCacheStats() {
-    try {
-      return await iconsApi.getCacheStats();
-    } catch (error) {
-      console.error('Failed to get cache stats:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Clear server cache
-   */
-  async clearServerCache() {
-    try {
-      await iconsApi.clearCache();
-    } catch (error) {
-      console.warn('Failed to clear server cache:', error);
       throw error;
     }
   }
@@ -48,7 +24,7 @@ class IconManagementService {
    */
   async removeIconPack(packName) {
     try {
-      const result = await iconsApi.removeIconPack(packName);
+      const result = await adminIconsApi.deleteIconPack(packName);
       return result;
     } catch (error) {
       console.error('Failed to remove icon pack:', error);
@@ -61,22 +37,10 @@ class IconManagementService {
    */
   async updateIconPack(packName, updateData) {
     try {
-      const result = await iconsApi.updateIconPack(packName, updateData);
+      const result = await adminIconsApi.updateIconPackMetadata(packName, updateData);
       return result;
     } catch (error) {
       console.error('Failed to update icon pack:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get icon pack installation status
-   */
-  async getInstallationStatus(packName) {
-    try {
-      return await iconsApi.getInstallationStatus(packName);
-    } catch (error) {
-      console.error('Failed to get installation status:', error);
       throw error;
     }
   }

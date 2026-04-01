@@ -1,6 +1,8 @@
-# ==============================================================================
-# Multi-stage build: Clean backend without Playwright
-# ==============================================================================
+# Stage 0: Extract icon seed data from npm packages
+FROM node:20-slim AS seed-icons
+WORKDIR /seed-icons
+COPY ./seed-icons/package.json ./seed-icons/seed-manifest.json ./seed-icons/extract.js ./
+RUN npm ci --ignore-scripts && node extract.js
 
 # Stage 1: Build dependencies and virtual environment with Python 3.13
 FROM python:3.13-slim AS python-base
@@ -59,6 +61,9 @@ COPY ./migrations/env.py /markdown-manager/migrations/
 COPY ./migrations/versions/ /markdown-manager/migrations/versions/
 COPY ./scripts/entrypoint.sh /markdown-manager/
 COPY ./app /markdown-manager/app
+
+# Copy extracted icon seed data from build stage
+COPY --from=seed-icons /seed-icons/data/ /app/seed-icons/
 
 # Set executable permissions
 RUN chmod +x /markdown-manager/entrypoint.sh

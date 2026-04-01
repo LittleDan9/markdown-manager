@@ -18,7 +18,7 @@ import logging
 from ...database import get_db
 from ...services.icon_service import IconService
 from ...services.icons.svg import IconSVGService
-from ...services.standardized_icon_installer import StandardizedIconPackInstaller
+from ...services.icons.installer import StandardizedIconPackInstaller
 from ...schemas.icon_schemas import (
     IconPackResponse,
     IconPackInstallRequest,

@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Form, Button, Alert, Card, Spinner } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Form, Button, Alert, Card, Spinner, ListGroup, Badge } from 'react-bootstrap';
 import { useNotification } from '../../NotificationProvider';
-import { adminIconsApi } from '../../../api/admin';
+import { iconsApi } from '../../../api/iconsApi';
 import PackCategorySelector from '../common/PackCategorySelector';
 
 export default function IconifyPackTab({
@@ -13,9 +13,17 @@ export default function IconifyPackTab({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  // Iconify pack form state
-  const [iconifyForm, setIconifyForm] = useState({
-    packUrl: '',
+  // Collection browsing state
+  const [collections, setCollections] = useState({});
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedPrefix, setSelectedPrefix] = useState('');
+  const [collectionIcons, setCollectionIcons] = useState([]);
+  const [selectedIcons, setSelectedIcons] = useState([]);
+  const [browsing, setBrowsing] = useState(false);
+  const [loadingIcons, setLoadingIcons] = useState(false);
+
+  // Install form state
+  const [installForm, setInstallForm] = useState({
     packName: '',
     category: categories.length > 0 ? categories[0] : '',
     description: ''
@@ -23,341 +31,289 @@ export default function IconifyPackTab({
 
   const { showSuccess, showError } = useNotification();
 
-  const handleIconifyFormChange = (field, value) => {
-    setIconifyForm(prev => ({
+  // Load collections from backend proxy on mount
+  useEffect(() => {
+    loadCollections();
+  }, []);
+
+  const loadCollections = useCallback(async (query = '') => {
+    setBrowsing(true);
+    try {
+      const result = await iconsApi.getThirdPartyCollections('iconify', query);
+      setCollections(result?.data?.collections || result?.collections || {});
+    } catch (err) {
+      setError('Failed to load Iconify collections');
+    } finally {
+      setBrowsing(false);
+    }
+  }, []);
+
+  const handleSearch = useCallback(() => {
+    loadCollections(searchQuery);
+  }, [searchQuery, loadCollections]);
+
+  const selectCollection = useCallback(async (prefix) => {
+    setSelectedPrefix(prefix);
+    setSelectedIcons([]);
+    setLoadingIcons(true);
+    setInstallForm(prev => ({
       ...prev,
-      [field]: value
+      packName: prefix,
+      description: collections[prefix]?.name || ''
     }));
 
-    // Clear errors when user types
+    try {
+      const result = await iconsApi.getThirdPartyIcons('iconify', prefix, 0, '');
+      setCollectionIcons(result?.data?.icons || result?.icons || []);
+    } catch (err) {
+      setError(`Failed to load icons for ${prefix}`);
+    } finally {
+      setLoadingIcons(false);
+    }
+  }, [collections]);
+
+  const toggleIconSelection = useCallback((iconName) => {
+    setSelectedIcons(prev =>
+      prev.includes(iconName)
+        ? prev.filter(n => n !== iconName)
+        : [...prev, iconName]
+    );
+  }, []);
+
+  const selectAllIcons = useCallback(() => {
+    setSelectedIcons(collectionIcons.map(i => i.name));
+  }, [collectionIcons]);
+
+  const handleFormChange = (field, value) => {
+    setInstallForm(prev => ({ ...prev, [field]: value }));
     if (error) setError('');
   };
 
-  const validateIconifyForm = () => {
-    if (!iconifyForm.packUrl.trim()) {
-      setError('Iconify pack URL is required.');
-      return false;
-    }
-    if (!iconifyForm.packName.trim()) {
+  const installSelectedIcons = async () => {
+    if (!selectedPrefix) return;
+    if (!installForm.packName.trim()) {
       setError('Pack name is required.');
-      return false;
+      return;
     }
-    if (!iconifyForm.category) {
+    if (!installForm.category) {
       setError('Category is required.');
-      return false;
+      return;
     }
 
-    // Validate URL format
-    try {
-      new URL(iconifyForm.packUrl);
-    } catch {
-      setError('Please enter a valid URL.');
-      return false;
-    }
-
-    // Validate pack name format
     const nameRegex = /^[a-z0-9-]+$/;
-    if (!nameRegex.test(iconifyForm.packName)) {
+    if (!nameRegex.test(installForm.packName)) {
       setError('Pack name must contain only lowercase letters, numbers, and hyphens.');
-      return false;
+      return;
     }
-
-    return true;
-  };
-
-  const installIconifyPack = async () => {
-    if (!validateIconifyForm()) return;
 
     setLoading(true);
     setError('');
     setSuccess('');
 
     try {
-      let packData;
-
-      // Check if it's a direct JSON URL or needs to be converted to collection API
-      if (iconifyForm.packUrl.includes('.json')) {
-        // It's a direct JSON URL, try to fetch it first
-        try {
-          const response = await fetch(iconifyForm.packUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch pack: ${response.statusText}`);
-          }
-          packData = await response.json();
-        } catch (err) {
-          // If direct JSON fails, try to convert to collection API format
-          const urlParts = iconifyForm.packUrl.split('/');
-          const filename = urlParts[urlParts.length - 1];
-          const prefix = filename.replace('.json', '');
-
-          const collectionUrl = `https://api.iconify.design/collection?prefix=${prefix}&info=1`;
-          const response = await fetch(collectionUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch collection: ${response.statusText}. Original error: ${err.message}`);
-          }
-          packData = await response.json();
-        }
+      let result;
+      if (selectedIcons.length > 0) {
+        result = await iconsApi.installThirdPartyIcons(
+          'iconify',
+          selectedPrefix,
+          selectedIcons,
+          installForm.packName,
+          installForm.category,
+          installForm.description
+        );
       } else {
-        // Assume it's already a collection API URL
-        const response = await fetch(iconifyForm.packUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch pack: ${response.statusText}`);
-        }
-        packData = await response.json();
+        // Install entire collection
+        result = await iconsApi.installEntireThirdPartyCollection(
+          'iconify',
+          selectedPrefix,
+          installForm.packName,
+          installForm.category,
+          installForm.description
+        );
       }
 
-      // Handle different response formats
-      let icons, info;
-
-      if (packData.icons && packData.info) {
-        // Direct icon data format
-        icons = packData.icons;
-        info = packData.info;
-      } else if (packData.prefix && packData.info) {
-        // Collection API format - we need to fetch the actual icon data
-        const iconDataUrl = `https://api.iconify.design/${packData.prefix}.json?icons=${Object.keys(packData.uncategorized || []).concat(
-          Object.values(packData.categories || {}).flat()
-        ).slice(0, 50).join(',')}`; // Limit to first 50 icons for now
-
-        const iconResponse = await fetch(iconDataUrl);
-        if (!iconResponse.ok) {
-          throw new Error(`Failed to fetch icon data: ${iconResponse.statusText}`);
-        }
-        const iconData = await iconResponse.json();
-
-        icons = iconData.icons;
-        info = packData.info;
-      } else {
-        throw new Error('Invalid Iconify pack format. Expected either icon data with "icons" and "info" fields, or collection metadata with "prefix" and "info" fields.');
-      }
-
-      // Create the pack data in the expected format
-      const customPackData = {
-        // Preserve pack-level dimensions for proper viewBox calculation
-        width: packData.width,
-        height: packData.height,
-        icons,
-        info: {
-          ...info,
-          name: iconifyForm.packName,
-          displayName: iconifyForm.packName.replace(/-/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          category: iconifyForm.category,
-          description: iconifyForm.description || info.description || `${iconifyForm.packName} icons`
-        }
-      };
-
-      // Install the pack using the existing API
-      const result = await adminIconsApi.installIconPack(customPackData, null, 'json');
-
-      setSuccess(`Successfully installed Iconify pack &quot;${result.display_name}&quot; with ${Object.keys(icons).length} icons`);
-      showSuccess(`Iconify pack &quot;${result.display_name}&quot; installed successfully!`);
-
-      // Reset form
-      setIconifyForm({
-        packUrl: '',
-        packName: '',
-        category: categories.length > 0 ? categories[0] : '',
-        description: ''
-      });
-
-      // Reload data via parent
+      const count = selectedIcons.length || 'all';
+      setSuccess(`Installed ${count} icons from "${selectedPrefix}" as "${installForm.packName}"`);
+      showSuccess(`Iconify pack "${installForm.packName}" installed!`);
+      setSelectedPrefix('');
+      setCollectionIcons([]);
+      setSelectedIcons([]);
       onReloadData();
-
     } catch (err) {
-      const errorMessage = err.message || 'Failed to install Iconify pack';
-      setError(errorMessage);
-      showError(errorMessage);
+      const msg = err.message || 'Failed to install Iconify pack';
+      setError(msg);
+      showError(msg);
     } finally {
       setLoading(false);
     }
   };
 
+  // Quick-fill presets — these just select a collection from the backend
+  const quickFill = (prefix, name) => {
+    setSearchQuery('');
+    selectCollection(prefix);
+    setInstallForm(prev => ({ ...prev, packName: prefix, description: `${name} icon collection` }));
+  };
+
+  const filteredCollections = Object.entries(collections).slice(0, 50);
+
   return (
     <div className="icon-pack-tab">
       <Card>
         <Card.Header>
-          <h5 className="mb-0">Install Iconify Pack</h5>
+          <h5 className="mb-0">Install from Iconify</h5>
         </Card.Header>
         <Card.Body>
-          {error && <Alert variant="danger">{error}</Alert>}
-          {success && <Alert variant="success">{success}</Alert>}
+          {error && <Alert variant="danger" dismissible onClose={() => setError('')}>{error}</Alert>}
+          {success && <Alert variant="success" dismissible onClose={() => setSuccess('')}>{success}</Alert>}
 
-        <Alert variant="info" className="mb-3">
-          <Alert.Heading as="h6">
-            <i className="bi bi-info-circle me-2"></i>
-            Iconify API URL Formats
-          </Alert.Heading>
-          <small>
-            <strong>Direct JSON (Recommended):</strong> <code>https://api.iconify.design/PREFIX.json?icons=icon1,icon2,icon3</code><br/>
-            <strong>Collection API (Limited):</strong> <code>https://api.iconify.design/collection?prefix=PREFIX&info=1</code><br/>
-            <strong>Find Icon Packs:</strong> Browse <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener noreferrer">icon-sets.iconify.design</a> or <a href="https://iconify.design/icon-sets/" target="_blank" rel="noopener noreferrer">iconify.design/icon-sets</a><br/>
-            <strong>Get Icon Names:</strong> Use the Iconify website to find specific icon names for your pack.
-          </small>
-        </Alert>
-
-        <Form>
-          <div className="row">
-            <div className="col-md-6">
-              <Form.Group className="mb-3">
-                <Form.Label>Iconify Pack URL *</Form.Label>
-                <Form.Control
-                  type="url"
-                  value={iconifyForm.packUrl}
-                  onChange={(e) => handleIconifyFormChange('packUrl', e.target.value)}
-                  placeholder="https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user,search,check,times,arrow-left,arrow-right,arrow-up"
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  <strong>URL Format Examples:</strong><br/>
-                  • <strong>Direct JSON:</strong> https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user<br/>
-                  • <strong>Collection API:</strong> https://api.iconify.design/collection?prefix=heroicons&info=1<br/>
-                  • <strong>Find more packs:</strong> <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener noreferrer">Browse Iconify Icon Sets</a>
-                </Form.Text>
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Pack Name *</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={iconifyForm.packName}
-                  onChange={(e) => handleIconifyFormChange('packName', e.target.value)}
-                  placeholder="e.g., material-icons"
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  Lowercase letters, numbers, and hyphens only
-                </Form.Text>
-              </Form.Group>
-
-              <PackCategorySelector
-                showPackName={false}
-                category={iconifyForm.category}
-                onCategoryChange={(value) => handleIconifyFormChange('category', value)}
-                categories={categories}
-                onAddCategory={onAddCategory}
-                categoryLabel="Category"
-                categoryPlaceholder="Select a category"
-                categoryRequired={true}
-                loading={loading}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-6">
-              <Form.Group className="mb-3">
-                <Form.Label>Description</Form.Label>
-                <Form.Control
-                  as="textarea"
-                  rows={3}
-                  value={iconifyForm.description}
-                  onChange={(e) => handleIconifyFormChange('description', e.target.value)}
-                  placeholder="Optional description for the icon pack"
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  If empty, will use description from Iconify pack
-                </Form.Text>
-              </Form.Group>
-
-              <Card className="mb-3">
-                <Card.Header>
-                  <h6 className="mb-0">Quick-Fill Popular Collections</h6>
-                </Card.Header>
-                <Card.Body>
-                  <div className="row">
-                    <div className="col-12">
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        className="me-2 mb-2"
-                        onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/mdi.json?icons=home,heart,star,account,magnify,check,close,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,pencil,delete,content-save,content-copy,download,upload,settings,information,alert,check-circle,calendar,clock,email,phone,map-marker,camera,image,video,music,file,folder,text-box,format-bold,format-italic,format-underline,link,view-list,table,chart-line,view-dashboard,menu,view-grid,filter,sort-ascending,refresh,sync,lock,lock-open,eye,eye-off,share,thumb-up,heart-outline,bookmark,tag,flag,bell,message,chat,reply,send,printer,qrcode,wifi,bluetooth,battery,signal,volume-high,brightness-6,zoom-in,fullscreen,window-minimize,window-maximize,close,cancel,check-bold,block-helper');
-                          handleIconifyFormChange('packName', 'material-design-icons');
-                        }}
-                      >
-                        Material Design Icons
-                      </Button>
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        className="me-2 mb-2"
-                        onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/fa6-solid.json?icons=house,heart,star,user,search,check,times,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,edit,trash,save,copy,download,upload,home,settings,info,warning,error,success,calendar,clock,mail,phone,map,location,camera,image,video,music,file,folder,document,text,bold,italic,underline,link,list,table,chart,graph,dashboard,menu,grid,filter,sort,refresh,sync,lock,unlock,eye,hide,share,like,favorite,bookmark,tag,flag,bell,notification,message,chat,comment,reply,send,receive,print,scan,barcode,qr-code,wifi,bluetooth,battery,signal,volume,brightness,contrast,zoom,fullscreen,minimize,maximize,close,cancel,confirm,approve,deny,block,allow,play,pause,stop,forward,backward,repeat,shuffle,previous,next,first,last,skip,record,microphone,speaker,headphones');
-                          handleIconifyFormChange('packName', 'font-awesome-solid');
-                        }}
-                      >
-                        Font Awesome Solid
-                      </Button>
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        className="me-2 mb-2"
-                        onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/heroicons.json?icons=home,heart,star,user,magnifying-glass,check,x-mark,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,pencil,trash,bookmark,tag,bell,chat-bubble-left,envelope,phone,map-pin,camera,photo,video,musical-note,document,folder,cog-6-tooth,information-circle,exclamation-triangle,check-circle,calendar,clock,wifi,lock-closed,eye,eye-slash,share,heart-outline');
-                          handleIconifyFormChange('packName', 'heroicons');
-                        }}
-                      >
-                        Heroicons
-                      </Button>
-                      <Button
-                        variant="outline-primary"
-                        size="sm"
-                        className="me-2 mb-2"
-                        onClick={() => {
-                          handleIconifyFormChange('packUrl', 'https://api.iconify.design/lucide.json?icons=home,heart,star,user,search,check,x,arrow-left,arrow-right,arrow-up,arrow-down,plus,minus,edit,trash-2,save,copy,download,upload,settings,info,alert-triangle,check-circle,calendar,clock,mail,phone,map-pin,camera,image,video,music,file,folder,type,bold,italic,underline,link,list,table,bar-chart,menu,grid,filter,refresh,lock,unlock,eye,eye-off,share,thumbs-up,bookmark,tag,flag,bell,message-circle');
-                          handleIconifyFormChange('packName', 'lucide');
-                        }}
-                      >
-                        Lucide
-                      </Button>
-                    </div>
-                  </div>
-                  <small className="text-muted">
-                    <strong>Quick-fill buttons above use optimized direct JSON URLs.</strong><br/>
-                    Visit <a href="https://icon-sets.iconify.design/" target="_blank" rel="noopener noreferrer">icon-sets.iconify.design</a> to find more icon packs and their prefix names.
-                  </small>
-                </Card.Body>
-              </Card>
-            </div>
+          {/* Quick-Fill */}
+          <div className="mb-3">
+            <small className="text-muted d-block mb-2">Quick-fill popular collections:</small>
+            <Button variant="outline-primary" size="sm" className="me-2 mb-2" onClick={() => quickFill('mdi', 'Material Design Icons')}>Material Design Icons</Button>
+            <Button variant="outline-primary" size="sm" className="me-2 mb-2" onClick={() => quickFill('fa6-solid', 'Font Awesome Solid')}>Font Awesome Solid</Button>
+            <Button variant="outline-primary" size="sm" className="me-2 mb-2" onClick={() => quickFill('heroicons', 'Heroicons')}>Heroicons</Button>
+            <Button variant="outline-primary" size="sm" className="me-2 mb-2" onClick={() => quickFill('lucide', 'Lucide')}>Lucide</Button>
           </div>
 
-          <div className="d-flex justify-content-end">
-            <Button
-              variant="primary"
-              onClick={installIconifyPack}
-              disabled={loading || !iconifyForm.packUrl || !iconifyForm.packName}
-            >
-              {loading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Installing...
-                </>
-              ) : (
-                <>
-                  <svg
-                    className="me-2"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 48 48"
-                    fill="none"
-                    style={{ verticalAlign: 'text-top' }}
-                  >
-                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M14 6v6"/>
-                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M10 16v22"/>
-                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M38 16v22M38 38H10"/>
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m24 6 17 11"/>
-                    <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M24 6 7 17"/>
-                    <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M24 25v16"/>
-                    <circle cx="24" cy="23" r="4" fill="currentColor"/>
-                  </svg>
-                  Install Iconify Pack
-                </>
-              )}
+          {/* Search */}
+          <div className="d-flex mb-3 gap-2">
+            <Form.Control
+              type="text"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleSearch()}
+              placeholder="Search Iconify collections…"
+            />
+            <Button variant="outline-secondary" onClick={handleSearch} disabled={browsing}>
+              {browsing ? <Spinner animation="border" size="sm" /> : <i className="bi bi-search" />}
             </Button>
           </div>
-        </Form>
-      </Card.Body>
-    </Card>
+
+          {/* Collection list */}
+          {!selectedPrefix && filteredCollections.length > 0 && (
+            <ListGroup className="mb-3" style={{ maxHeight: '300px', overflow: 'auto' }}>
+              {filteredCollections.map(([prefix, meta]) => (
+                <ListGroup.Item
+                  key={prefix}
+                  action
+                  onClick={() => selectCollection(prefix)}
+                  className="d-flex justify-content-between align-items-center"
+                >
+                  <div>
+                    <strong>{meta.name || prefix}</strong>
+                    <small className="text-muted ms-2">{prefix}</small>
+                  </div>
+                  <Badge bg="secondary">{meta.total || '?'} icons</Badge>
+                </ListGroup.Item>
+              ))}
+            </ListGroup>
+          )}
+
+          {/* Selected collection — icons + install form */}
+          {selectedPrefix && (
+            <>
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <div>
+                  <strong>{collections[selectedPrefix]?.name || selectedPrefix}</strong>
+                  <Badge bg="info" className="ms-2">{selectedPrefix}</Badge>
+                </div>
+                <Button variant="outline-secondary" size="sm" onClick={() => { setSelectedPrefix(''); setCollectionIcons([]); setSelectedIcons([]); }}>
+                  ← Back
+                </Button>
+              </div>
+
+              {loadingIcons ? (
+                <div className="text-center py-4"><Spinner animation="border" /></div>
+              ) : (
+                <>
+                  <div className="d-flex justify-content-between mb-2">
+                    <small className="text-muted">{collectionIcons.length} icons loaded — {selectedIcons.length} selected</small>
+                    <div>
+                      <Button variant="link" size="sm" onClick={selectAllIcons}>Select All</Button>
+                      <Button variant="link" size="sm" onClick={() => setSelectedIcons([])}>Clear</Button>
+                    </div>
+                  </div>
+
+                  <div className="d-flex flex-wrap gap-2 mb-3" style={{ maxHeight: '200px', overflow: 'auto' }}>
+                    {collectionIcons.map(icon => (
+                      <Button
+                        key={icon.name}
+                        variant={selectedIcons.includes(icon.name) ? 'primary' : 'outline-secondary'}
+                        size="sm"
+                        onClick={() => toggleIconSelection(icon.name)}
+                        title={icon.name}
+                      >
+                        {icon.svg ? (
+                          <span dangerouslySetInnerHTML={{ __html: icon.svg }} style={{ width: 18, height: 18, display: 'inline-block' }} />
+                        ) : (
+                          icon.name.slice(0, 12)
+                        )}
+                      </Button>
+                    ))}
+                  </div>
+                </>
+              )}
+
+              {/* Install form */}
+              <div className="row">
+                <div className="col-md-4">
+                  <Form.Group className="mb-3">
+                    <Form.Label>Pack Name *</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={installForm.packName}
+                      onChange={e => handleFormChange('packName', e.target.value)}
+                      placeholder="e.g., material-icons"
+                      disabled={loading}
+                    />
+                  </Form.Group>
+                </div>
+                <div className="col-md-4">
+                  <PackCategorySelector
+                    showPackName={false}
+                    category={installForm.category}
+                    onCategoryChange={v => handleFormChange('category', v)}
+                    categories={categories}
+                    onAddCategory={onAddCategory}
+                    categoryLabel="Category"
+                    loading={loading}
+                    disabled={loading}
+                  />
+                </div>
+                <div className="col-md-4">
+                  <Form.Group className="mb-3">
+                    <Form.Label>Description</Form.Label>
+                    <Form.Control
+                      type="text"
+                      value={installForm.description}
+                      onChange={e => handleFormChange('description', e.target.value)}
+                      placeholder="Optional"
+                      disabled={loading}
+                    />
+                  </Form.Group>
+                </div>
+              </div>
+
+              <div className="d-flex justify-content-end gap-2">
+                <Button
+                  variant="primary"
+                  onClick={installSelectedIcons}
+                  disabled={loading || !installForm.packName}
+                >
+                  {loading ? (
+                    <><Spinner animation="border" size="sm" className="me-2" />Installing…</>
+                  ) : selectedIcons.length > 0 ? (
+                    `Install ${selectedIcons.length} Selected Icons`
+                  ) : (
+                    'Install Entire Collection'
+                  )}
+                </Button>
+              </div>
+            </>
+          )}
+        </Card.Body>
+      </Card>
     </div>
   );
 }

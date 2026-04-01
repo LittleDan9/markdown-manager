@@ -1,87 +1,62 @@
 """
-SVGL API client for HTTP requests and response handling
+SVGL API client for HTTP requests and response handling.
+
+Uses the shared ResilientHttpClient for connection pooling, retries,
+and rate-limit handling — replacing the manual per-request client and
+bespoke _rate_limited_request logic.
 """
-import httpx
-import asyncio
-from typing import Dict, List, Optional
-from datetime import datetime
+from typing import Optional
 import logging
+
+from ..http_client import ResilientHttpClient, TIMEOUT_METADATA
 
 logger = logging.getLogger(__name__)
 
+SVGL_BASE_URL = "https://api.svgl.app"
+
 
 class SvglApiClient:
-    """HTTP client for SVGL API with rate limiting"""
-    
-    def __init__(self):
-        self.base_url = "https://api.svgl.app"
-        self._last_request_time = None
-        self._min_request_interval = 1.0  # Minimum 1 second between requests
-    
-    async def _rate_limited_request(self, client: httpx.AsyncClient, url: str) -> httpx.Response:
-        """Make a rate-limited request to avoid 429 errors"""
-        # Ensure minimum interval between requests
-        if self._last_request_time:
-            elapsed = datetime.now().timestamp() - self._last_request_time
-            if elapsed < self._min_request_interval:
-                wait_time = self._min_request_interval - elapsed
-                logger.debug(f"Rate limiting: waiting {wait_time:.2f} seconds")
-                await asyncio.sleep(wait_time)
+    """HTTP client for SVGL API"""
 
-        try:
-            response = await client.get(url)
-            self._last_request_time = datetime.now().timestamp()
-            response.raise_for_status()
-            return response
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 429:
-                logger.warning(f"Rate limited by SVGL API. URL: {url}")
-                # Wait longer and retry once
-                await asyncio.sleep(5.0)
-                response = await client.get(url)
-                self._last_request_time = datetime.now().timestamp()
-                response.raise_for_status()
-                return response
-            raise
-    
-    async def get_categories(self) -> List[Dict]:
+    def __init__(self, http_client: ResilientHttpClient | None = None):
+        self._http = http_client or ResilientHttpClient(base_url=SVGL_BASE_URL)
+
+    async def aclose(self) -> None:
+        await self._http.aclose()
+
+    async def get_categories(self) -> list:
         """Get all available SVGL categories"""
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await self._rate_limited_request(client, f"{self.base_url}/categories")
-                return response.json()
-        except httpx.RequestError as e:
-            logger.error(f"Failed to fetch SVGL categories: {e}")
+            response = await self._http.get("/categories", timeout=TIMEOUT_METADATA)
+            return response.json()
+        except Exception as e:
+            logger.error("Failed to fetch SVGL categories: %s", e)
             raise
-    
-    async def get_all_svgs(self) -> List[Dict]:
+
+    async def get_all_svgs(self) -> list:
         """Get all available SVGs"""
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                response = await self._rate_limited_request(client, f"{self.base_url}")
-                return response.json()
-        except httpx.RequestError as e:
-            logger.error(f"Failed to fetch SVGL SVGs: {e}")
+            response = await self._http.get("/", timeout=TIMEOUT_METADATA)
+            return response.json()
+        except Exception as e:
+            logger.error("Failed to fetch SVGL SVGs: %s", e)
             raise
-    
-    async def get_svgs_by_category(self, category: str) -> List[Dict]:
+
+    async def get_svgs_by_category(self, category: str) -> list:
         """Get SVGs by category"""
         try:
-            async with httpx.AsyncClient(timeout=30) as client:
-                category_url = f"{self.base_url}/category/{category}"
-                response = await self._rate_limited_request(client, category_url)
-                return response.json()
-        except httpx.RequestError as e:
-            logger.error(f"Failed to fetch SVGs for category {category}: {e}")
+            response = await self._http.get(f"/category/{category}", timeout=TIMEOUT_METADATA)
+            return response.json()
+        except Exception as e:
+            logger.error("Failed to fetch SVGs for category %s: %s", category, e)
             raise
-    
-    async def get_svg_content(self, client: httpx.AsyncClient, route) -> Optional[str]:
+
+    async def get_svg_content(self, route) -> Optional[str]:
         """Get SVG content from route (handles both string and theme object routes)"""
         if not route:
             return None
 
         try:
-            # Handle theme objects (light/dark variants) - prefer light
             if isinstance(route, dict):
                 svg_url = route.get("light") or route.get("dark")
             else:
@@ -90,9 +65,8 @@ class SvglApiClient:
             if not svg_url:
                 return None
 
-            response = await self._rate_limited_request(client, svg_url)
+            response = await self._http.get(svg_url)
             return response.text
-
         except Exception as e:
-            logger.warning(f"Failed to fetch SVG from {route}: {e}")
+            logger.warning("Failed to fetch SVG from %s: %s", route, e)
             return None

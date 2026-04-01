@@ -1229,3 +1229,13 @@
     }
   }
 }
+
+/* ─── THIRD-PARTY BROWSER: SVG SCALING ─── */
+/* Replaces the DOM-injected <style> that was in ThirdPartyIconBrowser.jsx */
+.icon-svg-container svg {
+  max-width: 100% !important;
+  max-height: 100% !important;
+  width: auto !important;
+  height: auto !important;
+  display: block !important;
+}

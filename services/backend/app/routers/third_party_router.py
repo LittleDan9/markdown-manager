@@ -1,15 +1,19 @@
-"""
+"""                                                                       
 Third-Party Browser Router
 Provides unified API endpoints for browsing and installing icons from multiple sources
 """
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Path
 from sqlalchemy.ext.asyncio import AsyncSession
 from typing import Optional
 
 from app.database import get_db
 from app.services.icons.third_party import ThirdPartyBrowserService, ThirdPartySource
-from app.services.standardized_icon_installer import StandardizedIconPackInstaller
+from app.services.icons.installer import StandardizedIconPackInstaller
 from app.schemas.icon_schemas import StandardizedIconPackRequest
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/third-party", tags=["third-party"])
 
@@ -28,7 +32,8 @@ async def get_available_sources():
             }
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch sources: {str(e)}")
+        logger.error("Failed to fetch sources: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to fetch sources")
 
 
 @router.get("/sources/{source}/collections")
@@ -58,7 +63,8 @@ async def get_collections(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch collections: {str(e)}")
+        logger.error("Failed to fetch collections from %s: %s", source, e)
+        raise HTTPException(status_code=500, detail="Failed to fetch collections")
 
 
 @router.get("/sources/{source}/collections/{prefix}/icons")
@@ -88,7 +94,8 @@ async def get_collection_icons(
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch icons: {str(e)}")
+        logger.error("Failed to fetch icons from %s/%s: %s", source, prefix, e)
+        raise HTTPException(status_code=500, detail="Failed to fetch icons")
 
 
 @router.post("/sources/{source}/collections/{prefix}/install")
@@ -114,18 +121,28 @@ async def install_collection(
         browser_service = ThirdPartyBrowserService()
         
         if install_all:
-            # For install_all, we need to get all icons in the collection first
-            all_icons_result = await browser_service.get_collection_icons(
-                source=source,
-                prefix=prefix,
-                page=0,
-                page_size=1000,  # Get a large batch
-                search=""
-            )
-            
-            # Extract icon names from the result
-            icon_names = [icon["name"] for icon in all_icons_result.get("icons", [])]
-            
+            # Paginated fetch — cap at 5000 icons to prevent runaway installs
+            MAX_ICONS = 5000
+            icon_names = []
+            page_num = 0
+            page_sz = 200
+            while len(icon_names) < MAX_ICONS:
+                batch = await browser_service.get_collection_icons(
+                    source=source,
+                    prefix=prefix,
+                    page=page_num,
+                    page_size=page_sz,
+                    search="",
+                )
+                batch_icons = batch.get("icons", [])
+                if not batch_icons:
+                    break
+                icon_names.extend(icon["name"] for icon in batch_icons)
+                if not batch.get("has_more", False):
+                    break
+                page_num += 1
+
+            icon_names = icon_names[:MAX_ICONS]
             if not icon_names:
                 raise HTTPException(status_code=404, detail="No icons found in collection")
 
@@ -163,7 +180,8 @@ async def install_collection(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to install collection: {str(e)}")
+        logger.error("Failed to install collection %s/%s: %s", source, prefix, e)
+        raise HTTPException(status_code=500, detail="Failed to install collection")
 
 
 @router.get("/sources/{source}/categories")
@@ -186,7 +204,8 @@ async def get_categories(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to fetch categories: {str(e)}")
+        logger.error("Failed to fetch categories from %s: %s", source, e)
+        raise HTTPException(status_code=500, detail="Failed to fetch categories")
 
 
 @router.post("/refresh-cache")
@@ -212,7 +231,8 @@ async def refresh_cache(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to refresh cache: {str(e)}")
+        logger.error("Failed to refresh cache: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to refresh cache")
 
 
 # Legacy Iconify endpoints for backward compatibility

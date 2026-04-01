@@ -1,0 +1,64 @@
+{
+  "packs": [
+    {
+      "name": "aws-icons",
+      "displayName": "AWS Icons",
+      "category": "cloud",
+      "description": "Official AWS service and resource icons",
+      "adapter": "svg-directory",
+      "source": "aws-icons",
+      "config": {
+        "iconsDir": "icons"
+      },
+      "version": "3.2.0"
+    },
+    {
+      "name": "awssvg",
+      "displayName": "AWS SVG Icons (Codiva)",
+      "category": "cloud",
+      "description": "AWS service icons from @codiva/aws-icons",
+      "adapter": "svg-directory",
+      "source": "@codiva/aws-icons",
+      "config": {
+        "iconsDir": "icons"
+      },
+      "version": "2.0.4"
+    },
+    {
+      "name": "logos",
+      "displayName": "Logos",
+      "category": "iconify",
+      "description": "SVG Logos collection",
+      "adapter": "iconify-json",
+      "source": "@iconify-json/logos",
+      "version": "1.2.10"
+    },
+    {
+      "name": "devicon",
+      "displayName": "Devicon",
+      "category": "iconify",
+      "description": "Devicon — icons for programming languages and development tools",
+      "adapter": "iconify-json",
+      "source": "@iconify-json/devicon",
+      "version": "1.2.57"
+    },
+    {
+      "name": "flat-color-icons",
+      "displayName": "Flat Color Icons",
+      "category": "iconify",
+      "description": "Flat Color Icons by Icons8",
+      "adapter": "iconify-json",
+      "source": "@iconify-json/flat-color-icons",
+      "version": "1.2.3"
+    },
+    {
+      "name": "material-icon-theme",
+      "displayName": "Material Icon Theme",
+      "category": "iconify",
+      "description": "Material Design file and folder icons",
+      "adapter": "iconify-json",
+      "source": "@iconify-json/material-icon-theme",
+      "version": "1.2.49"
+    }
+  ]
+}

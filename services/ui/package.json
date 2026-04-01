@@ -27,12 +27,6 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "@codiva/aws-icons": "^2.0.4",
-    "@iconify-json/devicon": "^1.2.57",
-    "@iconify-json/flat-color-icons": "^1.2.3",
-    "@iconify-json/logos": "^1.2.10",
-    "@iconify-json/material-icon-theme": "^1.2.49",
-    "aws-icons": "^3.2.0",
     "axios": "^1.13.4",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",

@@ -8,7 +8,7 @@ import logging
 import traceback
 
 from ...database import get_db
-from ...services.standardized_icon_installer import StandardizedIconPackInstaller
+from ...services.icons.installer import StandardizedIconPackInstaller
 from ...schemas.icon_schemas import (
     IconPackResponse,
     IconPackInstallRequest,

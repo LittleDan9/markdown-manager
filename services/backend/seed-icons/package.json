@@ -1,0 +1,17 @@
+{
+  "name": "seed-icons",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Build-time icon extraction from npm packages for auto-seeding",
+  "scripts": {
+    "extract": "node extract.js"
+  },
+  "dependencies": {
+    "@codiva/aws-icons": "^2.0.4",
+    "@iconify-json/devicon": "^1.2.57",
+    "@iconify-json/flat-color-icons": "^1.2.3",
+    "@iconify-json/logos": "^1.2.10",
+    "@iconify-json/material-icon-theme": "^1.2.49",
+    "aws-icons": "^3.2.0"
+  }
+}
