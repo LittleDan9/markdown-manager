@@ -165,185 +165,187 @@ export default function UploadIconTab({
 
   return (
     <div className="upload-icon-card-body">
-      <h6 className="fw-semibold mb-3">
-        <i className="bi bi-upload me-2"></i>
-        Upload New Icon
-      </h6>
-      <Form>
-          <div className="row">
-            <div className="col-md-6">
-              <Form.Group className="mb-3">
-                <Form.Label>Icon Name *</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={uploadForm.iconName}
-                  onChange={(e) => handleFormChange('iconName', e.target.value)}
-                  placeholder="e.g., arista-switch"
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  Lowercase letters, numbers, and hyphens only
-                </Form.Text>
-              </Form.Group>
-
-              <Form.Group className="mb-3">
-                <Form.Label>Search Terms</Form.Label>
-                <Form.Control
-                  type="text"
-                  value={uploadForm.searchTerms}
-                  onChange={(e) => handleFormChange('searchTerms', e.target.value)}
-                  placeholder="e.g., switch, network, router"
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  Comma-separated keywords to help users find this icon
-                </Form.Text>
-              </Form.Group>
-
-              <PackCategorySelector
-                packName={uploadForm.packName}
-                onPackNameChange={(value) => handleFormChange('packName', value)}
-                packNames={packNames}
-                dropdownPackNames={dropdownPackNames}
-                onAddPackName={onAddPackName}
-                packNameLabel="Pack Name"
-                packNamePlaceholder="Select or create a pack"
-                packNameRequired={true}
-                showPackNameDropdown={true}
-
-                category={uploadForm.category}
-                onCategoryChange={(value) => handleFormChange('category', value)}
-                categories={categories}
-                onAddCategory={onAddCategory}
-                categoryLabel="Category"
-                categoryPlaceholder="Select a category"
-                categoryRequired={true}
-
-                loading={loading}
-                disabled={loading}
-              />
-            </div>
-
-            <div className="col-md-6">
-              <Form.Group className="mb-3">
-                <Form.Label>SVG File *</Form.Label>
-                <Form.Control
-                  type="file"
-                  accept=".svg,image/svg+xml"
-                  onChange={handleFileSelect}
-                  disabled={loading}
-                />
-                <Form.Text className="text-muted">
-                  Maximum file size: 1MB
-                </Form.Text>
-              </Form.Group>
-
-              {/* Show description field when creating a new pack */}
-              {(() => {
-                const isNewPack = uploadForm.packName && !packNames.includes(uploadForm.packName);
-                return isNewPack;
-              })() && (
+      <Card className="mb-3">
+        <Card.Header className="d-flex justify-content-between align-items-center">
+          <h6 className="mb-0 fw-semibold">
+            <i className="bi bi-upload me-2" />
+            Upload New Icon
+          </h6>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={uploadIcon}
+            disabled={loading || !uploadForm.svgFile}
+          >
+            {loading ? (
+              <><Spinner animation="border" size="sm" className="me-1" />Uploading...</>
+            ) : (
+              <><i className="bi bi-upload me-1" />Upload Icon</>
+            )}
+          </Button>
+        </Card.Header>
+        <Card.Body>
+          <Form>
+            <div className="row">
+              <div className="col-md-6">
                 <Form.Group className="mb-3">
-                  <Form.Label>
-                    Pack Description
-                    <Badge bg="info" className="ms-2">New Pack</Badge>
-                  </Form.Label>
+                  <Form.Label>Icon Name *</Form.Label>
                   <Form.Control
-                    as="textarea"
-                    rows={3}
-                    value={uploadForm.description}
-                    onChange={(e) => handleFormChange('description', e.target.value)}
-                    placeholder="Description for the new icon pack"
+                    type="text"
+                    value={uploadForm.iconName}
+                    onChange={(e) => handleFormChange('iconName', e.target.value)}
+                    placeholder="e.g., arista-switch"
                     disabled={loading}
                   />
                   <Form.Text className="text-muted">
-                    Creating new pack &quot;{uploadForm.packName}&quot; in category &quot;{uploadForm.category}&quot;
+                    Lowercase letters, numbers, and hyphens only
                   </Form.Text>
                 </Form.Group>
-              )}
 
-              {/* Show info when adding to existing pack */}
-              {uploadForm.packName && packNames.includes(uploadForm.packName) && (
-                <div className="mb-3">
-                  <small className="text-muted">
-                    <i className="bi bi-info-circle me-1"></i>
-                    Adding icon to existing pack &quot;{uploadForm.packName}&quot;
-                  </small>
-                </div>
-              )}
-            </div>
-          </div>
+                <Form.Group className="mb-3">
+                  <Form.Label>Search Terms</Form.Label>
+                  <Form.Control
+                    type="text"
+                    value={uploadForm.searchTerms}
+                    onChange={(e) => handleFormChange('searchTerms', e.target.value)}
+                    placeholder="e.g., switch, network, router"
+                    disabled={loading}
+                  />
+                  <Form.Text className="text-muted">
+                    Comma-separated keywords to help users find this icon
+                  </Form.Text>
+                </Form.Group>
 
-          {uploadForm.svgFile && (
-            <Card className="mb-3">
-              <Card.Header>
-                <h6 className="mb-0">Icon Preview</h6>
-              </Card.Header>
-              <Card.Body>
-                <div className="row">
-                  <div className="col-md-3">
-                    <div className="d-flex justify-content-center align-items-center p-3 upload-icon-preview">
-                      {svgPreview ? (
-                        <div
-                          dangerouslySetInnerHTML={{ __html: svgPreview }}
-                          className="upload-icon-preview-img"
-                        />
-                      ) : (
-                        <div className="text-muted">
-                          <i className="bi bi-image display-4"></i>
-                          <div className="small">Loading preview...</div>
-                        </div>
-                      )}
-                    </div>
+                <PackCategorySelector
+                  packName={uploadForm.packName}
+                  onPackNameChange={(value) => handleFormChange('packName', value)}
+                  packNames={packNames}
+                  dropdownPackNames={dropdownPackNames}
+                  onAddPackName={onAddPackName}
+                  packNameLabel="Pack Name"
+                  packNamePlaceholder="Select or create a pack"
+                  packNameRequired={true}
+                  showPackNameDropdown={true}
+
+                  category={uploadForm.category}
+                  onCategoryChange={(value) => handleFormChange('category', value)}
+                  categories={categories}
+                  onAddCategory={onAddCategory}
+                  categoryLabel="Category"
+                  categoryPlaceholder="Select a category"
+                  categoryRequired={true}
+
+                  loading={loading}
+                  disabled={loading}
+                />
+              </div>
+
+              <div className="col-md-6">
+                <Form.Group className="mb-3">
+                  <Form.Label>SVG File *</Form.Label>
+                  <Form.Control
+                    type="file"
+                    accept=".svg,image/svg+xml"
+                    onChange={handleFileSelect}
+                    disabled={loading}
+                  />
+                  <Form.Text className="text-muted">
+                    Maximum file size: 1MB
+                  </Form.Text>
+                </Form.Group>
+
+                {/* Show description field when creating a new pack */}
+                {(() => {
+                  const isNewPack = uploadForm.packName && !packNames.includes(uploadForm.packName);
+                  return isNewPack;
+                })() && (
+                  <Form.Group className="mb-3">
+                    <Form.Label>
+                      Pack Description
+                      <Badge bg="info" className="ms-2">New Pack</Badge>
+                    </Form.Label>
+                    <Form.Control
+                      as="textarea"
+                      rows={3}
+                      value={uploadForm.description}
+                      onChange={(e) => handleFormChange('description', e.target.value)}
+                      placeholder="Description for the new icon pack"
+                      disabled={loading}
+                    />
+                    <Form.Text className="text-muted">
+                      Creating new pack &quot;{uploadForm.packName}&quot; in category &quot;{uploadForm.category}&quot;
+                    </Form.Text>
+                  </Form.Group>
+                )}
+
+                {/* Show info when adding to existing pack */}
+                {uploadForm.packName && packNames.includes(uploadForm.packName) && (
+                  <div className="mb-3">
+                    <small className="text-muted">
+                      <i className="bi bi-info-circle me-1"></i>
+                      Adding icon to existing pack &quot;{uploadForm.packName}&quot;
+                    </small>
                   </div>
-                  <div className="col-md-9">
-                    <div className="d-flex align-items-center">
-                      <i className="bi bi-file-earmark-text me-2"></i>
-                      <div>
-                        <div><strong>{uploadForm.svgFile.name}</strong></div>
-                        <small className="text-muted">
-                          Size: {(uploadForm.svgFile.size / 1024).toFixed(1)} KB
-                        </small>
-                        {uploadForm.iconName && (
-                          <div className="mt-1">
-                            <Badge bg="secondary">Icon: {uploadForm.iconName}</Badge>
-                          </div>
-                        )}
-                      </div>
+                )}
+              </div>
+            </div>
+          </Form>
+        </Card.Body>
+      </Card>
+
+      {/* Preview Card — only shown when a file is selected */}
+      {uploadForm.svgFile && (
+        <Card>
+          <Card.Header>
+            <h6 className="mb-0 fw-semibold">
+              <i className="bi bi-eye me-2" />
+              Icon Preview
+            </h6>
+          </Card.Header>
+          <Card.Body>
+            <div className="row">
+              <div className="col-md-3">
+                <div className="upload-icon-preview d-flex justify-content-center align-items-center p-3">
+                  {svgPreview ? (
+                    <div
+                      dangerouslySetInnerHTML={{ __html: svgPreview }}
+                      className="upload-icon-preview-img"
+                    />
+                  ) : (
+                    <div className="text-muted text-center">
+                      <i className="bi bi-image display-4" />
+                      <div className="small mt-1">Loading...</div>
                     </div>
-                    {svgPreview && (
-                      <div className="mt-2">
-                        <small className="text-muted">
-                          Preview shows how the icon will appear in the system
-                        </small>
+                  )}
+                </div>
+              </div>
+              <div className="col-md-9">
+                <div className="d-flex align-items-center">
+                  <i className="bi bi-file-earmark-text me-2" />
+                  <div>
+                    <div><strong>{uploadForm.svgFile.name}</strong></div>
+                    <small className="text-muted">
+                      Size: {(uploadForm.svgFile.size / 1024).toFixed(1)} KB
+                    </small>
+                    {uploadForm.iconName && (
+                      <div className="mt-1">
+                        <Badge bg="secondary">Icon: {uploadForm.iconName}</Badge>
                       </div>
                     )}
                   </div>
                 </div>
-              </Card.Body>
-            </Card>
-          )}
-
-          <div className="d-flex justify-content-end">
-            <Button
-              variant="primary"
-              onClick={uploadIcon}
-              disabled={loading || !uploadForm.svgFile}
-            >
-              {loading ? (
-                <>
-                  <Spinner animation="border" size="sm" className="me-2" />
-                  Uploading...
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-upload me-2"></i>
-                  Upload Icon
-                </>
-              )}
-            </Button>
-          </div>
-        </Form>
+                {svgPreview && (
+                  <div className="mt-2">
+                    <small className="text-muted">
+                      Preview shows how the icon will appear in the system
+                    </small>
+                  </div>
+                )}
+              </div>
+            </div>
+          </Card.Body>
+        </Card>
+      )}
     </div>
   );
 }

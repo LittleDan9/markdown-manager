@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import { Form, Button, Dropdown, Badge } from 'react-bootstrap';
 
+// Custom toggle that renders a styled div instead of a Bootstrap Button.
+// This avoids all Bootstrap button CSS and lets us style it as a form field.
+const FormSelectToggle = React.forwardRef(({ children, onClick, className, disabled }, ref) => (
+  <div
+    ref={ref}
+    className={`pack-selector-toggle ${className || ''} ${disabled ? 'disabled' : ''}`}
+    role="button"
+    tabIndex={disabled ? -1 : 0}
+    onClick={(e) => { e.preventDefault(); if (!disabled) onClick(e); }}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!disabled) onClick(e); } }}
+  >
+    <span className="pack-selector-toggle-text">{children}</span>
+    <span className="pack-selector-toggle-caret" />
+  </div>
+));
+FormSelectToggle.displayName = 'FormSelectToggle';
+
 /**
  * Reusable component for pack name and category selection
  * Used across icon management modals for consistent UX
@@ -98,14 +115,8 @@ export default function PackCategorySelector({
           {showPackNameDropdown && dropdownPackNames.length > 0 ? (
             <Dropdown>
               <Dropdown.Toggle
+                as={FormSelectToggle}
                 id="packNameDropdown"
-                variant="outline-secondary"
-                className="w-100 d-flex justify-content-between align-items-center"
-                style={{
-                  backgroundColor: 'var(--mm-bg-surface)',
-                  color: 'var(--mm-text)',
-                  borderColor: 'var(--bs-border-color)',
-                }}
                 disabled={loading || disabled}
               >
                 {dropdownPackNames.length === 0
@@ -209,14 +220,8 @@ export default function PackCategorySelector({
         
         <Dropdown className="pack-selector-category-dropdown">
           <Dropdown.Toggle
+            as={FormSelectToggle}
             id="categoryDropdown"
-            variant="outline-secondary"
-            className="w-100 d-flex justify-content-between align-items-center"
-            style={{
-              backgroundColor: 'var(--mm-bg-surface)',
-              color: 'var(--mm-text)',
-              borderColor: 'var(--bs-border-color)',
-            }}
             disabled={loading || disabled}
           >
             {categories.length === 0

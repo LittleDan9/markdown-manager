@@ -84,6 +84,12 @@
       padding: $space-4;
       overflow-y: auto;
     }
+
+    // Packs tab: disable tab-pane scroll — the inner grid scrolls instead
+    // so that the section heading and seed card remain pinned.
+    > .tab-pane:has(.icon-packs-tab) {
+      overflow-y: hidden;
+    }
   }
 
   // ─── FORM ELEMENT TUNING ───
@@ -178,6 +184,110 @@
     }
   }
 
+  // ─── STAT CARDS (IconStatsTab) ───
+  // Follows the AdminAITab StatCard pattern: centered card with icon, big number, label.
+  // overflow-x: hidden prevents the Bootstrap Row negative gutter margins
+  // from creating a horizontal scrollbar inside the tab pane.
+  .icon-stats-tab {
+    overflow-x: hidden;
+  }
+
+  .icon-stat-card {
+    border: 1px solid var(--bs-border-color);
+    background-color: var(--mm-bg-surface);
+    transition: transform $transition-base, box-shadow $transition-base;
+
+    &:hover {
+      transform: translateY(-1px);
+      box-shadow: var(--mm-shadow-sm);
+    }
+
+    .card-body {
+      padding: $space-3;
+    }
+  }
+
+  // ─── DROPDOWN TOGGLE (PackCategorySelector) ───
+  // Custom toggle component renders a plain div, styled to look
+  // exactly like a native form-select / form-control.
+  .pack-selector-toggle {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: $space-2 $space-3;
+    font-size: $font-size-base;
+    font-weight: 400;
+    line-height: 1.5;
+    color: var(--mm-text);
+    background-color: var(--mm-bg-surface);
+    border: 1px solid var(--bs-border-color);
+    border-radius: var(--bs-border-radius);
+    cursor: pointer;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+
+    // React-Bootstrap adds .dropdown-toggle which injects a ::after caret.
+    // Hide it — we render our own .pack-selector-toggle-caret instead.
+    &.dropdown-toggle::after {
+      display: none;
+    }
+
+    .pack-selector-toggle-text {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .pack-selector-toggle-caret {
+      display: inline-block;
+      margin-left: $space-2;
+      border-top: 0.3em solid;
+      border-right: 0.3em solid transparent;
+      border-bottom: 0;
+      border-left: 0.3em solid transparent;
+    }
+
+    &:hover {
+      border-color: var(--mm-primary);
+    }
+
+    &:focus {
+      border-color: var(--mm-primary);
+      outline: 0;
+      box-shadow: 0 0 0 0.15rem rgba(var(--bs-primary-rgb), 0.15);
+    }
+
+    &.disabled {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+  }
+
+  // ─── PACK CARD DARK-MODE TUNING ───
+  // Soften the hard primary-blue tones on pack cards so they
+  // remain readable in dark mode without losing identity.
+  .pack-card {
+    .pack-icon-display i {
+      color: var(--mm-primary);
+
+      @include mixins.dark {
+        color: var(--mm-text-secondary);
+      }
+    }
+
+    .pack-category-badge {
+      background-color: rgba(var(--bs-primary-rgb), 0.1);
+      color: var(--mm-primary);
+      font-size: $font-size-xs;
+      font-weight: $font-weight-medium;
+
+      @include mixins.dark {
+        background-color: rgba(var(--bs-primary-rgb), 0.15);
+        color: var(--mm-text);
+      }
+    }
+  }
+
   // ─── DROPDOWN MENUS ───
   .dropdown-menu {
     background-color: var(--mm-bg-surface);
@@ -204,6 +314,31 @@
     }
   }
 
+}
+
+// ─── ICON PACKS TAB ───
+// Flex column layout: section heading + seed card pinned at top,
+// "All Packs" card fills remaining height with its body scrollable.
+.icon-packs-tab {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+
+  // The All Packs card grows to fill remaining space
+  > .card:last-of-type {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    > .card-body {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+    }
+  }
 }
 
 // ─── INSTALLED ICONS TAB ───
@@ -256,6 +391,11 @@
           display: flex;
           align-items: center;
           gap: $space-1;
+
+          .stat-badge {
+            font-size: $font-size-xs;
+            font-weight: $font-weight-medium;
+          }
         }
       }
     }
@@ -602,9 +742,10 @@
   vertical-align: text-top;
 }
 
-// Scrollable packs list — parent .tab-pane handles overflow
+// Scrollable packs list with padding for hover-lift clearance
 .packs-scroll-container {
   overflow-x: hidden;
+  padding-top: $space-1; // clearance so first-row hover lift isn't clipped
 }
 
 // Iconify collection list & preview grid

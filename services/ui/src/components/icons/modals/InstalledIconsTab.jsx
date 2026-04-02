@@ -242,6 +242,39 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
   return (
     <div className="installed-icons-tab">
+      {/* Section Heading */}
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <h6 className="mb-0 fw-semibold">
+          <i className="bi bi-grid-3x3-gap me-2" />
+          Installed Icons
+          <Badge bg="primary" className="ms-2">{stats.total}</Badge>
+        </h6>
+        <div className="d-flex gap-2">
+          {isSelectionMode ? (
+            <>
+              <Button variant="outline-primary" size="sm" onClick={selectAllVisibleIcons} disabled={icons.length === 0}>
+                Select All
+              </Button>
+              <Button variant="outline-secondary" size="sm" onClick={clearSelection}>
+                Clear ({selectedIcons.size})
+              </Button>
+              {selectedIcons.size > 0 && (
+                <Button variant="outline-danger" size="sm" onClick={() => setShowBulkDeleteModal(true)}>
+                  <i className="bi bi-trash me-1" />Delete Selected
+                </Button>
+              )}
+              <Button variant="outline-secondary" size="sm" onClick={() => setIsSelectionMode(false)}>
+                Cancel
+              </Button>
+            </>
+          ) : (
+            <Button variant="outline-secondary" size="sm" onClick={() => setIsSelectionMode(true)} disabled={icons.length === 0}>
+              <i className="bi bi-check-square me-1" />Bulk Actions
+            </Button>
+          )}
+        </div>
+      </div>
+
       {/* Header with Search and Controls */}
       <div className="icons-header">
         <div className="search-and-controls">
@@ -270,71 +303,28 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
               ))}
             </Form.Select>
           </div>
-
-          <div className="actions-container">
-            {isSelectionMode ? (
-              <>
-                <Button
-                  variant="outline-primary"
-                  size="sm"
-                  onClick={selectAllVisibleIcons}
-                  disabled={icons.length === 0}
-                >
-                  Select All
-                </Button>
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={clearSelection}
-                >
-                  Clear ({selectedIcons.size})
-                </Button>
-                {selectedIcons.size > 0 && (
-                  <Button
-                    variant="outline-danger"
-                    size="sm"
-                    onClick={() => setShowBulkDeleteModal(true)}
-                  >
-                    <i className="bi bi-trash me-1"></i>
-                    Delete Selected
-                  </Button>
-                )}
-                <Button
-                  variant="outline-secondary"
-                  size="sm"
-                  onClick={() => setIsSelectionMode(false)}
-                >
-                  Cancel
-                </Button>
-              </>
-            ) : (
-              <Button
-                variant="outline-secondary"
-                size="sm"
-                onClick={() => setIsSelectionMode(true)}
-                disabled={icons.length === 0}
-              >
-                <i className="bi bi-check-square me-1"></i>
-                Bulk Actions
-              </Button>
-            )}
-          </div>
         </div>
 
         {/* Stats Row */}
         <div className="stats-row">
           <div className="pack-stats">
             <div className="stat-item">
-              <i className="bi bi-collection"></i>
-              <span>{stats.packs} pack{stats.packs !== 1 ? 's' : ''}</span>
+              <Badge bg="secondary" className="stat-badge">
+                <i className="bi bi-collection me-1" />{stats.packs}
+              </Badge>
+              <span>pack{stats.packs !== 1 ? 's' : ''}</span>
             </div>
             <div className="stat-item">
-              <i className="bi bi-images"></i>
-              <span>{stats.total} total icon{stats.total !== 1 ? 's' : ''}</span>
+              <Badge bg="secondary" className="stat-badge">
+                <i className="bi bi-images me-1" />{stats.total}
+              </Badge>
+              <span>total</span>
             </div>
             <div className="stat-item">
-              <i className="bi bi-eye"></i>
-              <span>Showing {stats.current}</span>
+              <Badge bg="primary" className="stat-badge">
+                <i className="bi bi-eye me-1" />{stats.current}
+              </Badge>
+              <span>showing</span>
             </div>
           </div>
           {isSelectionMode && (

@@ -316,11 +316,27 @@ export default function ThirdPartyIconBrowser({
   return (
     <>
       <div className="third-party-icon-browser">
+        {/* Section Heading */}
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <h6 className="mb-0 fw-semibold">
+            <i className="bi bi-globe2 me-2" />
+            Third-Party Icon Browser
+          </h6>
+          {selectedCollection && selectedIcons.size > 0 && (
+            <Badge bg="primary">{selectedIcons.size} selected</Badge>
+          )}
+        </div>
+
         <div className="browser-layout">
           {/* Collections Panel */}
           <div className="collections-panel">
             <div className="collections-panel-header">
-              <h6>Third-Party Icon Sources</h6>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h6 className="mb-0 fw-semibold">
+                  <i className="bi bi-collection me-2" />Collections
+                </h6>
+                <Badge bg="secondary">{collections.length}</Badge>
+              </div>
 
               {/* Source Selector */}
               <Form.Select
@@ -417,9 +433,11 @@ export default function ThirdPartyIconBrowser({
                 <div className="icons-panel-header">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="mb-0">{selectedCollection.name}</h6>
-                      <small className="text-muted">
-                        {selectedIcons.size} selected of {icons.length} loaded
+                      <h6 className="mb-0 fw-semibold">{selectedCollection.name}</h6>
+                      <small className="text-muted mt-1 d-block">
+                        {selectedIcons.size > 0
+                          ? `${selectedIcons.size} selected of ${icons.length} loaded`
+                          : `${icons.length} icons loaded`}
                       </small>
                     </div>
                     <div>
@@ -561,9 +579,10 @@ export default function ThirdPartyIconBrowser({
               </>
             ) : (
               <div className="empty-state-panel">
-                <div>
+                <div className="text-center">
+                  <i className="bi bi-arrow-left-circle display-4 text-muted mb-3 d-block opacity-50" />
                   <h6>Select a Collection</h6>
-                  <p className="text-muted">
+                  <p className="text-muted mb-0">
                     Choose an icon collection from the left to browse and install icons
                   </p>
                 </div>

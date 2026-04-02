@@ -144,6 +144,15 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
 
   return (
     <div className="icon-packs-tab">
+      {/* Section Heading */}
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <h6 className="mb-0 fw-semibold">
+          <i className="bi bi-collection me-2" />
+          Icon Packs
+          <Badge bg="primary" className="ms-2">{iconPacks.length}</Badge>
+        </h6>
+      </div>
+
       {/* Seed Management */}
       {seedStatus && seedStatus.packs && seedStatus.packs.length > 0 && (
         <Card className="mb-3">
@@ -231,11 +240,12 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
 
       {/* Icon Packs Management */}
       <Card>
-        <Card.Header>
+        <Card.Header className="d-flex justify-content-between align-items-center">
           <h6 className="mb-0 fw-semibold">
-            <i className="bi bi-collection me-2"></i>
-            Icon Packs ({iconPacks.length})
+            <i className="bi bi-grid-3x3 me-2"></i>
+            All Packs
           </h6>
+          <small className="text-muted">{iconPacks.length} pack{iconPacks.length !== 1 ? 's' : ''}</small>
         </Card.Header>
         <Card.Body>
           {initialLoading ? (
@@ -258,7 +268,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                         <Card.Header className="p-3">
                           <div className="d-flex justify-content-between align-items-center">
                             <div className="pack-icon-display">
-                              <i className="bi bi-collection fs-4 text-primary"></i>
+                              <i className="bi bi-collection fs-4"></i>
                             </div>
                             <div className="pack-actions">
                               <Button
@@ -287,7 +297,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                           </h6>
                           <div className="pack-details">
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="badge bg-primary bg-opacity-10 text-primary">
+                              <span className="badge pack-category-badge">
                                 {pack.category}
                               </span>
                               <small className="text-muted">
