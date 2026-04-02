@@ -19,7 +19,7 @@ router = APIRouter()
 
 @router.get("/recent", response_model=List[Document])
 async def get_recent_documents(
-    limit: int = Query(6, ge=1, le=20, description="Number of recent documents to return"),
+    limit: int = Query(6, ge=1, le=25, description="Number of recent documents to return"),
     source: Optional[str] = Query(None, description="Filter by source: 'local' or 'github'"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)

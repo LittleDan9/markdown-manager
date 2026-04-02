@@ -37,6 +37,9 @@ function sortDocs(docs, sortOrder) {
 /**
  * Hook to resolve sibling documents for the tab bar.
  * Authenticated users hit the API; guests derive siblings from localStorage.
+ *
+ * Supports an "override mode" where siblings are pinned to an explicit list
+ * (e.g. recent documents) instead of being derived from the current document's category.
  */
 export default function useSiblingDocs(currentDocument, isAuthenticated, tabSortOrder) {
   const [siblingDocs, setSiblingDocs] = useState([]);
@@ -44,9 +47,38 @@ export default function useSiblingDocs(currentDocument, isAuthenticated, tabSort
   const [categoryName, setCategoryName] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
+  // Override mode: when set, siblings are pinned to an explicit list
+  const [overrideMode, setOverrideMode] = useState(null);   // e.g. 'recents'
+  const [overrideDocs, setOverrideDocs] = useState([]);
+  const [overrideLabel, setOverrideLabel] = useState(null);
+
   const sortOrder = tabSortOrder || getLocalSortOrder();
 
+  const setSiblingOverride = useCallback((mode, docs, label) => {
+    setOverrideMode(mode);
+    setOverrideDocs(docs);
+    setOverrideLabel(label || mode);
+    // Apply the override immediately to visible state
+    setSiblingDocs(docs);
+    setTabsEnabled(true);
+    setCategoryName(label || mode);
+  }, []);
+
+  const clearSiblingOverride = useCallback(() => {
+    setOverrideMode(null);
+    setOverrideDocs([]);
+    setOverrideLabel(null);
+  }, []);
+
   const refreshSiblings = useCallback(async () => {
+    // When in override mode, skip category-based resolution
+    if (overrideMode) {
+      setSiblingDocs(overrideDocs);
+      setTabsEnabled(true);
+      setCategoryName(overrideLabel);
+      return;
+    }
+
     if (!currentDocument?.id) {
       setSiblingDocs([]);
       setTabsEnabled(true);
@@ -93,16 +125,32 @@ export default function useSiblingDocs(currentDocument, isAuthenticated, tabSort
     } finally {
       setIsLoading(false);
     }
-  }, [currentDocument?.id, currentDocument?.category, isAuthenticated, sortOrder]);
+  }, [currentDocument?.id, currentDocument?.category, isAuthenticated, sortOrder, overrideMode, overrideDocs, overrideLabel]);
 
   // Optimistic removal: immediately filter a doc from the tab list without an API call
   const removeSibling = useCallback((docId) => {
     setSiblingDocs(prev => prev.filter(d => d.id !== docId));
-  }, []);
+    // Also update override docs if in override mode so a refresh doesn't resurrect it
+    if (overrideMode) {
+      setOverrideDocs(prev => prev.filter(d => d.id !== docId));
+    }
+  }, [overrideMode]);
+
+  // Update a sibling's name in-place (used after rename in override mode)
+  const updateSiblingName = useCallback((docId, newName) => {
+    setSiblingDocs(prev => prev.map(d => d.id === docId ? { ...d, name: newName } : d));
+    if (overrideMode) {
+      setOverrideDocs(prev => prev.map(d => d.id === docId ? { ...d, name: newName } : d));
+    }
+  }, [overrideMode]);
 
   useEffect(() => {
     refreshSiblings();
   }, [refreshSiblings]);
 
-  return { siblingDocs, tabsEnabled, categoryName, isLoading, refreshSiblings, removeSibling };
+  return {
+    siblingDocs, tabsEnabled, categoryName, isLoading,
+    refreshSiblings, removeSibling, updateSiblingName,
+    overrideMode, setSiblingOverride, clearSiblingOverride,
+  };
 }

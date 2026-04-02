@@ -6,7 +6,7 @@ import { useAuth } from '../../../providers/AuthProvider';
  * DisplayTab - User display preferences for tab bar position and sort order.
  */
 function DisplayTab() {
-  const { tabPosition, setTabPosition, tabSortOrder, setTabSortOrder } = useAuth();
+  const { tabPosition, setTabPosition, tabSortOrder, setTabSortOrder, recentsTabLimit, setRecentsTabLimit } = useAuth();
 
   return (
     <div className="pt-3">
@@ -51,6 +51,22 @@ function DisplayTab() {
           <option value="created">Created date</option>
           <option value="modified">Last modified</option>
         </Form.Select>
+      </Form.Group>
+
+      <Form.Group className="mb-3">
+        <Form.Label className="fw-semibold small">Recent Documents Limit</Form.Label>
+        <Form.Control
+          type="number"
+          size="sm"
+          min={1}
+          max={25}
+          value={recentsTabLimit}
+          onChange={e => setRecentsTabLimit(e.target.value)}
+          style={{ maxWidth: '100px' }}
+        />
+        <Form.Text className="text-muted">
+          Number of tabs shown when opening Recent (1–25)
+        </Form.Text>
       </Form.Group>
     </div>
   );

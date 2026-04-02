@@ -36,6 +36,9 @@ function RendererSection({
     renameDocument,
     refreshSiblings,
     removeSibling,
+    updateSiblingName,
+    siblingOverrideMode,
+    clearSiblingOverride,
   } = useDocumentContext();
   const { tabPosition } = useAuth();
   const { show: showDeleteModal, modalConfig: deleteModalConfig, openModal, handleAction: handleDeleteAction } = useConfirmModal();
@@ -85,6 +88,8 @@ function RendererSection({
   // Tab bar callbacks
   const handleTabClick = useCallback((docId) => {
     if (docId !== currentDocument?.id) {
+      // In override mode (e.g. recents), just load the doc — don't clear the override.
+      // The override keeps the tab bar pinned to the virtual category.
       loadDocument(docId);
     }
   }, [currentDocument?.id, loadDocument]);
@@ -93,11 +98,16 @@ function RendererSection({
     try {
       const category = currentDocument?.category || 'General';
       await renameDocument(docId, newName, category);
-      refreshSiblings();
+      if (siblingOverrideMode) {
+        // In override mode, update the tab label in-place to avoid breaking the override
+        updateSiblingName(docId, newName);
+      } else {
+        refreshSiblings();
+      }
     } catch (error) {
       console.error('Failed to rename document:', error);
     }
-  }, [currentDocument?.category, renameDocument, refreshSiblings]);
+  }, [currentDocument?.category, renameDocument, refreshSiblings, siblingOverrideMode, updateSiblingName]);
 
   const handleDeleteDocument = useCallback((docId, docName) => {
     if (!docId) return;
@@ -119,10 +129,13 @@ function RendererSection({
                 // loadDocument changes currentDocument.id which triggers
                 // the useEffect in useSiblingDocs — no explicit refresh needed.
                 await loadDocument(firstSiblingId);
+              } else if (siblingOverrideMode) {
+                // All override tabs deleted — clear override
+                clearSiblingOverride();
               }
               // If no siblings left, document is already cleared by deleteDocument
-            } else {
-              // Non-active tab deleted: refresh to get authoritative data
+            } else if (!siblingOverrideMode) {
+              // Non-active tab deleted outside override mode: refresh to get authoritative data
               await refreshSiblings();
             }
           } catch (error) {
@@ -140,20 +153,25 @@ function RendererSection({
         icon: <i className="bi bi-trash text-danger me-2"></i>,
       },
     );
-  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, removeSibling, openModal]);
+  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, removeSibling, openModal, siblingOverrideMode, clearSiblingOverride]);
 
   const handleAddDocument = useCallback(() => {
-    const category = currentDocument?.category || 'General';
-    const categoryId = currentDocument?.category_id;
-    createDocument({
-      name: 'Untitled',
-      category,
-      category_id: categoryId,
-    });
+    if (siblingOverrideMode) {
+      // In override mode (e.g. recents), create new doc in Drafts — stay in override
+      createDocument({ name: 'Untitled', category: 'Drafts' });
+    } else {
+      const category = currentDocument?.category || 'General';
+      const categoryId = currentDocument?.category_id;
+      createDocument({
+        name: 'Untitled',
+        category,
+        category_id: categoryId,
+      });
+    }
     // No manual refreshSiblings needed — the auto-refresh effect in useSiblingDocs
     // triggers when currentDocument changes. A stale setTimeout here would use the
     // old currentDocument's API path, overwriting the correct localStorage results.
-  }, [currentDocument?.category, currentDocument?.category_id, createDocument]);
+  }, [currentDocument?.category, currentDocument?.category_id, createDocument, siblingOverrideMode]);
 
   const showTabs = !isSharedView && tabsEnabled && siblingDocs.length > 0;
   const tabBar = showTabs ? (

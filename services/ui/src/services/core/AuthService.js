@@ -76,6 +76,9 @@ class AuthService {
           if (user.tab_sort_order) {
             localStorage.setItem("tabSortOrder", user.tab_sort_order);
           }
+          if (user.recents_tab_limit !== undefined) {
+            localStorage.setItem("recentsTabLimit", user.recents_tab_limit);
+          }
         } else {
           console.log('AuthService: User validation failed after refresh');
           this.performLogout();
@@ -107,6 +110,9 @@ class AuthService {
             }
             if (user.tab_sort_order) {
               localStorage.setItem("tabSortOrder", user.tab_sort_order);
+            }
+            if (user.recents_tab_limit !== undefined) {
+              localStorage.setItem("recentsTabLimit", user.recents_tab_limit);
             }
           } else {
             console.log('AuthService: Stored token is invalid');
@@ -487,7 +493,8 @@ class AuthService {
         autosaveEnabled: 'autosave_enabled',
         syncPreviewScrollEnabled: 'sync_preview_scroll_enabled',
         tabPosition: 'tab_position',
-        tabSortOrder: 'tab_sort_order'
+        tabSortOrder: 'tab_sort_order',
+        recentsTabLimit: 'recents_tab_limit'
       };
 
       const backendKey = settingMap[key];

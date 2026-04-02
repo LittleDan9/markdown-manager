@@ -75,6 +75,31 @@ export function DocumentContextProvider({ children }) {
     }
   }, [documentState, renderingState]);
 
+  // Coordinated openRecents: set override FIRST, then fetch recents and load first doc.
+  // Setting override before loadDocument prevents the useSiblingDocs effect from
+  // firing a category-based sibling fetch when currentDocument changes.
+  const openRecentsCoordinated = useCallback(async () => {
+    // Set a temporary override immediately so any in-flight sibling refresh
+    // short-circuits instead of overwriting with category-based siblings
+    siblingDocsState.setSiblingOverride('recents', [], 'Recent');
+    const docs = await documentState.openRecents(auth.recentsTabLimit || 10);
+    if (docs) {
+      // Now update the override with the actual doc list
+      siblingDocsState.setSiblingOverride('recents', docs, 'Recent');
+      // Force a preview re-render. loadDocument clears previewHTML, and if the loaded
+      // document is the same one already active (e.g. it's the most recent), the
+      // orchestrator's content-change effect doesn't re-fire because content/docId
+      // dependencies are unchanged. Poking setContent with the current value via
+      // triggerContentUpdate ensures the effect runs and re-renders the preview.
+      if (documentState.content) {
+        triggerContentUpdate(documentState.content, { reason: 'recents-open' });
+      }
+    } else {
+      // No recents found — clear the temporary override
+      siblingDocsState.clearSiblingOverride();
+    }
+  }, [documentState, siblingDocsState, auth.recentsTabLimit, triggerContentUpdate]);
+
   const value = useMemo(() => {
     // Performance selectors - computed values that don't cause re-renders when accessed
     const selectors = {
@@ -110,6 +135,11 @@ export function DocumentContextProvider({ children }) {
       siblingDocsLoading: siblingDocsState.isLoading,
       refreshSiblings: siblingDocsState.refreshSiblings,
       removeSibling: siblingDocsState.removeSibling,
+      updateSiblingName: siblingDocsState.updateSiblingName,
+      // Override mode for virtual categories (e.g. recents)
+      siblingOverrideMode: siblingDocsState.overrideMode,
+      clearSiblingOverride: siblingDocsState.clearSiblingOverride,
+      openRecents: openRecentsCoordinated,
       // Centralized functions
       triggerContentUpdate,
       // UI state
@@ -129,7 +159,7 @@ export function DocumentContextProvider({ children }) {
       isAuthenticated: auth.isAuthenticated,
       isInitializing: auth.isInitializing
     };
-  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, mobileViewMode, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
+  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, openRecentsCoordinated, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, mobileViewMode, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
 
   return (
     <DocumentContext.Provider value={value}>

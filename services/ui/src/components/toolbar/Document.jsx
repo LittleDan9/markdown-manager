@@ -17,7 +17,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError } = useNotification();
   const documentService = serviceFactory.createDocumentService();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory } = useDocumentContext();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory, openRecents, clearSiblingOverride, siblingOverrideMode } = useDocumentContext();
   const { user } = useAuth();
   const isCollabDocument = currentDocument && user && currentDocument.user_id && currentDocument.user_id !== user.id;
   // Always ensure 'Drafts' and 'General' are present at top
@@ -303,6 +303,32 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             )}
           </Dropdown.Toggle>
           <Dropdown.Menu>
+            {/* Recent — virtual category */}
+            <Dropdown.Item
+              key="__recents__"
+              active={siblingOverrideMode === 'recents'}
+              onClick={(e) => e.preventDefault()}
+              className={`d-flex justify-content-between align-items-center
+                  ${siblingOverrideMode === 'recents' ? "text-bg-secondary" : ""}`}
+            >
+              <span className="text-truncate"><i className="bi bi-clock-history me-1"></i>Recent</span>
+              <span className="d-flex align-items-center gap-1 ms-2">
+                <button
+                  type="button"
+                  className="btn btn-link btn-sm p-0 text-muted"
+                  title="Open Recent"
+                  tabIndex={-1}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openRecents();
+                  }}
+                  aria-label="Open Recent"
+                >
+                  <i className="bi bi-folder2-open"></i>
+                </button>
+              </span>
+            </Dropdown.Item>
+            <Dropdown.Divider />
             {categories.map((category) => (
               <Dropdown.Item
                 key={category}
@@ -320,6 +346,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
                     tabIndex={-1}
                     onClick={(e) => {
                       e.stopPropagation();
+                      clearSiblingOverride();
                       openCategory(category);
                     }}
                     aria-label={`Open ${category}`}
