@@ -4,10 +4,10 @@ import iconsApi from '../../../api/iconsApi';
 import { adminIconsApi } from '../../../api/admin';
 import { useNotification } from '../../NotificationProvider';
 import IconViewModal from './IconViewModal';
-import { cleanSvgBodyForBrowser, downloadSvg, copySvgToClipboard, copyIconUrl } from '../../../utils/svgUtils';
+import { cleanSvgBodyForBrowser, downloadSvg, copySvgToClipboard } from '../../../utils/svgUtils';
 
-export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoading = false }) {
-  const [selectedPack, setSelectedPack] = useState('all');
+export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoading = false, initialPack = null }) {
+  const [selectedPack, setSelectedPack] = useState(initialPack || 'all');
   const [searchTerm, setSearchTerm] = useState('');
   const [icons, setIcons] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -25,6 +25,13 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
 
   // Use ref to track current page to avoid dependency issues
   const currentPageRef = useRef(0);
+
+  // Sync when navigated from another tab with a specific pack
+  useEffect(() => {
+    if (initialPack) {
+      setSelectedPack(initialPack);
+    }
+  }, [initialPack]);
 
   const { showSuccess, showError } = useNotification();
 
@@ -439,7 +446,7 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
                       <Button
                         size="sm"
                         variant="outline-secondary"
-                        title="Copy to clipboard"
+                        title="Copy SVG to clipboard"
                         onClick={(e) => {
                           e.stopPropagation();
                           copySvgToClipboard(icon.icon_data);
@@ -449,36 +456,25 @@ export default function InstalledIconsTab({ iconPacks, onReloadData, packsLoadin
                       </Button>
                       <Button
                         size="sm"
-                        variant="outline-secondary"
-                        title="Copy icon URL"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          copyIconUrl(icon.pack?.name, icon.key);
-                        }}
-                      >
-                        <i className="bi bi-link-45deg"></i>
-                      </Button>
-                      <Button
-                        size="sm"
                         variant="outline-primary"
+                        title="Edit icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleEditIcon(icon);
                         }}
                       >
-                        <i className="bi bi-pencil me-1"></i>
-                        Edit
+                        <i className="bi bi-pencil"></i>
                       </Button>
                       <Button
                         size="sm"
                         variant="outline-danger"
+                        title="Delete icon"
                         onClick={(e) => {
                           e.stopPropagation();
                           handleDeleteIcon(icon);
                         }}
                       >
-                        <i className="bi bi-trash me-1"></i>
-                        Delete
+                        <i className="bi bi-trash"></i>
                       </Button>
                     </div>
                   )}

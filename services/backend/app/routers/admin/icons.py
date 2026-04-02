@@ -1100,3 +1100,93 @@ async def clear_analysis_cache(
             status_code=500,
             detail=f"Failed to clear analysis cache: {str(e)}"
         )
+
+
+# ============================================================================
+# SEED MANAGEMENT
+# ============================================================================
+
+@router.post(
+    "/seed/run",
+    summary="Run icon seeder",
+    description=(
+        "Re-run the icon seeding pipeline from bundled seed files. "
+        "By default only updates packs already managed by the seeder. "
+        "Set force_all=true to also adopt legacy admin-added packs."
+    ),
+)
+async def run_seed(
+    force_all: bool = False,
+    current_user: User = Depends(get_admin_user),
+):
+    """Trigger the icon seeder on demand."""
+    from ...services.icons.seeder import IconSeeder
+
+    try:
+        seeder = IconSeeder()
+        result = await seeder.run_seeding(force_all=force_all)
+        return {"success": True, **result}
+    except Exception as e:
+        logging.getLogger(__name__).exception("Admin seed run failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Seed run failed: {str(e)}"
+        )
+
+
+@router.get(
+    "/seed/status",
+    summary="Get seed pack status",
+    description="Check which bundled seed packs are available and whether they are installed/up-to-date."
+)
+async def get_seed_status(
+    current_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Return the status of each bundled seed pack."""
+    import json as _json
+    from ...services.icons.seeder import _find_seed_dir, IconSeeder
+
+    seed_dir = _find_seed_dir()
+    if seed_dir is None:
+        return {"success": True, "seed_dir": None, "packs": []}
+
+    seed_files = sorted(seed_dir.glob("*.seed.json"))
+    packs = []
+
+    for sf in seed_files:
+        try:
+            raw = _json.loads(sf.read_text())
+            name = raw["info"]["name"]
+            seed_version = raw.get("_seed", {}).get("version", "unknown")
+            icon_count = len(raw.get("icons", {}))
+
+            existing = await IconSeeder._get_pack(db, name)
+            if existing is None:
+                status = "not_installed"
+                installed_version = None
+            elif existing.description and f"[seed:{seed_version}]" in existing.description:
+                status = "up_to_date"
+                installed_version = seed_version
+            elif existing.description and "[seed:" in existing.description:
+                # Extract current seed version
+                import re
+                m = re.search(r"\[seed:([^\]]+)\]", existing.description)
+                installed_version = m.group(1) if m else "unknown"
+                status = "outdated"
+            else:
+                status = "legacy"
+                installed_version = None
+
+            packs.append({
+                "name": name,
+                "display_name": raw["info"].get("displayName", name),
+                "seed_version": seed_version,
+                "installed_version": installed_version,
+                "seed_icon_count": icon_count,
+                "status": status,
+            })
+        except Exception:
+            packs.append({"name": sf.stem, "status": "error"})
+
+    return {"success": True, "seed_dir": str(seed_dir), "packs": packs}

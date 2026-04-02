@@ -7,7 +7,6 @@
     "extract": "node extract.js"
   },
   "dependencies": {
-    "@codiva/aws-icons": "^2.0.4",
     "@iconify-json/devicon": "^1.2.57",
     "@iconify-json/flat-color-icons": "^1.2.3",
     "@iconify-json/logos": "^1.2.10",

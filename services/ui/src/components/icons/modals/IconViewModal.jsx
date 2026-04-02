@@ -127,7 +127,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     if (error) {
       return (
         <div className="text-center text-muted p-5">
-          <i className="bi bi-exclamation-triangle" style={{ fontSize: '4rem' }}></i>
+          <i className="bi bi-exclamation-triangle icon-view-large-icon"></i>
           <p className="mt-2">Error loading icon: {error}</p>
         </div>
       );
@@ -139,7 +139,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     if (!iconToRender.icon_data || !iconToRender.icon_data.body) {
       return (
         <div className="text-center text-muted p-5">
-          <i className="bi bi-image" style={{ fontSize: '4rem' }}></i>
+          <i className="bi bi-image icon-view-large-icon"></i>
           <p className="mt-2">No icon data available</p>
         </div>
       );
@@ -149,28 +149,11 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
 
     return (
       <div className="text-center p-4">
-        <div style={{
-          border: '1px solid var(--bs-border-color)',
-          borderRadius: '0.375rem',
-          padding: '20px',
-          backgroundColor: 'var(--bs-body-bg)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-        }}>
+        <div className="icon-view-preview-container">
           <svg
             viewBox={viewBox || `0 0 ${width} ${height}`}
             fill="currentColor"
-            className="icon-svg"
-            style={{
-              display: 'block',
-              color: 'var(--bs-primary, #0d6efd)',
-              width: '100%',
-              height: '100%',
-              maxWidth: '260px',
-              maxHeight: '260px'
-            }}
-          >
+            className="icon-svg icon-view-preview-svg">
             <g dangerouslySetInnerHTML={{ __html: cleanSvgBodyForBrowser(body) }} />
           </svg>
         </div>
@@ -281,10 +264,9 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                   />
                 ) : (
                   <span
-                    className="cursor-pointer"
+                    className="icon-view-clickable"
                     onClick={() => copyToClipboard(displayIcon.key)}
                     title="Click to copy"
-                    style={{ cursor: 'pointer' }}
                   >
                     {displayIcon.key}
                   </span>
@@ -296,10 +278,9 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
               <strong>Full Key:</strong>
               <div className="mt-1">
                 <small
-                  className="text-muted cursor-pointer text-decoration-underline"
+                  className="text-muted icon-view-clickable text-decoration-underline"
                   onClick={() => copyToClipboard(displayIcon.full_key)}
                   title="Click to copy full key"
-                  style={{ cursor: 'pointer' }}
                 >
                   {displayIcon.full_key.length > 40
                     ? `${displayIcon.full_key.substring(0, 37)}...`
@@ -322,7 +303,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                       </Tooltip>
                     }
                   >
-                    <i className="bi bi-info-circle ms-2 text-muted" style={{ cursor: 'help' }}></i>
+                    <i className="bi bi-info-circle ms-2 text-muted icon-view-help"></i>
                   </OverlayTrigger>
                 </div>
                 <div className="mt-1">

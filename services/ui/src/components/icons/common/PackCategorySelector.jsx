@@ -98,12 +98,13 @@ export default function PackCategorySelector({
           {showPackNameDropdown && dropdownPackNames.length > 0 ? (
             <Dropdown>
               <Dropdown.Toggle
-                as="div"
                 id="packNameDropdown"
-                className="form-control d-flex justify-content-between align-items-center"
+                variant="outline-secondary"
+                className="w-100 d-flex justify-content-between align-items-center"
                 style={{
-                  cursor: 'pointer',
-                  userSelect: 'none',
+                  backgroundColor: 'var(--mm-bg-surface)',
+                  color: 'var(--mm-text)',
+                  borderColor: 'var(--bs-border-color)',
                 }}
                 disabled={loading || disabled}
               >
@@ -139,9 +140,8 @@ export default function PackCategorySelector({
                         <Dropdown.Divider />
                         <div className="px-1 py-2">
                           <div
-                            className="px-1 py-2"
+                            className="px-1 py-2 pack-selector-new-item-form"
                             autoComplete="off"
-                            style={{ minWidth: "200px" }}
                           >
                             <div className="input-group input-group-sm">
                               <Form.Control
@@ -207,21 +207,17 @@ export default function PackCategorySelector({
           {categoryRequired && ' *'}
         </Form.Label>
         
-        <Dropdown
-          style={{
-            border: 'var(--bs-border-width) solid var(--bs-border-color)',
-            borderRadius: 'var(--bs-border-radius)'
-          }}
-        >
+        <Dropdown className="pack-selector-category-dropdown">
           <Dropdown.Toggle
-            as="div"
             id="categoryDropdown"
-            className="form-control d-flex justify-content-between align-items-center"
+            variant="outline-secondary"
+            className="w-100 d-flex justify-content-between align-items-center"
             style={{
-              cursor: 'pointer',
-              userSelect: 'none'
+              backgroundColor: 'var(--mm-bg-surface)',
+              color: 'var(--mm-text)',
+              borderColor: 'var(--bs-border-color)',
             }}
-            disabled={loading || disabled || categories.length === 0}
+            disabled={loading || disabled}
           >
             {categories.length === 0
               ? 'No categories available'
@@ -252,9 +248,8 @@ export default function PackCategorySelector({
                     <Dropdown.Divider />
                     <div className="px-1 py-2">
                       <div
-                        className="px-1 py-2"
+                        className="px-1 py-2 pack-selector-new-item-form"
                         autoComplete="off"
-                        style={{ minWidth: "200px" }}
                         onSubmit={(e) => {
                           e.preventDefault();
                           if (!newCategory) return;

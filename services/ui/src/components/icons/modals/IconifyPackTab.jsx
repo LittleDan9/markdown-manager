@@ -192,7 +192,7 @@ export default function IconifyPackTab({
 
           {/* Collection list */}
           {!selectedPrefix && filteredCollections.length > 0 && (
-            <ListGroup className="mb-3" style={{ maxHeight: '300px', overflow: 'auto' }}>
+            <ListGroup className="mb-3 iconify-collection-list">
               {filteredCollections.map(([prefix, meta]) => (
                 <ListGroup.Item
                   key={prefix}
@@ -235,7 +235,7 @@ export default function IconifyPackTab({
                     </div>
                   </div>
 
-                  <div className="d-flex flex-wrap gap-2 mb-3" style={{ maxHeight: '200px', overflow: 'auto' }}>
+                  <div className="d-flex flex-wrap gap-2 mb-3 iconify-icon-preview-grid">
                     {collectionIcons.map(icon => (
                       <Button
                         key={icon.name}
@@ -245,7 +245,7 @@ export default function IconifyPackTab({
                         title={icon.name}
                       >
                         {icon.svg ? (
-                          <span dangerouslySetInnerHTML={{ __html: icon.svg }} style={{ width: 18, height: 18, display: 'inline-block' }} />
+                          <span dangerouslySetInnerHTML={{ __html: icon.svg }} className="iconify-icon-sprite" />
                         ) : (
                           icon.name.slice(0, 12)
                         )}

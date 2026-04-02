@@ -91,7 +91,7 @@ export default function DocumentUsageInsights({ documentId, documentName, onClos
   return (
     <div className="document-usage-insights h-100 d-flex flex-column">
       {/* Header */}
-      <div className="insights-header p-3 border-bottom bg-light">
+      <div className="insights-header p-3 border-bottom bg-body-secondary">
         <div className="d-flex justify-content-between align-items-center">
           <div>
             <h5 className="mb-1">
@@ -454,7 +454,7 @@ export default function DocumentUsageInsights({ documentId, documentName, onClos
       </div>
 
       {/* Footer */}
-      <div className="insights-footer p-3 border-top bg-light">
+      <div className="insights-footer p-3 border-top bg-body-secondary">
         <div className="d-flex justify-content-between align-items-center">
           <div className="small text-muted">
             Analysis performed at {new Date(analysis.analysis_timestamp).toLocaleString()}

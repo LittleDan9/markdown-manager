@@ -109,6 +109,17 @@ function resolvePackage(name) {
   return path.join(__dirname, 'node_modules', name);
 }
 
+function getInstalledVersion(source) {
+  try {
+    const pkgJson = JSON.parse(
+      fs.readFileSync(path.join(resolvePackage(source), 'package.json'), 'utf-8')
+    );
+    return pkgJson.version || 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
+
 function findSvgFiles(dir) {
   const files = [];
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -146,7 +157,7 @@ function buildSeed(packDef, icons, defaultWidth, defaultHeight, info) {
     height: defaultHeight,
     _seed: {
       source: packDef.source,
-      version: packDef.version,
+      version: getInstalledVersion(packDef.source),
       extractedAt: new Date().toISOString(),
       iconCount,
     },
@@ -200,7 +211,7 @@ function main() {
   }
 
   console.log(`\nDone. ${succeeded} succeeded, ${failed} failed.`);
-  if (failed > 0) process.exit(1);
+  if (succeeded === 0) process.exit(1);
 }
 
 main();

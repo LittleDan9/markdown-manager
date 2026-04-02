@@ -2,7 +2,7 @@
 FROM node:20-slim AS seed-icons
 WORKDIR /seed-icons
 COPY ./seed-icons/package.json ./seed-icons/seed-manifest.json ./seed-icons/extract.js ./
-RUN npm ci --ignore-scripts && node extract.js
+RUN npm install --ignore-scripts && node extract.js
 
 # Stage 1: Build dependencies and virtual environment with Python 3.13
 FROM python:3.13-slim AS python-base
@@ -63,7 +63,7 @@ COPY ./scripts/entrypoint.sh /markdown-manager/
 COPY ./app /markdown-manager/app
 
 # Copy extracted icon seed data from build stage
-COPY --from=seed-icons /seed-icons/data/ /app/seed-icons/
+COPY --from=seed-icons /seed-icons/data/ /markdown-manager/seed-icons/
 
 # Set executable permissions
 RUN chmod +x /markdown-manager/entrypoint.sh
