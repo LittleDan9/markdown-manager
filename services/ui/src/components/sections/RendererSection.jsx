@@ -7,6 +7,8 @@ import { useDocumentContext } from '../../providers/DocumentContextProvider';
 import { useAuth } from '../../providers/AuthProvider';
 import { useConfirmModal } from '../../hooks/ui/useConfirmModal';
 import ConfirmModal from '../shared/modals/ConfirmModal';
+import documentsApi from '../../api/documentsApi';
+import DocumentStorageService from '../../services/core/DocumentStorageService';
 
 /**
  * RendererSection - Wrapper component for the renderer area
@@ -40,7 +42,7 @@ function RendererSection({
     siblingOverrideMode,
     clearSiblingOverride,
   } = useDocumentContext();
-  const { tabPosition } = useAuth();
+  const { tabPosition, isAuthenticated } = useAuth();
   const { show: showDeleteModal, modalConfig: deleteModalConfig, openModal, handleAction: handleDeleteAction } = useConfirmModal();
   const [hasRendered, setHasRendered] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
@@ -116,6 +118,30 @@ function RendererSection({
     const remainingSiblings = siblingDocs.filter(d => d.id !== docId);
     const firstSiblingId = remainingSiblings.length > 0 ? remainingSiblings[0].id : null;
 
+    // In recents override mode, dismiss from recents instead of deleting
+    if (siblingOverrideMode === 'recents') {
+      (async () => {
+        try {
+          if (isAuthenticated) {
+            await documentsApi.dismissFromRecent(docId);
+          } else {
+            DocumentStorageService.dismissFromRecent(docId);
+          }
+          removeSibling(docId);
+          if (isActive) {
+            if (firstSiblingId) {
+              await loadDocument(firstSiblingId);
+            } else {
+              clearSiblingOverride();
+            }
+          }
+        } catch (error) {
+          console.error('Failed to dismiss document from recents:', error);
+        }
+      })();
+      return;
+    }
+
     openModal(
       async (actionKey) => {
         if (actionKey === 'delete') {
@@ -153,7 +179,7 @@ function RendererSection({
         icon: <i className="bi bi-trash text-danger me-2"></i>,
       },
     );
-  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, removeSibling, openModal, siblingOverrideMode, clearSiblingOverride]);
+  }, [currentDocument?.id, siblingDocs, deleteDocument, loadDocument, refreshSiblings, removeSibling, openModal, siblingOverrideMode, clearSiblingOverride, isAuthenticated]);
 
   const handleAddDocument = useCallback(() => {
     if (siblingOverrideMode) {

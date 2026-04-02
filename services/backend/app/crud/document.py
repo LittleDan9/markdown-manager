@@ -691,6 +691,30 @@ class DocumentCRUD:
         await db.refresh(document)
         return document
 
+    async def dismiss_from_recent(
+        self,
+        db: AsyncSession,
+        document_id: int,
+        user_id: int
+    ) -> Optional[Document]:
+        """Dismiss a document from the recent list by clearing last_opened_at."""
+        query = select(Document).filter(
+            Document.id == document_id,
+            Document.user_id == user_id
+        )
+
+        result = await db.execute(query)
+        document = result.scalar_one_or_none()
+
+        if not document:
+            return None
+
+        document.last_opened_at = None
+
+        await db.commit()
+        await db.refresh(document)
+        return document
+
 
 # Create a singleton instance
 document = DocumentCRUD()

@@ -304,6 +304,16 @@ class DocumentsApi extends Api {
     return res.data;
   }
 
+  /**
+   * Dismiss a document from the recent list (clears last_opened_at)
+   * @param {number} documentId - Document ID
+   * @returns {Promise<Object>} - Confirmation response
+   */
+  async dismissFromRecent(documentId) {
+    const res = await this.apiCall(`/documents/${documentId}/dismiss-recent`, 'PUT');
+    return res.data;
+  }
+
   // ========================================
   // UNIFIED GITHUB REPOSITORY MANAGEMENT
   // ========================================
