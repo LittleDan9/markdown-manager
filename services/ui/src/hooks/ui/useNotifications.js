@@ -74,6 +74,14 @@ export default function useNotifications() {
     }
   }, []);
 
+  const fetchNotificationDetail = useCallback(async (id) => {
+    try {
+      return await notificationsApi.getNotification(id);
+    } catch {
+      return null;
+    }
+  }, []);
+
   const clearAll = useCallback(async () => {
     try {
       await notificationsApi.clearAll();
@@ -93,18 +101,19 @@ export default function useNotifications() {
     }
 
     fetchNotifications();
-    pollRef.current = setInterval(fetchUnreadCount, POLL_INTERVAL);
+    pollRef.current = setInterval(fetchNotifications, POLL_INTERVAL);
 
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
-  }, [isAuthenticated, fetchNotifications, fetchUnreadCount]);
+  }, [isAuthenticated, fetchNotifications]);
 
   return {
     notifications,
     unreadCount,
     loading,
     fetchNotifications,
+    fetchNotificationDetail,
     markRead,
     markAllRead,
     deleteNotification,

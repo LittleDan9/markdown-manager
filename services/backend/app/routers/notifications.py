@@ -20,15 +20,49 @@ router = APIRouter(prefix="/notifications", tags=["notifications"])
 # ---------- Schemas ----------
 
 class NotificationOut(BaseModel):
+    """Lightweight notification for lists — excludes detail content."""
     id: int
     title: str
     message: str
     category: str
     is_read: bool
     link: Optional[str] = None
+    has_detail: bool = False
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+    @classmethod
+    def from_model(cls, n: "Notification") -> "NotificationOut":
+        return cls(
+            id=n.id,
+            title=n.title,
+            message=n.message,
+            category=n.category,
+            is_read=n.is_read,
+            link=n.link,
+            has_detail=n.detail is not None,
+            created_at=n.created_at,
+        )
+
+
+class NotificationDetailOut(NotificationOut):
+    """Full notification including markdown detail content."""
+    detail: Optional[str] = None
+
+    @classmethod
+    def from_model(cls, n: "Notification") -> "NotificationDetailOut":
+        return cls(
+            id=n.id,
+            title=n.title,
+            message=n.message,
+            category=n.category,
+            is_read=n.is_read,
+            link=n.link,
+            has_detail=n.detail is not None,
+            detail=n.detail,
+            created_at=n.created_at,
+        )
 
 
 class NotificationCreate(BaseModel):
@@ -36,6 +70,7 @@ class NotificationCreate(BaseModel):
     message: str
     category: str = "info"
     link: Optional[str] = None
+    detail: Optional[str] = None
 
 
 class NotificationList(BaseModel):
@@ -57,6 +92,7 @@ async def create_notification(
     message: str,
     category: str = "info",
     link: str | None = None,
+    detail: str | None = None,
 ) -> Notification:
     """Create a notification for a user. Call from any backend service or router."""
     notification = Notification(
@@ -65,6 +101,7 @@ async def create_notification(
         message=message,
         category=category,
         link=link,
+        detail=detail,
     )
     db.add(notification)
     await db.flush()
@@ -77,6 +114,7 @@ async def broadcast_notification(
     message: str,
     category: str = "info",
     link: str | None = None,
+    detail: str | None = None,
 ) -> int:
     """Create a notification for every active user. Returns count of notifications created."""
     result = await db.execute(select(User.id).where(User.is_active == True))  # noqa: E712
@@ -88,6 +126,7 @@ async def broadcast_notification(
             message=message,
             category=category,
             link=link,
+            detail=detail,
         ))
     await db.flush()
     return len(user_ids)
@@ -95,7 +134,7 @@ async def broadcast_notification(
 
 # ---------- Endpoints ----------
 
-@router.post("", response_model=NotificationOut, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=NotificationDetailOut, status_code=status.HTTP_201_CREATED)
 async def post_notification(
     body: NotificationCreate,
     current_user: User = Depends(get_current_user),
@@ -109,10 +148,11 @@ async def post_notification(
         message=body.message,
         category=body.category,
         link=body.link,
+        detail=body.detail,
     )
     await db.commit()
     await db.refresh(notification)
-    return NotificationOut.model_validate(notification)
+    return NotificationDetailOut.from_model(notification)
 
 
 @router.get("", response_model=NotificationList)
@@ -145,7 +185,7 @@ async def list_notifications(
     total = (await db.execute(total_q)).scalar() or 0
 
     return NotificationList(
-        notifications=[NotificationOut.model_validate(n) for n in notifications],
+        notifications=[NotificationOut.from_model(n) for n in notifications],
         unread_count=unread_count,
         total=total,
     )
@@ -162,6 +202,24 @@ async def get_unread_count(
     )
     count = (await db.execute(count_q)).scalar() or 0
     return UnreadCount(count=count)
+
+
+@router.get("/{notification_id}", response_model=NotificationDetailOut)
+async def get_notification(
+    notification_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Get a single notification with full detail content."""
+    result = await db.execute(
+        select(Notification).where(
+            Notification.id == notification_id, Notification.user_id == current_user.id
+        )
+    )
+    notification = result.scalar_one_or_none()
+    if not notification:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found")
+    return NotificationDetailOut.from_model(notification)
 
 
 @router.patch("/{notification_id}/read")

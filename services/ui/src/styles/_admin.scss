@@ -213,3 +213,114 @@
     }
   }
 }
+
+// Admin Notifications Tab
+.admin-notifications-tab {
+  .admin-user-selector {
+    .user-list-scroll {
+      max-height: 200px;
+      overflow-y: auto;
+      border: 1px solid var(--mm-border);
+      border-radius: 0.375rem;
+      background-color: var(--mm-bg-surface);
+    }
+
+    .user-list-item {
+      padding: 0.375rem 0.75rem;
+      cursor: pointer;
+      border-bottom: 1px solid var(--mm-border-subtle, var(--mm-border));
+      transition: background-color 0.15s ease;
+
+      &:last-child {
+        border-bottom: none;
+      }
+
+      &:hover {
+        background-color: var(--mm-bg);
+      }
+
+      &.selected {
+        background-color: rgba(var(--bs-primary-rgb, 79, 109, 245), 0.08);
+      }
+    }
+
+    .user-badge {
+      font-weight: 500;
+      font-size: 0.75rem;
+
+      .bi-x-lg {
+        font-size: 0.6rem;
+        cursor: pointer;
+        opacity: 0.7;
+
+        &:hover {
+          opacity: 1;
+        }
+      }
+    }
+  }
+
+  // GitHub-style markdown editor
+  .markdown-editor {
+    border: 1px solid var(--mm-border);
+    border-radius: 0.375rem;
+    overflow: hidden;
+    background-color: var(--mm-bg-surface);
+  }
+
+  .markdown-editor-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--mm-border);
+    background-color: var(--mm-bg);
+    padding: 0 0.25rem;
+  }
+
+  .markdown-editor-tab {
+    background: none;
+    border: none;
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8125rem;
+    color: var(--mm-text-secondary);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: color 0.15s ease, border-color 0.15s ease;
+
+    &:hover {
+      color: var(--mm-text);
+    }
+
+    &.active {
+      color: var(--mm-text);
+      border-bottom-color: var(--mm-primary);
+      font-weight: 500;
+    }
+  }
+
+  .markdown-editor-body {
+    min-height: 200px;
+  }
+
+  .markdown-editor-textarea {
+    border: none !important;
+    border-radius: 0 !important;
+    resize: vertical;
+    min-height: 200px;
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.8125rem;
+    background-color: var(--mm-bg-surface) !important;
+    color: var(--mm-text) !important;
+
+    &:focus {
+      box-shadow: none !important;
+    }
+  }
+
+  .markdown-editor-preview {
+    padding: 0.75rem 1rem;
+    min-height: 200px;
+    max-height: 400px;
+    overflow-y: auto;
+    font-size: 0.875rem;
+  }
+}

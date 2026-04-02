@@ -68,7 +68,7 @@ class IconSeeder:
 
             for sf in seed_files:
                 try:
-                    result = await self._process_seed_file(db, sf)
+                    result = await self._process_seed_file(db, sf, force=force_all)
                     results.append(result)
                 except Exception as exc:
                     logger.exception("Failed to process seed file %s", sf.name)
@@ -76,7 +76,7 @@ class IconSeeder:
 
         return {"status": "completed", "packs": results}
 
-    async def _process_seed_file(self, db: AsyncSession, seed_path: Path) -> dict:
+    async def _process_seed_file(self, db: AsyncSession, seed_path: Path, force: bool = False) -> dict:
         raw = json.loads(seed_path.read_text())
         pack_name: str = raw["info"]["name"]
         seed_version: str = raw.get("_seed", {}).get("version", "unknown")
@@ -85,12 +85,12 @@ class IconSeeder:
 
         if existing is not None:
             # Check if pack was seeded and version matches by checking description
-            if existing.description and f"[seed:{seed_version}]" in existing.description:
+            if not force and existing.description and f"[seed:{seed_version}]" in existing.description:
                 logger.debug("Pack '%s' already at seed version %s — skipping", pack_name, seed_version)
                 return {"pack": pack_name, "version": seed_version, "action": "skipped", "reason": "up_to_date"}
 
-            # Pack exists but is outdated or was manually created — only update seeded packs
-            if existing.description and "[seed:" in existing.description:
+            # Pack exists — delete and reinstall (force or outdated seeded pack)
+            if force or (existing.description and "[seed:" in existing.description):
                 new_keys = set(raw.get("icons", {}).keys())
                 await self._check_icon_compatibility(db, existing, new_keys, seed_version)
                 await db.delete(existing)
@@ -178,7 +178,10 @@ class IconSeeder:
 
         # Broadcast a general update notification to all users
         try:
-            await self._broadcast_pack_updated(db, pack.name, new_version, len(added), len(removed))
+            await self._broadcast_pack_updated(
+                db, pack.name, new_version, len(added), len(removed),
+                added_keys=added or None, removed_keys=removed or None,
+            )
         except Exception:
             logger.exception("Failed to broadcast pack update notification for '%s'", pack.name)
 
@@ -268,6 +271,17 @@ class IconSeeder:
             if len(broken) > 10:
                 broken_list += f" (+{len(broken) - 10} more)"
 
+            # Build markdown detail listing all broken icons
+            detail_lines = [
+                f"## Icon Pack '{pack_name}' — Removed Icons\n",
+                f"Updated to **v{new_version}**. "
+                f"**{len(broken)}** icon(s) referenced in **{impact['doc_count']}** "
+                f"of your document(s) have been removed.\n",
+                "### Removed Icons\n",
+            ]
+            for icon_key in sorted(broken):
+                detail_lines.append(f"- `{pack_name}:{icon_key}`")
+
             await create_notification(
                 db=db,
                 user_id=user_id,
@@ -278,6 +292,7 @@ class IconSeeder:
                     f"Affected documents ({impact['doc_count']}) may show broken icon references."
                 ),
                 category="warning",
+                detail="\n".join(detail_lines),
             )
             notified_count += 1
 
@@ -329,6 +344,18 @@ class IconSeeder:
             broken_list = ", ".join(sorted(broken)[:10])
             if len(broken) > 10:
                 broken_list += f" (+{len(broken) - 10} more)"
+
+            # Build markdown detail listing all broken icons
+            detail_lines = [
+                f"## Icon Pack '{pack_name}' — Removed Icons\n",
+                f"Updated to **v{new_version}**. "
+                f"**{len(broken)}** icon(s) referenced in **{impact['doc_count']}** "
+                f"of your document(s) have been removed.\n",
+                "### Removed Icons\n",
+            ]
+            for icon_key in sorted(broken):
+                detail_lines.append(f"- `{pack_name}:{icon_key}`")
+
             await create_notification(
                 db=db,
                 user_id=user_id,
@@ -339,6 +366,7 @@ class IconSeeder:
                     f"Affected documents ({impact['doc_count']}) may show broken icon references."
                 ),
                 category="warning",
+                detail="\n".join(detail_lines),
             )
             notified_count += 1
 
@@ -350,7 +378,9 @@ class IconSeeder:
             )
 
     async def _broadcast_pack_updated(
-        self, db: AsyncSession, pack_name: str, new_version: str, added: int, removed: int
+        self, db: AsyncSession, pack_name: str, new_version: str,
+        added: int, removed: int,
+        added_keys: Set[str] | None = None, removed_keys: Set[str] | None = None,
     ) -> None:
         """Send a general notification to all users that a pack was updated."""
         from app.routers.notifications import broadcast_notification
@@ -361,11 +391,27 @@ class IconSeeder:
         if removed:
             parts.append(f"{removed} icon(s) removed.")
 
+        # Build markdown detail with full icon lists
+        detail = None
+        if added_keys or removed_keys:
+            detail_lines = [f"## Icon Pack Update: {pack_name} v{new_version}\n"]
+            if removed_keys:
+                detail_lines.append(f"### Removed Icons ({len(removed_keys)})\n")
+                for key in sorted(removed_keys):
+                    detail_lines.append(f"- `{pack_name}:{key}`")
+                detail_lines.append("")
+            if added_keys:
+                detail_lines.append(f"### Added Icons ({len(added_keys)})\n")
+                for key in sorted(added_keys):
+                    detail_lines.append(f"- `{pack_name}:{key}`")
+            detail = "\n".join(detail_lines)
+
         count = await broadcast_notification(
             db=db,
             title=f"Icon pack updated: {pack_name} v{new_version}",
             message=" ".join(parts),
             category="info" if not removed else "warning",
+            detail=detail,
         )
         await db.commit()
         logger.info("Broadcast pack update notification to %d user(s)", count)

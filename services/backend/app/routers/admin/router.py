@@ -12,7 +12,7 @@ Provides a consistent admin API structure with proper authentication.
 
 from fastapi import APIRouter
 
-from . import users, icons, github, system
+from . import users, icons, github, system, notifications
 
 # Create main admin router with prefix
 router = APIRouter(prefix="/admin")
@@ -22,3 +22,4 @@ router.include_router(users.router, prefix="/users", tags=["Admin - Users"])
 router.include_router(icons.router, prefix="/icons", tags=["Admin - Icons"])
 router.include_router(github.router, prefix="/github", tags=["Admin - GitHub"])
 router.include_router(system.router, prefix="/system", tags=["Admin - System"])
+router.include_router(notifications.router, prefix="/notifications", tags=["Admin - Notifications"])

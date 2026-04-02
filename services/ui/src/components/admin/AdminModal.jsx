@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import AdminStorageTab from './AdminStorageTab';
 import AdminAITab from './AdminAITab';
 import UserManagementTab from './UserManagementTab';
+import AdminNotificationsTab from './AdminNotificationsTab';
 
 function AdminModal({ show, onHide }) {
   const [activeTab, setActiveTab] = useState('users');
@@ -49,6 +50,12 @@ function AdminModal({ show, onHide }) {
                 AI &amp; Embeddings
               </Nav.Link>
             </Nav.Item>
+            <Nav.Item>
+              <Nav.Link eventKey="notifications">
+                <i className="bi bi-megaphone me-2"></i>
+                Notifications
+              </Nav.Link>
+            </Nav.Item>
           </Nav>
 
           <Tab.Content className="tab-content">
@@ -60,6 +67,9 @@ function AdminModal({ show, onHide }) {
             </Tab.Pane>
             <Tab.Pane eventKey="ai" className="tab-pane">
               <AdminAITab />
+            </Tab.Pane>
+            <Tab.Pane eventKey="notifications" className="tab-pane">
+              <AdminNotificationsTab />
             </Tab.Pane>
           </Tab.Content>
         </Tab.Container>

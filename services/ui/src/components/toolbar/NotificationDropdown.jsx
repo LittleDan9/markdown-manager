@@ -13,6 +13,7 @@ function NotificationDropdown({
   onMarkAllRead,
   onDelete,
   onClearAll,
+  onViewDetail,
 }) {
   const [show, setShow] = useState(false);
 
@@ -77,6 +78,7 @@ function NotificationDropdown({
               notification={n}
               onMarkRead={onMarkRead}
               onDelete={onDelete}
+              onViewDetail={onViewDetail}
             />
           ))
         )}
@@ -85,7 +87,7 @@ function NotificationDropdown({
   );
 }
 
-function NotificationItem({ notification, onMarkRead, onDelete }) {
+function NotificationItem({ notification, onMarkRead, onDelete, onViewDetail }) {
   const categoryIcons = {
     info: 'bi-info-circle text-info',
     success: 'bi-check-circle text-success',
@@ -96,10 +98,18 @@ function NotificationItem({ notification, onMarkRead, onDelete }) {
   const icon = categoryIcons[notification.category] || categoryIcons.info;
   const timeAgo = formatDistanceToNow(new Date(notification.created_at), { addSuffix: true });
 
+  const handleClick = () => {
+    if (notification.has_detail && onViewDetail) {
+      onViewDetail(notification);
+    } else if (!notification.is_read) {
+      onMarkRead(notification.id);
+    }
+  };
+
   return (
     <div
-      className={`d-flex align-items-start gap-2 px-3 py-2 notification-item ${!notification.is_read ? 'notification-item--unread' : ''}`}
-      onClick={() => !notification.is_read && onMarkRead(notification.id)}
+      className={`d-flex align-items-start gap-2 px-3 py-2 notification-item ${!notification.is_read ? 'notification-item--unread' : ''} ${notification.has_detail ? 'notification-item--expandable' : ''}`}
+      onClick={handleClick}
     >
       <i className={`bi ${icon} mt-1`} />
       <div className="flex-grow-1" style={{ minWidth: 0 }}>
@@ -116,7 +126,15 @@ function NotificationItem({ notification, onMarkRead, onDelete }) {
           </button>
         </div>
         <div className="small notification-message">{notification.message}</div>
-        <div className="small notification-time">{timeAgo}</div>
+        <div className="d-flex justify-content-between align-items-center">
+          <div className="small notification-time">{timeAgo}</div>
+          {notification.has_detail && (
+            <span className="small notification-detail-hint">
+              <i className="bi bi-arrow-up-right-square me-1" />
+              Details
+            </span>
+          )}
+        </div>
       </div>
       {!notification.is_read && (
         <span className="badge rounded-pill bg-primary" style={{ width: 8, height: 8, padding: 0, marginTop: 6 }}>&nbsp;</span>
@@ -132,12 +150,14 @@ NotificationDropdown.propTypes = {
   onMarkAllRead: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
   onClearAll: PropTypes.func.isRequired,
+  onViewDetail: PropTypes.func,
 };
 
 NotificationItem.propTypes = {
   notification: PropTypes.object.isRequired,
   onMarkRead: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onViewDetail: PropTypes.func,
 };
 
 export default NotificationDropdown;
