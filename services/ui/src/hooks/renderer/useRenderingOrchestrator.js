@@ -376,8 +376,12 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       immediate = false
     } = options;
 
-    // Performance guard: Skip if content and theme haven't changed (except for content changes which should always render)
+    // Performance guard: Skip if content and theme haven't changed
+    // Always allow content-change, document-change, and initial-render to proceed
+    // This prevents stale previews when switching between documents with identical content
     if (reason !== 'content-change' &&
+        reason !== 'document-change' &&
+        reason !== 'initial-render' &&
         content === lastProcessedContentRef.current &&
         theme === lastProcessedThemeRef.current) {
       debug(`⏭️ Skipping render - no changes detected (${reason})`);

@@ -17,6 +17,7 @@ export default function useEditor({
   value,
   onChange,
   onCursorLineChange,
+  documentId,
   enableSpellCheck = true,
   enableMarkdownLint = true,
   enableKeyboardShortcuts = true,
@@ -61,7 +62,8 @@ export default function useEditor({
     containerRef,
     value: value || '', // Provide default empty string if value is not passed
     onChange, // Pass onChange callback normally
-    onCursorLineChange
+    onCursorLineChange,
+    documentId
   });
 
   // Spell check functionality with Phase 5 settings

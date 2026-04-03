@@ -25,12 +25,21 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const lastLoadedDocumentRef = useRef(null);
   const lastLoadTimeRef = useRef(0);
 
+  // Tracks the latest currentDocument.id to guard against stale closure writes
+  // in saveDocument (which captures currentDocument by value in useCallback).
+  const currentDocumentIdRef = useRef(null);
+
   // Notification helpers
   const notificationRef = useRef();
   notificationRef.current = notification;
   const showWarning = useCallback((msg) => notificationRef.current.showWarning(msg), []);
   const showSuccess = useCallback((msg) => notificationRef.current.showSuccess(msg), []);
   const showError = useCallback((msg) => notificationRef.current.showError(msg), []);
+
+  // Keep currentDocumentIdRef in sync with currentDocument.id
+  useEffect(() => {
+    currentDocumentIdRef.current = currentDocument?.id ?? null;
+  }, [currentDocument?.id]);
 
   // --- MIGRATION LOGIC ---
   const migrateLocalDocuments = useCallback(async () => {
@@ -477,15 +486,19 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         saved.category !== currentDocument.category ||
         saved.updated_at !== currentDocument.updated_at;
 
-      if (documentChanged) {
+      // Guard: only write back to state if the user is still viewing the document
+      // that was saved. A slow-resolving save should not overwrite a freshly loaded doc.
+      const isStillCurrentDocument = saved.id === currentDocumentIdRef.current;
+
+      if (documentChanged && isStillCurrentDocument) {
         setCurrentDocument(saved);
       }
 
-      if (contentChanged && saved.id === currentDocument.id) {
+      if (contentChanged && isStillCurrentDocument) {
         setContent(saved.content);
       }
 
-      if (documentChanged) {
+      if (documentChanged && isStillCurrentDocument) {
         await updateCurrentDocument(saved);
       }
 

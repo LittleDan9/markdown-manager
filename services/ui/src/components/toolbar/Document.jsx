@@ -60,7 +60,8 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
 
   // Tracks a user-initiated category selection that hasn't yet been reflected
   // in currentDocument.category (i.e. the save is still in-flight).
-  // Cleared only when currentDocument.category catches up, not on a timer.
+  // Stores { category, documentId } so the guard is scoped to the document being saved.
+  // Cleared when currentDocument.category catches up, or when the user switches documents.
   const pendingCategoryRef = useRef(null);
 
   // Save document immediately when changing category (only for local files)
@@ -70,7 +71,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
       return;
     }
 
-    pendingCategoryRef.current = category;
+    pendingCategoryRef.current = { category, documentId: currentDocument?.id };
     setCurrentCategory(category);
     try {
       const updatedDoc = { ...currentDocument, category };
@@ -92,15 +93,21 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }
 
     if (currentDocument && currentDocument.category) {
-      // If a user-initiated category change is pending, check if the document
-      // has caught up to the pending value before allowing sync
+      // If a user-initiated category change is pending, check whether the
+      // pending change is still relevant for the current document
       if (pendingCategoryRef.current !== null) {
-        if (currentDocument.category === pendingCategoryRef.current) {
-          // Document state now reflects the user's selection — clear the pending flag
+        if (currentDocument.id !== pendingCategoryRef.current.documentId) {
+          // User switched to a different document — pending change is irrelevant.
+          // Clear it and fall through to sync from the new document's category.
           pendingCategoryRef.current = null;
+        } else if (currentDocument.category === pendingCategoryRef.current.category) {
+          // Save completed for THIS document — category caught up, clear pending
+          pendingCategoryRef.current = null;
+          return; // Optimistic value is already correct
+        } else {
+          // Still pending for this document — don't override the optimistic update
+          return;
         }
-        // Either way, don't override the optimistic currentCategory while pending
-        return;
       }
 
       // No pending change — sync dropdown from document state (external change)
