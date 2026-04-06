@@ -249,6 +249,16 @@ class DocumentStorageService {
     return null;
   }
 
+  dismissFromRecent(documentId) {
+    const docs = this._getStoredDocuments();
+    if (docs[documentId]) {
+      docs[documentId].last_opened_at = null;
+      this._setStoredDocuments(docs);
+      return docs[documentId];
+    }
+    return null;
+  }
+
   getRecentDocuments(limit = 6) {
     const docs = this.getAllDocuments();
     return docs

@@ -54,6 +54,7 @@ class User(BaseModel):
     # Tab display preferences
     tab_position: Mapped[str] = mapped_column(String(10), default="above", nullable=False)
     tab_sort_order: Mapped[str] = mapped_column(String(10), default="name", nullable=False)
+    recents_tab_limit: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
 
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

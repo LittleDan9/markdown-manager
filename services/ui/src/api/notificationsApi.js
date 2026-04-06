@@ -19,6 +19,11 @@ class NotificationsApi extends Api {
     return response.data;
   }
 
+  async getNotification(notificationId) {
+    const response = await this.apiCall(`/notifications/${notificationId}`);
+    return response.data;
+  }
+
   async markRead(notificationId) {
     const response = await this.apiCall(`/notifications/${notificationId}/read`, 'PATCH');
     return response.data;

@@ -146,6 +146,7 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
   const { editor, spellCheck, markdownLint, runSpellCheck, runMarkdownLint } = useEditor({
     containerRef,
     value, // RE-ENABLED: Reconnect value prop
+    documentId: currentDocument?.id,
     onChange: handleContentChange,
     onCursorLineChange: debouncedLineChange,
     enableSpellCheck: true, // ENABLED: Turn on spell check

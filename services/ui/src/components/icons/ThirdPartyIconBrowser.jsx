@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Card,
   Form,
@@ -45,24 +45,9 @@ export default function ThirdPartyIconBrowser({
 
   const { showSuccess, showError } = useNotification();
 
-  // Add styles for proper icon scaling
-  useEffect(() => {
-    const style = document.createElement('style');
-    style.textContent = `
-      .icon-svg-container svg {
-        max-width: 100% !important;
-        max-height: 100% !important;
-        width: auto !important;
-        height: auto !important;
-        display: block !important;
-      }
-    `;
-    document.head.appendChild(style);
-
-    return () => {
-      document.head.removeChild(style);
-    };
-  }, []);
+  // AbortController refs for cancelling stale requests
+  const collectionsAbortRef = useRef(null);
+  const iconsAbortRef = useRef(null);
 
   // Fetch available sources
   const fetchSources = useCallback(async () => {
@@ -88,9 +73,15 @@ export default function ThirdPartyIconBrowser({
 
   // Fetch collections
   const fetchCollections = useCallback(async (query = '', category = '') => {
+    // Cancel any in-flight request
+    if (collectionsAbortRef.current) collectionsAbortRef.current.abort();
+    const controller = new AbortController();
+    collectionsAbortRef.current = controller;
+
     setLoading(true);
     try {
       const data = await iconsApi.getThirdPartyCollections(selectedSource, query, category);
+      if (controller.signal.aborted) return;
 
       if (data.success) {
         setCollections(Object.entries(data.data.collections).map(([prefix, info]) => ({
@@ -101,9 +92,10 @@ export default function ThirdPartyIconBrowser({
         throw new Error(data.message || 'Failed to fetch collections');
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       showError(`Failed to load collections: ${error.message}`);
     } finally {
-      setLoading(false);
+      if (!controller.signal.aborted) setLoading(false);
     }
   }, [selectedSource, showError]);
 
@@ -126,9 +118,15 @@ export default function ThirdPartyIconBrowser({
   const fetchIcons = useCallback(async (prefix, page = 0, search = '', reset = false) => {
     if (!prefix) return;
 
+    // Cancel any in-flight icon request
+    if (iconsAbortRef.current) iconsAbortRef.current.abort();
+    const controller = new AbortController();
+    iconsAbortRef.current = controller;
+
     setIconsLoading(true);
     try {
       const data = await iconsApi.getThirdPartyIcons(selectedSource, prefix, page, search);
+      if (controller.signal.aborted) return;
 
       if (data.success) {
         const newIcons = data.data.icons;
@@ -139,9 +137,10 @@ export default function ThirdPartyIconBrowser({
         throw new Error(data.message || 'Failed to fetch icons');
       }
     } catch (error) {
+      if (controller.signal.aborted) return;
       showError(`Failed to load icons: ${error.message}`);
     } finally {
-      setIconsLoading(false);
+      if (!controller.signal.aborted) setIconsLoading(false);
     }
   }, [selectedSource, showError]);
 
@@ -214,6 +213,11 @@ export default function ThirdPartyIconBrowser({
   // Initialize
   useEffect(() => {
     fetchSources();
+    return () => {
+      // Cancel in-flight requests on unmount
+      if (collectionsAbortRef.current) collectionsAbortRef.current.abort();
+      if (iconsAbortRef.current) iconsAbortRef.current.abort();
+    };
   }, [fetchSources]);
 
   // Load collections when source changes
@@ -312,11 +316,27 @@ export default function ThirdPartyIconBrowser({
   return (
     <>
       <div className="third-party-icon-browser">
+        {/* Section Heading */}
+        <div className="d-flex align-items-center justify-content-between mb-3">
+          <h6 className="mb-0 fw-semibold">
+            <i className="bi bi-globe2 me-2" />
+            Third-Party Icon Browser
+          </h6>
+          {selectedCollection && selectedIcons.size > 0 && (
+            <Badge bg="primary">{selectedIcons.size} selected</Badge>
+          )}
+        </div>
+
         <div className="browser-layout">
           {/* Collections Panel */}
           <div className="collections-panel">
             <div className="collections-panel-header">
-              <h6>Third-Party Icon Sources</h6>
+              <div className="d-flex justify-content-between align-items-center mb-2">
+                <h6 className="mb-0 fw-semibold">
+                  <i className="bi bi-collection me-2" />Collections
+                </h6>
+                <Badge bg="secondary">{collections.length}</Badge>
+              </div>
 
               {/* Source Selector */}
               <Form.Select
@@ -413,9 +433,11 @@ export default function ThirdPartyIconBrowser({
                 <div className="icons-panel-header">
                   <div className="d-flex justify-content-between align-items-center">
                     <div>
-                      <h6 className="mb-0">{selectedCollection.name}</h6>
-                      <small className="text-muted">
-                        {selectedIcons.size} selected of {icons.length} loaded
+                      <h6 className="mb-0 fw-semibold">{selectedCollection.name}</h6>
+                      <small className="text-muted mt-1 d-block">
+                        {selectedIcons.size > 0
+                          ? `${selectedIcons.size} selected of ${icons.length} loaded`
+                          : `${icons.length} icons loaded`}
                       </small>
                     </div>
                     <div>
@@ -557,9 +579,10 @@ export default function ThirdPartyIconBrowser({
               </>
             ) : (
               <div className="empty-state-panel">
-                <div>
+                <div className="text-center">
+                  <i className="bi bi-arrow-left-circle display-4 text-muted mb-3 d-block opacity-50" />
                   <h6>Select a Collection</h6>
-                  <p className="text-muted">
+                  <p className="text-muted mb-0">
                     Choose an icon collection from the left to browse and install icons
                   </p>
                 </div>

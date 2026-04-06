@@ -11,7 +11,7 @@ import { useTheme } from '@/providers/ThemeProvider';
  *   - onCursorLineChange: callback for cursor line changes
  * @returns {Object} { editor, isTyping, markAsTyping }
  */
-export default function useEditorCore({ containerRef, value, onChange, onCursorLineChange }) {
+export default function useEditorCore({ containerRef, value, onChange, onCursorLineChange, documentId }) {
   const { theme } = useTheme();
   const editorRef = useRef(null);
   const [editor, setEditor] = useState(null); // Use state for ready editor
@@ -19,6 +19,7 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
   const onChangeRef = useRef(onChange);
   const isSettingValueRef = useRef(false); // Track when WE are setting the value
   const lastChangeSourceRef = useRef('external'); // Track source of last change: 'editor' or 'external'
+  const lastDocumentIdRef = useRef(documentId); // Track document ID for same-content switches
 
   // Keep onChange ref up to date without causing re-renders
   onChangeRef.current = onChange;
@@ -86,9 +87,16 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     const editor = editorRef.current;
     if (!editor) return;
 
+    // Detect document switch: if documentId changed, force a reset even if content is identical
+    const isDocumentSwitch = documentId !== lastDocumentIdRef.current;
+    if (isDocumentSwitch) {
+      lastDocumentIdRef.current = documentId;
+    }
+
     // If the last change came from the editor itself, ignore this value prop change
     // This prevents circular updates during typing
-    if (lastChangeSourceRef.current === 'editor') {
+    // But always allow document switches through — the user explicitly changed documents
+    if (lastChangeSourceRef.current === 'editor' && !isDocumentSwitch) {
       console.log('🔄 Ignoring value prop change - originated from editor');
       lastChangeSourceRef.current = 'external'; // Reset for next change
       return;
@@ -101,21 +109,25 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
       incomingLength: value?.length || 0,
       currentLength: currentEditorValue?.length || 0,
       areEqual: value === currentEditorValue,
+      isDocumentSwitch,
+      documentId,
       source: lastChangeSourceRef.current,
       timestamp: Date.now()
     });
 
-    // Check for exact equality first
-    if (value === currentEditorValue) {
+    // Check for exact equality first — but always update on document switch
+    // to reset undo history and cursor position for the new document
+    if (value === currentEditorValue && !isDocumentSwitch) {
       lastEditorValue.current = value;
       console.log('✅ Values are equal, skipping update');
       return;
     }
 
     // Check if this is just a minor difference (like trailing newline)
+    // But always update on document switch
     const valueTrimmed = value?.trim();
     const currentTrimmed = currentEditorValue?.trim();
-    if (valueTrimmed === currentTrimmed) {
+    if (valueTrimmed === currentTrimmed && !isDocumentSwitch) {
       console.log('⚠️ Values differ only in whitespace, skipping update');
       lastEditorValue.current = value;
       return;
@@ -124,7 +136,8 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
     // This is a legitimate external change (document switch, import, etc.)
     console.log('🚨 LEGITIMATE EXTERNAL CHANGE detected, updating editor:', {
       incomingLength: value?.length || 0,
-      currentLength: currentEditorValue?.length || 0
+      currentLength: currentEditorValue?.length || 0,
+      isDocumentSwitch
     });
 
     // Mark that we're setting the value to prevent onChange loop
@@ -147,7 +160,7 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
 
     // For external changes, we don't restore position - let Monaco handle cursor placement
     // The user expects the cursor to go to a reasonable position for the new content
-  }, [value]);
+  }, [value, documentId]);
 
   return {
     editor // Return state-based editor (null until ready)

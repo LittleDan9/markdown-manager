@@ -12,7 +12,7 @@ from app.schemas.icon_schemas import (
 
 from .base import BaseIconService
 from .cache import IconCache
-from .installer import IconPackInstaller
+from .installer import StandardizedIconPackInstaller
 from .metadata import IconMetadataService
 from .search import IconSearchService
 from .pack_management import IconPackService

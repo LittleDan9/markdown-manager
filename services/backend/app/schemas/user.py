@@ -34,6 +34,7 @@ class UserUpdate(BaseModel):
     editor_width_percentage: Optional[int] = Field(None, ge=10, le=90)
     tab_position: Optional[str] = Field(None, pattern="^(above|below)$")
     tab_sort_order: Optional[str] = Field(None, pattern="^(name|created|modified)$")
+    recents_tab_limit: Optional[int] = Field(None, ge=1, le=25)
 
 
 class UserUpdatePassword(BaseModel):
@@ -79,6 +80,7 @@ class UserResponse(UserBase):
     editor_width_percentage: int
     tab_position: str
     tab_sort_order: str
+    recents_tab_limit: int
     current_doc_id: Optional[int] = None
     current_document: Optional["Document"] = None  # Should match Document schema
 

@@ -15,17 +15,11 @@ export default function IconManagementModal({ show, onHide }) {
   const [dropdownPackNames, setDropdownPackNames] = useState([]); // Pack names shown in dropdown
   const [loading, setLoading] = useState(false);
   const [dataLoaded, setDataLoaded] = useState(false); // Track if we've loaded data for this session
+  const [previewPack, setPreviewPack] = useState(null);
 
   const loadAllData = useCallback(async () => {
-    // Load data sequentially to avoid hitting rate limits
-    // Start with the most critical data first
     try {
-      await loadIconPacks();
-      // Small delay to avoid overwhelming the server
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await loadCategories();
-      await new Promise(resolve => setTimeout(resolve, 100));
-      await loadPackNames();
+      await Promise.all([loadIconPacks(), loadCategories(), loadPackNames()]);
     } catch (error) {
       console.error('Error loading icon management data:', error);
     }
@@ -96,8 +90,14 @@ export default function IconManagementModal({ show, onHide }) {
     setDropdownPackNames(updatedDropdownPackNames);
   };
 
+  const handlePreviewPack = (packName) => {
+    setPreviewPack(packName);
+    setActiveTab('installed');
+  };
+
   const handleClose = () => {
     setActiveTab('stats');
+    setPreviewPack(null);
     onHide();
   };
 
@@ -107,8 +107,8 @@ export default function IconManagementModal({ show, onHide }) {
       onHide={handleClose}
       size="xl"
       centered
-      className="icon-management-modal"
-      style={{ height: '90vh' }}
+      scrollable
+      dialogClassName="icon-management-modal"
     >
       <Modal.Header closeButton>
         <Modal.Title>
@@ -116,9 +116,9 @@ export default function IconManagementModal({ show, onHide }) {
           Icon Management
         </Modal.Title>
       </Modal.Header>
-      <Modal.Body className="d-flex flex-column" style={{ height: 'calc(90vh - 120px)', padding: 0 }}>
-        <Tab.Container activeKey={activeTab} onSelect={setActiveTab} className="tab-container h-100 d-flex flex-column">
-          <Nav variant="tabs" className="mb-0 flex-shrink-0" style={{ position: 'sticky', top: 0, backgroundColor: 'var(--bs-body-bg)', zIndex: 10, padding: '1rem 1rem 0 1rem' }}>
+      <Modal.Body className="d-flex flex-column p-0">
+        <Tab.Container activeKey={activeTab} onSelect={setActiveTab}>
+          <Nav variant="tabs" className="mb-3">
             <Nav.Item>
               <Nav.Link eventKey="stats">
                 <i className="bi bi-speedometer2 me-2"></i>
@@ -145,28 +145,13 @@ export default function IconManagementModal({ show, onHide }) {
             </Nav.Item>
             <Nav.Item>
               <Nav.Link eventKey="browser">
-                <svg
-                  className="me-2"
-                  width="20"
-                  height="20"
-                  viewBox="0 0 48 48"
-                  fill="none"
-                  style={{ verticalAlign: 'text-top' }}
-                >
-                  <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M14 6v6"/>
-                  <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M10 16v22"/>
-                  <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M38 16v22M38 38H10"/>
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="m24 6 17 11"/>
-                  <path stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" d="M24 6 7 17"/>
-                  <path stroke="currentColor" strokeLinecap="round" strokeWidth="4" d="M24 25v16"/>
-                  <circle cx="24" cy="23" r="4" fill="currentColor"/>
-                </svg>
+                <i className="bi bi-globe2 me-2"></i>
                 Icon Browser
               </Nav.Link>
             </Nav.Item>
           </Nav>
 
-          <Tab.Content className="flex-grow-1 overflow-hidden" style={{ padding: '1rem' }}>
+          <Tab.Content className="flex-grow-1 overflow-hidden">
             {/* Statistics Tab */}
             <Tab.Pane eventKey="stats" className="h-100">
               <div className="h-100 overflow-auto">
@@ -177,14 +162,14 @@ export default function IconManagementModal({ show, onHide }) {
             {/* Icon Packs Tab */}
             <Tab.Pane eventKey="packs" className="h-100">
               <div className="h-100 overflow-auto">
-                <IconPacksTab iconPacks={iconPacks} onReloadData={handleReloadData} loading={loading} />
+                <IconPacksTab iconPacks={iconPacks} onReloadData={handleReloadData} loading={loading} onPreviewPack={handlePreviewPack} />
               </div>
             </Tab.Pane>
 
             {/* Installed Icons Tab */}
             <Tab.Pane eventKey="installed" className="h-100">
               <div className="h-100 overflow-auto">
-                <InstalledIconsTab iconPacks={iconPacks} onReloadData={handleReloadData} packsLoading={loading} />
+                <InstalledIconsTab iconPacks={iconPacks} onReloadData={handleReloadData} packsLoading={loading} initialPack={previewPack} />
               </div>
             </Tab.Pane>
 

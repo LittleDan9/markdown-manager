@@ -25,12 +25,21 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const lastLoadedDocumentRef = useRef(null);
   const lastLoadTimeRef = useRef(0);
 
+  // Tracks the latest currentDocument.id to guard against stale closure writes
+  // in saveDocument (which captures currentDocument by value in useCallback).
+  const currentDocumentIdRef = useRef(null);
+
   // Notification helpers
   const notificationRef = useRef();
   notificationRef.current = notification;
   const showWarning = useCallback((msg) => notificationRef.current.showWarning(msg), []);
   const showSuccess = useCallback((msg) => notificationRef.current.showSuccess(msg), []);
   const showError = useCallback((msg) => notificationRef.current.showError(msg), []);
+
+  // Keep currentDocumentIdRef in sync with currentDocument.id
+  useEffect(() => {
+    currentDocumentIdRef.current = currentDocument?.id ?? null;
+  }, [currentDocument?.id]);
 
   // --- MIGRATION LOGIC ---
   const migrateLocalDocuments = useCallback(async () => {
@@ -477,15 +486,19 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         saved.category !== currentDocument.category ||
         saved.updated_at !== currentDocument.updated_at;
 
-      if (documentChanged) {
+      // Guard: only write back to state if the user is still viewing the document
+      // that was saved. A slow-resolving save should not overwrite a freshly loaded doc.
+      const isStillCurrentDocument = saved.id === currentDocumentIdRef.current;
+
+      if (documentChanged && isStillCurrentDocument) {
         setCurrentDocument(saved);
       }
 
-      if (contentChanged && saved.id === currentDocument.id) {
+      if (contentChanged && isStillCurrentDocument) {
         setContent(saved.content);
       }
 
-      if (documentChanged) {
+      if (documentChanged && isStillCurrentDocument) {
         await updateCurrentDocument(saved);
       }
 
@@ -744,6 +757,41 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
   }, [isAuthenticated, token, loadDocument, showWarning, showError]);
 
+  // --- OPEN RECENTS ---
+  // Fetch recently opened documents and load the first one.
+  // Returns the list of recent docs so the caller can set up the sibling override.
+  const openRecents = useCallback(async (limit = 10) => {
+    setLoading(true);
+    try {
+      let recentDocs = [];
+
+      if (isAuthenticated && token) {
+        recentDocs = await documentsApi.getRecentDocuments(limit);
+      } else {
+        recentDocs = DocumentStorageService.getRecentLocalDocuments(limit);
+      }
+
+      if (recentDocs && recentDocs.length > 0) {
+        await loadDocument(recentDocs[0].id);
+        // Return lightweight sibling-shaped objects for the override
+        return recentDocs.map(d => ({
+          id: d.id,
+          name: d.name || d.title || 'Untitled',
+          created_at: d.created_at || new Date().toISOString(),
+          updated_at: d.updated_at || new Date().toISOString(),
+        }));
+      } else {
+        showWarning('No recently opened documents found');
+        return null;
+      }
+    } catch (error) {
+      showError(`Failed to load recent documents: ${error.message}`);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  }, [isAuthenticated, token, loadDocument, showWarning, showError]);
+
   return {
     migrationStatus, setMigrationStatus, hasSyncedOnMount, setHasSyncedOnMount,
     currentDocument, setCurrentDocument, content, setContent, documents, setDocuments,
@@ -751,6 +799,6 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     showWarning, showSuccess, showError,
     createDocument, loadDocument, saveDocument, deleteDocument, renameDocument,
     addCategory, deleteCategory, renameCategory, syncWithBackend, addDocumentToState,
-    exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges, openCategory
+    exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges, openCategory, openRecents
   };
 }

@@ -5,11 +5,14 @@ from typing import Dict, List
 import logging
 
 from ..base import IconProviderInterface
+from ..redis_cache import cache, TTL_CATEGORIES
 from .api import SvglApiClient
-from .cache import SvglCache
 from .svg_processor import SvgProcessor
 
 logger = logging.getLogger(__name__)
+
+_CACHE_CATEGORIES = "svgl:categories"
+_CACHE_SVGS = "svgl:all_svgs"
 
 
 class SvglCategoryBrowser(IconProviderInterface):
@@ -17,23 +20,21 @@ class SvglCategoryBrowser(IconProviderInterface):
     
     def __init__(self):
         self.api_client = SvglApiClient()
-        self.cache = SvglCache()
         self.svg_processor = SvgProcessor()
     
     async def get_categories(self, refresh: bool = False) -> List[Dict]:
         """Get all available SVGL categories with caching"""
         if not refresh:
-            cached = self.cache.get_categories()
+            cached = await cache.get(_CACHE_CATEGORIES)
             if cached:
                 return cached
         
         try:
             categories = await self.api_client.get_categories()
-            self.cache.set_categories(categories)
+            await cache.set(_CACHE_CATEGORIES, categories, TTL_CATEGORIES)
             return categories
-        except Exception as e:
-            # Return cached data if available, otherwise raise
-            cached = self.cache.get_categories()
+        except Exception:
+            cached = await cache.get(_CACHE_CATEGORIES)
             if cached:
                 logger.warning("Using cached categories data due to API error")
                 return cached
@@ -42,17 +43,16 @@ class SvglCategoryBrowser(IconProviderInterface):
     async def get_all_svgs(self, refresh: bool = False) -> List[Dict]:
         """Get all available SVGs with caching"""
         if not refresh:
-            cached = self.cache.get_svgs()
+            cached = await cache.get(_CACHE_SVGS)
             if cached:
                 return cached
         
         try:
             svgs = await self.api_client.get_all_svgs()
-            self.cache.set_svgs(svgs)
+            await cache.set(_CACHE_SVGS, svgs, TTL_CATEGORIES)
             return svgs
-        except Exception as e:
-            # Return cached data if available, otherwise raise
-            cached = self.cache.get_svgs()
+        except Exception:
+            cached = await cache.get(_CACHE_SVGS)
             if cached:
                 logger.warning("Using cached SVGs data due to API error")
                 return cached
@@ -189,30 +189,27 @@ class SvglCategoryBrowser(IconProviderInterface):
     
     async def _format_icons(self, svgs_data: List[Dict], category_name: str) -> List[Dict]:
         """Format SVG data into icon format for frontend"""
-        import httpx
-        
         formatted_icons = []
-        
-        async with httpx.AsyncClient(timeout=30) as client:
-            for svg_data in svgs_data:
-                svg_content = await self.api_client.get_svg_content(client, svg_data.get("route"))
 
-                if svg_content:
-                    icon_name = self.svg_processor.generate_icon_name(svg_data.get("title", ""))
+        for svg_data in svgs_data:
+            svg_content = await self.api_client.get_svg_content(svg_data.get("route"))
 
-                    formatted_icons.append({
-                        "name": icon_name,
-                        "full_name": f"svgl:{icon_name}",
-                        "title": svg_data.get("title", ""),
-                        "body": self.svg_processor.extract_body(svg_content),
-                        "width": 24,
-                        "height": 24,
-                        "viewBox": self.svg_processor.extract_viewbox(svg_content),
-                        "svg": svg_content,
-                        "brand_url": svg_data.get("url"),
-                        "category": category_name
-                    })
-        
+            if svg_content:
+                icon_name = self.svg_processor.generate_icon_name(svg_data.get("title", ""))
+
+                formatted_icons.append({
+                    "name": icon_name,
+                    "full_name": f"svgl:{icon_name}",
+                    "title": svg_data.get("title", ""),
+                    "body": self.svg_processor.extract_body(svg_content),
+                    "width": 24,
+                    "height": 24,
+                    "viewBox": self.svg_processor.extract_viewbox(svg_content),
+                    "svg": svg_content,
+                    "brand_url": svg_data.get("url"),
+                    "category": category_name
+                })
+
         return formatted_icons
     
     async def get_icon_data_for_install(self, prefix: str, icon_names: List[str]) -> Dict:
@@ -258,19 +255,17 @@ class SvglCategoryBrowser(IconProviderInterface):
             }
 
             # Fetch SVG content and process
-            import httpx
-            async with httpx.AsyncClient(timeout=30) as client:
-                for svg_data in selected_svgs:
-                    icon_name = self.svg_processor.generate_icon_name(svg_data.get("title", ""))
-                    svg_content = await self.api_client.get_svg_content(client, svg_data.get("route"))
+            for svg_data in selected_svgs:
+                icon_name = self.svg_processor.generate_icon_name(svg_data.get("title", ""))
+                svg_content = await self.api_client.get_svg_content(svg_data.get("route"))
 
-                    if svg_content:
-                        formatted_data["icons"][icon_name] = {
-                            "body": self.svg_processor.extract_body(svg_content),
-                            "width": 24,
-                            "height": 24,
-                            "viewBox": self.svg_processor.extract_viewbox(svg_content)
-                        }
+                if svg_content:
+                    formatted_data["icons"][icon_name] = {
+                        "body": self.svg_processor.extract_body(svg_content),
+                        "width": 24,
+                        "height": 24,
+                        "viewBox": self.svg_processor.extract_viewbox(svg_content)
+                    }
 
             return formatted_data
 
@@ -285,4 +280,4 @@ class SvglCategoryBrowser(IconProviderInterface):
     
     async def refresh_cache(self) -> None:
         """Refresh cache"""
-        self.cache.clear()
+        await cache.clear_prefix("svgl:")

@@ -8,7 +8,7 @@ import logging
 import traceback
 
 from ...database import get_db
-from ...services.standardized_icon_installer import StandardizedIconPackInstaller
+from ...services.icons.installer import StandardizedIconPackInstaller
 from ...schemas.icon_schemas import (
     IconPackResponse,
     IconPackInstallRequest,
@@ -19,6 +19,7 @@ from ...schemas.icon_schemas import (
 from ...services.icon_service import IconService
 from ...core.auth import get_admin_user
 from ...models.user import User
+from ...routers.notifications import broadcast_notification
 from .docs import ICON_PACKS_DOCS
 
 router = APIRouter(prefix="/packs", tags=["Icon Packs"])
@@ -61,11 +62,20 @@ async def get_icon_packs(
 async def install_icon_pack(
     pack_request: IconPackInstallRequest,
     current_user: User = Depends(get_admin_user),
-    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
+    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer),
+    db: AsyncSession = Depends(get_db),
 ):
     """Install a new icon pack in standardized Iconify format."""
     try:
-        return await installer.install_pack(pack_request.pack_data)
+        result = await installer.install_pack(pack_request.pack_data)
+        await broadcast_notification(
+            db,
+            title="New Icon Pack Installed",
+            message=f"'{result.display_name}' ({result.icon_count} icons) is now available.",
+            category="info",
+        )
+        await db.commit()
+        return result
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -82,11 +92,20 @@ async def update_icon_pack(
     pack_name: str,
     pack_request: IconPackInstallRequest,
     current_user: User = Depends(get_admin_user),
-    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer)
+    installer: StandardizedIconPackInstaller = Depends(get_standardized_installer),
+    db: AsyncSession = Depends(get_db),
 ):
     """Update an existing icon pack with new data in standardized Iconify format."""
     try:
-        return await installer.update_pack(pack_name, pack_request.pack_data)
+        result = await installer.update_pack(pack_name, pack_request.pack_data)
+        await broadcast_notification(
+            db,
+            title="Icon Pack Updated",
+            message=f"'{result.display_name}' has been updated ({result.icon_count} icons).",
+            category="info",
+        )
+        await db.commit()
+        return result
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:

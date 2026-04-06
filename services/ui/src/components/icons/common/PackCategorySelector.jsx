@@ -1,6 +1,23 @@
 import React, { useState } from 'react';
 import { Form, Button, Dropdown, Badge } from 'react-bootstrap';
 
+// Custom toggle that renders a styled div instead of a Bootstrap Button.
+// This avoids all Bootstrap button CSS and lets us style it as a form field.
+const FormSelectToggle = React.forwardRef(({ children, onClick, className, disabled }, ref) => (
+  <div
+    ref={ref}
+    className={`pack-selector-toggle ${className || ''} ${disabled ? 'disabled' : ''}`}
+    role="button"
+    tabIndex={disabled ? -1 : 0}
+    onClick={(e) => { e.preventDefault(); if (!disabled) onClick(e); }}
+    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); if (!disabled) onClick(e); } }}
+  >
+    <span className="pack-selector-toggle-text">{children}</span>
+    <span className="pack-selector-toggle-caret" />
+  </div>
+));
+FormSelectToggle.displayName = 'FormSelectToggle';
+
 /**
  * Reusable component for pack name and category selection
  * Used across icon management modals for consistent UX
@@ -98,13 +115,8 @@ export default function PackCategorySelector({
           {showPackNameDropdown && dropdownPackNames.length > 0 ? (
             <Dropdown>
               <Dropdown.Toggle
-                as="div"
+                as={FormSelectToggle}
                 id="packNameDropdown"
-                className="form-control d-flex justify-content-between align-items-center"
-                style={{
-                  cursor: 'pointer',
-                  userSelect: 'none',
-                }}
                 disabled={loading || disabled}
               >
                 {dropdownPackNames.length === 0
@@ -139,9 +151,8 @@ export default function PackCategorySelector({
                         <Dropdown.Divider />
                         <div className="px-1 py-2">
                           <div
-                            className="px-1 py-2"
+                            className="px-1 py-2 pack-selector-new-item-form"
                             autoComplete="off"
-                            style={{ minWidth: "200px" }}
                           >
                             <div className="input-group input-group-sm">
                               <Form.Control
@@ -207,21 +218,11 @@ export default function PackCategorySelector({
           {categoryRequired && ' *'}
         </Form.Label>
         
-        <Dropdown
-          style={{
-            border: 'var(--bs-border-width) solid var(--bs-border-color)',
-            borderRadius: 'var(--bs-border-radius)'
-          }}
-        >
+        <Dropdown className="pack-selector-category-dropdown">
           <Dropdown.Toggle
-            as="div"
+            as={FormSelectToggle}
             id="categoryDropdown"
-            className="form-control d-flex justify-content-between align-items-center"
-            style={{
-              cursor: 'pointer',
-              userSelect: 'none'
-            }}
-            disabled={loading || disabled || categories.length === 0}
+            disabled={loading || disabled}
           >
             {categories.length === 0
               ? 'No categories available'
@@ -252,9 +253,8 @@ export default function PackCategorySelector({
                     <Dropdown.Divider />
                     <div className="px-1 py-2">
                       <div
-                        className="px-1 py-2"
+                        className="px-1 py-2 pack-selector-new-item-form"
                         autoComplete="off"
-                        style={{ minWidth: "200px" }}
                         onSubmit={(e) => {
                           e.preventDefault();
                           if (!newCategory) return;

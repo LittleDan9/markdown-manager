@@ -19,6 +19,7 @@ class Notification(Base):
     category: Mapped[str] = mapped_column(String(50), nullable=False, default="info")  # info, success, warning, error
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     link: Mapped[str | None] = mapped_column(String(500), nullable=True)  # optional deep link
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)  # expandable markdown content
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), nullable=False)
 
     # Relationship

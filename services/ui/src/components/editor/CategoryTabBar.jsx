@@ -79,6 +79,24 @@ function CategoryTabBar({
     }
   }, []);
 
+  // Translate vertical mouse wheel into horizontal scroll when hovering over the tab bar
+  const handleWheel = useCallback((e) => {
+    const container = scrollRef.current;
+    if (!container) return;
+    // Only intercept if the container overflows horizontally
+    if (container.scrollWidth <= container.clientWidth) return;
+    e.preventDefault();
+    container.scrollLeft += e.deltaY;
+  }, []);
+
+  // Attach wheel handler as non-passive so preventDefault works
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    container.addEventListener('wheel', handleWheel, { passive: false });
+    return () => container.removeEventListener('wheel', handleWheel);
+  }, [handleWheel]);
+
   const startRename = useCallback((id, name) => {
     setEditingId(id);
     setEditValue(name);

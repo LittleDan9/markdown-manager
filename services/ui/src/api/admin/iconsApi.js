@@ -246,6 +246,30 @@ export class AdminIconsApi extends Api {
     const response = await this.apiCall('/admin/icons/analysis/cache/clear', 'DELETE');
     return response.data;
   }
+
+  // ============================================================================
+  // SEED MANAGEMENT
+  // ============================================================================
+
+  /**
+   * Get status of bundled seed packs (installed version, available version, etc.)
+   */
+  async getSeedStatus() {
+    const response = await this.apiCall('/admin/icons/seed/status', 'GET');
+    return response.data;
+  }
+
+  /**
+   * Run the icon seeder to update/install bundled seed packs
+   * @param {boolean} forceAll - When true, also adopt legacy admin-added packs
+   */
+  async runSeed(forceAll = false) {
+    const response = await this.apiCall(
+      `/admin/icons/seed/run?force_all=${forceAll}`,
+      'POST'
+    );
+    return response.data;
+  }
 }
 
 // Create singleton instance

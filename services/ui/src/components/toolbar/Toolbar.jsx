@@ -17,6 +17,7 @@ import SemanticSearch from "@/components/toolbar/SemanticSearch";
 import PresenceIndicator from "@/components/shared/PresenceIndicator";
 import usePresence from "@/hooks/ui/usePresence";
 import NotificationDropdown from "@/components/toolbar/NotificationDropdown";
+import NotificationDetailModal from "@/components/toolbar/NotificationDetailModal";
 import useNotifications from "@/hooks/ui/useNotifications";
 
 function Toolbar({
@@ -32,7 +33,7 @@ function Toolbar({
   const { user } = useAuth();
   const { isMobile } = useViewport();
   const { users: presenceUsers } = usePresence(currentDocument?.id || null);
-  const { notifications: notifList, unreadCount, markRead, markAllRead, deleteNotification, clearAll } = useNotifications();
+  const { notifications: notifList, unreadCount, markRead, markAllRead, deleteNotification, clearAll, fetchNotificationDetail } = useNotifications();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
   );
@@ -41,6 +42,9 @@ function Toolbar({
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showMobileUserMenu, setShowMobileUserMenu] = useState(false);
   const [collabOwnerName, setCollabOwnerName] = useState(null);
+  const [showNotificationDetail, setShowNotificationDetail] = useState(false);
+  const [selectedNotification, setSelectedNotification] = useState(null);
+  const [notificationDetailLoading, setNotificationDetailLoading] = useState(false);
 
   // Detect whether we're editing a shared (collab) document
   const isCollabDocument = !!(currentDocument?.user_id && user?.id && currentDocument.user_id !== user.id);
@@ -89,6 +93,15 @@ function Toolbar({
     if (!currentDocument || currentDocument.repository_type === 'github') return;
     await saveDocument({ ...currentDocument, category });
   }, [currentDocument, saveDocument]);
+
+  const handleViewNotificationDetail = useCallback(async (notification) => {
+    if (!notification.is_read) markRead(notification.id);
+    setNotificationDetailLoading(true);
+    setShowNotificationDetail(true);
+    const detail = await fetchNotificationDetail(notification.id);
+    setSelectedNotification(detail || notification);
+    setNotificationDetailLoading(false);
+  }, [markRead, fetchNotificationDetail]);
 
   return (
     <nav id="toolbar" className="navbar bg-body px-3">
@@ -251,6 +264,7 @@ function Toolbar({
               onMarkAllRead={markAllRead}
               onDelete={deleteNotification}
               onClearAll={clearAll}
+              onViewDetail={handleViewNotificationDetail}
             />
           )}
           <ActionButton
@@ -314,6 +328,14 @@ function Toolbar({
         onHide={() => setShowDocumentInfoModal(false)}
         document={currentDocument}
         gitStatus={null}
+      />
+
+      {/* Notification Detail Modal */}
+      <NotificationDetailModal
+        show={showNotificationDetail}
+        onHide={() => { setShowNotificationDetail(false); setSelectedNotification(null); }}
+        notification={selectedNotification}
+        loading={notificationDetailLoading}
       />
     </nav>
   );

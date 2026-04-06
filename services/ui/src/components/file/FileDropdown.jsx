@@ -30,7 +30,7 @@ function FileDropdown({ setDocumentTitle, setContent }) {
   const {
     createDocument, saveDocument, currentDocument,
     loadDocument, deleteDocument, isDefaultDoc, hasUnsavedChanges, content, previewHTML,
-    categories, openCategory
+    categories, openCategory, openRecents, clearSiblingOverride
   } = useDocumentContext();
   const { showSuccess, showError, showInfo } = useNotification();
   const { showFileModal, openFileModal } = useFileModal();
@@ -358,12 +358,21 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               <div className="mobile-menu-section-header">
                 <i className="bi bi-folder2-open me-2" />Open Category
               </div>
+              <button
+                type="button"
+                className="mobile-menu-item"
+                onClick={() => mobileAction(() => openRecents())}
+              >
+                <i className="bi bi-clock-history" />
+                <span>Recent</span>
+              </button>
+              <hr className="mobile-menu-divider" />
               {categories.map((cat) => (
                 <button
                   key={cat}
                   type="button"
                   className="mobile-menu-item"
-                  onClick={() => mobileAction(() => openCategory(cat))}
+                  onClick={() => mobileAction(() => { clearSiblingOverride(); openCategory(cat); })}
                 >
                   <i className={`bi ${cat === currentDocument?.category ? 'bi-folder-fill' : 'bi-folder'}`} />
                   <span>{cat}</span>
@@ -528,10 +537,23 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                     padding: '0.5rem 0'
                   }}
                 >
+                  <Dropdown.Item
+                    key="__recents__"
+                    onClick={() => {
+                      openRecents();
+                      setShowCategorySubmenu(false);
+                      closeDropdown();
+                    }}
+                  >
+                    <i className="bi bi-clock-history me-2"></i>
+                    Recent
+                  </Dropdown.Item>
+                  <Dropdown.Divider />
                   {categories.map((cat) => (
                     <Dropdown.Item
                       key={cat}
                       onClick={() => {
+                        clearSiblingOverride();
                         openCategory(cat);
                         setShowCategorySubmenu(false);
                         closeDropdown();

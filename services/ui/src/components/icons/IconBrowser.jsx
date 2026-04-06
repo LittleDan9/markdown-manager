@@ -239,8 +239,7 @@ export default function IconBrowser() {
   const renderSVG = useCallback((iconData) => {
     if (!iconData || !iconData.body) {
       return (
-        <div className="d-flex align-items-center justify-content-center border rounded bg-body-secondary"
-             style={{ width: 48, height: 48 }}>
+        <div className="d-flex align-items-center justify-content-center border rounded bg-body-secondary icon-browser-thumbnail">
           <small className="text-muted">?</small>
         </div>
       );
@@ -303,7 +302,7 @@ export default function IconBrowser() {
               <h2 className="mb-2">Icon Browser</h2>
               <p className="text-muted mb-0">Browse and copy icons for Mermaid diagrams</p>
             </div>
-            <div className="text-end" style={{ maxWidth: '50%' }}>
+            <div className="text-end icon-browser-badge-area">
               <div className="d-flex flex-wrap justify-content-end gap-2">
                 {/* <Badge bg="primary">{totalIconCount} Total Icons</Badge>
                 {iconService.getBadgeInfo().map(b => (
@@ -435,21 +434,18 @@ export default function IconBrowser() {
                     <div className="d-flex align-items-center mb-3">
                       {renderSVG(icon.iconData)}
                       <div className="ms-3 flex-grow-1">
-                        <h6 className="mb-1" style={{
-                          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 180
-                        }} title={icon.key}>
+                        <h6 className="mb-1 icon-browser-title" title={icon.key}>
                           {icon.key}
                         </h6>
                         <div className="mb-1">
                           <Badge
                             bg={iconService.getPackBadgeColor(icon.pack)}
-                            className="me-1"
-                            style={{ fontSize: '0.7rem' }}
+                            className="me-1 icon-browser-pack-label"
                           >
                             {icon.packDisplayName.length > 12 ? `${icon.packDisplayName.slice(0, 9)}…` : icon.packDisplayName}
                           </Badge>
                           {icon.category !== icon.pack && (
-                            <Badge bg="outline-secondary" className="small" style={{ fontSize: '0.65rem' }}>
+                            <Badge bg="outline-secondary" className="small icon-browser-badge-xs">
                               {icon.category}
                             </Badge>
                           )}
@@ -457,36 +453,32 @@ export default function IconBrowser() {
                       </div>
                       <div className="d-flex flex-column gap-1 ms-2">
                         <button
-                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
-                          style={{ width: 26, height: 26 }}
+                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center icon-browser-action-btn"
                           title="Download SVG"
                           onClick={() => downloadSvg(icon.iconData, icon.key)}
                         >
-                          <i className="bi bi-download" style={{ fontSize: '0.75rem' }}></i>
+                          <i className="bi bi-download"></i>
                         </button>
                         <button
-                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
-                          style={{ width: 26, height: 26 }}
+                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center icon-browser-action-btn"
                           title="Copy to clipboard"
                           onClick={() => copySvgToClipboard(icon.iconData)}
                         >
-                          <i className="bi bi-clipboard2" style={{ fontSize: '0.75rem' }}></i>
+                          <i className="bi bi-clipboard2"></i>
                         </button>
                         <button
-                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center"
-                          style={{ width: 26, height: 26 }}
+                          className="btn btn-outline-secondary btn-sm p-0 d-flex align-items-center justify-content-center icon-browser-action-btn"
                           title="Copy icon URL"
                           onClick={() => copyIconUrl(icon.pack, icon.key)}
                         >
-                          <i className="bi bi-link-45deg" style={{ fontSize: '0.75rem' }}></i>
+                          <i className="bi bi-link-45deg"></i>
                         </button>
                       </div>
                     </div>
 
                     <div className="mb-2">
                       <small className="text-muted">Mermaid Reference:</small>
-                      <div className="font-monospace small bg-body-tertiary p-2 rounded"
-                           style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      <div className="font-monospace small bg-body-tertiary p-2 rounded icon-browser-text-truncate"
                            title={icon.fullName}>
                         {icon.fullName}
                       </div>
@@ -494,8 +486,7 @@ export default function IconBrowser() {
 
                     <div className="mb-3">
                       <small className="text-muted">{DIAGRAM_TYPES[selectedDiagramType].label} Usage:</small>
-                      <div className="font-monospace small bg-body-tertiary p-2 rounded"
-                           style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                      <div className="font-monospace small bg-body-tertiary p-2 rounded icon-browser-text-truncate"
                            title={icon.usage}>
                         {icon.usage}
                       </div>

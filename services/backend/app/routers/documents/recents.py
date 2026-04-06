@@ -19,7 +19,7 @@ router = APIRouter()
 
 @router.get("/recent", response_model=List[Document])
 async def get_recent_documents(
-    limit: int = Query(6, ge=1, le=20, description="Number of recent documents to return"),
+    limit: int = Query(6, ge=1, le=25, description="Number of recent documents to return"),
     source: Optional[str] = Query(None, description="Filter by source: 'local' or 'github'"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db)
@@ -108,3 +108,20 @@ async def mark_document_opened(
         "message": "Document marked as opened",
         "last_opened_at": document.last_opened_at
     }
+
+
+@router.put("/{document_id}/dismiss-recent")
+async def dismiss_from_recent(
+    document_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """Dismiss a document from the recent list by clearing its last_opened_at timestamp."""
+    document = await document_crud.document.dismiss_from_recent(
+        db=db, document_id=document_id, user_id=current_user.id
+    )
+
+    if not document:
+        raise HTTPException(status_code=404, detail="Document not found")
+
+    return {"message": "Document dismissed from recents"}

@@ -54,6 +54,10 @@ export function AuthProvider({ children }) {
   const [tabSortOrder, setTabSortOrderState] = useState(() => {
     return localStorage.getItem("tabSortOrder") || "name";
   });
+  const [recentsTabLimit, setRecentsTabLimitState] = useState(() => {
+    const saved = localStorage.getItem("recentsTabLimit");
+    return saved ? parseInt(saved, 10) : 10;
+  });
 
   // Update auth state when service state changes
   const updateAuthState = useCallback(() => {
@@ -241,6 +245,12 @@ export function AuthProvider({ children }) {
     await AuthService.updateSetting('tabSortOrder', value);
   }, []);
 
+  const setRecentsTabLimit = useCallback(async (value) => {
+    const clamped = Math.max(1, Math.min(25, parseInt(value, 10) || 10));
+    setRecentsTabLimitState(clamped);
+    await AuthService.updateSetting('recentsTabLimit', clamped);
+  }, []);
+
   // Password reset API for modal
   const passwordResetApi = {
     request: requestPasswordReset,
@@ -282,6 +292,8 @@ export function AuthProvider({ children }) {
     setTabPosition,
     tabSortOrder,
     setTabSortOrder,
+    recentsTabLimit,
+    setRecentsTabLimit,
 
     // Modal controls
     showLoginModal,

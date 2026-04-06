@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { Card, Button, Modal, Form, Alert, Spinner, Row, Col } from 'react-bootstrap';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Button, Modal, Form, Alert, Spinner, Row, Col, Badge, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { adminIconsApi } from '../../../api/admin';
 import { useNotification } from '../../NotificationProvider';
 import ConfirmModal from '../../shared/modals/ConfirmModal';
 
-export default function IconPacksTab({ iconPacks, onReloadData, loading: initialLoading = false }) {
+export default function IconPacksTab({ iconPacks, onReloadData, loading: initialLoading = false, onPreviewPack }) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [editingPack, setEditingPack] = useState(null);
@@ -17,8 +17,50 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
   });
   const [loading, setLoading] = useState(false);
   const [keyChangeWarning, setKeyChangeWarning] = useState(false);
+  const [seedStatus, setSeedStatus] = useState(null);
+  const [seedLoading, setSeedLoading] = useState(false);
+  const [seedRunning, setSeedRunning] = useState(false);
+  const [showForceConfirm, setShowForceConfirm] = useState(false);
 
   const { showSuccess, showError } = useNotification();
+
+  const loadSeedStatus = useCallback(async () => {
+    setSeedLoading(true);
+    try {
+      const data = await adminIconsApi.getSeedStatus();
+      setSeedStatus(data);
+    } catch {
+      // Silently ignore — feature simply won't render
+      setSeedStatus(null);
+    } finally {
+      setSeedLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadSeedStatus();
+  }, [loadSeedStatus]);
+
+  const handleRunSeed = async (forceAll = false) => {
+    setSeedRunning(true);
+    setShowForceConfirm(false);
+    try {
+      const result = await adminIconsApi.runSeed(forceAll);
+      const installed = (result.packs || []).filter(p => p.action === 'installed');
+      if (installed.length > 0) {
+        const names = installed.map(p => p.pack).join(', ');
+        showSuccess(`Seeded ${installed.length} pack(s): ${names}`);
+        if (onReloadData) onReloadData();
+      } else {
+        showSuccess('All seed packs are already up to date.');
+      }
+      await loadSeedStatus();
+    } catch (error) {
+      showError(`Seed run failed: ${error.message}`);
+    } finally {
+      setSeedRunning(false);
+    }
+  };
 
   const handleEditPack = (pack) => {
     setEditingPack(pack);
@@ -102,15 +144,110 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
 
   return (
     <div className="icon-packs-tab">
+      {/* Section Heading */}
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <h6 className="mb-0 fw-semibold">
+          <i className="bi bi-collection me-2" />
+          Icon Packs
+          <Badge bg="primary" className="ms-2">{iconPacks.length}</Badge>
+        </h6>
+      </div>
+
+      {/* Seed Management */}
+      {seedStatus && seedStatus.packs && seedStatus.packs.length > 0 && (
+        <Card className="mb-3">
+          <Card.Header className="d-flex justify-content-between align-items-center">
+            <h6 className="mb-0 fw-semibold">
+              <i className="bi bi-arrow-repeat me-2"></i>
+              Seed Packs
+            </h6>
+            <div className="d-flex gap-2">
+              <OverlayTrigger
+                placement="top"
+                overlay={<Tooltip>Update packs already managed by the seeder</Tooltip>}
+              >
+                <Button
+                  variant="outline-primary"
+                  size="sm"
+                  onClick={() => handleRunSeed(false)}
+                  disabled={seedRunning}
+                >
+                  {seedRunning ? (
+                    <Spinner animation="border" size="sm" className="me-1" />
+                  ) : (
+                    <i className="bi bi-arrow-clockwise me-1"></i>
+                  )}
+                  Update
+                </Button>
+              </OverlayTrigger>
+              <OverlayTrigger
+                placement="top"
+                overlay={<Tooltip>Re-install all seed packs, including legacy admin-added ones</Tooltip>}
+              >
+                <Button
+                  variant="outline-warning"
+                  size="sm"
+                  onClick={() => setShowForceConfirm(true)}
+                  disabled={seedRunning}
+                >
+                  <i className="bi bi-lightning me-1"></i>
+                  Force Update All
+                </Button>
+              </OverlayTrigger>
+            </div>
+          </Card.Header>
+          <Card.Body>
+            {seedLoading ? (
+              <div className="text-center py-3">
+                <Spinner animation="border" size="sm" />
+              </div>
+            ) : (
+              <div className="d-flex flex-wrap gap-2">
+                {seedStatus.packs.map(pack => (
+                  <SeedPackBadge key={pack.name} pack={pack} />
+                ))}
+              </div>
+            )}
+          </Card.Body>
+        </Card>
+      )}
+
+      {/* Force Update Confirmation */}
+      <ConfirmModal
+        show={showForceConfirm}
+        onHide={() => setShowForceConfirm(false)}
+        onAction={(action) => {
+          if (action === 'force') handleRunSeed(true);
+          else setShowForceConfirm(false);
+        }}
+        title="Force Update All Seed Packs"
+        icon={<i className="bi bi-exclamation-triangle-fill text-warning me-2"></i>}
+        buttons={[
+          { text: 'Cancel', variant: 'secondary', action: 'cancel' },
+          { text: 'Force Update All', variant: 'warning', action: 'force' }
+        ]}
+      >
+        <p>
+          This will <strong>re-install all bundled seed packs</strong>, including
+          any that were originally added manually via the admin panel.
+        </p>
+        <Alert variant="info" className="small mb-0">
+          <i className="bi bi-info-circle me-1"></i>
+          Existing icons will be replaced with the bundled versions. Users will be
+          notified if any icons they reference are removed.
+        </Alert>
+      </ConfirmModal>
+
       {/* Icon Packs Management */}
-      <Card className="shadow-sm border-0">
-        <Card.Header className="bg-dark text-white border-0">
+      <Card>
+        <Card.Header className="d-flex justify-content-between align-items-center">
           <h6 className="mb-0 fw-semibold">
-            <i className="bi bi-collection me-2"></i>
-            Icon Packs ({iconPacks.length})
+            <i className="bi bi-grid-3x3 me-2"></i>
+            All Packs
           </h6>
+          <small className="text-muted">{iconPacks.length} pack{iconPacks.length !== 1 ? 's' : ''}</small>
         </Card.Header>
-        <Card.Body className="p-0">
+        <Card.Body>
           {initialLoading ? (
             <div className="loading-state text-center py-5">
               <Spinner animation="border" variant="primary" />
@@ -123,16 +260,15 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
               <p className="text-muted mb-0">Install some icon packs to get started with your icon library.</p>
             </div>
           ) : (
-            <div className="packs-scroll-container" style={{ maxHeight: '600px', overflowY: 'auto' }}>
-              <div className="p-4">
-                <Row className="g-3">
+            <div className="packs-scroll-container">
+              <Row className="g-3">
                   {iconPacks.map(pack => (
                     <Col key={pack.id} md={6} lg={4} xl={3}>
-                      <Card className="pack-card h-100 shadow-sm border-0">
-                        <Card.Header className="bg-body-secondary border-0 p-3">
+                      <Card className="pack-card h-100">
+                        <Card.Header className="p-3">
                           <div className="d-flex justify-content-between align-items-center">
                             <div className="pack-icon-display">
-                              <i className="bi bi-collection fs-4 text-primary"></i>
+                              <i className="bi bi-collection fs-4"></i>
                             </div>
                             <div className="pack-actions">
                               <Button
@@ -161,7 +297,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                           </h6>
                           <div className="pack-details">
                             <div className="d-flex justify-content-between align-items-center mb-2">
-                              <span className="badge bg-primary bg-opacity-10 text-primary">
+                              <span className="badge pack-category-badge">
                                 {pack.category}
                               </span>
                               <small className="text-muted">
@@ -170,7 +306,7 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                             </div>
                             <div className="pack-meta small text-muted">
                               <div className="mb-1">
-                                <strong>Key:</strong> <code className="bg-light px-1 rounded">{pack.name}</code>
+                                <strong>Key:</strong> <code className="bg-body-tertiary px-1 rounded">{pack.name}</code>
                               </div>
                               {pack.description && (
                                 <div className="pack-description text-truncate" title={pack.description}>
@@ -180,12 +316,12 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                             </div>
                           </div>
                         </Card.Body>
-                        <Card.Footer className="bg-transparent border-0 p-3 pt-0">
+                        <Card.Footer className="border-top p-3 pt-2">
                           <div className="d-grid">
                             <Button
                               variant="outline-primary"
                               size="sm"
-                              onClick={() => window.open(`/api/admin/icons/packs/${pack.name}/preview`, '_blank')}
+                              onClick={() => onPreviewPack?.(pack.name)}
                             >
                               <i className="bi bi-eye me-1"></i>
                               Preview Icons
@@ -196,7 +332,6 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
                     </Col>
                   ))}
                 </Row>
-              </div>
             </div>
           )}
         </Card.Body>
@@ -325,5 +460,43 @@ export default function IconPacksTab({ iconPacks, onReloadData, loading: initial
         </Modal.Footer>
       </Modal>
     </div>
+  );
+}
+
+const STATUS_CONFIG = {
+  up_to_date: { bg: 'success', label: 'Up to date' },
+  outdated: { bg: 'warning', label: 'Update available' },
+  not_installed: { bg: 'secondary', label: 'Not installed' },
+  legacy: { bg: 'info', label: 'Legacy' },
+  error: { bg: 'danger', label: 'Error' },
+};
+
+function SeedPackBadge({ pack }) {
+  const config = STATUS_CONFIG[pack.status] || STATUS_CONFIG.error;
+  const versionInfo = pack.status === 'outdated'
+    ? `${pack.installed_version} → ${pack.seed_version}`
+    : pack.seed_version || '';
+
+  return (
+    <OverlayTrigger
+      placement="top"
+      overlay={
+        <Tooltip>
+          {pack.display_name || pack.name}
+          {versionInfo ? ` (${versionInfo})` : ''}
+          {pack.seed_icon_count ? ` — ${pack.seed_icon_count} icons` : ''}
+        </Tooltip>
+      }
+    >
+      <Badge bg={config.bg} className="d-inline-flex align-items-center gap-1 py-2 px-2">
+        <span>{pack.name}</span>
+        <small className="opacity-75">
+          {pack.seed_version && `v${pack.seed_version}`}
+          {pack.status === 'outdated' && (
+            <i className="bi bi-arrow-up-circle-fill ms-1"></i>
+          )}
+        </small>
+      </Badge>
+    </OverlayTrigger>
   );
 }
