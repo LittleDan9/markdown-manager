@@ -3,7 +3,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Response, status
+from fastapi import APIRouter, BackgroundTasks, Cookie, Depends, HTTPException, Request, Response, status
 import jwt
 from jwt.exceptions import InvalidTokenError
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -195,12 +195,22 @@ async def login(
 
 @router.post("/refresh", response_model=Token)
 async def refresh_token(
+    request: Request,
     response: Response,
     background_tasks: BackgroundTasks,
     refresh_token: str = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Refresh access token using a valid refresh token (from cookie)."""
+    # Diagnostic logging for proxy/cookie debugging
+    forwarded_proto = request.headers.get("x-forwarded-proto", "missing")
+    cookie_header = request.headers.get("cookie", "")
+    cookie_count = len([c for c in cookie_header.split(";") if c.strip()]) if cookie_header else 0
+    logger.debug(
+        "Refresh attempt: scheme=%s, x-forwarded-proto=%s, cookies=%d, has_refresh_cookie=%s",
+        request.url.scheme, forwarded_proto, cookie_count, bool(refresh_token),
+    )
+
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate refresh token",

@@ -49,7 +49,15 @@ class AuthService {
     try {
       // Always try refresh token first - this ensures we get the latest auth state
       console.log('AuthService: Attempting refresh token');
-      const refreshResult = await UserAPI.refreshToken();
+      let refreshResult = await UserAPI.refreshToken();
+
+      // If refresh returned null but we were previously authenticated, retry once
+      // after a short delay — the backend may be restarting during a deployment
+      if (!refreshResult && localStorage.getItem('lastKnownAuthState') === 'authenticated') {
+        console.log('AuthService: Refresh returned null for previously authenticated user, retrying in 2s');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        refreshResult = await UserAPI.refreshToken();
+      }
 
       if (refreshResult && refreshResult.access_token) {
         console.log('AuthService: Refresh successful, validating user');
