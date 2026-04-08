@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
 import { Toast, ToastContainer } from "react-bootstrap";
+import notificationsApi from "@/api/notificationsApi";
 
 const NotificationContext = createContext();
 
@@ -7,31 +8,57 @@ export function useNotification() {
   return useContext(NotificationContext);
 }
 
+// Map toast variant types to backend notification categories
+const TOAST_TYPE_TO_CATEGORY = {
+  danger: 'error',
+  warning: 'warning',
+  success: 'success',
+  info: 'info',
+};
+
 export function NotificationProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
 
 
-  const showNotification = useCallback((message, type = "info", duration = 5000, details = null, errorType = null) => {
+  const showNotification = useCallback((message, type = "info", duration = 3000, details = null, errorType = null, { persist } = {}) => {
     // Log to console for debugging
     console.log(`[Notification] ${type}: ${message}`);
-    // Increase duration for warnings/errors
+    // Shorter durations now that important toasts persist to notification drawer
     let effectiveDuration = duration;
     if (type === "danger" || type === "warning") {
-      effectiveDuration = Math.max(duration, 10000);
+      effectiveDuration = Math.max(duration, 5000);
     }
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type, details, errorType }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, effectiveDuration);
+
+    // Bridge to persistent notification system:
+    // By default, persist danger/warning toasts. Callers can override with persist flag.
+    const shouldPersist = persist !== undefined ? persist : (type === "danger" || type === "warning");
+    if (shouldPersist) {
+      const category = TOAST_TYPE_TO_CATEGORY[type] || 'info';
+      notificationsApi.create({
+        title: 'Notification',
+        message,
+        category,
+        detail: details || null,
+      }).then(() => {
+        // Signal useNotifications to refresh immediately
+        window.dispatchEvent(new CustomEvent('notification-created'));
+      }).catch(() => {
+        // Fire-and-forget — don't disrupt UX if persist fails
+      });
+    }
   }, []);
 
   const contextValue = useMemo(() => ({
-    showSuccess: (msg, duration) => showNotification(msg, "success", duration),
-    showError: (msg, duration, details, errorType) => showNotification(msg, "danger", duration, details, errorType),
-    showWarning: (msg, duration, details, errorType) => showNotification(msg, "warning", duration, details, errorType),
-    showInfo: (msg, duration) => showNotification(msg, "info", duration),
+    showSuccess: (msg, duration, opts) => showNotification(msg, "success", duration, null, null, opts),
+    showError: (msg, duration, details, errorType, opts) => showNotification(msg, "danger", duration, details, errorType, opts),
+    showWarning: (msg, duration, details, errorType, opts) => showNotification(msg, "warning", duration, details, errorType, opts),
+    showInfo: (msg, duration, opts) => showNotification(msg, "info", duration, null, null, opts),
   }), [showNotification]);
 
   useEffect(() => {
@@ -62,7 +89,7 @@ export function NotificationProvider({ children }) {
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
-      <ToastContainer position="bottom-end" className="p-3" style={{ zIndex: 9999 }}>
+      <ToastContainer position="top-center" className="p-3" style={{ zIndex: 9999 }}>
         {toasts.map((toast) => {
           const defaultIcon = toast.type === "success" ? "bi-check-circle-fill" :
                              toast.type === "danger" ? "bi-exclamation-triangle-fill" :
@@ -77,7 +104,7 @@ export function NotificationProvider({ children }) {
               bg={toast.type}
               show={true}
               onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-              delay={toast.type === "danger" || toast.type === "warning" ? 10000 : 5000}
+              delay={toast.type === "danger" || toast.type === "warning" ? 5000 : 3000}
               autohide
             >
               <Toast.Header closeButton onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}>

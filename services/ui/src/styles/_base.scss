@@ -232,47 +232,50 @@ select:focus-visible {
   letter-spacing: 0.025em;
 }
 
-// Toast container styles
+// Toast container styles — brief confirmations (important toasts now persist to notification drawer)
 .toast-container {
-  // Position in bottom right corner
-  bottom: 20px !important;
-  right: 20px !important;
+  // Position in top center to avoid overlap with side drawers (chat, notifications)
+  top: 80px !important;
+  left: 50% !important;
+  transform: translateX(-50%);
+  bottom: auto !important;
+  right: auto !important;
 
   // Ensure toasts stack properly (newest on top)
   .toast {
     margin-bottom: 0.5rem;
-    min-width: 350px;
+    min-width: 320px;
 
     // Smooth animations for showing/hiding
     &.show {
-      animation: slideInRight 0.3s ease-out;
+      animation: slideInDown 0.25s ease-out;
     }
 
     &.hide {
-      animation: slideOutRight 0.3s ease-in;
+      animation: slideOutUp 0.2s ease-in;
     }
   }
 }
 
 // Toast animation keyframes
-@keyframes slideInRight {
+@keyframes slideInDown {
   from {
-    transform: translateX(100%);
+    transform: translateY(-100%);
     opacity: 0;
   }
   to {
-    transform: translateX(0);
+    transform: translateY(0);
     opacity: 1;
   }
 }
 
-@keyframes slideOutRight {
+@keyframes slideOutUp {
   from {
-    transform: translateX(0);
+    transform: translateY(0);
     opacity: 1;
   }
   to {
-    transform: translateX(100%);
+    transform: translateY(-100%);
     opacity: 0;
   }
 }

@@ -34,7 +34,10 @@ function Toolbar({
   const { user } = useAuth();
   const { isMobile } = useViewport();
   const { users: presenceUsers } = usePresence(currentDocument?.id || null);
-  const { openPopOut } = usePopOutPreview();
+  const { openPopOut } = usePopOutPreview({
+    previewHTML,
+    documentTitle: currentDocument?.name || 'Untitled Document',
+  });
   const { notifications: notifList, unreadCount, markRead, markAllRead, deleteNotification, clearAll, fetchNotificationDetail } = useNotifications();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
@@ -278,11 +281,7 @@ function Toolbar({
               disabled={!currentDocument?.id}
               onClick={(e) => {
                 e.preventDefault();
-                openPopOut(
-                  currentDocument?.name || 'Untitled Document',
-                  previewHTML,
-                  theme
-                );
+                openPopOut(theme);
               }}
               icon="bi bi-box-arrow-up-right"
             />

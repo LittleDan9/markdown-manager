@@ -2,13 +2,14 @@ import { useRef, useEffect, useCallback } from 'react';
 
 /**
  * Hook to manage pop-out read-only preview windows.
- * Opens a child window with a frozen snapshot of the rendered document.
+ * Opens a child window showing the rendered document preview.
+ * Live-syncs previewHTML and document title to all open child windows.
  * All child windows close automatically when the parent window closes.
  */
-export default function usePopOutPreview() {
+export default function usePopOutPreview({ previewHTML, documentTitle } = {}) {
   const childWindowsRef = useRef(new Set());
 
-  // Clean up closed windows from the set periodically
+  // Clean up closed windows from the set
   const pruneClosedWindows = useCallback(() => {
     for (const win of childWindowsRef.current) {
       if (win.closed) {
@@ -37,7 +38,38 @@ export default function usePopOutPreview() {
     };
   }, []);
 
-  const openPopOut = useCallback((title, renderedHTML, theme) => {
+  // Live-sync previewHTML to all open child windows
+  useEffect(() => {
+    if (previewHTML == null) return;
+    pruneClosedWindows();
+    for (const win of childWindowsRef.current) {
+      try {
+        if (win.closed) continue;
+        const el = win.document.querySelector('.preview-content');
+        if (el) el.innerHTML = previewHTML;
+      } catch (_e) {
+        // Window closed or inaccessible — ignore
+      }
+    }
+  }, [previewHTML, pruneClosedWindows]);
+
+  // Live-sync document title to all open child windows
+  useEffect(() => {
+    if (!documentTitle) return;
+    pruneClosedWindows();
+    for (const win of childWindowsRef.current) {
+      try {
+        if (win.closed) continue;
+        const titleEl = win.document.querySelector('.doc-title');
+        if (titleEl) titleEl.textContent = documentTitle;
+        win.document.title = `${documentTitle} — Read-only Preview`;
+      } catch (_e) {
+        // Window closed or inaccessible — ignore
+      }
+    }
+  }, [documentTitle, pruneClosedWindows]);
+
+  const openPopOut = useCallback((theme) => {
     pruneClosedWindows();
 
     const child = window.open('', '', 'width=900,height=700,scrollbars=yes,resizable=yes');
@@ -50,6 +82,7 @@ export default function usePopOutPreview() {
       .map(link => `<link rel="stylesheet" href="${link.href}" />`)
       .join('\n');
 
+    const title = documentTitle || 'Untitled Document';
     const escapedTitle = title
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
@@ -114,7 +147,7 @@ export default function usePopOutPreview() {
     </span>
   </div>
   <div class="popout-body">
-    <div class="preview-content">${renderedHTML || ''}</div>
+    <div class="preview-content">${previewHTML || ''}</div>
   </div>
 </body>
 </html>`;
@@ -127,7 +160,7 @@ export default function usePopOutPreview() {
     child.addEventListener('beforeunload', () => {
       childWindowsRef.current.delete(child);
     });
-  }, [pruneClosedWindows]);
+  }, [pruneClosedWindows, previewHTML, documentTitle]);
 
   return { openPopOut };
 }
