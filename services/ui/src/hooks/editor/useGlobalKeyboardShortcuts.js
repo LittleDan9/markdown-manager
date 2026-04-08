@@ -7,17 +7,15 @@ import { useSaveDocument } from '../document';
  * 
  * Currently handles:
  * - Ctrl+S (Cmd+S on Mac): Save document
- * 
- * Future shortcuts can be added here:
- * - Ctrl+N: New document
- * - Ctrl+O: Open document
- * - etc.
+ * - Ctrl+Alt+N (Cmd+Alt+N on Mac): New document
  */
-export default function useGlobalKeyboardShortcuts({ onDraftPromote } = {}) {
+export default function useGlobalKeyboardShortcuts({ onDraftPromote, onNewDocument } = {}) {
   const handleSave = useSaveDocument({ onDraftPromote });
   const handleSaveRef = useRef(handleSave);
-  // Always keep ref up to date with latest handleSave
+  const onNewDocumentRef = useRef(onNewDocument);
+  // Always keep refs up to date with latest callbacks
   handleSaveRef.current = handleSave;
+  onNewDocumentRef.current = onNewDocument;
 
   useEffect(() => {
     const handleGlobalKeyDown = async (e) => {
@@ -26,17 +24,11 @@ export default function useGlobalKeyboardShortcuts({ onDraftPromote } = {}) {
         e.preventDefault();
         await handleSaveRef.current();
       }
-      // Future global shortcuts can be added here:
-      /*
-      if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
+      // Ctrl+Alt+N (or Cmd+Alt+N on Mac) - New document
+      if ((e.ctrlKey || e.metaKey) && e.altKey && e.key === 'n') {
         e.preventDefault();
-        // Handle new document
+        onNewDocumentRef.current?.();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'o') {
-        e.preventDefault();
-        // Handle open document
-      }
-      */
     };
     document.addEventListener('keydown', handleGlobalKeyDown);
     return () => {

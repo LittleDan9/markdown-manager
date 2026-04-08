@@ -9,3 +9,4 @@ export { default as useFileModal } from './useFileModal';
 export { useCodeCopy } from './useCodeCopy';
 export { default as useResponsiveMenu } from './useResponsiveMenu';
 export { useViewport } from './useViewport';
+export { default as usePopOutPreview } from './usePopOutPreview';

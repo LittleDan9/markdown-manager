@@ -19,6 +19,7 @@ import usePresence from "@/hooks/ui/usePresence";
 import NotificationDropdown from "@/components/toolbar/NotificationDropdown";
 import NotificationDetailModal from "@/components/toolbar/NotificationDetailModal";
 import useNotifications from "@/hooks/ui/useNotifications";
+import usePopOutPreview from "@/hooks/ui/usePopOutPreview";
 
 function Toolbar({
   fullscreenPreview,
@@ -28,11 +29,12 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML: _previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument } = useDocumentContext();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument } = useDocumentContext();
   const { showWarning: _showWarning } = useNotification();
   const { user } = useAuth();
   const { isMobile } = useViewport();
   const { users: presenceUsers } = usePresence(currentDocument?.id || null);
+  const { openPopOut } = usePopOutPreview();
   const { notifications: notifList, unreadCount, markRead, markAllRead, deleteNotification, clearAll, fetchNotificationDetail } = useNotifications();
   const [documentTitle, setDocumentTitleState] = useState(
     currentDocument?.name || "Untitled Document"
@@ -265,6 +267,24 @@ function Toolbar({
               onDelete={deleteNotification}
               onClearAll={clearAll}
               onViewDetail={handleViewNotificationDetail}
+            />
+          )}
+          {!isSharedView && (
+            <ActionButton
+              id="popOutBtn"
+              variant="outline-secondary"
+              size="sm"
+              title="Open preview in new window"
+              disabled={!currentDocument?.id}
+              onClick={(e) => {
+                e.preventDefault();
+                openPopOut(
+                  currentDocument?.name || 'Untitled Document',
+                  previewHTML,
+                  theme
+                );
+              }}
+              icon="bi bi-box-arrow-up-right"
             />
           )}
           <ActionButton
