@@ -1,0 +1,90 @@
+@use "../variables";
+
+// ─── AI PROVIDERS TAB ───
+// Accordion-based provider key management in User Settings
+
+.ai-providers-tab {
+  .ai-add-provider {
+    .form-select {
+      max-width: 280px;
+    }
+  }
+
+  // Accordion overrides for provider key cards
+  .accordion {
+    margin-bottom: variables.$space-3;
+
+    .accordion-item {
+      border-color: var(--mm-border-subtle);
+      background: var(--mm-bg-surface);
+
+      &:first-of-type {
+        border-top-left-radius: variables.$radius-md;
+        border-top-right-radius: variables.$radius-md;
+      }
+
+      &:last-of-type {
+        border-bottom-left-radius: variables.$radius-md;
+        border-bottom-right-radius: variables.$radius-md;
+      }
+    }
+
+    .accordion-button {
+      padding: variables.$space-2 variables.$space-3;
+      font-size: variables.$font-size-sm;
+      background: var(--mm-bg-surface);
+      color: var(--mm-text);
+
+      &:not(.collapsed) {
+        background: var(--mm-bg-surface);
+        color: var(--mm-text);
+        box-shadow: none;
+        border-bottom: 1px solid var(--mm-border-subtle);
+      }
+
+      &:focus {
+        box-shadow: none;
+        border-color: var(--mm-border);
+      }
+    }
+
+    .accordion-body {
+      padding: variables.$space-3;
+      background: var(--mm-bg);
+    }
+  }
+
+  // Key header layout inside accordion button
+  .ai-key-header {
+    display: flex;
+    align-items: center;
+    gap: variables.$space-2;
+    flex: 1;
+    min-width: 0;
+
+    .bi {
+      font-size: variables.$font-size-md;
+      flex-shrink: 0;
+    }
+
+    .ai-key-label {
+      font-weight: variables.$font-weight-medium;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ai-key-model {
+      font-size: variables.$font-size-xs;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  // Dashed border for Ollama info card
+  .border-dashed {
+    border-style: dashed !important;
+    border-color: var(--mm-border-subtle) !important;
+  }
+}

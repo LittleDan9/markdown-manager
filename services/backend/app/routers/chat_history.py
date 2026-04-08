@@ -157,13 +157,14 @@ async def generate_title(
         f"Return ONLY the title text, nothing else.\n\n{context}"
     )
 
-    # Resolve provider
-    provider_name = request.provider or conv.provider or "ollama"
+    # Resolve provider — always prefer Ollama for title generation to conserve
+    # external API rate limits (title gen is trivial, doesn't need GPT-5 etc.)
     try:
-        llm_provider = await _resolve_provider(db, current_user, provider_name)
-    except HTTPException:
-        # Fallback to Ollama if requested provider unavailable
         llm_provider = await _resolve_provider(db, current_user, "ollama")
+    except HTTPException:
+        # Ollama unavailable — fall back to the conversation's provider
+        provider_name = request.provider or conv.provider or "ollama"
+        llm_provider = await _resolve_provider(db, current_user, provider_name)
 
     # Stream and collect the full title
     title_parts = []

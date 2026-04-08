@@ -48,13 +48,14 @@ Composed in `router.py` with prefix `/admin`:
 All admin endpoints require authenticated admin-role user.
 
 ## Data Layer
-- **Models**: `user.py` (User with email, hashed_password, mfa_secret, is_admin, mfa_enabled), `site_setting.py` (key-value application settings)
-- **Schemas**: `user.py` (registration, login, profile update, MFA schemas)
-- **CRUD**: `user.py` (user creation, lookup, update, role management)
+- **Models**: `user.py` (User with email, hashed_password, mfa_secret, is_admin, mfa_enabled), `site_setting.py` (key-value application settings), `user_api_key.py` (UserApiKey with Fernet-encrypted API keys for third-party LLM providers)
+- **Schemas**: `user.py` (registration, login, profile update, MFA schemas), `user_api_key.py` (ApiKeyCreate, ApiKeyUpdate, ApiKeyResponse — raw keys never returned)
+- **CRUD**: `user.py` (user creation, lookup, update, role management), `user_api_key.py` (per-user API key CRUD with encrypt/decrypt)
 
 ## Security Patterns
 - Passwords hashed with bcrypt (never stored plain)
 - MFA secrets encrypted at rest
+- **API key encryption**: Third-party LLM API keys encrypted with Fernet. Encryption key derived from `settings.secret_key` via HKDF-SHA256 with purpose-specific info tag (`markdown-manager:user-api-key-encryption:v1`) and salt, ensuring cryptographic separation from JWT signing key. Raw keys never returned to frontend.
 - JWT tokens include user_id and role claims
 - Admin routes check `is_admin` flag via dependency injection
 - Password reset uses time-limited tokens

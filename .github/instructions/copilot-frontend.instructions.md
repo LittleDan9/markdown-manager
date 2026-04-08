@@ -10,7 +10,7 @@ React SPA with provider-component-hook pattern:
 - `src/components/`: UI components by domain (admin, auth, chat, dictionary, document, editor, file, git, github, icons, image, images, layout, linting, renderer, sections, security, settings, shared, storage, system, toolbar, ui, user)
 - `src/hooks/`: Custom hooks organized by concern, barrel exports via `@/hooks` (dictionary, document, editor, fileBrowser, github, icons, image, markdown, performance, renderer, ui)
 - `src/services/`: Business logic (core, dictionary, editor, features, fileBrowser, icons, image, rendering, ui, utilities)
-- `src/api/`: HTTP clients extending base `Api` class (categoriesApi, customDictionaryApi, documentsApi, exportServiceApi, gitHubApi, gitHubRepositorySelectionApi, githubSettingsApi, highlightingApi, iconsApi, imageApi, lintingApi, searchApi, spellCheckApi, systemHealthApi, userApi, admin/*)
+- `src/api/`: HTTP clients extending base `Api` class (apiKeysApi, categoriesApi, customDictionaryApi, documentsApi, exportServiceApi, gitHubApi, gitHubRepositorySelectionApi, githubSettingsApi, highlightingApi, iconsApi, imageApi, lintingApi, searchApi, spellCheckApi, systemHealthApi, userApi, admin/*)
 
 ## Development Environment
 CRITICAL: Use Docker only, never npm directly

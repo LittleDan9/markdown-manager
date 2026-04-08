@@ -11,7 +11,7 @@ import { useTheme } from '@/providers/ThemeProvider';
  *   - onCursorLineChange: callback for cursor line changes
  * @returns {Object} { editor, isTyping, markAsTyping }
  */
-export default function useEditorCore({ containerRef, value, onChange, onCursorLineChange, documentId }) {
+export default function useEditorCore({ containerRef, value, onChange, onCursorLineChange, onSelectionChange, documentId }) {
   const { theme } = useTheme();
   const editorRef = useRef(null);
   const [editor, setEditor] = useState(null); // Use state for ready editor
@@ -56,6 +56,23 @@ export default function useEditorCore({ containerRef, value, onChange, onCursorL
         if (onCursorLineChange) {
           editorInstance.onDidChangeCursorPosition((e) => {
             onCursorLineChange(e.position.lineNumber);
+          });
+        }
+
+        // Selection changes — emit selected text for chat context
+        if (onSelectionChange) {
+          editorInstance.onDidChangeCursorSelection((e) => {
+            const selection = e.selection;
+            if (selection.isEmpty()) {
+              onSelectionChange(null);
+            } else {
+              const text = editorInstance.getModel().getValueInRange(selection);
+              onSelectionChange({
+                text,
+                startLine: selection.startLineNumber,
+                endLine: selection.endLineNumber,
+              });
+            }
           });
         }
 

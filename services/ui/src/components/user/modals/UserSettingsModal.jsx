@@ -7,6 +7,7 @@ import DictionaryTab from "../../dictionary/modals/DictionaryTab";
 import MarkdownLintTab from "../../linting/modals/MarkdownLintTab";
 import StorageTab from "../../storage/StorageTab";
 import DisplayTab from "./DisplayTab";
+import AIProvidersTab from "./AIProvidersTab";
 
 import userApi from "../../../api/userApi";
 import { useAuth } from "../../../providers/AuthProvider";
@@ -147,6 +148,13 @@ function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey =
                 </Nav.Link>
               </Nav.Item>
             )}
+            {!guestMode && (
+              <Nav.Item>
+                <Nav.Link eventKey="ai-providers">
+                  <i className="bi bi-robot me-1"></i>AI Providers
+                </Nav.Link>
+              </Nav.Item>
+            )}
           </Nav>
           <Tab.Content id="profileTabContent">
             {!guestMode && (
@@ -189,6 +197,11 @@ function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey =
             {!guestMode && (
               <Tab.Pane eventKey="storage">
                 <StorageTab />
+              </Tab.Pane>
+            )}
+            {!guestMode && (
+              <Tab.Pane eventKey="ai-providers">
+                <AIProvidersTab />
               </Tab.Pane>
             )}
           </Tab.Content>

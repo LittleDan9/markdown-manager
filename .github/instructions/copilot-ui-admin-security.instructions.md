@@ -1,6 +1,6 @@
 ---
 description: "Use when working on admin panel, user management, storage management, AI/embeddings admin, MFA/security setup, user settings/profile, system health monitoring, or user preferences."
-applyTo: "services/ui/src/components/admin/**,services/ui/src/components/security/**,services/ui/src/components/user/**,services/ui/src/components/settings/**,services/ui/src/components/storage/**,services/ui/src/components/system/**,services/ui/src/api/admin/**,services/ui/src/api/userApi*,services/ui/src/api/systemHealthApi*,services/ui/src/providers/UserSettingsProvider*"
+applyTo: "services/ui/src/components/admin/**,services/ui/src/components/security/**,services/ui/src/components/user/**,services/ui/src/components/settings/**,services/ui/src/components/storage/**,services/ui/src/components/system/**,services/ui/src/api/admin/**,services/ui/src/api/userApi*,services/ui/src/api/apiKeysApi*,services/ui/src/api/systemHealthApi*,services/ui/src/providers/UserSettingsProvider*"
 ---
 # Admin, Security & User Settings UI
 
@@ -33,6 +33,15 @@ UI mechanics: ProgressBar at step × 25%, static backdrop modal, step navigation
 - `UserSettingsModal` → Tabbed settings container
 - `ProfileInfoTab` → Name, email, password change
 - `DisplayTab` → Theme, editor width, UI preferences
+- `AIProvidersTab` → Per-user third-party LLM API key management (OpenAI, xAI Grok)
+
+### AI Providers Tab (`AIProvidersTab.jsx`)
+Manages per-user API keys for external LLM providers:
+- **PROVIDERS config**: Array of `{id, name, icon, models[], defaultModel, defaultBaseUrl}` — currently OpenAI and xAI
+- **ProviderCard**: Per-provider card with masked key input, label, model select, base URL override, test/save/delete actions, status badge
+- **Ollama**: Shown as always-available local provider (no key required)
+- **API client**: `apiKeysApi` — `getKeys()`, `addKey()`, `updateKey()`, `deleteKey()`, `testKey()`
+- **Guest mode**: Tab hidden for unauthenticated users
 
 ## UserSettingsProvider
 Context providing UI settings with localStorage hydration:

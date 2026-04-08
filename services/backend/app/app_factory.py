@@ -41,6 +41,7 @@ from app.routers import (
     users,
 )
 from app.routers.admin import router as admin_router
+from app.routers import api_keys
 from app.routers import chat
 from app.routers import comments
 from app.routers import notifications
@@ -189,6 +190,7 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(
         github_settings.router, prefix="/github/settings", tags=["github-settings"]
     )
+    app.include_router(api_keys.router)  # /api-keys CRUD for LLM provider keys
     app.include_router(chat.router)  # /chat/ask and /chat/health
     app.include_router(notifications.router)  # /notifications
     app.include_router(comments.router)  # /documents/{id}/comments and /comments/{id}

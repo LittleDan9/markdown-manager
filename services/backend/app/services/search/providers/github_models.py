@@ -9,6 +9,10 @@ from typing import AsyncIterator
 
 import httpx
 
+# Models that have rejected optional params (temperature, max_completion_tokens)
+# get cached here so we don't waste a request on every call.
+_stripped_models: set[str] = set()
+
 from .base import LLMProvider
 
 logger = logging.getLogger(__name__)
@@ -71,10 +75,21 @@ class GitHubModelsProvider(LLMProvider):
             "model": self._model,
             "messages": messages,
             "stream": True,
-            "temperature": 0.3,
-            "max_tokens": 2048,
         }
 
+        # Some GitHub-hosted models (e.g. gpt-5) reject temperature and
+        # max_completion_tokens.  We attempt the call with them, and on a
+        # 400 "Unsupported" error we retry once without these parameters.
+        optional_params = {
+            "temperature": 0.3,
+            "max_completion_tokens": 2048,
+        }
+
+        async for token in self._stream_with_retry(payload, optional_params):
+            yield token
+
+    async def _do_stream(self, payload: dict) -> AsyncIterator[str]:
+        """Execute a single streaming request and yield tokens."""
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
             async with client.stream(
                 "POST",
@@ -123,6 +138,35 @@ class GitHubModelsProvider(LLMProvider):
                                 yield token
                     except json.JSONDecodeError:
                         continue
+
+    async def _stream_with_retry(
+        self, payload: dict, optional_params: dict
+    ) -> AsyncIterator[str]:
+        """Try streaming with optional_params; on 400 'Unsupported' retry without them.
+
+        Models that reject optional params are cached in ``_stripped_models``
+        so subsequent calls skip the doomed first attempt entirely.
+        """
+        if self._model in _stripped_models or not optional_params:
+            async for token in self._do_stream(payload):
+                yield token
+            return
+
+        attempt_payload = {**payload, **optional_params}
+        try:
+            async for token in self._do_stream(attempt_payload):
+                yield token
+        except RuntimeError as exc:
+            if "Unsupported" in str(exc):
+                _stripped_models.add(self._model)
+                logging.getLogger(__name__).warning(
+                    "Model %s cached as stripped-params; retrying without %s: %s",
+                    self._model, list(optional_params.keys()), exc,
+                )
+                async for token in self._do_stream(payload):
+                    yield token
+            else:
+                raise
 
     async def health_check(self) -> bool:
         """Validate the API key by listing the model catalog."""

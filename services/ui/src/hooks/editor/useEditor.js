@@ -17,6 +17,7 @@ export default function useEditor({
   value,
   onChange,
   onCursorLineChange,
+  onSelectionChange,
   documentId,
   enableSpellCheck = true,
   enableMarkdownLint = true,
@@ -63,6 +64,7 @@ export default function useEditor({
     value: value || '', // Provide default empty string if value is not passed
     onChange, // Pass onChange callback normally
     onCursorLineChange,
+    onSelectionChange,
     documentId
   });
 
