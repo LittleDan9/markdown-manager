@@ -79,14 +79,14 @@ function CategoryTabBar({
     }
   }, []);
 
-  // Translate vertical mouse wheel into horizontal scroll when hovering over the tab bar
+  // Translate mouse wheel / trackpad scroll into horizontal scroll when hovering over the tab bar
   const handleWheel = useCallback((e) => {
     const container = scrollRef.current;
     if (!container) return;
     // Only intercept if the container overflows horizontally
     if (container.scrollWidth <= container.clientWidth) return;
     e.preventDefault();
-    container.scrollLeft += e.deltaY;
+    container.scrollLeft += e.deltaY + e.deltaX;
   }, []);
 
   // Attach wheel handler as non-passive so preventDefault works
