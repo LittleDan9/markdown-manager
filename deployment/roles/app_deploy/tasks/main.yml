@@ -1,15 +1,12 @@
 ---
-# App deploy role — Sync source, build images, and bring up the stack
-#
-# Replaces old roles: docker_service, redis, ui_deployment, cleanup
+# App deploy role — Blue/green zero-downtime deployment
 #
 # This role:
 # 1. Rsyncs the project source to the server
 # 2. Deploys the production .env file
-# 3. Builds all Docker images on the server
-# 4. Brings up the Docker Compose stack
-# 5. Runs database migrations
-# 6. Cleans up old Docker artifacts
+# 3. Ensures infrastructure stack (db, redis, ollama, clamav, traefik) is running
+# 4. Runs blue/green deployment (build → start new → health check → stop old)
+# 5. Migrations run automatically in backend entrypoint.sh
 
 - name: Sync project source to server
   synchronize:
@@ -35,6 +32,7 @@
       - "--exclude=services/ui/dist"
       - "--exclude=services/ui/coverage"
       - "--exclude=ollama-data"
+      - "--exclude=.deploy-slot"
     delete: true
     recursive: true
   register: sync_result
@@ -46,35 +44,16 @@
     mode: "0600"
   register: env_result
 
-- name: Build Docker images
-  command: docker compose -f docker-compose.prod.yml --env-file deployment/production.env build
+- name: Ensure infrastructure stack is running
+  command: "{{ app_dir }}/scripts/deploy-infra.sh"
   args:
     chdir: "{{ app_dir }}"
-  register: build_result
-  when: sync_result.changed or force_rebuild | default(false)
-
-- name: Clean stale files from UI volume before rebuild
-  command: >
-    docker run --rm -v mm-ui-static:/output alpine sh -c "rm -rf /output/*"
-  args:
-    chdir: "{{ app_dir }}"
-  when: sync_result.changed or force_rebuild | default(false)
-
-- name: Start Docker Compose stack
-  command: docker compose -f docker-compose.prod.yml --env-file deployment/production.env up -d
-  args:
-    chdir: "{{ app_dir }}"
-  register: compose_result
-
-- name: Restart nginx to pick up new UI assets and refresh upstream DNS
-  command: docker restart markdown-manager-nginx-1
-  args:
-    chdir: "{{ app_dir }}"
-  when: sync_result.changed or force_rebuild | default(false)
+  register: infra_result
+  changed_when: "'Creating' in infra_result.stdout or 'Starting' in infra_result.stdout"
 
 - name: Wait for database to be healthy
   command: >
-    docker compose -f docker-compose.prod.yml --env-file deployment/production.env exec -T db
+    docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env exec -T db
     pg_isready -U {{ postgres_user | default('markdown_manager') }}
   args:
     chdir: "{{ app_dir }}"
@@ -83,16 +62,41 @@
   delay: 2
   until: db_health.rc == 0
 
-- name: Run database migrations
+- name: Refresh database collation version
   command: >
-    docker compose -f docker-compose.prod.yml --env-file deployment/production.env exec -T backend
-    /markdown-manager/.venv/bin/alembic upgrade head
+    docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env exec -T db
+    psql -U {{ postgres_user | default('markdown_manager') }} -d {{ postgres_db | default('markdown_manager') }}
+    -c "ALTER DATABASE {{ postgres_db | default('markdown_manager') }} REFRESH COLLATION VERSION;"
   args:
     chdir: "{{ app_dir }}"
-  register: migration_result
-  when: sync_result.changed or force_migrate | default(false)
+  register: collation_result
+  changed_when: "'ALTER DATABASE' in collation_result.stdout"
+  failed_when: false
 
-- name: Wait for backend health check
+- name: Run blue/green deployment
+  command: "{{ app_dir }}/scripts/deploy-blue-green.sh {{ deploy_flags | default('') }}"
+  args:
+    chdir: "{{ app_dir }}"
+  register: deploy_result
+  when: sync_result.changed or force_rebuild | default(false) or force_deploy | default(false)
+  environment:
+    APP_DIR: "{{ app_dir }}"
+
+- name: Show deploy output
+  debug:
+    msg: "{{ deploy_result.stdout_lines | default(['No deployment needed (no source changes)']) }}"
+
+- name: Display active slot
+  command: cat {{ app_dir }}/.deploy-slot
+  register: slot_output
+  changed_when: false
+  failed_when: false
+
+- name: Show active slot
+  debug:
+    msg: "Active deployment slot: {{ slot_output.stdout | default('unknown') }}"
+
+- name: Wait for backend health check via Traefik
   uri:
     url: "http://localhost:8080/api/health"
     method: GET
@@ -101,24 +105,3 @@
   retries: 10
   delay: 5
   until: health_check.status == 200
-
-- name: Display running containers
-  command: docker compose -f docker-compose.prod.yml --env-file deployment/production.env ps
-  args:
-    chdir: "{{ app_dir }}"
-  register: ps_output
-  changed_when: false
-
-- name: Show container status
-  debug:
-    msg: "{{ ps_output.stdout_lines }}"
-
-- name: Clean up old Docker artifacts
-  command: docker system prune -f
-  register: prune_result
-  changed_when: "'Total reclaimed space: 0B' not in prune_result.stdout"
-
-- name: Display cleanup result
-  debug:
-    msg: "{{ prune_result.stdout_lines | last }}"
-  when: prune_result.changed
