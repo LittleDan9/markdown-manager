@@ -1,7 +1,14 @@
 # ==============================================================================
-# Docker Compose - Production
+# Docker Compose - Production (LEGACY — kept for reference/fallback)
 # ==============================================================================
-# Usage:
+# DEPRECATED: This monolithic compose file has been replaced by:
+#   docker-compose.infra.yml  — Infrastructure (db, redis, ollama, clamav, traefik)
+#   docker-compose.app.yml    — Application (backend, nginx, export, etc.)
+#
+# The new files support blue/green zero-downtime deployment via Traefik.
+# See deployment/README.md for details.
+#
+# This file is retained as a working fallback. To use it directly:
 #   docker compose -f docker-compose.prod.yml --env-file deployment/production.env up -d
 #   docker compose -f docker-compose.prod.yml --env-file deployment/production.env logs -f
 #   docker compose -f docker-compose.prod.yml --env-file deployment/production.env down
