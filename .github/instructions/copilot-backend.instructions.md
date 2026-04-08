@@ -275,7 +275,7 @@ PGPASSWORD=postgres psql -h localhost -U postgres -d markdown_manager \
 
 ### 🚀 Deployment & Production
 
-**Build Process**: Multi-stage Docker build with Poetry dependency caching. Production uses systemd service management.
+**Build Process**: Multi-stage Docker build with Poetry dependency caching. Production uses Docker Compose blue/green deployment via Traefik (see `docker-compose.app.yml` and `scripts/deploy-blue-green.sh`).
 
 **Database Operations**:
 

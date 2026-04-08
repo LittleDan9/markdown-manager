@@ -1,9 +1,13 @@
 /**
- * Custom Dictionary Manager - Phase 5 Implementation
- * Created: October 22, 2025 by AI Agent (Updated for Phase 5)
- * Purpose: Local database-driven custom words handling for spell-check service
- * Features: Direct database queries, user identity validation, local caching
- * Integration: Self-contained dictionary management with event emission
+ * Custom Dictionary Manager
+ * Purpose: Read-only projection cache for spell-check service
+ * 
+ * Dictionary writes now flow through the backend (source of truth) via
+ * transactional outbox events → event-publisher → Redis Streams →
+ * event-consumer → spell.user_dict projection.
+ * 
+ * This manager only READS from the projection table and caches results.
+ * Write methods are deprecated and log warnings.
  */
 
 const spellDatabase = require('./database/models');
@@ -132,11 +136,11 @@ class CustomDictionaryManager {
   }
 
   /**
-   * Add words to user dictionary
-   * @param {Object} options - User identification and words to add
-   * @returns {Promise<boolean>} Success status
+   * @deprecated Writes now flow through backend → outbox → event-consumer.
+   * Add words to user dictionary (legacy — kept for backward compatibility)
    */
   async addCustomWords(options = {}) {
+    console.warn('[CustomDictionaryManager] addCustomWords is deprecated — writes should go through backend API');
     try {
       const { tenantId, userId } = this._parseUserIds(options);
       const { words } = options;
@@ -170,11 +174,11 @@ class CustomDictionaryManager {
   }
 
   /**
-   * Remove words from user dictionary
-   * @param {Object} options - User identification and words to remove
-   * @returns {Promise<boolean>} Success status
+   * @deprecated Writes now flow through backend → outbox → event-consumer.
+   * Remove words from user dictionary (legacy — kept for backward compatibility)
    */
   async removeCustomWords(options = {}) {
+    console.warn('[CustomDictionaryManager] removeCustomWords is deprecated — writes should go through backend API');
     try {
       const { tenantId, userId } = this._parseUserIds(options);
       const { words } = options;
@@ -207,12 +211,9 @@ class CustomDictionaryManager {
     }
   }
 
-  /**
-   * Update entire user dictionary
-   * @param {Object} options - User identification and new words
-   * @returns {Promise<boolean>} Success status
-   */
+  /**\n   * @deprecated Writes now flow through backend → outbox → event-consumer.\n   * Update entire user dictionary (legacy — kept for backward compatibility)\n   */
   async updateUserDictionary(options = {}) {
+    console.warn('[CustomDictionaryManager] updateUserDictionary is deprecated — writes should go through backend API');
     try {
       const { tenantId, userId } = this._parseUserIds(options);
       const { words, version } = options;
@@ -308,7 +309,16 @@ class CustomDictionaryManager {
    */
   clearCache() {
     this.cache.clear();
-    console.log('[CustomDictionaryManager] Cache cleared');
+  }
+
+  /**
+   * Invalidate cache for a specific user (called when dictionary events arrive)
+   * @param {string} tenantId
+   * @param {string} userId
+   */
+  invalidateUserCache(tenantId, userId) {
+    const cacheKey = this._getCacheKey(tenantId, userId);
+    this.cache.delete(cacheKey);
   }
 
   /**

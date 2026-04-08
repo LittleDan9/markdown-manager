@@ -9,7 +9,7 @@ import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
 export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount, collab, onCursorChange }) {
   const containerRef = useRef(null);
-  const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine } = useDocumentContext();
+  const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine, setEditorSelection } = useDocumentContext();
   const { isAuthenticated } = useAuth();
   const [isInMermaidFence, setIsInMermaidFence] = useState(false);
 
@@ -62,8 +62,8 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     }
   }, []);
 
-  // Phase 5: Readability display state
-  const [showReadability] = useState(false);
+  // Phase 5: Readability display follows analysis type toggle
+  const showReadability = spellCheckSettings.readability ?? false;
 
   // Track current category and folder path in state
   const [currentCategoryId, setCurrentCategoryId] = useState(currentDocument?.category);
@@ -149,6 +149,7 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     documentId: currentDocument?.id,
     onChange: handleContentChange,
     onCursorLineChange: debouncedLineChange,
+    onSelectionChange: setEditorSelection,
     enableSpellCheck: true, // ENABLED: Turn on spell check
     enableMarkdownLint: true, // ENABLED: Turn on markdown lint
     enableKeyboardShortcuts: true, // ENABLED: Turn on keyboard shortcuts

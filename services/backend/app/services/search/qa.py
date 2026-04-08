@@ -1,15 +1,16 @@
-"""RAG Q&A service — retrieves relevant document context, streams answer via Ollama."""
+"""RAG Q&A service — retrieves relevant document context, streams answer via LLM provider."""
 from __future__ import annotations
 
 import logging
 import time
 from typing import AsyncIterator
 
-import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
+from app.services.search.providers.base import LLMProvider
+from app.services.search.providers.ollama import OllamaProvider
 from app.services.search.semantic import SemanticSearchService
 from app.services.storage.filesystem import Filesystem
 
@@ -36,7 +37,16 @@ def _get_filesystem() -> Filesystem:
 # System prompt for single-document mode (Current Doc / Deep Think)
 _SYSTEM_PROMPT_SINGLE = (
     "Answer questions about the document below. "
+    "Prioritise information from the document, but you may also use your general knowledge "
+    "to supplement or provide additional context. When using general knowledge, indicate that "
+    "clearly. Reference the document by name. Be concise."
+)
+
+# Strict variant — restricts the LLM to document content only
+_SYSTEM_PROMPT_SINGLE_STRICT = (
+    "Answer questions about the document below. "
     "If the answer isn't in the document, say so. "
+    "Do not use outside knowledge. "
     "Reference the document by name. Be concise."
 )
 
@@ -44,22 +54,37 @@ _SYSTEM_PROMPT_SINGLE = (
 _SYSTEM_PROMPT_ALL = """Answer questions about the user's document library.
 You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content from the most relevant documents.
 Use the catalogue for questions about what exists. Use excerpts for content questions.
+You may also draw on your general knowledge to supplement when the documents don't fully cover the topic — clearly indicate when you do.
+Always mention the exact document name when citing information so the user can find it.
+Be concise."""
+
+# Strict variant — restricts the LLM to library content only
+_SYSTEM_PROMPT_ALL_STRICT = """Answer questions about the user's document library.
+You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content from the most relevant documents.
+Use the catalogue for questions about what exists. Use excerpts for content questions.
+Do not use outside knowledge — only answer from the provided documents.
 Always mention the exact document name when citing information so the user can find it.
 Be concise."""
 
 
 class QAService:
-    """Retrieves relevant document context and streams an answer via Ollama."""
+    """Retrieves relevant document context and streams an answer via an LLM provider."""
 
     def __init__(
         self,
         search_service: SemanticSearchService,
+        provider: LLMProvider | None = None,
+        *,
+        # Legacy kwargs kept for backward-compatibility with existing call sites
         ollama_url: str = DEFAULT_OLLAMA_URL,
         model: str = DEFAULT_MODEL,
     ):
         self._search = search_service
-        self._ollama_url = ollama_url.rstrip("/")
-        self._model = model
+        if provider is not None:
+            self._provider = provider
+        else:
+            # Fallback: build a default OllamaProvider from legacy params
+            self._provider = OllamaProvider(url=ollama_url, model=model)
 
     async def answer_stream(
         self,
@@ -70,9 +95,11 @@ class QAService:
         category_id: int | None = None,
         deep_think: bool = False,
         history: list | None = None,
+        selection_context: str | None = None,
+        strict_context: bool = False,
     ) -> AsyncIterator[str | dict]:
         """
-        Yield answer tokens as they stream from Ollama.
+        Yield answer tokens as they stream from the configured LLM provider.
 
         If *document_id* is provided, context is limited to that document ("Current Doc" mode).
         If *deep_think* is True (only valid with document_id), the full document text is sent
@@ -81,6 +108,7 @@ class QAService:
         included, plus semantic search excerpts for the top matching docs.
         If *category_id* is provided (All Docs mode only), results are limited to that category.
         *history* contains prior conversation turns for multi-turn context.
+        *selection_context* is optional editor-selected text to include in the prompt.
 
         The final yielded value is a dict with timing metrics (not a token string).
         """
@@ -97,18 +125,34 @@ class QAService:
             yield "Your document library appears to be empty. Add some documents first."
             return
 
-        prompt = self._build_prompt(
-            question, context_chunks, catalogue, all_docs_mode, history=history,
+        system_prompt, user_prompt = self._build_prompt(
+            question, context_chunks, catalogue, all_docs_mode,
+            selection_context=selection_context,
+            strict_context=strict_context,
         )
+        history_msgs = self._history_as_messages(
+            history,
+            max_turns=self._provider.max_history_turns,
+            max_chars=self._provider.max_history_chars,
+        )
+        prompt_chars = len(system_prompt) + len(user_prompt)
+        history_chars = sum(len(m.get("content", "")) for m in history_msgs) if history_msgs else 0
         logger.info(
-            "Chat prompt built: chars=%d estimated_tokens=%d chunks=%d catalogue_lines=%d",
-            len(prompt), len(prompt) // 4, len(context_chunks),
+            "Chat prompt built: chars=%d history_chars=%d history_turns=%d chunks=%d catalogue_lines=%d provider=%s",
+            prompt_chars, history_chars,
+            len(history_msgs) if history_msgs else 0,
+            len(context_chunks),
             catalogue.count("\n") + 1 if catalogue else 0,
+            self._provider.provider_name,
         )
 
         t_first_token = None
         token_count = 0
-        async for token in self._stream_ollama(prompt):
+        async for token in self._provider.stream(
+            user_prompt,
+            system_prompt=system_prompt,
+            history=history_msgs or None,
+        ):
             if t_first_token is None:
                 t_first_token = time.monotonic()
             token_count += 1
@@ -122,23 +166,20 @@ class QAService:
             "generation_ms": round((t_done - (t_first_token or t_done)) * 1000),
             "total_ms": round((t_done - t_start) * 1000),
             "tokens": token_count,
-            "model": self._model,
+            "model": self._provider.model_name,
+            "provider": self._provider.provider_name,
         }
         logger.info(
-            "Chat Q&A completed: model=%s context=%dms first_token=%dms generation=%dms total=%dms tokens=%d",
-            self._model, metrics["context_ms"], metrics["first_token_ms"],
+            "Chat Q&A completed: provider=%s model=%s context=%dms first_token=%dms generation=%dms total=%dms tokens=%d",
+            self._provider.provider_name, metrics["model"],
+            metrics["context_ms"], metrics["first_token_ms"],
             metrics["generation_ms"], metrics["total_ms"], metrics["tokens"],
         )
         yield metrics
 
     async def health_check(self) -> bool:
-        """Return True if Ollama is reachable."""
-        try:
-            async with httpx.AsyncClient(timeout=5.0) as client:
-                response = await client.get(f"{self._ollama_url}/api/tags")
-                return response.status_code == 200
-        except Exception:
-            return False
+        """Return True if the LLM provider is reachable."""
+        return await self._provider.health_check()
 
     # ------------------------------------------------------------------
     # Internal helpers
@@ -294,30 +335,33 @@ class QAService:
         return [{"name": doc.name, "content": content[:500]}]
 
     @staticmethod
-    def _format_history(history: list | None, max_chars: int = 400) -> str:
-        """Condense prior turns into a compact string, newest last.
+    def _history_as_messages(
+        history: list | None,
+        max_turns: int = 20,
+        max_chars: int = 8000,
+    ) -> list[dict]:
+        """Convert raw history into a list of ``{role, content}`` dicts.
 
-        Caps total history text to *max_chars* so it doesn't bloat the prompt.
-        Only the last few turns are kept.
+        Walks backwards from the most recent messages so the latest turns
+        survive when the budget is exhausted.  Each message content is capped
+        at 2000 chars as a safety valve.
         """
         if not history:
-            return ""
-        lines: list[str] = []
+            return []
+        msgs: list[dict] = []
         budget = max_chars
-        # Walk backwards so the most recent turns survive truncation
-        for msg in reversed(history):
+        for msg in reversed(history[-max_turns:]):
             role = msg.role if hasattr(msg, "role") else msg.get("role", "")
             content = msg.content if hasattr(msg, "content") else msg.get("content", "")
-            # Trim individual messages
-            line = f"{role.capitalize()}: {content[:150]}"
-            if len(line) > budget:
+            content = content[:2000]
+            if len(content) > budget:
                 break
-            lines.append(line)
-            budget -= len(line)
-        if not lines:
-            return ""
-        lines.reverse()
-        return "=== CONVERSATION HISTORY ===\n" + "\n".join(lines) + "\n"
+            msgs.append({"role": role, "content": content})
+            budget -= len(content)
+        if not msgs:
+            return []
+        msgs.reverse()
+        return msgs
 
     def _build_prompt(
         self,
@@ -325,9 +369,20 @@ class QAService:
         context_chunks: list[dict],
         catalogue: str,
         all_docs_mode: bool,
-        history: list | None = None,
-    ) -> str:
-        history_section = self._format_history(history)
+        selection_context: str | None = None,
+        strict_context: bool = False,
+    ) -> tuple[str, str]:
+        """Build the system prompt and user prompt for the LLM.
+
+        Returns ``(system_prompt, user_prompt)``.  Conversation history is
+        **not** included here — it is passed separately as structured messages
+        to the provider's ``stream()`` method.
+        """
+        selection_section = (
+            f"=== SELECTED TEXT ===\n{selection_context}\n\n"
+            if selection_context
+            else ""
+        )
 
         if all_docs_mode:
             cat_section = f"=== DOCUMENT CATALOGUE ===\n{catalogue}\n" if catalogue else ""
@@ -339,66 +394,24 @@ class QAService:
                 content_section = f"\n=== RELEVANT EXCERPTS ===\n{excerpts}\n"
             else:
                 content_section = "\n=== RELEVANT EXCERPTS ===\n(No specific excerpts matched — use the catalogue above.)\n"
-            return (
-                f"{_SYSTEM_PROMPT_ALL}\n\n"
+            user_prompt = (
                 f"{cat_section}"
                 f"{content_section}\n"
-                f"{history_section}"
+                f"{selection_section}"
                 f"=== QUESTION ===\n{question}"
             )
+            sys = _SYSTEM_PROMPT_ALL_STRICT if strict_context else _SYSTEM_PROMPT_ALL
+            return sys, user_prompt
 
         # Single-document mode
         context_text = "\n\n---\n\n".join(
             f"Document: {chunk['name']}\n\n{chunk['content']}"
             for chunk in context_chunks
         )
-        return (
-            f"{_SYSTEM_PROMPT_SINGLE}\n\n"
+        user_prompt = (
             f"=== DOCUMENT CONTEXT ===\n{context_text}\n\n"
-            f"{history_section}"
+            f"{selection_section}"
             f"=== QUESTION ===\n{question}"
         )
-
-    async def _stream_ollama(self, prompt: str) -> AsyncIterator[str]:
-        """Stream response tokens from Ollama's generate endpoint."""
-        import json
-        import os
-
-        num_thread = int(os.environ.get("OLLAMA_NUM_THREAD", 0)) or None
-
-        options = {
-            "num_ctx": 4096,
-            "num_predict": 512,
-            "temperature": 0.3,
-        }
-        if num_thread:
-            options["num_thread"] = num_thread
-
-        payload = {
-            "model": self._model,
-            "prompt": prompt,
-            "stream": True,
-            "options": options,
-            "keep_alive": "10m",
-        }
-
-        # No read timeout — CPU prefill can take minutes for large prompts.
-        # Connect timeout guards against Ollama being unreachable.
-        async with httpx.AsyncClient(timeout=httpx.Timeout(None, connect=10.0)) as client:
-            async with client.stream(
-                "POST",
-                f"{self._ollama_url}/api/generate",
-                json=payload,
-            ) as response:
-                response.raise_for_status()
-                async for line in response.aiter_lines():
-                    if not line.strip():
-                        continue
-                    try:
-                        data = json.loads(line)
-                        if token := data.get("response", ""):
-                            yield token
-                        if data.get("done"):
-                            break
-                    except json.JSONDecodeError:
-                        continue
+        sys = _SYSTEM_PROMPT_SINGLE_STRICT if strict_context else _SYSTEM_PROMPT_SINGLE
+        return sys, user_prompt

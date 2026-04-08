@@ -2,6 +2,7 @@
 from .attachment import Attachment
 from .base import Base, BaseModel
 from .category import Category
+from .chat import ChatConversation, ChatMessage
 from .comment import Comment
 from .custom_dictionary import CustomDictionary
 from .document import Document
@@ -22,6 +23,8 @@ __all__ = [
     "Base",
     "BaseModel",
     "Category",
+    "ChatConversation",
+    "ChatMessage",
     "Comment",
     "CustomDictionary",
     "Document",

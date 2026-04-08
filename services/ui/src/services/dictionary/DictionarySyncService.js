@@ -21,26 +21,20 @@ export class DictionarySyncService {
    */
   async syncAfterLogin() {
     try {
-      console.log('Syncing custom dictionary after login...');
-
       // Check if user has auth token before making API calls
       const { token, isAuthenticated } = AuthService.getAuthState();
       if (!isAuthenticated || !token) {
-        console.log('No auth token found, skipping backend sync');
         return this.userService.getCustomWords();
       }
 
       // Get user-level words from backend
       const userResponse = await customDictionaryApi.getWords();
-      console.log('Backend user words response:', userResponse);
 
       // Extract words array from response
       const backendUserWords = userResponse.words || [];
-      console.log('Backend user words:', backendUserWords);
 
       // Get local user words
       const localUserWords = this.userService.getCustomWords();
-      console.log('Local user words:', localUserWords);
 
       // Merge user-level words and update local storage
       const mergedUserWords = this.userService.syncWithBackend(backendUserWords);
@@ -51,14 +45,12 @@ export class DictionarySyncService {
       );
 
       if (userWordsToUpload.length > 0) {
-        console.log(`Uploading ${userWordsToUpload.length} local user words to backend...`);
         await customDictionaryApi.bulkAddWords(userWordsToUpload);
       }
 
       // Sync category-level dictionaries
       await this.syncCategoryWords();
 
-      console.log(`Dictionary sync complete. Total user words: ${mergedUserWords.length}`);
       return mergedUserWords;
     } catch (error) {
       console.error('Failed to sync custom dictionary:', error);
@@ -75,7 +67,6 @@ export class DictionarySyncService {
     try {
       // Get all categories from backend to sync their dictionaries
       const categories = await categoriesApi.getCategories();
-      console.log('Syncing categories:', categories);
 
       // Create a mapping from demo categories to real categories by name
       const demoToRealCategoryMap = this.categoryService.createCategoryMapping(categories);
@@ -94,9 +85,8 @@ export class DictionarySyncService {
           // Handle demo word migration only if there are demo words for this specific category
           const demoWords = this.categoryService.getMappedDemoWords(category, demoToRealCategoryMap);
           if (demoWords.length > 0) {
-            console.log(`Migrating ${demoWords.length} demo words to category ${category.name}...`);
             try {
-              await customDictionaryApi.bulkAddWords(demoWords, category.id);
+              await customDictionaryApi.bulkAddWords(demoWords, null, category.id);
               // Add the migrated words to local storage
               for (const word of demoWords) {
                 this.categoryService.addCategoryWord(category.id, word);
@@ -139,7 +129,6 @@ export class DictionarySyncService {
 
     const { token, isAuthenticated } = AuthService.getAuthState();
     if (!isAuthenticated || !token) {
-      console.log('No auth token, word added to local storage only');
       return;
     }
 
@@ -169,7 +158,6 @@ export class DictionarySyncService {
 
     const { token, isAuthenticated } = AuthService.getAuthState();
     if (!isAuthenticated || !token) {
-      console.log('No auth token, word removed from local storage only');
       return;
     }
 

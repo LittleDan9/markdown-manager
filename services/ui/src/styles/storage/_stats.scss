@@ -6,104 +6,116 @@
 
 .storage-stats-grid {
   .stat-card {
-    transition: all 0.2s ease-in-out;
-    border: 1px solid $color-border;
-
-    // Remove default background - let theme handle it
-    &.bg-light {
-      background: transparent !important;
-    }
+    display: flex;
+    align-items: center;
+    gap: $space-3;
+    padding: $space-4;
+    border-radius: $radius-md;
+    border: 1px solid var(--mm-border-subtle);
+    background: var(--mm-bg-surface);
+    @include interactive-transition(transform, box-shadow);
 
     &:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+      box-shadow: var(--mm-shadow-sm);
+    }
+
+    .stat-icon {
+      font-size: $font-size-2xl;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .stat-info {
+      min-width: 0;
     }
 
     .stat-value {
-      font-size: 2rem;
-      font-weight: 600;
-      margin-bottom: 0.25rem;
+      font-size: $font-size-xl;
+      font-weight: $font-weight-bold;
+      line-height: 1.2;
+      color: var(--mm-text);
     }
 
     .stat-label {
-      color: var(--bs-secondary);
-      font-size: 0.875rem;
+      font-size: $font-size-xs;
+      font-weight: $font-weight-medium;
+      color: var(--mm-text-secondary);
       text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 0;
-      font-weight: 500;
+      letter-spacing: 0.04em;
+      margin-top: $space-1;
+    }
+  }
+
+  // Breakdown sections (Documents / Repositories)
+  .stat-breakdown {
+    border: 1px solid var(--mm-border-subtle);
+    border-radius: $radius-md;
+    padding: $space-3 $space-4;
+    margin-top: $space-3;
+    background: var(--mm-bg-surface);
+
+    .breakdown-title {
+      font-size: $font-size-sm;
+      font-weight: $font-weight-semibold;
+      color: var(--mm-text-secondary);
+      margin-bottom: $space-3;
     }
 
-    .stat-trend {
-      font-size: 0.75rem;
-      margin-top: 0.5rem;
-
-      &.positive {
-        color: var(--bs-success);
-      }
-
-      &.negative {
-        color: var(--bs-danger);
-      }
-
-      &.neutral {
-        color: var(--bs-text-muted);
-      }
-
-      .trend-icon {
-        margin-right: 0.25rem;
-      }
+    .breakdown-grid {
+      display: flex;
+      gap: $space-6;
+      flex-wrap: wrap;
     }
 
-    .stat-details {
-      margin-top: 0.75rem;
-      padding-top: 0.75rem;
-      border-top: 1px solid var(--bs-border-color);
+    .breakdown-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-width: 64px;
 
-      .detail-item {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        font-size: 0.8rem;
-        color: var(--bs-text-muted);
-        margin-bottom: 0.25rem;
+      .breakdown-value {
+        font-size: $font-size-lg;
+        font-weight: $font-weight-bold;
+        line-height: 1.2;
+      }
 
-        &:last-child {
-          margin-bottom: 0;
-        }
-
-        .detail-value {
-          font-weight: 500;
-          color: var(--bs-body-color);
-        }
+      .breakdown-label {
+        font-size: $font-size-xs;
+        font-weight: $font-weight-medium;
+        color: var(--mm-text-secondary);
+        margin-top: $space-1;
       }
     }
   }
 
-  // Grid layout adjustments
-  @media (max-width: 768px) {
+  @include mobile {
     .stat-card {
-      margin-bottom: 1rem;
+      padding: $space-3;
 
       .stat-value {
-        font-size: 1.5rem;
+        font-size: $font-size-lg;
       }
+    }
+
+    .stat-breakdown .breakdown-grid {
+      gap: $space-4;
     }
   }
 }
 
 .storage-metrics {
   .metric-bar {
-    background: var(--bs-tertiary-bg);
-    border-radius: var(--bs-border-radius);
+    background: var(--mm-bg-surface);
+    border-radius: $radius-sm;
     height: 8px;
     overflow: hidden;
-    margin-top: 0.5rem;
+    margin-top: $space-2;
 
     .metric-fill {
       height: 100%;
       transition: width 0.3s ease;
-      border-radius: var(--bs-border-radius);
+      border-radius: $radius-sm;
 
       &.usage-low {
         background: var(--bs-success);

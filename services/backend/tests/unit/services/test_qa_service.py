@@ -40,18 +40,18 @@ def _make_service(search_mock=None, ollama_url="http://test:11434", model="test-
 
 
 # ---------------------------------------------------------------------------
-# Format history
+# History as messages
 # ---------------------------------------------------------------------------
 
-class TestFormatHistory:
+class TestHistoryAsMessages:
 
     def test_none_history(self):
         service = _make_service()
-        assert service._format_history(None) == ""
+        assert service._history_as_messages(None) == []
 
     def test_empty_history(self):
         service = _make_service()
-        assert service._format_history([]) == ""
+        assert service._history_as_messages([]) == []
 
     def test_formats_dict_messages(self):
         history = [
@@ -59,28 +59,28 @@ class TestFormatHistory:
             {"role": "assistant", "content": "Hi there"},
         ]
         service = _make_service()
-        result = service._format_history(history)
-        assert "User: Hello" in result
-        assert "Assistant: Hi there" in result
-        assert "CONVERSATION HISTORY" in result
+        result = service._history_as_messages(history)
+        assert len(result) == 2
+        assert result[0] == {"role": "user", "content": "Hello"}
+        assert result[1] == {"role": "assistant", "content": "Hi there"}
 
     def test_truncates_long_messages(self):
-        history = [{"role": "user", "content": "x" * 300}]
+        history = [{"role": "user", "content": "x" * 3000}]
         service = _make_service()
-        result = service._format_history(history, max_chars=400)
-        # Individual message capped at 150 chars
-        assert len(result) < 400
+        result = service._history_as_messages(history, max_chars=8000)
+        # Individual message capped at 2000 chars
+        assert len(result[0]["content"]) == 2000
 
     def test_drops_old_turns_over_budget(self):
         history = [
-            {"role": "user", "content": "old message " * 20},
-            {"role": "assistant", "content": "old response " * 20},
+            {"role": "user", "content": "old message " * 200},
+            {"role": "assistant", "content": "old response " * 200},
             {"role": "user", "content": "recent question"},
         ]
         service = _make_service()
-        result = service._format_history(history, max_chars=200)
+        result = service._history_as_messages(history, max_chars=200)
         # Most recent should survive; oldest may be dropped
-        assert "recent question" in result
+        assert any("recent question" in m["content"] for m in result)
 
 
 # ---------------------------------------------------------------------------
@@ -91,51 +91,88 @@ class TestBuildPrompt:
 
     def test_single_document_mode(self):
         service = _make_service()
-        prompt = service._build_prompt(
+        system_prompt, user_prompt = service._build_prompt(
             question="What is this?",
             context_chunks=[{"name": "readme.md", "content": "A readme file."}],
             catalogue="",
             all_docs_mode=False,
         )
-        assert "What is this?" in prompt
-        assert "readme.md" in prompt
-        assert "DOCUMENT CONTEXT" in prompt
-        assert "CATALOGUE" not in prompt
+        assert "What is this?" in user_prompt
+        assert "readme.md" in user_prompt
+        assert "DOCUMENT CONTEXT" in user_prompt
+        assert "CATALOGUE" not in user_prompt
+        assert system_prompt  # system prompt should be non-empty
 
     def test_all_docs_mode_with_catalogue(self):
         service = _make_service()
-        prompt = service._build_prompt(
+        system_prompt, user_prompt = service._build_prompt(
             question="List my docs",
             context_chunks=[{"name": "a.md", "content": "content a"}],
             catalogue="Library: 5 documents\n  - root/a.md",
             all_docs_mode=True,
         )
-        assert "DOCUMENT CATALOGUE" in prompt
-        assert "RELEVANT EXCERPTS" in prompt
-        assert "List my docs" in prompt
+        assert "DOCUMENT CATALOGUE" in user_prompt
+        assert "RELEVANT EXCERPTS" in user_prompt
+        assert "List my docs" in user_prompt
 
     def test_all_docs_no_excerpts(self):
         service = _make_service()
-        prompt = service._build_prompt(
+        system_prompt, user_prompt = service._build_prompt(
             question="What do I have?",
             context_chunks=[],
             catalogue="Library: 2 documents",
             all_docs_mode=True,
         )
-        assert "No specific excerpts matched" in prompt
+        assert "No specific excerpts matched" in user_prompt
 
-    def test_includes_history(self):
+    def test_history_not_in_prompt(self):
+        """History is no longer embedded in the prompt — it's sent as messages."""
         service = _make_service()
-        history = [{"role": "user", "content": "Previous question"}]
-        prompt = service._build_prompt(
+        system_prompt, user_prompt = service._build_prompt(
             question="Follow-up",
             context_chunks=[{"name": "d.md", "content": "data"}],
             catalogue="",
             all_docs_mode=False,
-            history=history,
         )
-        assert "CONVERSATION HISTORY" in prompt
-        assert "Previous question" in prompt
+        assert "CONVERSATION HISTORY" not in user_prompt
+
+    def test_strict_context_single_doc(self):
+        service = _make_service()
+        sys_default, _ = service._build_prompt(
+            question="What is X?",
+            context_chunks=[{"name": "d.md", "content": "data"}],
+            catalogue="",
+            all_docs_mode=False,
+            strict_context=False,
+        )
+        sys_strict, _ = service._build_prompt(
+            question="What is X?",
+            context_chunks=[{"name": "d.md", "content": "data"}],
+            catalogue="",
+            all_docs_mode=False,
+            strict_context=True,
+        )
+        assert "general knowledge" in sys_default
+        assert "Do not use outside knowledge" in sys_strict
+
+    def test_strict_context_all_docs(self):
+        service = _make_service()
+        sys_default, _ = service._build_prompt(
+            question="List docs",
+            context_chunks=[],
+            catalogue="Library: 2 documents",
+            all_docs_mode=True,
+            strict_context=False,
+        )
+        sys_strict, _ = service._build_prompt(
+            question="List docs",
+            context_chunks=[],
+            catalogue="Library: 2 documents",
+            all_docs_mode=True,
+            strict_context=True,
+        )
+        assert "general knowledge" in sys_default
+        assert "Do not use outside knowledge" in sys_strict
 
 
 # ---------------------------------------------------------------------------
@@ -144,29 +181,18 @@ class TestBuildPrompt:
 
 class TestHealthCheck:
 
-    @patch("app.services.search.qa.httpx.AsyncClient")
-    async def test_health_ok(self, mock_client_cls):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client_cls.return_value = mock_client
-
-        service = _make_service()
+    async def test_health_ok(self):
+        provider = AsyncMock()
+        provider.health_check = AsyncMock(return_value=True)
+        search = AsyncMock()
+        service = QAService(search_service=search, provider=provider)
         assert await service.health_check() is True
 
-    @patch("app.services.search.qa.httpx.AsyncClient")
-    async def test_health_unreachable(self, mock_client_cls):
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=Exception("Connection refused"))
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client_cls.return_value = mock_client
-
-        service = _make_service()
+    async def test_health_unreachable(self):
+        provider = AsyncMock()
+        provider.health_check = AsyncMock(return_value=False)
+        search = AsyncMock()
+        service = QAService(search_service=search, provider=provider)
         assert await service.health_check() is False
 
 
@@ -338,14 +364,18 @@ class TestAnswerStream:
 
         assert any("empty" in str(t).lower() for t in tokens)
 
-    @patch("app.services.search.qa.QAService._stream_ollama")
-    async def test_streams_tokens_with_metrics(self, mock_stream):
+    async def test_streams_tokens_with_metrics(self):
         """Verify answer_stream yields string tokens and a final metrics dict."""
-        async def fake_stream(prompt):
+        async def fake_stream(prompt, system_prompt="", history=None):
             yield "Hello"
             yield " world"
 
-        mock_stream.side_effect = fake_stream
+        provider = AsyncMock()
+        provider.stream = fake_stream
+        provider.provider_name = "test"
+        provider.model_name = "test-model"
+        provider.max_history_turns = 20
+        provider.max_history_chars = 8000
 
         search = AsyncMock()
         search.search = AsyncMock(return_value=[_make_search_result()])
@@ -366,7 +396,7 @@ class TestAnswerStream:
         db.scalar = AsyncMock(return_value=None)
 
         _catalogue_cache.clear()
-        service = _make_service(search)
+        service = QAService(search_service=search, provider=provider)
 
         tokens = []
         async for token in service.answer_stream(db, 1, "what is this?"):

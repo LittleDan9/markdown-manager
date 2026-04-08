@@ -1,0 +1,51 @@
+{
+  "$id": "dictionary.word.v1/DictionaryWordRemoved.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Dictionary Word Removed Event",
+  "description": "Event emitted when a word is removed from the custom dictionary",
+  "type": "object",
+  "required": [
+    "user_id",
+    "tenant_id",
+    "word",
+    "scope_type",
+    "occurred_at"
+  ],
+  "properties": {
+    "user_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "User who removed the word"
+    },
+    "tenant_id": {
+      "type": "string",
+      "format": "uuid",
+      "description": "Tenant identifier"
+    },
+    "word": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 100,
+      "description": "The removed dictionary word"
+    },
+    "scope_type": {
+      "type": "string",
+      "enum": ["user", "category", "folder"],
+      "description": "Scope level of the dictionary entry"
+    },
+    "scope_id": {
+      "type": ["string", "null"],
+      "description": "Category ID when scope_type is category"
+    },
+    "folder_path": {
+      "type": ["string", "null"],
+      "description": "Folder path when scope_type is folder"
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the word was removed"
+    }
+  },
+  "additionalProperties": false
+}

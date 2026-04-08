@@ -35,16 +35,18 @@ class OutboxService:
         aggregate_type: str = "user",
         tenant_id: str = "00000000-0000-0000-0000-000000000000",
         correlation_id: Optional[str] = None,
+        topic: str = "identity.user.v1",
     ) -> str:
         """Add an event to the outbox table.
 
         Args:
-            event_type: Type of event (e.g., UserCreated, UserUpdated)
+            event_type: Type of event (e.g., UserCreated, DictionaryWordAdded)
             aggregate_id: ID of the aggregate that generated the event
             payload: Event payload data
             aggregate_type: Type of aggregate (default: user)
             tenant_id: Tenant identifier for multi-tenancy
             correlation_id: Optional correlation ID for request tracing
+            topic: Redis stream topic for routing (default: identity.user.v1)
 
         Returns:
             str: The generated event ID
@@ -55,10 +57,10 @@ class OutboxService:
         query = text("""
             INSERT INTO identity.outbox (
                 event_id, event_type, aggregate_type, aggregate_id,
-                payload, created_at, published, attempts
+                payload, created_at, published, attempts, topic
             ) VALUES (
                 :event_id, :event_type, :aggregate_type, :aggregate_id,
-                :payload, :created_at, :published, :attempts
+                :payload, :created_at, :published, :attempts, :topic
             )
         """)
 
@@ -70,7 +72,8 @@ class OutboxService:
             "payload": json.dumps(payload),
             "created_at": datetime.now(timezone.utc),
             "published": False,
-            "attempts": 0
+            "attempts": 0,
+            "topic": topic,
         })
 
         return event_id

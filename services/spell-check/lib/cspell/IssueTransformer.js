@@ -24,7 +24,6 @@ class IssueTransformer {
 
     if (contentPositionStart > fence.position.codeStart) {
       // Content position is already absolute, don't add fence offset
-      console.log('🔧 BUGFIX: Content position appears to be absolute, using as-is');
       absoluteStart = contentPositionStart + (cspellIssue.offset || 0);
       absoluteEnd = absoluteStart + cspellIssue.text.length;
     } else {
@@ -32,19 +31,6 @@ class IssueTransformer {
       absoluteStart = fence.position.codeStart + contentPositionStart + (cspellIssue.offset || 0);
       absoluteEnd = absoluteStart + cspellIssue.text.length;
     }
-
-    // DEBUG: Log position calculation details
-    console.log('🔧 Position calculation debug:', {
-      word: cspellIssue.text,
-      fenceCodeStart: fence.position.codeStart,
-      contentPositionStart: contentPositionStart,
-      cspellOffset: cspellIssue.offset || 0,
-      calculatedAbsoluteStart: absoluteStart,
-      calculatedAbsoluteEnd: absoluteEnd,
-      contentText: content.text.substring(0, 50) + '...',
-      contentType: content.type,
-      positionType: contentPositionStart > fence.position.codeStart ? 'absolute' : 'relative'
-    });
 
     // Calculate line numbers
     const beforeText = fence.code.substring(0, contentPositionStart + (cspellIssue.offset || 0));
@@ -88,19 +74,6 @@ class IssueTransformer {
    * @returns {Array} Array of transformed issues
    */
   transformMultipleIssues(issues, extractedContent, fence, defaultSeverity = 'info') {
-    console.log('🔄 Transforming multiple issues:', {
-      issuesCount: issues.length,
-      extractedContentCount: extractedContent.length,
-      fenceCodeStart: fence.position?.codeStart,
-      fenceIndex: fence.index,
-      extractedContentPositions: extractedContent.map(c => ({
-        type: c.type,
-        positionStart: c.position?.start,
-        positionEnd: c.position?.end,
-        textPreview: c.text.substring(0, 20) + '...'
-      }))
-    });
-
     const transformedIssues = [];
 
     for (const issue of issues) {
@@ -123,18 +96,6 @@ class IssueTransformer {
    * @returns {Object|null} Matching content object
    */
   findContentForIssue(issue, extractedContent) {
-    console.log('🔍 Finding content for issue:', {
-      issueText: issue.text,
-      issueOffset: issue.offset,
-      extractedContentCount: extractedContent.length,
-      extractedContentSummary: extractedContent.map(c => ({
-        type: c.type,
-        text: c.text.substring(0, 30) + '...',
-        positionStart: c.position?.start,
-        positionEnd: c.position?.end
-      }))
-    });
-
     // Better approach: find content that contains the issue at the correct offset
     if (issue.offset !== undefined) {
       for (const content of extractedContent) {
@@ -143,13 +104,6 @@ class IssueTransformer {
         if (relativeOffset >= 0 && relativeOffset < content.text.length) {
           const wordAtOffset = content.text.substring(relativeOffset, relativeOffset + issue.text.length);
           if (wordAtOffset === issue.text) {
-            console.log('🎯 Matched content by offset:', {
-              contentType: content.type,
-              contentText: content.text.substring(0, 50) + '...',
-              contentPosition: content.position,
-              relativeOffset,
-              wordAtOffset
-            });
             return content;
           }
         }
@@ -159,16 +113,9 @@ class IssueTransformer {
     // Fallback: find content that contains the issue text (original logic)
     for (const content of extractedContent) {
       if (content.text.includes(issue.text)) {
-        console.log('🎯 Matched content by text inclusion (fallback):', {
-          contentType: content.type,
-          contentText: content.text.substring(0, 50) + '...',
-          contentPosition: content.position
-        });
         return content;
       }
     }
-
-    console.log('⚠️ No exact match found, using fallback');
 
     // Final fallback: return first content of the same type
     return extractedContent.find(content => content.type === 'comment') ||

@@ -15,6 +15,11 @@ class UserAPI extends Api {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return null;
       }
+      // Transient proxy/server errors (backend restarting) — return null so callers can retry
+      if (error?.response?.status >= 502 && error?.response?.status <= 504) {
+        console.warn('UserAPI.refreshToken: Transient server error, backend may be restarting');
+        return null;
+      }
       // Log other errors (500, network issues, etc.)
       console.error("Token refresh failed:", error);
       throw error;

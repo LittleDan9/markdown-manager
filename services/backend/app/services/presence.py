@@ -51,6 +51,29 @@ class PresenceManager:
             self._cleanup_task.cancel()
             self._cleanup_task = None
 
+    async def broadcast_maintenance(self, retry_seconds: int = 5):
+        """Send a maintenance notification to all connected WebSocket clients.
+
+        Called during graceful shutdown to inform clients that the server is
+        updating and they should reconnect shortly.
+        """
+        message = json.dumps({
+            "type": "maintenance",
+            "message": "Server updating, reconnecting...",
+            "retry_seconds": retry_seconds,
+        })
+        disconnected = []
+        for uid, ws in list(self._connections.items()):
+            try:
+                await ws.send_text(message)
+            except Exception:
+                disconnected.append(uid)
+        for uid in disconnected:
+            self._connections.pop(uid, None)
+            self._users.pop(uid, None)
+        if self._connections:
+            logger.info("Presence: sent maintenance notice to %d clients", len(self._connections))
+
     async def connect(self, websocket: WebSocket, user_id: int, display_name: str):
         """Register a new WebSocket connection."""
         await websocket.accept()

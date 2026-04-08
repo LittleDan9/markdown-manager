@@ -9,7 +9,6 @@ import GitHubModal from "../github/modals/GitHubModal";
 import IconManagementModal from "../icons/modals/IconManagementModal";
 import AdminModal from "../admin/AdminModal";
 import GitManagementModal from "../git/GitManagementModal";
-import SpellCheckSettingsModal from "../editor/spell-check/SpellCheckSettingsModal";
 import SystemHealthModal from "../system/SystemHealthModal";
 import ImageBrowserModal from "../images/ImageBrowserModal";
 import { useImageManagement } from "@/hooks/image/useImageManagement";
@@ -24,7 +23,6 @@ function UserMenuLoggedIn() {
   const [showIconModal, setShowIconModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
   const [showGitModal, setShowGitModal] = useState(false);
-  const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
   const [showSystemHealthModal, setShowSystemHealthModal] = useState(false);
   const [showImageBrowserModal, setShowImageBrowserModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
@@ -49,38 +47,21 @@ function UserMenuLoggedIn() {
     };
   }, []);
 
-  const handleProfile = () => {
+  // Listen for openSettings events from editor toolbar buttons
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab);
+        setShowSettingsModal(true);
+      }
+    };
+    window.addEventListener('openSettings', handler);
+    return () => window.removeEventListener('openSettings', handler);
+  }, []);
+
+  const handleSettings = () => {
     setActiveTab("profile-info");
     setShowSettingsModal(true);
-  };
-
-  const handleSecurity = () => {
-    setActiveTab("security-settings");
-    setShowSettingsModal(true);
-  };
-
-  const handleMFA = () => {
-    setActiveTab("mfa-details");
-    setShowSettingsModal(true);
-  };
-
-  const handleDictionary = () => {
-    setActiveTab("dictionary");
-    setShowSettingsModal(true);
-  };
-
-  const handleMarkdownLinting = () => {
-    setActiveTab("markdown-lint");
-    setShowSettingsModal(true);
-  };
-
-  const handleStorage = () => {
-    setActiveTab("storage");
-    setShowSettingsModal(true);
-  };
-
-  const handleSpellCheck = () => {
-    setShowSpellCheckModal(true);
   };
 
   const handleSystemHealth = () => {
@@ -140,38 +121,17 @@ function UserMenuLoggedIn() {
   const handleGitModalHide = useCallback(() => setShowGitModal(false), []);
   const handleIconModalHide = useCallback(() => setShowIconModal(false), []);
   const handleAdminModalHide = useCallback(() => setShowAdminModal(false), []);
-  const handleSpellCheckModalHide = useCallback(() => setShowSpellCheckModal(false), []);
   const handleSystemHealthModalHide = useCallback(() => setShowSystemHealthModal(false), []);
   const handleImageBrowserModalHide = useCallback(() => setShowImageBrowserModal(false), []);
 
   return (
     <>
       <Dropdown.Menu>
-        <Dropdown.Item id="profileBtn" onClick={handleProfile}>
-          <i className="bi bi-person me-2"></i>Profile
-        </Dropdown.Item>
-        <Dropdown.Item id="settingsBtn" onClick={handleSecurity}>
-          <i className="bi bi-gear me-2"></i>Security
-        </Dropdown.Item>
-        {user.mfa_enabled && (
-          <Dropdown.Item id="mfaBtn" onClick={handleMFA}>
-            <i className="bi bi-shield-lock me-2"></i>MFA
-          </Dropdown.Item>
-        )}
-        <Dropdown.Item id="dictionaryBtn" onClick={handleDictionary}>
-          <i className="bi bi-book me-2"></i>Dictionary
-        </Dropdown.Item>
-        <Dropdown.Item id="markdownLintingBtn" onClick={handleMarkdownLinting}>
-          <i className="bi bi-check2-square me-2"></i>Markdown Linting
-        </Dropdown.Item>
-        <Dropdown.Item id="storageBtn" onClick={handleStorage}>
-          <i className="bi bi-hdd me-2"></i>Storage
+        <Dropdown.Item id="settingsBtn" onClick={handleSettings}>
+          <i className="bi bi-gear me-2"></i>Settings
         </Dropdown.Item>
         <Dropdown.Item id="imageManagerBtn" onClick={handleImageManager}>
           <i className="bi bi-file-image me-2"></i>Image Manager
-        </Dropdown.Item>
-        <Dropdown.Item id="spellCheckBtn" onClick={handleSpellCheck}>
-          <i className="bi bi-spellcheck me-2"></i>Spell Check
         </Dropdown.Item>
         <Dropdown.Item id="systemHealthBtn" onClick={handleSystemHealth}>
           <i className="bi bi-activity me-2"></i>System Health
@@ -263,22 +223,6 @@ function UserMenuLoggedIn() {
       <AdminModal
         show={showAdminModal}
         onHide={handleAdminModalHide}
-      />
-      <SpellCheckSettingsModal
-        show={showSpellCheckModal}
-        onHide={handleSpellCheckModalHide}
-        settings={{
-          spelling: true,
-          grammar: true,
-          style: true,
-          readability: true,
-          styleGuide: 'none',
-          language: 'en-US'
-        }}
-        onSettingsChange={(newSettings) => {
-          // For global settings, we could save to localStorage or user preferences
-          console.log('Global spell check settings changed:', newSettings);
-        }}
       />
       <SystemHealthModal
         show={showSystemHealthModal}

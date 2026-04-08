@@ -49,7 +49,15 @@ class AuthService {
     try {
       // Always try refresh token first - this ensures we get the latest auth state
       console.log('AuthService: Attempting refresh token');
-      const refreshResult = await UserAPI.refreshToken();
+      let refreshResult = await UserAPI.refreshToken();
+
+      // If refresh returned null but we were previously authenticated, retry once
+      // after a short delay — the backend may be restarting during a deployment
+      if (!refreshResult && localStorage.getItem('lastKnownAuthState') === 'authenticated') {
+        console.log('AuthService: Refresh returned null for previously authenticated user, retrying in 2s');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        refreshResult = await UserAPI.refreshToken();
+      }
 
       if (refreshResult && refreshResult.access_token) {
         console.log('AuthService: Refresh successful, validating user');
@@ -169,9 +177,43 @@ class AuthService {
     this.token = newToken;
     if (newToken) {
       localStorage.setItem("authToken", newToken);
+      this.lastRefreshedAt = Date.now();
     } else {
       localStorage.removeItem("authToken");
+      this.lastRefreshedAt = null;
     }
+  }
+
+  /**
+   * Decode JWT payload and return the expiry timestamp (ms)
+   */
+  getTokenExpiry() {
+    if (!this.token) return null;
+    try {
+      const payload = JSON.parse(atob(this.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.exp ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get the timestamp (ms) of the last token refresh
+   */
+  getLastRefreshedAt() {
+    return this.lastRefreshedAt || null;
+  }
+
+  /**
+   * Force-refresh the access token on demand
+   */
+  async forceRefresh() {
+    const res = await UserAPI.refreshToken();
+    if (res && res.access_token) {
+      this.setToken(res.access_token);
+      return { success: true, user: res.user || null };
+    }
+    return { success: false };
   }
 
   /**

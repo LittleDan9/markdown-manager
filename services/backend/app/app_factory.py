@@ -41,6 +41,7 @@ from app.routers import (
     users,
 )
 from app.routers.admin import router as admin_router
+from app.routers import api_keys
 from app.routers import chat
 from app.routers import comments
 from app.routers import notifications
@@ -89,16 +90,29 @@ def _create_lifespan():
 
         yield
 
+        # Shutdown: notify connected clients about maintenance
+        logger.info("Shutting down application — notifying connected clients...")
+
+        from app.services.presence import presence_manager
+        try:
+            await presence_manager.broadcast_maintenance(retry_seconds=5)
+        except Exception:
+            logger.exception("Failed to send presence maintenance broadcast")
+
+        from app.services.collab import collab_manager as _collab_mgr
+        try:
+            await _collab_mgr.broadcast_maintenance(retry_seconds=5)
+        except Exception:
+            logger.exception("Failed to send collab maintenance broadcast")
+
         # Shutdown: stop background services
         from app.services.storage.git.maintenance import git_maintenance_service
         git_maintenance_service.stop()
 
-        from app.services.collab import collab_manager as _collab_mgr
         _collab_mgr.stop()
 
-        from app.services.presence import presence_manager
         presence_manager.stop()
-        logger.info("Shutting down application...")
+        logger.info("Application shutdown complete.")
 
     return lifespan
 
@@ -183,12 +197,18 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(
         markdown_lint.router, tags=["markdown-lint"]
     )
+
+    from app.routers import spell_check_settings
+    app.include_router(
+        spell_check_settings.router, tags=["spell-check-settings"]
+    )
     app.include_router(
         github.router, prefix="/github", tags=["github"]
     )
     app.include_router(
         github_settings.router, prefix="/github/settings", tags=["github-settings"]
     )
+    app.include_router(api_keys.router)  # /api-keys CRUD for LLM provider keys
     app.include_router(chat.router)  # /chat/ask and /chat/health
     app.include_router(notifications.router)  # /notifications
     app.include_router(comments.router)  # /documents/{id}/comments and /comments/{id}

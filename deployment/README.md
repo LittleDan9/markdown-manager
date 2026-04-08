@@ -1,432 +1,192 @@
-# Markdown Manager Deployment
+# Markdown Manager — Deployment
 
-Complete deployment system using Ansible for production deployment to Danbian server.
+Production deployment using Ansible + Docker Compose with **blue/green zero-downtime deploys** via Traefik.
 
-## 🏗️ Architecture Overview
+## Architecture
 
 ```
-Development Machine → Ansible → SSH → Production Server (Danbian)
+Development Machine → Ansible → SSH → Production Server (10.0.1.51)
                                 ↓
-                          Deploy Services via Systemd
-                          ├── Redis (Event Store)
-                          ├── Backend API
-                          ├── Export Service
-                          ├── Linting Service + Consumer
-                          ├── Spell-check Service + Consumer
-                          ├── Event Publisher
-                          └── Static UI (via Nginx)
+                   ┌─── Infrastructure Stack (mm-infra) ───┐
+                   │  Traefik  (port 8080, traffic switch)  │
+                   │  PostgreSQL  (pgvector, persistent)    │
+                   │  Redis  (streams, cache)               │
+                   │  Ollama  (LLM inference)               │
+                   │  ClamAV  (virus scanning)              │
+                   └────────────────────────────────────────┘
+                               │
+             ┌─────────────────┼──────────────────┐
+     ┌── mm-blue ──┐                    ┌── mm-green ──┐
+     │  nginx       │  ← Traefik →      │  nginx        │
+     │  backend     │  routes to         │  backend      │
+     │  export      │  healthy stack     │  export       │
+     │  linting     │                    │  linting      │
+     │  spell-check │                    │  spell-check  │
+     │  embedding   │                    │  embedding    │
+     │  event-*     │                    │  event-*      │
+     └──────────────┘                    └───────────────┘
+             ↑                                    ↑
+       Active (serving)              Standby (previous deploy)
 ```
 
-## 🚀 Quick Start
+### Dual-Layer Nginx
+
+```
+Internet (HTTPS:443)
+  → Host nginx (TLS, security headers, rate limiting, bot blocking)
+    → 127.0.0.1:8080
+      → Traefik (blue/green health-aware routing)
+        → Container nginx (path routing, SPA serving)
+          → backend / export / linting / spell-check
+```
+
+Host nginx config is managed by the `nginx_host` Ansible role. Container nginx config is in `nginx/nginx-prod.conf`. Traefik is configured via `deployment/traefik.yml`.
+
+## Quick Start
 
 ### Prerequisites
-- SSH access to production server (`~/.ssh/id_danbian`)
-- Docker installed locally (for building images)
-- Ubuntu/Debian system (Ansible auto-installed)
+
+- SSH access to production: `ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51`
+- `deployment/production.env` configured (see `deployment/production.env.template`)
 
 ### Deploy Commands
+
 ```bash
-make deploy                    # Full deploy (bootstrap + app + nginx)
-make deploy-update             # App update only (skip bootstrap)
-make deploy-bootstrap          # First-time server setup (Docker, UFW, dirs)
-make deploy-nginx              # Update host nginx configuration only
+make deploy                # Full deploy (bootstrap + app + nginx)
+make deploy-update         # App update only (blue/green swap — routine deploys)
+make deploy-bootstrap      # First-time server setup (Docker, UFW, directories)
+make deploy-nginx          # Update host nginx configuration only
+make deploy-infra          # Update infrastructure stack only (db, redis, traefik)
+make deploy-rollback       # Revert to previous blue/green slot
 ```
 
-### Status & Monitoring
+### Monitoring
+
 ```bash
-make deploy-status             # Check production container status and health
-make deploy-logs               # Tail production container logs
-make deploy-dry-run            # Preview changes without deploying (Ansible check mode)
+make deploy-status         # Show active slot + container health (both stacks)
+make deploy-logs           # Tail active slot container logs
+make deploy-dry-run        # Ansible check mode (preview changes)
 ```
 
-### Database Management
+### Database
+
 ```bash
-make deploy-db-migrate         # Run Alembic migrations in production
-make deploy-db-backup          # Backup production database
-make backup-db                 # Backup production database to JSON
-make restore-db BACKUP_FILE=path  # Restore database from backup file
-make backup-restore-cycle      # Run backup then restore in sequence
+make deploy-db-migrate     # Run Alembic migrations in active backend
+make deploy-db-backup      # pg_dump → local backups/ directory
 ```
 
-## 📁 Directory Structure
+## How Blue/Green Deployment Works
 
-```text
+1. **`make deploy-update`** runs Ansible which rsyncs source and calls `scripts/deploy-blue-green.sh`
+2. Script reads `.deploy-slot` (e.g., "blue") and computes next slot ("green")
+3. Builds images for the new slot
+4. Starts new stack: `docker compose -p mm-green -f docker-compose.app.yml up -d`
+5. Waits for backend health check to pass
+6. Traefik automatically discovers the new stack's nginx via Docker labels and routes traffic
+7. Stops old stack with 30s grace period: `docker compose -p mm-blue down --timeout 30`
+8. Backend sends `{"type": "maintenance"}` to WebSocket clients during shutdown (collab + presence)
+9. Frontend shows transient toast; auto-reconnect connects to new stack via Traefik
+10. Cleans up old UI volume and dangling images
+
+**Result**: Zero 502 errors during deploy. Users with active WebSocket connections see a brief "Server updating" toast and auto-reconnect within seconds.
+
+### Rollback
+
+```bash
+make deploy-rollback
+```
+
+Re-starts the previous slot's containers (images are still cached) and Traefik switches back.
+
+### Migration Compatibility
+
+Since both old and new backends briefly serve traffic simultaneously, **Alembic migrations must be backward-compatible**:
+- Add nullable columns, new tables → OK
+- Rename/drop columns or tables → requires two-phase expand/contract across deploys
+
+Migrations run automatically inside the backend `entrypoint.sh` (with exponential backoff retries) before uvicorn starts.
+
+## File Structure
+
+```
+docker-compose.infra.yml       # Infrastructure: db, redis, ollama, clamav, traefik
+docker-compose.app.yml         # Application: backend, nginx, export, linting, etc.
+docker-compose.prod.yml        # Legacy monolithic file (kept as fallback)
 deployment/
-├── ansible.cfg               # Ansible configuration
-├── inventory.yml             # Target hosts (Danbian)
-├── deploy.yml               # Main deployment playbook
-├── status.yml               # Status checking playbook
-├── config.yml               # Service configuration
-├── group_vars/              # Environment variables
-│   └── production.yml
-└── roles/                   # Ansible roles
-    ├── infrastructure/      # Docker, networks, registry
-    ├── docker_service/      # Container deployment
-    ├── nginx_config/        # Nginx + UI deployment
-    ├── redis/              # Redis deployment
-    ├── cleanup/            # Image cleanup
-    └── status/             # Service status checking
+├── deploy.yml                 # Main Ansible playbook (3 roles)
+├── config.yml                 # Shared variables (app_dir, compose files)
+├── inventory.yml              # Target host (10.0.1.51)
+├── production.env             # Production secrets (gitignored)
+├── production.env.template    # Variable reference
+├── traefik.yml                # Traefik static configuration
+├── ansible.cfg                # Ansible settings
+└── roles/
+    ├── bootstrap/             # Docker install, UFW, directory creation
+    ├── app_deploy/            # rsync → infra check → blue/green deploy
+    └── nginx_host/            # Host nginx: TLS, security, rate limiting
+scripts/
+├── deploy-blue-green.sh       # Blue/green orchestration
+├── deploy-infra.sh            # Infrastructure stack management
+└── colors.sh                  # Terminal color definitions
 ```
 
-## ⚙️ Service Configuration
+## Infrastructure Stack (mm-infra)
 
-Services are defined in `config.yml` with these key properties:
+Runs under the fixed project name `mm-infra`. Rarely needs restarting.
 
-```yaml
-services:
-  backend:
-    name: "markdown-manager-backend"
-    image: "littledan9/markdown-manager"
-    tag: "latest"
-    port: 8000
-    build_context: "./services/backend"
-    systemd_service: true
-    health_check: "/health"
-    env_file: "/etc/markdown-manager.env"
-    restart_policy: "unless-stopped"
-```
+| Service | Image | Purpose |
+|---------|-------|---------|
+| traefik | traefik:v3.4 | Blue/green traffic routing (port 8080) |
+| db | pgvector/pgvector:pg16 | PostgreSQL with vector extensions |
+| redis | redis:7-alpine | Event streams + cache |
+| ollama | ollama/ollama:latest | LLM inference |
+| clamav | clamav/clamav:stable | Virus scanning |
 
-### Service Types
+Shared network: `mm-network` (bridge). Shared volumes: `mm-postgres-data`, `mm-redis-data`, `mm-ollama-data`, `mm-clamav-data`, `mm-document-storage`.
 
-**Containerized Services:**
+## Application Stack (mm-blue / mm-green)
 
-- **Backend**: Main API (`port 8000`)
-- **Export**: Document export (`port 8001`)
-- **Linting**: Markdown linting (`port 8002`)
-- **Spell-check**: Spell checking (`port 8003`)
-- **Event Publisher**: Background event publishing
-- **Redis**: Event store and message broker (`port 6379`)
+Alternates between project names. Each gets its own UI static volume.
 
-**Event Consumers** (auto-deployed):
+| Service | Build Context | Purpose |
+|---------|---------------|---------|
+| nginx | nginx:alpine | Container-level routing + static serving |
+| frontend-build | services/ui | One-shot React build → UI volume |
+| backend | services/backend | FastAPI main API |
+| export | services/export | PDF/SVG/PNG via Playwright |
+| linting | services/linting | markdownlint HTTP service |
+| spell-check | services/spell-check | cspell/retext HTTP service |
+| embedding | services/embedding | sentence-transformers inference |
+| event-publisher | services/event-publisher | Outbox relay (Postgres → Redis) |
+| linting-consumer | services/event-consumer | Linting event processing |
+| spell-check-consumer | services/event-consumer | Spell-check event processing |
 
-- **Linting Consumer**: Processes linting events
-- **Spell-check Consumer**: Processes spell-check events
-
-**Static Content:**
-
-- **UI**: React frontend (built and served by nginx)
-
-## 🔄 Deployment Process
-
-### 1. Change Detection (Smart Deployment)
-
-- **Service Config**: SHA256 checksums detect systemd config changes
-- **Images**: Skip builds if registry image already exists
-- **Conditional Restarts**: Only restart services when necessary
-
-### 2. Build & Push
-
-- Images built locally with Docker
-- Pushed to local registry (port 5000)
-- Tagged for production deployment
-
-### 3. Service Deployment
-
-- Systemd services created/updated
-- Containers deployed with proper networking
-- Health checks verify service availability
-
-### 4. Verification
-
-- Systemd service status verified
-- Container status confirmed with retries
-- HTTP health checks for services with endpoints
-
-## 🌐 Infrastructure Components
-
-### Docker Registry
-
-Local registry on port 5000 for image distribution:
+## Troubleshooting
 
 ```bash
-# Check registry status
-curl -s http://localhost:5000/v2/
+# SSH to production
+ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51
+cd /opt/markdown-manager
+
+# Check active slot
+cat .deploy-slot
+
+# Infrastructure status
+docker compose -p mm-infra -f docker-compose.infra.yml ps
+
+# Active app status
+SLOT=$(cat .deploy-slot)
+docker compose -p mm-$SLOT -f docker-compose.app.yml ps
+
+# Backend logs
+docker compose -p mm-$SLOT -f docker-compose.app.yml logs backend --tail=100
+
+# Traefik dashboard (internal)
+curl http://localhost:8888/api/http/services | jq .
+
+# Manual health check
+curl http://localhost:8080/api/health
+
+# Force rebuild
+./scripts/deploy-blue-green.sh --force-rebuild
 ```
-
-### Docker Network
-
-All services connected via `markdown-manager` network for inter-service communication.
-
-### Systemd Integration
-
-Each service runs as a systemd service with:
-
-- Automatic restart on failure
-- Proper dependency management
-- Service logging integration
-
-## 📊 Event System Architecture
-
-**Redis Streams** power the event-driven architecture:
-
-```text
-Database Changes → Event Publisher → Redis Streams → Event Consumers
-                                        ├── Linting Consumer
-                                        └── Spell-check Consumer
-```
-
-### Configuration
-
-Services with event consumption have `consumer_config` defined:
-
-```yaml
-linting:
-  consumer_config: "consumer.config.json"  # Enables auto-consumer deployment
-```
-
-## 🔧 Development vs Production
-
-### Development
-
-- Services run via `docker-compose`
-- Hot reload for UI development
-- Local database and Redis
-
-### Production
-
-- Services managed by systemd
-- UI deployed as static files
-- Persistent data volumes
-- Environment file: `/etc/markdown-manager.env`
-
-## 🖥️ UI Deployment (Static Files)
-
-The UI is deployed as static files served by nginx (not containerized):
-
-### Build Process
-
-1. Node.js installed on target server
-2. UI source copied and built (`npm run build:clean`)
-3. Static files deployed to `/var/www/littledan.com`
-4. Nginx configured for SPA routing and asset caching
-
-### Nginx Configuration
-
-- **Static Assets**: 1-year cache with immutable headers
-- **HTML Files**: No cache for instant updates
-- **SPA Routing**: `try_files` for client-side routing
-- **API Proxy**: Backend requests proxied to port 8000
-
-## 🎯 Smart Deployment Features
-
-### Change Detection
-
-- **Skip Unchanged**: Services only restart when config or image changes
-- **Checksum Validation**: SHA256 comparison of systemd service files
-- **Image Caching**: Local registry prevents unnecessary rebuilds
-
-### Error Handling
-
-- **Retry Logic**: Container verification with multiple attempts
-- **Graceful Failures**: Clear error messages with relevant logs
-- **Health Validation**: Services verified as healthy before success
-
-### Output Control
-
-- **Default**: Shows changes and important status
-- **Quiet Mode**: Minimal output, errors only
-- **Verbose Mode**: Full debug output for troubleshooting
-
-## 🔍 Monitoring & Troubleshooting
-
-### Service Status
-
-```bash
-# Check all services
-make deploy-status
-
-# Individual service status
-sudo systemctl status markdown-manager-backend
-sudo systemctl status markdown-manager-redis
-```
-
-### Container Logs
-
-```bash
-# View service logs
-docker logs markdown-manager-backend
-docker logs markdown-manager-redis
-
-# Follow logs in real-time
-docker logs -f markdown-manager-backend
-```
-
-### Redis Monitoring
-
-```bash
-# Connect to Redis CLI
-docker exec -it markdown-manager-redis redis-cli
-
-# Monitor event streams
-XINFO STREAM document_events
-XRANGE document_events - +
-```
-
-### Common Issues
-
-**Container Startup Failures:**
-
-```bash
-# Check systemd service status
-sudo systemctl status markdown-manager-[service]
-
-# Check container logs
-docker logs markdown-manager-[service]
-
-# Restart service manually
-sudo systemctl restart markdown-manager-[service]
-```
-
-**Registry Connection Issues:**
-
-```bash
-# Verify local registry
-curl -s http://localhost:5000/v2/
-
-# Check registry container
-docker ps | grep registry
-```
-
-**UI Build Failures:**
-
-```bash
-# Manual UI build test
-cd services/ui
-npm install
-npm run build:clean
-ls -la dist/
-```
-
-## 🚨 Environment Configuration
-
-### Production Environment File
-
-Location: `/etc/markdown-manager.env`
-
-Required variables:
-
-```bash
-# Database
-DATABASE_URL=sqlite:///data/markdown_manager.db
-
-# Services
-EXPORT_SERVICE_URL=http://markdown-manager-export:8001
-MARKDOWN_LINT_SERVICE_URL=http://markdown-manager-lint:8002
-SPELL_CHECK_SERVICE_URL=http://markdown-manager-spell-check:8003
-
-# Redis
-REDIS_URL=redis://markdown-manager-redis:6379/0
-
-# Event Publisher (RELAY_ prefix required)
-RELAY_DATABASE_URL=sqlite:///data/markdown_manager.db
-RELAY_REDIS_URL=redis://markdown-manager-redis:6379/0
-RELAY_BATCH_SIZE=50
-RELAY_POLL_INTERVAL=5
-RELAY_MAX_RETRY_ATTEMPTS=5
-RELAY_LOG_LEVEL=INFO
-
-# GitHub Integration
-GITHUB_CLIENT_ID=your_github_client_id
-GITHUB_CLIENT_SECRET=your_github_client_secret
-GITHUB_REDIRECT_URI=https://littledan.com/auth/github/callback
-
-# Security
-JWT_SECRET_KEY=your_jwt_secret_key
-ALLOWED_ORIGINS=https://littledan.com
-
-# Storage
-HOST_STORAGE_ROOT=/opt/markdown-manager/storage
-CONTAINER_STORAGE_ROOT=/documents
-```
-
-## 🔐 Security Considerations
-
-### SSH Access
-
-- Key-based authentication required
-- SSH key: `~/.ssh/id_danbian`
-- User: `dlittle` with sudo access
-
-### Container Security
-
-- Services run in isolated Docker network
-- Environment variables loaded from secure file
-- No dangerous Redis commands in production
-- File permissions managed appropriately
-
-### Network Security
-
-- Only necessary ports exposed
-- Internal service communication via Docker network
-- UI served over HTTPS in production
-
-## 📈 Performance Characteristics
-
-### Static UI Serving
-
-- **nginx**: 50,000+ requests/second for static files
-- **Memory**: ~5MB nginx vs ~50MB Node.js service
-- **Cache Strategy**: 1-year cache for assets, no-cache for HTML
-
-### Service Performance
-
-- **Health Checks**: 2-second intervals with 30-attempt retries
-- **Container Startup**: 5-attempt verification with delays
-- **Image Builds**: Cached when possible, skip unchanged
-
-### Resource Usage
-
-- **Redis**: 256MB memory limit with LRU eviction
-- **Backend**: Optimized Python with minimal dependencies
-- **Event Consumers**: Lightweight background processing
-
-## 🛠️ Adding New Services
-
-1. **Add to config.yml:**
-
-```yaml
-services:
-  newservice:
-    name: "markdown-manager-newservice"
-    image: "littledan9/markdown-manager-newservice"
-    port: 8004
-    build_context: "./services/newservice"
-    systemd_service: true
-```
-
-1. **Update service deployment order:**
-
-```yaml
-service_deploy_order:
-  - "redis"
-  - "newservice"  # Add here based on dependencies
-```
-
-1. **Add Makefile target:**
-
-```makefile
-deploy-newservice: ## Deploy new service
-    @./scripts/setup-ansible.sh
-    @cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags newservice
-```
-
-## 📋 Deployment Checklist
-
-Before deploying:
-
-- [ ] Environment file configured on target server
-- [ ] SSH key access verified (`ssh dlittle@10.0.1.51`)
-- [ ] Docker registry accessible
-- [ ] Service configurations reviewed in `config.yml`
-
-After deploying:
-
-- [ ] All services show as active: `make deploy-status`
-- [ ] UI accessible at production URL
-- [ ] API health checks passing
-- [ ] Redis accepting connections
-- [ ] Event consumers processing (if applicable)
-
----
-
-**🎉 The deployment system is designed for reliability, performance, and ease of use. All services are monitored, health-checked, and automatically restarted on failure!**

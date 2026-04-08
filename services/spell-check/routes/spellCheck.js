@@ -53,7 +53,9 @@ function setupSpellCheckRoutes(serviceManager, responseBuilder) {
             checkStrings: false,
             checkIdentifiers: true,
             severity: 'info'
-          }
+          },
+          grammarRules = null,
+          styleSettings = null
         } = req.body;
 
         console.log(`Processing spell check - text length: ${text.length}, language: ${language || 'auto'}`);
@@ -158,7 +160,7 @@ function setupSpellCheckRoutes(serviceManager, responseBuilder) {
           (async () => {
             if (enableGrammar && grammarChecker) {
               try {
-                return await grammarChecker.checkText(text, options);
+                return await grammarChecker.checkText(text, { ...options, grammarRules });
               } catch (error) {
                 console.warn('Grammar checking failed:', error.message);
               }
@@ -170,7 +172,7 @@ function setupSpellCheckRoutes(serviceManager, responseBuilder) {
           (async () => {
             if (enableStyle && styleAnalyzer) {
               try {
-                return await styleAnalyzer.analyzeText(text, options);
+                return await styleAnalyzer.analyzeText(text, { ...options, styleSettings });
               } catch (error) {
                 console.warn('Style analysis failed:', error.message);
               }

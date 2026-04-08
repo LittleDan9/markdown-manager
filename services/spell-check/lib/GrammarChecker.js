@@ -64,8 +64,13 @@ class GrammarChecker {
    * @param {string} text - Text to analyze
    * @returns {Array} Array of grammar issues
    */
-  async performCustomChecks(text) {
+  async performCustomChecks(text, options = {}) {
     const issues = [];
+
+    // Use per-request rule overrides if provided, else fall back to instance defaults
+    const effectiveRules = options.grammarRules
+      ? { ...this.rules, ...options.grammarRules }
+      : this.rules;
 
     // Get code regions to exclude from grammar analysis
     const codeRegions = this.findCodeRegions(text);
@@ -90,19 +95,20 @@ class GrammarChecker {
       }
 
       // Check for long sentences
-      if (this.rules.sentenceLength) {
-        const sentenceIssues = this.checkSentenceLength(line, lineIndex + 1, globalOffset);
+      if (effectiveRules.sentenceLength) {
+        const maxWords = effectiveRules.maxSentenceWords || 30;
+        const sentenceIssues = this.checkSentenceLength(line, lineIndex + 1, globalOffset, maxWords);
         issues.push(...sentenceIssues);
       }
 
       // Check for passive voice
-      if (this.rules.passiveVoice) {
+      if (effectiveRules.passiveVoice) {
         const passiveIssues = this.checkPassiveVoice(line, lineIndex + 1, globalOffset);
         issues.push(...passiveIssues);
       }
 
       // Check for repeated words
-      if (this.rules.repeatedWords) {
+      if (effectiveRules.repeatedWords) {
         const repeatIssues = this.checkRepeatedWords(line, lineIndex + 1, globalOffset);
         issues.push(...repeatIssues);
       }
@@ -281,7 +287,7 @@ class GrammarChecker {
    * @param {number} offset - Global character offset
    * @returns {Array} Array of sentence length issues
    */
-  checkSentenceLength(line, lineNumber, offset) {
+  checkSentenceLength(line, lineNumber, offset, maxWords = 30) {
     const issues = [];
     const sentences = line.split(/[.!?]+/).filter(s => s.trim().length > 0);
     let sentenceOffset = 0;
@@ -289,7 +295,7 @@ class GrammarChecker {
     for (const sentence of sentences) {
       const wordCount = sentence.trim().split(/\s+/).length;
 
-      if (wordCount > 25) {
+      if (wordCount > maxWords) {
         const start = offset + sentenceOffset;
         const end = start + sentence.length;
 

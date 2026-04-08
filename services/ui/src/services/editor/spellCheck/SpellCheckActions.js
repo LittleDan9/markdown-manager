@@ -56,14 +56,16 @@ export default class SpellCheckActions {
         const folderPath = typeof getFolderPath === 'function' ? getFolderPath() : getFolderPath;
 
         // Get spell check markers that intersect with the current range
-        const markers = monaco.editor.getModelMarkers({
-          resource: model.uri,
-          owner: 'spell'
-        });
+        // Query all three marker owners: spell, grammar, and style
+        const allMarkers = [
+          ...monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' }),
+          ...monaco.editor.getModelMarkers({ resource: model.uri, owner: 'grammar' }),
+          ...monaco.editor.getModelMarkers({ resource: model.uri, owner: 'style' })
+        ];
 
         // First, check if there's a marker at the exact cursor position (start of range)
         const cursorPosition = range.getStartPosition();
-        const markerAtCursor = markers.find(marker =>
+        const markerAtCursor = allMarkers.find(marker =>
           marker.startLineNumber === cursorPosition.lineNumber &&
           cursorPosition.column >= marker.startColumn &&
           cursorPosition.column <= marker.endColumn
@@ -77,7 +79,7 @@ export default class SpellCheckActions {
         } else {
           // If cursor is not on a specific marker, show all markers that intersect with the range
           // This maintains backward compatibility for broader selections
-          markersToProcess = markers.filter(marker => {
+          markersToProcess = allMarkers.filter(marker => {
             return marker.startLineNumber <= range.endLineNumber &&
                    marker.endLineNumber >= range.startLineNumber &&
                    marker.startColumn <= range.endColumn &&
@@ -121,14 +123,11 @@ export default class SpellCheckActions {
               ));
             } else if (suggestions.type === 'grammar') {
               // For grammar issues, try to provide intelligent fixes
-              console.log('SpellCheckActions: Creating grammar actions for:', suggestions);
-              console.log('Full issue object:', JSON.stringify(suggestions, null, 2));
               const grammarActions = SpellCheckActions._createGrammarActions(
                 suggestions,
                 markerRange,
                 model
               );
-              console.log('SpellCheckActions: Grammar actions created:', grammarActions);
               actions.push(...grammarActions);
             }
             // Style issues don't get quick fixes as they're usually subjective suggestions
@@ -149,8 +148,12 @@ export default class SpellCheckActions {
   static _registerHoverProvider(suggestionsMapRef) {
     return monaco.languages.registerHoverProvider('markdown', {
       provideHover(model, position) {
-        // Find spell check markers at this position
-        const markers = monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' });
+        // Find spell check markers at this position across all owners
+        const markers = [
+          ...monaco.editor.getModelMarkers({ resource: model.uri, owner: 'spell' }),
+          ...monaco.editor.getModelMarkers({ resource: model.uri, owner: 'grammar' }),
+          ...monaco.editor.getModelMarkers({ resource: model.uri, owner: 'style' })
+        ];
         const markerAtPosition = markers.find(marker => {
           // Check if position is within marker range
           if (position.lineNumber < marker.startLineNumber || position.lineNumber > marker.endLineNumber) {
@@ -315,13 +318,6 @@ export default class SpellCheckActions {
     const wordKey = `${range.startLineNumber}:${wordInfo.startColumn}`;
     let suggestions = suggestionsMapRef.current.get(wordKey);
 
-    console.log('_findSuggestions called:', {
-      wordKey,
-      found: !!suggestions,
-      wordInfo,
-      availableKeys: Array.from(suggestionsMapRef.current.keys())
-    });
-
     // Fallback: legacy scan if still not found
     if (!suggestions) {
       const pos = range.getStartPosition();
@@ -383,21 +379,10 @@ export default class SpellCheckActions {
   static _createGrammarActions(suggestions, range, model) {
     const actions = [];
 
-    console.log('_createGrammarActions called with:', { suggestions, range });
-    console.log('Range details:', {
-      startLineNumber: range.startLineNumber,
-      startColumn: range.startColumn,
-      endLineNumber: range.endLineNumber,
-      endColumn: range.endColumn
-    });
-
     // Handle repeated words
     if (suggestions.rule === 'repeated-words') {
-      console.log('Detected repeated words issue');
       const text = model.getValueInRange(range);
-      console.log('Text in range:', JSON.stringify(text));
       const words = text.toLowerCase().split(/\s+/);
-      console.log('Words split:', words);
 
       // Check for duplicate consecutive words
       const duplicates = [];
@@ -408,7 +393,6 @@ export default class SpellCheckActions {
       }
 
       if (duplicates.length > 0) {
-        console.log('Found duplicate words:', duplicates);
         // Create action to remove the duplicate while preserving capitalization
         const duplicateWord = duplicates[0];
 
@@ -439,11 +423,10 @@ export default class SpellCheckActions {
           }
         });
       } else {
-        console.log('No duplicate words found in text');
+        // No duplicate words found
       }
     }
 
-    console.log('Grammar actions created:', actions);
     return actions;
   }
 

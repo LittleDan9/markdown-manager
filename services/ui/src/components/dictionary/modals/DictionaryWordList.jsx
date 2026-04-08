@@ -145,12 +145,16 @@ export function DictionaryWordList({
     switch (_selectedScope.type) {
       case 'user':
         return 'personal dictionary';
-      case 'folder': {
-        const folderName = _selectedScope.folder_path?.split('/').filter(p => p)[0] || 'folder';
+      case 'folder':
+      case 'folderPath': {
+        const folderName = _selectedScope.folder_path?.split('/').filter(p => p)[0] ||
+                           _selectedScope.folderPath?.split('/').filter(p => p)[0] || 'folder';
         return `${folderName} folder dictionary`;
       }
-      case 'repository': {
-        const repoName = _selectedScope.folder_path?.split('/').filter(p => p)[1] || 'repository';
+      case 'repository':
+      case 'github': {
+        const repoName = _selectedScope.folder_path?.split('/').filter(p => p)[1] ||
+                         _selectedScope.folderPath?.split('/').filter(p => p)[1] || 'repository';
         return `${repoName} repository dictionary`;
       }
       default:

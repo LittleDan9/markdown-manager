@@ -1,0 +1,181 @@
+# ==============================================================================
+# Docker Compose - Infrastructure (always-running services)
+# ==============================================================================
+# These services are shared across blue/green application deployments.
+# They run under the fixed project name "mm-infra" and rarely need restarting.
+#
+# Usage:
+#   docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env up -d
+#
+# See also:
+#   docker-compose.app.yml   — Application services (blue/green deployed)
+#   scripts/deploy-infra.sh  — Wrapper script
+# ==============================================================================
+
+services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Traefik — Reverse proxy for blue/green traffic switching
+  # ──────────────────────────────────────────────────────────────────────────
+  traefik:
+    image: traefik:v3.4
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "8888:8080"   # Dashboard (internal only, not exposed through host nginx)
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./deployment/traefik.yml:/etc/traefik/traefik.yml:ro
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # PostgreSQL
+  # ──────────────────────────────────────────────────────────────────────────
+  db:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-markdown_manager}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+      POSTGRES_DB: ${POSTGRES_DB:-markdown_manager}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-markdown_manager} -d ${POSTGRES_DB:-markdown_manager}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Redis — event streams + cache
+  # ──────────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Ollama — self-hosted LLM
+  # ──────────────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    volumes:
+      - ollama-data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=1
+      - OLLAMA_MAX_LOADED_MODELS=1
+      - OLLAMA_FLASH_ATTENTION=1
+      - OLLAMA_KV_CACHE_TYPE=q8_0
+      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
+    healthcheck:
+      test: ["CMD", "/usr/bin/ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 8G
+          cpus: "8.0"
+    networks:
+      - mm-network
+
+  # One-shot: pulls models on first deploy
+  ollama-init:
+    image: ollama/ollama:latest
+    volumes:
+      - ollama-data:/root/.ollama
+    entrypoint: ["/bin/sh", "-c", "ollama pull qwen2.5:1.5b && ollama pull mistral"]
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    depends_on:
+      ollama:
+        condition: service_healthy
+    restart: "no"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # ClamAV — virus scanning
+  # ──────────────────────────────────────────────────────────────────────────
+  clamav:
+    image: clamav/clamav:stable
+    restart: unless-stopped
+    volumes:
+      - clamav-data:/var/lib/clamav
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "0.5"
+    networks:
+      - mm-network
+
+# ==============================================================================
+# Named volumes — persistent data survives container recreation
+# ==============================================================================
+volumes:
+  postgres-data:
+    name: mm-postgres-data
+    external: true
+  redis-data:
+    name: mm-redis-data
+    external: true
+  ollama-data:
+    name: mm-ollama-data
+    external: true
+  clamav-data:
+    name: mm-clamav-data
+    external: true
+  document-storage:
+    name: mm-document-storage
+    external: true
+
+# ==============================================================================
+# Network — shared between infra and app stacks
+# ==============================================================================
+networks:
+  mm-network:
+    name: mm-network
+    external: true

@@ -148,7 +148,7 @@ class OutboxRelay:
         """Get unpublished events from outbox table."""
         query = text("""
             SELECT id, event_id, event_type, aggregate_type, aggregate_id,
-                   payload, created_at, attempts, next_attempt_at
+                   payload, created_at, attempts, next_attempt_at, topic
             FROM identity.outbox
             WHERE published = FALSE
               AND (next_attempt_at IS NULL OR next_attempt_at <= :now)
@@ -174,6 +174,7 @@ class OutboxRelay:
                 "created_at": row.created_at,
                 "attempts": row.attempts,
                 "next_attempt_at": row.next_attempt_at,
+                "topic": getattr(row, 'topic', None) or self.settings.stream_name,
             }
             events.append(event)
 
@@ -181,10 +182,11 @@ class OutboxRelay:
 
     async def _create_event_envelope(self, event: Dict[str, Any]) -> Dict[str, Any]:
         """Create standardized event envelope."""
+        event_topic = event.get("topic") or self.settings.stream_name
         envelope = {
             "event_id": event["event_id"],
             "event_type": event["event_type"],
-            "topic": self.settings.stream_name,
+            "topic": event_topic,
             "schema_version": 1,
             "occurred_at": event["created_at"].isoformat() if hasattr(event["created_at"], "isoformat") else event["created_at"],
             "tenant_id": event["payload"].get("tenant_id", "00000000-0000-0000-0000-000000000000"),
@@ -210,14 +212,15 @@ class OutboxRelay:
             "payload": json.dumps(envelope["payload"])
         }
 
-        # Add to Redis Stream
+        # Add to Redis Stream — route to the topic-specific stream
+        target_stream = envelope["topic"]
         stream_id = await self.redis.xadd(
-            self.settings.stream_name,
+            target_stream,
             stream_data,
             maxlen=10000  # Keep last 10k events
         )
 
-        logger.debug(f"Published to stream {self.settings.stream_name} with ID {stream_id}")
+        logger.debug(f"Published to stream {target_stream} with ID {stream_id}")
 
     async def _mark_published(self, session: AsyncSession, event_id: str):
         """Mark event as published."""

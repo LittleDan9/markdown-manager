@@ -27,10 +27,10 @@ class CustomDictionary(BaseModel):
     __table_args__ = (
         # Ensure user_id is always provided (dictionaries are always owned by a user)
         CheckConstraint("user_id IS NOT NULL", name="ck_custom_dictionaries_scope"),
-        # Ensure unique words per category (for category-level dictionaries)
+        # Ensure unique words per category per user (for category-level dictionaries)
         UniqueConstraint("category_id", "word", name="uq_category_dictionary_word"),
-        # NEW: Ensure unique words per folder (for folder-level dictionaries)
-        UniqueConstraint("folder_path", "word", name="uq_folder_dictionary_word"),
+        # Ensure unique words per folder per user (for folder-level dictionaries)
+        UniqueConstraint("user_id", "folder_path", "word", name="uq_user_folder_dictionary_word"),
     )
 
     # Foreign key to user (always required - dictionaries are owned by users)

@@ -53,6 +53,7 @@ async def get_current_user_profile(
         editor_width_percentage=current_user.editor_width_percentage,
         tab_position=current_user.tab_position,
         tab_sort_order=current_user.tab_sort_order,
+        recents_tab_limit=current_user.recents_tab_limit,
         current_doc_id=current_user.current_doc_id,
         current_document=current_document
     )

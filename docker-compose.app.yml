@@ -1,0 +1,336 @@
+# ==============================================================================
+# Docker Compose - Application (blue/green deployed services)
+# ==============================================================================
+# These services are deployed as alternating blue/green stacks via Traefik.
+# Run with a project name to identify the slot:
+#
+#   docker compose -p mm-blue  -f docker-compose.app.yml --env-file deployment/production.env up -d
+#   docker compose -p mm-green -f docker-compose.app.yml --env-file deployment/production.env up -d
+#
+# Infrastructure services (db, redis, ollama, clamav, traefik) run separately
+# in docker-compose.infra.yml under the "mm-infra" project.
+#
+# See also:
+#   docker-compose.infra.yml      — Infrastructure stack
+#   scripts/deploy-blue-green.sh  — Orchestrates the blue/green swap
+# ==============================================================================
+
+services:
+  # ──────────────────────────────────────────────────────────────────────────
+  # Reverse proxy — serves UI static files and routes API traffic
+  # Traefik discovers this container via labels and routes external traffic to it.
+  # ──────────────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    # No published ports — Traefik handles external access on 8080
+    volumes:
+      - ./nginx/nginx-prod.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/error-pages:/etc/nginx/error-pages:ro
+      - ui-static:/var/www/html:ro
+    depends_on:
+      frontend-build:
+        condition: service_completed_successfully
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.app.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.app.entrypoints=web"
+      - "traefik.http.services.app.loadbalancer.server.port=80"
+      - "traefik.http.services.app.loadbalancer.healthcheck.path=/"
+      - "traefik.http.services.app.loadbalancer.healthcheck.interval=5s"
+      - "traefik.http.services.app.loadbalancer.healthcheck.timeout=3s"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.5"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # UI build — builds React app then exits; output goes to shared volume
+  # ──────────────────────────────────────────────────────────────────────────
+  frontend-build:
+    image: mm-app/frontend-build:latest
+    build:
+      context: ./services/ui
+      dockerfile: Dockerfile
+    volumes:
+      - ui-static:/output
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Backend — FastAPI main API
+  # ──────────────────────────────────────────────────────────────────────────
+  backend:
+    image: mm-app/backend:latest
+    build:
+      context: ./services/backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    env_file:
+      - ./deployment/production.env
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-markdown_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-markdown_manager}
+      - REDIS_URL=redis://redis:6379/0
+      - EXPORT_SERVICE_URL=http://export:8001
+      - MARKDOWN_LINT_SERVICE_URL=http://linting:8002
+      - SPELL_CHECK_SERVICE_URL=http://spell-check:8003
+      - MARKDOWN_STORAGE_ROOT=/documents
+      - ENVIRONMENT=production
+      - EMBEDDING_SERVICE_URL=http://embedding:8005
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
+      - CLAMAV_HOST=clamav
+      - CLAMAV_PORT=3310
+    volumes:
+      - document-storage:/documents
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    # No depends_on for cross-compose services (db, redis, ollama, clamav).
+    # The backend entrypoint.sh waits for db TCP with retries.
+    # Only depend on same-stack services:
+    depends_on:
+      export:
+        condition: service_healthy
+      linting:
+        condition: service_healthy
+      spell-check:
+        condition: service_healthy
+      embedding:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Embedding microservice — sentence-transformers CPU inference
+  # ──────────────────────────────────────────────────────────────────────────
+  embedding:
+    image: mm-app/embedding:latest
+    build:
+      context: ./services/embedding
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: "2.0"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Export — PDF/SVG/PNG generation via Playwright
+  # ──────────────────────────────────────────────────────────────────────────
+  export:
+    image: mm-app/export:latest
+    build:
+      context: ./services/export
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+      - ICON_SERVICE_URL=http://backend:8000
+      - DRAWIO_VERSION=${DRAWIO_VERSION:-24.7.5}
+      - DRAWIO_QUALITY_THRESHOLD=${DRAWIO_QUALITY_THRESHOLD:-60.0}
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: "1.0"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Linting — markdownlint HTTP service
+  # ──────────────────────────────────────────────────────────────────────────
+  linting:
+    image: mm-app/linting:latest
+    build:
+      context: ./services/linting
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - MARKDOWN_LINT_PORT=8002
+      - NODE_ENV=production
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Spell check — cspell/retext HTTP service
+  # ──────────────────────────────────────────────────────────────────────────
+  spell-check:
+    image: mm-app/spell-check:latest
+    build:
+      context: ./services/spell-check
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - SPELL_CHECK_PORT=8003
+      - NODE_ENV=production
+      - BACKEND_URL=http://backend:8000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - SPELL_DB_HOST=db
+      - SPELL_DB_PORT=5432
+      - SPELL_DB_NAME=${POSTGRES_DB:-markdown_manager}
+      - SPELL_DB_USER=${POSTGRES_USER:-markdown_manager}
+      - SPELL_DB_PASSWORD=${POSTGRES_PASSWORD}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://littledan.com,https://www.littledan.com}
+      - ENVIRONMENT=production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Event publisher — outbox relay (Postgres → Redis Streams)
+  # ──────────────────────────────────────────────────────────────────────────
+  event-publisher:
+    image: mm-app/event-publisher:latest
+    build:
+      context: ./services/event-publisher
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - RELAY_DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-markdown_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-markdown_manager}
+      - RELAY_REDIS_URL=redis://redis:6379/0
+      - RELAY_BATCH_SIZE=50
+      - RELAY_POLL_INTERVAL=5
+      - RELAY_MAX_RETRY_ATTEMPTS=5
+      - RELAY_LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+    depends_on:
+      backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Linting consumer
+  # ──────────────────────────────────────────────────────────────────────────
+  linting-consumer:
+    image: mm-app/event-consumer:latest
+    build:
+      context: .
+      dockerfile: ./services/event-consumer/Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-markdown_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-markdown_manager}
+      - REDIS_URL=redis://redis:6379/0
+      - ENVIRONMENT=production
+    volumes:
+      - ./services/linting/consumer.config.json:/app/config/consumer.config.json:ro
+    depends_on:
+      event-publisher:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+    networks:
+      - mm-network
+
+  # ──────────────────────────────────────────────────────────────────────────
+  # Spell-check consumer
+  # ──────────────────────────────────────────────────────────────────────────
+  spell-check-consumer:
+    image: mm-app/event-consumer:latest
+    build:
+      context: .
+      dockerfile: ./services/event-consumer/Dockerfile
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql+psycopg://${POSTGRES_USER:-markdown_manager}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-markdown_manager}
+      - REDIS_URL=redis://redis:6379/0
+      - SPELL_CONSUMER_LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+    volumes:
+      - ./services/spell-check/consumer.config.json:/app/config/consumer.config.json:ro
+    depends_on:
+      event-publisher:
+        condition: service_started
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.25"
+    networks:
+      - mm-network
+
+# ==============================================================================
+# Volumes — per-project UI static, shared document storage
+# ==============================================================================
+volumes:
+  ui-static:
+    # Project-scoped: each blue/green stack gets its own UI volume
+    # Named mm-blue-ui-static or mm-green-ui-static by Docker Compose
+  document-storage:
+    name: mm-document-storage
+    external: true
+
+# ==============================================================================
+# Network — shared with infrastructure stack
+# ==============================================================================
+networks:
+  mm-network:
+    name: mm-network
+    external: true

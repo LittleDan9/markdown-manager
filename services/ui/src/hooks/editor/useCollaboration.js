@@ -140,6 +140,19 @@ export default function useCollaboration(documentId, hasCollaborators = false) {
     };
 
     ws.onmessage = (event) => {
+      // Handle text-based maintenance messages during shutdown
+      if (typeof event.data === 'string') {
+        try {
+          const msg = JSON.parse(event.data);
+          if (msg.type === 'maintenance') {
+            window.dispatchEvent(new CustomEvent('notification', {
+              detail: { message: msg.message || 'Server updating, reconnecting...', type: 'info', duration: 5000 }
+            }));
+          }
+        } catch { /* ignore */ }
+        return;
+      }
+
       const data = new Uint8Array(event.data);
       if (data.length < 2) return;
 

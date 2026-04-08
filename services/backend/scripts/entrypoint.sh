@@ -74,4 +74,15 @@ for attempt in 1 2 3 4 5; do
 done
 
 echo "Starting uvicorn server..."
-exec "${UVICORN_BIN}" "${APP_IMPORT}" --reload --host "${HOST}" --port "${PORT}"
+UVICORN_ARGS="--host ${HOST} --port ${PORT}"
+
+# Production: enable proxy header forwarding, disable auto-reload
+# --proxy-headers tells uvicorn to trust X-Forwarded-Proto/For/Host from nginx
+# --forwarded-allow-ips='*' is safe because only container nginx can reach us
+if [[ "${ENVIRONMENT:-local}" == "production" ]]; then
+  UVICORN_ARGS="${UVICORN_ARGS} --proxy-headers --forwarded-allow-ips '*'"
+else
+  UVICORN_ARGS="${UVICORN_ARGS} --reload"
+fi
+
+exec "${UVICORN_BIN}" "${APP_IMPORT}" ${UVICORN_ARGS}

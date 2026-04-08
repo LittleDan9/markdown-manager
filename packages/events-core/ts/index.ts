@@ -45,10 +45,13 @@ export const EventTypes = {
   USER_CREATED: 'UserCreated',
   USER_UPDATED: 'UserUpdated',
   USER_DISABLED: 'UserDisabled',
+  DICTIONARY_WORD_ADDED: 'DictionaryWordAdded',
+  DICTIONARY_WORD_REMOVED: 'DictionaryWordRemoved',
 } as const;
 
 export const Topics = {
   IDENTITY_USER_V1: 'identity.user.v1',
+  DICTIONARY_WORD_V1: 'dictionary.word.v1',
 } as const;
 
 // Helper function to validate complete event

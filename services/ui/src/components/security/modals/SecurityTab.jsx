@@ -1,12 +1,13 @@
-import React, { useState } from "react";
-import { Form, Card, Button, Alert } from "react-bootstrap";
+import React, { useState, useEffect, useCallback } from "react";
+import { Form, Card, Button, Alert, Spinner } from "react-bootstrap";
 import MFAModal from "./MFAModal";
 import userApi from "../../../api/userApi";
 import { useAuth } from "../../../providers/AuthProvider";
 import { useNotification } from "../../NotificationProvider";
+import AuthService from "@/services/core/AuthService";
 
 function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubmit, setActiveTab }) {
-  const { user } = useAuth();
+  const { user, forceRefreshToken } = useAuth();
   const [showMFAModal, setShowMFAModal] = useState(false);
   const [setupData, setSetupData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -15,6 +16,41 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
   const [verifiedCode, setVerifiedCode] = useState("");
   const { showSuccess } = useNotification();
   const [backupCodes, setBackupCodes] = useState([]);
+
+  // Session / token refresh state
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshStatus, setRefreshStatus] = useState(null); // 'success' | 'error'
+  const [tokenExpiry, setTokenExpiry] = useState(AuthService.getTokenExpiry());
+  const [lastRefreshed, setLastRefreshed] = useState(AuthService.getLastRefreshedAt());
+
+  // Update token times periodically so relative times stay current
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTokenExpiry(AuthService.getTokenExpiry());
+      setLastRefreshed(AuthService.getLastRefreshedAt());
+    }, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const handleForceRefresh = useCallback(async () => {
+    setRefreshing(true);
+    setRefreshStatus(null);
+    try {
+      const result = await forceRefreshToken();
+      if (result.success) {
+        setRefreshStatus('success');
+        setTokenExpiry(AuthService.getTokenExpiry());
+        setLastRefreshed(AuthService.getLastRefreshedAt());
+      } else {
+        setRefreshStatus('error');
+      }
+    } catch {
+      setRefreshStatus('error');
+    } finally {
+      setRefreshing(false);
+      setTimeout(() => setRefreshStatus(null), 4000);
+    }
+  }, [forceRefreshToken]);
 
 
   // Enable MFA handler
@@ -94,6 +130,17 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
     showSuccess("MFA setup completed successfully.");
     if (setActiveTab) setActiveTab('mfa-details');
   };
+
+  const formatRelativeTime = (timestamp) => {
+    if (!timestamp) return 'Unknown';
+    const diff = timestamp - Date.now();
+    const absDiff = Math.abs(diff);
+    const minutes = Math.round(absDiff / 60000);
+    const hours = Math.round(absDiff / 3600000);
+    if (absDiff < 60000) return diff > 0 ? 'less than a minute' : 'just now';
+    if (minutes < 60) return diff > 0 ? `in ${minutes} min` : `${minutes} min ago`;
+    return diff > 0 ? `in ${hours} hr` : `${hours} hr ago`;
+  };
   return (
     <>
       <Form id="passwordForm" className="mt-3" onSubmit={handlePasswordSubmit}>
@@ -168,6 +215,46 @@ function SecurityTab({ form, handleChange, tabError, success, handlePasswordSubm
           </Card>
         )}
       </Form>
+      <hr className="my-4" />
+      <Card className="session-info-card mb-3">
+        <Card.Body>
+          <h6 className="card-title mb-3">
+            <i className="bi bi-arrow-repeat me-2"></i>Session
+          </h6>
+          <div className="d-flex flex-column gap-2 mb-3">
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="text-muted">Token expires</span>
+              <span className={tokenExpiry && tokenExpiry < Date.now() ? 'text-danger' : ''}>
+                {tokenExpiry ? formatRelativeTime(tokenExpiry) : 'N/A'}
+              </span>
+            </div>
+            <div className="d-flex justify-content-between align-items-center">
+              <span className="text-muted">Last refreshed</span>
+              <span>{lastRefreshed ? formatRelativeTime(lastRefreshed) : 'N/A'}</span>
+            </div>
+          </div>
+          <div className="d-flex align-items-center gap-2">
+            <Button
+              variant="outline-primary"
+              size="sm"
+              onClick={handleForceRefresh}
+              disabled={refreshing}
+            >
+              {refreshing ? (
+                <><Spinner animation="border" size="sm" className="me-1" />Refreshing&hellip;</>
+              ) : (
+                <><i className="bi bi-arrow-clockwise me-1"></i>Refresh Token</>
+              )}
+            </Button>
+            {refreshStatus === 'success' && (
+              <span className="text-success small"><i className="bi bi-check-circle me-1"></i>Token refreshed</span>
+            )}
+            {refreshStatus === 'error' && (
+              <span className="text-danger small"><i className="bi bi-x-circle me-1"></i>Refresh failed</span>
+            )}
+          </div>
+        </Card.Body>
+      </Card>
       <hr className="my-4" />
       <Card className="mb-3" border="danger">
         <Card.Header className="bg-danger text-white">

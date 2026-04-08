@@ -210,6 +210,14 @@ export function AuthProvider({ children }) {
     return await AuthService.confirmPasswordReset(token, newPassword);
   }, []);
 
+  const forceRefreshToken = useCallback(async () => {
+    const result = await AuthService.forceRefresh();
+    if (result.success) {
+      updateAuthState();
+    }
+    return result;
+  }, [updateAuthState]);
+
   // Settings handlers
   const setAutosaveEnabled = useCallback(async (value) => {
     setAutosaveEnabledState(value);
@@ -280,6 +288,7 @@ export function AuthProvider({ children }) {
     disableMFA,
     requestPasswordReset,
     confirmPasswordReset,
+    forceRefreshToken,
 
     // Settings
     autosaveEnabled,

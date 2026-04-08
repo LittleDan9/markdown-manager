@@ -579,7 +579,6 @@ const MarkdownLintTab = () => {
         <div
           className="accordion-scroll-container"
           style={{
-            maxHeight: 'calc(70vh - 300px)',
             minHeight: '200px',
             overflowY: 'auto',
             paddingRight: '5px',

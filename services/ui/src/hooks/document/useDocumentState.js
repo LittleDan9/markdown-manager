@@ -89,21 +89,32 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
               local_id: localDoc.id,
               conflict_type: 'content_conflict'
             });
+            // Clean up the doc_ entry — backend has the authoritative version.
+            // Keeping it causes migration to re-trigger on every refresh.
+            DocumentStorageService.deleteDocument(localDoc.id);
           }
         } else {
           toMigrate.push(localDoc);
         }
       }
+      let migratedCount = 0;
       for (const doc of toMigrate) {
         try {
           const savedDoc = await DocumentService.saveDocument({ ...doc, content: doc.content || '', category: doc.category || DEFAULT_CATEGORY }, false);
-          if (savedDoc) {
+          if (savedDoc && !String(savedDoc.id).startsWith('doc_')) {
+            // Backend accepted the document — old doc_ entry was cleaned up by _updateLocalStorageWithBackendData
+            migratedCount++;
             const currentDoc = DocumentStorageService.getCurrentDocument();
             if (currentDoc && currentDoc.id === doc.id) {
               DocumentStorageService.setCurrentDocument(savedDoc);
             }
+          } else {
+            // Backend save silently failed — remove stale doc_ entry to prevent re-triggering
+            DocumentStorageService.deleteDocument(doc.id);
           }
         } catch (error) {
+          // Remove stale doc_ entry so migration doesn't re-trigger every refresh
+          DocumentStorageService.deleteDocument(doc.id);
           conflicts.push({
             id: `migration_error_${doc.id}_${Date.now()}`,
             document_id: null,
@@ -119,8 +130,8 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
       if (conflicts.length > 0) {
         showWarning(`Migration completed with ${conflicts.length} content conflicts. Local versions will be used.`);
-      } else if (toMigrate.length > 0) {
-        showSuccess(`Successfully migrated ${toMigrate.length} documents to your account.`);
+      } else if (migratedCount > 0) {
+        showSuccess(`Successfully migrated ${migratedCount} document${migratedCount !== 1 ? 's' : ''} to your account.`);
       }
       setMigrationStatus('complete');
     } catch (error) {

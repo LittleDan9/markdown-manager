@@ -75,6 +75,11 @@ export default function usePresence(documentId) {
         const data = JSON.parse(event.data);
         if (data.type === 'presence') {
           setUsers(data.users || []);
+        } else if (data.type === 'maintenance') {
+          // Server is shutting down for deployment — show transient notice
+          window.dispatchEvent(new CustomEvent('notification', {
+            detail: { message: data.message || 'Server updating, reconnecting...', type: 'info', duration: 5000 }
+          }));
         }
       } catch {
         // ignore malformed messages

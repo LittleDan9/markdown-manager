@@ -2,14 +2,20 @@
 # ==============================================================================
 # Markdown Manager — Deployment Configuration
 # ==============================================================================
-# Simplified config for Docker Compose-based production deployment.
-# All service-level config is now in docker-compose.prod.yml.
+# Blue/green deployment via Docker Compose + Traefik.
+#
+# Infrastructure stack (docker-compose.infra.yml) runs under project "mm-infra".
+# Application stack (docker-compose.app.yml) alternates between "mm-blue"/"mm-green".
 # ==============================================================================
 
 # Application directory on the remote server
 app_dir: /opt/markdown-manager
 
-# Compose file to use
+# Compose files
+infra_compose_file: docker-compose.infra.yml
+app_compose_file: docker-compose.app.yml
+
+# Legacy compose file (kept for reference/fallback)
 compose_file: docker-compose.prod.yml
 
 # Database defaults (can be overridden via production.env)
