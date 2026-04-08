@@ -224,6 +224,9 @@ function ChatDrawer({ show, onHide }) {
       // Saved provider no longer exists — fall back to Ollama
       setSelectedProvider({ provider: "ollama", keyId: null });
       setSelectedModel(null);
+    } else if (match.label !== selectedProvider.label || match.model !== selectedProvider.model) {
+      // Enrich with label/model from API (localStorage only stores provider+keyId)
+      setSelectedProvider(match);
     }
   }, [availableProviders]); // eslint-disable-line react-hooks/exhaustive-deps
 

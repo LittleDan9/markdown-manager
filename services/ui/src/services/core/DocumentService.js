@@ -401,11 +401,17 @@ class DocumentService {
       // Add all backend docs
       backendDocs.forEach(doc => mergedDocs.set(doc.id, doc));
 
-      // Add local-only docs (those with temporary IDs)
+      // Add local-only docs (those with temporary IDs), but skip if a
+      // backend doc with the same name+category already exists (migration
+      // should have handled these — re-adding them causes an infinite loop).
       localDocs.forEach(doc => {
         if (!doc.id || String(doc.id).startsWith('doc_')) {
-          // This is a local-only document, we'll save it to backend
-          mergedDocs.set(doc.id || `temp_${Date.now()}`, doc);
+          const alreadyOnBackend = backendDocs.some(b =>
+            b.name === doc.name && b.category === doc.category
+          );
+          if (!alreadyOnBackend) {
+            mergedDocs.set(doc.id || `temp_${Date.now()}`, doc);
+          }
         }
       });
 
@@ -413,24 +419,33 @@ class DocumentService {
       DocumentStorageService.bulkUpdateDocuments(Array.from(mergedDocs.values()));
 
       // Save local-only documents to backend
-      const savePromises = [];
-      mergedDocs.forEach(doc => {
+      const saveResults = [];
+      for (const [, doc] of mergedDocs) {
         if (!doc.id || String(doc.id).startsWith('doc_')) {
-          savePromises.push(this.saveDocument(doc, false));
+          try {
+            const result = await this.saveDocument(doc, false);
+            if (result && !String(result.id).startsWith('doc_')) {
+              saveResults.push(result);
+            } else {
+              // Backend save silently failed — remove stale entry
+              DocumentStorageService.deleteDocument(doc.id);
+            }
+          } catch {
+            // Remove stale doc_ entry so sync doesn't re-trigger
+            DocumentStorageService.deleteDocument(doc.id);
+          }
         }
-      });
-
-      await Promise.all(savePromises);
+      }
 
       // Don't show notification here to prevent loops - let caller handle it
       console.log('Documents synchronized successfully:', {
-        syncedCount: savePromises.length,
+        syncedCount: saveResults.length,
         totalCount: mergedDocs.size
       });
 
       return {
         success: true,
-        syncedCount: savePromises.length,
+        syncedCount: saveResults.length,
         totalCount: mergedDocs.size
       };
     } catch (error) {
