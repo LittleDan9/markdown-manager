@@ -70,6 +70,30 @@ class CollabManager:
             self._persist_task.cancel()
             self._persist_task = None
 
+    async def broadcast_maintenance(self, retry_seconds: int = 5):
+        """Send a maintenance notification to all active collab WebSocket clients.
+
+        Called during graceful shutdown to inform editing clients that the
+        server is updating. Clients should show a transient notice and let
+        auto-reconnect handle the rest.
+        """
+        import json
+        message_text = json.dumps({
+            "type": "maintenance",
+            "message": "Server updating, reconnecting...",
+            "retry_seconds": retry_seconds,
+        })
+        notified = 0
+        for session in self._sessions.values():
+            for client in list(session.clients.values()):
+                try:
+                    await client.websocket.send_text(message_text)
+                    notified += 1
+                except Exception:
+                    pass
+        if notified:
+            logger.info("Collab: sent maintenance notice to %d clients", notified)
+
     # ── Client lifecycle ────────────────────────────────────────
 
     async def join(

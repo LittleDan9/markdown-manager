@@ -57,6 +57,14 @@ class GitHubModelsProvider(LLMProvider):
             "Content-Type": "application/json",
         }
 
+    def _catalog_headers(self) -> dict[str, str]:
+        """Headers for the GitHub Models catalog REST API (different from inference)."""
+        return {
+            "Authorization": f"Bearer {self._api_key}",
+            "Accept": "application/vnd.github+json",
+            "X-GitHub-Api-Version": "2026-03-10",
+        }
+
     async def stream(
         self,
         prompt: str,
@@ -174,7 +182,7 @@ class GitHubModelsProvider(LLMProvider):
             async with httpx.AsyncClient(timeout=10.0) as client:
                 response = await client.get(
                     f"{self._base_url}/catalog/models",
-                    headers=self._headers(),
+                    headers=self._catalog_headers(),
                 )
                 return response.status_code == 200
         except Exception:
@@ -186,17 +194,39 @@ class GitHubModelsProvider(LLMProvider):
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.get(
                     f"{self._base_url}/catalog/models",
-                    headers=self._headers(),
+                    headers=self._catalog_headers(),
                 )
                 response.raise_for_status()
                 data = response.json()
+
+                # The catalog may return a bare JSON array or a dict wrapper
+                items: list = []
+                if isinstance(data, list):
+                    items = data
+                elif isinstance(data, dict):
+                    # Try common wrapper keys
+                    items = data.get("models") or data.get("data") or data.get("value") or []
+                    if not isinstance(items, list):
+                        items = []
+                    logger.info(
+                        "GitHub Models catalog returned dict with keys=%s, extracted %d items",
+                        list(data.keys()), len(items),
+                    )
+                else:
+                    logger.warning(
+                        "GitHub Models catalog returned unexpected type: %s",
+                        type(data).__name__,
+                    )
+
                 models = []
-                for m in (data if isinstance(data, list) else []):
+                for m in items:
                     if "id" not in m:
                         continue
                     entry: dict = {"id": m["id"]}
                     if m.get("name"):
                         entry["name"] = m["name"]
+                    if m.get("publisher"):
+                        entry["publisher"] = m["publisher"]
                     if m.get("summary"):
                         entry["description"] = m["summary"][:200]
                     limits = m.get("limits") or m.get("model_limits") or {}
@@ -208,6 +238,7 @@ class GitHubModelsProvider(LLMProvider):
                         entry["tier"] = m["rate_limit_tier"]
                     models.append(entry)
                 models.sort(key=lambda x: x["id"])
+                logger.info("GitHub Models catalog: %d models fetched", len(models))
                 return models
         except Exception as exc:
             logger.warning("Failed to list models from GitHub Models: %s", exc)

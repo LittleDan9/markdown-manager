@@ -1,4 +1,6 @@
 """Default router for root, health, and utility endpoints."""
+import asyncio
+
 import httpx
 import redis.asyncio as redis
 from fastapi import APIRouter, Depends
@@ -10,6 +12,7 @@ from app.configs import settings
 from app.database import get_db
 from app.services.export_service_client import export_service_client
 from app.services.icon_service import IconService
+from app.services.virus_scan_service import VirusScanService
 
 router = APIRouter()
 
@@ -31,11 +34,13 @@ class HealthResponse(BaseModel):
     services_with_details: list[str] = []
 
 
-async def _check_http_service(service_url: str, service_name: str) -> ServiceHealth:
+async def _check_http_service(
+    service_url: str, service_name: str, health_path: str = "/health"
+) -> ServiceHealth:
     """Check health of an HTTP service."""
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
-            response = await client.get(f"{service_url}/health")
+            response = await client.get(f"{service_url}{health_path}")
             if response.status_code == 200:
                 return ServiceHealth(status="healthy", details="Responsive")
             else:
@@ -244,6 +249,48 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
     if event_publisher_health.status != "healthy":
         overall_status = "degraded"
 
+    # Check embedding service health
+    embedding_health = await _check_http_service(
+        settings.embedding_service_url, "embedding_service"
+    )
+    services["embedding_service"] = embedding_health
+    if embedding_health.status != "healthy":
+        overall_status = "degraded"
+
+    # Check Ollama LLM service health
+    if settings.ollama_url:
+        ollama_health = await _check_http_service(
+            settings.ollama_url, "ollama", health_path="/api/tags"
+        )
+        services["ollama"] = ollama_health
+        if ollama_health.status != "healthy":
+            overall_status = "degraded"
+    else:
+        services["ollama"] = ServiceHealth(
+            status="not configured", details="Ollama URL not set"
+        )
+
+    # Check ClamAV virus scanner health
+    try:
+        scanner = VirusScanService()
+        available = await asyncio.wait_for(
+            asyncio.to_thread(scanner.is_available), timeout=5.0
+        )
+        if available:
+            services["virus_scanner"] = ServiceHealth(
+                status="healthy", details="ClamAV daemon responsive"
+            )
+        else:
+            services["virus_scanner"] = ServiceHealth(
+                status="unhealthy", details="ClamAV daemon not responding"
+            )
+            overall_status = "degraded"
+    except Exception as e:
+        services["virus_scanner"] = ServiceHealth(
+            status="unhealthy", details=f"Health check failed: {str(e)}"
+        )
+        overall_status = "degraded"
+
     # Check Redis health
     try:
         redis_client = redis.from_url(settings.redis_url, decode_responses=True)
@@ -294,8 +341,14 @@ async def health_check(db: AsyncSession = Depends(get_db)) -> HealthResponse:
         overall_status = "degraded"
 
     return HealthResponse(
-        status=overall_status, 
-        version="1.0.0", 
+        status=overall_status,
+        version="1.0.0",
         services=services,
-        services_with_details=["event_publisher", "spell_check_service", "linting_service", "export_service"]
+        services_with_details=[
+            "event_publisher",
+            "spell_check_service",
+            "linting_service",
+            "export_service",
+            "embedding_service",
+        ],
     )

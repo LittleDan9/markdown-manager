@@ -21,8 +21,8 @@ class SystemHealthApi extends Api {
       'event_publisher': '/api/event-publisher/health/detailed',
       'spell_check_service': '/api/spell-check/health/detailed',
       'linting_service': '/api/markdown-lint/health/detailed',
-      'export_service': '/api/export/health/detailed'
-      // Add other services as they implement detailed endpoints
+      'export_service': '/api/export/health/detailed',
+      'embedding_service': '/api/embedding/health'
     };
 
     const endpoint = serviceEndpoints[serviceName];

@@ -90,16 +90,29 @@ def _create_lifespan():
 
         yield
 
+        # Shutdown: notify connected clients about maintenance
+        logger.info("Shutting down application — notifying connected clients...")
+
+        from app.services.presence import presence_manager
+        try:
+            await presence_manager.broadcast_maintenance(retry_seconds=5)
+        except Exception:
+            logger.exception("Failed to send presence maintenance broadcast")
+
+        from app.services.collab import collab_manager as _collab_mgr
+        try:
+            await _collab_mgr.broadcast_maintenance(retry_seconds=5)
+        except Exception:
+            logger.exception("Failed to send collab maintenance broadcast")
+
         # Shutdown: stop background services
         from app.services.storage.git.maintenance import git_maintenance_service
         git_maintenance_service.stop()
 
-        from app.services.collab import collab_manager as _collab_mgr
         _collab_mgr.stop()
 
-        from app.services.presence import presence_manager
         presence_manager.stop()
-        logger.info("Shutting down application...")
+        logger.info("Application shutdown complete.")
 
     return lifespan
 
@@ -183,6 +196,11 @@ def setup_routers(app: FastAPI) -> None:
     )
     app.include_router(
         markdown_lint.router, tags=["markdown-lint"]
+    )
+
+    from app.routers import spell_check_settings
+    app.include_router(
+        spell_check_settings.router, tags=["spell-check-settings"]
     )
     app.include_router(
         github.router, prefix="/github", tags=["github"]
