@@ -37,7 +37,16 @@ def _get_filesystem() -> Filesystem:
 # System prompt for single-document mode (Current Doc / Deep Think)
 _SYSTEM_PROMPT_SINGLE = (
     "Answer questions about the document below. "
+    "Prioritise information from the document, but you may also use your general knowledge "
+    "to supplement or provide additional context. When using general knowledge, indicate that "
+    "clearly. Reference the document by name. Be concise."
+)
+
+# Strict variant — restricts the LLM to document content only
+_SYSTEM_PROMPT_SINGLE_STRICT = (
+    "Answer questions about the document below. "
     "If the answer isn't in the document, say so. "
+    "Do not use outside knowledge. "
     "Reference the document by name. Be concise."
 )
 
@@ -45,6 +54,15 @@ _SYSTEM_PROMPT_SINGLE = (
 _SYSTEM_PROMPT_ALL = """Answer questions about the user's document library.
 You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content from the most relevant documents.
 Use the catalogue for questions about what exists. Use excerpts for content questions.
+You may also draw on your general knowledge to supplement when the documents don't fully cover the topic — clearly indicate when you do.
+Always mention the exact document name when citing information so the user can find it.
+Be concise."""
+
+# Strict variant — restricts the LLM to library content only
+_SYSTEM_PROMPT_ALL_STRICT = """Answer questions about the user's document library.
+You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content from the most relevant documents.
+Use the catalogue for questions about what exists. Use excerpts for content questions.
+Do not use outside knowledge — only answer from the provided documents.
 Always mention the exact document name when citing information so the user can find it.
 Be concise."""
 
@@ -78,6 +96,7 @@ class QAService:
         deep_think: bool = False,
         history: list | None = None,
         selection_context: str | None = None,
+        strict_context: bool = False,
     ) -> AsyncIterator[str | dict]:
         """
         Yield answer tokens as they stream from the configured LLM provider.
@@ -109,6 +128,7 @@ class QAService:
         system_prompt, user_prompt = self._build_prompt(
             question, context_chunks, catalogue, all_docs_mode,
             selection_context=selection_context,
+            strict_context=strict_context,
         )
         history_msgs = self._history_as_messages(
             history,
@@ -350,6 +370,7 @@ class QAService:
         catalogue: str,
         all_docs_mode: bool,
         selection_context: str | None = None,
+        strict_context: bool = False,
     ) -> tuple[str, str]:
         """Build the system prompt and user prompt for the LLM.
 
@@ -379,7 +400,8 @@ class QAService:
                 f"{selection_section}"
                 f"=== QUESTION ===\n{question}"
             )
-            return _SYSTEM_PROMPT_ALL, user_prompt
+            sys = _SYSTEM_PROMPT_ALL_STRICT if strict_context else _SYSTEM_PROMPT_ALL
+            return sys, user_prompt
 
         # Single-document mode
         context_text = "\n\n---\n\n".join(
@@ -391,4 +413,5 @@ class QAService:
             f"{selection_section}"
             f"=== QUESTION ===\n{question}"
         )
-        return _SYSTEM_PROMPT_SINGLE, user_prompt
+        sys = _SYSTEM_PROMPT_SINGLE_STRICT if strict_context else _SYSTEM_PROMPT_SINGLE
+        return sys, user_prompt

@@ -136,6 +136,44 @@ class TestBuildPrompt:
         )
         assert "CONVERSATION HISTORY" not in user_prompt
 
+    def test_strict_context_single_doc(self):
+        service = _make_service()
+        sys_default, _ = service._build_prompt(
+            question="What is X?",
+            context_chunks=[{"name": "d.md", "content": "data"}],
+            catalogue="",
+            all_docs_mode=False,
+            strict_context=False,
+        )
+        sys_strict, _ = service._build_prompt(
+            question="What is X?",
+            context_chunks=[{"name": "d.md", "content": "data"}],
+            catalogue="",
+            all_docs_mode=False,
+            strict_context=True,
+        )
+        assert "general knowledge" in sys_default
+        assert "Do not use outside knowledge" in sys_strict
+
+    def test_strict_context_all_docs(self):
+        service = _make_service()
+        sys_default, _ = service._build_prompt(
+            question="List docs",
+            context_chunks=[],
+            catalogue="Library: 2 documents",
+            all_docs_mode=True,
+            strict_context=False,
+        )
+        sys_strict, _ = service._build_prompt(
+            question="List docs",
+            context_chunks=[],
+            catalogue="Library: 2 documents",
+            all_docs_mode=True,
+            strict_context=True,
+        )
+        assert "general knowledge" in sys_default
+        assert "Do not use outside knowledge" in sys_strict
+
 
 # ---------------------------------------------------------------------------
 # Health check
@@ -143,29 +181,18 @@ class TestBuildPrompt:
 
 class TestHealthCheck:
 
-    @patch("app.services.search.qa.httpx.AsyncClient")
-    async def test_health_ok(self, mock_client_cls):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(return_value=mock_response)
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client_cls.return_value = mock_client
-
-        service = _make_service()
+    async def test_health_ok(self):
+        provider = AsyncMock()
+        provider.health_check = AsyncMock(return_value=True)
+        search = AsyncMock()
+        service = QAService(search_service=search, provider=provider)
         assert await service.health_check() is True
 
-    @patch("app.services.search.qa.httpx.AsyncClient")
-    async def test_health_unreachable(self, mock_client_cls):
-        mock_client = AsyncMock()
-        mock_client.get = AsyncMock(side_effect=Exception("Connection refused"))
-        mock_client.__aenter__ = AsyncMock(return_value=mock_client)
-        mock_client.__aexit__ = AsyncMock(return_value=False)
-        mock_client_cls.return_value = mock_client
-
-        service = _make_service()
+    async def test_health_unreachable(self):
+        provider = AsyncMock()
+        provider.health_check = AsyncMock(return_value=False)
+        search = AsyncMock()
+        service = QAService(search_service=search, provider=provider)
         assert await service.health_check() is False
 
 
@@ -337,14 +364,18 @@ class TestAnswerStream:
 
         assert any("empty" in str(t).lower() for t in tokens)
 
-    @patch("app.services.search.qa.QAService._stream_ollama")
-    async def test_streams_tokens_with_metrics(self, mock_stream):
+    async def test_streams_tokens_with_metrics(self):
         """Verify answer_stream yields string tokens and a final metrics dict."""
-        async def fake_stream(prompt):
+        async def fake_stream(prompt, system_prompt="", history=None):
             yield "Hello"
             yield " world"
 
-        mock_stream.side_effect = fake_stream
+        provider = AsyncMock()
+        provider.stream = fake_stream
+        provider.provider_name = "test"
+        provider.model_name = "test-model"
+        provider.max_history_turns = 20
+        provider.max_history_chars = 8000
 
         search = AsyncMock()
         search.search = AsyncMock(return_value=[_make_search_result()])
@@ -365,7 +396,7 @@ class TestAnswerStream:
         db.scalar = AsyncMock(return_value=None)
 
         _catalogue_cache.clear()
-        service = _make_service(search)
+        service = QAService(search_service=search, provider=provider)
 
         tokens = []
         async for token in service.answer_stream(db, 1, "what is this?"):

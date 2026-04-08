@@ -65,6 +65,7 @@ class AskRequest(BaseModel):
     key_id: int | None = None        # Specific API key ID; overrides provider-based lookup
     model: str | None = None         # Override model at chat-time (from model picker)
     selection_context: str | None = None  # Optional editor-selected text to include as context
+    strict_context: bool = False     # True = only answer from document content, no general knowledge
 
 
 @router.post("/ask")
@@ -154,6 +155,7 @@ async def ask(
                 deep_think=deep_think,
                 history=request.history,
                 selection_context=request.selection_context,
+                strict_context=request.strict_context,
             ):
                 if isinstance(token, dict) and token.get("__metrics__"):
                     metrics_payload = {

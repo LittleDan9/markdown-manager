@@ -26,9 +26,10 @@ class SearchApi extends Api {
    * @param {string|null} selectionContext - Optional editor-selected text to include as context
    * @param {number|null} keyId - Specific API key ID to use (overrides provider lookup)
    * @param {string|null} model - Override model at chat-time (from model picker)
+   * @param {boolean} strictContext - Only answer from document content, no general knowledge
    * @returns {Promise<void>}
    */
-  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = [], categoryId = null, provider = null, selectionContext = null, keyId = null, model = null) {
+  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = [], categoryId = null, provider = null, selectionContext = null, keyId = null, model = null, strictContext = false) {
     const token = this.getToken();
     const body = {
       question,
@@ -41,6 +42,7 @@ class SearchApi extends Api {
     if (keyId) body.key_id = keyId;
     if (model) body.model = model;
     if (selectionContext) body.selection_context = selectionContext;
+    if (strictContext) body.strict_context = true;
 
     const response = await fetch("/api/chat/ask", {
       method: "POST",

@@ -121,6 +121,7 @@ function ChatDrawer({ show, onHide }) {
 
   const [scope, setScope] = useState(SCOPE_ALL);
   const [deepThink, setDeepThink] = useState(false);
+  const [strictContext, setStrictContext] = useState(false);
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
@@ -146,6 +147,7 @@ function ChatDrawer({ show, onHide }) {
   const [modelPickerOpen, setModelPickerOpen] = useState(false);
   const [modelList, setModelList] = useState([]); // array of {id, name?, ...} dicts
   const [modelListLoading, setModelListLoading] = useState(false);
+  const [modelListError, setModelListError] = useState("");
   const [modelFilter, setModelFilter] = useState("");
   const [pickerProvider, setPickerProvider] = useState(null); // provider being browsed in popover
   const modelPickerRef = useRef(null);
@@ -242,6 +244,7 @@ function ChatDrawer({ show, onHide }) {
     if (!providerEntry) return;
     setModelListLoading(true);
     setModelList([]);
+    setModelListError("");
     setModelFilter("");
     try {
       let result;
@@ -254,6 +257,9 @@ function ChatDrawer({ show, onHide }) {
         return;
       }
       setModelList(result.models || []);
+      if (!result.models?.length && result.error) {
+        setModelListError(result.error);
+      }
     } catch {
       setModelList([]);
     } finally {
@@ -485,6 +491,7 @@ function ChatDrawer({ show, onHide }) {
         selectionText,
         selectedProvider.keyId || null,
         selectedModel || null,
+        strictContext,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -619,6 +626,7 @@ function ChatDrawer({ show, onHide }) {
         null, // no selection context for resend
         selectedProvider.keyId || null,
         selectedModel || null,
+        strictContext,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -948,7 +956,11 @@ function ChatDrawer({ show, onHide }) {
                       <i className="bi bi-arrow-clockwise spin" /> Loading models…
                     </div>
                   ) : modelList.length === 0 ? (
-                    <div className="model-list-empty">No models available</div>
+                    <div className="model-list-empty">
+                      {modelListError
+                        ? <><i className="bi bi-exclamation-triangle me-1" />Failed to load models: {modelListError}</>
+                        : "No models available"}
+                    </div>
                   ) : (
                     modelList
                       .filter((m) => !modelFilter || m.id.toLowerCase().includes(modelFilter.toLowerCase()) || (m.name && m.name.toLowerCase().includes(modelFilter.toLowerCase())))
@@ -1043,6 +1055,24 @@ function ChatDrawer({ show, onHide }) {
             />
           </div>
         )}
+
+        {/* Strict Context toggle — document-only answers, no general knowledge */}
+        <div className="chat-strict-context">
+          <label className="strict-context-label" htmlFor="strict-context-toggle">
+            <i className="bi bi-lock" />
+            Document Only
+            <span className="strict-context-hint">No general knowledge</span>
+          </label>
+          <div
+            className={`strict-context-toggle${strictContext ? " on" : ""}`}
+            id="strict-context-toggle"
+            role="switch"
+            aria-checked={strictContext}
+            tabIndex={0}
+            onClick={() => setStrictContext((v) => !v)}
+            onKeyDown={(e) => e.key === "Enter" || e.key === " " ? setStrictContext((v) => !v) : null}
+          />
+        </div>
 
         {/* Messages */}
         {/* onClick uses event delegation to capture doc-link anchor clicks */}
