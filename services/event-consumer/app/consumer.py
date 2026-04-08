@@ -89,7 +89,11 @@ class ConfigurableConsumer:
                     "UserUpdated": f"handle_{self.domain}_user_updated",
                     "UserDisabled": f"handle_{self.domain}_user_disabled"
                 })
-            # Add more topics as needed
+            elif topic == "dictionary.word.v1":
+                handlers.update({
+                    "DictionaryWordAdded": "handle_dictionary_word_added",
+                    "DictionaryWordRemoved": "handle_dictionary_word_removed",
+                })
 
         logger.info(f"Auto-discovered handlers for {self.domain} from topics {self.topics}: {list(handlers.keys())}")
         return handlers
@@ -312,3 +316,31 @@ class ConfigurableConsumer:
         if timestamp_str:
             return datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
         return datetime.utcnow()
+
+    # --- Dictionary event handlers ---
+
+    async def handle_dictionary_word_added(self, session: AsyncSession, envelope, payload):
+        """Handle DictionaryWordAdded: add word to spell-check user_dict projection."""
+        user_id = getattr(payload, 'user_id', None)
+        tenant_id = getattr(payload, 'tenant_id', '00000000-0000-0000-0000-000000000000')
+        word = getattr(payload, 'word', None)
+
+        if not user_id or not word:
+            logger.warning(f"DictionaryWordAdded missing user_id or word: {payload}")
+            return
+
+        await self.db_manager.add_word_to_user_dict(session, tenant_id, user_id, word)
+        logger.info(f"Projected DictionaryWordAdded: user={user_id} word={word}")
+
+    async def handle_dictionary_word_removed(self, session: AsyncSession, envelope, payload):
+        """Handle DictionaryWordRemoved: remove word from spell-check user_dict projection."""
+        user_id = getattr(payload, 'user_id', None)
+        tenant_id = getattr(payload, 'tenant_id', '00000000-0000-0000-0000-000000000000')
+        word = getattr(payload, 'word', None)
+
+        if not user_id or not word:
+            logger.warning(f"DictionaryWordRemoved missing user_id or word: {payload}")
+            return
+
+        await self.db_manager.remove_word_from_user_dict(session, tenant_id, user_id, word)
+        logger.info(f"Projected DictionaryWordRemoved: user={user_id} word={word}")

@@ -1,0 +1,137 @@
+@use "../variables";
+@use "../mixins";
+
+// ─── USER SETTINGS MODAL ───
+// Vertical sidebar layout with scrollable content pane
+
+.user-settings-modal {
+  .modal-xl {
+    max-width: 90vw;
+  }
+
+  .modal-dialog {
+    height: 85vh;
+    margin: 7.5vh auto;
+  }
+
+  .modal-content {
+    height: 100%;
+  }
+
+  .modal-header {
+    flex-shrink: 0;
+  }
+
+  .modal-body {
+    height: calc(100% - 60px);
+    overflow: hidden;
+    padding: 0;
+  }
+}
+
+// ─── SIDEBAR + CONTENT FLEX ROW ───
+.user-settings-layout {
+  display: flex;
+  height: 100%;
+  min-height: 0;
+}
+
+// ─── SIDEBAR NAV ───
+.user-settings-sidebar {
+  width: 200px;
+  min-width: 200px;
+  overflow-y: auto;
+  border-right: 1px solid var(--mm-border-subtle);
+  padding: variables.$space-3;
+  background: var(--mm-bg-surface);
+
+  .nav-item {
+    margin-bottom: variables.$space-1;
+  }
+
+  .nav-link {
+    display: flex;
+    align-items: center;
+    padding: variables.$space-2 variables.$space-3;
+    border-radius: variables.$radius-md;
+    font-size: variables.$font-size-sm;
+    font-weight: variables.$font-weight-medium;
+    color: var(--mm-text-secondary);
+    white-space: nowrap;
+    @include mixins.interactive-transition(background-color, color);
+
+    &:hover {
+      background: var(--mm-bg-elevated);
+      color: var(--mm-text);
+    }
+
+    &.active {
+      background: var(--mm-primary);
+      color: #fff;
+    }
+
+    i {
+      font-size: variables.$font-size-base;
+    }
+  }
+}
+
+// ─── CONTENT PANE ───
+.user-settings-content {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding: variables.$space-4;
+
+  .tab-content {
+    height: 100%;
+  }
+
+  .tab-pane {
+    height: 100%;
+  }
+}
+
+// ─── RESPONSIVE: collapse to horizontal tabs on tablet-down ───
+@include mixins.tablet-down {
+  .user-settings-modal {
+    .modal-xl {
+      max-width: 98vw;
+    }
+
+    .modal-dialog {
+      height: 90vh;
+      margin: 5vh auto;
+    }
+  }
+
+  .user-settings-layout {
+    flex-direction: column;
+  }
+
+  .user-settings-sidebar {
+    width: 100%;
+    min-width: unset;
+    overflow-x: auto;
+    overflow-y: hidden;
+    border-right: none;
+    border-bottom: 1px solid var(--mm-border-subtle);
+    padding: variables.$space-2;
+    flex-direction: row !important;
+    flex-wrap: nowrap;
+
+    .nav-item {
+      margin-bottom: 0;
+      margin-right: variables.$space-1;
+    }
+
+    .nav-link {
+      padding: variables.$space-1 variables.$space-2;
+      font-size: variables.$font-size-xs;
+    }
+  }
+
+  .user-settings-content {
+    padding: variables.$space-3;
+  }
+}

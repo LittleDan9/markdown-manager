@@ -134,7 +134,7 @@ function setupLanguageDetectionRoutes(serviceManager, responseBuilder) {
 
       // Validate language code
       const availableLanguages = spellChecker.dictionaryManager.getAvailableLanguages();
-      if (!availableLanguages.includes(languageCode)) {
+      if (!availableLanguages.some(lang => lang.code === languageCode || lang === languageCode)) {
         const error = new Error(`Language '${languageCode}' not supported`);
         error.name = 'NotFoundError';
         const errorResponse = responseBuilder.buildErrorResponse(error, 404, req);

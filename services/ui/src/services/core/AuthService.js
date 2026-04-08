@@ -177,9 +177,43 @@ class AuthService {
     this.token = newToken;
     if (newToken) {
       localStorage.setItem("authToken", newToken);
+      this.lastRefreshedAt = Date.now();
     } else {
       localStorage.removeItem("authToken");
+      this.lastRefreshedAt = null;
     }
+  }
+
+  /**
+   * Decode JWT payload and return the expiry timestamp (ms)
+   */
+  getTokenExpiry() {
+    if (!this.token) return null;
+    try {
+      const payload = JSON.parse(atob(this.token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.exp ? payload.exp * 1000 : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Get the timestamp (ms) of the last token refresh
+   */
+  getLastRefreshedAt() {
+    return this.lastRefreshedAt || null;
+  }
+
+  /**
+   * Force-refresh the access token on demand
+   */
+  async forceRefresh() {
+    const res = await UserAPI.refreshToken();
+    if (res && res.access_token) {
+      this.setToken(res.access_token);
+      return { success: true, user: res.user || null };
+    }
+    return { success: false };
   }
 
   /**

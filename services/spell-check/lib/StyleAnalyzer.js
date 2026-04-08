@@ -51,11 +51,16 @@ class StyleAnalyzer {
     const issues = [];
 
     try {
+      // Use per-request setting overrides if provided, else fall back to instance defaults
+      const effectiveSettings = options.styleSettings
+        ? { ...this.settings, ...options.styleSettings }
+        : this.settings;
+
       // Find code regions to exclude from style analysis
       const codeRegions = this.findCodeRegions(text);
 
       // Use write-good for style analysis
-      const suggestions = writeGood(text, this.settings);
+      const suggestions = writeGood(text, effectiveSettings);
 
       // Convert write-good suggestions to our format and filter out code regions
       for (const suggestion of suggestions) {

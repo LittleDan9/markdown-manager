@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, ButtonGroup } from 'react-bootstrap';
-import SpellCheckSettingsModal from '../spell-check/SpellCheckSettingsModal';
 
 /**
  * Analysis Tools toolbar group with spell check and markdown lint buttons
@@ -24,9 +23,6 @@ export function SpellCheckGroup({
   const [isMarkdownLintVisible, setIsMarkdownLintVisible] = useState(false);
   const [availableWidth, setAvailableWidth] = useState(1000); // Start with generous width
   const containerRef = useRef(null);
-
-  // Phase 5: Settings modal visibility
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
 
   // Monitor parent toolbar width for responsive behavior
   useEffect(() => {
@@ -145,7 +141,7 @@ export function SpellCheckGroup({
             <Button
               variant={buttonVariant}
               style={buttonStyle}
-              onClick={() => setShowSettingsModal(true)}
+              onClick={() => window.dispatchEvent(new CustomEvent('openSettings', { detail: { tab: 'spell-check' } }))}
               title="Spell Check Settings"
               disabled={isSpellCheckRunning || isMarkdownLintRunning}
             >
@@ -154,16 +150,6 @@ export function SpellCheckGroup({
           )}
         </ButtonGroup>
       </div>
-
-      {/* Settings Modal */}
-      <SpellCheckSettingsModal
-        show={showSettingsModal}
-        onHide={() => setShowSettingsModal(false)}
-        settings={spellCheckSettings}
-        onSettingsChange={handleSettingsChange}
-        readabilityData={readabilityData}
-        serviceInfo={serviceInfo}
-      />
     </>
   );
 }

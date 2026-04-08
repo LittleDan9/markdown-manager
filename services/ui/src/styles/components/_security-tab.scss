@@ -1,0 +1,25 @@
+@use "../variables";
+@use "../mixins";
+
+// ─── SESSION INFO CARD ───
+// Token expiry and force-refresh controls in Security tab
+
+.session-info-card {
+  border-color: var(--mm-border-subtle);
+  background: var(--mm-bg-surface);
+
+  .card-title {
+    font-size: variables.$font-size-base;
+    font-weight: variables.$font-weight-semibold;
+    color: var(--mm-text);
+  }
+
+  .text-muted {
+    font-size: variables.$font-size-sm;
+  }
+
+  span:not(.text-muted) {
+    font-size: variables.$font-size-sm;
+    font-weight: variables.$font-weight-medium;
+  }
+}

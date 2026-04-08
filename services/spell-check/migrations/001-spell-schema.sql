@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS spell.user_dict (
   user_id UUID NOT NULL,
   words JSONB NOT NULL DEFAULT '[]'::jsonb,  -- Array of custom words
   version INT NOT NULL DEFAULT 1,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, user_id)
 );

@@ -16,6 +16,7 @@ from app.schemas.custom_dictionary import (
     CustomDictionaryWordsResponse,
     FolderDictionaryWordsResponse,
 )
+from app.services.dictionary_outbox_service import DictionaryOutboxService
 
 router = APIRouter()
 
@@ -99,9 +100,19 @@ async def get_custom_dictionary_entries(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Get custom dictionary entries with details for the current user, optionally filtered by category or folder path."""
-    entries = await crud_dictionary.get_user_dictionary_words(
-        db, int(current_user.id), category_id
-    )
+    if folder_path is not None:
+        entries = await crud_dictionary.get_user_dictionary_words(
+            db, int(current_user.id), category_id=None
+        )
+        entries = [e for e in entries if e.folder_path == folder_path]
+    elif category_id is not None:
+        entries = await crud_dictionary.get_user_dictionary_words(
+            db, int(current_user.id), category_id
+        )
+    else:
+        entries = await crud_dictionary.get_user_dictionary_words(
+            db, int(current_user.id)
+        )
     return entries
 
 
@@ -130,8 +141,8 @@ async def add_custom_dictionary_word(
             detail=f"Word already exists in your {scope}-level custom dictionary",
         )
 
-    new_word = await crud_dictionary.create_dictionary_word(
-        db, word_data, int(current_user.id)
+    new_word = await DictionaryOutboxService(db).add_word(
+        word_data, int(current_user.id)
     )
     return new_word
 
@@ -162,8 +173,8 @@ async def delete_custom_dictionary_word(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Delete a word from the custom dictionary."""
-    success = await crud_dictionary.delete_dictionary_word(
-        db, word_id, int(current_user.id)
+    success = await DictionaryOutboxService(db).remove_word_by_id(
+        word_id, int(current_user.id)
     )
     if not success:
         raise HTTPException(
@@ -182,8 +193,9 @@ async def delete_custom_dictionary_word_by_text(
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Delete a word from the custom dictionary by word text and optional category or folder path."""
-    success = await crud_dictionary.delete_dictionary_word_by_word(
-        db, word, int(current_user.id), category_id, folder_path
+    success = await DictionaryOutboxService(db).remove_word_by_text(
+        word, int(current_user.id),
+        category_id=category_id, folder_path=folder_path,
     )
     if not success:
         if folder_path:
@@ -214,7 +226,37 @@ async def bulk_add_custom_dictionary_words(
             detail="No words provided",
         )
 
-    new_words = await crud_dictionary.bulk_create_dictionary_words(
-        db, words, int(current_user.id), category_id, folder_path
+    new_words = await DictionaryOutboxService(db).bulk_add_words(
+        words, int(current_user.id),
+        category_id=category_id, folder_path=folder_path,
     )
     return new_words
+
+
+@router.post("/sync")
+async def sync_dictionary_to_projection(
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Emit events for all current dictionary words to populate the spell-check projection.
+
+    This is a one-time sync mechanism for migrating existing dictionary data
+    to the event-driven projection in the spell-check service.
+    """
+    words = await crud_dictionary.get_all_user_dictionary_words(
+        db, int(current_user.id)
+    )
+    if not words:
+        return {"message": "No words to sync", "count": 0}
+
+    svc = DictionaryOutboxService(db)
+    count = 0
+    for word in words:
+        await svc._emit_word_added(
+            await svc._resolve_identity_user_id(int(current_user.id)) or str(current_user.id),
+            word,
+        )
+        count += 1
+
+    await db.commit()
+    return {"message": f"Synced {count} words to projection", "count": count}

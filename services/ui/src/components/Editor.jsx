@@ -62,8 +62,8 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     }
   }, []);
 
-  // Phase 5: Readability display state
-  const [showReadability] = useState(false);
+  // Phase 5: Readability display follows analysis type toggle
+  const showReadability = spellCheckSettings.readability ?? false;
 
   // Track current category and folder path in state
   const [currentCategoryId, setCurrentCategoryId] = useState(currentDocument?.category);

@@ -10,7 +10,6 @@ import GitHubModal from '@/components/github/modals/GitHubModal';
 import GitManagementModal from '@/components/git/GitManagementModal';
 import IconManagementModal from '@/components/icons/modals/IconManagementModal';
 import AdminModal from '@/components/admin/AdminModal';
-import SpellCheckSettingsModal from '@/components/editor/spell-check/SpellCheckSettingsModal';
 import SystemHealthModal from '@/components/system/SystemHealthModal';
 import ImageBrowserModal from '@/components/images/ImageBrowserModal';
 import RegisterModal from '@/components/auth/modals/RegisterModal';
@@ -39,7 +38,6 @@ function MobileUserMenu({ show, onHide }) {
   const [showGitModal, setShowGitModal] = useState(false);
   const [showIconModal, setShowIconModal] = useState(false);
   const [showAdminModal, setShowAdminModal] = useState(false);
-  const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
   const [showSystemHealthModal, setShowSystemHealthModal] = useState(false);
   const [showImageBrowserModal, setShowImageBrowserModal] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
@@ -56,6 +54,19 @@ function MobileUserMenu({ show, onHide }) {
       if (isLoggedIn) delete window.gitHubModalReturnCallback;
     };
   }, [isLoggedIn]);
+
+  // Listen for openSettings events from editor toolbar buttons
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail?.tab) {
+        setActiveTab(e.detail.tab);
+        setShowSettingsModal(true);
+        onHide();
+      }
+    };
+    window.addEventListener('openSettings', handler);
+    return () => window.removeEventListener('openSettings', handler);
+  }, [onHide]);
 
   // Close offcanvas and open a settings tab
   const openSettings = useCallback((tab) => {
@@ -106,7 +117,6 @@ function MobileUserMenu({ show, onHide }) {
   const hideGit = useCallback(() => setShowGitModal(false), []);
   const hideIcons = useCallback(() => setShowIconModal(false), []);
   const hideAdmin = useCallback(() => setShowAdminModal(false), []);
-  const hideSpellCheck = useCallback(() => setShowSpellCheckModal(false), []);
   const hideSystemHealth = useCallback(() => setShowSystemHealthModal(false), []);
   const hideImageBrowser = useCallback(() => setShowImageBrowserModal(false), []);
 
@@ -123,36 +133,16 @@ function MobileUserMenu({ show, onHide }) {
           <nav className="mobile-menu-nav">
             {isLoggedIn ? (
               <>
-                {/* Profile & Settings */}
+                {/* Settings & Tools */}
                 <button type="button" className="mobile-menu-item" onClick={() => openSettings('profile-info')}>
-                  <i className="bi bi-person" /><span>Profile</span>
+                  <i className="bi bi-gear" /><span>Settings</span>
                 </button>
-                <button type="button" className="mobile-menu-item" onClick={() => openSettings('security-settings')}>
-                  <i className="bi bi-gear" /><span>Security</span>
-                </button>
-                {user.mfa_enabled && (
-                  <button type="button" className="mobile-menu-item" onClick={() => openSettings('mfa-details')}>
-                    <i className="bi bi-shield-lock" /><span>MFA</span>
-                  </button>
-                )}
 
                 <hr className="mobile-menu-divider" />
 
                 {/* Content & Tools */}
-                <button type="button" className="mobile-menu-item" onClick={() => openSettings('dictionary')}>
-                  <i className="bi bi-book" /><span>Dictionary</span>
-                </button>
-                <button type="button" className="mobile-menu-item" onClick={() => openSettings('markdown-lint')}>
-                  <i className="bi bi-check2-square" /><span>Markdown Linting</span>
-                </button>
-                <button type="button" className="mobile-menu-item" onClick={() => openSettings('storage')}>
-                  <i className="bi bi-hdd" /><span>Storage</span>
-                </button>
                 <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowImageBrowserModal(true))}>
                   <i className="bi bi-file-image" /><span>Image Manager</span>
-                </button>
-                <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowSpellCheckModal(true))}>
-                  <i className="bi bi-spellcheck" /><span>Spell Check</span>
                 </button>
                 <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowSystemHealthModal(true))}>
                   <i className="bi bi-activity" /><span>System Health</span>
@@ -217,9 +207,6 @@ function MobileUserMenu({ show, onHide }) {
                 <button type="button" className="mobile-menu-item" onClick={() => openSettings('dictionary')}>
                   <i className="bi bi-book" /><span>Dictionary</span>
                 </button>
-                <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowSpellCheckModal(true))}>
-                  <i className="bi bi-spellcheck" /><span>Spell Check</span>
-                </button>
                 <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowSystemHealthModal(true))}>
                   <i className="bi bi-activity" /><span>System Health</span>
                 </button>
@@ -237,12 +224,6 @@ function MobileUserMenu({ show, onHide }) {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         guestMode={!isLoggedIn}
-      />
-      <SpellCheckSettingsModal
-        show={showSpellCheckModal}
-        onHide={hideSpellCheck}
-        settings={{ spelling: true, grammar: true, style: true, readability: true, styleGuide: 'none', language: 'en-US' }}
-        onSettingsChange={() => {}}
       />
       <SystemHealthModal
         show={showSystemHealthModal}

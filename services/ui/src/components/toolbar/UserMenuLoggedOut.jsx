@@ -5,7 +5,6 @@ import { useTheme } from "@/providers/ThemeProvider";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import RegisterModal from "@/components/auth/modals/RegisterModal";
 import UserSettingsModal from "@/components/user/modals/UserSettingsModal";
-import SpellCheckSettingsModal from "@/components/editor/spell-check/SpellCheckSettingsModal";
 import SystemHealthModal from "@/components/system/SystemHealthModal";
 import UserAPI from "@/api/userApi";
 import { useNotification } from "@/components/NotificationProvider";
@@ -33,7 +32,7 @@ function UserMenuLoggedOut() {
   const [registerError, setRegisterError] = useState("");
 
   const [showDictionaryModal, setShowDictionaryModal] = useState(false);
-  const [showSpellCheckModal, setShowSpellCheckModal] = useState(false);
+  const [dictionaryActiveTab, setDictionaryActiveTab] = useState('dictionary');
   const [showSystemHealthModal, setShowSystemHealthModal] = useState(false);
 
 
@@ -89,11 +88,13 @@ function UserMenuLoggedOut() {
   };
 
   const handleDictionary = () => {
+    setDictionaryActiveTab('dictionary');
     setShowDictionaryModal(true);
   };
 
   const handleSpellCheck = () => {
-    setShowSpellCheckModal(true);
+    setDictionaryActiveTab('spell-check');
+    setShowDictionaryModal(true);
   };
 
   const handleSystemHealth = () => {
@@ -140,26 +141,10 @@ function UserMenuLoggedOut() {
     <UserSettingsModal
       show={showDictionaryModal}
       onHide={() => setShowDictionaryModal(false)}
-      defaultActiveKey="dictionary"
-      activeTab="dictionary"
-      setActiveTab={() => {}} // No-op for guest users
+      defaultActiveKey={dictionaryActiveTab}
+      activeTab={dictionaryActiveTab}
+      setActiveTab={setDictionaryActiveTab}
       guestMode={true}
-    />
-    <SpellCheckSettingsModal
-      show={showSpellCheckModal}
-      onHide={() => setShowSpellCheckModal(false)}
-      settings={{
-        spelling: true,
-        grammar: true,
-        style: true,
-        readability: true,
-        styleGuide: 'none',
-        language: 'en-US'
-      }}
-      onSettingsChange={(newSettings) => {
-        // For guest users, we could save to localStorage
-        console.log('Guest spell check settings changed:', newSettings);
-      }}
     />
     <SystemHealthModal
       show={showSystemHealthModal}

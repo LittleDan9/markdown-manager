@@ -16,7 +16,8 @@ const CustomDictionaryManager = require('../lib/CustomDictionaryManager');
  */
 function setupDictionaryRoutes(serviceManager, responseBuilder) {
   const router = express.Router();
-  const customDictionaryManager = new CustomDictionaryManager();
+  // Use ServiceManager's instance for cache coherence instead of creating a separate one
+  const customDictionaryManager = serviceManager.getServices().customDictionaryManager || new CustomDictionaryManager();
 
   /**
    * Get user dictionary

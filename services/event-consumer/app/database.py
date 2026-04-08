@@ -250,3 +250,55 @@ class DatabaseManager:
                 "words": json.dumps(dictionary.get('words', []))
             }
         )
+
+    async def add_word_to_user_dict(
+        self,
+        session: AsyncSession,
+        tenant_id,
+        user_id,
+        word: str,
+    ):
+        """Add a single word to user_dict JSONB words array (dictionary projection).
+
+        Uses jsonb_insert with deduplication — only adds if word not already present.
+        Creates the row if it doesn't exist yet.
+        """
+        await session.execute(
+            text(f"""
+                INSERT INTO {self.schema}.user_dict (tenant_id, user_id, words, version, updated_at)
+                VALUES (:tenant_id, :user_id, jsonb_build_array(:word), 1, now())
+                ON CONFLICT (tenant_id, user_id)
+                DO UPDATE SET
+                    words = CASE
+                        WHEN NOT ({self.schema}.user_dict.words @> jsonb_build_array(:word))
+                        THEN {self.schema}.user_dict.words || jsonb_build_array(:word)
+                        ELSE {self.schema}.user_dict.words
+                    END,
+                    version = {self.schema}.user_dict.version + 1,
+                    updated_at = now()
+            """),
+            {"tenant_id": tenant_id, "user_id": user_id, "word": word}
+        )
+
+    async def remove_word_from_user_dict(
+        self,
+        session: AsyncSession,
+        tenant_id,
+        user_id,
+        word: str,
+    ):
+        """Remove a single word from user_dict JSONB words array (dictionary projection)."""
+        await session.execute(
+            text(f"""
+                UPDATE {self.schema}.user_dict
+                SET words = (
+                    SELECT COALESCE(jsonb_agg(elem), '[]'::jsonb)
+                    FROM jsonb_array_elements(words) AS elem
+                    WHERE elem #>> '{{}}' != :word
+                ),
+                version = version + 1,
+                updated_at = now()
+                WHERE tenant_id = :tenant_id AND user_id = :user_id
+            """),
+            {"tenant_id": tenant_id, "user_id": user_id, "word": word}
+        )

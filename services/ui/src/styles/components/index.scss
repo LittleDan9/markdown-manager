@@ -4,6 +4,8 @@
 @use "../variables";
 @use "ai-providers";
 @use "diagram-controls";
+@use "security-tab";
+@use "user-settings";
 
 // ─── INTERACTIVE CARD HOVER ───
 .card-interactive {

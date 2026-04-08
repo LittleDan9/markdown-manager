@@ -5,6 +5,7 @@
 
 const { SERVICE_INFO, DEFAULT_CONFIG } = require('../utils/constants');
 const ServiceHealthMonitor = require('./ServiceHealthMonitor');
+const databaseConfig = require('../lib/database/config');
 
 // Import Phase 2 enhanced functionality
 const EnhancedSpellChecker = require('../lib/EnhancedSpellChecker');
@@ -54,6 +55,14 @@ class ServiceManager {
 
       // Set up process event handlers
       this.setupProcessHandlers();
+
+      // Initialize database pool first (required by CustomDictionaryManager)
+      try {
+        await databaseConfig.initialize();
+        console.log('[ServiceManager] Database pool initialized');
+      } catch (dbError) {
+        console.warn('[ServiceManager] Database pool initialization failed (dictionary features may be degraded):', dbError.message);
+      }
 
       // Initialize all components in parallel for faster startup
       const initPromises = [];

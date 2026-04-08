@@ -194,88 +194,80 @@ function StorageTab({ userId = null, isAdmin = false }) {
               </div>
             ) : (
               storageStats && (
-                <Card className="mb-4">
-                  <Card.Header>
-                    <h5 className="mb-0">
-                      <i className="bi bi-pie-chart me-2"></i>
-                      Storage Statistics {isAdmin && userId && `(User ID: ${userId})`}
-                    </h5>
-                  </Card.Header>
-                  <Card.Body>
-                    <Row className="storage-stats-grid">
-                      <Col md={4}>
-                        <Card className="stat-card border-0 mb-3">
-                          <Card.Body className="text-center">
-                            <h3 className="stat-value text-primary">{storageStats.total_documents}</h3>
-                            <p className="stat-label">Total Documents</p>
-                          </Card.Body>
-                        </Card>
-                      </Col>
-                      <Col md={4}>
-                        <Card className="stat-card border-0 mb-3">
-                          <Card.Body className="text-center">
-                            <h3 className="stat-value text-info">{formatBytes(storageStats.storage_size_bytes)}</h3>
-                            <p className="stat-label">Storage Used</p>
-                          </Card.Body>
-                        </Card>
-                      </Col>
-                      <Col md={4}>
-                        <Card className="stat-card border-0 mb-3">
-                          <Card.Body className="text-center">
-                            <h3 className="stat-value text-success">{storageStats.repositories_count}</h3>
-                            <p className="stat-label">Repositories</p>
-                          </Card.Body>
-                        </Card>
-                      </Col>
-                    </Row>
+                <div className="storage-stats-grid">
+                  {isAdmin && userId && (
+                    <div className="text-muted small mb-3">User ID: {userId}</div>
+                  )}
+                  <Row className="g-3 mb-3">
+                    <Col sm={4}>
+                      <div className="stat-card">
+                        <div className="stat-icon text-primary"><i className="bi bi-file-earmark-text"></i></div>
+                        <div className="stat-info">
+                          <div className="stat-value">{storageStats.total_documents}</div>
+                          <div className="stat-label">Total Documents</div>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col sm={4}>
+                      <div className="stat-card">
+                        <div className="stat-icon text-info"><i className="bi bi-hdd"></i></div>
+                        <div className="stat-info">
+                          <div className="stat-value">{formatBytes(storageStats.storage_size_bytes)}</div>
+                          <div className="stat-label">Storage Used</div>
+                        </div>
+                      </div>
+                    </Col>
+                    <Col sm={4}>
+                      <div className="stat-card">
+                        <div className="stat-icon text-success"><i className="bi bi-folder2-open"></i></div>
+                        <div className="stat-info">
+                          <div className="stat-value">{storageStats.repositories_count}</div>
+                          <div className="stat-label">Repositories</div>
+                        </div>
+                      </div>
+                    </Col>
+                  </Row>
 
-                    <Row className="storage-badges-row">
-                      <Col md={3}>
-                        <div className="badge-container text-center">
-                          <Badge bg="primary" className="me-2">{storageStats.local_documents}</Badge>
-                          <div className="badge-label">Local Documents</div>
-                        </div>
-                      </Col>
-                      <Col md={3}>
-                        <div className="badge-container text-center">
-                          <Badge bg="info" className="me-2">{storageStats.github_documents}</Badge>
-                          <div className="badge-label">GitHub Documents</div>
-                        </div>
-                      </Col>
-                      <Col md={3}>
-                        <div className="badge-container text-center">
-                          <Badge bg="success" className="me-2">{storageStats.documents_with_files}</Badge>
-                          <div className="badge-label">With Files</div>
-                        </div>
-                      </Col>
-                      <Col md={3}>
-                        <div className="badge-container text-center">
-                          <Badge bg={storageStats.orphaned_documents > 0 ? "warning" : "secondary"} className="me-2">
-                            {storageStats.orphaned_documents}
-                          </Badge>
-                          <div className="badge-label">Orphaned</div>
-                        </div>
-                      </Col>
-                    </Row>
+                  <div className="stat-breakdown">
+                    <h6 className="breakdown-title">Documents</h6>
+                    <div className="breakdown-grid">
+                      <div className="breakdown-item">
+                        <span className="breakdown-value text-primary">{storageStats.local_documents}</span>
+                        <span className="breakdown-label">Local</span>
+                      </div>
+                      <div className="breakdown-item">
+                        <span className="breakdown-value text-info">{storageStats.github_documents}</span>
+                        <span className="breakdown-label">GitHub</span>
+                      </div>
+                      <div className="breakdown-item">
+                        <span className="breakdown-value text-success">{storageStats.documents_with_files}</span>
+                        <span className="breakdown-label">With Files</span>
+                      </div>
+                      <div className="breakdown-item">
+                        <span className={`breakdown-value ${storageStats.orphaned_documents > 0 ? 'text-warning' : 'text-muted'}`}>
+                          {storageStats.orphaned_documents}
+                        </span>
+                        <span className="breakdown-label">Orphaned</span>
+                      </div>
+                    </div>
+                  </div>
 
-                    {(storageStats.local_repositories || storageStats.github_repositories) && (
-                      <Row className="mt-3">
-                        <Col md={6}>
-                          <div className="badge-container text-center">
-                            <Badge bg="outline-primary" className="me-2">{storageStats.local_repositories || 0}</Badge>
-                            <div className="badge-label">Local Repositories</div>
-                          </div>
-                        </Col>
-                        <Col md={6}>
-                          <div className="badge-container text-center">
-                            <Badge bg="outline-info" className="me-2">{storageStats.github_repositories || 0}</Badge>
-                            <div className="badge-label">GitHub Repositories</div>
-                          </div>
-                        </Col>
-                      </Row>
-                    )}
-                  </Card.Body>
-                </Card>
+                  {(storageStats.local_repositories > 0 || storageStats.github_repositories > 0) && (
+                    <div className="stat-breakdown">
+                      <h6 className="breakdown-title">Repositories</h6>
+                      <div className="breakdown-grid">
+                        <div className="breakdown-item">
+                          <span className="breakdown-value text-primary">{storageStats.local_repositories || 0}</span>
+                          <span className="breakdown-label">Local</span>
+                        </div>
+                        <div className="breakdown-item">
+                          <span className="breakdown-value text-info">{storageStats.github_repositories || 0}</span>
+                          <span className="breakdown-label">GitHub</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               )
             )}
           </Tab.Pane>

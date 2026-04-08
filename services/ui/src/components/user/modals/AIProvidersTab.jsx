@@ -21,6 +21,7 @@ const PROVIDERS = [
     defaultUrl: 'https://models.github.ai',
     defaultModel: 'openai/gpt-4o-mini',
     placeholder: 'github_pat_...',
+    scopeHint: 'PAT must have the models:read permission.',
   },
   {
     id: 'openai',
@@ -58,6 +59,7 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
   const [model, setModel] = useState(keyData?.preferred_model || provider.defaultModel);
   const [models, setModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState('');
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
@@ -68,9 +70,15 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
   const fetchModels = useCallback(async () => {
     if (!keyData?.id) return;
     setLoadingModels(true);
+    setModelError('');
     try {
       const result = await apiKeysApi.listModels(keyData.id);
-      if (result.models?.length) setModels(result.models);
+      if (result.models?.length) {
+        setModels(result.models);
+        setModelError('');
+      } else if (result.error) {
+        setModelError(result.error);
+      }
     } catch {
       // Silently fail — user can still type manually
     } finally {
@@ -159,6 +167,7 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
             />
             <Form.Text className="text-muted">
               {isConfigured ? 'Leave blank to keep current key' : 'Required'}
+              {provider.scopeHint && <><br /><small>{provider.scopeHint}</small></>}
             </Form.Text>
           </Form.Group>
         </Col>
@@ -194,10 +203,12 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
             ) : (
               <>
                 <Form.Control type="text" placeholder={provider.defaultModel} value={model} onChange={(e) => setModel(e.target.value)} />
-                <Form.Text className="text-muted">
-                  {isConfigured
-                    ? (loadingModels ? 'Loading models...' : 'Save and test key to load available models')
-                    : 'Save key first to load available models'}
+                <Form.Text className={modelError ? 'text-warning' : 'text-muted'}>
+                  {modelError
+                    ? `Could not load models: ${modelError}`
+                    : isConfigured
+                      ? (loadingModels ? 'Loading models...' : 'Save and test key to load available models')
+                      : 'Save key first to load available models'}
                 </Form.Text>
               </>
             )}

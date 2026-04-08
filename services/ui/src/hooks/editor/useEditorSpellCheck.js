@@ -56,16 +56,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     // Use custom settings if provided, otherwise use default settings
     const effectiveSettings = customSettings || settings;
 
-    // Debug logging to track excessive calls
-    console.log('[SpellCheck] spellCheckDocument called:', {
-      textLength: (textOverride ?? editor.getValue()).length,
-      startOffset,
-      forceProgress,
-      customSettings: customSettings ? 'provided' : 'using default',
-      codeSpellEnabled: effectiveSettings.enableCodeSpellCheck,
-      stackTrace: new Error().stack.split('\n').slice(1, 4).join('\n')
-    });
-
     // Always get fresh content from editor unless explicitly overridden
     const currentText = textOverride ?? editor.getValue();
 
@@ -118,14 +108,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
 
       // Backend already filtered issues based on effectiveSettings, so use them directly
       if (editor) {
-        console.log('🚀 About to call MonacoMarkerAdapter.toMonacoMarkers:', {
-          editorPresent: !!editor,
-          issuesCount: issues?.length || 0,
-          startOffset,
-          issuesWithTypes: issues?.slice(0, 5).map(i => ({ type: i.type, word: i.word, position: i.position })) || [],
-          codeSpellIssues: issues?.filter(i => i.type?.includes('code'))?.length || 0
-        });
-
         // Use requestIdleCallback to make marker updates non-blocking
         const updateMarkers = () => {
           suggestionsMap.current = MonacoMarkerAdapter.toMonacoMarkers(
@@ -134,8 +116,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
             startOffset,
             suggestionsMap.current
           );
-
-          console.log('✅ MonacoMarkerAdapter.toMonacoMarkers completed, suggestionsMap size:', suggestionsMap.current?.size || 0);
         };
 
         // Use requestIdleCallback if available, otherwise use setTimeout as fallback
@@ -169,29 +149,18 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     const handleContentChange = () => {
       const currentValue = editor.getValue();
 
-      console.log('[SpellCheck] Content change detected:', {
-        currentLength: currentValue.length,
-        previousLength: previousValueRef.current?.length || 0,
-        hasChanged: currentValue !== previousValueRef.current,
-        isRapidTyping: isRapidTypingActive,
-        initialCheckDone: initialCheckDoneRef.current
-      });
-
       // Skip spell checking during rapid typing to prevent blocking the editor
       if (isRapidTypingActive) {
-        console.log('[SpellCheck] Skipping during rapid typing mode');
         return;
       }
 
       // Only proceed if content actually changed
       if (currentValue === previousValueRef.current) {
-        console.log('[SpellCheck] Content unchanged, skipping');
         return;
       }
 
       // Skip the first content change if initial check was already done (prevents duplicate on mount)
       if (initialCheckDoneRef.current && previousValueRef.current === '') {
-        console.log('[SpellCheck] Skipping first content change after initial check');
         previousValueRef.current = currentValue;
         return;
       }
@@ -245,7 +214,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
         const currentContent = editor?.getValue() || '';
 
         if (timeSinceLastCheck > 120000 && currentContent !== previousValueRef.current) {
-          console.log('[SpellCheck] Auto-running spell check after 2 minutes of inactivity');
           spellCheckDocument(null, 0);
           previousValueRef.current = currentContent;
           lastSpellCheckTime.current = Date.now();
@@ -267,10 +235,8 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     if (enabled && editor && !initialCheckDoneRef.current) {
       // Check if content is worth spell checking - use a lower threshold for initial check
       const currentText = editor.getValue();
-      console.log('[SpellCheck] Initial spell check - content length:', currentText?.length || 0);
 
       if (!currentText || currentText.length === 0) {
-        console.log('[SpellCheck] Skipping initial spell check - no content');
         return;
       }
 
@@ -280,7 +246,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       // Run initial spell check immediately if there's meaningful content, or after a short delay
       const runInitialSpellCheck = () => {
         const textAtTime = editor.getValue();
-        console.log('[SpellCheck] Running initial spell check - content length:', textAtTime?.length || 0);
         if (textAtTime && textAtTime.length > 0) {
           spellCheckDocument(null, 0);
           previousValueRef.current = textAtTime;
@@ -289,27 +254,13 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
 
       if (currentText.length >= 10) {
         // If there's already meaningful content, spell check immediately
-        console.log('[SpellCheck] Content >= 10 chars, spell checking immediately');
         runInitialSpellCheck();
       } else {
         // For very small content, wait a bit to see if more content loads
-        console.log('[SpellCheck] Content < 10 chars, waiting 500ms');
         setTimeout(runInitialSpellCheck, 500);
       }
     }
   }, [enabled, editor, spellCheckDocument]);
-
-  // Periodic spell check - DISABLED to prevent excessive checking
-  // Content change detection with debouncing is sufficient
-  // useEffect(() => {
-  //   if (!enabled || !editor) return;
-  //   const periodicCheckInterval = setInterval(() => {
-  //     // ... periodic check logic disabled
-  //   }, 300000); // 5 minutes - very infrequent if ever re-enabled
-  //   return () => {
-  //     clearInterval(periodicCheckInterval);
-  //   };
-  // }, [enabled, editor]);
 
   // Window resize handling - very conservative
   useEffect(() => {
@@ -319,7 +270,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
     let resizeStartTimeout = null;
 
     const handleResize = () => {
-      console.log('[SpellCheck] Window resize detected');
       if (!isResizing) {
         isResizing = true;
         SpellCheckMarkers.clearMarkers(editor, suggestionsMap.current);
@@ -328,7 +278,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       resizeStartTimeout = setTimeout(() => {
         isResizing = false;
         if (editor) {
-          console.log('[SpellCheck] Running spell check after window resize');
           spellCheckDocument(null, 0);
         }
       }, 1000); // Increased from 300ms to 1 second
@@ -372,13 +321,10 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
 
       // If we're getting too many rapid changes, suppress completely for a while
       if (layoutChangeCount > MAX_RAPID_CHANGES) {
-        const suppressionText = isAuthenticated ? '15 seconds' : '30 seconds';
-        console.log(`[SpellCheck] Too many rapid layout changes, suppressing for ${suppressionText}`);
         suppressLayoutChanges = true;
         setTimeout(() => {
           suppressLayoutChanges = false;
           layoutChangeCount = 0;
-          console.log('[SpellCheck] Layout change suppression lifted');
         }, SUPPRESSION_DURATION);
         return;
       }
@@ -387,9 +333,6 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       if (suppressLayoutChanges) {
         return;
       }
-
-      // More aggressive throttling to reduce interference with scroll-to-line
-      console.log('[SpellCheck] Editor layout change detected');
 
       // Clear existing timeout
       if (layoutChangeTimeout) {
@@ -400,14 +343,12 @@ export default function useEditorSpellCheck(editor, enabled = true, categoryId, 
       // Increased throttling delay to reduce frequency
       const ENHANCED_THROTTLE_DELAY = LAYOUT_THROTTLE_DELAY * 2; // Double the delay
       if (timeSinceLastChange < ENHANCED_THROTTLE_DELAY) {
-        console.log('[SpellCheck] Layout change throttled, too frequent');
         return;
       }
 
       layoutChangeTimeout = setTimeout(() => {
         if (editor && !suppressLayoutChanges) {
           lastLayoutChangeTime = Date.now();
-          console.log('[SpellCheck] Running spell check after layout change');
           spellCheckDocument(null, 0);
         }
         layoutChangeTimeout = null;

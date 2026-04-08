@@ -38,7 +38,9 @@ class CustomDictionaryAPI extends Api {
    * @returns {Promise<{folder_path: string, words: string[], count: number}>}
    */
   async getFolderWords(folderPath) {
-    const response = await this.apiCall(`/dictionary/folder/${encodeURIComponent(folderPath)}/words`);
+    const response = await this.apiCall('/dictionary/folder/words', 'GET', null, {
+      folder_path: folderPath
+    });
     return response.data;
   }
 

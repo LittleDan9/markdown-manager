@@ -24,30 +24,41 @@ class SpellCheckApi extends Api {
    */
   async checkText(text, customWords = [], options = {}) {
     try {
+      // Build payload with auth/context fields at top level to match
+      // what the spell-check service /check route destructures.
+      const analysisTypes = options.analysisTypes || {
+        spelling: true,
+        grammar: true,
+        style: true,
+        readability: true
+      };
+
       const requestPayload = {
         text: text,
         customWords: customWords,
+        // Top-level fields the spell-check service expects
+        enableGrammar: analysisTypes.grammar ?? true,
+        enableStyle: analysisTypes.style ?? true,
+        enableLanguageDetection: true,
+        enableContextualSuggestions: true,
+        enableCodeSpellCheck: !!options.enableCodeSpellCheck,
+        styleGuide: options.styleGuide !== 'none' ? (options.styleGuide || null) : null,
+        language: options.language || 'en-US',
+        categoryId: options.categoryId || null,
+        folderPath: options.folderPath || null,
+        grammarRules: options.grammarRules || null,
+        styleSettings: options.styleSettings || null,
         options: {
           ...options,
-          // Phase 5: Advanced settings support
-          analysisTypes: options.analysisTypes || {
-            spelling: true,
-            grammar: true,
-            style: true,
-            readability: true
-          },
+          analysisTypes: analysisTypes,
           styleGuide: options.styleGuide || 'none',
           language: options.language || 'en-US'
         }
       };
 
       // Phase 6: Code fence spell checking support
-      if (options.enableCodeSpellCheck) {
-        requestPayload.options.enableCodeSpellCheck = options.enableCodeSpellCheck;
-      }
-
-      if (options.codeSpellSettings) {
-        requestPayload.options.codeSpellSettings = options.codeSpellSettings;
+      if (options.enableCodeSpellCheck && options.codeSpellSettings) {
+        requestPayload.codeSpellSettings = options.codeSpellSettings;
       }
 
       const response = await this.apiCall('/spell-check/check', 'POST', requestPayload, { timeout: 60000 });
@@ -254,10 +265,14 @@ class SpellCheckApi extends Api {
    */
   async scan(text, onProgress = () => {}, categoryId = null, folderPath = null, settings = {}) {
     try {
-      // For Phase 5, apply analysis type filters
+      // Gather custom words from localStorage as a fallback so the spell-check
+      // service always has them even if its own dictionary projection is stale.
+      const localCustomWords = this._getLocalCustomWords(folderPath, categoryId);
+
       const options = {
         categoryId: categoryId,
         folderPath: folderPath,
+        customWords: localCustomWords,
         analysisTypes: {
           spelling: settings.spelling ?? true,
           grammar: settings.grammar ?? true,
@@ -284,10 +299,9 @@ class SpellCheckApi extends Api {
       let result;
 
       if (text.length > ASYNC_TEXT_THRESHOLD) {
-        console.log(`Large document detected (${text.length} chars), using async endpoint`);
         result = await this._submitAndPoll(text, options);
       } else {
-        result = await this.checkText(text, [], options);
+        result = await this.checkText(text, localCustomWords, options);
       }
 
       // Backend already filtered results based on settings, so combine all returned issues
@@ -342,14 +356,18 @@ class SpellCheckApi extends Api {
   async _submitAndPoll(text, options) {
     const payload = {
       text,
-      customWords: [],
+      customWords: options.customWords || [],
       enableGrammar: options.analysisTypes?.grammar ?? true,
       enableStyle: options.analysisTypes?.style ?? true,
       enableLanguageDetection: true,
       enableContextualSuggestions: true,
       enableCodeSpellCheck: !!options.enableCodeSpellCheck,
       styleGuide: options.styleGuide !== 'none' ? options.styleGuide : null,
-      language: options.language || 'en-US'
+      language: options.language || 'en-US',
+      categoryId: options.categoryId || null,
+      folderPath: options.folderPath || null,
+      grammarRules: options.grammarRules || null,
+      styleSettings: options.styleSettings || null,
     };
 
     if (options.enableCodeSpellCheck && options.codeSpellSettings) {
@@ -389,7 +407,42 @@ class SpellCheckApi extends Api {
       interval = Math.min(interval * 1.5, MAX_INTERVAL);
     }
 
-    throw new Error('Async spell-check timed out after 2 minutes');
+    throw new Error('Async spell-check timed out after 3 minutes');
+  }
+
+  /**
+   * Gather custom words from localStorage for the current scope.
+   * Returns a merged array of user-level + folder/category-level words.
+   * @param {string|null} folderPath
+   * @param {string|null} categoryId
+   * @returns {string[]}
+   */
+  _getLocalCustomWords(folderPath = null, _categoryId = null) {
+    try {
+      const words = new Set();
+
+      // User-level words
+      const userWords = localStorage.getItem('customDictionary');
+      if (userWords) {
+        JSON.parse(userWords).forEach(w => words.add(w));
+      }
+
+      // Folder-level words
+      if (folderPath) {
+        const folderData = localStorage.getItem('folderCustomDictionary');
+        if (folderData) {
+          const folderMap = JSON.parse(folderData);
+          const folderWords = folderMap[folderPath];
+          if (Array.isArray(folderWords)) {
+            folderWords.forEach(w => words.add(w));
+          }
+        }
+      }
+
+      return [...words];
+    } catch {
+      return [];
+    }
   }
 
   /**
