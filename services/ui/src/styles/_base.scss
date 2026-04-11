@@ -232,51 +232,114 @@ select:focus-visible {
   letter-spacing: 0.025em;
 }
 
-// Toast container styles — brief confirmations (important toasts now persist to notification drawer)
-.toast-container {
-  // Position in top center to avoid overlap with side drawers (chat, notifications)
-  top: 80px !important;
-  left: 50% !important;
+// Snackbar container — compact transient notifications (important ones persist to notification drawer)
+.snackbar-container {
+  position: fixed;
+  top: 70px;
+  left: 50%;
   transform: translateX(-50%);
-  bottom: auto !important;
-  right: auto !important;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  pointer-events: none;
+  width: auto;
+  max-width: 90vw;
+}
 
-  // Ensure toasts stack properly (newest on top)
-  .toast {
-    margin-bottom: 0.5rem;
-    min-width: 320px;
+.snackbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 300px;
+  max-width: 480px;
+  padding: 0.625rem 0.75rem;
+  background-color: var(--mm-bg-elevated);
+  border: 1px solid var(--mm-border);
+  border-radius: var(--mm-radius-md);
+  box-shadow: var(--mm-shadow-md);
+  color: var(--mm-text);
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  pointer-events: auto;
+  overflow: hidden;
+  position: relative;
+  animation: snackbarIn 0.25s ease-out;
 
-    // Smooth animations for showing/hiding
-    &.show {
-      animation: slideInDown 0.25s ease-out;
+  &-accent {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    border-radius: var(--mm-radius-md) 0 0 var(--mm-radius-md);
+  }
+
+  &-icon {
+    flex-shrink: 0;
+    font-size: 1rem;
+    margin-left: 0.25rem;
+  }
+
+  &-message {
+    flex: 1;
+    word-break: break-word;
+  }
+
+  &-dismiss {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--mm-text-secondary);
+    border-radius: var(--mm-radius-sm);
+    cursor: pointer;
+    padding: 0;
+    font-size: 1rem;
+    transition: background-color 0.15s ease, color 0.15s ease;
+
+    &:hover {
+      background-color: var(--mm-bg-surface);
+      color: var(--mm-text);
     }
+  }
 
-    &.hide {
-      animation: slideOutUp 0.2s ease-in;
-    }
+  // Severity variants — colored accent bar + icon color
+  &--success {
+    .snackbar-accent { background-color: #10b981; }
+    .snackbar-icon { color: #10b981; }
+  }
+
+  &--error {
+    .snackbar-accent { background-color: #ef4444; }
+    .snackbar-icon { color: #ef4444; }
+  }
+
+  &--warning {
+    .snackbar-accent { background-color: #f59e0b; }
+    .snackbar-icon { color: #f59e0b; }
+  }
+
+  &--info {
+    .snackbar-accent { background-color: #3b82f6; }
+    .snackbar-icon { color: #3b82f6; }
   }
 }
 
-// Toast animation keyframes
-@keyframes slideInDown {
+// Snackbar animation keyframes
+@keyframes snackbarIn {
   from {
-    transform: translateY(-100%);
+    transform: translateY(-12px);
     opacity: 0;
   }
   to {
     transform: translateY(0);
     opacity: 1;
-  }
-}
-
-@keyframes slideOutUp {
-  from {
-    transform: translateY(0);
-    opacity: 1;
-  }
-  to {
-    transform: translateY(-100%);
-    opacity: 0;
   }
 }
 
