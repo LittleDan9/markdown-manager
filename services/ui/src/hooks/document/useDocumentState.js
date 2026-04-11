@@ -499,7 +499,10 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
 
       // Guard: only write back to state if the user is still viewing the document
       // that was saved. A slow-resolving save should not overwrite a freshly loaded doc.
-      const isStillCurrentDocument = saved.id === currentDocumentIdRef.current;
+      // Also match when the original doc ID was a temporary doc_ ID that the backend
+      // replaced with a permanent ID (e.g. first save / category change on a new doc).
+      const isStillCurrentDocument = saved.id === currentDocumentIdRef.current
+        || docToSave.id === currentDocumentIdRef.current;
 
       if (documentChanged && isStillCurrentDocument) {
         setCurrentDocument(saved);
@@ -568,7 +571,10 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const renameDocument = useCallback(async (id, newName, newCategory = DEFAULT_CATEGORY) => {
     try {
       const doc = DocumentService.loadDocument(id);
-      if (!doc) return;
+      if (!doc) {
+        showError('Cannot rename: document not found. Try saving first.');
+        return;
+      }
       const updatedDoc = { ...doc, name: newName, category: newCategory };
       const saved = await DocumentService.saveDocument(updatedDoc, false);
       const docs = DocumentService.getAllDocuments();
