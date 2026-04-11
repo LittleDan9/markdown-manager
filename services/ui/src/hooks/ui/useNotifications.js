@@ -103,8 +103,13 @@ export default function useNotifications() {
     fetchNotifications();
     pollRef.current = setInterval(fetchNotifications, POLL_INTERVAL);
 
+    // Listen for toast-bridge events to refresh immediately
+    const handleCreated = () => fetchNotifications();
+    window.addEventListener('notification-created', handleCreated);
+
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
+      window.removeEventListener('notification-created', handleCreated);
     };
   }, [isAuthenticated, fetchNotifications]);
 

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect, useMemo } from "react";
-import { Toast, ToastContainer } from "react-bootstrap";
+import notificationsApi from "@/api/notificationsApi";
 
 const NotificationContext = createContext();
 
@@ -7,31 +7,60 @@ export function useNotification() {
   return useContext(NotificationContext);
 }
 
+// Map toast variant types to backend notification categories
+const TOAST_TYPE_TO_CATEGORY = {
+  danger: 'error',
+  warning: 'warning',
+  success: 'success',
+  info: 'info',
+};
+
 export function NotificationProvider({ children }) {
   const [toasts, setToasts] = useState([]);
 
 
 
-  const showNotification = useCallback((message, type = "info", duration = 5000, details = null, errorType = null) => {
+  const showNotification = useCallback((message, type = "info", duration = 3000, details = null, errorType = null, { persist } = {}) => {
     // Log to console for debugging
     console.log(`[Notification] ${type}: ${message}`);
-    // Increase duration for warnings/errors
+    // Shorter durations now that important toasts persist to notification drawer
     let effectiveDuration = duration;
     if (type === "danger" || type === "warning") {
-      effectiveDuration = Math.max(duration, 10000);
+      effectiveDuration = Math.max(duration, 5000);
     }
     const id = Date.now() + Math.random();
     setToasts((prev) => [...prev, { id, message, type, details, errorType }]);
     setTimeout(() => {
       setToasts((prev) => prev.filter((t) => t.id !== id));
     }, effectiveDuration);
+
+    // Bridge to persistent notification system:
+    // By default, persist danger/warning toasts. Callers can override with persist flag.
+    const shouldPersist = persist !== undefined ? persist : (type === "danger" || type === "warning");
+    if (shouldPersist) {
+      const category = TOAST_TYPE_TO_CATEGORY[type] || 'info';
+      const safeDetail = details != null
+        ? (typeof details === 'string' ? details : JSON.stringify(details))
+        : null;
+      notificationsApi.create({
+        title: 'Notification',
+        message,
+        category,
+        detail: safeDetail,
+      }).then(() => {
+        // Signal useNotifications to refresh immediately
+        window.dispatchEvent(new CustomEvent('notification-created'));
+      }).catch(() => {
+        // Fire-and-forget — don't disrupt UX if persist fails
+      });
+    }
   }, []);
 
   const contextValue = useMemo(() => ({
-    showSuccess: (msg, duration) => showNotification(msg, "success", duration),
-    showError: (msg, duration, details, errorType) => showNotification(msg, "danger", duration, details, errorType),
-    showWarning: (msg, duration, details, errorType) => showNotification(msg, "warning", duration, details, errorType),
-    showInfo: (msg, duration) => showNotification(msg, "info", duration),
+    showSuccess: (msg, duration, opts) => showNotification(msg, "success", duration, null, null, opts),
+    showError: (msg, duration, details, errorType, opts) => showNotification(msg, "danger", duration, details, errorType, opts),
+    showWarning: (msg, duration, details, errorType, opts) => showNotification(msg, "warning", duration, details, errorType, opts),
+    showInfo: (msg, duration, opts) => showNotification(msg, "info", duration, null, null, opts),
   }), [showNotification]);
 
   useEffect(() => {
@@ -59,10 +88,19 @@ export function NotificationProvider({ children }) {
     }
   };
 
+  const getSnackbarVariant = (type) => {
+    switch (type) {
+      case 'success': return 'snackbar--success';
+      case 'danger': return 'snackbar--error';
+      case 'warning': return 'snackbar--warning';
+      default: return 'snackbar--info';
+    }
+  };
+
   return (
     <NotificationContext.Provider value={contextValue}>
       {children}
-      <ToastContainer position="bottom-end" className="p-3" style={{ zIndex: 9999 }}>
+      <div className="snackbar-container">
         {toasts.map((toast) => {
           const defaultIcon = toast.type === "success" ? "bi-check-circle-fill" :
                              toast.type === "danger" ? "bi-exclamation-triangle-fill" :
@@ -72,40 +110,25 @@ export function NotificationProvider({ children }) {
           const iconClass = getErrorIcon(toast.errorType, defaultIcon);
 
           return (
-            <Toast
+            <div
               key={toast.id}
-              bg={toast.type}
-              show={true}
-              onClose={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-              delay={toast.type === "danger" || toast.type === "warning" ? 10000 : 5000}
-              autohide
+              className={`snackbar ${getSnackbarVariant(toast.type)}`}
+              role="alert"
             >
-              <Toast.Header closeButton onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}>
-                <i className={`bi me-2 ${iconClass}`}></i>
-                <strong className="me-auto">Notification</strong>
-              </Toast.Header>
-              <Toast.Body className={toast.type === "warning" || toast.type === "info" ? "text-dark" : "text-white"}>
-                {toast.message}
-                {toast.details && (
-                  <div className="mt-2">
-                    <button
-                      className="btn btn-sm btn-outline-secondary"
-                      onClick={() => {
-                        // Create a modal or detailed view for error details
-                        console.log('Error details:', toast.details);
-                        // For now, just log to console - could implement a modal later
-                      }}
-                    >
-                      <i className="bi bi-info-circle me-1"></i>
-                      Show Details
-                    </button>
-                  </div>
-                )}
-              </Toast.Body>
-            </Toast>
+              <span className="snackbar-accent" />
+              <i className={`bi ${iconClass} snackbar-icon`} />
+              <span className="snackbar-message">{toast.message}</span>
+              <button
+                className="snackbar-dismiss"
+                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                aria-label="Dismiss"
+              >
+                <i className="bi bi-x" />
+              </button>
+            </div>
           );
         })}
-      </ToastContainer>
+      </div>
     </NotificationContext.Provider>
   );
 }

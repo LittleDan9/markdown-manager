@@ -16,7 +16,7 @@ import { markDraftAcknowledged } from "@/hooks/document/useSaveDocument";
 
 function App() {
   const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer, createDocument } = useDocumentContext();
 
   // --- Draft promotion modal state ---
   const [showPromoteDraft, setShowPromoteDraft] = useState(false);
@@ -103,8 +103,8 @@ function App() {
   // Check for new deployments and prompt user to refresh
   useVersionCheck();
 
-  // Setup global keyboard shortcuts (Ctrl+S, etc.)
-  useGlobalKeyboardShortcuts({ onDraftPromote: handleDraftPromote });
+  // Setup global keyboard shortcuts (Ctrl+S, Ctrl+Alt+N, etc.)
+  useGlobalKeyboardShortcuts({ onDraftPromote: handleDraftPromote, onNewDocument: createDocument });
 
   // Debug fullscreen state changes
   useEffect(() => {

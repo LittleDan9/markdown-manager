@@ -223,12 +223,26 @@ export class Api {
       if (now - this.lastNotificationTime > this.notificationCooldown) {
         this.lastNotificationTime = now;
 
+        // Extract backend error detail for richer notifications
+        let errorDetails = null;
+        const responseData = error.response?.data;
+        if (responseData) {
+          const backendDetail = responseData.detail || responseData.message || responseData.error;
+          if (backendDetail) {
+            const endpoint = _endpoint || error.config?.url || 'unknown';
+            const status = error.response?.status || 'N/A';
+            errorDetails = `Endpoint: ${endpoint}\nStatus: ${status}\nDetail: ${typeof backendDetail === 'string' ? backendDetail : JSON.stringify(backendDetail)}`;
+          }
+        }
+
         // Dispatch custom notification event
         window.dispatchEvent(new CustomEvent('notification', {
           detail: {
             message: notificationMessage,
             type: notificationType,
-            duration: 15000 // Show for 15 seconds for backend issues
+            duration: 8000,
+            details: errorDetails,
+            errorType: error.code === 'ERR_NETWORK' || !error.response ? 'network' : 'system'
           }
         }));
       }

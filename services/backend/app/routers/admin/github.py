@@ -287,6 +287,7 @@ async def get_all_users(
                 editor_width_percentage=user.editor_width_percentage,
                 tab_position=user.tab_position or "above",
                 tab_sort_order=user.tab_sort_order or "name",
+                recents_tab_limit=user.recents_tab_limit if user.recents_tab_limit is not None else 10,
                 current_doc_id=user.current_doc_id,
                 current_document=None  # Don't load documents for user list
             ))

@@ -43,6 +43,11 @@ class NotificationsApi extends Api {
     const response = await this.apiCall('/notifications', 'DELETE');
     return response.data;
   }
+
+  async create({ title, message, category = 'info', link = null, detail = null }) {
+    const response = await this.apiCall('/notifications', 'POST', { title, message, category, link, detail });
+    return response.data;
+  }
 }
 
 export default new NotificationsApi();

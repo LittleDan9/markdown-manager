@@ -1,9 +1,10 @@
-// Notification Dropdown Styles
-// Dark-theme-aware styling for the notification dropdown
+// Notification Drawer & Severity Styles
+// Dark-theme-aware styling for the notification dropdown and drawer
 
 @use "../variables";
 @use "../mixins";
 
+// ─── Legacy dropdown (kept for backward compat) ───
 .notification-dropdown-menu {
   width: 340px;
   max-height: 400px;
@@ -310,4 +311,121 @@
     font-weight: variables.$font-weight-bold;
     color: var(--mm-text);
   }
+}
+
+// ─── NOTIFICATION DRAWER (Offcanvas) ───
+
+.notification-drawer {
+  &.offcanvas.offcanvas-start {
+    width: 380px;
+    max-width: 90vw;
+    background: var(--mm-bg-elevated);
+    border-right: 1px solid var(--mm-border);
+    color: var(--mm-text);
+
+    @include mixins.mobile {
+      width: 100vw;
+      max-width: 100vw;
+      border-right: none;
+    }
+  }
+}
+
+.notification-drawer-header {
+  border-bottom: 1px solid var(--mm-border);
+  padding: variables.$space-3 variables.$space-4;
+
+  .btn-close {
+    filter: var(--mm-btn-close-filter, none);
+  }
+}
+
+.notification-drawer-title {
+  font-size: variables.$font-size-md;
+  font-weight: variables.$font-weight-semibold;
+  display: flex;
+  align-items: center;
+
+  .bi-bell {
+    color: var(--mm-primary);
+  }
+}
+
+.notification-drawer-controls {
+  border-bottom: 1px solid var(--mm-border);
+  background-color: var(--mm-bg-surface);
+}
+
+.notification-unread-toggle {
+  font-size: variables.$font-size-sm;
+  color: var(--mm-text-secondary);
+}
+
+.notification-drawer-body {
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+// ─── SEVERITY DOTS ───
+
+.notification-severity-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: variables.$radius-full;
+  flex-shrink: 0;
+
+  &--error {
+    background-color: variables.$color-danger;
+  }
+
+  &--warning {
+    background-color: variables.$color-warning;
+  }
+
+  &--info {
+    background-color: variables.$color-info;
+  }
+
+  &--success {
+    background-color: variables.$color-success;
+  }
+}
+
+// ─── SEVERITY GROUP SECTIONS ───
+
+.notification-group-divider {
+  height: 3px;
+  border: none;
+  margin: 0;
+
+  &--error {
+    background: linear-gradient(90deg, variables.$color-danger, transparent);
+  }
+
+  &--warning {
+    background: linear-gradient(90deg, variables.$color-warning, transparent);
+  }
+
+  &--info {
+    background: linear-gradient(90deg, variables.$color-info, transparent);
+  }
+
+  &--success {
+    background: linear-gradient(90deg, variables.$color-success, transparent);
+  }
+}
+
+.notification-group-heading {
+  font-size: variables.$font-size-sm;
+  font-weight: variables.$font-weight-semibold;
+  color: var(--mm-text-secondary);
+  display: flex;
+  align-items: center;
+  background-color: var(--mm-bg-surface);
+
+  .bi-x-circle { color: variables.$color-danger; }
+  .bi-exclamation-triangle { color: variables.$color-warning; }
+  .bi-info-circle { color: variables.$color-info; }
+  .bi-check-circle { color: variables.$color-success; }
 }
