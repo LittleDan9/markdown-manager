@@ -1,6 +1,19 @@
 import { Api } from "./api";
 
 class UserAPI extends Api {
+  // Check for a cross-app SSO cookie and bootstrap a local session
+  async ssoCheck() {
+    try {
+      console.log('UserAPI.ssoCheck: Attempting SSO check');
+      const res = await this.apiCall("/auth/sso-check", "GET", null, {}, { withCredentials: true, noAuth: true });
+      console.log('UserAPI.ssoCheck: SSO check result', res.data);
+      return res.data;
+    } catch (error) {
+      console.log('UserAPI.ssoCheck: SSO check failed', error?.response?.status);
+      return null;
+    }
+  }
+
   // Request a new access token using the refresh token cookie
   async refreshToken() {
     try {

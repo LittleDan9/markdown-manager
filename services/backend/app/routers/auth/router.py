@@ -1,7 +1,7 @@
 """Main authentication router that aggregates all auth sub-routers."""
 from fastapi import APIRouter
 
-from . import login, mfa, password_reset, profile, registration
+from . import login, mfa, password_reset, profile, registration, sso
 
 router = APIRouter()
 
@@ -11,3 +11,4 @@ router.include_router(registration.router, tags=["registration"])
 router.include_router(profile.router, tags=["profile"])
 router.include_router(password_reset.router, tags=["password-reset"])
 router.include_router(mfa.router, prefix="/mfa", tags=["mfa"])
+router.include_router(sso.router, tags=["sso"])

@@ -57,6 +57,20 @@ class Settings(BaseSettings):
         default=False, description="Use secure cookies (HTTPS only)"
     )
 
+    # Cross-app SSO
+    sso_secret_key: str = Field(
+        default="", description="Shared secret key for cross-app SSO tokens"
+    )
+    sso_token_expire_days: int = Field(
+        default=1, description="SSO token expiration in days"
+    )
+    sso_cookie_domain: str = Field(
+        default=".littledan.com", description="Domain for SSO cookie"
+    )
+    app_identifier: str = Field(
+        default="markdown-manager", description="App identifier for JWT iss/aud claims"
+    )
+
     # SMTP configuration
     smtp_host: str = Field(default="smtp.example.com", description="SMTP server host")
     smtp_port: int = Field(
