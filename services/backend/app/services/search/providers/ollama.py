@@ -78,7 +78,16 @@ class OllamaProvider(LLMProvider):
                 f"{self._url}/api/chat",
                 json=payload,
             ) as response:
-                response.raise_for_status()
+                if response.status_code != 200:
+                    body = await response.aread()
+                    detail = f"Ollama error {response.status_code}"
+                    try:
+                        err_data = json.loads(body)
+                        if msg := err_data.get("error", ""):
+                            detail += f": {msg}"
+                    except (json.JSONDecodeError, AttributeError):
+                        pass
+                    raise RuntimeError(detail)
                 async for line in response.aiter_lines():
                     if not line.strip():
                         continue

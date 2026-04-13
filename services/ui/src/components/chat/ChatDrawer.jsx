@@ -352,7 +352,13 @@ function ChatDrawer({ show, onHide }) {
   const handlePickerProviderSelect = useCallback((providerEntry) => {
     setPickerProvider(providerEntry);
     fetchModelsForPicker(providerEntry);
-  }, [fetchModelsForPicker]);
+    // Immediately switch the active provider so the next chat uses it,
+    // and clear stale model (model IDs are provider-specific).
+    if (providerEntry.keyId !== selectedProvider.keyId || providerEntry.provider !== selectedProvider.provider) {
+      setSelectedProvider(providerEntry);
+      setSelectedModel(null);
+    }
+  }, [fetchModelsForPicker, selectedProvider]);
 
   // Model picker: select a model and close
   const handleModelSelect = useCallback((modelEntry, providerEntry) => {

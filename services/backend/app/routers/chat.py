@@ -91,6 +91,7 @@ async def ask(
 
     if request.key_id is not None:
         # Look up the specific key by ID — supports multi-key per provider
+        logger.info("Chat provider resolution: key_id=%s (user=%s)", request.key_id, current_user.id)
         key_row = await get_key_by_id(db, request.key_id, current_user.id)
         if not key_row:
             raise HTTPException(
@@ -112,7 +113,11 @@ async def ask(
         )
         qa = _build_qa_service(llm_provider)
     elif requested_provider in ("openai", "xai", "github", "gemini"):
-        # Look up the user’s stored (encrypted) key for the requested provider
+        # Look up the user's stored (encrypted) key for the requested provider
+        logger.info(
+            "Chat provider resolution: remote provider=%s (user=%s)",
+            requested_provider, current_user.id,
+        )
         key_row = await get_active_key(db, current_user.id, requested_provider)
         if not key_row:
             raise HTTPException(
@@ -130,6 +135,7 @@ async def ask(
         qa = _build_qa_service(llm_provider)
     else:
         # Ollama — honour admin overrides from SiteSetting
+        logger.info("Chat provider resolution: ollama (user=%s, model=%s)", current_user.id, request.model)
         from app.models.site_setting import SiteSetting
         from sqlalchemy import select as _select
         _db_model = await db.scalar(_select(SiteSetting).where(SiteSetting.key == "llm.model"))
@@ -168,7 +174,7 @@ async def ask(
                     # JSON-encode so embedded newlines and special chars survive SSE transport
                     yield f"data: {json.dumps(token)}\n\n"
         except Exception as exc:
-            logger.exception("Error during Q&A streaming")
+            logger.exception("Error during Q&A streaming (provider=%s)", requested_provider)
             # Surface useful detail for known error types
             msg = str(exc) if str(exc) else "An error occurred while generating the answer."
             yield f"data: {json.dumps(f'[ERROR] {msg}')}\n\n"
