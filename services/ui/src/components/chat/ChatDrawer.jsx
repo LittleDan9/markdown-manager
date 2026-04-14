@@ -181,6 +181,19 @@ function ChatDrawer({ show, onHide }) {
     if (show) history.loadConversations();
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Restore the persisted active conversation when drawer opens with no messages loaded
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (!show || restoredRef.current || messages.length > 0) return;
+    const persistedId = history.activeConversationId;
+    if (!persistedId) return;
+    restoredRef.current = true;
+    // Load the persisted conversation; clear stale ID on failure (e.g. deleted)
+    handleHistorySelect(persistedId).catch(() => {
+      history.clearActive();
+    });
+  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // Fetch user's configured AI providers when drawer opens
   useEffect(() => {
     if (!show) return;
@@ -836,6 +849,10 @@ function ChatDrawer({ show, onHide }) {
             { provider: detail.provider, keyId: null };
           setSelectedProvider(match);
         }
+    } else {
+      // Conversation no longer exists — clear stale active state
+      history.clearActive();
+      setMessages([]);
     }
     setShowHistory(false);
   };
