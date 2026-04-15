@@ -15,13 +15,20 @@ COPY pyproject.toml poetry.lock* ./
 RUN poetry config virtualenvs.create false \
     && poetry install --only=main --no-root --no-interaction --no-ansi
 
+# Pre-download the model at build time so the container never needs
+# network access to HuggingFace at runtime (~90MB cached in image)
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
 # Copy application code
 COPY app/ ./app/
 
 ENV PYTHONPATH=/embedding
 ENV PYTHONUNBUFFERED=1
+# Use cached model only — never reach out to HuggingFace at runtime
+ENV HF_HUB_OFFLINE=1
+ENV TRANSFORMERS_OFFLINE=1
 
-HEALTHCHECK --interval=30s --timeout=30s --start-period=60s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=30s --start-period=300s --retries=5 \
     CMD curl -f http://localhost:8005/health || exit 1
 
 # Use 1 worker — model is a singleton; multiple workers waste memory
