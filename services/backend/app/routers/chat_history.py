@@ -206,6 +206,7 @@ async def _resolve_provider(db: AsyncSession, user: User, provider_name: str):
             api_key=api_key,
             model=key_row.preferred_model,
             base_url=key_row.base_url,
+            org_name=key_row.org_name,
         )
     else:
         from app.models.site_setting import SiteSetting

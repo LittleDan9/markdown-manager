@@ -110,6 +110,7 @@ async def ask(
             api_key=api_key,
             model=request.model or key_row.preferred_model,
             base_url=key_row.base_url,
+            org_name=key_row.org_name,
         )
         qa = _build_qa_service(llm_provider)
     elif requested_provider in ("openai", "xai", "github", "gemini"):
@@ -131,6 +132,7 @@ async def ask(
             api_key=api_key,
             model=request.model or key_row.preferred_model,
             base_url=key_row.base_url,
+            org_name=key_row.org_name,
         )
         qa = _build_qa_service(llm_provider)
     else:
@@ -169,6 +171,9 @@ async def ask(
                         if k != "__metrics__"
                     }
                     event = {"type": "metrics", "data": metrics_payload}
+                    yield f"data: {json.dumps(event)}\n\n"
+                elif isinstance(token, dict) and "__sections__" in token:
+                    event = {"type": "sections", "data": token["__sections__"]}
                     yield f"data: {json.dumps(event)}\n\n"
                 else:
                     # JSON-encode so embedded newlines and special chars survive SSE transport

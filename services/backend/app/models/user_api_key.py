@@ -68,4 +68,5 @@ class UserApiKey(BaseModel):
     label: Mapped[str | None] = mapped_column(String(128), nullable=True)
     base_url: Mapped[str | None] = mapped_column(String(512), nullable=True)
     preferred_model: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    org_name: Mapped[str | None] = mapped_column(String(200), nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)

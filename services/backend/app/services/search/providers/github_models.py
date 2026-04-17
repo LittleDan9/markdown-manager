@@ -36,12 +36,20 @@ class GitHubModelsProvider(LLMProvider):
         api_key: str,
         model: str | None = None,
         base_url: str = GITHUB_MODELS_BASE_URL,
+        org_name: str | None = None,
     ):
         if not api_key:
             raise ValueError("api_key is required for GitHub Models provider")
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model or GITHUB_MODELS_DEFAULT_MODEL
+        self._org_name = org_name or ""
+
+    def _inference_url(self, path: str) -> str:
+        """Return the inference endpoint, routed through the org if configured."""
+        if self._org_name:
+            return f"{self._base_url}/orgs/{self._org_name}{path}"
+        return f"{self._base_url}{path}"
 
     @property
     def provider_name(self) -> str:
@@ -101,7 +109,7 @@ class GitHubModelsProvider(LLMProvider):
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
             async with client.stream(
                 "POST",
-                f"{self._base_url}/inference/chat/completions",
+                self._inference_url("/inference/chat/completions"),
                 json=payload,
                 headers=self._headers(),
             ) as response:

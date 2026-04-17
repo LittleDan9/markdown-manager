@@ -51,6 +51,7 @@ async def create_key(
     label: str | None = None,
     base_url: str | None = None,
     preferred_model: str | None = None,
+    org_name: str | None = None,
 ) -> UserApiKey:
     """Create a new encrypted API key record."""
     secret = get_settings().secret_key
@@ -61,6 +62,7 @@ async def create_key(
         label=label,
         base_url=base_url,
         preferred_model=preferred_model,
+        org_name=org_name,
         is_active=True,
     )
     db.add(row)
@@ -77,6 +79,7 @@ async def update_key(
     label: str | None = ...,  # type: ignore[assignment]
     base_url: str | None = ...,  # type: ignore[assignment]
     preferred_model: str | None = ...,  # type: ignore[assignment]
+    org_name: str | None = ...,  # type: ignore[assignment]
     is_active: bool | None = None,
     api_key: str | None = None,
 ) -> UserApiKey | None:
@@ -91,6 +94,8 @@ async def update_key(
         row.base_url = base_url
     if preferred_model is not ...:
         row.preferred_model = preferred_model
+    if org_name is not ...:
+        row.org_name = org_name
     if is_active is not None:
         row.is_active = is_active
     if api_key is not None:

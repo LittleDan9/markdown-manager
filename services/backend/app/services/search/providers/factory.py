@@ -12,6 +12,7 @@ def get_provider(
     api_key: str | None = None,
     model: str | None = None,
     base_url: str | None = None,
+    org_name: str | None = None,
 ) -> LLMProvider:
     """Create an LLMProvider instance for the given provider type.
 
@@ -39,6 +40,7 @@ def get_provider(
             api_key=api_key,
             model=model,
             base_url=base_url or GITHUB_MODELS_BASE_URL,
+            org_name=org_name,
         )
 
     if provider_type in ("openai", "xai", "gemini"):
