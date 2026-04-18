@@ -31,7 +31,7 @@ services:
     depends_on:
       frontend-build:
         condition: service_completed_successfully
-      backend:
+      mm-backend:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:80/"]
@@ -71,7 +71,7 @@ services:
   # ──────────────────────────────────────────────────────────────────────────
   # Backend — FastAPI main API
   # ──────────────────────────────────────────────────────────────────────────
-  backend:
+  mm-backend:
     image: mm-app/backend:latest
     build:
       context: ./services/backend
@@ -129,7 +129,7 @@ services:
     restart: unless-stopped
     environment:
       - PYTHONUNBUFFERED=1
-      - ICON_SERVICE_URL=http://backend:8000
+      - ICON_SERVICE_URL=http://mm-backend:8000
       - DRAWIO_VERSION=${DRAWIO_VERSION:-24.7.5}
       - DRAWIO_QUALITY_THRESHOLD=${DRAWIO_QUALITY_THRESHOLD:-60.0}
       - ENVIRONMENT=production
@@ -186,7 +186,7 @@ services:
     environment:
       - SPELL_CHECK_PORT=8003
       - NODE_ENV=production
-      - BACKEND_URL=http://backend:8000
+      - BACKEND_URL=http://mm-backend:8000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - SPELL_DB_HOST=db
@@ -228,7 +228,7 @@ services:
       - RELAY_LOG_LEVEL=INFO
       - ENVIRONMENT=production
     depends_on:
-      backend:
+      mm-backend:
         condition: service_healthy
     deploy:
       resources:
