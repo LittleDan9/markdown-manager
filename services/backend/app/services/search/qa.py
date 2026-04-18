@@ -39,7 +39,9 @@ _SYSTEM_PROMPT_SINGLE = (
     "Answer questions about the document below. "
     "Prioritise information from the document, but you may also use your general knowledge "
     "to supplement or provide additional context. When using general knowledge, indicate that "
-    "clearly. Reference the document by name. Be concise."
+    "clearly. Reference the document by name. Be concise. "
+    "When your response has distinct parts (context, main content, follow-up suggestions), "
+    "separate them with --- (horizontal rule)."
 )
 
 # Strict variant — restricts the LLM to document content only
@@ -47,7 +49,9 @@ _SYSTEM_PROMPT_SINGLE_STRICT = (
     "Answer questions about the document below. "
     "If the answer isn't in the document, say so. "
     "Do not use outside knowledge. "
-    "Reference the document by name. Be concise."
+    "Reference the document by name. Be concise. "
+    "When your response has distinct parts (context, main content, follow-up suggestions), "
+    "separate them with --- (horizontal rule)."
 )
 
 # System prompt for all-docs mode
@@ -56,7 +60,8 @@ You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content fro
 Use the catalogue for questions about what exists. Use excerpts for content questions.
 You may also draw on your general knowledge to supplement when the documents don't fully cover the topic — clearly indicate when you do.
 Always mention the exact document name when citing information so the user can find it.
-Be concise."""
+Be concise.
+When your response has distinct parts, separate them with --- (horizontal rule)."""
 
 # Strict variant — restricts the LLM to library content only
 _SYSTEM_PROMPT_ALL_STRICT = """Answer questions about the user's document library.
@@ -64,7 +69,8 @@ You have: 1) CATALOGUE — list of recent documents, 2) EXCERPTS — content fro
 Use the catalogue for questions about what exists. Use excerpts for content questions.
 Do not use outside knowledge — only answer from the provided documents.
 Always mention the exact document name when citing information so the user can find it.
-Be concise."""
+Be concise.
+When your response has distinct parts, separate them with --- (horizontal rule)."""
 
 
 class QAService:
@@ -148,6 +154,7 @@ class QAService:
 
         t_first_token = None
         token_count = 0
+        full_response_parts: list[str] = []
         async for token in self._provider.stream(
             user_prompt,
             system_prompt=system_prompt,
@@ -156,6 +163,7 @@ class QAService:
             if t_first_token is None:
                 t_first_token = time.monotonic()
             token_count += 1
+            full_response_parts.append(token)
             yield token
 
         t_done = time.monotonic()
@@ -176,6 +184,16 @@ class QAService:
             metrics["generation_ms"], metrics["total_ms"], metrics["tokens"],
         )
         yield metrics
+
+        # Parse response into logical sections and yield if multi-section
+        full_response = "".join(full_response_parts)
+        try:
+            from app.services.search.section_parser import parse_sections
+            sections = parse_sections(full_response)
+            if len(sections) >= 2:
+                yield {"__sections__": [dict(s) for s in sections]}
+        except Exception:
+            logger.debug("Section parsing failed; skipping sections event", exc_info=True)
 
     async def health_check(self) -> bool:
         """Return True if the LLM provider is reachable."""

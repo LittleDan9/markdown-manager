@@ -209,14 +209,35 @@
     .empty-hint { font-size: 0.8rem; }
   }
 
-  // Blinking cursor for streaming
-  .streaming-cursor::after {
-    content: "▋";
-    animation: blink 0.7s step-end infinite;
+  // Typing indicator — iMessage/Teams-style bouncing dots
+  .typing-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    margin-left: 4px;
+    vertical-align: middle;
+
+    .bi-circle-fill {
+      font-size: 0.32rem;
+      color: var(--bs-secondary-color);
+      opacity: 0.5;
+      animation: typing-bounce 1.4s ease-in-out infinite;
+
+      &:nth-child(1) { animation-delay: 0s; }
+      &:nth-child(2) { animation-delay: 0.2s; }
+      &:nth-child(3) { animation-delay: 0.4s; }
+    }
   }
 
-  @keyframes blink {
-    50% { opacity: 0; }
+  @keyframes typing-bounce {
+    0%, 60%, 100% {
+      transform: translateY(0);
+      opacity: 0.35;
+    }
+    30% {
+      transform: translateY(-4px);
+      opacity: 1;
+    }
   }
 }
 
@@ -817,6 +838,39 @@
   gap: 2px;
   margin-top: 4px;
   padding: 2px 0;
+
+  .section-selector {
+    appearance: none;
+    -webkit-appearance: none;
+    background: rgba(var(--bs-secondary-rgb), 0.06);
+    border: 1px solid rgba(var(--bs-secondary-rgb), 0.15);
+    border-radius: 4px;
+    padding: 1px 18px 1px 5px;
+    font-size: 0.68rem;
+    color: var(--bs-secondary-color);
+    cursor: pointer;
+    line-height: 1.3;
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 3px;
+    transition: all 0.15s;
+    // Custom dropdown arrow
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%236c757d' d='M1.5 2.5l2.5 3 2.5-3z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 4px center;
+
+    &:hover {
+      border-color: rgba(var(--bs-primary-rgb), 0.3);
+      background-color: rgba(var(--bs-primary-rgb), 0.06);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: rgba(var(--bs-primary-rgb), 0.4);
+    }
+  }
 
   .action-btn {
     background: none;
