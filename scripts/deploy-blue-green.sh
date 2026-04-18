@@ -122,7 +122,7 @@ wait_for_backend_health() {
 wait_for_traefik_routing() {
   echo "${YELLOW}Waiting for Traefik to route to new stack...${NC}"
   for i in $(seq 1 $HEALTH_RETRIES); do
-    if curl -sf http://localhost:8080/api/health >/dev/null 2>&1; then
+    if curl -sf -H "Host: littledan.com" http://localhost:8080/ -o /dev/null 2>&1; then
       echo "${GREEN}Traefik is routing traffic successfully (attempt ${i}/${HEALTH_RETRIES}).${NC}"
       return 0
     fi
