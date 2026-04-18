@@ -188,7 +188,7 @@ fi
 # ── Start new stack ──────────────────────────────────────────────────────────
 
 echo "${BLUE}Starting ${NEW_SLOT} stack...${NC}"
-compose_cmd "$NEW_PROJECT" up -d
+compose_cmd "$NEW_PROJECT" up -d --remove-orphans --force-recreate
 
 # ── Wait for health ──────────────────────────────────────────────────────────
 
