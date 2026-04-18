@@ -46,6 +46,7 @@ async def add_key(
         label=body.label,
         base_url=body.base_url,
         preferred_model=body.preferred_model,
+        org_name=body.org_name,
     )
     return ApiKeyResponse.model_validate(row)
 
@@ -65,6 +66,8 @@ async def update_key(
         kwargs["base_url"] = body.base_url
     if body.preferred_model is not None:
         kwargs["preferred_model"] = body.preferred_model
+    if body.org_name is not None:
+        kwargs["org_name"] = body.org_name
     if body.is_active is not None:
         kwargs["is_active"] = body.is_active
     if body.api_key is not None:
@@ -106,6 +109,7 @@ async def test_key(
             api_key=api_key,
             model=row.preferred_model,
             base_url=row.base_url,
+            org_name=row.org_name,
         )
         ok = await provider.health_check()
     except Exception as exc:
@@ -133,6 +137,7 @@ async def list_models(
             api_key=api_key,
             model=row.preferred_model,
             base_url=row.base_url,
+            org_name=row.org_name,
         )
         models = await provider.list_models()
     except Exception as exc:

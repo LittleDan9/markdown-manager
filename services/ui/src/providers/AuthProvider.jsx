@@ -6,7 +6,9 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import AuthService from '@/services/core/AuthService';
+import UserAPI from '@/api/userApi';
 import LoginModal from '../components/auth/modals/LoginModal.jsx';
+import SSORegisterModal from '../components/auth/modals/SSORegisterModal.jsx';
 import VerifyMFAModal from '../components/security/modals/VerifyMFAModal.jsx';
 import PasswordResetModal from '../components/auth/modals/PasswordResetModal.jsx';
 import LogoutProgressModal from '../components/LogoutProgressModal.jsx';
@@ -23,6 +25,12 @@ export function AuthProvider({ children }) {
   const [showMFAModal, setShowMFAModal] = useState(false);
   const [showPasswordResetModal, setShowPasswordResetModal] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showSSORegisterModal, setShowSSORegisterModal] = useState(false);
+  const [ssoRegisterError, setSSORegisterError] = useState('');
+
+  // SSO linking state
+  const [ssoEmail, setSsoEmail] = useState(null);
+  const [ssoIssuer, setSsoIssuer] = useState(null);
 
   // MFA state
   const [pendingEmail, setPendingEmail] = useState("");
@@ -72,6 +80,14 @@ export function AuthProvider({ children }) {
       console.log('AuthContext: AuthService initialization complete');
       updateAuthState();
       setIsInitializing(false);
+
+      // Check if SSO detected an unlinked account
+      const state = AuthService.getAuthState();
+      if (state.ssoEmail) {
+        setSsoEmail(state.ssoEmail);
+        setSsoIssuer(state.ssoIssuer || '');
+        setShowSSORegisterModal(true);
+      }
     };
 
     initializeAuth();
@@ -120,6 +136,30 @@ export function AuthProvider({ children }) {
       return { success: false, error: error.message };
     }
   }, [updateAuthState]);
+
+  const handleSSORegister = useCallback(async (formData) => {
+    try {
+      setSSORegisterError('');
+      await UserAPI.register(formData);
+      setShowSSORegisterModal(false);
+      setSsoEmail(null);
+      setSsoIssuer(null);
+      AuthService.clearSsoState();
+      // After registration, show login modal so user can sign in
+      setLoginEmail(formData.email || '');
+      setShowLoginModal(true);
+    } catch (error) {
+      console.error('SSO registration error:', error);
+      setSSORegisterError(error.message || 'Registration failed.');
+    }
+  }, []);
+
+  const handleDismissSSORegister = useCallback(() => {
+    setShowSSORegisterModal(false);
+    setSsoEmail(null);
+    setSsoIssuer(null);
+    AuthService.clearSsoState();
+  }, []);
 
   const verifyMFA = useCallback(async (code) => {
     setMFALoading(true);
@@ -363,6 +403,15 @@ export function AuthProvider({ children }) {
         onForceLogout={forceLogout}
         onCanceled={cancelLogout}
         config={logoutConfig}
+      />
+
+      <SSORegisterModal
+        show={showSSORegisterModal}
+        onHide={handleDismissSSORegister}
+        onRegister={handleSSORegister}
+        email={ssoEmail || ''}
+        issuer={ssoIssuer || ''}
+        error={ssoRegisterError}
       />
     </AuthContext.Provider>
   );

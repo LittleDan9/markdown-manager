@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.configs import settings
 from app.configs.environment import environment_config
-from app.core.auth import authenticate_user, create_access_token
+from app.core.auth import authenticate_user, create_access_token, create_sso_token
 from app.core.mfa import verify_backup_code, verify_totp_code
 from app.crud import user as crud_user
 from app.crud.github_crud import GitHubCRUD
@@ -20,6 +20,34 @@ from app.services.github_service import GitHubService
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+SSO_COOKIE = "sso_token"
+SSO_MAX_AGE = settings.sso_token_expire_days * 86400 if hasattr(settings, 'sso_token_expire_days') else 86400
+
+
+def _set_sso_cookie(response: Response, token: str) -> None:
+    """Set the cross-app SSO cookie on the shared domain."""
+    if not settings.sso_secret_key:
+        return
+    response.set_cookie(
+        key=SSO_COOKIE,
+        value=token,
+        httponly=True,
+        secure=settings.secure_cookies,
+        samesite="lax",
+        max_age=SSO_MAX_AGE,
+        path="/",
+        domain=settings.sso_cookie_domain if settings.secure_cookies else None,
+    )
+
+
+def _clear_sso_cookie(response: Response) -> None:
+    """Clear the cross-app SSO cookie."""
+    response.delete_cookie(
+        SSO_COOKIE,
+        path="/",
+        domain=settings.sso_cookie_domain if settings.secure_cookies else None,
+    )
 
 
 async def should_sync_account(account, force_sync: bool) -> bool:
@@ -160,6 +188,7 @@ async def login(
         path="/",
         domain=environment_config.get_cookie_domain(),
     )
+    _set_sso_cookie(response, create_sso_token(user.email, mfa_verified=False))
 
     # Start background task to sync GitHub repositories
     background_tasks.add_task(
@@ -251,6 +280,7 @@ async def refresh_token(
         path="/",
         domain=environment_config.get_cookie_domain(),
     )
+    _set_sso_cookie(response, create_sso_token(user.email, mfa_verified=user.mfa_enabled))
 
     # Start background task to sync GitHub repositories (respects 1-hour limit)
     background_tasks.add_task(
@@ -341,6 +371,7 @@ async def login_mfa(
         path="/",
         domain=environment_config.get_cookie_domain(),
     )
+    _set_sso_cookie(response, create_sso_token(user.email, mfa_verified=True))
 
     # Start background task to sync GitHub repositories
     background_tasks.add_task(
@@ -376,4 +407,5 @@ async def login_mfa(
 @router.post("/logout")
 async def logout(response: Response):
     response.delete_cookie("refresh_token", path="/", domain=environment_config.get_cookie_domain())
+    _clear_sso_cookie(response)
     return {"message": "Logged out"}

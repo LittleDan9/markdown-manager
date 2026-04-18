@@ -34,6 +34,8 @@ class AuthService {
     this.justLoggedIn = false;
     this.initializationPromise = null;
     this.isInitialized = false;
+    this.ssoEmail = null;
+    this.ssoIssuer = null;
 
     // Initialization is deferred to waitForInitialization()
     // to avoid firing API requests during module evaluation
@@ -127,10 +129,38 @@ class AuthService {
             this.performLogout();
           }
         } else {
-          console.log('AuthService: No stored token, setting guest state');
-          this.setUser(defaultUser);
-          this.isAuthenticated = false;
-          localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+          console.log('AuthService: No stored token, trying SSO check');
+          // Try cross-app SSO before falling back to guest state
+          const ssoResult = await UserAPI.ssoCheck();
+          if (ssoResult && ssoResult.access_token) {
+            console.log('AuthService: SSO check successful, bootstrapping session');
+            this.setToken(ssoResult.access_token);
+            const user = await this.fetchCurrentUser(ssoResult.access_token);
+            if (user) {
+              console.log('AuthService: SSO user validation successful', user.email);
+              this.setUser(user);
+              this.isAuthenticated = true;
+              this.startTokenRefresh();
+              localStorage.setItem('lastKnownAuthState', 'authenticated');
+            } else {
+              console.log('AuthService: SSO user validation failed');
+              this.setUser(defaultUser);
+              this.isAuthenticated = false;
+              localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+            }
+          } else if (ssoResult && ssoResult.linked === false) {
+            console.log('AuthService: SSO token valid but no local account, email:', ssoResult.email);
+            this.ssoEmail = ssoResult.email;
+            this.ssoIssuer = ssoResult.issuer || '';
+            this.setUser(defaultUser);
+            this.isAuthenticated = false;
+            localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+          } else {
+            console.log('AuthService: SSO check failed or not configured, setting guest state');
+            this.setUser(defaultUser);
+            this.isAuthenticated = false;
+            localStorage.setItem('lastKnownAuthState', 'unauthenticated');
+          }
         }
       }
     } catch (err) {
@@ -166,8 +196,18 @@ class AuthService {
     return {
       user: this.user,
       token: this.token,
-      isAuthenticated: this.isAuthenticated
+      isAuthenticated: this.isAuthenticated,
+      ssoEmail: this.ssoEmail,
+      ssoIssuer: this.ssoIssuer,
     };
+  }
+
+  /**
+   * Clear SSO linking state (after user dismisses or completes SSO registration)
+   */
+  clearSsoState() {
+    this.ssoEmail = null;
+    this.ssoIssuer = null;
   }
 
   /**

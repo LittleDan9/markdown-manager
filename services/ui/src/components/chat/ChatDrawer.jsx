@@ -8,6 +8,7 @@ import categoriesApi from "@/api/categoriesApi";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import useChatEditorActions from "@/hooks/chat/useChatEditorActions";
 import useChatHistory from "@/hooks/chat/useChatHistory";
+import { parseSections } from "@/utils/chatSectionParser";
 import ChatHistoryPanel from "./ChatHistoryPanel";
 
 // Shared markdown-it instance — html disabled for XSS safety
@@ -155,6 +156,7 @@ function ChatDrawer({ show, onHide }) {
   // Selection context for chat
   const [useSelection, setUseSelection] = useState(true); // auto-include editor selection
   const [replaceConfirm, setReplaceConfirm] = useState(null); // message index for confirmation
+  const [sectionSelections, setSectionSelections] = useState({}); // msgIdx → selected section index (or "full")
 
   // Edit mode state
   const [editingMessageIndex, setEditingMessageIndex] = useState(null);
@@ -179,6 +181,19 @@ function ChatDrawer({ show, onHide }) {
   // Load conversation list when drawer opens
   useEffect(() => {
     if (show) history.loadConversations();
+  }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Restore the persisted active conversation when drawer opens with no messages loaded
+  const restoredRef = useRef(false);
+  useEffect(() => {
+    if (!show || restoredRef.current || messages.length > 0) return;
+    const persistedId = history.activeConversationId;
+    if (!persistedId) return;
+    restoredRef.current = true;
+    // Load the persisted conversation; clear stale ID on failure (e.g. deleted)
+    handleHistorySelect(persistedId).catch(() => {
+      history.clearActive();
+    });
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fetch user's configured AI providers when drawer opens
@@ -352,7 +367,13 @@ function ChatDrawer({ show, onHide }) {
   const handlePickerProviderSelect = useCallback((providerEntry) => {
     setPickerProvider(providerEntry);
     fetchModelsForPicker(providerEntry);
-  }, [fetchModelsForPicker]);
+    // Immediately switch the active provider so the next chat uses it,
+    // and clear stale model (model IDs are provider-specific).
+    if (providerEntry.keyId !== selectedProvider.keyId || providerEntry.provider !== selectedProvider.provider) {
+      setSelectedProvider(providerEntry);
+      setSelectedModel(null);
+    }
+  }, [fetchModelsForPicker, selectedProvider]);
 
   // Model picker: select a model and close
   const handleModelSelect = useCallback((modelEntry, providerEntry) => {
@@ -474,6 +495,18 @@ function ChatDrawer({ show, onHide }) {
             });
             return;
           }
+          // Handle sections object from server (post-completion section parsing)
+          if (token && typeof token === "object" && token.type === "sections") {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === "assistant") {
+                updated[updated.length - 1] = { ...last, sections: token.data };
+              }
+              return updated;
+            });
+            return;
+          }
           setMessages((prev) => {
             const updated = [...prev];
             const last = updated[updated.length - 1];
@@ -530,6 +563,7 @@ function ChatDrawer({ show, onHide }) {
             const metaObj = {};
             if (duration) metaObj.duration = duration;
             if (last.serverMetrics) metaObj.serverMetrics = last.serverMetrics;
+            if (last.sections?.length >= 2) metaObj.sections = last.sections;
             const metaJson = Object.keys(metaObj).length ? JSON.stringify(metaObj) : null;
             history.saveMessage(convId, "assistant", last.content, metaJson);
 
@@ -665,6 +699,7 @@ function ChatDrawer({ show, onHide }) {
           const metaObj = {};
           if (duration) metaObj.duration = duration;
           if (aMsg.serverMetrics) metaObj.serverMetrics = aMsg.serverMetrics;
+          if (aMsg.sections?.length >= 2) metaObj.sections = aMsg.sections;
           if (aMsg.responseGroupId) {
             metaObj.responseGroupId = aMsg.responseGroupId;
             metaObj.responseVersion = aMsg.versions ? aMsg.versions.length - 1 : 0;
@@ -768,6 +803,7 @@ function ChatDrawer({ show, onHide }) {
     setIsStreaming(false);
     setEditingMessageIndex(null);
     setEditInput("");
+    setSectionSelections({});
     history.clearActive();
     setShowHistory(false);
   };
@@ -824,12 +860,17 @@ function ChatDrawer({ show, onHide }) {
       }
 
       setMessages(groupedMessages);
+      setSectionSelections({});
       if (detail.scope) setScope(detail.scope);
         if (detail.provider) {
           const match = availableProviders.find((p) => p.provider === detail.provider) ||
             { provider: detail.provider, keyId: null };
           setSelectedProvider(match);
         }
+    } else {
+      // Conversation no longer exists — clear stale active state
+      history.clearActive();
+      setMessages([]);
     }
     setShowHistory(false);
   };
@@ -1127,7 +1168,7 @@ function ChatDrawer({ show, onHide }) {
                     </div>
                   ) : (
                     <>
-                      <div className={`message-bubble${msg.streaming ? " streaming-cursor" : ""}`}>
+                      <div className={`message-bubble${msg.streaming ? " streaming" : ""}`}>
                         {msg.role === "assistant" ? (
                           <div
                             dangerouslySetInnerHTML={{
@@ -1138,6 +1179,13 @@ function ChatDrawer({ show, onHide }) {
                           />
                         ) : (
                           <div dangerouslySetInnerHTML={{ __html: md.render(msg.content || "") }} />
+                        )}
+                        {msg.role === "assistant" && msg.streaming && (
+                          <span className="typing-indicator">
+                            <i className="bi bi-circle-fill" />
+                            <i className="bi bi-circle-fill" />
+                            <i className="bi bi-circle-fill" />
+                          </span>
                         )}
                       </div>
                       {/* Resend + Edit icons on the last user message only */}
@@ -1188,12 +1236,28 @@ function ChatDrawer({ show, onHide }) {
                     </div>
                   )}
                   {/* Action buttons for completed assistant messages */}
-                  {msg.role === "assistant" && !msg.streaming && msg.content && !msg.isAction && (
+                  {msg.role === "assistant" && !msg.streaming && msg.content && !msg.isAction && (() => {
+                    // Resolve sections: from SSE, stored metadata, or client-side fallback
+                    const sections = msg.sections?.length >= 2
+                      ? msg.sections
+                      : (!msg.sections ? parseSections(msg.content) : null);
+                    const hasSections = sections && sections.length >= 2;
+                    const selectedVal = sectionSelections[idx];
+                    // Default to the first primary_content section
+                    const defaultIdx = hasSections
+                      ? sections.findIndex((s) => s.type === "primary_content")
+                      : -1;
+                    const activeIdx = selectedVal !== undefined ? selectedVal : (defaultIdx >= 0 ? defaultIdx : "full");
+                    const activeContent = hasSections && activeIdx !== "full"
+                      ? sections[activeIdx]?.content || msg.content
+                      : msg.content;
+
+                    return (
                     <div className="message-actions">
                       {replaceConfirm === idx ? (
                         <span className="replace-confirm">
                           <span className="replace-confirm-text">Replace entire document?</span>
-                          <button type="button" className="action-btn confirm-yes" title="Yes, replace" onClick={() => { editorActions.replaceDocument(msg.content); setReplaceConfirm(null); }}>
+                          <button type="button" className="action-btn confirm-yes" title="Yes, replace" onClick={() => { editorActions.replaceDocument(activeContent); setReplaceConfirm(null); }}>
                             <i className="bi bi-check-lg" />
                           </button>
                           <button type="button" className="action-btn confirm-no" title="Cancel" onClick={() => setReplaceConfirm(null)}>
@@ -1202,25 +1266,46 @@ function ChatDrawer({ show, onHide }) {
                         </span>
                       ) : (
                         <>
-                          <button type="button" className="action-btn" title="Insert at cursor" onClick={() => editorActions.insertAtCursor(msg.content)}>
+                          {hasSections && (
+                            <select
+                              className="section-selector"
+                              value={activeIdx}
+                              onChange={(e) => {
+                                const val = e.target.value === "full" ? "full" : Number(e.target.value);
+                                setSectionSelections((prev) => ({ ...prev, [idx]: val }));
+                              }}
+                              title="Choose which section to use"
+                            >
+                              {sections.map((s, si) => (
+                                <option key={si} value={si}>
+                                  {s.confidence >= 0.7
+                                    ? s.label
+                                    : (s.content.slice(0, 30) + (s.content.length > 30 ? "…" : ""))}
+                                </option>
+                              ))}
+                              <option value="full">Full response</option>
+                            </select>
+                          )}
+                          <button type="button" className="action-btn" title="Insert at cursor" onClick={() => editorActions.insertAtCursor(activeContent)}>
                             <i className="bi bi-cursor-text" />
                           </button>
-                          <button type="button" className="action-btn" title="Replace selection" disabled={!editorSelection?.text} onClick={() => editorActions.replaceSelection(msg.content)}>
+                          <button type="button" className="action-btn" title="Replace selection" disabled={!editorSelection?.text} onClick={() => editorActions.replaceSelection(activeContent)}>
                             <i className="bi bi-input-cursor" />
                           </button>
                           <button type="button" className="action-btn" title="Replace document" onClick={() => setReplaceConfirm(idx)}>
                             <i className="bi bi-file-earmark-arrow-up" />
                           </button>
-                          <button type="button" className="action-btn" title="Append to document" onClick={() => editorActions.appendToDocument(msg.content)}>
+                          <button type="button" className="action-btn" title="Append to document" onClick={() => editorActions.appendToDocument(activeContent)}>
                             <i className="bi bi-file-earmark-plus" />
                           </button>
-                          <button type="button" className="action-btn" title="Copy to clipboard" onClick={() => editorActions.copyToClipboard(msg.content)}>
+                          <button type="button" className="action-btn" title="Copy to clipboard" onClick={() => editorActions.copyToClipboard(activeContent)}>
                             <i className="bi bi-clipboard" />
                           </button>
                         </>
                       )}
                     </div>
-                  )}
+                    );
+                  })()}
                 </div>
               ));
             })()

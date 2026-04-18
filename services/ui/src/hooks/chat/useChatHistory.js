@@ -1,5 +1,7 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { chatHistoryApi } from "@/api/chatHistoryApi";
+
+const STORAGE_KEY = "chat_active_conversation";
 
 /**
  * Hook for managing chat conversation history.
@@ -7,9 +9,25 @@ import { chatHistoryApi } from "@/api/chatHistoryApi";
  */
 export default function useChatHistory() {
   const [conversations, setConversations] = useState([]);
-  const [activeConversationId, setActiveConversationId] = useState(null);
+  const [activeConversationId, setActiveConversationId] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      return saved ? Number(saved) || null : null;
+    } catch { return null; }
+  });
   const [loading, setLoading] = useState(false);
   const titleGenPending = useRef(new Set());
+
+  // Sync activeConversationId to localStorage
+  useEffect(() => {
+    try {
+      if (activeConversationId != null) {
+        localStorage.setItem(STORAGE_KEY, String(activeConversationId));
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    } catch { /* ignore */ }
+  }, [activeConversationId]);
 
   const loadConversations = useCallback(async () => {
     setLoading(true);

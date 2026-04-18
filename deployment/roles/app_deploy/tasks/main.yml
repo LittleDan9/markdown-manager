@@ -62,17 +62,6 @@
   delay: 2
   until: db_health.rc == 0
 
-- name: Refresh database collation version
-  command: >
-    docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env exec -T db
-    psql -U {{ postgres_user | default('markdown_manager') }} -d {{ postgres_db | default('markdown_manager') }}
-    -c "ALTER DATABASE {{ postgres_db | default('markdown_manager') }} REFRESH COLLATION VERSION;"
-  args:
-    chdir: "{{ app_dir }}"
-  register: collation_result
-  changed_when: "'ALTER DATABASE' in collation_result.stdout"
-  failed_when: false
-
 - name: Run blue/green deployment
   command: "{{ app_dir }}/scripts/deploy-blue-green.sh {{ deploy_flags | default('') }}"
   args:

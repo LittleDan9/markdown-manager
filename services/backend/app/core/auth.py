@@ -1,4 +1,5 @@
 """Authentication utilities."""
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
@@ -46,11 +47,62 @@ def create_access_token(
         expire = datetime.now(timezone.utc) + timedelta(
             minutes=settings.access_token_expire_minutes
         )
-    to_encode.update({"exp": expire})
+    to_encode.update({
+        "exp": expire,
+        "iss": settings.app_identifier,
+        "aud": settings.app_identifier,
+    })
     encoded_jwt = jwt.encode(
         to_encode, settings.secret_key, algorithm=settings.algorithm
     )
     return str(encoded_jwt)
+
+
+# ── Cross-app SSO token functions ────────────────────────────────────────────
+
+
+@dataclass
+class SSOTokenData:
+    email: str
+    issuer: str
+    mfa_verified: bool
+
+
+def create_sso_token(email: str, mfa_verified: bool = False) -> str:
+    """Create a cross-app SSO token signed with the shared SSO secret."""
+    expire = datetime.now(timezone.utc) + timedelta(days=settings.sso_token_expire_days)
+    payload = {
+        "sub": email,
+        "iss": settings.app_identifier,
+        "aud": "sso",
+        "exp": expire,
+        "iat": datetime.now(timezone.utc),
+        "mfa_verified": mfa_verified,
+    }
+    return jwt.encode(payload, settings.sso_secret_key, algorithm=settings.algorithm)
+
+
+def validate_sso_token(token: str) -> Optional[SSOTokenData]:
+    """Validate a cross-app SSO token. Returns SSOTokenData or None."""
+    if not settings.sso_secret_key:
+        return None
+    try:
+        payload = jwt.decode(
+            token,
+            settings.sso_secret_key,
+            algorithms=[settings.algorithm],
+            audience="sso",
+        )
+        email = payload.get("sub")
+        if not email:
+            return None
+        return SSOTokenData(
+            email=email,
+            issuer=payload.get("iss", ""),
+            mfa_verified=payload.get("mfa_verified", False),
+        )
+    except jwt.InvalidTokenError:
+        return None
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> Optional[User]:
@@ -91,6 +143,7 @@ async def get_current_user(
             credentials.credentials,
             settings.secret_key,
             algorithms=[settings.algorithm],
+            audience=settings.app_identifier,
         )
         email = payload.get("sub")
         if not isinstance(email, str) or not email:
@@ -101,7 +154,6 @@ async def get_current_user(
     user = await get_user_by_email(db, email=email)
     if user is None:
         raise credentials_exception
-
     return user
 
 
@@ -118,6 +170,7 @@ async def get_current_user_optional(
             credentials.credentials,
             settings.secret_key,
             algorithms=[settings.algorithm],
+            audience=settings.app_identifier,
         )
         email = payload.get("sub")
         if not isinstance(email, str) or not email:

@@ -57,6 +57,8 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
   const [label, setLabel] = useState(keyData?.label || '');
   const [baseUrl, setBaseUrl] = useState(keyData?.base_url || '');
   const [model, setModel] = useState(keyData?.preferred_model || provider.defaultModel);
+  const [orgName, setOrgName] = useState(keyData?.org_name || '');
+  const [orgEnabled, setOrgEnabled] = useState(!!keyData?.org_name);
   const [models, setModels] = useState([]);
   const [loadingModels, setLoadingModels] = useState(false);
   const [modelError, setModelError] = useState('');
@@ -99,9 +101,10 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
         label: label || provider.name,
         base_url: baseUrl || undefined,
         preferred_model: model,
+        org_name: (provider.id === 'github' && orgEnabled) ? orgName : undefined,
       };
       if (isConfigured) {
-        const updates = { label: data.label, base_url: data.base_url, preferred_model: data.preferred_model };
+        const updates = { label: data.label, base_url: data.base_url, preferred_model: data.preferred_model, org_name: data.org_name || '' };
         if (apiKey) updates.api_key = apiKey;
         await apiKeysApi.updateKey(keyData.id, updates);
       } else {
@@ -221,6 +224,34 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
             <Form.Text className="text-muted">Override if using a custom endpoint</Form.Text>
           </Form.Group>
         </Col>
+        {provider.id === 'github' && (
+          <Col xs={12}>
+            <Form.Check
+              type="switch"
+              id={`org-toggle-${keyData?.id || 'new'}`}
+              label="Use organization rate limits"
+              checked={orgEnabled}
+              onChange={(e) => {
+                setOrgEnabled(e.target.checked);
+                if (!e.target.checked) setOrgName('');
+              }}
+              className="mt-2"
+            />
+            {orgEnabled && (
+              <Form.Group className="mt-2">
+                <Form.Control
+                  type="text"
+                  placeholder="my-org"
+                  value={orgName}
+                  onChange={(e) => setOrgName(e.target.value)}
+                />
+                <Form.Text className="text-muted">
+                  GitHub org login name. Requires an org-scoped PAT with Models: Read permission.
+                </Form.Text>
+              </Form.Group>
+            )}
+          </Col>
+        )}
       </Row>
 
       <div className="d-flex gap-2 mt-3">

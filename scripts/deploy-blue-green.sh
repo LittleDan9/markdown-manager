@@ -32,7 +32,7 @@ SLOT_FILE="${APP_DIR}/.deploy-slot"
 STOP_TIMEOUT=30          # Grace period for in-flight requests (seconds)
 HEALTH_RETRIES=30        # Max health check attempts
 HEALTH_DELAY=5           # Seconds between health checks
-BACKEND_HEALTH_RETRIES=40
+BACKEND_HEALTH_RETRIES=60  # 300s budget for embedding ONNX init
 BACKEND_HEALTH_DELAY=5
 
 # ── Flags ────────────────────────────────────────────────────────────────────

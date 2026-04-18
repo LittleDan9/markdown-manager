@@ -37,7 +37,7 @@ services:
     init: true
 
   db:
-    image: pgvector/pgvector:pg16
+    image: pgvector/pgvector:pg18
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -46,7 +46,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - ./services/backend/postgres-data:/var/lib/postgresql/data
+      - ./services/backend/postgres-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d markdown_manager || exit 1"]
       interval: 5s

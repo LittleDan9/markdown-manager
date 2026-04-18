@@ -22,7 +22,13 @@ settings = get_settings()
 async def _authenticate_ws(token: str) -> User | None:
     """Authenticate a WebSocket connection using a JWT token."""
     try:
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(
+            token,
+            settings.secret_key,
+            algorithms=[settings.algorithm],
+            audience=settings.app_identifier,
+            issuer=settings.app_identifier,
+        )
         email = payload.get("sub")
         if not isinstance(email, str):
             return None

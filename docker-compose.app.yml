@@ -129,12 +129,15 @@ services:
       context: ./services/embedding
       dockerfile: Dockerfile
     restart: unless-stopped
+    volumes:
+      - hf-cache:/root/.cache/huggingface
+      - onnx-cache:/embedding/.onnx_cache
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
       interval: 30s
       timeout: 30s
-      retries: 3
-      start_period: 60s
+      retries: 5
+      start_period: 300s
     deploy:
       resources:
         limits:
@@ -323,6 +326,10 @@ volumes:
   ui-static:
     # Project-scoped: each blue/green stack gets its own UI volume
     # Named mm-blue-ui-static or mm-green-ui-static by Docker Compose
+  hf-cache:
+    name: mm-hf-cache
+  onnx-cache:
+    name: mm-onnx-cache
   document-storage:
     name: mm-document-storage
     external: true

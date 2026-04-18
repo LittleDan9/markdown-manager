@@ -40,7 +40,7 @@ docker network inspect mm-network >/dev/null 2>&1 || \
   docker network create --driver bridge mm-network
 
 # Create the shared document-storage volume if it doesn't exist
-for vol in mm-document-storage mm-postgres-data mm-redis-data mm-ollama-data mm-clamav-data; do
+for vol in mm-document-storage mm-postgres-data mm-redis-data mm-ollama-data mm-clamav-data mm-hf-cache mm-onnx-cache; do
   docker volume inspect "$vol" >/dev/null 2>&1 || docker volume create "$vol"
 done
 
