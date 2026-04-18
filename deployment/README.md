@@ -7,14 +7,15 @@ Production deployment using Ansible + Docker Compose with **blue/green zero-down
 ```
 Development Machine → Ansible → SSH → Production Server (10.0.1.51)
                                 ↓
-                   ┌─── Infrastructure Stack (mm-infra) ───┐
-                   │  Traefik  (port 8080, traffic switch)  │
-                   │  PostgreSQL  (pgvector, persistent)    │
-                   │  Redis  (streams, cache)               │
-                   │  Ollama  (LLM inference)               │
-                   │  ClamAV  (virus scanning)              │
-                   └────────────────────────────────────────┘
-                               │
+             ┌─── Shared Infrastructure (platform-manager) ───┐
+             │  Traefik  (port 8080, traffic switch)           │
+             │  PostgreSQL  (pgvector, multi-database)         │
+             │  Redis  (streams, cache)                        │
+             │  Ollama  (LLM inference)                        │
+             │  Embedding  (sentence-transformers, GHCR)       │
+             │  ClamAV  (virus scanning)                       │
+             └─────────────────────────────────────────────────┘
+              Network: shared-services  │  Project: platform
              ┌─────────────────┼──────────────────┐
      ┌── mm-blue ──┐                    ┌── mm-green ──┐
      │  nginx       │  ← Traefik →      │  nginx        │
@@ -22,7 +23,6 @@ Development Machine → Ansible → SSH → Production Server (10.0.1.51)
      │  export      │  healthy stack     │  export       │
      │  linting     │                    │  linting      │
      │  spell-check │                    │  spell-check  │
-     │  embedding   │                    │  embedding    │
      │  event-*     │                    │  event-*      │
      └──────────────┘                    └───────────────┘
              ↑                                    ↑
@@ -40,7 +40,7 @@ Internet (HTTPS:443)
           → backend / export / linting / spell-check
 ```
 
-Host nginx config is managed by the `nginx_host` Ansible role. Container nginx config is in `nginx/nginx-prod.conf`. Traefik is configured via `deployment/traefik.yml`.
+Host nginx config is managed by the `nginx_host` Ansible role. Container nginx config is in `nginx/nginx-prod.conf`. Traefik is configured in the platform-manager repo (`deployment/traefik.yml`).
 
 ## Quick Start
 
@@ -48,6 +48,7 @@ Host nginx config is managed by the `nginx_host` Ansible role. Container nginx c
 
 - SSH access to production: `ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51`
 - `deployment/production.env` configured (see `deployment/production.env.template`)
+- Shared infrastructure running via [platform-manager](https://github.com/LittleDan9/platform-manager)
 
 ### Deploy Commands
 
@@ -56,7 +57,7 @@ make deploy                # Full deploy (bootstrap + app + nginx)
 make deploy-update         # App update only (blue/green swap — routine deploys)
 make deploy-bootstrap      # First-time server setup (Docker, UFW, directories)
 make deploy-nginx          # Update host nginx configuration only
-make deploy-infra          # Update infrastructure stack only (db, redis, traefik)
+make deploy-infra          # Deploy shared infrastructure (platform-manager)
 make deploy-rollback       # Revert to previous blue/green slot
 ```
 
@@ -109,16 +110,13 @@ Migrations run automatically inside the backend `entrypoint.sh` (with exponentia
 ## File Structure
 
 ```
-docker-compose.infra.yml       # Infrastructure: db, redis, ollama, clamav, traefik
 docker-compose.app.yml         # Application: backend, nginx, export, linting, etc.
-docker-compose.prod.yml        # Legacy monolithic file (kept as fallback)
 deployment/
 ├── deploy.yml                 # Main Ansible playbook (3 roles)
 ├── config.yml                 # Shared variables (app_dir, compose files)
 ├── inventory.yml              # Target host (10.0.1.51)
 ├── production.env             # Production secrets (gitignored)
 ├── production.env.template    # Variable reference
-├── traefik.yml                # Traefik static configuration
 ├── ansible.cfg                # Ansible settings
 └── roles/
     ├── bootstrap/             # Docker install, UFW, directory creation
@@ -126,23 +124,34 @@ deployment/
     └── nginx_host/            # Host nginx: TLS, security, rate limiting
 scripts/
 ├── deploy-blue-green.sh       # Blue/green orchestration
-├── deploy-infra.sh            # Infrastructure stack management
 └── colors.sh                  # Terminal color definitions
 ```
 
-## Infrastructure Stack (mm-infra)
+### Deprecated files (kept for reference)
 
-Runs under the fixed project name `mm-infra`. Rarely needs restarting.
+```
+docker-compose.infra.yml       # DEPRECATED — infra moved to platform-manager
+docker-compose.prod.yml        # DEPRECATED — replaced by docker-compose.app.yml
+deployment/traefik.yml         # DEPRECATED — moved to platform-manager
+scripts/deploy-infra.sh        # DEPRECATED — replaced by platform-manager
+```
+
+## Shared Infrastructure (platform-manager)
+
+Infrastructure runs in a separate repo under the Docker project name `platform`. See [platform-manager](https://github.com/LittleDan9/platform-manager).
 
 | Service | Image | Purpose |
 |---------|-------|---------|
 | traefik | traefik:v3.4 | Blue/green traffic routing (port 8080) |
-| db | pgvector/pgvector:pg16 | PostgreSQL with vector extensions |
+| db | pgvector/pgvector:pg18 | PostgreSQL with vector extensions (multi-database) |
 | redis | redis:7-alpine | Event streams + cache |
 | ollama | ollama/ollama:latest | LLM inference |
+| embedding | ghcr.io/littledan9/embedding-service | Sentence-transformers inference |
 | clamav | clamav/clamav:stable | Virus scanning |
 
-Shared network: `mm-network` (bridge). Shared volumes: `mm-postgres-data`, `mm-redis-data`, `mm-ollama-data`, `mm-clamav-data`, `mm-document-storage`.
+Shared network: `shared-services` (bridge, external). Shared volumes: `shared-postgres-data`, `shared-redis-data`, `shared-ollama-data`, `shared-clamav-data`, `shared-document-storage`.
+
+DB credentials in this app’s `production.env` (`MM_DB_USER`/`MM_DB_PASSWORD`/`MM_DB_NAME`) are provisioned once by `platform-manager`’s `make provision-db DB=markdown_manager` and owned by this app.
 
 ## Application Stack (mm-blue / mm-green)
 
@@ -156,7 +165,6 @@ Alternates between project names. Each gets its own UI static volume.
 | export | services/export | PDF/SVG/PNG via Playwright |
 | linting | services/linting | markdownlint HTTP service |
 | spell-check | services/spell-check | cspell/retext HTTP service |
-| embedding | services/embedding | sentence-transformers inference |
 | event-publisher | services/event-publisher | Outbox relay (Postgres → Redis) |
 | linting-consumer | services/event-consumer | Linting event processing |
 | spell-check-consumer | services/event-consumer | Spell-check event processing |
@@ -171,8 +179,8 @@ cd /opt/markdown-manager
 # Check active slot
 cat .deploy-slot
 
-# Infrastructure status
-docker compose -p mm-infra -f docker-compose.infra.yml ps
+# Shared infrastructure status
+docker compose -p platform ps
 
 # Active app status
 SLOT=$(cat .deploy-slot)

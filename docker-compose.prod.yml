@@ -2,7 +2,8 @@
 # Docker Compose - Production (LEGACY — kept for reference/fallback)
 # ==============================================================================
 # DEPRECATED: This monolithic compose file has been replaced by:
-#   docker-compose.infra.yml  — Infrastructure (db, redis, ollama, clamav, traefik)
+#   docker-compose.app.yml    — Application services (blue/green deployed)
+#   platform-manager          — Shared infrastructure (db, redis, ollama, etc.)
 #   docker-compose.app.yml    — Application (backend, nginx, export, etc.)
 #
 # The new files support blue/green zero-downtime deployment via Traefik.

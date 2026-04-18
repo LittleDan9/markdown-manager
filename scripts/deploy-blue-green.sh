@@ -13,7 +13,7 @@
 #   ./scripts/deploy-blue-green.sh --rollback            # Revert to previous slot
 #
 # Prerequisites:
-#   - Infrastructure stack running (mm-infra via deploy-infra.sh)
+#   - Shared infrastructure stack running (platform via platform-manager)
 #   - deployment/production.env exists
 # ==============================================================================
 set -Eeuo pipefail
@@ -63,10 +63,10 @@ if [[ ! -f "$COMPOSE_FILE" ]]; then
   exit 1
 fi
 
-# Verify infrastructure stack is running
-if ! docker compose -p mm-infra -f "${APP_DIR}/docker-compose.infra.yml" --env-file "$ENV_FILE" ps --status running 2>/dev/null | grep -q "traefik"; then
-  echo "${RED}Infrastructure stack (mm-infra) is not running.${NC}"
-  echo "${YELLOW}Run: ./scripts/deploy-infra.sh${NC}"
+# Verify shared infrastructure stack is running
+if ! docker compose -p platform ps --status running 2>/dev/null | grep -q "traefik"; then
+  echo "${RED}Shared infrastructure stack (platform) is not running.${NC}"
+  echo "${YELLOW}Deploy platform-manager first: cd /opt/platform-manager && ./scripts/deploy-infra.sh${NC}"
   exit 1
 fi
 
@@ -172,6 +172,10 @@ else
     build $BUILD_ARGS
   echo "${GREEN}Build complete.${NC}"
 fi
+
+# ── Ensure document storage volume exists ────────────────────────────────────
+
+docker volume inspect shared-document-storage >/dev/null 2>&1 || docker volume create shared-document-storage
 
 # ── Clean UI volume for new stack ────────────────────────────────────────────
 

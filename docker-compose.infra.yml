@@ -1,8 +1,11 @@
 # ==============================================================================
-# Docker Compose - Infrastructure (always-running services)
+# DEPRECATED — Infrastructure has moved to platform-manager
 # ==============================================================================
-# These services are shared across blue/green application deployments.
-# They run under the fixed project name "mm-infra" and rarely need restarting.
+# This file is no longer used. Shared infrastructure (db, redis, ollama,
+# clamav, traefik, embedding) now lives in the platform-manager repo.
+# Kept for reference during the migration period.
+#
+# Original: These services ran under the fixed project name "mm-infra".
 #
 # Usage:
 #   docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env up -d

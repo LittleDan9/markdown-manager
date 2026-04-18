@@ -1,7 +1,8 @@
 # ==============================================================================
 # Traefik Static Configuration
 # ==============================================================================
-# Used by the traefik service in docker-compose.infra.yml.
+# DEPRECATED — This file has moved to platform-manager.
+# Kept here for reference only. The active copy is in platform-manager/deployment/traefik.yml.
 # Traefik acts as the entry point on port 8080 (replacing the container nginx
 # port binding) and routes to whichever blue/green app stack is healthy.
 # ==============================================================================
@@ -20,7 +21,7 @@ entryPoints:
 providers:
   docker:
     exposedByDefault: false
-    network: mm-network
+    network: shared-services
     # Watch for container start/stop events
     watch: true
 

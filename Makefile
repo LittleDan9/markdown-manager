@@ -173,7 +173,7 @@ endif
 #   make deploy HOST=192.168.1.50    # Deploy to a different host
 #   make deploy-bootstrap            # First-time server setup only
 #   make deploy-nginx                # Update host nginx config only
-#   make deploy-infra                # Update infrastructure stack only
+#   make deploy-infra                # Deploy platform-manager infra stack
 #   make deploy-rollback             # Revert to previous blue/green slot
 #   make deploy-status               # Check container health (both slots)
 #   make deploy-logs                 # Tail production logs
@@ -214,10 +214,10 @@ deploy-nginx: ## Update host nginx configuration only
 	@./scripts/setup-ansible.sh
 	@cd deployment && ansible-playbook -i inventory.yml deploy.yml --tags nginx -v --diff -K $(DEPLOY_HOST_ARGS)
 
-deploy-infra: ## Update infrastructure stack only (db, redis, traefik)
-	@echo "$(BLUE)Updating infrastructure stack$(NC)"
+deploy-infra: ## Deploy shared infrastructure (platform-manager)
+	@echo "$(BLUE)Updating shared infrastructure stack$(NC)"
 	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
-		"cd /opt/markdown-manager && ./scripts/deploy-infra.sh"
+		"cd /opt/platform-manager && ./scripts/deploy-infra.sh"
 
 deploy-rollback: ## Revert to previous blue/green deployment slot
 	@echo "$(YELLOW)Rolling back to previous deployment slot$(NC)"
@@ -228,7 +228,7 @@ deploy-rollback: ## Revert to previous blue/green deployment slot
 deploy-status: ## Check production container status and health
 	@echo "$(BLUE)Checking production status$(NC)"
 	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
-		"cd /opt/markdown-manager && echo '=== Active Slot ===' && cat .deploy-slot 2>/dev/null || echo 'unknown' && echo '' && echo '=== Infrastructure (mm-infra) ===' && docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env ps 2>/dev/null && echo '' && SLOT=\$$(cat .deploy-slot 2>/dev/null || echo blue) && echo \"=== Application (mm-\$$SLOT) ===\" && docker compose -p mm-\$$SLOT -f docker-compose.app.yml --env-file deployment/production.env ps 2>/dev/null && echo '' && echo '=== Health Check ===' && curl -sf http://localhost:8080/api/health || echo 'Health check failed'"
+		"cd /opt/markdown-manager && echo '=== Active Slot ===' && cat .deploy-slot 2>/dev/null || echo 'unknown' && echo '' && echo '=== Infrastructure (platform) ===' && docker compose -p platform ps 2>/dev/null && echo '' && SLOT=\$$(cat .deploy-slot 2>/dev/null || echo blue) && echo \"=== Application (mm-\$$SLOT) ===\" && docker compose -p mm-\$$SLOT -f docker-compose.app.yml --env-file deployment/production.env ps 2>/dev/null && echo '' && echo '=== Health Check ===' && curl -sf http://localhost:8080/api/health || echo 'Health check failed'"
 
 deploy-logs: ## Tail production container logs (active slot)
 	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
@@ -241,7 +241,7 @@ deploy-db-migrate: ## Run database migrations in production
 deploy-db-backup: ## Backup production database
 	@echo "$(BLUE)Backing up production database$(NC)"
 	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
-		"cd /opt/markdown-manager && docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env exec -T db pg_dump -U markdown_manager markdown_manager" \
+		"docker exec platform-db-1 pg_dump -U markdown_manager markdown_manager" \
 		> backups/db-backup-$$(date +%Y%m%d-%H%M%S).sql
 	@echo "$(GREEN)Backup saved to backups/$(NC)"
 
