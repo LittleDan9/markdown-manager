@@ -109,7 +109,7 @@ wait_for_backend_health() {
   local project="$1"
   echo "${YELLOW}Waiting for ${project} backend to become healthy...${NC}"
   for i in $(seq 1 $BACKEND_HEALTH_RETRIES); do
-    if compose_cmd "$project" exec -T backend curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+    if compose_cmd "$project" exec -T mm-backend curl -sf http://localhost:8000/health >/dev/null 2>&1; then
       echo "${GREEN}${project} backend is healthy (attempt ${i}/${BACKEND_HEALTH_RETRIES}).${NC}"
       return 0
     fi
