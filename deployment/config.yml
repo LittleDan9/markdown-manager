@@ -15,8 +15,5 @@ app_dir: /opt/markdown-manager
 # Compose files
 app_compose_file: docker-compose.app.yml
 
-# Legacy compose file (kept for reference/fallback)
-compose_file: docker-compose.prod.yml
-
 # Database defaults (can be overridden via production.env)
 postgres_user: markdown_manager

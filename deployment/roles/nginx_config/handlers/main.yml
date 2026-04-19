@@ -1,3 +1,0 @@
----
-- name: reload nginx
-  shell: sudo systemctl reload nginx
