@@ -1,12 +1,14 @@
 """
 Virus scanning service using ClamAV.
 
-Provides synchronous virus scanning of uploaded files via the ClamAV daemon.
+Provides virus scanning of uploaded files via the ClamAV daemon using stream
+scanning (INSTREAM command). Bytes are sent over the TCP socket — no shared
+filesystem volume between the app and ClamAV container is required.
+
 Operates in fail-closed mode: if ClamAV is unreachable, uploads are rejected.
 """
 import logging
 from dataclasses import dataclass
-from pathlib import Path
 from typing import Optional
 
 import pyclamd
@@ -50,12 +52,12 @@ class VirusScanService:
             self._clamd = None
             return False
 
-    def scan_file(self, file_path: Path) -> ScanResult:
+    def scan_stream(self, data: bytes) -> ScanResult:
         """
-        Scan a file for viruses.
+        Scan file bytes for viruses via ClamAV INSTREAM command.
 
         Args:
-            file_path: Path to the file to scan.
+            data: Raw file bytes to scan.
 
         Returns:
             ScanResult with status and detail.
@@ -70,21 +72,19 @@ class VirusScanService:
                 self._clamd = None
                 raise ConnectionError("ClamAV daemon is not responding")
 
-            result = cd.scan_file(str(file_path))
+            result = cd.scan_stream(data)
 
             if result is None:
                 return ScanResult(status="clean")
 
-            # result is dict like {'/path/to/file': ('FOUND', 'Eicar-Test-Signature')}
-            file_result = result.get(str(file_path))
-            if file_result is None:
+            # result is dict like {'stream': ('FOUND', 'Eicar-Test-Signature')}
+            stream_result = result.get("stream")
+            if stream_result is None:
                 return ScanResult(status="clean")
 
-            status_code, signature = file_result
+            status_code, signature = stream_result
             if status_code == "FOUND":
-                logger.warning(
-                    "Virus detected in %s: %s", file_path.name, signature
-                )
+                logger.warning("Virus detected in upload: %s", signature)
                 return ScanResult(status="infected", detail=signature)
 
             return ScanResult(status="clean")
@@ -92,7 +92,7 @@ class VirusScanService:
         except ConnectionError:
             raise
         except Exception as e:
-            logger.error("Virus scan failed for %s: %s", file_path.name, e)
+            logger.error("Virus scan failed: %s", e)
             self._clamd = None
             return ScanResult(status="error", detail=str(e))
 

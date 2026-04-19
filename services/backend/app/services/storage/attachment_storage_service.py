@@ -6,7 +6,6 @@ user-scoped directory organization and virus scanning.
 """
 import hashlib
 import logging
-import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any
@@ -125,33 +124,27 @@ class AttachmentStorageService:
         user_dir = self.get_user_attachment_directory(user_id)
         user_dir.mkdir(parents=True, exist_ok=True)
 
-        # 6. Write to temporary location for virus scan
-        temp_path = user_dir / f".tmp_{stored_filename}"
+        # 6. Virus scan (stream-based, no shared volume needed)
+        scan_result = virus_scan_service.scan_stream(file_data)
+
+        if scan_result.status == "infected":
+            raise PermissionError(
+                f"Virus detected: {scan_result.detail}. File rejected."
+            )
+
+        if scan_result.status == "error":
+            logger.warning(
+                "Virus scan returned error for %s: %s", filename, scan_result.detail
+            )
+            # Still allow if scan errored (not a connection failure)
+            # Connection failures raise ConnectionError from scan_stream
+
+        # 7. Write to final location
         final_path = user_dir / stored_filename
 
         try:
-            async with aiofiles.open(temp_path, "wb") as f:
+            async with aiofiles.open(final_path, "wb") as f:
                 await f.write(file_data)
-
-            # 7. Virus scan
-            scan_result = virus_scan_service.scan_file(temp_path)
-
-            if scan_result.status == "infected":
-                # Remove temp file
-                temp_path.unlink(missing_ok=True)
-                raise PermissionError(
-                    f"Virus detected: {scan_result.detail}. File rejected."
-                )
-
-            if scan_result.status == "error":
-                logger.warning(
-                    "Virus scan returned error for %s: %s", filename, scan_result.detail
-                )
-                # Still allow if scan errored (not a connection failure)
-                # Connection failures raise ConnectionError from scan_file
-
-            # 8. Move to final location
-            shutil.move(str(temp_path), str(final_path))
 
             return {
                 "stored_filename": stored_filename,
@@ -162,11 +155,8 @@ class AttachmentStorageService:
                 "scan_result": scan_result.detail,
             }
 
-        except (PermissionError, ConnectionError):
-            temp_path.unlink(missing_ok=True)
-            raise
         except Exception:
-            temp_path.unlink(missing_ok=True)
+            final_path.unlink(missing_ok=True)
             raise
 
     def get_attachment_path(self, user_id: int, stored_filename: str) -> Path:
