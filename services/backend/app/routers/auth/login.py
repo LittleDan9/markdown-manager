@@ -22,6 +22,8 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 SSO_COOKIE = "sso_token"
+REFRESH_COOKIE = "mm_refresh_token"
+LEGACY_REFRESH_COOKIE = "refresh_token"
 SSO_MAX_AGE = settings.sso_token_expire_days * 86400 if hasattr(settings, 'sso_token_expire_days') else 86400
 
 
@@ -179,7 +181,7 @@ async def login(
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     response.set_cookie(
-        key="refresh_token",
+        key=REFRESH_COOKIE,
         value=refresh_token,
         httponly=True,
         secure=settings.secure_cookies,  # Environment-based setting
@@ -227,17 +229,26 @@ async def refresh_token(
     request: Request,
     response: Response,
     background_tasks: BackgroundTasks,
+    mm_refresh_token: str = Cookie(None),
     refresh_token: str = Cookie(None),
     db: AsyncSession = Depends(get_db),
 ) -> Any:
     """Refresh access token using a valid refresh token (from cookie)."""
+    # Use new cookie name, fall back to legacy name for transition
+    token = mm_refresh_token or refresh_token
+
+    # Clean up legacy cookie if present
+    if refresh_token and mm_refresh_token:
+        response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/")
+        response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/", domain=".littledan.com")
+
     # Diagnostic logging for proxy/cookie debugging
     forwarded_proto = request.headers.get("x-forwarded-proto", "missing")
     cookie_header = request.headers.get("cookie", "")
     cookie_count = len([c for c in cookie_header.split(";") if c.strip()]) if cookie_header else 0
     logger.debug(
         "Refresh attempt: scheme=%s, x-forwarded-proto=%s, cookies=%d, has_refresh_cookie=%s",
-        request.url.scheme, forwarded_proto, cookie_count, bool(refresh_token),
+        request.url.scheme, forwarded_proto, cookie_count, bool(token),
     )
 
     credentials_exception = HTTPException(
@@ -245,11 +256,11 @@ async def refresh_token(
         detail="Could not validate refresh token",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    if not refresh_token:
+    if not token:
         raise credentials_exception
     try:
         payload = jwt.decode(
-            refresh_token, settings.secret_key, algorithms=[settings.algorithm]
+            token, settings.secret_key, algorithms=[settings.algorithm]
         )
         email = payload.get("sub")
         if not isinstance(email, str) or not email:
@@ -271,7 +282,7 @@ async def refresh_token(
     refresh_token_expires = timedelta(days=14)
     new_refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     response.set_cookie(
-        key="refresh_token",
+        key=REFRESH_COOKIE,
         value=new_refresh_token,
         httponly=True,
         secure=settings.secure_cookies,  # Environment-based setting
@@ -280,6 +291,9 @@ async def refresh_token(
         path="/",
         domain=environment_config.get_cookie_domain(),
     )
+    # Clean up legacy cookie on refresh
+    response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/")
+    response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/", domain=".littledan.com")
     _set_sso_cookie(response, create_sso_token(user.email, mfa_verified=user.mfa_enabled))
 
     # Start background task to sync GitHub repositories (respects 1-hour limit)
@@ -362,7 +376,7 @@ async def login_mfa(
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     response.set_cookie(
-        key="refresh_token",
+        key=REFRESH_COOKIE,
         value=refresh_token,
         httponly=True,
         secure=settings.secure_cookies,  # Environment-based setting
@@ -406,6 +420,8 @@ async def login_mfa(
 
 @router.post("/logout")
 async def logout(response: Response):
-    response.delete_cookie("refresh_token", path="/", domain=environment_config.get_cookie_domain())
+    response.delete_cookie(REFRESH_COOKIE, path="/", domain=environment_config.get_cookie_domain())
+    response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/")
+    response.delete_cookie(LEGACY_REFRESH_COOKIE, path="/", domain=".littledan.com")
     _clear_sso_cookie(response)
     return {"message": "Logged out"}

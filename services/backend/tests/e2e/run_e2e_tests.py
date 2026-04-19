@@ -47,8 +47,8 @@ def setup_environment():
 
     # Set default environment variables if not already set
     defaults = {
-        "E2E_BASE_URL": "https://api.littledan.com",
-        "E2E_FRONTEND_ORIGIN": "https://littledan.com",
+        "E2E_BASE_URL": "https://docs.littledan.com/api",
+        "E2E_FRONTEND_ORIGIN": "https://docs.littledan.com",
         "E2E_TIMEOUT": "30",
         "E2E_CLEANUP": "true",
     }

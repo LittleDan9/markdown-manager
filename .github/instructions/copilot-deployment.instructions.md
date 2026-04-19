@@ -104,7 +104,7 @@ Internet (HTTPS:443)
 
 ### Host Nginx (Ansible-managed)
 
-- **Template**: `deployment/roles/nginx_host/templates/littledan.com.conf.j2`
+- **Template**: `deployment/roles/nginx_host/templates/docs.littledan.com.conf.j2`
 - TLS termination via certbot
 - Security headers: CSP, HSTS, X-Frame-Options
 - Bot blocking and query string filtering
@@ -119,7 +119,7 @@ Internet (HTTPS:443)
 - Network constraint: `shared-services` — only discovers containers on this network
 - Health-checks container nginx every 5s
 - Automatically routes to whichever blue/green stack is healthy
-- Routes by Host header: `littledan.com` / `www.littledan.com` → mm-app
+- Routes by Host header: `docs.littledan.com` → mm-app
 - Dashboard available on port 8888 (internal only)
 
 ### Container Nginx (in App stack)

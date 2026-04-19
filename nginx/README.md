@@ -9,7 +9,7 @@ Internet (HTTPS)
     │
     ▼
 Host nginx — port 443/80
-  littledan.com.conf.j2 (Ansible template → /etc/nginx/sites-available/littledan.com.conf)
+  docs.littledan.com.conf.j2 (Ansible template → /etc/nginx/sites-available/docs.littledan.com.conf)
     │  TLS termination, security headers, rate limiting, bot blocking
     │  proxy_pass http://127.0.0.1:8080  (all paths)
     ▼
@@ -52,7 +52,7 @@ Container nginx — port 8080 (host) → 80 (container)
 |---|---|
 | `nginx-prod.conf` | **Container nginx** — edit this to change service routing |
 | `nginx-dev.conf` | **Dev nginx** — all-in-one config for local Docker Compose |
-| `deployment/roles/nginx_host/templates/littledan.com.conf.j2` | **Host nginx** (Ansible template, source of truth) — edit this to change security policy, rate limits, or access control |
+| `deployment/roles/nginx_host/templates/docs.littledan.com.conf.j2` | **Host nginx** (Ansible template, source of truth) — edit this to change security policy, rate limits, or access control |
 | `conf.d/bot-blocking.conf` | Bot UA map — deployed to **host nginx only** |
 | `conf.d/rate-limiting.conf` | Rate limit zones — deployed to **host nginx only** |
 | `conf.d/main-config.conf` | Custom log format — deployed to **host nginx only** |

@@ -28,8 +28,8 @@ sudo systemctl daemon-reload
 
 # Create nginx backup
 echo -e "${YELLOW}💾 Backing up current nginx config...${NC}"
-if [ -f /etc/nginx/sites-available/littledan.com.conf ]; then
-    sudo cp /etc/nginx/sites-available/littledan.com.conf /etc/nginx/sites-available/littledan.com.conf.backup.$(date +%Y%m%d_%H%M%S)
+if [ -f /etc/nginx/sites-available/docs.littledan.com.conf ]; then
+    sudo cp /etc/nginx/sites-available/docs.littledan.com.conf /etc/nginx/sites-available/docs.littledan.com.conf.backup.$(date +%Y%m%d_%H%M%S)
     
     # Rotate backups using dedicated script
     sudo /home/dlittle/scripts/rotate-nginx-backups.sh
@@ -42,4 +42,4 @@ echo -e "${BLUE}📝 Next steps:${NC}"
 echo -e "  1. Deploy the application: ${YELLOW}npm run deploy${NC}"
 echo -e "  2. Enable and start the backend service: ${YELLOW}sudo systemctl enable --now markdown-manager-api${NC}"
 echo -e "  3. Check service status: ${YELLOW}sudo systemctl status markdown-manager-api${NC}"
-echo -e "  4. Check API health: ${YELLOW}curl https://littledan.com/api/v1/health-check${NC}"
+echo -e "  4. Check API health: ${YELLOW}curl https://docs.littledan.com/api/v1/health-check${NC}"

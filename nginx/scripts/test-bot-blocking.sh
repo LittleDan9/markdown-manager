@@ -34,7 +34,7 @@ required_files=(
     "/etc/nginx/conf.d/bot-blocking.conf"
     "/etc/nginx/conf.d/rate-limiting.conf"
     "/etc/nginx/conf.d/main-config.conf"
-    "/etc/nginx/sites-available/littledan.com.conf"
+    "/etc/nginx/sites-available/docs.littledan.com.conf"
 )
 
 for file in "${required_files[@]}"; do
@@ -55,7 +55,7 @@ if systemctl is-active --quiet nginx; then
 
     # Test with a bad bot user agent (should be blocked/no response)
     echo -n "Testing BadBot user agent: "
-    if timeout 5 curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: BadBot/1.0" https://littledan.com/ 2>/dev/null | grep -q "000"; then
+    if timeout 5 curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: BadBot/1.0" https://docs.littledan.com/ 2>/dev/null | grep -q "000"; then
         echo -e "${GREEN}✅ Blocked (connection terminated)${NC}"
     else
         echo -e "${YELLOW}⚠️  Not blocked (may need nginx reload)${NC}"
@@ -63,7 +63,7 @@ if systemctl is-active --quiet nginx; then
 
     # Test with a normal user agent (should work)
     echo -n "Testing normal user agent: "
-    response=$(timeout 5 curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" https://littledan.com/ 2>/dev/null || echo "000")
+    response=$(timeout 5 curl -s -o /dev/null -w "%{http_code}" -H "User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" https://docs.littledan.com/ 2>/dev/null || echo "000")
     if [[ "$response" =~ ^[23] ]]; then
         echo -e "${GREEN}✅ Allowed ($response)${NC}"
     else
@@ -76,7 +76,7 @@ if systemctl is-active --quiet nginx; then
 
     rate_limited=0
     for i in {1..10}; do
-        response=$(timeout 2 curl -s -o /dev/null -w "%{http_code}" https://littledan.com/ 2>/dev/null || echo "000")
+        response=$(timeout 2 curl -s -o /dev/null -w "%{http_code}" https://docs.littledan.com/ 2>/dev/null || echo "000")
         if [ "$response" = "429" ]; then
             rate_limited=1
             break

@@ -41,7 +41,7 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.mm-app.rule=Host(`littledan.com`) || Host(`www.littledan.com`)"
+      - "traefik.http.routers.mm-app.rule=Host(`docs.littledan.com`)"
       - "traefik.http.routers.mm-app.entrypoints=web"
       - "traefik.http.services.mm-app.loadbalancer.server.port=80"
       - "traefik.http.services.mm-app.loadbalancer.healthcheck.path=/"
@@ -194,7 +194,7 @@ services:
       - SPELL_DB_NAME=${MM_DB_NAME:-markdown_manager}
       - SPELL_DB_USER=${MM_DB_USER:-markdown_manager}
       - SPELL_DB_PASSWORD=${MM_DB_PASSWORD}
-      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://littledan.com,https://www.littledan.com}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://docs.littledan.com}
       - ENVIRONMENT=production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8003/health"]

@@ -1,11 +1,11 @@
-# littledan.com — host nginx configuration (managed by Ansible)
+# docs.littledan.com — host nginx configuration (managed by Ansible)
 #
 # Proxy-passes all traffic to the Docker Compose container nginx on port 8080.
 # TLS, rate limiting, bot blocking, and security headers are handled here.
 # The container nginx handles internal service routing.
 
 server {
-    server_name littledan.com www.littledan.com;
+    server_name docs.littledan.com;
 
     # Global body size limit — applied to any location that doesn't override it.
     # Prevents 413 on paste/image uploads across all endpoints.
@@ -17,7 +17,7 @@ server {
     add_header X-XSS-Protection "1; mode=block" always;
     add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     add_header Permissions-Policy "geolocation=(), microphone=(), camera=()" always;
-    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: wss: https://api.littledan.com; worker-src 'self' blob:; frame-ancestors 'self';" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; img-src 'self' data: https: blob:; font-src 'self' data:; connect-src 'self' https: wss:; worker-src 'self' blob:; frame-ancestors 'self';" always;
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains; preload" always;
 
     # Version & origin identification
@@ -255,7 +255,7 @@ server {
         return 444;
     }
 
-    # TLS — managed by Certbot (these lines will be added by certbot)
+    # TLS — managed by Certbot
     listen 443 ssl;
     ssl_certificate /etc/letsencrypt/live/littledan.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/littledan.com/privkey.pem;
@@ -264,15 +264,11 @@ server {
 }
 
 server {
-    if ($host = www.littledan.com) {
-        return 301 https://$host$request_uri;
-    }
-
-    if ($host = littledan.com) {
+    if ($host = docs.littledan.com) {
         return 301 https://$host$request_uri;
     }
 
     listen 80;
-    server_name littledan.com www.littledan.com;
+    server_name docs.littledan.com;
     return 404;
 }
