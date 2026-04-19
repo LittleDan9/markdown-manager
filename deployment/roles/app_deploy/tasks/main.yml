@@ -84,7 +84,7 @@
 
 - name: Wait for backend health check via Traefik
   ansible.builtin.command:
-    cmd: curl -sf -H "Host: littledan.com" http://localhost:8080/ -o /dev/null
+    cmd: 'curl -sf -H "Host: littledan.com" http://localhost:8080/ -o /dev/null'
   register: health_check
   retries: 10
   delay: 5
