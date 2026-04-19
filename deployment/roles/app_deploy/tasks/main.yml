@@ -4,7 +4,7 @@
 # This role:
 # 1. Rsyncs the project source to the server
 # 2. Deploys the production .env file
-# 3. Ensures infrastructure stack (db, redis, ollama, clamav, traefik) is running
+# 3. Verifies shared infrastructure (platform-manager) is running
 # 4. Runs blue/green deployment (build → start new → health check → stop old)
 # 5. Migrations run automatically in backend entrypoint.sh
 
@@ -44,19 +44,16 @@
     mode: "0600"
   register: env_result
 
-- name: Ensure infrastructure stack is running
-  command: "{{ app_dir }}/scripts/deploy-infra.sh"
-  args:
-    chdir: "{{ app_dir }}"
-  register: infra_result
-  changed_when: "'Creating' in infra_result.stdout or 'Starting' in infra_result.stdout"
+- name: Verify shared infrastructure is running
+  command: docker compose -p platform ps --status running
+  register: infra_check
+  changed_when: false
+  failed_when: "'traefik' not in infra_check.stdout or 'db' not in infra_check.stdout"
 
 - name: Wait for database to be healthy
   command: >
-    docker compose -p mm-infra -f docker-compose.infra.yml --env-file deployment/production.env exec -T db
+    docker exec platform-db-1
     pg_isready -U {{ postgres_user | default('markdown_manager') }}
-  args:
-    chdir: "{{ app_dir }}"
   register: db_health
   retries: 15
   delay: 2
@@ -86,11 +83,10 @@
     msg: "Active deployment slot: {{ slot_output.stdout | default('unknown') }}"
 
 - name: Wait for backend health check via Traefik
-  uri:
-    url: "http://localhost:8080/api/health"
-    method: GET
-    status_code: 200
+  ansible.builtin.command:
+    cmd: 'curl -sf -H "Host: littledan.com" http://localhost:8080/ -o /dev/null'
   register: health_check
   retries: 10
   delay: 5
-  until: health_check.status == 200
+  until: health_check.rc == 0
+  changed_when: false

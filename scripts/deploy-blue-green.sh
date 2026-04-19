@@ -13,7 +13,7 @@
 #   ./scripts/deploy-blue-green.sh --rollback            # Revert to previous slot
 #
 # Prerequisites:
-#   - Infrastructure stack running (mm-infra via deploy-infra.sh)
+#   - Shared infrastructure stack running (platform via platform-manager)
 #   - deployment/production.env exists
 # ==============================================================================
 set -Eeuo pipefail
@@ -63,10 +63,10 @@ if [[ ! -f "$COMPOSE_FILE" ]]; then
   exit 1
 fi
 
-# Verify infrastructure stack is running
-if ! docker compose -p mm-infra -f "${APP_DIR}/docker-compose.infra.yml" --env-file "$ENV_FILE" ps --status running 2>/dev/null | grep -q "traefik"; then
-  echo "${RED}Infrastructure stack (mm-infra) is not running.${NC}"
-  echo "${YELLOW}Run: ./scripts/deploy-infra.sh${NC}"
+# Verify shared infrastructure stack is running
+if ! docker compose -p platform ps --status running 2>/dev/null | grep -q "traefik"; then
+  echo "${RED}Shared infrastructure stack (platform) is not running.${NC}"
+  echo "${YELLOW}Deploy platform-manager first: cd /opt/platform-manager && ./scripts/deploy-infra.sh${NC}"
   exit 1
 fi
 
@@ -109,7 +109,7 @@ wait_for_backend_health() {
   local project="$1"
   echo "${YELLOW}Waiting for ${project} backend to become healthy...${NC}"
   for i in $(seq 1 $BACKEND_HEALTH_RETRIES); do
-    if compose_cmd "$project" exec -T backend curl -sf http://localhost:8000/health >/dev/null 2>&1; then
+    if compose_cmd "$project" exec -T mm-backend curl -sf http://localhost:8000/health >/dev/null 2>&1; then
       echo "${GREEN}${project} backend is healthy (attempt ${i}/${BACKEND_HEALTH_RETRIES}).${NC}"
       return 0
     fi
@@ -122,7 +122,7 @@ wait_for_backend_health() {
 wait_for_traefik_routing() {
   echo "${YELLOW}Waiting for Traefik to route to new stack...${NC}"
   for i in $(seq 1 $HEALTH_RETRIES); do
-    if curl -sf http://localhost:8080/api/health >/dev/null 2>&1; then
+    if curl -sf -H "Host: littledan.com" http://localhost:8080/ -o /dev/null 2>&1; then
       echo "${GREEN}Traefik is routing traffic successfully (attempt ${i}/${HEALTH_RETRIES}).${NC}"
       return 0
     fi
@@ -173,6 +173,10 @@ else
   echo "${GREEN}Build complete.${NC}"
 fi
 
+# ── Ensure document storage volume exists ────────────────────────────────────
+
+docker volume inspect shared-document-storage >/dev/null 2>&1 || docker volume create shared-document-storage
+
 # ── Clean UI volume for new stack ────────────────────────────────────────────
 
 NEW_UI_VOL="${NEW_PROJECT}_ui-static"
@@ -184,7 +188,7 @@ fi
 # ── Start new stack ──────────────────────────────────────────────────────────
 
 echo "${BLUE}Starting ${NEW_SLOT} stack...${NC}"
-compose_cmd "$NEW_PROJECT" up -d
+compose_cmd "$NEW_PROJECT" up -d --remove-orphans --force-recreate
 
 # ── Wait for health ──────────────────────────────────────────────────────────
 

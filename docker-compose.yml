@@ -105,9 +105,7 @@ services:
   # Embedding microservice — sentence-transformers CPU inference
   # ──────────────────────────────────────────────────────────────────────────
   embedding:
-    build:
-      context: ./services/embedding
-      dockerfile: Dockerfile
+    image: ghcr.io/littledan9/embedding-service:latest
     ports:
       - "8005:8005"
     healthcheck:

@@ -61,4 +61,4 @@
           Deployment completed successfully!
           Host: {{ inventory_hostname }}
           App: {{ app_dir }}
-          Stack: docker compose -f docker-compose.prod.yml
+          Stack: docker compose -f docker-compose.app.yml

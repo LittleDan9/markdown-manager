@@ -7,18 +7,43 @@ applyTo: "deployment/**,docker-compose.prod.yml,docker-compose.infra.yml,docker-
 
 ## Deployment Architecture Overview
 
-Production deployment uses **Ansible-driven Docker Compose** on a single remote host with **blue/green zero-downtime deploys** via Traefik. The pipeline: local machine runs Ansible → rsyncs source to remote → ensures infrastructure stack → runs blue/green swap → health check.
+Production deployment uses **Ansible-driven Docker Compose** on a single remote host with **blue/green zero-downtime deploys** via Traefik. The pipeline: local machine runs Ansible → rsyncs source to remote → verifies shared infrastructure → runs blue/green swap → health check.
+
+### Shared Infrastructure (platform-manager)
+
+Infrastructure services live in a **separate repo** ([platform-manager](https://github.com/LittleDan9/platform-manager)) and run under the Docker project name `platform` on the `shared-services` network. Both markdown-manager and team-manager consume these shared services.
+
+| Service | Purpose |
+|---------|---------|
+| traefik | Blue/green traffic routing (host port 8080 → container :80) |
+| db | PostgreSQL pgvector:pg18, multi-database (creates markdown_manager + teammanager DBs) |
+| redis | Event streams + cache |
+| ollama | LLM inference |
+| embedding | Sentence-transformers (GHCR image: `ghcr.io/littledan9/embedding-service`) |
+| clamav | Virus scanning |
+
+Shared volumes: `shared-postgres-data`, `shared-redis-data`, `shared-ollama-data`, `shared-clamav-data`, `shared-document-storage`, `shared-hf-cache`, `shared-onnx-cache`.
 
 ### Key Infrastructure Facts
 
 - **Remote host**: `10.0.1.51` (configurable in `deployment/inventory.yml`)
 - **SSH user**: `dlittle`, key `~/.ssh/id_danbian`
 - **App directory**: `/opt/markdown-manager` on remote
-- **Infrastructure compose**: `docker-compose.infra.yml` (project `mm-infra`)
+- **Infrastructure**: Managed by platform-manager at `/opt/platform-manager` (project `platform`)
 - **Application compose**: `docker-compose.app.yml` (project `mm-blue` or `mm-green`)
-- **Legacy compose**: `docker-compose.prod.yml` (monolithic fallback, deprecated)
+- **Network**: `shared-services` (external bridge, created by platform-manager)
 - **Environment file**: `deployment/production.env` (local, copied to remote)
 - **Active slot file**: `.deploy-slot` on remote (contains "blue" or "green")
+
+### Deprecated Files (DO NOT USE)
+
+These files are superseded and kept only for reference:
+- `docker-compose.infra.yml` — Infrastructure moved to platform-manager
+- `docker-compose.prod.yml` — Replaced by `docker-compose.app.yml`
+- `deployment/traefik.yml` — Moved to platform-manager
+- `scripts/deploy-infra.sh` — Replaced by `platform-manager/scripts/deploy-infra.sh`
+- `deployment/deploy-legacy.yml` — Old per-service systemd deployment
+- `deployment/config-legacy.yml` — Old variable definitions
 
 ## Ansible Playbook Structure
 
@@ -36,7 +61,7 @@ Production deployment uses **Ansible-driven Docker Compose** on a single remote 
 ### Three Active Roles
 
 1. **`bootstrap`** — Host preparation: Docker install, UFW firewall, directory creation
-2. **`app_deploy`** — Core deployment: rsync source → ensure infra running → blue/green deploy via `deploy-blue-green.sh` → health check
+2. **`app_deploy`** — Core deployment: rsync source → verify platform infra running → blue/green deploy via `deploy-blue-green.sh` → health check
 3. **`nginx_host`** — Host-level nginx: TLS termination, security headers, reverse proxy to Traefik on port 8080
 
 ### Deployment Flow (app_deploy role)
@@ -44,8 +69,8 @@ Production deployment uses **Ansible-driven Docker Compose** on a single remote 
 ```
 rsync project to /opt/markdown-manager (with excludes)
 → copy production.env to remote
-→ ensure infrastructure stack running (deploy-infra.sh)
-→ wait for database health
+→ verify shared infrastructure running (docker compose -p platform ps)
+→ wait for database health (docker exec platform-db-1 pg_isready)
 → run blue/green deployment (deploy-blue-green.sh):
   → determine new slot (blue→green or green→blue)
   → build images for new slot
@@ -62,14 +87,7 @@ rsync project to /opt/markdown-manager (with excludes)
 
 **Graceful shutdown**: On `docker compose down --timeout 30`, the backend lifespan handler sends `{"type": "maintenance", "retry_seconds": 5}` to all WebSocket clients (presence + collab), then stops background services. Frontend auto-reconnects to the new stack via Traefik.
 
-**Important**: The `mm-ui-static` volume is per-project (e.g., `mm-blue_ui-static`). Each app stack has its own volume, cleaned before each deploy. The `frontend-build` container's CMD also cleans before copying as defense-in-depth.
-
-### Legacy Files (DO NOT USE for current deployments)
-
-- `deployment/deploy-legacy.yml` — Old per-service systemd deployment
-- `deployment/config-legacy.yml` — Old variable definitions
-- `nginx/sites-available/littledan.com.conf` — Stale, replaced by Ansible template
-- Legacy roles under `deployment/roles/` (docker_service, registry, ui_deployment, etc.) — Not referenced by current `deploy.yml`
+**Important**: The UI static volume is per-project (e.g., `mm-blue_ui-static`). Each app stack has its own volume, cleaned before each deploy. The `frontend-build` container's CMD also cleans before copying as defense-in-depth.
 
 ## Three-Layer Proxy Architecture
 
@@ -93,13 +111,15 @@ Internet (HTTPS:443)
 - Connection and request rate limiting
 - Sensitive file/path blocking
 
-### Traefik (Infrastructure stack)
+### Traefik (platform-manager)
 
-- **Config**: `deployment/traefik.yml`
-- Listens on port 80 inside infra stack (mapped to host 8080)
+- **Config**: `platform-manager/deployment/traefik.yml` (not in this repo)
+- Listens on port 80 inside platform stack (mapped to host 8080)
 - Docker provider discovers container nginx via labels (`traefik.enable=true`)
+- Network constraint: `shared-services` — only discovers containers on this network
 - Health-checks container nginx every 5s
 - Automatically routes to whichever blue/green stack is healthy
+- Routes by Host header: `littledan.com` / `www.littledan.com` → mm-app
 - Dashboard available on port 8888 (internal only)
 
 ### Container Nginx (in App stack)
@@ -114,52 +134,53 @@ Internet (HTTPS:443)
 ### Key Difference from Dev
 
 - **Dev**: Single nginx in compose, services expose host ports directly
-- **Prod**: Only Traefik publishes a port externally (`8080:80`), all other services are internal-only on the `mm-network` bridge
+- **Prod**: Only Traefik publishes a port externally (`8080:80`), all other services are internal-only on the `shared-services` bridge
 
 ## Docker Compose Production Topology
 
-### Compose File Split
+### Compose Files
 
 | File | Project Name | Purpose |
 |------|-------------|---------|
-| `docker-compose.infra.yml` | `mm-infra` | Infrastructure: db, redis, ollama, clamav, traefik |
 | `docker-compose.app.yml` | `mm-blue` / `mm-green` | Application: backend, nginx, export, linting, etc. |
-| `docker-compose.prod.yml` | — | Legacy monolithic (deprecated, kept as fallback) |
+| platform-manager `docker-compose.yml` | `platform` | Infrastructure: db, redis, ollama, embedding, clamav, traefik |
 
 ### Network
 
-- Shared bridge network: `mm-network` (external, created by `deploy-infra.sh`)
+- Shared bridge network: `shared-services` (external, created by `platform-manager/scripts/deploy-infra.sh`)
 - Only Traefik publishes a port externally (`8080:80`)
-- Services reference each other by compose service name across project boundaries
+- Services reference each other by compose service name across project boundaries (e.g., backend connects to `db:5432`, `redis:6379`, `ollama:11434`)
 
 ### Named Volumes
 
 | Volume | Scope | Purpose |
 |--------|-------|---------|
-| `mm-postgres-data` | infra | PostgreSQL data persistence |
-| `mm-redis-data` | infra | Redis AOF + RDB persistence |
-| `mm-document-storage` | shared (external) | Markdown document files |
-| `mm-ollama-data` | infra | Ollama LLM model storage |
-| `mm-clamav-data` | infra | ClamAV signature data |
+| `shared-postgres-data` | platform | PostgreSQL data persistence |
+| `shared-redis-data` | platform | Redis AOF + RDB persistence |
+| `shared-document-storage` | shared (external) | Markdown document files |
+| `shared-ollama-data` | platform | Ollama LLM model storage |
+| `shared-clamav-data` | platform | ClamAV signature data |
+| `shared-hf-cache` | platform | HuggingFace model cache |
+| `shared-onnx-cache` | platform | ONNX optimized model cache |
 | `mm-{blue\|green}_ui-static` | per-app-project | Built frontend assets |
 
 ### Service Dependencies (health-check chain)
 
-**Infrastructure** (always running):
+**Infrastructure** (platform-manager, always running):
 ```
-db (healthy) + redis (healthy) + traefik (healthy) + ollama + clamav
+db (healthy) + redis (healthy) + traefik (healthy) + ollama + clamav + embedding
 ```
 
 **Application** (blue or green):
 ```
-export + linting + spell-check + embedding (all healthy)
+export + linting + spell-check (all healthy)
   → backend (healthy, also waits for db TCP in entrypoint.sh)
     → nginx (also waits for frontend-build completed)
       → event-publisher
         → event consumers
 ```
 
-`frontend-build` is a one-shot build container that populates `mm-ui-static` then exits.
+`frontend-build` is a one-shot build container that populates the UI static volume then exits.
 
 ## Environment Variable Management
 
@@ -168,6 +189,13 @@ export + linting + spell-check + embedding (all healthy)
 - **Template**: `deployment/production.env.template` — all expected variables with descriptions
 - **Actual**: `deployment/production.env` — real values (gitignored, never committed)
 - **Dev baseline**: `.env.example` in project root
+
+### Key Patterns
+
+- DB credentials (`MM_DB_USER`, `MM_DB_PASSWORD`, `MM_DB_NAME`) are provisioned once by platform-manager's `make provision-db` and owned by this app — they do NOT exist in platform-manager's env
+- Service URLs (`DATABASE_URL`, `REDIS_URL`, `EXPORT_SERVICE_URL`, etc.) are composed inline in `docker-compose.app.yml` — NOT set in `production.env`
+- `RELAY_DATABASE_URL` and `RELAY_REDIS_URL` for event-publisher are similarly composed inline
+- Secrets (JWT keys, OAuth credentials) are the only values that must be in `production.env`
 
 ### Compose Interpolation Patterns
 
@@ -178,9 +206,6 @@ ${POSTGRES_USER:-markdown_manager}
 # Required value (fails if missing)
 ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
 ```
-
-- Backend loads `env_file: deployment/production.env` plus computed internal URLs
-- Other services use compose-level `environment:` blocks with interpolation
 
 ### Sensitive Variables
 
@@ -195,7 +220,7 @@ Key targets in the root `Makefile`:
 | `make deploy` | Full deployment (sync-locks → Ansible deploy playbook) |
 | `make deploy-update` | App update only — blue/green swap (routine deploys) |
 | `make deploy-nginx` | Update host nginx config only (runs `--tags nginx` with diff) |
-| `make deploy-infra` | Update infrastructure stack only (db, redis, traefik) |
+| `make deploy-infra` | Deploy shared infrastructure via platform-manager |
 | `make deploy-rollback` | Revert to previous blue/green slot |
 | `make deploy-status` | Show active slot + container health for both stacks |
 | `make deploy-logs` | Tail active slot container logs |
@@ -241,21 +266,22 @@ cd /opt/markdown-manager
 ### Common Operations on Remote
 
 ```bash
-# Check running containers
-docker compose -f docker-compose.prod.yml ps
+# Check active slot
+cat .deploy-slot
+
+# Check shared infrastructure
+docker compose -p platform ps
+
+# Check active app stack
+SLOT=$(cat .deploy-slot)
+docker compose -p mm-$SLOT -f docker-compose.app.yml ps
 
 # View service logs
-docker compose -f docker-compose.prod.yml logs backend --tail=100 -f
-docker compose -f docker-compose.prod.yml logs nginx --tail=50
-
-# Restart a single service
-docker compose -f docker-compose.prod.yml restart backend
+docker compose -p mm-$SLOT -f docker-compose.app.yml logs backend --tail=100 -f
+docker compose -p mm-$SLOT -f docker-compose.app.yml logs nginx --tail=50
 
 # Run migrations manually
-docker compose -f docker-compose.prod.yml exec backend alembic upgrade head
-
-# Check nginx config
-docker compose -f docker-compose.prod.yml exec nginx nginx -t
+docker compose -p mm-$SLOT -f docker-compose.app.yml exec backend alembic upgrade head
 
 # Check host nginx
 sudo nginx -t && sudo systemctl reload nginx
@@ -263,8 +289,8 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ### Health Check Endpoints
 
-- Container-level: `http://localhost:8080/api/health` (through container nginx)
-- Backend direct: `http://localhost:8000/api/health` (if port forwarded)
+- Through Traefik: `curl http://localhost:8080/api/health`
+- Direct in container: `docker compose -p mm-$SLOT -f docker-compose.app.yml exec backend curl http://localhost:8000/health`
 
 ### Status Playbook
 

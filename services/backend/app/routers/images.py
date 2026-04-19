@@ -19,8 +19,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Dict, Any
 import io
 import logging
-import tempfile
-from pathlib import Path
 
 from app.core.auth import get_current_user, get_current_user_optional
 from app.database import get_db
@@ -80,10 +78,7 @@ async def upload_image(
 
         # Virus scan (fail-closed: reject if ClamAV unavailable)
         try:
-            with tempfile.NamedTemporaryFile(delete=True, suffix=Path(file.filename).suffix) as tmp:
-                tmp.write(content)
-                tmp.flush()
-                scan_result = virus_scan_service.scan_file(Path(tmp.name))
+            scan_result = virus_scan_service.scan_stream(content)
             if scan_result.status == "infected":
                 await create_notification(
                     db, current_user.id,
@@ -195,10 +190,7 @@ async def upload_multiple_images(
 
                 # Virus scan
                 try:
-                    with tempfile.NamedTemporaryFile(delete=True, suffix=Path(file.filename).suffix) as tmp:
-                        tmp.write(content)
-                        tmp.flush()
-                        scan_result = virus_scan_service.scan_file(Path(tmp.name))
+                    scan_result = virus_scan_service.scan_stream(content)
                     if scan_result.status == "infected":
                         results.append({
                             "filename": file.filename,
