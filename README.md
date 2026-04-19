@@ -143,7 +143,7 @@ The application follows a modern microservices architecture with Nginx as the ce
 
 ### Production Deployment
 
-The application uses a mature Ansible-based deployment system that ensures services are actually operational before marking deployment as successful.
+The application uses a mature Ansible-based deployment system that ensures services are actually operational before marking deployment as successful. Production runs on shared infrastructure managed by [platform-manager](https://github.com/LittleDan9/platform-manager) (PostgreSQL, Redis, Ollama, Embedding, ClamAV, Traefik on a `shared-services` Docker network).
 
 ```bash
 # Full deploy (bootstrap + app + nginx)
