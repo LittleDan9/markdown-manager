@@ -44,15 +44,15 @@
         name: bootstrap
       tags: [bootstrap]
 
-    - name: Deploy application
-      import_role:
-        name: app_deploy
-      tags: [deploy]
-
     - name: Configure host nginx
       import_role:
         name: nginx_host
       tags: [nginx]
+
+    - name: Deploy application
+      import_role:
+        name: app_deploy
+      tags: [deploy]
 
   post_tasks:
     - name: Deployment complete

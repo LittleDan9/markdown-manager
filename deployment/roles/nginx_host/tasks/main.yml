@@ -1,47 +1,24 @@
 ---
-# Nginx host role — Configure host-level nginx to proxy to container stack
+# Nginx host role — Deploy docs.littledan.com site config
 #
-# Replaces old role: nginx_config
-#
-# The host nginx serves multiple domains. This role only manages the
-# littledan.com site config, which proxy-passes to the container nginx
-# on port 8080.
+# Deploys the app-specific host nginx site config for docs.littledan.com.
+# Nginx base install, shared conf.d, and error pages are managed by
+# platform-manager's nginx_base role.
 
-- name: Ensure nginx is installed
-  become: true
-  apt:
-    name: nginx
-    state: present
-
-- name: Deploy littledan.com site configuration
+- name: Deploy docs.littledan.com site configuration
   become: true
   template:
-    src: littledan.com.conf.j2
-    dest: /etc/nginx/sites-available/littledan.com.conf
+    src: docs.littledan.com.conf.j2
+    dest: /etc/nginx/sites-available/docs.littledan.com.conf
     mode: "0644"
   notify: reload nginx
 
-- name: Enable littledan.com site
+- name: Enable docs.littledan.com site
   become: true
   file:
-    src: /etc/nginx/sites-available/littledan.com.conf
-    dest: /etc/nginx/sites-enabled/littledan.com.conf
+    src: /etc/nginx/sites-available/docs.littledan.com.conf
+    dest: /etc/nginx/sites-enabled/docs.littledan.com.conf
     state: link
-  notify: reload nginx
-
-- name: Remove default site if present
-  become: true
-  file:
-    path: /etc/nginx/sites-enabled/default
-    state: absent
-  notify: reload nginx
-
-- name: Deploy conf.d files
-  become: true
-  copy:
-    src: "{{ playbook_dir }}/../nginx/conf.d/"
-    dest: /etc/nginx/conf.d/
-    mode: "0644"
   notify: reload nginx
 
 - name: Test nginx configuration

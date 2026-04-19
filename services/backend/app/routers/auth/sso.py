@@ -10,7 +10,7 @@ from app.configs.environment import environment_config
 from app.core.auth import create_access_token, validate_sso_token
 from app.crud import user as crud_user
 from app.database import get_db
-from app.routers.auth.login import create_refresh_token
+from app.routers.auth.login import create_refresh_token, REFRESH_COOKIE
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -55,7 +55,7 @@ async def sso_check(
     refresh_token_expires = timedelta(days=14)
     refresh_token = create_refresh_token({"sub": user.email}, refresh_token_expires)
     response.set_cookie(
-        key="refresh_token",
+        key=REFRESH_COOKIE,
         value=refresh_token,
         httponly=True,
         secure=settings.secure_cookies,

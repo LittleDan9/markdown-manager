@@ -18,9 +18,7 @@ class EnvironmentConfig:
         """Get environment-appropriate CORS origins."""
         if self.settings.is_production:
             return [
-                "https://littledan.com",
-                "https://www.littledan.com",
-                "https://markdown-manager.littledan.com",
+                "https://docs.littledan.com",
             ]
         elif self.settings.environment == "staging":
             return [
@@ -87,13 +85,10 @@ class EnvironmentConfig:
 
     def get_cookie_domain(self) -> str | None:
         """Get the appropriate cookie domain for the current environment."""
-        if self.settings.is_production:
-            # Production: set domain to allow cookies across subdomains
-            return ".littledan.com"
-        else:
-            # Development: no domain specified (browser will use the host that set it)
-            # This means cookies will be host-specific but should work via nginx proxy
-            return None
+        # All environments: no domain specified (browser will use the host that set it).
+        # This scopes the refresh cookie to docs.littledan.com only.
+        # Cross-app auth is handled by the SSO cookie on .littledan.com.
+        return None
 
     def validate_configuration(self) -> bool:
         """Validate configuration for the current environment."""

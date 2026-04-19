@@ -21,8 +21,7 @@ export default function GitHubAccountConnection({ onSuccess }) {
       'http://localhost:3000',
       'http://api.localhost:80',
       'http://api.localhost',
-      'https://www.littledan.com',
-      'https://littledan.com'
+      'https://docs.littledan.com'
     ];
 
     if (!allowedOrigins.includes(event.origin)) {

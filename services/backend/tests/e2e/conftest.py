@@ -12,7 +12,7 @@ import pytest
 class Config:
     """Test configuration"""
 
-    BASE_URL = "https://littledan.com/api"
+    BASE_URL = "https://docs.littledan.com/api"
     USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
 
     # Test user credentials
