@@ -211,6 +211,9 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(api_keys.router)  # /api-keys CRUD for LLM provider keys
     app.include_router(chat.router)  # /chat/ask and /chat/health
     app.include_router(notifications.router)  # /notifications
+
+    from app.routers import help as help_router
+    app.include_router(help_router.router)  # /help/topics
     app.include_router(comments.router)  # /documents/{id}/comments and /comments/{id}
     app.include_router(ws_router.router)  # WebSocket presence
 

@@ -24,6 +24,7 @@
 @use "fileBrowser/index" as fileBrowser;
 @use "components/index" as components;
 @use "chat/index" as chat;
+@use "help";
 
 // 4. Responsive design (should come last to override other styles)
 @use "responsive";

@@ -1,0 +1,181 @@
+// ─── HELP MODAL STYLES ───
+
+.help-modal .help-modal-body {
+  min-height: 70vh;
+  max-height: 70vh;
+}
+
+// ─── Sidebar ───
+.help-sidebar {
+  width: 240px;
+  min-width: 240px;
+  border-right: 1px solid var(--bs-border-color);
+  display: flex;
+  flex-direction: column;
+  background: var(--bs-tertiary-bg);
+}
+
+.help-sidebar-search {
+  padding: 0.75rem;
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.help-sidebar-nav {
+  overflow-y: auto;
+  flex: 1;
+  padding: 0.5rem;
+  gap: 2px;
+
+  .help-sidebar-link {
+    font-size: 0.875rem;
+    padding: 0.4rem 0.75rem;
+    border-radius: 6px;
+    color: var(--bs-body-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    &:hover:not(.active) {
+      background: var(--bs-secondary-bg);
+    }
+
+    &.active {
+      background: var(--bs-primary);
+      color: #fff;
+    }
+
+    i {
+      font-size: 0.85rem;
+    }
+  }
+}
+
+// ─── Content pane ───
+.help-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.5rem 2rem;
+}
+
+.help-content-body {
+  font-size: 0.95rem;
+  line-height: 1.7;
+
+  h1 {
+    font-size: 1.6rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  h2 {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-top: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-top: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
+
+  p {
+    margin-bottom: 0.75rem;
+  }
+
+  ul, ol {
+    padding-left: 1.5rem;
+    margin-bottom: 0.75rem;
+  }
+
+  li {
+    margin-bottom: 0.35rem;
+  }
+
+  code {
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.85em;
+    background: var(--bs-tertiary-bg);
+  }
+
+  pre {
+    padding: 0.75rem 1rem;
+    border-radius: 6px;
+    background: var(--bs-tertiary-bg);
+    overflow-x: auto;
+    margin-bottom: 1rem;
+
+    code {
+      padding: 0;
+      background: transparent;
+    }
+  }
+
+  table {
+    width: 100%;
+    margin-bottom: 1rem;
+    border-collapse: collapse;
+
+    th, td {
+      padding: 0.4rem 0.75rem;
+      border: 1px solid var(--bs-border-color);
+      font-size: 0.875rem;
+    }
+
+    th {
+      background: var(--bs-tertiary-bg);
+      font-weight: 600;
+    }
+  }
+
+  strong {
+    font-weight: 600;
+  }
+
+  blockquote {
+    border-left: 3px solid var(--bs-primary);
+    padding-left: 1rem;
+    margin-left: 0;
+    color: var(--bs-secondary-color);
+  }
+}
+
+// ─── Responsive: collapse sidebar on small screens ───
+@media (max-width: 768px) {
+  .help-modal .help-modal-body {
+    flex-direction: column;
+    max-height: 80vh;
+  }
+
+  .help-sidebar {
+    width: 100%;
+    min-width: unset;
+    max-height: 180px;
+    border-right: none;
+    border-bottom: 1px solid var(--bs-border-color);
+  }
+
+  .help-content {
+    padding: 1rem;
+  }
+}
+
+// ─── Guided Tour ───
+// Override react-joyride default beacon colors
+.__floater {
+  z-index: 1060 !important; // above Bootstrap modals
+}
+
+.react-joyride__tooltip {
+  border-radius: 10px !important;
+  font-family: inherit !important;
+}
+
+.react-joyride__spotlight {
+  border-radius: 8px !important;
+}

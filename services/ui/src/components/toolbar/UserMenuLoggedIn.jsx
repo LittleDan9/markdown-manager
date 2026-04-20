@@ -28,7 +28,7 @@ function UserMenuLoggedIn() {
   const [showImageBrowserModal, setShowImageBrowserModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
-  const { setShowChatDrawer, setChatHelpMode } = useDocumentContext();
+  const { setShowChatDrawer, setChatHelpMode, setShowHelpModal, setShowGuidedTour } = useDocumentContext();
   const { generateMarkdown } = useImageManagement();
 
   // Set up return callback for FileOpen Modal → GitHub Modal navigation
@@ -200,7 +200,13 @@ function UserMenuLoggedIn() {
         <LogLevelController />
         <Dropdown.Divider />
         <Dropdown.Item onClick={() => { setChatHelpMode(true); setShowChatDrawer(true); }}>
-          <i className="bi bi-question-circle me-2"></i>Help
+          <i className="bi bi-chat-dots me-2"></i>Ask AI for Help
+        </Dropdown.Item>
+        <Dropdown.Item onClick={() => setShowHelpModal(true)}>
+          <i className="bi bi-book me-2"></i>User Guide
+        </Dropdown.Item>
+        <Dropdown.Item onClick={() => setShowGuidedTour(true)}>
+          <i className="bi bi-signpost-split me-2"></i>Take a Tour
         </Dropdown.Item>
         <Dropdown.Item id="logoutBtn" onClick={handleLogout}>
           <i className="bi bi-box-arrow-right me-2"></i>Logout

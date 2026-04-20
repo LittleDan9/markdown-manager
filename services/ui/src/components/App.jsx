@@ -11,12 +11,14 @@ import EditorSection from "@/components/sections/EditorSection";
 import RendererSection from "@/components/sections/RendererSection";
 import AppModals from "@/components/shared/modals/AppModals";
 import ChatDrawer from "@/components/chat/ChatDrawer";
+import HelpModal from "@/components/help/HelpModal";
+import GuidedTour from "@/components/help/GuidedTour";
 import PromoteDraftModal from "@/components/document/modals/PromoteDraftModal";
 import { markDraftAcknowledged } from "@/hooks/document/useSaveDocument";
 
 function App() {
   const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer, createDocument } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer, showHelpModal, setShowHelpModal, showGuidedTour, setShowGuidedTour, createDocument } = useDocumentContext();
 
   // --- Draft promotion modal state ---
   const [showPromoteDraft, setShowPromoteDraft] = useState(false);
@@ -185,6 +187,16 @@ function App() {
         onHide={handlePromoteHide}
         defaultName={promoteDraftRef.current.doc?.name || 'Untitled Document'}
         onConfirm={handlePromoteConfirm}
+      />
+
+      <HelpModal
+        show={showHelpModal}
+        onHide={() => setShowHelpModal(false)}
+      />
+
+      <GuidedTour
+        run={showGuidedTour}
+        onFinish={() => setShowGuidedTour(false)}
       />
     </>
   );

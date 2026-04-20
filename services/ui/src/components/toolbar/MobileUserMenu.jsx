@@ -29,7 +29,7 @@ function MobileUserMenu({ show, onHide }) {
   } = useAuth();
   const { showSuccess } = useNotification();
   const { generateMarkdown } = useImageManagement();
-  const { setShowChatDrawer, setChatHelpMode } = useDocumentContext();
+  const { setShowChatDrawer, setChatHelpMode, setShowHelpModal, setShowGuidedTour } = useDocumentContext();
 
   const isLoggedIn = user?.is_active;
 
@@ -191,7 +191,13 @@ function MobileUserMenu({ show, onHide }) {
                 <hr className="mobile-menu-divider" />
 
                 <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => { setChatHelpMode(true); setShowChatDrawer(true); })}>
-                  <i className="bi bi-question-circle" /><span>Help</span>
+                  <i className="bi bi-chat-dots" /><span>Ask AI for Help</span>
+                </button>
+                <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowHelpModal(true))}>
+                  <i className="bi bi-book" /><span>User Guide</span>
+                </button>
+                <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => setShowGuidedTour(true))}>
+                  <i className="bi bi-signpost-split" /><span>Take a Tour</span>
                 </button>
 
                 <button type="button" className="mobile-menu-item text-danger" onClick={handleLogout}>
