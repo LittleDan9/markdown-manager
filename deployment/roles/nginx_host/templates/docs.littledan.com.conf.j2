@@ -78,7 +78,9 @@ server {
     # ── Auth endpoints — strict rate limiting ────────────────────────────
     location ~* ^/api/(?!github/)(auth|login|register|password) {
         limit_req zone=auth burst=5 nodelay;
-        limit_conn api_conn 2;
+        limit_req_status 429;
+        limit_conn api_conn 5;
+        limit_conn_status 429;
 
         if ($block_bot = 1) {
             return 444;

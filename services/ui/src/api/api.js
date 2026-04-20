@@ -193,8 +193,10 @@ export class Api {
       enhancedError.code = error.code;
       enhancedError.status = error.response?.status;
 
-      // Dispatch global notification for network errors
-      this.handleApiError(error, endpoint);
+      // Dispatch global notification for network errors (unless caller opted out)
+      if (!options.silentErrors) {
+        this.handleApiError(error, endpoint);
+      }
 
       throw enhancedError;
     }

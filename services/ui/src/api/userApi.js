@@ -5,7 +5,7 @@ class UserAPI extends Api {
   async ssoCheck() {
     try {
       console.log('UserAPI.ssoCheck: Attempting SSO check');
-      const res = await this.apiCall("/auth/sso-check", "GET", null, {}, { withCredentials: true, noAuth: true });
+      const res = await this.apiCall("/auth/sso-check", "GET", null, {}, { withCredentials: true, noAuth: true, silentErrors: true });
       console.log('UserAPI.ssoCheck: SSO check result', res.data);
       return res.data;
     } catch (error) {
@@ -19,7 +19,7 @@ class UserAPI extends Api {
     try {
       console.log('UserAPI.refreshToken: Attempting refresh with credentials');
       // The refresh token should be sent as a cookie
-      const res = await this.apiCall("/auth/refresh", "POST", null, {}, { withCredentials: true });
+      const res = await this.apiCall("/auth/refresh", "POST", null, {}, { withCredentials: true, silentErrors: true });
       console.log('UserAPI.refreshToken: Refresh successful', res.data);
       return res.data;
     } catch (error) {
