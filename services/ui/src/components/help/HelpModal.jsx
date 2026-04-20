@@ -7,6 +7,29 @@ import helpApi from '@/api/helpApi';
 // Safe markdown renderer (html disabled)
 const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
 
+// Detect macOS from user agent
+const isMac = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+/**
+ * Replace keyboard shortcut template markers with OS-appropriate keys.
+ * {{mod}} → ⌘ (Mac) or Ctrl (Windows/Linux)
+ * {{alt}} → ⌥ Option (Mac) or Alt (Windows/Linux)
+ * {{shift}} → ⇧ Shift (Mac) or Shift (Windows/Linux)
+ */
+function applyOSShortcuts(text) {
+  if (!text) return text;
+  if (isMac) {
+    return text
+      .replace(/\{\{mod\}\}/g, '⌘')
+      .replace(/\{\{alt\}\}/g, '⌥')
+      .replace(/\{\{shift\}\}/g, '⇧');
+  }
+  return text
+    .replace(/\{\{mod\}\}/g, 'Ctrl')
+    .replace(/\{\{alt\}\}/g, 'Alt')
+    .replace(/\{\{shift\}\}/g, 'Shift');
+}
+
 // Icon mapping for sidebar topics
 const TOPIC_ICONS = {
   'getting-started': 'bi-rocket-takeoff',
@@ -72,10 +95,10 @@ function HelpModal({ show, onHide }) {
     return topics.filter((t) => t.title.toLowerCase().includes(q));
   }, [topics, searchQuery]);
 
-  // Render markdown to HTML
+  // Render markdown to HTML (with OS-appropriate shortcut keys)
   const renderedHTML = useMemo(() => {
     if (!content) return '';
-    return md.render(content);
+    return md.render(applyOSShortcuts(content));
   }, [content]);
 
   const handleTopicClick = useCallback((slug) => {

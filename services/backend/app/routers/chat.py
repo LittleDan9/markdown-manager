@@ -67,6 +67,7 @@ class AskRequest(BaseModel):
     selection_context: str | None = None  # Optional editor-selected text to include as context
     strict_context: bool = False     # True = only answer from document content, no general knowledge
     help_mode: bool = False          # True = answer product questions using built-in help docs
+    client_os: str | None = None     # "mac" or "windows" for OS-specific keyboard shortcuts
 
 
 @router.post("/ask")
@@ -166,6 +167,7 @@ async def ask(
                 selection_context=request.selection_context,
                 strict_context=request.strict_context,
                 help_mode=request.help_mode,
+                client_os=request.client_os,
             ):
                 if isinstance(token, dict) and token.get("__metrics__"):
                     metrics_payload = {

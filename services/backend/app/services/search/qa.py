@@ -117,6 +117,7 @@ class QAService:
         selection_context: str | None = None,
         strict_context: bool = False,
         help_mode: bool = False,
+        client_os: str | None = None,
     ) -> AsyncIterator[str | dict]:
         """
         Yield answer tokens as they stream from the configured LLM provider.
@@ -138,6 +139,20 @@ class QAService:
 
         if help_mode:
             help_content = self._load_help_docs()
+            # Apply OS-specific keyboard shortcut substitution
+            if client_os and help_content:
+                if client_os == "mac":
+                    help_content = (
+                        help_content.replace("{{mod}}", "⌘")
+                        .replace("{{alt}}", "⌥")
+                        .replace("{{shift}}", "⇧")
+                    )
+                else:
+                    help_content = (
+                        help_content.replace("{{mod}}", "Ctrl")
+                        .replace("{{alt}}", "Alt")
+                        .replace("{{shift}}", "Shift")
+                    )
             t_context = time.monotonic()
 
             if not help_content:

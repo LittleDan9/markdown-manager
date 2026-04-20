@@ -6,16 +6,17 @@ Quick reference for all keyboard shortcuts available in Markdown Manager.
 
 | Shortcut | Action |
 |---|---|
-| **Ctrl+S** | Save document |
-| **Ctrl+B** | Bold selected text |
-| **Ctrl+I** | Italicize selected text |
-| **Ctrl+/** | Toggle comment |
-| **Ctrl+.** | Quick Fix — show spell check and lint suggestions at cursor |
-| **Ctrl+Shift+L** | Toggle markdown linting on/off |
-| **Ctrl+Z** | Undo |
-| **Ctrl+Shift+Z** | Redo |
-| **Ctrl+F** | Find in document |
-| **Ctrl+H** | Find and replace |
+| **{{mod}}+S** | Save document |
+| **{{mod}}+B** | Bold selected text |
+| **{{mod}}+I** | Italicize selected text |
+| **{{mod}}+/** | Toggle comment |
+| **{{mod}}+.** | Quick Fix — show spell check and lint suggestions at cursor |
+| **{{mod}}+Shift+L** | Toggle markdown linting on/off |
+| **{{mod}}+Z** | Undo |
+| **{{mod}}+Shift+Z** | Redo |
+| **{{mod}}+F** | Find in document |
+| **{{mod}}+H** | Find and replace |
+| **{{mod}}+{{alt}}+N** | New document |
 
 ## Chat Shortcuts
 

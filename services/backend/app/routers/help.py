@@ -2,8 +2,9 @@
 
 import logging
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 logger = logging.getLogger(__name__)
 
@@ -12,7 +13,25 @@ router = APIRouter(prefix="/help", tags=["help"])
 _HELP_DIR = Path(__file__).resolve().parents[2] / "docs" / "help"
 
 
-def _read_topic(slug: str) -> dict:
+def _apply_os_shortcuts(text: str, client_os: Optional[str]) -> str:
+    """Replace {{mod}}/{{alt}}/{{shift}} markers with OS-appropriate keys."""
+    if not client_os or not text:
+        return text
+    if client_os == "mac":
+        return (
+            text.replace("{{mod}}", "⌘")
+            .replace("{{alt}}", "⌥")
+            .replace("{{shift}}", "⇧")
+        )
+    # windows / linux
+    return (
+        text.replace("{{mod}}", "Ctrl")
+        .replace("{{alt}}", "Alt")
+        .replace("{{shift}}", "Shift")
+    )
+
+
+def _read_topic(slug: str, client_os: Optional[str] = None) -> dict:
     """Read a single help topic by slug and return {slug, title, content}."""
     path = _HELP_DIR / f"{slug}.md"
     if not path.is_file():
@@ -23,6 +42,7 @@ def _read_topic(slug: str) -> dict:
     except ValueError:
         raise HTTPException(status_code=404, detail=f"Help topic '{slug}' not found")
     text = path.read_text(encoding="utf-8")
+    text = _apply_os_shortcuts(text, client_os)
     # Extract title from first markdown heading
     title = slug.replace("-", " ").title()
     for line in text.splitlines():
@@ -53,6 +73,9 @@ async def list_topics():
 
 
 @router.get("/topics/{slug}")
-async def get_topic(slug: str):
+async def get_topic(
+    slug: str,
+    client_os: Optional[str] = Query(None, alias="os", description="Client OS: 'mac' or 'windows'"),
+):
     """Return a single help topic with full markdown content."""
-    return _read_topic(slug)
+    return _read_topic(slug, client_os)

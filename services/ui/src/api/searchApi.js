@@ -44,7 +44,10 @@ class SearchApi extends Api {
     if (model) body.model = model;
     if (selectionContext) body.selection_context = selectionContext;
     if (strictContext) body.strict_context = true;
-    if (helpMode) body.help_mode = true;
+    if (helpMode) {
+      body.help_mode = true;
+      body.client_os = /Mac|iPhone|iPad|iPod/i.test(navigator.userAgent) ? 'mac' : 'windows';
+    }
 
     const response = await fetch("/api/chat/ask", {
       method: "POST",
