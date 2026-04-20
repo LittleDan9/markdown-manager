@@ -61,6 +61,7 @@ COPY ./migrations/env.py /markdown-manager/migrations/
 COPY ./migrations/versions/ /markdown-manager/migrations/versions/
 COPY ./scripts/entrypoint.sh /markdown-manager/
 COPY ./app /markdown-manager/app
+COPY ./docs/help /markdown-manager/docs/help
 
 # Copy extracted icon seed data from build stage
 COPY --from=seed-icons /seed-icons/data/ /markdown-manager/seed-icons/

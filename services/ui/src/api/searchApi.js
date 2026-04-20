@@ -27,9 +27,10 @@ class SearchApi extends Api {
    * @param {number|null} keyId - Specific API key ID to use (overrides provider lookup)
    * @param {string|null} model - Override model at chat-time (from model picker)
    * @param {boolean} strictContext - Only answer from document content, no general knowledge
+   * @param {boolean} helpMode - Answer product questions using built-in help docs
    * @returns {Promise<void>}
    */
-  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = [], categoryId = null, provider = null, selectionContext = null, keyId = null, model = null, strictContext = false) {
+  async askQuestion(question, documentId, onToken, signal, deepThink = false, history = [], categoryId = null, provider = null, selectionContext = null, keyId = null, model = null, strictContext = false, helpMode = false) {
     const token = this.getToken();
     const body = {
       question,
@@ -43,6 +44,7 @@ class SearchApi extends Api {
     if (model) body.model = model;
     if (selectionContext) body.selection_context = selectionContext;
     if (strictContext) body.strict_context = true;
+    if (helpMode) body.help_mode = true;
 
     const response = await fetch("/api/chat/ask", {
       method: "POST",

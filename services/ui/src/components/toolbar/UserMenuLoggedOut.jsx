@@ -12,7 +12,7 @@ import { useAuth } from "@/providers/AuthProvider";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();
-  const { isSharedView } = useDocumentContext();
+  const { isSharedView, setShowChatDrawer, setChatHelpMode } = useDocumentContext();
   const {
     setUser,
     login: _login,
@@ -128,6 +128,9 @@ function UserMenuLoggedOut() {
         </>
       )}
       <Dropdown.Divider />
+      <Dropdown.Item onClick={() => { setChatHelpMode(true); setShowChatDrawer(true); }}>
+        <i className="bi bi-question-circle me-2"></i>Help
+      </Dropdown.Item>
       <Dropdown.Item id="themeToggleBtnUser" onClick={toggleTheme}>
         <ThemeToggle idPrefix="userMenu" />
       </Dropdown.Item>

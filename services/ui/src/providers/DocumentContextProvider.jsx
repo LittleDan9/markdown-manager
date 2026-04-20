@@ -21,6 +21,7 @@ export function DocumentContextProvider({ children }) {
   const [fullscreenPreview, setFullscreenPreview] = useState(false);
   const [showIconBrowser, setShowIconBrowser] = useState(false);
   const [showChatDrawer, setShowChatDrawer] = useState(false);
+  const [chatHelpMode, setChatHelpMode] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState('editor'); // 'editor' | 'preview'
   const [editorSelection, setEditorSelection] = useState(null); // { text, startLine, endLine } or null
 
@@ -152,6 +153,8 @@ export function DocumentContextProvider({ children }) {
       setShowIconBrowser,
       showChatDrawer,
       setShowChatDrawer,
+      chatHelpMode,
+      setChatHelpMode,
       mobileViewMode,
       setMobileViewMode,
       editorSelection,
@@ -162,7 +165,7 @@ export function DocumentContextProvider({ children }) {
       isAuthenticated: auth.isAuthenticated,
       isInitializing: auth.isInitializing
     };
-  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, openRecentsCoordinated, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, mobileViewMode, editorSelection, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
+  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, openRecentsCoordinated, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, chatHelpMode, mobileViewMode, editorSelection, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
 
   return (
     <DocumentContext.Provider value={value}>

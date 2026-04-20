@@ -77,6 +77,11 @@
       opacity: 0.45;
       cursor: not-allowed;
     }
+
+    &.help-scope-btn.active {
+      background: var(--bs-info-bg-subtle, var(--bs-body-bg));
+      color: var(--bs-info-text-emphasis, var(--bs-body-color));
+    }
   }
 }
 

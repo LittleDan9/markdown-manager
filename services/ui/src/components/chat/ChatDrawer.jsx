@@ -99,12 +99,20 @@ const formatMetrics = (metrics) => {
 
 const SCOPE_ALL = "all";
 const SCOPE_CURRENT = "current";
+const SCOPE_HELP = "help";
 
 const QUICK_ACTIONS = [
   { label: "Summarize", icon: "bi-card-text", prompt: "Summarize this document concisely" },
   { label: "Expand Shorthand", icon: "bi-arrows-angle-expand", prompt: "Rewrite this converting shorthand and abbreviations into full written notes while preserving all information" },
   { label: "Improve Structure", icon: "bi-layout-text-sidebar-reverse", prompt: "Restructure and improve the layout of this document with better headings, organization, and formatting" },
   { label: "Fix Grammar", icon: "bi-spellcheck", prompt: "Fix grammar and improve clarity while preserving the original meaning" },
+];
+
+const HELP_QUICK_ACTIONS = [
+  { label: "App Overview", icon: "bi-info-circle", prompt: "What are the main features of Markdown Manager?" },
+  { label: "Sharing", icon: "bi-share", prompt: "How do I share a document with someone?" },
+  { label: "AI Chat", icon: "bi-chat-dots", prompt: "How does the AI chat assistant work?" },
+  { label: "Shortcuts", icon: "bi-keyboard", prompt: "What keyboard shortcuts are available?" },
 ];
 
 const PROVIDER_LABELS = {
@@ -116,7 +124,7 @@ const PROVIDER_LABELS = {
 };
 
 function ChatDrawer({ show, onHide }) {
-  const { currentDocument, documents, loadDocument, editorSelection } = useDocumentContext();
+  const { currentDocument, documents, loadDocument, editorSelection, chatHelpMode, setChatHelpMode } = useDocumentContext();
   const editorActions = useChatEditorActions();
   const history = useChatHistory();
 
@@ -177,6 +185,14 @@ function ChatDrawer({ show, onHide }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, [show]);
+
+  // Switch to help scope when opened via help menu entry
+  useEffect(() => {
+    if (show && chatHelpMode) {
+      setScope(SCOPE_HELP);
+      setChatHelpMode(false);
+    }
+  }, [show, chatHelpMode, setChatHelpMode]);
 
   // Load conversation list when drawer opens
   useEffect(() => {
@@ -440,6 +456,7 @@ function ChatDrawer({ show, onHide }) {
     const categoryId = categoryFilterEnabled && scope === SCOPE_ALL && selectedCategoryId
       ? selectedCategoryId : null;
     const selectionText = useSelection && editorSelection?.text ? editorSelection.text : null;
+    const isHelpMode = scope === SCOPE_HELP;
 
     // Ensure a conversation exists for persistence
     let convId = history.activeConversationId;
@@ -528,6 +545,7 @@ function ChatDrawer({ show, onHide }) {
         selectedProvider.keyId || null,
         selectedModel || null,
         strictContext,
+        isHelpMode,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -664,6 +682,7 @@ function ChatDrawer({ show, onHide }) {
         selectedProvider.keyId || null,
         selectedModel || null,
         strictContext,
+        scope === SCOPE_HELP,
       );
     } catch (err) {
       if (err.name !== "AbortError") {
@@ -948,6 +967,14 @@ function ChatDrawer({ show, onHide }) {
           >
             Current Doc
           </button>
+          <button
+            className={`scope-btn help-scope-btn${scope === SCOPE_HELP ? " active" : ""}`}
+            onClick={() => setScope(SCOPE_HELP)}
+            title="Ask questions about Markdown Manager features"
+            type="button"
+          >
+            <i className="bi bi-question-circle me-1" />Help
+          </button>
         </div>
 
         {/* Provider & Model picker */}
@@ -1045,7 +1072,7 @@ function ChatDrawer({ show, onHide }) {
           )}
         </div>
 
-        {/* Category filter — only visible in All Docs scope */}
+        {/* Category filter — only visible in All Docs scope (not help mode) */}
         {scope === SCOPE_ALL && categoryList.length > 0 && (
           <div className="chat-category-filter">
             <div className="category-filter-row">
@@ -1100,7 +1127,8 @@ function ChatDrawer({ show, onHide }) {
           </div>
         )}
 
-        {/* Strict Context toggle — document-only answers, no general knowledge */}
+        {/* Strict Context toggle — document-only answers, no general knowledge (hidden in help mode) */}
+        {scope !== SCOPE_HELP && (
         <div className="chat-strict-context">
           <label className="strict-context-label" htmlFor="strict-context-toggle">
             <i className="bi bi-lock" />
@@ -1117,16 +1145,23 @@ function ChatDrawer({ show, onHide }) {
             onKeyDown={(e) => e.key === "Enter" || e.key === " " ? setStrictContext((v) => !v) : null}
           />
         </div>
+        )}
 
         {/* Messages */}
         {/* onClick uses event delegation to capture doc-link anchor clicks */}
         <div className="chat-messages" onClick={handleMessagesClick}>
           {messages.length === 0 ? (
             <div className="chat-empty-state">
-              <i className="bi bi-chat-square-text" />
-              <div className="empty-title">Ask anything about your documents</div>
+              <i className={scope === SCOPE_HELP ? "bi bi-question-circle" : "bi bi-chat-square-text"} />
+              <div className="empty-title">
+                {scope === SCOPE_HELP
+                  ? "Ask about Markdown Manager"
+                  : "Ask anything about your documents"}
+              </div>
               <div className="empty-hint">
-                {scope === SCOPE_ALL
+                {scope === SCOPE_HELP
+                  ? "Get help with features, shortcuts, and how to use the app."
+                  : scope === SCOPE_ALL
                   ? categoryFilterEnabled && selectedCategoryId
                     ? `Answers are sourced from documents in the "${categoryList.find((c) => c.id === selectedCategoryId)?.name || "selected"}" category.`
                     : "Answers are sourced from your entire document library."
@@ -1353,9 +1388,9 @@ function ChatDrawer({ show, onHide }) {
           )}
 
           {/* Quick actions */}
-          {hasCurrentDoc && !isStreaming && (
+          {((hasCurrentDoc && scope !== SCOPE_HELP) || scope === SCOPE_HELP) && !isStreaming && (
             <div className="chat-quick-actions">
-              {QUICK_ACTIONS.map((action) => (
+              {(scope === SCOPE_HELP ? HELP_QUICK_ACTIONS : QUICK_ACTIONS).map((action) => (
                 <button
                   key={action.label}
                   type="button"
@@ -1375,7 +1410,9 @@ function ChatDrawer({ show, onHide }) {
               ref={textareaRef}
               className="chat-textarea"
               placeholder={
-                scope === SCOPE_CURRENT && hasCurrentDoc
+                scope === SCOPE_HELP
+                  ? "Ask about features, shortcuts, how to… (Shift+Enter for new line)"
+                  : scope === SCOPE_CURRENT && hasCurrentDoc
                   ? `Ask about "${currentDocument.name}"… (Shift+Enter for new line)`
                   : "Ask about your documents… (Shift+Enter for new line)"
               }

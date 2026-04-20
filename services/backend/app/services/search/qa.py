@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
+from pathlib import Path
 from typing import AsyncIterator
 
 from sqlalchemy import select
@@ -72,6 +73,18 @@ Always mention the exact document name when citing information so the user can f
 Be concise.
 When your response has distinct parts, separate them with --- (horizontal rule)."""
 
+# System prompt for Help mode — answer questions about the product itself
+_SYSTEM_PROMPT_HELP = """You are the Markdown Manager help assistant. Answer questions about the application's features, how to use them, and how to accomplish tasks.
+You have product documentation below covering all major features. Use it to give accurate, helpful answers.
+If the documentation doesn't cover the user's question, say so and suggest they check the Settings or User Guide.
+Be concise and practical — give step-by-step instructions when appropriate.
+When your response has distinct parts, separate them with --- (horizontal rule)."""
+
+# In-memory cache for help documentation content
+_help_docs_cache: tuple[float, str] | None = None
+_HELP_DOCS_TTL = 300  # seconds — help docs change rarely
+_HELP_DOCS_DIR = Path(__file__).resolve().parents[3] / "docs" / "help"
+
 
 class QAService:
     """Retrieves relevant document context and streams an answer via an LLM provider."""
@@ -103,10 +116,13 @@ class QAService:
         history: list | None = None,
         selection_context: str | None = None,
         strict_context: bool = False,
+        help_mode: bool = False,
     ) -> AsyncIterator[str | dict]:
         """
         Yield answer tokens as they stream from the configured LLM provider.
 
+        If *help_mode* is True, uses product documentation as context instead
+        of user documents — answers questions about the application itself.
         If *document_id* is provided, context is limited to that document ("Current Doc" mode).
         If *deep_think* is True (only valid with document_id), the full document text is sent
         instead of the pre-computed summary.
@@ -120,22 +136,36 @@ class QAService:
         """
         t_start = time.monotonic()
 
-        all_docs_mode = document_id is None
-        context_chunks, catalogue = await self._build_context(
-            db, user_id, question, document_id, deep_think=deep_think,
-            category_id=category_id,
-        )
-        t_context = time.monotonic()
+        if help_mode:
+            help_content = self._load_help_docs()
+            t_context = time.monotonic()
 
-        if not catalogue and not context_chunks:
-            yield "Your document library appears to be empty. Add some documents first."
-            return
+            if not help_content:
+                yield "Help documentation is not available at this time."
+                return
 
-        system_prompt, user_prompt = self._build_prompt(
-            question, context_chunks, catalogue, all_docs_mode,
-            selection_context=selection_context,
-            strict_context=strict_context,
-        )
+            system_prompt = _SYSTEM_PROMPT_HELP
+            user_prompt = (
+                f"=== PRODUCT DOCUMENTATION ===\n{help_content}\n\n"
+                f"=== QUESTION ===\n{question}"
+            )
+        else:
+            all_docs_mode = document_id is None
+            context_chunks, catalogue = await self._build_context(
+                db, user_id, question, document_id, deep_think=deep_think,
+                category_id=category_id,
+            )
+            t_context = time.monotonic()
+
+            if not catalogue and not context_chunks:
+                yield "Your document library appears to be empty. Add some documents first."
+                return
+
+            system_prompt, user_prompt = self._build_prompt(
+                question, context_chunks, catalogue, all_docs_mode,
+                selection_context=selection_context,
+                strict_context=strict_context,
+            )
         history_msgs = self._history_as_messages(
             history,
             max_turns=self._provider.max_history_turns,
@@ -198,6 +228,35 @@ class QAService:
     async def health_check(self) -> bool:
         """Return True if the LLM provider is reachable."""
         return await self._provider.health_check()
+
+    @staticmethod
+    def _load_help_docs() -> str:
+        """Load and cache help documentation from docs/help/ directory.
+
+        Returns concatenated markdown content from all help files.
+        Cached with a TTL to avoid repeated filesystem reads.
+        """
+        global _help_docs_cache
+        now = time.monotonic()
+        if _help_docs_cache and _help_docs_cache[0] > now:
+            return _help_docs_cache[1]
+
+        if not _HELP_DOCS_DIR.is_dir():
+            logger.warning("Help docs directory not found: %s", _HELP_DOCS_DIR)
+            return ""
+
+        parts: list[str] = []
+        for md_file in sorted(_HELP_DOCS_DIR.glob("*.md")):
+            try:
+                content = md_file.read_text(encoding="utf-8")
+                parts.append(content)
+            except OSError:
+                logger.warning("Failed to read help file: %s", md_file, exc_info=True)
+
+        text = "\n\n---\n\n".join(parts)
+        _help_docs_cache = (now + _HELP_DOCS_TTL, text)
+        logger.info("Loaded %d help docs (%d chars)", len(parts), len(text))
+        return text
 
     # ------------------------------------------------------------------
     # Internal helpers

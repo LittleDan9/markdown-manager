@@ -66,6 +66,7 @@ class AskRequest(BaseModel):
     model: str | None = None         # Override model at chat-time (from model picker)
     selection_context: str | None = None  # Optional editor-selected text to include as context
     strict_context: bool = False     # True = only answer from document content, no general knowledge
+    help_mode: bool = False          # True = answer product questions using built-in help docs
 
 
 @router.post("/ask")
@@ -147,10 +148,10 @@ async def ask(
             ollama_url=_db_url.value if _db_url else None,
         )
 
-    # deep_think only meaningful in single-doc mode; ignore for all-docs queries
-    deep_think = request.deep_think and request.document_id is not None
-    # category_id only meaningful in all-docs mode; ignore for single-doc queries
-    category_id = request.category_id if request.document_id is None else None
+    # deep_think only meaningful in single-doc mode; ignore for all-docs/help queries
+    deep_think = request.deep_think and request.document_id is not None and not request.help_mode
+    # category_id only meaningful in all-docs mode; ignore for single-doc/help queries
+    category_id = request.category_id if request.document_id is None and not request.help_mode else None
 
     async def token_stream():
         try:
@@ -164,6 +165,7 @@ async def ask(
                 history=request.history,
                 selection_context=request.selection_context,
                 strict_context=request.strict_context,
+                help_mode=request.help_mode,
             ):
                 if isinstance(token, dict) and token.get("__metrics__"):
                     metrics_payload = {

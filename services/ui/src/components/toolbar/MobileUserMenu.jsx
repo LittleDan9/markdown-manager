@@ -4,6 +4,7 @@ import { Offcanvas } from 'react-bootstrap';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNotification } from '@/components/NotificationProvider';
 import { useImageManagement } from '@/hooks/image/useImageManagement';
+import { useDocumentContext } from '@/providers/DocumentContextProvider';
 
 import UserSettingsModal from '@/components/user/modals/UserSettingsModal';
 import GitHubModal from '@/components/github/modals/GitHubModal';
@@ -28,6 +29,7 @@ function MobileUserMenu({ show, onHide }) {
   } = useAuth();
   const { showSuccess } = useNotification();
   const { generateMarkdown } = useImageManagement();
+  const { setShowChatDrawer, setChatHelpMode } = useDocumentContext();
 
   const isLoggedIn = user?.is_active;
 
@@ -187,6 +189,10 @@ function MobileUserMenu({ show, onHide }) {
                 )}
 
                 <hr className="mobile-menu-divider" />
+
+                <button type="button" className="mobile-menu-item" onClick={() => handleAction(() => { setChatHelpMode(true); setShowChatDrawer(true); })}>
+                  <i className="bi bi-question-circle" /><span>Help</span>
+                </button>
 
                 <button type="button" className="mobile-menu-item text-danger" onClick={handleLogout}>
                   <i className="bi bi-box-arrow-right" /><span>Logout</span>

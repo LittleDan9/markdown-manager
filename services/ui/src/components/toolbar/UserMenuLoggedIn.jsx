@@ -13,6 +13,7 @@ import SystemHealthModal from "../system/SystemHealthModal";
 import ImageBrowserModal from "../images/ImageBrowserModal";
 import { useImageManagement } from "@/hooks/image/useImageManagement";
 import { useTheme } from "../../providers/ThemeProvider";
+import { useDocumentContext } from "../../providers/DocumentContextProvider";
 import LogLevelController from "@/components/LogLevelController";
 
 function UserMenuLoggedIn() {
@@ -27,6 +28,7 @@ function UserMenuLoggedIn() {
   const [showImageBrowserModal, setShowImageBrowserModal] = useState(false);
   const [activeTab, setActiveTab] = useState("profile-info");
   const { toggleTheme } = useTheme();
+  const { setShowChatDrawer, setChatHelpMode } = useDocumentContext();
   const { generateMarkdown } = useImageManagement();
 
   // Set up return callback for FileOpen Modal → GitHub Modal navigation
@@ -197,6 +199,9 @@ function UserMenuLoggedIn() {
         </Dropdown.Item>
         <LogLevelController />
         <Dropdown.Divider />
+        <Dropdown.Item onClick={() => { setChatHelpMode(true); setShowChatDrawer(true); }}>
+          <i className="bi bi-question-circle me-2"></i>Help
+        </Dropdown.Item>
         <Dropdown.Item id="logoutBtn" onClick={handleLogout}>
           <i className="bi bi-box-arrow-right me-2"></i>Logout
         </Dropdown.Item>
