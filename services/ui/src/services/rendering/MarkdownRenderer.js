@@ -1,5 +1,6 @@
 import MarkdownIt from "markdown-it";
 import markdownItKatex from "markdown-it-katex";
+import markdownItTaskLists from "markdown-it-task-lists";
 import { HighlightService } from '../editor';
 import { Mermaid } from './index';
 import ImageCacheService from './ImageCacheService';
@@ -35,7 +36,12 @@ md.use(markdownItKatex, {
     '\\iff': '\\Leftrightarrow'
   }
 });
-
+// Configure task list (checkbox) plugin
+md.use(markdownItTaskLists, {
+  enabled: true,
+  label: true,
+  labelAfter: true
+});
 // Helper: map token index to source line number
 function getLineAttr(tokens, idx) {
   const token = tokens[idx];

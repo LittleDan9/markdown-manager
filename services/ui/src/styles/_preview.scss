@@ -218,6 +218,27 @@
         }
       }
 
+      // Task list checkboxes (GFM-style)
+      .contains-task-list {
+        list-style: none;
+        padding-left: variables.$space-2;
+      }
+
+      .task-list-item {
+        position: relative;
+        padding-left: 0.25em;
+
+        .task-list-item-checkbox {
+          margin-right: 0.5em;
+          vertical-align: middle;
+          pointer-events: none;
+        }
+
+        label {
+          cursor: default;
+        }
+      }
+
       hr {
         border: none;
         height: 1px;
