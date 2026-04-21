@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { Joyride, STATUS, EVENTS } from 'react-joyride';
+import { Joyride, ACTIONS, STATUS, EVENTS } from 'react-joyride';
 import tourSteps from './tourSteps';
 
 const TOUR_COMPLETED_KEY = 'mm-tour-completed';
@@ -53,15 +53,20 @@ function GuidedTour({ run, onFinish }) {
   const handleCallback = useCallback((data) => {
     const { status, type, index, action } = data;
 
+    // Advance to next / previous step
     if (type === EVENTS.STEP_AFTER) {
-      setStepIndex(index + 1);
+      setStepIndex(index + (action === ACTIONS.PREV ? -1 : 1));
+      return;
     }
 
-    // Close on skip, finish, or explicit close action
-    if (
-      [STATUS.FINISHED, STATUS.SKIPPED].includes(status) ||
-      action === 'close'
-    ) {
+    // If a target element is missing, skip forward past it
+    if (type === EVENTS.TARGET_NOT_FOUND) {
+      setStepIndex(index + 1);
+      return;
+    }
+
+    // End tour only on authoritative status changes (finish, skip, close, escape, overlay click)
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       localStorage.setItem(TOUR_COMPLETED_KEY, 'true');
       onFinish?.();
     }
