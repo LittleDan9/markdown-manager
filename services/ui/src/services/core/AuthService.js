@@ -53,12 +53,22 @@ class AuthService {
       console.log('AuthService: Attempting refresh token');
       let refreshResult = await UserAPI.refreshToken();
 
-      // If refresh returned null but we were previously authenticated, retry once
-      // after a short delay — the backend may be restarting during a deployment
-      if (!refreshResult && localStorage.getItem('lastKnownAuthState') === 'authenticated') {
-        console.log('AuthService: Refresh returned null for previously authenticated user, retrying in 2s');
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        refreshResult = await UserAPI.refreshToken();
+      // If refresh hit a transient error (502/503/504 or network), retry with backoff.
+      // This handles the window during blue/green deployments where the backend is
+      // briefly unavailable before the new container becomes healthy.
+      if (refreshResult?.transient && localStorage.getItem('lastKnownAuthState') === 'authenticated') {
+        const retryDelays = [2000, 4000, 6000];
+        for (const delay of retryDelays) {
+          console.log(`AuthService: Transient error, retrying refresh in ${delay / 1000}s`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          refreshResult = await UserAPI.refreshToken();
+          if (!refreshResult?.transient) break;
+        }
+      }
+
+      // Normalize transient sentinel to null if all retries exhausted
+      if (refreshResult?.transient) {
+        refreshResult = null;
       }
 
       if (refreshResult && refreshResult.access_token) {

@@ -15,6 +15,7 @@ class UserAPI extends Api {
   }
 
   // Request a new access token using the refresh token cookie
+  // Returns: { access_token, ... } on success, null on auth failure, { transient: true } on 502-504
   async refreshToken() {
     try {
       console.log('UserAPI.refreshToken: Attempting refresh with credentials');
@@ -28,12 +29,17 @@ class UserAPI extends Api {
       if (error?.response?.status === 401 || error?.response?.status === 403) {
         return null;
       }
-      // Transient proxy/server errors (backend restarting) — return null so callers can retry
+      // Transient proxy/server errors (backend restarting) — signal callers to retry
       if (error?.response?.status >= 502 && error?.response?.status <= 504) {
         console.warn('UserAPI.refreshToken: Transient server error, backend may be restarting');
-        return null;
+        return { transient: true };
       }
-      // Log other errors (500, network issues, etc.)
+      // Network errors (no response at all) are also transient
+      if (error?.code === 'ERR_NETWORK' || !error?.response) {
+        console.warn('UserAPI.refreshToken: Network error, backend may be unavailable');
+        return { transient: true };
+      }
+      // Log other errors (500, etc.)
       console.error("Token refresh failed:", error);
       throw error;
     }

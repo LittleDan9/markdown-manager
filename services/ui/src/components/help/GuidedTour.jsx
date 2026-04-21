@@ -1,6 +1,6 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import { Joyride, STATUS, EVENTS } from 'react-joyride';
+import { Joyride, STATUS } from 'react-joyride';
 import tourSteps from './tourSteps';
 
 const TOUR_COMPLETED_KEY = 'mm-tour-completed';
@@ -31,37 +31,25 @@ function getThemeColors() {
 /**
  * GuidedTour — interactive walkthrough using react-joyride.
  *
+ * Uses uncontrolled mode (no stepIndex) so Joyride handles all
+ * step navigation, target resolution, and scrolling internally.
+ *
  * Props:
  *  - run: boolean, when true the tour starts
  *  - onFinish: callback when tour ends (completed or skipped)
  */
 function GuidedTour({ run, onFinish }) {
-  const [stepIndex, setStepIndex] = useState(0);
-
   // Snapshot theme colors when tour starts so they stay consistent
   const colors = useMemo(() => {
-    if (!run) return getThemeColors();
     return getThemeColors();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [run]);
 
-  // Reset step when tour restarts
-  useEffect(() => {
-    if (run) setStepIndex(0);
-  }, [run]);
-
   const handleCallback = useCallback((data) => {
-    const { status, type, index, action } = data;
+    const { status } = data;
 
-    if (type === EVENTS.STEP_AFTER) {
-      setStepIndex(index + 1);
-    }
-
-    // Close on skip, finish, or explicit close action
-    if (
-      [STATUS.FINISHED, STATUS.SKIPPED].includes(status) ||
-      action === 'close'
-    ) {
+    // End tour on finish, skip, close button, Escape, or overlay click
+    if ([STATUS.FINISHED, STATUS.SKIPPED].includes(status)) {
       localStorage.setItem(TOUR_COMPLETED_KEY, 'true');
       onFinish?.();
     }
@@ -71,7 +59,6 @@ function GuidedTour({ run, onFinish }) {
     <Joyride
       steps={tourSteps}
       run={run}
-      stepIndex={stepIndex}
       continuous
       showSkipButton
       showProgress

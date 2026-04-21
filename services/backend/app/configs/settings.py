@@ -71,6 +71,11 @@ class Settings(BaseSettings):
         default="markdown-manager", description="App identifier for JWT iss/aud claims"
     )
 
+    # Cross-app service-to-service auth
+    cross_app_secret: str = Field(
+        default="", description="Shared secret for cross-app backend-to-backend API calls"
+    )
+
     # SMTP configuration
     smtp_host: str = Field(default="smtp.example.com", description="SMTP server host")
     smtp_port: int = Field(

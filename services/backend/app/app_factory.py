@@ -44,6 +44,7 @@ from app.routers.admin import router as admin_router
 from app.routers import api_keys
 from app.routers import chat
 from app.routers import comments
+from app.routers import cross_app
 from app.routers import notifications
 from app.routers import ws as ws_router
 
@@ -161,6 +162,9 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(
         public.router, tags=["public"]
     )  # Public routes (no auth required)
+    app.include_router(
+        cross_app.router, prefix="/cross-app", tags=["cross-app"]
+    )  # Cross-app service-to-service API (token auth)
     app.include_router(
         auth.router, prefix="/auth", tags=["auth"]
     )  # Includes MFA endpoints at /auth/mfa/*
