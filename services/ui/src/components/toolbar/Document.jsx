@@ -1,5 +1,5 @@
 import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModal";
-import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown, OverlayTrigger, Popover } from "react-bootstrap";
@@ -58,67 +58,37 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }, 1000);
   }, [getLastSavedText]);
 
-  // Tracks a user-initiated category selection that hasn't yet been reflected
-  // in currentDocument.category (i.e. the save is still in-flight).
-  // Stores { category, documentId } so the guard is scoped to the document being saved.
-  // Cleared when currentDocument.category catches up, or when the user switches documents.
-  const pendingCategoryRef = useRef(null);
+  // Navigate to a category (open first document in that category)
+  const handleCategorySelect = (category) => {
+    clearSiblingOverride();
+    openCategory(category);
+  };
 
-  // Save document immediately when changing category (only for local files)
-  const handleCategorySelect = async (category) => {
-    // Don't allow category changes for GitHub files
-    if (currentDocument?.repository_type === 'github') {
-      return;
-    }
+  // Move current document to a different category (save-based reassignment)
+  const handleMoveToCategory = async (category) => {
+    if (currentDocument?.repository_type === 'github') return;
+    if (category === currentCategory) return;
 
-    pendingCategoryRef.current = { category, documentId: currentDocument?.id };
     setCurrentCategory(category);
     try {
       const updatedDoc = { ...currentDocument, category };
       await saveDocument(updatedDoc);
-      // The saveDocument in DocumentProvider will handle current document tracking
+      refreshSiblings();
     } catch (err) {
-      // Revert dropdown to document's actual category on failure
-      pendingCategoryRef.current = null;
       setCurrentCategory(currentDocument?.category || 'General');
-      showError("Failed to update document category.");
+      showError("Failed to move document to category.");
     }
   };
 
-  // Sync category with currentDocument.category whenever document changes (local files only)
+  // Sync currentCategory from document state
   useEffect(() => {
-    // Skip category management entirely for GitHub files
-    if (currentDocument?.repository_type === 'github') {
-      return;
+    if (currentDocument?.repository_type === 'github') return;
+    if (currentDocument?.category) {
+      setCurrentCategory(
+        categories.includes(currentDocument.category) ? currentDocument.category : 'General'
+      );
     }
-
-    if (currentDocument && currentDocument.category) {
-      // If a user-initiated category change is pending, check whether the
-      // pending change is still relevant for the current document
-      if (pendingCategoryRef.current !== null) {
-        if (currentDocument.id !== pendingCategoryRef.current.documentId) {
-          // User switched to a different document — pending change is irrelevant.
-          // Clear it and fall through to sync from the new document's category.
-          pendingCategoryRef.current = null;
-        } else if (currentDocument.category === pendingCategoryRef.current.category) {
-          // Save completed for THIS document — category caught up, clear pending
-          pendingCategoryRef.current = null;
-          return; // Optimistic value is already correct
-        } else {
-          // Still pending for this document — don't override the optimistic update
-          return;
-        }
-      }
-
-      // No pending change — sync dropdown from document state (external change)
-      if (!categories.includes(currentDocument.category)) {
-        setCurrentCategory("General");
-      } else {
-        setCurrentCategory(currentDocument.category);
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit currentCategory to prevent bounce-back on optimistic updates
-  }, [currentDocument?.category, currentDocument?.updated_at, currentDocument?.repository_type, categories, currentDocument]);
+  }, [currentDocument?.category, currentDocument?.repository_type, categories]);
 
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");
@@ -279,13 +249,13 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           {currentDocument.category || 'General'}
         </span>
       ) : (
-        /* Category dropdown with inline rename for local files */
-        <Dropdown as="span" className="me-1">
+        /* Category breadcrumb dropdown — navigation-primary */
+        <Dropdown as="span" className="me-1 category-breadcrumb">
           <Dropdown.Toggle
-            size="sm"
-            variant="secondary"
+            as="span"
             id="categoryDropdown"
-            className="dropdown-toggle d-flex align-items-center"
+            className="category-breadcrumb-toggle"
+            role="button"
           >
             {editingCategory ? (
               <input
@@ -310,30 +280,15 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             )}
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            {/* Recent — virtual category */}
+            {/* Recent — virtual navigation category */}
             <Dropdown.Item
               key="__recents__"
               active={siblingOverrideMode === 'recents'}
-              onClick={(e) => e.preventDefault()}
+              onClick={() => openRecents()}
               className={`d-flex justify-content-between align-items-center
                   ${siblingOverrideMode === 'recents' ? "text-bg-secondary" : ""}`}
             >
               <span className="text-truncate"><i className="bi bi-clock-history me-1"></i>Recent</span>
-              <span className="d-flex align-items-center gap-1 ms-2">
-                <button
-                  type="button"
-                  className="btn btn-link btn-sm p-0 text-muted"
-                  title="Open Recent"
-                  tabIndex={-1}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    openRecents();
-                  }}
-                  aria-label="Open Recent"
-                >
-                  <i className="bi bi-folder2-open"></i>
-                </button>
-              </span>
             </Dropdown.Item>
             <Dropdown.Divider />
             {categories.map((category) => (
@@ -346,20 +301,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
               >
                 <span className="text-truncate">{category}</span>
                 <span className="d-flex align-items-center gap-1 ms-2">
-                  <button
-                    type="button"
-                    className="btn btn-link btn-sm p-0 text-muted"
-                    title={`Open ${category}`}
-                    tabIndex={-1}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      clearSiblingOverride();
-                      openCategory(category);
-                    }}
-                    aria-label={`Open ${category}`}
-                  >
-                    <i className="bi bi-folder2-open"></i>
-                  </button>
                   {category !== "General" && category !== "Drafts" && (
                     <button
                       type="button"
@@ -411,7 +352,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           </Dropdown.Menu>
         </Dropdown>
       )}
-      <span className="mx-1 text-muted">/</span>
+      <span className="mx-1 text-muted breadcrumb-separator">›</span>
       {editingTitle && !isCollabDocument ? (
         <input
           type="text"
@@ -433,6 +374,36 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
         >
           {currentDocument.name || "Untitled Document"}
         </span>
+      )}
+      {/* Move to category button — local docs only */}
+      {!isGitHubFile && !isCollabDocument && (
+        <Dropdown as="span" className="ms-1 move-to-category">
+          <Dropdown.Toggle
+            as="span"
+            id="moveCategoryDropdown"
+            className="move-category-toggle"
+            role="button"
+            title="Move to category"
+          >
+            <i className="bi bi-folder-symlink"></i>
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            <Dropdown.Header>Move to category</Dropdown.Header>
+            {categories.map((category) => (
+              <Dropdown.Item
+                key={category}
+                active={category === currentCategory}
+                onClick={() => handleMoveToCategory(category)}
+                disabled={category === currentCategory}
+              >
+                {category === currentCategory && (
+                  <i className="bi bi-check-lg me-1"></i>
+                )}
+                {category}
+              </Dropdown.Item>
+            ))}
+          </Dropdown.Menu>
+        </Dropdown>
       )}
       <span className="vr opacity-50 mx-2"></span>
       {/* Document status popover */}

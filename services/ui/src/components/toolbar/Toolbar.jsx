@@ -29,7 +29,7 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument } = useDocumentContext();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument, openCategory, clearSiblingOverride } = useDocumentContext();
   const { showWarning: _showWarning } = useNotification();
   const { user } = useAuth();
   const { isMobile } = useViewport();
@@ -98,6 +98,11 @@ function Toolbar({
     if (!currentDocument || currentDocument.repository_type === 'github') return;
     await saveDocument({ ...currentDocument, category });
   }, [currentDocument, saveDocument]);
+
+  const handleMobileOpenCategory = useCallback((category) => {
+    clearSiblingOverride();
+    openCategory(category);
+  }, [clearSiblingOverride, openCategory]);
 
   const handleViewNotificationDetail = useCallback(async (notification) => {
     if (!notification.is_read) markRead(notification.id);
@@ -334,6 +339,7 @@ function Toolbar({
           onDocumentInfo={handleShowDocumentInfo}
           onRenameDocument={handleMobileRename}
           onChangeCategory={handleMobileCategoryChange}
+          onOpenCategory={handleMobileOpenCategory}
           fullscreenPreview={fullscreenPreview}
           theme={theme}
           currentDocument={currentDocument}

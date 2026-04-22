@@ -154,3 +154,93 @@
     }
   }
 }
+
+// ─── CATEGORY BREADCRUMB DROPDOWN ───
+// Breadcrumb-styled dropdown toggle for category navigation
+.category-breadcrumb {
+  display: inline-flex;
+  align-items: center;
+}
+
+.category-breadcrumb-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: transparent !important;
+  border: none !important;
+  color: var(--mm-text);
+  font-size: variables.$font-size-base;
+  font-weight: variables.$font-weight-medium;
+  padding: variables.$space-1 variables.$space-2;
+  border-radius: variables.$radius-md;
+  cursor: pointer;
+  @include mixins.interactive-transition(background-color, color);
+
+  &:hover {
+    background-color: var(--mm-bg-surface) !important;
+    text-decoration: underline;
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--mm-primary);
+    outline: none;
+  }
+
+  // Dropdown caret
+  &::after {
+    display: inline-block;
+    margin-left: 0.2em;
+    vertical-align: 0.15em;
+    content: "";
+    border-top: 0.3em solid;
+    border-right: 0.3em solid transparent;
+    border-bottom: 0;
+    border-left: 0.3em solid transparent;
+    opacity: 0.6;
+  }
+}
+
+// Breadcrumb separator between category and title
+.breadcrumb-separator {
+  font-size: 1.1em;
+  opacity: 0.5;
+  user-select: none;
+}
+
+// ─── MOVE TO CATEGORY DROPDOWN ───
+.move-to-category {
+  display: inline-flex;
+  align-items: center;
+}
+
+.move-category-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent !important;
+  border: none !important;
+  color: var(--mm-text-muted, var(--bs-text-muted));
+  font-size: 0.8rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: variables.$radius-sm;
+  cursor: pointer;
+  opacity: 0.5;
+  @include mixins.interactive-transition(background-color, color, opacity);
+
+  &:hover {
+    opacity: 1;
+    background-color: var(--mm-bg-surface) !important;
+    color: var(--mm-primary);
+  }
+
+  &:focus-visible {
+    box-shadow: 0 0 0 2px var(--mm-primary);
+    outline: none;
+    opacity: 1;
+  }
+
+  // Hide the default dropdown caret
+  &::after {
+    display: none !important;
+  }
+}
