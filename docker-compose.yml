@@ -92,8 +92,6 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      export:
-        condition: service_healthy
       spell-check:
         condition: service_healthy
       linting:
@@ -152,28 +150,6 @@ services:
       ollama:
         condition: service_healthy
     restart: "no"
-
-  export:
-    build:
-      context: ./services/export
-      dockerfile: Dockerfile
-    image: littledan9/markdown-manager-export:latest
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./services/export/app:/app
-      - ./services/export/static:/static
-    environment:
-      - PYTHONUNBUFFERED=1
-      - ICON_SERVICE_URL=http://backend:8000
-      - DRAWIO_VERSION=24.7.5
-      - DRAWIO_QUALITY_THRESHOLD=60.0
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
 
   linting:
     build:

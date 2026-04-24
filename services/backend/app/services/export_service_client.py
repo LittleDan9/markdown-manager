@@ -39,7 +39,7 @@ class ExportServiceClient:
                 }
 
                 response = await client.post(
-                    f"{self.base_url}/generate-pdf", json=payload
+                    f"{self.base_url}/document/pdf", json=payload
                 )
 
                 if response.status_code != 200:
