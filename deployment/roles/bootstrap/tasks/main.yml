@@ -21,7 +21,21 @@
       - lsb-release
       - ufw
       - rsync
+      - python3-pip
+      - python3-venv
     state: present
+
+- name: Check if Poetry is installed
+  command: "{{ ansible_env.HOME }}/.local/bin/poetry --version"
+  register: poetry_check
+  changed_when: false
+  failed_when: false
+
+- name: Install Poetry
+  when: poetry_check.rc != 0
+  shell: curl -sSL https://install.python-poetry.org | python3 -
+  args:
+    creates: "{{ ansible_env.HOME }}/.local/bin/poetry"
 
 - name: Check if Docker is installed
   command: docker --version

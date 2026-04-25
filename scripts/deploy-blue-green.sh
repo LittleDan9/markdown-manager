@@ -161,6 +161,24 @@ elif $SKIP_BUILD; then
   echo "${YELLOW}Skipping image build (--skip-build).${NC}"
 else
   echo "${BLUE}Building shared images (mm-build)...${NC}"
+
+  # Build events-core wheel (required by event-consumer Dockerfile)
+  WHEEL="packages/events-core/dist/events_core-1.0.0-py3-none-any.whl"
+  if [[ ! -f "$WHEEL" ]]; then
+    POETRY_CMD="${HOME}/.local/bin/poetry"
+    command -v poetry &>/dev/null && POETRY_CMD="poetry"
+    if command -v "$POETRY_CMD" &>/dev/null || [[ -x "$POETRY_CMD" ]]; then
+      echo "${BLUE}Building events-core wheel...${NC}"
+      (cd packages/events-core && "$POETRY_CMD" build -f wheel -q)
+    elif command -v pip &>/dev/null; then
+      echo "${BLUE}Building events-core wheel (pip)...${NC}"
+      pip wheel --no-deps --wheel-dir packages/events-core/dist packages/events-core/
+    else
+      echo "${RED}events-core wheel missing and no build tool available (need poetry or pip).${NC}"
+      exit 1
+    fi
+  fi
+
   BUILD_ARGS="--parallel"
   if $FORCE_REBUILD; then
     BUILD_ARGS="$BUILD_ARGS --no-cache"
