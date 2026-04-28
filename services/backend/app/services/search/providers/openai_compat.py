@@ -179,10 +179,12 @@ class OpenAICompatProvider(LLMProvider):
         """Use Gemini's native ``/v1beta/models`` for richer metadata."""
         # Strip the /openai suffix to reach the native endpoint
         native_base = self._base_url.replace("/openai", "")
+        # Google's native API uses x-goog-api-key (not Bearer tokens)
+        gemini_headers = {"x-goog-api-key": self._api_key}
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.get(
                 f"{native_base}/models",
-                headers=headers,
+                headers=gemini_headers,
             )
             response.raise_for_status()
             data = response.json()

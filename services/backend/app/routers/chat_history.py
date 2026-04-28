@@ -193,7 +193,7 @@ async def _resolve_provider(db: AsyncSession, user: User, provider_name: str):
     """Resolve an LLM provider by name — shared helper."""
     from app.configs.settings import get_settings
 
-    if provider_name in ("openai", "xai", "github"):
+    if provider_name in ("openai", "xai", "github", "gemini"):
         key_row = await get_active_key(db, user.id, provider_name)
         if not key_row:
             raise HTTPException(
