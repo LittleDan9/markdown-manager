@@ -244,10 +244,12 @@ export class IconsApi extends Api {
   /**
    * Get collections from a third-party source
    */
-  async getThirdPartyCollections(source, searchQuery = '', categoryFilter = '') {
+  async getThirdPartyCollections(source, searchQuery = '', categoryFilter = '', offset = 0) {
     const params = new URLSearchParams();
-    if (searchQuery) params.append('search', searchQuery);
+    if (searchQuery) params.append('query', searchQuery);
     if (categoryFilter) params.append('category', categoryFilter);
+    params.append('limit', '200');
+    if (offset > 0) params.append('offset', offset.toString());
 
     const queryString = params.toString();
     const url = `/third-party/sources/${source}/collections${queryString ? `?${queryString}` : ''}`;
@@ -291,7 +293,7 @@ export class IconsApi extends Api {
       `/third-party/sources/${source}/collections/${prefix}/install`,
       'POST',
       {
-        icon_keys: iconKeys,
+        icon_names: iconKeys,
         pack_name: packName,
         category: category,
         description: description

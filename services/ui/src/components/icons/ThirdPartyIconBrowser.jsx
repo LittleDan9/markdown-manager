@@ -29,12 +29,17 @@ export default function ThirdPartyIconBrowser({
   const [icons, setIcons] = useState([]);
   const [selectedIcons, setSelectedIcons] = useState(new Set());
   const [loading, setLoading] = useState(false);
+  const [collectionsLoading, setCollectionsLoading] = useState(false);
   const [iconsLoading, setIconsLoading] = useState(false);
+  const [installing, setInstalling] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [sourceCategories, setSourceCategories] = useState([]);
   const [iconSearch, setIconSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(0);
   const [hasMore, setHasMore] = useState(false);
+  const [hasMoreCollections, setHasMoreCollections] = useState(false);
+  const collectionsOffsetRef = useRef(0);
   const [installModalOpen, setInstallModalOpen] = useState(false);
   const [entirePackModalOpen, setEntirePackModalOpen] = useState(false);
   const [installConfig, setInstallConfig] = useState({
@@ -72,22 +77,27 @@ export default function ThirdPartyIconBrowser({
   }, [showError]);
 
   // Fetch collections
-  const fetchCollections = useCallback(async (query = '', category = '') => {
+  const fetchCollections = useCallback(async (query = '', category = '', append = false) => {
     // Cancel any in-flight request
     if (collectionsAbortRef.current) collectionsAbortRef.current.abort();
     const controller = new AbortController();
     collectionsAbortRef.current = controller;
 
-    setLoading(true);
+    if (!append) setLoading(true);
+    setCollectionsLoading(true);
     try {
-      const data = await iconsApi.getThirdPartyCollections(selectedSource, query, category);
+      const offset = append ? collectionsOffsetRef.current : 0;
+      const data = await iconsApi.getThirdPartyCollections(selectedSource, query, category, offset);
       if (controller.signal.aborted) return;
 
       if (data.success) {
-        setCollections(Object.entries(data.data.collections).map(([prefix, info]) => ({
+        const newCollections = Object.entries(data.data.collections).map(([prefix, info]) => ({
           prefix,
           ...info
-        })));
+        }));
+        setCollections(prev => append ? [...prev, ...newCollections] : newCollections);
+        setHasMoreCollections(data.data.has_more || false);
+        collectionsOffsetRef.current = offset + newCollections.length;
       } else {
         throw new Error(data.message || 'Failed to fetch collections');
       }
@@ -95,24 +105,25 @@ export default function ThirdPartyIconBrowser({
       if (controller.signal.aborted) return;
       showError(`Failed to load collections: ${error.message}`);
     } finally {
-      if (!controller.signal.aborted) setLoading(false);
+      if (!controller.signal.aborted) {
+        setLoading(false);
+        setCollectionsLoading(false);
+      }
     }
   }, [selectedSource, showError]);
 
-  // Fetch categories
-  // Note: Categories are now passed as props from IconManagementModal
-  // const fetchCategories = useCallback(async () => {
-  //   try {
-  //     const response = await fetch(`/api/third-party/sources/${selectedSource}/categories`);
-  //     const data = await response.json();
-
-  //     if (data.success) {
-  //       setCategories(data.data.categories);
-  //     }
-  //   } catch (error) {
-  //     console.warn('Failed to load categories:', error);
-  //   }
-  // }, [selectedSource]);
+  // Fetch source-specific categories for the collection filter dropdown
+  const fetchSourceCategories = useCallback(async () => {
+    try {
+      const data = await iconsApi.getThirdPartyCategories(selectedSource);
+      if (data.success) {
+        setSourceCategories(data.data.categories || []);
+      }
+    } catch (error) {
+      console.warn('Failed to load source categories:', error);
+      setSourceCategories([]);
+    }
+  }, [selectedSource]);
 
   // Fetch icons from selected collection
   const fetchIcons = useCallback(async (prefix, page = 0, search = '', reset = false) => {
@@ -148,6 +159,7 @@ export default function ThirdPartyIconBrowser({
   const installIcons = async () => {
     if (!selectedCollection || selectedIcons.size === 0) return;
 
+    setInstalling(true);
     try {
       const iconNames = Array.from(selectedIcons);
       const packName = installConfig.packName || selectedCollection.prefix;
@@ -176,12 +188,15 @@ export default function ThirdPartyIconBrowser({
       }
     } catch (error) {
       showError(`Installation failed: ${error.message}`);
+    } finally {
+      setInstalling(false);
     }
   };
 
   const installEntirePack = async () => {
     if (!selectedCollection) return;
 
+    setInstalling(true);
     try {
       const packName = installConfig.packName || selectedCollection.prefix;
 
@@ -207,6 +222,8 @@ export default function ThirdPartyIconBrowser({
       }
     } catch (error) {
       showError(`Installation failed: ${error.message}`);
+    } finally {
+      setInstalling(false);
     }
   };
 
@@ -220,16 +237,16 @@ export default function ThirdPartyIconBrowser({
     };
   }, [fetchSources]);
 
-  // Load collections when source changes
+  // Load source-specific categories when source changes
   useEffect(() => {
-    fetchCollections();
-  }, [fetchCollections]);
+    fetchSourceCategories();
+  }, [fetchSourceCategories]);
 
-  // Search collections
+  // Search collections (debounced) — also handles initial load when source changes
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       fetchCollections(searchQuery, categoryFilter);
-    }, 500);
+    }, 300);
 
     return () => clearTimeout(timeoutId);
   }, [searchQuery, categoryFilter, fetchCollections]);
@@ -281,6 +298,12 @@ export default function ThirdPartyIconBrowser({
     }
   }, [selectedCollection, hasMore, iconsLoading, fetchIcons, currentPage, iconSearch]);
 
+  const loadMoreCollections = useCallback(() => {
+    if (hasMoreCollections && !collectionsLoading) {
+      fetchCollections(searchQuery, categoryFilter, true);
+    }
+  }, [hasMoreCollections, collectionsLoading, fetchCollections, searchQuery, categoryFilter]);
+
   const openInstallModal = () => {
     setInstallConfig({
       packName: selectedCollection?.prefix || '',
@@ -312,6 +335,16 @@ export default function ThirdPartyIconBrowser({
       loadMoreIcons();
     }
   }, [hasMore, iconsLoading, selectedCollection, loadMoreIcons]);
+
+  // Infinite scroll handler for collections panel
+  const handleCollectionsScroll = useCallback((e) => {
+    const { scrollTop, scrollHeight, clientHeight } = e.target;
+    const threshold = 100;
+
+    if (scrollHeight - scrollTop - clientHeight < threshold && hasMoreCollections && !collectionsLoading) {
+      loadMoreCollections();
+    }
+  }, [hasMoreCollections, collectionsLoading, loadMoreCollections]);
 
   return (
     <>
@@ -349,6 +382,7 @@ export default function ThirdPartyIconBrowser({
                   setSearchQuery('');
                   setCategoryFilter('');
                   setIconSearch('');
+                  collectionsOffsetRef.current = 0;
                 }}
               >
                 {sources.map(source => (
@@ -359,12 +393,23 @@ export default function ThirdPartyIconBrowser({
               </Form.Select>
 
               {/* Search and Filter */}
-              <Form.Control
-                type="text"
-                placeholder="Search collections..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
+              <div className="position-relative">
+                <Form.Control
+                  type="text"
+                  placeholder="Search collections..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    className="btn-close btn-close-sm position-absolute"
+                    style={{ right: '8px', top: '50%', transform: 'translateY(-50)' }}
+                    aria-label="Clear search"
+                    onClick={() => setSearchQuery('')}
+                  />
+                )}
+              </div>
 
               <Form.Select
                 value={categoryFilter}
@@ -372,55 +417,63 @@ export default function ThirdPartyIconBrowser({
                 size="sm"
               >
                 <option value="">All Categories</option>
-                {categories.map(cat => (
+                {sourceCategories.map(cat => (
                   <option key={cat} value={cat}>{cat}</option>
                 ))}
               </Form.Select>
             </div>
 
             {/* Scrollable Collections List */}
-            <div className="collections-scroll-area">
+            <div className="collections-scroll-area" onScroll={handleCollectionsScroll}>
               {loading ? (
                 <div className="loading-state">
                   <Spinner animation="border" size="sm" />
                   <div className="mt-2">Loading collections...</div>
                 </div>
               ) : (
-                collections.map(collection => (
-                  <Card
-                    key={collection.prefix}
-                    className={`collection-item ${
-                      selectedCollection?.prefix === collection.prefix ? 'selected' : ''
-                    }`}
-                    onClick={() => selectCollection(collection)}
-                  >
-                    <Card.Body>
-                      <div className="d-flex justify-content-between align-items-start">
-                        <div>
-                          <h6 className="mb-1 fs-6">{collection.name}</h6>
-                          <small className="text-muted">{collection.prefix}</small>
-                        </div>
-                        <Badge bg="secondary">{collection.total}</Badge>
-                      </div>
-                      {collection.category && (
-                        <Badge bg="outline-primary" className="mt-2">
-                          {collection.category}
-                        </Badge>
-                      )}
-                      {collection.samples && (
-                        <div className="mt-2">
-                          <div className="d-flex flex-wrap">
-                            {collection.samples.slice(0, 3).map(sample => (
-                              <small key={sample} className="text-muted me-2">
-                                {sample}
-                              </small>
-                            ))}
+                <>
+                  {collections.map(collection => (
+                    <Card
+                      key={collection.prefix}
+                      className={`collection-item ${
+                        selectedCollection?.prefix === collection.prefix ? 'selected' : ''
+                      }`}
+                      onClick={() => selectCollection(collection)}
+                    >
+                      <Card.Body>
+                        <div className="d-flex justify-content-between align-items-start">
+                          <div>
+                            <h6 className="mb-1 fs-6">{collection.name}</h6>
+                            <small className="text-muted">{collection.prefix}</small>
                           </div>
+                          <Badge bg="secondary">{collection.total}</Badge>
                         </div>
-                      )}
-                    </Card.Body>
-                  </Card>
-                ))
+                        {collection.category && (
+                          <Badge bg="outline-primary" className="mt-2">
+                            {collection.category}
+                          </Badge>
+                        )}
+                        {collection.samples && (
+                          <div className="mt-2">
+                            <div className="d-flex flex-wrap">
+                              {collection.samples.slice(0, 3).map(sample => (
+                                <small key={sample} className="text-muted me-2">
+                                  {sample}
+                                </small>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </Card.Body>
+                    </Card>
+                  ))}
+                  {collectionsLoading && (
+                    <div className="loading-state py-2">
+                      <Spinner animation="border" size="sm" />
+                      <div className="mt-1"><small>Loading more...</small></div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -648,15 +701,19 @@ export default function ThirdPartyIconBrowser({
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setInstallModalOpen(false)}>
+          <Button variant="secondary" onClick={() => setInstallModalOpen(false)} disabled={installing}>
             Cancel
           </Button>
           <Button
             variant="primary"
             onClick={installIcons}
-            disabled={!installConfig.packName}
+            disabled={!installConfig.packName || installing}
           >
-            Install Icons
+            {installing ? (
+              <><Spinner animation="border" size="sm" className="me-1" /> Installing...</>
+            ) : (
+              `Install ${selectedIcons.size} Icons`
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
@@ -719,15 +776,19 @@ export default function ThirdPartyIconBrowser({
           </Form>
         </Modal.Body>
         <Modal.Footer>
-          <Button variant="secondary" onClick={() => setEntirePackModalOpen(false)}>
+          <Button variant="secondary" onClick={() => setEntirePackModalOpen(false)} disabled={installing}>
             Cancel
           </Button>
           <Button
             variant="primary"
             onClick={installEntirePack}
-            disabled={!installConfig.packName}
+            disabled={!installConfig.packName || installing}
           >
-            Install Entire Pack
+            {installing ? (
+              <><Spinner animation="border" size="sm" className="me-1" /> Installing...</>
+            ) : (
+              'Install Entire Pack'
+            )}
           </Button>
         </Modal.Footer>
       </Modal>
