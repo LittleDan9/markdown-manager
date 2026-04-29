@@ -59,13 +59,26 @@ const updatedHtml = await renderDiagrams(html, theme);
 ```
 
 ### Mermaid Service Architecture
-Modular services for diagram rendering:
+Modular services for diagram rendering, all sharing a **single singleton instance** (`singleton.js`):
 
-- **MermaidRenderer**: Main orchestrator for diagram rendering
-- **MermaidCache**: Caching of rendered diagrams for performance
-- **MermaidThemeManager**: Theme configuration and updates
+- **MermaidRenderer**: Main orchestrator for diagram rendering (singleton via `singleton.js`)
+- **MermaidCache**: Caching of rendered diagrams for performance (shared across all consumers)
+- **MermaidThemeManager**: Theme configuration and updates (includes `architecture.randomize: true`)
 - **MermaidValidator**: Validation and error handling
 - **MermaidIconLoader**: On-demand icon loading and registration
+
+**CRITICAL**: Never create `new MermaidRenderer()` directly. Always import the singleton:
+```javascript
+// For React components — use the hook (delegates to singleton internally)
+import { useMermaid } from '@/services/rendering/mermaid/useMermaid';
+const { renderDiagrams } = useMermaid(theme);
+
+// For non-React code — import the singleton directly
+import mermaidSingleton from '@/services/rendering/mermaid/singleton.js';
+mermaidSingleton.cache.has(diagramSource);
+```
+
+The singleton ensures MarkdownRenderer (fence rule cache reads), Renderer.jsx (diagram rendering), and documentsApi (GitHub save cache reads) all share one cache and one `mermaid.initialize()` call.
 
 ### Icon Integration System
 Critical feature for architecture diagrams:
@@ -186,11 +199,18 @@ useEffect(() => {
 
 ### Caching Strategy
 ```javascript
-// Multi-level caching approach
+// Multi-level caching approach (all via shared singleton)
 - Syntax highlighting cache (by language + code hash)
-- Mermaid diagram cache (by source + theme)
+- Mermaid diagram cache (by source + theme) — shared singleton.js instance
 - Icon cache (by pack + icon name)
 ```
+
+### Diagram Controls
+Overlay controls on rendered Mermaid diagrams (via `DiagramControls.jsx`):
+- **Refresh**: Re-render diagram (busts cache, re-randomizes architecture layout)
+- **Fullscreen**: View diagram in modal
+- **Export**: SVG, PNG, Draw.io XML/PNG download
+- **GitHub indicator**: Shows when diagram needs conversion for GitHub
 
 ## Error Handling
 
