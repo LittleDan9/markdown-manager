@@ -1,30 +1,24 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import MermaidRenderer from './MermaidRenderer.js';
+import { useState, useEffect, useCallback } from 'react';
+import mermaidSingleton from './singleton.js';
 
 /**
- * React hook for Mermaid diagram rendering
- * Provides a clean React interface for using the MermaidRenderer service
+ * React hook for Mermaid diagram rendering.
+ * Wraps the shared MermaidRenderer singleton with React-friendly
+ * loading/theme state so all consumers share one cache and one
+ * mermaid.initialize() call.
  */
 export function useMermaid(initialTheme = 'default') {
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(mermaidSingleton.isInitialized);
   const [currentTheme, setCurrentTheme] = useState(initialTheme);
   const [isLoading, setIsLoading] = useState(false);
-  const rendererRef = useRef(null);
 
-  // Initialize renderer on first use
-  useEffect(() => {
-    if (!rendererRef.current) {
-      rendererRef.current = new MermaidRenderer();
-    }
-  }, []);
-
-  // Initialize Mermaid when theme changes
+  // Initialize Mermaid on first mount (or when theme changes before init)
   useEffect(() => {
     const initializeMermaid = async () => {
-      if (rendererRef.current && !isInitialized) {
+      if (!isInitialized) {
         setIsLoading(true);
         try {
-          await rendererRef.current.init(currentTheme);
+          await mermaidSingleton.init(currentTheme);
           setIsInitialized(true);
         } catch (error) {
           console.error('Failed to initialize Mermaid:', error);
@@ -42,10 +36,10 @@ export function useMermaid(initialTheme = 'default') {
    * @param {string} newTheme - The new theme ('dark' or 'light')
    */
   const updateTheme = useCallback(async (newTheme) => {
-    if (rendererRef.current && newTheme !== currentTheme) {
+    if (newTheme !== currentTheme) {
       setIsLoading(true);
       try {
-        await rendererRef.current.updateTheme(newTheme);
+        await mermaidSingleton.updateTheme(newTheme);
         setCurrentTheme(newTheme);
       } catch (error) {
         console.error('Failed to update Mermaid theme:', error);
@@ -62,13 +56,9 @@ export function useMermaid(initialTheme = 'default') {
    * @returns {Promise<string>} - HTML string with rendered diagrams
    */
   const renderDiagrams = useCallback(async (htmlContent, theme = null) => {
-    if (!rendererRef.current) {
-      throw new Error('Mermaid renderer not initialized');
-    }
-
     setIsLoading(true);
     try {
-      const result = await rendererRef.current.render(htmlContent, theme);
+      const result = await mermaidSingleton.render(htmlContent, theme);
       return result;
     } catch (error) {
       console.error('Failed to render Mermaid diagrams:', error);
@@ -82,9 +72,7 @@ export function useMermaid(initialTheme = 'default') {
    * Clear the diagram cache
    */
   const clearCache = useCallback(() => {
-    if (rendererRef.current) {
-      rendererRef.current.clearCache();
-    }
+    mermaidSingleton.clearCache();
   }, []);
 
   /**
@@ -92,11 +80,8 @@ export function useMermaid(initialTheme = 'default') {
    * @returns {object} - Cache statistics
    */
   const getCacheStats = useCallback(() => {
-    if (rendererRef.current) {
-      return rendererRef.current.getCacheStats();
-    }
-    return { size: 0, theme: currentTheme, isInitialized };
-  }, [currentTheme, isInitialized]);
+    return mermaidSingleton.getCacheStats();
+  }, []);
 
   return {
     isInitialized,

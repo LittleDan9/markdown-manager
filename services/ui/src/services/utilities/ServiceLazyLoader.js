@@ -10,30 +10,6 @@ class ServiceLazyLoader {
   }
 
   /**
-   * Lazy load MermaidRenderer (new modular service)
-   */
-  async getMermaidRenderer() {
-    if (this.loadedServices.has('mermaid')) {
-      return this.loadedServices.get('mermaid');
-    }
-
-    if (this.loadingPromises.has('mermaid')) {
-      return this.loadingPromises.get('mermaid');
-    }
-
-    const loadPromise = import('../rendering/mermaid/MermaidRenderer.js').then(module => {
-      const MermaidRenderer = module.default;
-      const service = new MermaidRenderer();
-      this.loadedServices.set('mermaid', service);
-      this.loadingPromises.delete('mermaid');
-      return service;
-    });
-
-    this.loadingPromises.set('mermaid', loadPromise);
-    return loadPromise;
-  }
-
-  /**
    * Lazy load IconPackManager
    */
   async getIconPackManager() {
@@ -86,9 +62,6 @@ class ServiceLazyLoader {
   async preloadCriticalServices() {
     // Preload services that are likely to be needed soon
     const preloadPromises = [
-      // Don't preload mermaid unless we detect mermaid blocks
-      // this.getMermaidRenderer(),
-
       // Preload icon pack manager as it's commonly used
       this.getIconPackManager(),
 

@@ -587,12 +587,8 @@ class DocumentsApi extends Api {
    * @returns {Promise<Array>} - Array of rendered diagram objects from cache
    */
   async extractRenderedDiagramsFromCache(content) {
-    // Import the mermaid renderer to access the cache
-    const { MermaidRenderer } = await import('@/services/rendering/mermaid');
-
-    // Create a renderer instance to access the cache
-    // Note: This should ideally be the same instance used by the Renderer component
-    const renderer = new MermaidRenderer();
+    // Import the shared singleton — same instance used by Renderer.jsx
+    const { default: renderer } = await import('@/services/rendering/mermaid/singleton.js');
 
     // Extract mermaid code blocks from content
     const mermaidPattern = /```mermaid\n([\s\S]*?)\n```/g;
