@@ -4,6 +4,7 @@ import { Button, ButtonGroup, Dropdown, Spinner, OverlayTrigger, Tooltip } from 
 import { useTheme } from '../../providers/ThemeProvider';
 import { serviceFactory } from '../../services/injectors';
 import DiagramFullscreenModal from './DiagramFullscreenModal';
+import mermaidSingleton from '../../services/rendering/mermaid/singleton';
 
 /**
  * Overlay controls for Mermaid diagrams providing expand/download functionality
@@ -22,6 +23,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   const [isExporting, setIsExporting] = useState(false);
   const [_exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
   const mermaidExportService = serviceFactory.createMermaidExportService();
@@ -355,6 +357,27 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     }
   };
 
+  const handleRefresh = async () => {
+    if (!diagramElement || !diagramSource || isRefreshing) return;
+
+    setIsRefreshing(true);
+    markInteractionActive();
+
+    try {
+      // Evict this diagram from the shared cache
+      mermaidSingleton.cache.delete(diagramSource);
+
+      // Re-render the single diagram directly via the singleton
+      diagramElement.setAttribute('data-processed', 'false');
+      await mermaidSingleton.renderSingleDiagram(diagramElement, diagramSource);
+    } catch (error) {
+      console.error('Failed to refresh diagram:', error);
+      showError('Failed to refresh diagram');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <>
       <div className="diagram-controls" ref={(el) => {
@@ -367,6 +390,29 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
         }
       }}>
         <ButtonGroup size="sm">
+          {/* Refresh Button */}
+          <OverlayTrigger
+            placement="bottom"
+            overlay={
+              <Tooltip id={`refresh-tooltip-${diagramId}`}>
+                Re-render diagram (re-randomize layout)
+              </Tooltip>
+            }
+          >
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={handleRefresh}
+              disabled={isRefreshing || isExporting}
+            >
+              {isRefreshing ? (
+                <Spinner animation="border" size="sm" />
+              ) : (
+                <i className="bi bi-arrow-clockwise"></i>
+              )}
+            </Button>
+          </OverlayTrigger>
+
           {/* Fullscreen Button */}
           <Button
             variant="outline-secondary"

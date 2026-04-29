@@ -51,6 +51,9 @@ class MermaidThemeManager {
         htmlLabels: false,
         curve: "linear",
       },
+      architecture: {
+        randomize: true,
+      },
       suppressErrorRendering: true, // Prevent Mermaid from injecting error DOM
       logLevel: "error", // Show error logs for debugging
       htmlLabels: false,
