@@ -1,9 +1,11 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Container, Row, Col, Card, Form, Badge, Alert, InputGroup, Collapse } from 'react-bootstrap';
+import { Container, Row, Col, Card, Form, Badge, Alert, InputGroup, Collapse, Dropdown } from 'react-bootstrap';
 import { useLogger } from '../../providers/LoggerProvider';
+import { useAuth } from '../../providers/AuthProvider';
 import { serviceFactory } from '@/services/injectors';
 import { ActionButton } from '@/components/shared';
 import { cleanSvgBodyForBrowser, downloadSvg, copySvgToClipboard, copyIconUrl } from '@/utils/svgUtils';
+import IconViewModal from './modals/IconViewModal';
 
 const _ITEMS_PER_ROW = 4;
 const _INITIAL_LOAD_SIZE = 24; // 6 rows
@@ -20,14 +22,15 @@ const DIAGRAM_TYPES = {
   }
 };
 
-export default function IconBrowser() {
+export default function IconBrowser({ onInsertIcon, onClose, detectedDiagramType }) {
   const _log = useLogger('IconBrowser');
+  const { user } = useAuth();
   const iconService = serviceFactory.createIconService();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('all');
-  const [selectedIconPack, setSelectedIconPack] = useState('all');
+  const [selectedPacks, setSelectedPacks] = useState([]);  // empty = all packs
   const [selectedDiagramType, setSelectedDiagramType] = useState(
-    () => localStorage.getItem('iconBrowser_diagramType') || 'architecture'
+    () => detectedDiagramType || localStorage.getItem('iconBrowser_diagramType') || 'architecture'
   );
   const [availableIconPacks, setAvailableIconPacks] = useState([]);
   const [availableCategories, setAvailableCategories] = useState(['all']);
@@ -37,6 +40,9 @@ export default function IconBrowser() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [copied, setCopied] = useState('');
+  const [editIcon, setEditIcon] = useState(null);
+  const [frequentlyUsed, setFrequentlyUsed] = useState([]);
+  const [showFrequentlyUsed, setShowFrequentlyUsed] = useState(true);
 
   // Server-side pagination state
   const [hasMoreIcons, setHasMoreIcons] = useState(false);
@@ -126,13 +132,21 @@ export default function IconBrowser() {
     performInitialSearch();
   }, [availableIconPacks.length, iconService]); // Added missing dependencies
 
+  // Load frequently used icons on mount
+  useEffect(() => {
+    if (availableIconPacks.length === 0) return;
+    iconService.getFrequentlyUsed(12).then(icons => {
+      setFrequentlyUsed(icons);
+    });
+  }, [availableIconPacks.length, iconService]);
+
   // Server-side search when filters change (not on initial load)
   useEffect(() => {
     // Skip if this is the initial load (availableIconPacks just got populated)
     if (availableIconPacks.length === 0) return;
 
-    // Skip if this is the initial values (empty search, all categories, all packs)
-    if (searchTerm === '' && selectedCategory === 'all' && selectedIconPack === 'all') return;
+    // Skip if this is the initial values (empty search, all categories, no pack filter)
+    if (searchTerm === '' && selectedCategory === 'all' && selectedPacks.length === 0) return;
 
     const searchIcons = async () => {
       try {
@@ -143,18 +157,31 @@ export default function IconBrowser() {
         setAllIcons([]);
         setCurrentPage(0);
 
-        // Use server-side search API
-        const response = await iconService.searchIcons(
-          searchTerm,
-          selectedCategory,
-          selectedIconPack,
-          0, // page
-          PAGE_SIZE // size
-        );
+        // Auto-switch to semantic search for natural language queries
+        if (searchTerm && iconService.isNaturalLanguageQuery(searchTerm)) {
+          const semanticResults = await iconService.semanticSearch(
+            searchTerm,
+            selectedPacks.length > 0 ? selectedPacks : null,
+            PAGE_SIZE
+          );
+          setAllIcons(semanticResults || []);
+          setTotalIconCount(semanticResults?.length || 0);
+          setHasMoreIcons(false); // semantic search returns all results at once
+        } else {
+          // Use server-side keyword search API
+          const response = await iconService.searchIcons(
+            searchTerm,
+            selectedCategory,
+            'all',
+            0, // page
+            PAGE_SIZE, // size
+            selectedPacks.length > 0 ? selectedPacks : null
+          );
 
-        setAllIcons(response.icons || []);
-        setTotalIconCount(response.total || 0);
-        setHasMoreIcons(response.has_next || false);
+          setAllIcons(response.icons || []);
+          setTotalIconCount(response.total || 0);
+          setHasMoreIcons(response.has_next || false);
+        }
 
       } catch (error) {
         console.error('Search failed:', error);
@@ -168,7 +195,7 @@ export default function IconBrowser() {
     };
 
     searchIcons();
-  }, [searchTerm, selectedCategory, selectedIconPack, availableIconPacks.length, iconService]); // Added missing dependencies
+  }, [searchTerm, selectedCategory, selectedPacks, availableIconPacks.length, iconService]);
 
   // Memoize icons with usage examples to avoid unnecessary re-renders
   const iconsWithUsage = useMemo(() => {
@@ -190,9 +217,10 @@ export default function IconBrowser() {
       const response = await iconService.searchIcons(
         searchTerm,
         selectedCategory,
-        selectedIconPack,
+        'all',
         nextPage,
-        PAGE_SIZE
+        PAGE_SIZE,
+        selectedPacks.length > 0 ? selectedPacks : null
       );
 
       // Append new icons to existing ones
@@ -205,7 +233,7 @@ export default function IconBrowser() {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [isLoadingMore, hasMoreIcons, currentPage, searchTerm, selectedCategory, selectedIconPack, iconService]);
+  }, [isLoadingMore, hasMoreIcons, currentPage, searchTerm, selectedCategory, selectedPacks, iconService]);
 
   // Simple infinite scroll for server-side pagination
   useEffect(() => {
@@ -234,6 +262,13 @@ export default function IconBrowser() {
       // no-op
     }
   }, []);
+
+  // Copy and track usage for an icon
+  const copyAndTrack = useCallback(async (text, icon) => {
+    await copyToClipboard(text);
+    // Fire-and-forget usage tracking
+    iconService.trackUsage(icon.pack, icon.key).catch(() => {});
+  }, [copyToClipboard, iconService]);
 
   // Single, robust SVG renderer (DRY)
   const renderSVG = useCallback((iconData) => {
@@ -341,18 +376,46 @@ export default function IconBrowser() {
             </Col>
             <Col md={2}>
               <Form.Group>
-                <Form.Label>Icon Pack</Form.Label>
-                <Form.Select
-                  value={selectedIconPack}
-                  onChange={(e) => setSelectedIconPack(e.target.value)}
-                >
-                  <option value="all">All Packs</option>
-                  {availableIconPacks.map(pack => (
-                    <option key={pack.name} value={pack.name}>
-                      {pack.display_name || pack.name}
-                    </option>
-                  ))}
-                </Form.Select>
+                <Form.Label>Icon Packs</Form.Label>
+                <Dropdown autoClose="outside">
+                  <Dropdown.Toggle variant="outline-secondary" size="sm" className="w-100 text-start text-truncate">
+                    {selectedPacks.length === 0
+                      ? 'All Packs'
+                      : selectedPacks.length === 1
+                        ? (availableIconPacks.find(p => p.name === selectedPacks[0])?.display_name || selectedPacks[0])
+                        : `${selectedPacks.length} packs`}
+                  </Dropdown.Toggle>
+                  <Dropdown.Menu style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                    <Dropdown.Item
+                      onClick={() => setSelectedPacks([])}
+                      active={selectedPacks.length === 0}
+                    >
+                      All Packs
+                    </Dropdown.Item>
+                    <Dropdown.Divider />
+                    {availableIconPacks.map(pack => (
+                      <Dropdown.Item
+                        key={pack.name}
+                        onClick={() => {
+                          setSelectedPacks(prev =>
+                            prev.includes(pack.name)
+                              ? prev.filter(p => p !== pack.name)
+                              : [...prev, pack.name]
+                          );
+                        }}
+                        active={false}
+                      >
+                        <Form.Check
+                          type="checkbox"
+                          label={pack.display_name || pack.name}
+                          checked={selectedPacks.includes(pack.name)}
+                          onChange={() => {}} // handled by Dropdown.Item onClick
+                          className="mb-0"
+                        />
+                      </Dropdown.Item>
+                    ))}
+                  </Dropdown.Menu>
+                </Dropdown>
               </Form.Group>
             </Col>
             <Col md={2}>
@@ -425,6 +488,57 @@ export default function IconBrowser() {
             </div>
           </Collapse>
 
+          {/* Frequently Used */}
+          {frequentlyUsed.length > 0 && (
+            <div className="mb-4">
+              <div className="d-flex align-items-center mb-2">
+                <h6 className="mb-0 me-2">
+                  <i className="bi bi-clock-history me-1"></i>
+                  Frequently Used
+                </h6>
+                <ActionButton
+                  variant="link"
+                  size="sm"
+                  className="p-0"
+                  onClick={() => setShowFrequentlyUsed(s => !s)}
+                  icon={showFrequentlyUsed ? "chevron-up" : "chevron-down"}
+                />
+              </div>
+              <Collapse in={showFrequentlyUsed}>
+                <div>
+                  <div className="d-flex flex-wrap gap-2">
+                    {frequentlyUsed.map((icon) => {
+                      const usage = iconService.generateUsageExample(icon.pack, icon.key, selectedDiagramType);
+                      return (
+                        <div
+                          key={icon.fullName}
+                          className="d-flex align-items-center gap-2 border rounded px-2 py-1 bg-body-tertiary"
+                          role="button"
+                          title={`${icon.displayName}\nClick to copy usage`}
+                          onClick={() => copyAndTrack(usage, icon)}
+                          style={{ cursor: 'pointer', maxWidth: '200px' }}
+                        >
+                          {icon.iconData?.body && (
+                            <svg
+                              viewBox={icon.iconData.viewBox || '0 0 24 24'}
+                              fill="currentColor"
+                              className="icon-svg"
+                              style={{ width: '20px', height: '20px', flexShrink: 0 }}
+                            >
+                              <g dangerouslySetInnerHTML={{ __html: cleanSvgBodyForBrowser(icon.iconData.body) }} />
+                            </svg>
+                          )}
+                          <small className="text-truncate">{icon.displayName}</small>
+                          {copied === usage && <i className="bi bi-check text-success"></i>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </Collapse>
+            </div>
+          )}
+
           {/* Grid */}
           <Row>
             {visibleIcons.map((icon, idx) => (
@@ -434,9 +548,12 @@ export default function IconBrowser() {
                     <div className="d-flex align-items-center mb-3">
                       {renderSVG(icon.iconData)}
                       <div className="ms-3 flex-grow-1">
-                        <h6 className="mb-1 icon-browser-title" title={icon.key}>
-                          {icon.key}
+                        <h6 className="mb-1 icon-browser-title" title={icon.displayName || icon.key}>
+                          {icon.displayName || icon.key}
                         </h6>
+                        <small className="text-muted d-block mb-1" style={{ fontSize: '0.75rem' }} title={icon.key}>
+                          {icon.key}
+                        </small>
                         <div className="mb-1">
                           <Badge
                             bg={iconService.getPackBadgeColor(icon.pack)}
@@ -473,6 +590,15 @@ export default function IconBrowser() {
                         >
                           <i className="bi bi-link-45deg"></i>
                         </button>
+                        {user?.is_admin && (
+                          <button
+                            className="btn btn-outline-warning btn-sm p-0 d-flex align-items-center justify-content-center icon-browser-action-btn"
+                            title="Edit icon details"
+                            onClick={() => setEditIcon(icon)}
+                          >
+                            <i className="bi bi-pencil"></i>
+                          </button>
+                        )}
                       </div>
                     </div>
 
@@ -493,13 +619,27 @@ export default function IconBrowser() {
                     </div>
 
                     <div className="mt-auto">
+                      {onInsertIcon && (
+                        <ActionButton
+                          variant="success"
+                          size="sm"
+                          className="w-100 mb-2"
+                          onClick={() => {
+                            onInsertIcon(icon.usage + '\n');
+                            iconService.trackUsage(icon.pack, icon.key).catch(() => {});
+                          }}
+                          icon="box-arrow-in-down"
+                        >
+                          Insert into Editor
+                        </ActionButton>
+                      )}
                       <Row>
                         <Col>
                           <ActionButton
                             variant="outline-primary"
                             size="sm"
                             className="w-100"
-                            onClick={() => copyToClipboard(icon.fullName)}
+                            onClick={() => copyAndTrack(icon.fullName, icon)}
                             loading={copied === icon.fullName}
                             icon={copied === icon.fullName ? "check" : "clipboard"}
                           >
@@ -508,10 +648,10 @@ export default function IconBrowser() {
                         </Col>
                         <Col>
                           <ActionButton
-                            variant="primary"
+                            variant={onInsertIcon ? "outline-primary" : "primary"}
                             size="sm"
                             className="w-100"
-                            onClick={() => copyToClipboard(icon.usage)}
+                            onClick={() => copyAndTrack(icon.usage, icon)}
                             loading={copied === icon.usage}
                             icon={copied === icon.usage ? "check" : "clipboard"}
                           >
@@ -564,6 +704,27 @@ export default function IconBrowser() {
           )}
         </Col>
       </Row>
+
+      {editIcon && (
+        <IconViewModal
+          icon={{
+            id: editIcon.id,
+            key: editIcon.key,
+            display_name: editIcon.displayName,
+            search_terms: editIcon.iconData?.searchTerms || '',
+            pack: { name: editIcon.pack, display_name: editIcon.packDisplayName },
+          }}
+          show={!!editIcon}
+          onHide={() => setEditIcon(null)}
+          initialEditMode={true}
+          onSave={() => {
+            setEditIcon(null);
+            // Refresh icons to reflect updated metadata
+            setCurrentPage(0);
+            setAllIcons([]);
+          }}
+        />
+      )}
     </Container>
   );
 }

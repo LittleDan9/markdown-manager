@@ -14,8 +14,12 @@ class IconSearchService(BaseIconService):
         """Search for icons based on the given criteria."""
         query = select(IconMetadata).options(selectinload(IconMetadata.pack))
 
-        # Add pack filter
-        if search_request.pack != "all":
+        # Determine pack filter: multi-pack takes priority over single pack
+        packs_filter = search_request.packs
+        if packs_filter:
+            # Multi-pack filter
+            query = query.join(IconPack).where(IconPack.name.in_(packs_filter))
+        elif search_request.pack != "all":
             query = query.join(IconPack).where(IconPack.name == search_request.pack)
         else:
             query = query.join(IconPack)

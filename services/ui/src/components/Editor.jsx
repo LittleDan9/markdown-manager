@@ -9,7 +9,7 @@ import { useEditor, useDebouncedCursorChange } from '@/hooks/editor';
 
 export default function Editor({ value, fullscreenPreview = false, onToggleOutline, outlineVisible, hasOutlineHeadings, onToggleComments, commentsVisible, commentCount, collab, onCursorChange }) {
   const containerRef = useRef(null);
-  const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine, setEditorSelection } = useDocumentContext();
+  const { currentDocument, setCurrentDocument, triggerContentUpdate, setCursorLine, setEditorSelection, setEditorInsertText, setMermaidDiagramType } = useDocumentContext();
   const { isAuthenticated } = useAuth();
   const [isInMermaidFence, setIsInMermaidFence] = useState(false);
 
@@ -97,7 +97,7 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     if (onCursorChange) onCursorChange(line);
   }, 300);
 
-  // Detect if cursor is inside a mermaid code fence
+  // Detect if cursor is inside a mermaid code fence and determine diagram type
   const checkMermaidFence = useCallback((editorInstance) => {
     if (!editorInstance) return;
     const model = editorInstance.getModel();
@@ -106,20 +106,35 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
 
     let inFence = false;
     let fenceLanguage = '';
+    let diagramType = null;
+    let fenceContentStart = 0;
     for (let i = 1; i <= position.lineNumber; i++) {
       const line = model.getLineContent(i).trim();
       if (line.startsWith('```')) {
         if (inFence) {
           inFence = false;
           fenceLanguage = '';
+          diagramType = null;
+          fenceContentStart = 0;
         } else {
           inFence = true;
           fenceLanguage = line.slice(3).trim().toLowerCase();
+          fenceContentStart = i + 1;
+        }
+      } else if (inFence && fenceLanguage === 'mermaid' && !diagramType && i === fenceContentStart) {
+        // First non-empty content line after ```mermaid — detect diagram type
+        const trimmed = line.toLowerCase();
+        if (trimmed.startsWith('architecture-beta') || trimmed.startsWith('architecture')) {
+          diagramType = 'architecture';
+        } else if (trimmed.startsWith('flowchart') || trimmed.startsWith('graph')) {
+          diagramType = 'flowchart';
         }
       }
     }
-    setIsInMermaidFence(inFence && fenceLanguage === 'mermaid');
-  }, []);
+    const isMermaid = inFence && fenceLanguage === 'mermaid';
+    setIsInMermaidFence(isMermaid);
+    setMermaidDiagramType(isMermaid ? diagramType : null);
+  }, [setMermaidDiagramType]);
 
   // In collab mode, wrap triggerContentUpdate to also apply to Y.Doc
   const handleContentChange = useCallback((newContent, options) => {
@@ -189,6 +204,28 @@ export default function Editor({ value, fullscreenPreview = false, onToggleOutli
     checkMermaidFence(editor);
     return () => disposable.dispose();
   }, [editor, checkMermaidFence]);
+
+  // Register editor insert text callback for IconBrowser direct insertion
+  useEffect(() => {
+    if (!editor) {
+      setEditorInsertText(null);
+      return;
+    }
+    // Wrap in a function that returns a stable function reference
+    setEditorInsertText(() => (text) => {
+      const position = editor.getPosition();
+      if (!position) return;
+      const range = {
+        startLineNumber: position.lineNumber,
+        startColumn: position.column,
+        endLineNumber: position.lineNumber,
+        endColumn: position.column,
+      };
+      editor.executeEdits('icon-insert', [{ range, text }]);
+      editor.focus();
+    });
+    return () => setEditorInsertText(null);
+  }, [editor, setEditorInsertText]);
 
   // Phase 5: Handle spell check with custom settings
   const handleSpellCheck = (customSettings = null) => {

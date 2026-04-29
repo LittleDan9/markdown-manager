@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.models.icon_models import IconMetadata, IconPack
 from app.schemas.icon_schemas import IconPackResponse, StandardizedIconPackRequest
 from app.services.document_icon_updater import DocumentIconUpdater
+from app.services.icons.naming import humanize_icon_key
 
 if TYPE_CHECKING:
     from app.schemas.icon_schemas import IconifyIconData
@@ -225,6 +226,7 @@ class StandardizedIconPackInstaller:
             icon_metadata = IconMetadata(
                 pack_id=pack_id,
                 key=icon_key,
+                display_name=humanize_icon_key(icon_key),
                 search_terms=search_terms,
                 icon_data={
                     "body": icon_data.body,

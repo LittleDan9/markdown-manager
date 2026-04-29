@@ -95,24 +95,46 @@ class IconService {
   /**
    * Search icons with caching
    */
-  async searchIcons(searchTerm = '', category = 'all', pack = 'all', page = 0, size = 100) {
-    // Check cache first
-    const cached = this.cacheService.get(searchTerm, category, pack, page, size);
+  async searchIcons(searchTerm = '', category = 'all', pack = 'all', page = 0, size = 100, packs = null) {
+    // Check cache first (include packs in cache key via pack param)
+    const cacheKey = packs ? packs.sort().join(',') : pack;
+    const cached = this.cacheService.get(searchTerm, category, cacheKey, page, size);
     if (cached) {
       return cached;
     }
 
     try {
-      const result = await this.searchService.searchIcons(searchTerm, category, pack, page, size);
+      const result = await this.searchService.searchIcons(searchTerm, category, pack, page, size, packs);
 
       // Cache the result
-      this.cacheService.set(searchTerm, category, pack, page, size, result);
+      this.cacheService.set(searchTerm, category, cacheKey, page, size, result);
 
       return result;
     } catch (error) {
       console.error('IconService: Search failed:', error);
       throw error;
     }
+  }
+
+  /**
+   * Get frequently used icons
+   */
+  async getFrequentlyUsed(limit = 12) {
+    return this.searchService.getFrequentlyUsed(limit);
+  }
+
+  /**
+   * Semantic search for icons using natural language
+   */
+  async semanticSearch(query, packs = null, limit = 20) {
+    return this.searchService.semanticSearch(query, packs, limit);
+  }
+
+  /**
+   * Check if a query looks like natural language
+   */
+  isNaturalLanguageQuery(query) {
+    return this.searchService.isNaturalLanguageQuery(query);
   }
 
   /**

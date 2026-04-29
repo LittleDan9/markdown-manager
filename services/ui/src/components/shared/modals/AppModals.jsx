@@ -11,7 +11,9 @@ import LoadingOverlay from '../../LoadingOverlay';
 function AppModals({
   showIconBrowser,
   onHideIconBrowser,
-  migrationStatus
+  migrationStatus,
+  onInsertIcon,
+  mermaidDiagramType
 }) {
   return (
     <>
@@ -28,7 +30,13 @@ function AppModals({
         </Modal.Header>
         <Modal.Body style={{ minHeight: '70vh' }} className="p-0">
           {/* Only render IconBrowser when modal is actually shown */}
-          {showIconBrowser && <IconBrowser />}
+          {showIconBrowser && (
+            <IconBrowser
+              onInsertIcon={onInsertIcon}
+              onClose={onHideIconBrowser}
+              detectedDiagramType={mermaidDiagramType}
+            />
+          )}
         </Modal.Body>
       </Modal>
 
@@ -45,6 +53,8 @@ AppModals.propTypes = {
   showIconBrowser: PropTypes.bool.isRequired,
   onHideIconBrowser: PropTypes.func.isRequired,
   migrationStatus: PropTypes.string.isRequired,
+  onInsertIcon: PropTypes.func,
+  mermaidDiagramType: PropTypes.string,
 };
 
 export default AppModals;

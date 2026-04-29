@@ -10,6 +10,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
   const [error, setError] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedKey, setEditedKey] = useState('');
+  const [editedDisplayName, setEditedDisplayName] = useState('');
   const [editedSearchTerms, setEditedSearchTerms] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
@@ -52,6 +53,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
       if (initialEditMode) {
         setIsEditing(true);
         setEditedKey(icon.key || '');
+        setEditedDisplayName(icon.display_name || '');
         setEditedSearchTerms(icon.search_terms || '');
       } else {
         // Ensure we're not in edit mode unless explicitly requested
@@ -64,6 +66,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
       setSaveSuccess(false);
       setIsEditing(false);
       setEditedKey('');
+      setEditedDisplayName('');
       setEditedSearchTerms('');
       setSaving(false);
     }
@@ -79,6 +82,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
     // Reset to original values
     const currentIcon = iconData || icon;
     setEditedKey(currentIcon.key || '');
+    setEditedDisplayName(currentIcon.display_name || '');
     setEditedSearchTerms(currentIcon.search_terms || '');
   };
 
@@ -88,7 +92,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
 
     try {
       const metadata = {
-        key: editedKey.trim(),
+        display_name: editedDisplayName.trim(),
         search_terms: editedSearchTerms.trim()
       };
 
@@ -191,7 +195,7 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
               )}
             </div>
             <div>
-              <div>{displayIcon.key}</div>
+              <div>{displayIcon.display_name || displayIcon.key}</div>
               <small className="text-muted">
                 {displayIcon.pack ? displayIcon.pack.display_name : 'Unknown Pack'}
               </small>
@@ -254,22 +258,36 @@ export default function IconViewModal({ icon, show, onHide, initialEditMode = fa
                 )}
               </div>
               <div className="mt-1">
+                <span
+                  className="icon-view-clickable"
+                  onClick={() => copyToClipboard(displayIcon.key)}
+                  title="Click to copy"
+                >
+                  {displayIcon.key}
+                </span>
+                {isEditing && (
+                  <small className="text-muted d-block mt-1">
+                    <i className="bi bi-lock me-1"></i>Key is read-only
+                  </small>
+                )}
+              </div>
+            </div>
+
+            <div className="mb-3">
+              <div className="d-flex align-items-center mb-2">
+                <strong>Display Name:</strong>
+              </div>
+              <div className="mt-1">
                 {isEditing ? (
                   <Form.Control
                     type="text"
-                    value={editedKey}
-                    onChange={(e) => setEditedKey(e.target.value)}
-                    placeholder="Enter icon key"
+                    value={editedDisplayName}
+                    onChange={(e) => setEditedDisplayName(e.target.value)}
+                    placeholder="Human-readable name (e.g., Network Load Balancer)"
                     disabled={saving}
                   />
                 ) : (
-                  <span
-                    className="icon-view-clickable"
-                    onClick={() => copyToClipboard(displayIcon.key)}
-                    title="Click to copy"
-                  >
-                    {displayIcon.key}
-                  </span>
+                  <span>{displayIcon.display_name || <em className="text-muted">Not set</em>}</span>
                 )}
               </div>
             </div>

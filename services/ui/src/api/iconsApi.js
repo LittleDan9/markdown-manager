@@ -66,6 +66,7 @@ export class IconsApi extends Api {
     const {
       q = '',
       pack = 'all',
+      packs = null,
       category = 'all',
       page = 0,
       size = 1000
@@ -73,11 +74,17 @@ export class IconsApi extends Api {
 
     const queryParams = new URLSearchParams({
       q,
-      pack,
       category,
       page: page.toString(),
       size: size.toString()
     });
+
+    // Multi-pack takes priority over single pack
+    if (packs && packs.length > 0) {
+      queryParams.set('packs', packs.join(','));
+    } else {
+      queryParams.set('pack', pack);
+    }
 
     const response = await this.apiCall(
       `/icons/search?${queryParams}`,
@@ -169,12 +176,27 @@ export class IconsApi extends Api {
   }
 
   /**
+   * Get frequently used icons by access count
+   * @param {number} limit - Max icons to return (default 20)
+   */
+  async getFrequentlyUsed(limit = 20) {
+    const response = await this.apiCall(
+      `/icons/search/frequently-used?limit=${limit}`,
+      'GET',
+      null,
+      {},
+      { noAuth: true }
+    );
+    return response.data;
+  }
+
+  /**
    * Track icon usage (optional analytics)
    */
   async trackUsage(pack, key, userId = null) {
     try {
       await this.apiCall(
-        '/icons/track-usage',
+        '/icons/search/track-usage',
         'POST',
         { pack, key, user_id: userId },
         {},
@@ -184,6 +206,27 @@ export class IconsApi extends Api {
       // Don't throw on tracking errors - it's non-critical
       console.warn('Failed to track icon usage:', error);
     }
+  }
+
+  /**
+   * Semantic search for icons using natural language
+   * @param {string} query - Natural language query
+   * @param {string[]} packs - Optional pack filter
+   * @param {number} limit - Max results
+   */
+  async semanticSearch(query, packs = null, limit = 20) {
+    const params = new URLSearchParams({ q: query, limit: limit.toString() });
+    if (packs && packs.length > 0) {
+      params.set('packs', packs.join(','));
+    }
+    const response = await this.apiCall(
+      `/icons/search/semantic?${params}`,
+      'GET',
+      null,
+      {},
+      { noAuth: true }
+    );
+    return response.data;
   }
 
   // Admin methods have been moved to api/admin/iconsApi.js

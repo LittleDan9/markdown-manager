@@ -12,7 +12,7 @@ from .document_embedding import DocumentEmbedding
 from .git_operations import GitOperationLog
 from .github_models import GitHubAccount, GitHubRepository, GitHubSyncHistory
 from .github_settings import GitHubSettings
-from .icon_models import IconMetadata, IconPack
+from .icon_models import IconMetadata, IconPack, IconEmbedding
 from .markdown_lint_rule import MarkdownLintRule
 from .notification import Notification
 from .site_setting import SiteSetting

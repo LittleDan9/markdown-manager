@@ -18,7 +18,7 @@ import { markDraftAcknowledged } from "@/hooks/document/useSaveDocument";
 
 function App() {
   const { autosaveEnabled, syncPreviewScrollEnabled, isInitializing } = useAuth();
-  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer, showHelpModal, setShowHelpModal, showGuidedTour, setShowGuidedTour, createDocument } = useDocumentContext();
+  const { currentDocument, saveDocument, migrationStatus, content, isSharedView, sharedDocument, sharedLoading, loading, triggerContentUpdate, cursorLine, fullscreenPreview, setFullscreenPreview, showIconBrowser, setShowIconBrowser, showChatDrawer, setShowChatDrawer, showHelpModal, setShowHelpModal, showGuidedTour, setShowGuidedTour, createDocument, editorInsertText, mermaidDiagramType } = useDocumentContext();
 
   // --- Draft promotion modal state ---
   const [showPromoteDraft, setShowPromoteDraft] = useState(false);
@@ -175,6 +175,8 @@ function App() {
         showIconBrowser={showIconBrowser}
         onHideIconBrowser={() => setShowIconBrowser(false)}
         migrationStatus={migrationStatus}
+        onInsertIcon={editorInsertText}
+        mermaidDiagramType={mermaidDiagramType}
       />
 
       <ChatDrawer

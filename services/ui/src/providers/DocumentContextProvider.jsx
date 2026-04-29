@@ -26,6 +26,8 @@ export function DocumentContextProvider({ children }) {
   const [showGuidedTour, setShowGuidedTour] = useState(false);
   const [mobileViewMode, setMobileViewMode] = useState('editor'); // 'editor' | 'preview'
   const [editorSelection, setEditorSelection] = useState(null); // { text, startLine, endLine } or null
+  const [editorInsertText, setEditorInsertText] = useState(null); // (text: string) => void
+  const [mermaidDiagramType, setMermaidDiagramType] = useState(null); // 'architecture' | 'flowchart' | null
 
   // Debug logging for UI state changes
   useEffect(() => {
@@ -165,13 +167,17 @@ export function DocumentContextProvider({ children }) {
       setMobileViewMode,
       editorSelection,
       setEditorSelection,
+      editorInsertText,
+      setEditorInsertText,
+      mermaidDiagramType,
+      setMermaidDiagramType,
       // Auth context values
       token: auth.token,
       user: auth.user,
       isAuthenticated: auth.isAuthenticated,
       isInitializing: auth.isInitializing
     };
-  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, openRecentsCoordinated, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, chatHelpMode, showHelpModal, showGuidedTour, mobileViewMode, editorSelection, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
+  }, [documentState, sharedViewState, previewHTMLState, renderingState, siblingDocsState, triggerContentUpdate, openRecentsCoordinated, cursorLine, fullscreenPreview, showIconBrowser, showChatDrawer, chatHelpMode, showHelpModal, showGuidedTour, mobileViewMode, editorSelection, editorInsertText, mermaidDiagramType, auth.token, auth.user, auth.isAuthenticated, auth.isInitializing]);
 
   return (
     <DocumentContext.Provider value={value}>

@@ -48,8 +48,12 @@ class IconMetadataUpdate(BaseModel):
     """Schema for updating individual icon metadata."""
 
     key: Optional[str] = Field(None, description="Icon key/identifier")
+    display_name: Optional[str] = Field(None, description="Human-readable display name")
     search_terms: Optional[str] = Field(None, description="Searchable keywords")
     category: Optional[str] = Field(None, description="Icon category")
+    tags: Optional[str] = Field(None, description="Comma-separated tags")
+    aliases: Optional[str] = Field(None, description="Alternative names")
+    description: Optional[str] = Field(None, description="Human-readable description")
 
 
 class IconPackResponse(IconPackBase):
@@ -68,9 +72,13 @@ class IconMetadataBase(BaseModel):
     """Base icon metadata schema."""
 
     key: str = Field(..., description="Icon identifier within pack")
+    display_name: Optional[str] = Field(None, description="Human-readable display name")
     search_terms: str = Field(..., description="Space-separated search terms")
     icon_data: Optional[Dict[str, Any]] = Field(None, description="JSONB data for icon")
     file_path: Optional[str] = Field(None, description="File path for SVG files")
+    tags: Optional[str] = Field(None, description="Comma-separated tags")
+    aliases: Optional[str] = Field(None, description="Alternative names")
+    description: Optional[str] = Field(None, description="Human-readable description")
 
 
 class IconMetadataCreate(IconMetadataBase):
@@ -99,7 +107,8 @@ class IconSearchRequest(BaseModel):
     """Icon search request schema."""
 
     q: str = Field("", description="Search term")
-    pack: str = Field("all", description="Filter by pack name")
+    pack: str = Field("all", description="Filter by pack name (single, legacy)")
+    packs: Optional[List[str]] = Field(None, description="Filter by multiple pack names")
     category: str = Field("all", description="Filter by category")
     page: int = Field(0, ge=0, description="Page number for pagination")
     size: int = Field(24, ge=1, le=1000, description="Number of results per page")
