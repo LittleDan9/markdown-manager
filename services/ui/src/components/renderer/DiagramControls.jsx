@@ -363,13 +363,27 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     setIsRefreshing(true);
     markInteractionActive();
 
+    // Dismiss the tooltip immediately
+    document.body.click();
+
     try {
       // Evict this diagram from the shared cache
       mermaidSingleton.cache.delete(diagramSource);
 
+      // Detach the controls container before re-render (innerHTML would destroy it)
+      const controlsContainer = diagramElement.querySelector('.diagram-controls-container');
+      if (controlsContainer) {
+        controlsContainer.remove();
+      }
+
       // Re-render the single diagram directly via the singleton
       diagramElement.setAttribute('data-processed', 'false');
       await mermaidSingleton.renderSingleDiagram(diagramElement, diagramSource);
+
+      // Re-append the controls container after the new SVG is in place
+      if (controlsContainer) {
+        diagramElement.appendChild(controlsContainer);
+      }
     } catch (error) {
       console.error('Failed to refresh diagram:', error);
       showError('Failed to refresh diagram');
