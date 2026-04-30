@@ -169,6 +169,30 @@ class ExportServiceApi extends Api {
   }
 
   /**
+   * Export document as DOCX using the export service
+   * @param {string} htmlContent - HTML content to export as DOCX
+   * @param {string} documentName - Document name for the DOCX
+   * @param {boolean} isDarkMode - Dark mode styling (default: false)
+   * @param {string} responseFormat - 'stream' (default) or 'json'
+   * @returns {Promise<Blob|Object>} - DOCX binary data as blob or ConversionResponse object
+   */
+  async exportAsDocx(htmlContent, documentName, isDarkMode = false, responseFormat = 'stream') {
+    const requestData = {
+      html_content: htmlContent,
+      document_name: documentName,
+      is_dark_mode: isDarkMode,
+    };
+
+    if (responseFormat === 'json') {
+      const res = await this.apiCall('/export/document/docx?response_format=json', 'POST', requestData);
+      return res.data;
+    } else {
+      const res = await this.apiCall('/export/document/docx', 'POST', requestData, {}, { responseType: 'blob' });
+      return res.data;
+    }
+  }
+
+  /**
    * Export diagram as Draw.io XML format using the export service
    * @param {string} mermaidSource - Original Mermaid source code
    * @param {string} svgContent - Rendered SVG content from Mermaid

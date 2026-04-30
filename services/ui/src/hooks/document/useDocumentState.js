@@ -692,6 +692,16 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
   }, [currentDocument, setError]);
 
+  const exportAsDocx = useCallback(async (htmlContent, filename = null, theme = 'light') => {
+    try {
+      await DocumentService.exportAsDocx(htmlContent, filename || currentDocument?.name, theme);
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      setError('DOCX export failed: ' + (error.message || 'Unknown error'));
+      throw error;
+    }
+  }, [currentDocument, setError]);
+
   const importMarkdownFile = useCallback(async (file) => {
     return DocumentService.importMarkdownFile(file);
   }, []);
@@ -816,6 +826,6 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     showWarning, showSuccess, showError,
     createDocument, loadDocument, saveDocument, deleteDocument, renameDocument,
     addCategory, deleteCategory, renameCategory, syncWithBackend, addDocumentToState,
-    exportAsMarkdown, exportAsPDF, importMarkdownFile, hasUnsavedChanges, openCategory, openRecents
+    exportAsMarkdown, exportAsPDF, exportAsDocx, importMarkdownFile, hasUnsavedChanges, openCategory, openRecents
   };
 }

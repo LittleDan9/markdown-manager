@@ -1,1 +1,0 @@
-"""Test fixtures for Draw.io export service tests."""

@@ -44,9 +44,9 @@ The development environment uses Docker Compose to orchestrate all services with
 │                        Development Environment                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
-│  │   Nginx     │  │  Frontend   │  │ Backend API │  │   Export Service    │  │
+│  │   Nginx     │  │  Frontend   │  │ Backend API │  │  Export (Platform)  │  │
 │  │ (Port 80)   │  │(Port 3000)  │  │(Port 8000)  │  │   (Port 8001)       │  │
-│  │             │  │ Hot Reload  │  │ Hot Reload  │  │   Hot Reload        │  │
+│  │             │  │ Hot Reload  │  │ Hot Reload  │  │   shared-services   │  │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └─────────────────────┘  │
 │                                            │                                │
 │  ┌─────────────┐  ┌─────────────┐         │         ┌─────────────────────┐  │
@@ -77,11 +77,11 @@ Each service is configured for optimal development experience:
 - **Environment**: Development mode with debug enabled
 - **Database**: PostgreSQL with persistent volume
 
-#### Export Service (Python/Playwright)
+#### Export Service (Platform-Managed)
 - **Port**: 8001
-- **Volume Mounts**: `./services/export/app` for live code updates
-- **Browser Engine**: Playwright Chromium for PDF/PNG generation
-- **Dependencies**: All export libraries pre-installed
+- **Source**: Lives in `platform-manager/export/` (shared service)
+- **Access**: Via Docker DNS on `shared-services` network (`http://export:8001`)
+- **Capabilities**: PDF (Playwright/Chromium), DOCX (pandoc), diagrams (SVG/PNG/Draw.io)
 
 #### Microservices (Node.js)
 - **Markdown Lint Service** (Port 8002): Real-time markdown validation
@@ -357,7 +357,7 @@ Each service includes health checks and test endpoints:
 # Backend health check
 curl http://localhost:8000/health
 
-# Export service health check
+# Export service health check (platform service, available when platform is running)
 curl http://localhost:8001/health
 
 # Test spell check service
@@ -407,9 +407,6 @@ curl -X POST http://localhost:8003/check \
 │   │   └── components/      # React components
 │   └── webpack.config.js    # Development build configuration
 services/
-├── export/
-│   ├── app/                 # Export service application
-│   └── static/              # Static assets for PDF generation
 ├── linting/
 │   ├── server.js            # Express server with hot reload
 │   └── middleware/          # Logging middleware

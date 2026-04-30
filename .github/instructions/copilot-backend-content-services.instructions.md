@@ -4,15 +4,16 @@ applyTo: "services/backend/app/routers/pdf*,services/backend/app/routers/syntax_
 ---
 # Backend Content Services
 
-## PDF Export Gateway (`routers/pdf.py`)
-Backend proxy to the export microservice:
+## PDF/DOCX Export Gateway (`routers/pdf.py`)
+Backend proxy to the **platform export service** (lives in `platform-manager/export/`):
 - `POST /pdf/export` → Preprocesses HTML content, calls export service for PDF generation
+- `POST /pdf/export-docx` → Preprocesses HTML content, calls export service for DOCX generation
 - Uses `ExportServiceClient` for HTTP communication with export microservice
 - `PdfProcessor` handles HTML enhancement (page breaks, table layout, diagram sizing)
 - `PdfImageProcessor` handles image resolution and embedding
 
 ### Related Services
-- `services/export_service_client.py` → Async HTTP client calling export service (`generate_pdf`, `health_check`)
+- `services/export_service_client.py` → Async HTTP client calling export service (`generate_pdf`, `generate_docx`, `health_check`)
 - `services/pdf_processor.py` → HTML preprocessing for PDF layout quality (headers, tables, lists, diagrams)
 - `services/pdf_image_processor.py` → Image processing for PDF embedding
 

@@ -464,6 +464,10 @@ function FileDropdown({ setDocumentTitle, setContent }) {
             disabled={!currentDocument || !content || content.trim() === ""}>
             <i className="bi bi-filetype-pdf" /><span>Export PDF</span>
           </button>
+          <button type="button" className="mobile-menu-item" onClick={() => mobileAction(fileOps.handleExportDocx)}
+            disabled={!currentDocument || !content || content.trim() === ""}>
+            <i className="bi bi-file-earmark-word" /><span>Export Word</span>
+          </button>
         </nav>
       </Offcanvas.Body>
     </Offcanvas>
@@ -726,6 +730,12 @@ function FileDropdown({ setDocumentTitle, setContent }) {
               >
                 <i className="bi bi-filetype-pdf me-2"></i>Export PDF
               </Dropdown.Item>
+              <Dropdown.Item
+                onClick={fileOps.handleExportDocx}
+                disabled={!currentDocument || !content || content.trim() === ""}
+              >
+                <i className="bi bi-file-earmark-word me-2"></i>Export Word
+              </Dropdown.Item>
             </>
           )}
 
@@ -744,6 +754,12 @@ function FileDropdown({ setDocumentTitle, setContent }) {
                 disabled={!currentDocument || !content || content.trim() === ""}
               >
                 <i className="bi bi-filetype-pdf me-2"></i>Export PDF
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={fileOps.handleExportDocx}
+                disabled={!currentDocument || !content || content.trim() === ""}
+              >
+                <i className="bi bi-file-earmark-word me-2"></i>Export Word
               </Dropdown.Item>
             </>
           )}

@@ -533,6 +533,37 @@ class DocumentService {
   }
 
   /**
+   * Export document as DOCX
+   * @param {string} htmlContent - Rendered HTML content
+   * @param {string} filename - Optional filename
+   * @param {string} theme - Theme ('light' or 'dark')
+   */
+  async exportAsDocx(htmlContent, filename = null, theme = 'light') {
+    try {
+      const documentName = filename || 'document';
+      const isDark = theme === 'dark';
+
+      const DocumentsApi = (await import('@/api/documentsApi')).default;
+      const docxBlob = await DocumentsApi.exportAsDocx(htmlContent, documentName, isDark);
+
+      const url = window.URL.createObjectURL(docxBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = documentName.endsWith('.docx') ? documentName : `${documentName}.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
+      NotificationService.success(`Document exported as ${link.download}`);
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      NotificationService.error('DOCX export failed');
+      throw error;
+    }
+  }
+
+  /**
    * Import Markdown file
    * @param {File} file - File object to import
    * @returns {Promise<Object>} - Object with content and name

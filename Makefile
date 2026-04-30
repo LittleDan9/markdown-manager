@@ -51,7 +51,6 @@ endif
 UI_DIR              := services/ui
 FRONT_DIST_DIR       := $(if $(wildcard /home/dlittle/ramcache),/home/dlittle/ramcache/markdown-manager/dist,services/ui/dist)
 BACKEND_DIR          := services/backend
-EXPORT_DIR           := services/export
 LINT_DIR             := services/linting
 SPELL_CHECK_DIR      := services/spell-check
 CONSUMER_DIR         := services/event-consumer
@@ -101,7 +100,7 @@ quality: ## Run pre-commit hooks
 	@echo "$(GREEN)✅ Quality checks complete$(NC)"
 
 install: ## Install frontend + backend deps
-	@./scripts/install.sh $(UI_DIR) $(BACKEND_DIR) $(EXPORT_DIR)
+	@./scripts/install.sh $(UI_DIR) $(BACKEND_DIR)
 
 clean: ## Clean build artifacts
 	@./scripts/clean.sh $(FRONT_DIST_DIR) $(BACKEND_DIR)
@@ -192,7 +191,6 @@ sync-locks: ## Regenerate all lock files to match manifests
 	@cd $(BACKEND_DIR) && poetry lock --quiet 2>/dev/null
 	@cd $(EVENT_PUBLISHER_DIR) && poetry lock --quiet 2>/dev/null
 	@cd $(CONSUMER_DIR) && poetry lock --quiet 2>/dev/null
-	@cd $(EXPORT_DIR) && poetry lock --quiet 2>/dev/null
 	@echo "$(GREEN)Lock files synced$(NC)"
 
 deploy: sync-locks ## Deploy all services (bootstrap + app + nginx)

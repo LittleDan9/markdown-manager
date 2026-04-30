@@ -2,7 +2,7 @@
 # ==============================================================================
 # deploy-blue-green.sh — Zero-downtime blue/green deployment
 # ==============================================================================
-# Deploys the application stack (backend, nginx, export, linting, etc.) as an
+# Deploys the application stack (backend, nginx, linting, etc.) as an
 # alternating blue/green Compose project. Traefik automatically routes traffic
 # to the healthy stack and drains the old one.
 #

@@ -14,6 +14,7 @@ import RenderingOrchestrator from './renderer/RenderingOrchestrator';
 import FeatureManager from './renderer/FeatureManager';
 import LifecycleManager from './renderer/LifecycleManager';
 import PreviewRenderer from './renderer/PreviewRenderer';
+import CopyAsButton from './renderer/CopyAsButton';
 
 const RendererContent = ({
   scrollToLine,
@@ -136,6 +137,11 @@ const RendererContent = ({
       <FeatureManager />
 
       <div id="preview" className="position-relative">
+        <CopyAsButton
+          previewHTML={previewHTML}
+          markdownContent={currentDocument?.content}
+        />
+
         <PreviewRenderer
           htmlContent={previewHTML}
           className="preview-scroll"

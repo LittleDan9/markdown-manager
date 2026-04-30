@@ -10,6 +10,46 @@
 
 #previewContainer {
   #preview {
+    .copy-as-button {
+      position: absolute;
+      top: 0.5rem;
+      right: 0.5rem;
+      z-index: 5;
+      opacity: 0.4;
+      transition: opacity 0.2s ease-in-out;
+
+      &:hover,
+      &:focus-within {
+        opacity: 1;
+      }
+
+      .copy-as-toggle {
+        color: var(--bs-secondary-color);
+        text-decoration: none;
+        padding: 0.25rem 0.4rem;
+        border-radius: 0.25rem;
+        line-height: 1;
+        font-size: 1rem;
+
+        &::after {
+          display: none; // Hide default dropdown caret
+        }
+
+        &.copy-success {
+          color: var(--bs-success);
+        }
+
+        &:hover {
+          color: var(--bs-primary);
+          background: var(--bs-tertiary-bg);
+        }
+      }
+
+      .dropdown-menu {
+        font-size: 0.85rem;
+        min-width: 10rem;
+      }
+    }
     .preview-scroll {
 
       // Disable automatic hyphenation for better readability

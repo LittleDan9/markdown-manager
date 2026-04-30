@@ -7,7 +7,7 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
   // Document context and notifications
   const {
     saveDocument, currentDocument, loadDocument, createDocument, documents: _documents,
-    exportAsMarkdown, exportAsPDF, importMarkdownFile
+    exportAsMarkdown, exportAsPDF, exportAsDocx, importMarkdownFile
   } = useDocumentContext();
   const { showSuccess, showError } = useNotification();
 
@@ -175,6 +175,20 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
     exportAsPDF(renderedHTML, currentDocument.name, theme);
   }, [exportAsPDF, currentDocument, renderedHTML, showError, theme]);
 
+  const handleExportDocx = useCallback(() => {
+    if (!currentDocument) {
+      showError && showError("No document selected for export.");
+      return;
+    }
+
+    if (!renderedHTML || renderedHTML.trim() === "") {
+      showError && showError("Document content is still being processed. Please wait a moment and try again.");
+      return;
+    }
+
+    exportAsDocx(renderedHTML, currentDocument.name, theme);
+  }, [exportAsDocx, currentDocument, renderedHTML, showError, theme]);
+
   // --- File Overwrite Logic ---
   const openOverwriteModal = useCallback((importData) => {
     setPendingImport(importData);
@@ -205,7 +219,7 @@ export function useFileOperations({ setDocumentTitle, setContent, renderedHTML, 
     openOpenModal, handleOpenFile, handleOpenEffect,
     openSaveAs, handleSaveAsConfirm,
     handleImport, handleFileChange, handleImportConfirm,
-    handleExportMarkdown, handleExportPDF,
+    handleExportMarkdown, handleExportPDF, handleExportDocx,
     openOverwriteModal, handleOverwriteConfirm, handleOverwriteCancel,
   };
 }

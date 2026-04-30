@@ -191,6 +191,7 @@ test_health_checks() {
     log_section "2.1 Individual Service Health Endpoints"
     
     # Test individual service health endpoints
+    # Note: export:8001 is provided by platform-manager (shared-services network)
     local services=(
         "backend:8000"
         "export:8001" 

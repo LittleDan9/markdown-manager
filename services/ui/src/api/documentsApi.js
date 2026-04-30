@@ -44,6 +44,12 @@ class DocumentsApi extends Api {
     return await exportServiceApi.exportAsPDF(htmlContent, documentName, isDarkMode);
   }
 
+  async exportAsDocx(htmlContent, documentName, isDarkMode = false) {
+    // Use the dedicated export service for DOCX generation
+    const exportServiceApi = (await import('./exportServiceApi')).default;
+    return await exportServiceApi.exportAsDocx(htmlContent, documentName, isDarkMode);
+  }
+
   async exportDiagramAsSVG(htmlContent, options = {}) {
     // Use the dedicated export service for SVG diagram generation
     const exportServiceApi = (await import('./exportServiceApi')).default;

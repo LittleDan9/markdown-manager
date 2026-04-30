@@ -1,63 +1,41 @@
 ---
-description: "Use when working on the export service: PDF generation, diagram export (SVG/PNG), Mermaid-to-Draw.io conversion, Playwright/Chromium rendering, or diagram converter framework."
-applyTo: "services/export/**"
+description: "Use when working on the export gateway: PDF/DOCX export API client, export service integration, or nginx export routing to the platform export service."
+applyTo: "services/backend/app/services/pdf_*,services/backend/app/services/export_service_client*,services/backend/app/routers/pdf*,nginx/**"
 ---
-# Export Service
+# Export Service Integration
 
 ## Overview
-Python FastAPI microservice for document and diagram export. Uses Playwright/Chromium for high-quality rendering.
+The export service (PDF, DOCX, diagrams) is a **shared platform service** hosted in `platform-manager/export/`. Markdown Manager accesses it over the `shared-services` Docker network.
 
-**Tech Stack**: Python 3.11, FastAPI, Playwright, Pillow, CairoSVG, BeautifulSoup4, lxml, aiohttp.
+**The source code does NOT live in this repo.** See `platform-manager/export/` for the service implementation.
 
-## Architecture
+## How MM Connects
 
-### App Factory (`app/app_factory.py`)
-Follows the same factory pattern as the backend:
-- `create_app()` with lifespan management
-- Startup initializes shared CSS service
-- Router imports delayed inside setup to avoid circular imports
-- root_path not set (nginx handles `/api/export/` prefix)
-
-### Routers
-```
-/              → Health check (default.py)
-/document/pdf  → PDF export from HTML/markdown (pdf.py)
-/diagram/svg   → Mermaid diagram → SVG export (diagram.py)
-/diagram/png   → Mermaid diagram → PNG export (diagram.py)
-/diagram/drawio → Mermaid → Draw.io XML conversion (drawio.py)
+### Nginx Proxy
+Both dev (`nginx-dev.conf`) and prod (`nginx-prod.conf`) proxy `/api/export/` to the export container:
+```nginx
+location /api/export/ {
+    proxy_pass http://export:8001/;
+}
 ```
 
-### Services
-- `css_service.py` → Shared CSS for consistent document/diagram styling
-- `pdf_service.py` → PDF rendering pipeline with Chromium
-- `diagram_service.py` → SVG/PNG diagram export via Playwright
-- `mermaid_drawio_service.py` → Mermaid-to-Draw.io orchestrator
+### Backend Client
+`services/backend/app/services/export_service_client.py` wraps HTTP calls to the export service (env var `EXPORT_SERVICE_URL=http://export:8001`).
 
-### Diagram Converter Framework (`services/diagram_converters/`)
-Modular conversion pipeline:
-```
-diagram_converters/
-├── detector.py          → Diagram type detection (architecture/flowchart/etc.)
-├── converter_factory.py → Factory selecting converter by diagram type
-├── base_converter.py    → Abstract converter interface
-├── architecture_converter.py → Architecture-beta diagram conversion
-├── flowchart_converter.py    → Flowchart diagram conversion
-├── default_converter.py      → Fallback converter
-├── parsing/             → Mermaid syntax parsing modules
-├── positioning/         → Element layout and positioning
-└── validation/          → Input/output validation and quality scoring
-```
+### Frontend
+`services/ui/src/api/exportServiceApi.js` calls the backend's `/api/export/` proxy endpoints for PDF and DOCX export.
 
-## Draw.io Integration
-- Converts Mermaid diagrams to Draw.io XML format
-- Generates editable Draw.io PNG with embedded XML metadata (via PIL)
-- Quality scoring validates conversion accuracy
-- Performance monitoring for conversion pipeline
+## Available Endpoints (provided by platform-manager)
+| Endpoint | Method | Description |
+|---|---|---|
+| `/document/pdf` | POST | HTML → PDF (Playwright + Chromium) |
+| `/document/docx` | POST | HTML → DOCX (pypandoc + pandoc) |
+| `/diagram/svg` | POST | Rendered diagram → SVG |
+| `/diagram/png` | POST | Rendered diagram → PNG |
+| `/diagram/drawio/xml` | POST | Mermaid → Draw.io XML |
+| `/diagram/drawio/png` | POST | Mermaid → Draw.io editable PNG |
 
-## Testing
-- `tests/integration/` → Full pipeline tests
-- `tests/performance/` → Conversion speed benchmarks
-- `tests/fixtures/` → Sample diagrams and expected outputs
-
-## Nginx Routing
-Accessed via `/api/export/` prefix through nginx. Both dev and prod configs have `/api/export/` location blocks with precedence before general `/api/` catch-all.
+## Important
+- Do NOT add export service source code to this repo
+- The container name `export` resolves via Docker DNS on `shared-services`
+- If the export service needs changes, modify `platform-manager/export/`

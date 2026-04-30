@@ -179,7 +179,6 @@ For detailed deployment information, see [deployment documentation](deployment/)
 - **[Development Guide](docs/development/)** - Local development setup and workflows
 - **[Collaborative Editing](docs/development/collaborative-editing.md)** - Yjs CRDT architecture, WebSocket protocol, and sharing permissions
 - **[Deployment Guide](docs/deployment/)** - Production deployment and configuration
-- **[Export Service Guide](services/export/README.md)** - Document and diagram export capabilities
 - **[Backend API](services/backend/README.md)** - FastAPI backend service documentation
 
 ## 🛠️ Development

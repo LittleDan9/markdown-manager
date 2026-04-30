@@ -189,6 +189,45 @@ class CopyService {
       button.parentNode.replaceChild(newButton, button);
     });
   }
+
+  /**
+   * Check if the browser supports rich text (HTML) clipboard writing
+   * @returns {boolean} - Whether ClipboardItem API is available
+   */
+  static supportsRichCopy() {
+    return typeof ClipboardItem !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.write === 'function';
+  }
+
+  /**
+   * Copy content as rich text (HTML + plain text) to clipboard.
+   * When pasted into Word/Outlook, formatting is preserved.
+   * @param {string} html - HTML content to copy
+   * @param {string} plainText - Plain text fallback
+   * @returns {Promise<boolean>} - Success status
+   */
+  static async copyAsRichText(html, plainText) {
+    if (!this.supportsRichCopy()) {
+      // Fallback to plain text copy
+      return this.copyToClipboard(plainText);
+    }
+
+    try {
+      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const textBlob = new Blob([plainText], { type: 'text/plain' });
+
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': htmlBlob,
+          'text/plain': textBlob,
+        }),
+      ]);
+      return true;
+    } catch (err) {
+      console.error('Rich text clipboard copy failed:', err);
+      // Fallback to plain text
+      return this.copyToClipboard(plainText);
+    }
+  }
 }
 
 export default CopyService;

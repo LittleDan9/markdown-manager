@@ -162,12 +162,13 @@ Alternates between project names. Each gets its own UI static volume.
 | nginx | nginx:alpine | Container-level routing + static serving |
 | frontend-build | services/ui | One-shot React build → UI volume |
 | backend | services/backend | FastAPI main API |
-| export | services/export | PDF/SVG/PNG via Playwright |
 | linting | services/linting | markdownlint HTTP service |
 | spell-check | services/spell-check | cspell/retext HTTP service |
 | event-publisher | services/event-publisher | Outbox relay (Postgres → Redis) |
 | linting-consumer | services/event-consumer | Linting event processing |
 | spell-check-consumer | services/event-consumer | Spell-check event processing |
+
+> **Note**: The export service (PDF/DOCX/diagrams) is provided by `platform-manager` on the `shared-services` network.
 
 ## Troubleshooting
 
