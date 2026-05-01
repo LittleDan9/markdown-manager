@@ -183,7 +183,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
           updatedBlocks.forEach(block => {
             const code = decodeURIComponent(block.dataset.code);
             const language = block.dataset.lang;
-            const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+            const placeholderId = HighlightService.placeholderId(language, code);
             block.setAttribute("data-syntax-placeholder", placeholderId);
 
             const highlighted = results[placeholderId] || highlightedBlocks[placeholderId];
@@ -233,7 +233,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     codeBlocks.forEach(block => {
       const code = decodeURIComponent(block.dataset.code);
       const language = block.dataset.lang;
-      const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+      const placeholderId = HighlightService.placeholderId(language, code);
       block.setAttribute("data-syntax-placeholder", placeholderId);
 
       // Use existing highlighted blocks if available
@@ -267,7 +267,7 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
       updatedCodeBlocks.forEach(block => {
         const code = decodeURIComponent(block.dataset.code);
         const language = block.dataset.lang;
-        const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+        const placeholderId = HighlightService.placeholderId(language, code);
         block.setAttribute("data-syntax-placeholder", placeholderId);
 
         // Apply highlights

@@ -3,49 +3,11 @@
  */
 import HighlightingApi from "@/api/highlightingApi";
 
+const MAX_CACHE_SIZE = 200;
+
 class HighlightService {
-  // Cache for recently highlighted blocks for fallback
-  recentlyHighlighted = [];
-  RECENT_HIGHLIGHT_MAX_AGE = 3000; // ms
-  RECENT_HIGHLIGHT_MAX_ENTRIES = 20;
-
   /**
-   * Store a recently highlighted block for fallback
-   */
-  storeRecentHighlight(language, code, html) {
-    const now = Date.now();
-    this.recentlyHighlighted.push({ language, code, html, timestamp: now });
-    // Remove old entries
-    this.recentlyHighlighted = this.recentlyHighlighted.filter(h => now - h.timestamp < this.RECENT_HIGHLIGHT_MAX_AGE);
-    // Limit cache size
-    if (this.recentlyHighlighted.length > this.RECENT_HIGHLIGHT_MAX_ENTRIES) {
-      this.recentlyHighlighted.shift();
-    }
-  }
-
-  /**
-   * Find a similar highlight for fallback
-   */
-  findSimilarHighlight(language, code) {
-    // Only compare blocks with the same language
-    for (let i = this.recentlyHighlighted.length - 1; i >= 0; i--) {
-      const h = this.recentlyHighlighted[i];
-      if (h.language !== language) continue;
-      // Heuristic: startsWith, endsWith, or length diff < 20%
-      if (
-        code.startsWith(h.code) ||
-        h.code.startsWith(code) ||
-        code.endsWith(h.code) ||
-        h.code.endsWith(code) ||
-        Math.abs(code.length - h.code.length) / Math.max(code.length, h.code.length) < 0.2
-      ) {
-        return h.html;
-      }
-    }
-    return null;
-  }
-  /**
-   * Stable hash function for placeholderId
+   * Stable hash function for cache/placeholder keys
    */
   hashCode(str) {
     let hash = 5381;
@@ -55,12 +17,19 @@ class HighlightService {
     return hash >>> 0;
   }
 
+  /**
+   * Build the canonical placeholder ID for a code block
+   */
+  placeholderId(language, code) {
+    return `syntax-highlight-${language}-${this.hashCode(code)}`;
+  }
+
   constructor() {
     this.cache = new Map(); // Cache highlighted code to avoid redundant API calls
     this.supportedLanguages = new Set(); // Cache of supported languages
   }
 
-   /**
+  /**
    * Check if highlighted code is in cache
    * @param {string} code
    * @param {string} language
@@ -69,9 +38,13 @@ class HighlightService {
   getFromCache(code, language) {
     if (!code || !language) return null;
     const cacheKey = `${language}:${this.hashCode(code)}`;
-    return this.cache.has(cacheKey) ? this.cache.get(cacheKey) : null;
+    if (!this.cache.has(cacheKey)) return null;
+    // Move to end for LRU freshness
+    const value = this.cache.get(cacheKey);
+    this.cache.delete(cacheKey);
+    this.cache.set(cacheKey, value);
+    return value;
   }
-
 
   /**
    * Highlight multiple code blocks and return a map of placeholderId to highlighted HTML
@@ -91,8 +64,12 @@ class HighlightService {
           highlighted = await HighlightingApi.highlightSyntax(code, language);
           const cacheKey = `${language}:${this.hashCode(code)}`;
           this.cache.set(cacheKey, highlighted);
+          // LRU eviction: remove oldest entries when over limit
+          if (this.cache.size > MAX_CACHE_SIZE) {
+            const firstKey = this.cache.keys().next().value;
+            this.cache.delete(firstKey);
+          }
           this.supportedLanguages.add(language.toLowerCase());
-          this.storeRecentHighlight(language, code, highlighted);
         } catch (error) {
           console.warn(`Failed to highlight code for language '${language}':`, error);
           highlighted = this.escapeHtml(code);
@@ -107,7 +84,6 @@ class HighlightService {
   async isLanguageSupported(language) {
     return HighlightingApi.isLanguageSupported(language);
   }
-
 
   /**
    * Clear the highlighting cache

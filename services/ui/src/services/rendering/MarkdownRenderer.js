@@ -65,12 +65,13 @@ function getLineEndAttr(tokens, idx) {
 md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
   const token = tokens[idx];
   const info = token.info.trim();
-  const lang = info || "";
+  // Extract only the language token (strip metadata like {1,3} or [title])
+  const lang = info.split(/[\s{[]/)[0] || "";
   const diagramSource = token.content?.trim() || "";
   const encodedSource = encodeURIComponent(diagramSource);
   const lineAttr = getLineAttr(tokens, idx);
   const lineEndAttr = getLineEndAttr(tokens, idx);
-  if (info.toLowerCase() === "mermaid") {
+  if (lang.toLowerCase() === "mermaid") {
     const mermaidDiagram = Mermaid.cache.get(diagramSource);
     if (mermaidDiagram) {
       return `<div
@@ -104,16 +105,12 @@ md.renderer.rules.fence = (tokens, idx, _options, _env, _self) => {
     </div>`;
   }
 
-  // For syntax highlighting, use a stable placeholderId
-  const placeholderId = `syntax-highlight-${HighlightService.hashCode(lang + token.content)}`;
-  // Check cache
-  let highlightedCode = HighlightService.getFromCache(token.content, lang);
-  if (!highlightedCode) {
-    // Try to find a similar recent highlight for fallback
-    highlightedCode = HighlightService.findSimilarHighlight(lang, token.content);
-  }
+  // For syntax highlighting, use a stable placeholderId keyed on language + content
+  const placeholderId = HighlightService.placeholderId(lang, token.content);
+  // Check cache — no fuzzy fallback, only exact match
+  const highlightedCode = HighlightService.getFromCache(token.content, lang);
   let codeBlock;
-  if (highlightedCode){
+  if (highlightedCode) {
     codeBlock = `<pre class="language-${lang}" data-processed="true" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${highlightedCode}</code></pre>`
   } else {
     codeBlock = `<pre class="language-${lang}" data-processed="false" data-syntax-placeholder="${placeholderId}" data-code="${encodeURIComponent(token.content)}" data-lang="${lang}"><code>${MarkdownIt().utils.escapeHtml(token.content)}</code></pre>`

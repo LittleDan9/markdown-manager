@@ -5,6 +5,7 @@ import { DocumentStorageService } from '@/services/core';
 import { useEffect } from 'react';
 import documentsApi from '@/api/documentsApi.js';
 import useChangeTracker from './useChangeTracker';
+import HighlightService from '@/services/editor/HighlightService';
 
 export default function useDocumentState(notification, auth, setPreviewHTML, isSharedView = false) {
   const { isAuthenticated, token, user: _user, isInitializing } = auth;
@@ -173,6 +174,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
           setPreviewHTML('');
         }
         setHighlightedBlocks({});
+        HighlightService.clearCache();
         DocumentStorageService.setCurrentDocument(newDoc);
         showWarning('Session expired. For security, all data has been cleared.');
         return;
@@ -224,6 +226,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
           setPreviewHTML('');
         }
         setHighlightedBlocks({});
+        HighlightService.clearCache();
         DocumentStorageService.setCurrentDocument(newDoc);
         return;
       }
@@ -274,6 +277,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         setPreviewHTML('');
       }
       setHighlightedBlocks({});
+      HighlightService.clearCache();
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
     loadCurrentDocument();
@@ -401,6 +405,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
     // Clear syntax highlighting cache for new document
     setHighlightedBlocks({});
+    HighlightService.clearCache();
     DocumentStorageService.setCurrentDocument(savedDoc);
 
     // Refresh documents list so the new doc appears
@@ -447,6 +452,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         // Clear highlighted blocks when loading a different document, but let the Renderer
         // handle preview HTML generation based on the new content
         setHighlightedBlocks({});
+        HighlightService.clearCache();
         await updateCurrentDocument(doc);
 
         // Mark document as recently opened
@@ -472,6 +478,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
           setPreviewHTML('');
         }
         setHighlightedBlocks({});
+        HighlightService.clearCache();
         DocumentStorageService.setCurrentDocument(newDoc);
       }
     } catch (error) {
@@ -549,6 +556,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
           setPreviewHTML('');
         }
         setHighlightedBlocks({});
+        HighlightService.clearCache();
 
         // Clear current document from storage and backend
         DocumentStorageService.setCurrentDocument({ id: null, name: 'Untitled Document', category: DRAFTS_CATEGORY, content: '' });
