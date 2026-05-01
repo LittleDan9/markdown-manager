@@ -203,10 +203,6 @@ module.exports = {
         // Production-only assets
         ...(isProduction ? [
           {
-            from: 'public/prism-themes',
-            to: 'prism-themes',
-          },
-          {
             from: 'src/assets/favicon.ico',
             to: 'favicon.ico',
           },
