@@ -45,6 +45,8 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
   const lastProcessedThemeRef = useRef('');
   const cancelTokenRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
+  const highlightDebounceRef = useRef(null);
+  const highlightCancelRef = useRef(null);
   const lastDocumentIdRef = useRef(null);
   const isFirstRenderRef = useRef(true);
   const renderQueueRef = useRef([]);
@@ -121,67 +123,99 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
    * Process incremental render for content changes.
    * Renders full markdown-to-HTML, then morphdom handles efficient DOM patching
    * downstream in PreviewRenderer (only updating changed DOM nodes).
-   * After the immediate render, async-highlights any unprocessed code blocks.
+   * After the immediate render, schedules a debounced async highlight pass
+   * with its own cancellation (independent of the render cancel token).
    */
-  const processIncrementalRender = useCallback(async (newContent, _oldContent, cancelToken) => {
+  const processIncrementalRender = useCallback(async (newContent, _oldContent, _cancelToken) => {
     const htmlString = render(newContent);
     // Immediate render for responsiveness (plain code blocks if cache missed)
     onRenderComplete(htmlString, { renderId: Date.now(), reason: 'incremental', incremental: false });
 
-    // Async pass: highlight any code blocks that missed the cache
+    // Check if there are unprocessed code blocks that need highlighting
     const tempDiv = document.createElement("div");
     tempDiv.innerHTML = htmlString;
     const unprocessed = Array.from(tempDiv.querySelectorAll('[data-syntax-placeholder][data-processed="false"]'));
 
-    if (unprocessed.length > 0 && !cancelToken.cancelled) {
-      const blocksToHighlight = unprocessed.map(block => ({
-        code: decodeURIComponent(block.dataset.code),
-        language: block.dataset.lang,
-        placeholderId: block.getAttribute("data-syntax-placeholder"),
-      }));
+    if (unprocessed.length > 0) {
+      // Cancel any pending highlight debounce
+      if (highlightDebounceRef.current) {
+        clearTimeout(highlightDebounceRef.current);
+      }
+      // Cancel any in-flight highlight request
+      if (highlightCancelRef.current) {
+        highlightCancelRef.current.cancelled = true;
+      }
 
-      debug(`🎨 Incremental: highlighting ${blocksToHighlight.length} unprocessed blocks`);
+      // Debounce: wait for typing pause before firing highlight API call
+      highlightDebounceRef.current = setTimeout(async () => {
+        const hlCancel = { cancelled: false };
+        highlightCancelRef.current = hlCancel;
 
-      const results = await HighlightService.highlightBlocks(blocksToHighlight);
+        // Re-render to get current content (may have changed during debounce)
+        const currentContent = lastProcessedContentRef.current || newContent;
+        const freshHtml = render(currentContent);
+        const freshDiv = document.createElement("div");
+        freshDiv.innerHTML = freshHtml;
+        const blocks = Array.from(freshDiv.querySelectorAll('[data-syntax-placeholder][data-processed="false"]'));
 
-      if (cancelToken.cancelled) return;
+        if (blocks.length === 0 || hlCancel.cancelled) return;
 
-      // Re-render with highlights now in cache
-      const updatedHtml = render(newContent);
-      const updatedDiv = document.createElement("div");
-      updatedDiv.innerHTML = updatedHtml;
-      const updatedBlocks = Array.from(updatedDiv.querySelectorAll("[data-syntax-placeholder]"));
+        const blocksToHighlight = blocks.map(block => ({
+          code: decodeURIComponent(block.dataset.code),
+          language: block.dataset.lang,
+          placeholderId: block.getAttribute("data-syntax-placeholder"),
+        }));
 
-      updatedBlocks.forEach(block => {
-        const code = decodeURIComponent(block.dataset.code);
-        const language = block.dataset.lang;
-        const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
-        block.setAttribute("data-syntax-placeholder", placeholderId);
+        debug(`🎨 Incremental: highlighting ${blocksToHighlight.length} unprocessed blocks`);
 
-        const highlighted = results[placeholderId] || highlightedBlocks[placeholderId];
-        if (highlighted) {
-          const codeEl = block.querySelector("code");
-          if (codeEl) {
-            codeEl.innerHTML = highlighted;
-            block.setAttribute("data-processed", "true");
+        try {
+          const results = await HighlightService.highlightBlocks(blocksToHighlight);
+
+          if (hlCancel.cancelled) return;
+
+          // Re-render with highlights now in cache
+          const updatedContent = lastProcessedContentRef.current || currentContent;
+          const updatedHtml = render(updatedContent);
+          const updatedDiv = document.createElement("div");
+          updatedDiv.innerHTML = updatedHtml;
+          const updatedBlocks = Array.from(updatedDiv.querySelectorAll("[data-syntax-placeholder]"));
+
+          updatedBlocks.forEach(block => {
+            const code = decodeURIComponent(block.dataset.code);
+            const language = block.dataset.lang;
+            const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+            block.setAttribute("data-syntax-placeholder", placeholderId);
+
+            const highlighted = results[placeholderId] || highlightedBlocks[placeholderId];
+            if (highlighted) {
+              const codeEl = block.querySelector("code");
+              if (codeEl) {
+                codeEl.innerHTML = highlighted;
+                block.setAttribute("data-processed", "true");
+              }
+            }
+          });
+
+          // Update highlighted blocks state
+          const newHighlights = {};
+          Object.entries(results).forEach(([id, html]) => {
+            if (!highlightedBlocks[id]) {
+              newHighlights[id] = html;
+            }
+          });
+          if (Object.keys(newHighlights).length > 0) {
+            setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
+          }
+
+          if (!hlCancel.cancelled) {
+            onRenderComplete(updatedDiv.innerHTML, { renderId: Date.now(), reason: 'incremental-highlight', incremental: false });
+          }
+        } catch (err) {
+          if (err.message !== 'cancelled') {
+            console.warn('Incremental highlight failed:', err);
           }
         }
-      });
-
-      // Update highlighted blocks state
-      const newHighlights = {};
-      Object.entries(results).forEach(([id, html]) => {
-        if (!highlightedBlocks[id]) {
-          newHighlights[id] = html;
-        }
-      });
-      if (Object.keys(newHighlights).length > 0) {
-        setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
-      }
-
-      if (!cancelToken.cancelled) {
-        onRenderComplete(updatedDiv.innerHTML, { renderId: Date.now(), reason: 'incremental-highlight', incremental: false });
-      }
+      }, 150); // Wait 150ms of typing inactivity before highlighting
     }
   }, [onRenderComplete, highlightedBlocks, setHighlightedBlocks]);
 
