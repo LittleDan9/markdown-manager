@@ -121,11 +121,69 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
    * Process incremental render for content changes.
    * Renders full markdown-to-HTML, then morphdom handles efficient DOM patching
    * downstream in PreviewRenderer (only updating changed DOM nodes).
+   * After the immediate render, async-highlights any unprocessed code blocks.
    */
-  const processIncrementalRender = useCallback(async (newContent, _oldContent, _cancelToken) => {
+  const processIncrementalRender = useCallback(async (newContent, _oldContent, cancelToken) => {
     const htmlString = render(newContent);
+    // Immediate render for responsiveness (plain code blocks if cache missed)
     onRenderComplete(htmlString, { renderId: Date.now(), reason: 'incremental', incremental: false });
-  }, [onRenderComplete]);
+
+    // Async pass: highlight any code blocks that missed the cache
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlString;
+    const unprocessed = Array.from(tempDiv.querySelectorAll('[data-syntax-placeholder][data-processed="false"]'));
+
+    if (unprocessed.length > 0 && !cancelToken.cancelled) {
+      const blocksToHighlight = unprocessed.map(block => ({
+        code: decodeURIComponent(block.dataset.code),
+        language: block.dataset.lang,
+        placeholderId: block.getAttribute("data-syntax-placeholder"),
+      }));
+
+      debug(`🎨 Incremental: highlighting ${blocksToHighlight.length} unprocessed blocks`);
+
+      const results = await HighlightService.highlightBlocks(blocksToHighlight);
+
+      if (cancelToken.cancelled) return;
+
+      // Re-render with highlights now in cache
+      const updatedHtml = render(newContent);
+      const updatedDiv = document.createElement("div");
+      updatedDiv.innerHTML = updatedHtml;
+      const updatedBlocks = Array.from(updatedDiv.querySelectorAll("[data-syntax-placeholder]"));
+
+      updatedBlocks.forEach(block => {
+        const code = decodeURIComponent(block.dataset.code);
+        const language = block.dataset.lang;
+        const placeholderId = `syntax-highlight-${HighlightService.hashCode(language + code)}`;
+        block.setAttribute("data-syntax-placeholder", placeholderId);
+
+        const highlighted = results[placeholderId] || highlightedBlocks[placeholderId];
+        if (highlighted) {
+          const codeEl = block.querySelector("code");
+          if (codeEl) {
+            codeEl.innerHTML = highlighted;
+            block.setAttribute("data-processed", "true");
+          }
+        }
+      });
+
+      // Update highlighted blocks state
+      const newHighlights = {};
+      Object.entries(results).forEach(([id, html]) => {
+        if (!highlightedBlocks[id]) {
+          newHighlights[id] = html;
+        }
+      });
+      if (Object.keys(newHighlights).length > 0) {
+        setHighlightedBlocks(prev => ({ ...prev, ...newHighlights }));
+      }
+
+      if (!cancelToken.cancelled) {
+        onRenderComplete(updatedDiv.innerHTML, { renderId: Date.now(), reason: 'incremental-highlight', incremental: false });
+      }
+    }
+  }, [onRenderComplete, highlightedBlocks, setHighlightedBlocks]);
 
   /**
    * Process full highlighting for document changes
