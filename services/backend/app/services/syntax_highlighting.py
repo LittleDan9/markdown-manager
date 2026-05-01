@@ -5,16 +5,38 @@ for many programming languages.
 """
 import html
 import re
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_all_lexers, get_lexer_by_name
+from pygments.styles import get_all_styles, get_style_by_name
 from pygments.util import ClassNotFound
 
 
 class SyntaxHighlightingService:
     """Service for syntax highlighting code blocks using Pygments."""
+
+    # Curated styles with metadata for the UI
+    CURATED_STYLES = {
+        "one-dark": {"label": "One Dark", "variant": "dark", "companion": "one-light"},
+        "monokai": {"label": "Monokai", "variant": "dark", "companion": None},
+        "dracula": {"label": "Dracula", "variant": "dark", "companion": None},
+        "github-dark": {"label": "GitHub Dark", "variant": "dark", "companion": "github-light"},
+        "gruvbox-dark": {"label": "Gruvbox Dark", "variant": "dark", "companion": "gruvbox-light"},
+        "nord": {"label": "Nord", "variant": "dark", "companion": None},
+        "solarized-dark": {"label": "Solarized Dark", "variant": "dark", "companion": "solarized-light"},
+        "native": {"label": "Native", "variant": "dark", "companion": None},
+        "zenburn": {"label": "Zenburn", "variant": "dark", "companion": None},
+        "material": {"label": "Material", "variant": "dark", "companion": None},
+        "one-light": {"label": "One Light", "variant": "light", "companion": "one-dark"},
+        "github-light": {"label": "GitHub Light", "variant": "light", "companion": "github-dark"},
+        "gruvbox-light": {"label": "Gruvbox Light", "variant": "light", "companion": "gruvbox-dark"},
+        "solarized-light": {"label": "Solarized Light", "variant": "light", "companion": "solarized-dark"},
+        "vs": {"label": "Visual Studio", "variant": "light", "companion": None},
+        "xcode": {"label": "Xcode", "variant": "light", "companion": None},
+        "friendly": {"label": "Friendly", "variant": "light", "companion": None},
+    }
 
     def __init__(self) -> None:
         """Initialize the syntax highlighting service."""
@@ -24,6 +46,8 @@ class SyntaxHighlightingService:
             classprefix="token ",
         )
         self._available_languages: Optional[Dict[str, str]] = None
+        self._style_css_cache: Dict[str, str] = {}
+        self._available_styles: Optional[List[str]] = None
 
     def get_available_languages(self) -> Dict[str, str]:
         """Get all available languages that can be highlighted."""
@@ -163,6 +187,122 @@ class SyntaxHighlightingService:
             }
         except ClassNotFound:
             return None
+
+    def get_available_styles(self) -> List[Dict[str, Any]]:
+        """Get curated list of available syntax highlighting styles."""
+        if self._available_styles is None:
+            # Get all installed Pygments styles
+            installed = set(get_all_styles())
+            self._available_styles = installed
+
+        styles = []
+        for style_name, meta in self.CURATED_STYLES.items():
+            # Only include if the style is actually installed
+            # Handle name differences (Pygments uses underscores sometimes)
+            pygments_name = style_name.replace("-", "_")
+            alt_name = style_name
+            if pygments_name in self._available_styles or alt_name in self._available_styles:
+                styles.append({
+                    "name": style_name,
+                    "label": meta["label"],
+                    "variant": meta["variant"],
+                    "companion": meta["companion"],
+                })
+        return styles
+
+    def get_style_css(self, style_name: str) -> Optional[str]:
+        """Generate CSS for a given Pygments style, using Prism token class names."""
+        if style_name in self._style_css_cache:
+            return self._style_css_cache[style_name]
+
+        # Resolve Pygments style name (may use underscores)
+        pygments_name = style_name.replace("-", "_")
+        try:
+            style = get_style_by_name(pygments_name)
+        except ClassNotFound:
+            try:
+                style = get_style_by_name(style_name)
+            except ClassNotFound:
+                return None
+
+        formatter = HtmlFormatter(style=style, nowrap=True, classprefix="token ")
+        # Get CSS rules scoped to .token prefix
+        raw_css = formatter.get_style_defs("pre code .token")
+
+        # Map Pygments short classes to Prism long names in the CSS
+        css = self._map_css_to_prism_classes(raw_css)
+
+        self._style_css_cache[style_name] = css
+        return css
+
+    def _map_css_to_prism_classes(self, css: str) -> str:
+        """Remap Pygments short class names in CSS to Prism-compatible names."""
+        PYGMENTS_CSS_MAP = {
+            ".token.k": ".token.keyword",
+            ".token.kd": ".token.keyword",
+            ".token.kn": ".token.keyword",
+            ".token.kp": ".token.keyword",
+            ".token.kr": ".token.keyword",
+            ".token.kt": ".token.keyword",
+            ".token.o": ".token.operator",
+            ".token.p": ".token.punctuation",
+            ".token.m": ".token.number",
+            ".token.mf": ".token.number",
+            ".token.mh": ".token.number",
+            ".token.mi": ".token.number",
+            ".token.mo": ".token.number",
+            ".token.s": ".token.string",
+            ".token.sb": ".token.string",
+            ".token.sc": ".token.string",
+            ".token.sd": ".token.string",
+            ".token.s2": ".token.string",
+            ".token.se": ".token.string",
+            ".token.sh": ".token.string",
+            ".token.si": ".token.string",
+            ".token.sx": ".token.string",
+            ".token.sr": ".token.regex",
+            ".token.s1": ".token.string",
+            ".token.ss": ".token.string",
+            ".token.c": ".token.comment",
+            ".token.ch": ".token.comment",
+            ".token.cm": ".token.comment",
+            ".token.cp": ".token.comment",
+            ".token.cpf": ".token.comment",
+            ".token.c1": ".token.comment",
+            ".token.cs": ".token.comment",
+            ".token.na": ".token.attribute",
+            ".token.nb": ".token.builtin",
+            ".token.nc": ".token.class-name",
+            ".token.no": ".token.constant",
+            ".token.nd": ".token.function",
+            ".token.ni": ".token.namespace",
+            ".token.ne": ".token.exception",
+            ".token.nf": ".token.function",
+            ".token.nl": ".token.function",
+            ".token.nn": ".token.namespace",
+            ".token.nx": ".token.variable",
+            ".token.py": ".token.variable",
+            ".token.nt": ".token.tag",
+            ".token.nv": ".token.variable",
+            ".token.vc": ".token.variable",
+            ".token.vg": ".token.variable",
+            ".token.vi": ".token.variable",
+            ".token.vm": ".token.variable",
+            ".token.kc": ".token.constant",
+            ".token.w": ".token.whitespace",
+            ".token.g": ".token.generic",
+            ".token.err": ".token.error",
+        }
+
+        # Sort by length (longest first) to avoid partial replacements
+        sorted_map = sorted(PYGMENTS_CSS_MAP.items(), key=lambda x: len(x[0]), reverse=True)
+        for short, long in sorted_map:
+            # Use regex to match only when the short class is followed by a non-alphanumeric
+            # character (space, comma, brace, etc.) to avoid partial replacements
+            # e.g. ".token.c" should not match inside ".token.class-name"
+            pattern = re.escape(short) + r"(?![a-zA-Z0-9\-])"
+            css = re.sub(pattern, long, css)
+        return css
 
 
 # Global instance

@@ -512,8 +512,12 @@ class DocumentService {
       const documentName = filename || 'document';
       const isDark = theme === 'dark';
 
+      // Read the user's current syntax theme CSS from the injected style tag
+      const syntaxStyleEl = document.getElementById('syntax-theme-style');
+      const syntaxCSS = syntaxStyleEl ? syntaxStyleEl.textContent : null;
+
       const DocumentsApi = (await import('@/api/documentsApi')).default;
-      const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDark);
+      const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDark, syntaxCSS);
 
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');

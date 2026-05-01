@@ -150,12 +150,16 @@ class ExportServiceApi extends Api {
    * @param {string} responseFormat - 'stream' (default) or 'json'
    * @returns {Promise<Blob|Object>} - PDF binary data as blob or ConversionResponse object
    */
-  async exportAsPDF(htmlContent, documentName, isDarkMode = false, responseFormat = 'stream') {
+  async exportAsPDF(htmlContent, documentName, isDarkMode = false, responseFormat = 'stream', syntaxCSS = null) {
     const requestData = {
       html_content: htmlContent,
       document_name: documentName,
       is_dark_mode: isDarkMode,
     };
+
+    if (syntaxCSS) {
+      requestData.syntax_css = syntaxCSS;
+    }
 
     if (responseFormat === 'json') {
       // Use JSON response format with ConversionResponse

@@ -23,6 +23,7 @@ class PDFExportRequest(BaseModel):
     html_content: str
     document_name: str
     is_dark_mode: bool = False
+    syntax_css: str | None = None
 
 
 @router.post("/export")
@@ -75,6 +76,7 @@ async def export_pdf(
                 html_content=full_html,
                 document_name=request.document_name,
                 is_dark_mode=request.is_dark_mode,
+                syntax_css=request.syntax_css,
             )
         except HTTPException:
             # Re-raise HTTPExceptions from PDF service

@@ -30,6 +30,26 @@ class HighlightingApi extends Api {
       return {};
     }
   }
+
+  async getAvailableStyles() {
+    try {
+      const res = await this.apiCall("/highlight/styles");
+      return res.data.styles || [];
+    } catch (err) {
+      console.warn("Failed to get available styles:", err);
+      return [];
+    }
+  }
+
+  async getStyleCSS(styleName) {
+    try {
+      const res = await this.apiCall(`/highlight/styles/${encodeURIComponent(styleName)}/css`);
+      return res.data.css || null;
+    } catch (err) {
+      console.warn(`Failed to get CSS for style '${styleName}':`, err);
+      return null;
+    }
+  }
 }
 
 export default new HighlightingApi();

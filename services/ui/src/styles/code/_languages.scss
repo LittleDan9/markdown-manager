@@ -1,9 +1,11 @@
 // Language-Specific Code Styling
 // Special styling for different programming languages
+// Disabled when body.no-syntax-overrides is set (user preference).
 
 @use "../variables";
 @use "../mixins";
 
+body:not(.no-syntax-overrides) {
 // JavaScript/TypeScript specific styling
 .language-javascript,
 .language-typescript,
@@ -333,4 +335,5 @@
       color: #a626a4;
     }
   }
+} // end body:not(.no-syntax-overrides)
 }

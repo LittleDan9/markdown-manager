@@ -38,10 +38,10 @@ class DocumentsApi extends Api {
     return dataUri;
   }
 
-  async exportAsPDF(htmlContent, documentName, isDarkMode = false) {
+  async exportAsPDF(htmlContent, documentName, isDarkMode = false, syntaxCSS = null) {
     // Use the dedicated export service for PDF generation
     const exportServiceApi = (await import('./exportServiceApi')).default;
-    return await exportServiceApi.exportAsPDF(htmlContent, documentName, isDarkMode);
+    return await exportServiceApi.exportAsPDF(htmlContent, documentName, isDarkMode, 'stream', syntaxCSS);
   }
 
   async exportAsDocx(htmlContent, documentName, isDarkMode = false) {

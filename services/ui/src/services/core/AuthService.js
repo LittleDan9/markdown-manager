@@ -99,6 +99,12 @@ class AuthService {
           if (user.recents_tab_limit !== undefined) {
             localStorage.setItem("recentsTabLimit", user.recents_tab_limit);
           }
+          if (user.syntax_theme) {
+            localStorage.setItem("syntaxTheme", user.syntax_theme);
+          }
+          if (user.syntax_overrides_enabled !== undefined) {
+            localStorage.setItem("syntaxOverridesEnabled", String(user.syntax_overrides_enabled));
+          }
         } else {
           console.log('AuthService: User validation failed after refresh');
           this.performLogout();
@@ -133,6 +139,12 @@ class AuthService {
             }
             if (user.recents_tab_limit !== undefined) {
               localStorage.setItem("recentsTabLimit", user.recents_tab_limit);
+            }
+            if (user.syntax_theme) {
+              localStorage.setItem("syntaxTheme", user.syntax_theme);
+            }
+            if (user.syntax_overrides_enabled !== undefined) {
+              localStorage.setItem("syntaxOverridesEnabled", String(user.syntax_overrides_enabled));
             }
           } else {
             console.log('AuthService: Stored token is invalid');
@@ -586,7 +598,9 @@ class AuthService {
         syncPreviewScrollEnabled: 'sync_preview_scroll_enabled',
         tabPosition: 'tab_position',
         tabSortOrder: 'tab_sort_order',
-        recentsTabLimit: 'recents_tab_limit'
+        recentsTabLimit: 'recents_tab_limit',
+        syntaxTheme: 'syntax_theme',
+        syntaxOverridesEnabled: 'syntax_overrides_enabled'
       };
 
       const backendKey = settingMap[key];

@@ -1,9 +1,11 @@
 // Syntax Highlighting Themes
-// Prism.js token styling for light and dark themes
+// Custom token styling (One Dark Pro / One Light) as optional overrides.
+// Disabled when body.no-syntax-overrides is set (user preference).
 
 @use "../variables";
 @use "../mixins";
 
+body:not(.no-syntax-overrides) {
 .token {
   // Keywords (function, return, if, for, etc.)
   &.k,
@@ -360,3 +362,4 @@
     }
   }
 }
+} // end body:not(.no-syntax-overrides)

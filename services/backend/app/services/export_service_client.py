@@ -25,6 +25,7 @@ class ExportServiceClient:
         document_name: str,
         is_dark_mode: bool = False,
         options: Optional[dict] = None,
+        syntax_css: Optional[str] = None,
     ) -> bytes:
         """Generate PDF by calling the PDF service."""
         try:
@@ -37,6 +38,9 @@ class ExportServiceClient:
                     "is_dark_mode": is_dark_mode,
                     "options": options or {},
                 }
+
+                if syntax_css:
+                    payload["syntax_css"] = syntax_css
 
                 response = await client.post(
                     f"{self.base_url}/generate-pdf", json=payload

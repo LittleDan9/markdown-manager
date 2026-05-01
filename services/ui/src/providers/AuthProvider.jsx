@@ -66,6 +66,33 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem("recentsTabLimit");
     return saved ? parseInt(saved, 10) : 10;
   });
+  const [syntaxTheme, setSyntaxThemeState] = useState(() => {
+    return localStorage.getItem("syntaxTheme") || "one-dark";
+  });
+  const [syntaxOverridesEnabled, setSyntaxOverridesEnabledState] = useState(() => {
+    const saved = localStorage.getItem("syntaxOverridesEnabled");
+    return saved === null ? true : saved === "true";
+  });
+
+  // Toggle the no-syntax-overrides class on <body> based on user preference
+  useEffect(() => {
+    if (syntaxOverridesEnabled) {
+      document.body.classList.remove("no-syntax-overrides");
+    } else {
+      document.body.classList.add("no-syntax-overrides");
+    }
+  }, [syntaxOverridesEnabled]);
+
+  // Sync syntaxTheme state when ThemeProvider auto-switches companion
+  useEffect(() => {
+    const handler = (e) => {
+      if (e.detail) {
+        setSyntaxThemeState(e.detail);
+      }
+    };
+    window.addEventListener("syntaxThemeChanged", handler);
+    return () => window.removeEventListener("syntaxThemeChanged", handler);
+  }, []);
 
   // Update auth state when service state changes
   const updateAuthState = useCallback(() => {
@@ -299,6 +326,16 @@ export function AuthProvider({ children }) {
     await AuthService.updateSetting('recentsTabLimit', clamped);
   }, []);
 
+  const setSyntaxTheme = useCallback(async (value) => {
+    setSyntaxThemeState(value);
+    await AuthService.updateSetting('syntaxTheme', value);
+  }, []);
+
+  const setSyntaxOverridesEnabled = useCallback(async (value) => {
+    setSyntaxOverridesEnabledState(value);
+    await AuthService.updateSetting('syntaxOverridesEnabled', value);
+  }, []);
+
   // Password reset API for modal
   const passwordResetApi = {
     request: requestPasswordReset,
@@ -343,6 +380,10 @@ export function AuthProvider({ children }) {
     setTabSortOrder,
     recentsTabLimit,
     setRecentsTabLimit,
+    syntaxTheme,
+    setSyntaxTheme,
+    syntaxOverridesEnabled,
+    setSyntaxOverridesEnabled,
 
     // Modal controls
     showLoginModal,

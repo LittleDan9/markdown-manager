@@ -8,6 +8,7 @@ import MarkdownLintTab from "../../linting/modals/MarkdownLintTab";
 import SpellCheckTab from "../../editor/spell-check/SpellCheckTab";
 import StorageTab from "../../storage/StorageTab";
 import DisplayTab from "./DisplayTab";
+import CodeFencesTab from "./CodeFencesTab";
 import AIProvidersTab from "./AIProvidersTab";
 import useProfileForm from "./useProfileForm";
 
@@ -69,6 +70,11 @@ function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey =
                   <i className="bi bi-layout-text-sidebar me-2"></i>Display
                 </Nav.Link>
               </Nav.Item>
+              <Nav.Item>
+                <Nav.Link eventKey="code-fences">
+                  <i className="bi bi-code-square me-2"></i>Code Fences
+                </Nav.Link>
+              </Nav.Item>
               {!guestMode && (
                 <Nav.Item>
                   <Nav.Link eventKey="storage">
@@ -125,6 +131,9 @@ function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey =
                 </Tab.Pane>
                 <Tab.Pane eventKey="display">
                   <DisplayTab />
+                </Tab.Pane>
+                <Tab.Pane eventKey="code-fences">
+                  <CodeFencesTab />
                 </Tab.Pane>
                 {!guestMode && (
                   <Tab.Pane eventKey="storage">

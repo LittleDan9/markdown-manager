@@ -56,6 +56,10 @@ class User(BaseModel):
     tab_sort_order: Mapped[str] = mapped_column(String(10), default="name", nullable=False)
     recents_tab_limit: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
 
+    # Syntax highlighting preferences
+    syntax_theme: Mapped[str] = mapped_column(String(50), default="one-dark", nullable=False)
+    syntax_overrides_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)

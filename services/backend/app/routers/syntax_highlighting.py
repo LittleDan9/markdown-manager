@@ -100,3 +100,26 @@ async def check_language_support(language: str) -> dict[str, object]:
         raise HTTPException(
             status_code=500, detail=f"Error checking language support: {str(e)}"
         )
+
+
+@router.get("/styles")
+async def get_available_styles() -> dict[str, object]:
+    """Get available syntax highlighting styles with metadata."""
+    try:
+        styles = syntax_highlighter.get_available_styles()
+        return {"styles": styles}
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Error retrieving styles: {str(e)}"
+        )
+
+
+@router.get("/styles/{style_name}/css")
+async def get_style_css(style_name: str) -> dict[str, object]:
+    """Get the CSS for a specific syntax highlighting style."""
+    css = syntax_highlighter.get_style_css(style_name)
+    if css is None:
+        raise HTTPException(
+            status_code=404, detail=f"Style '{style_name}' not found"
+        )
+    return {"style": style_name, "css": css}
