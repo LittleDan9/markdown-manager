@@ -146,11 +146,16 @@ class OpenAICompatProvider(LLMProvider):
         """Validate the API key by listing models (lightweight call)."""
         headers = {"Authorization": f"Bearer {self._api_key}"}
         try:
+            # Databricks doesn't have /models — use the serving-endpoints API
+            if self._provider_id == "databricks":
+                workspace_url = self._base_url.rstrip("/")
+                if workspace_url.endswith("/serving-endpoints"):
+                    workspace_url = workspace_url[: -len("/serving-endpoints")]
+                url = f"{workspace_url}/api/2.0/serving-endpoints"
+            else:
+                url = f"{self._base_url}/models"
             async with httpx.AsyncClient(timeout=10.0) as client:
-                response = await client.get(
-                    f"{self._base_url}/models",
-                    headers=headers,
-                )
+                response = await client.get(url, headers=headers)
                 return response.status_code == 200
         except Exception:
             return False
