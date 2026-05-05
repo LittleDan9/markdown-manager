@@ -17,6 +17,7 @@ backend/dist/
 .env.production
 backend/.env
 deployment/production.env
+docker-compose.certs.yml
 
 # Logs
 *.log

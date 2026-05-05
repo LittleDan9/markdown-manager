@@ -1,3 +1,11 @@
+# ==============================================================================
+# Docker Compose — Markdown Manager (Development)
+# ==============================================================================
+# Shared infrastructure (db, redis, ollama, embedding, clamav, export) is
+# provided by Platform Manager on the shared-services network.
+# Run `make dev` to automatically start Platform Manager first.
+# ==============================================================================
+
 services:
   nginx:
     image: nginx:alpine
@@ -39,23 +47,6 @@ services:
       - nginx
     init: true
 
-  db:
-    image: pgvector/pgvector:pg18
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: markdown_manager
-    ports:
-      - "5432:5432"
-    volumes:
-      - ./services/backend/postgres-data:/var/lib/postgresql
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U postgres -d markdown_manager || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./services/backend
@@ -91,74 +82,16 @@ services:
       retries: 3
       start_period: 10s
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       spell-check:
         condition: service_healthy
       linting:
-        condition: service_healthy
-      embedding:
         condition: service_healthy
     networks:
       - default
       - shared-services
 
-  # ──────────────────────────────────────────────────────────────────────────
-  # Embedding microservice — sentence-transformers CPU inference
-  # ──────────────────────────────────────────────────────────────────────────
-  embedding:
-    image: ghcr.io/littledan9/embedding-service:latest
-    ports:
-      - "8005:8005"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8005/health"]
-      interval: 30s
-      timeout: 30s
-      retries: 3
-      start_period: 60s
-    restart: unless-stopped
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # Ollama — self-hosted LLM for document Q&A (qwen2.5:1.5b default, mistral available)
-  # ──────────────────────────────────────────────────────────────────────────
-  ollama:
-    image: ollama/ollama:latest
-    ports:
-      - "11434:11434"
-    volumes:
-      - ./ollama-data:/root/.ollama
-    environment:
-      - OLLAMA_NUM_PARALLEL=1
-      - OLLAMA_MAX_LOADED_MODELS=1
-      - OLLAMA_FLASH_ATTENTION=1
-      - OLLAMA_KV_CACHE_TYPE=q8_0
-      - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
-    healthcheck:
-      test: ["CMD", "ollama", "ps"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-    restart: unless-stopped
-
-  # One-shot container: pulls mistral on first deploy, exits immediately if already present.
-  # The model is stored in the shared ollama-data volume so it survives redeployments.
-  ollama-init:
-    image: ollama/ollama:latest
-    volumes:
-      - ./ollama-data:/root/.ollama
-    entrypoint: ["/bin/sh", "-c", "ollama pull qwen2.5:1.5b && ollama pull mistral"]
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-    depends_on:
-      ollama:
-        condition: service_healthy
-    restart: "no"
-
-  # Export service is provided by Platform Manager (shared-services network).
-  # Run `make dev` in platform-manager to start the export service.
+  # Export, Embedding, Ollama, ClamAV, DB, and Redis are provided by
+  # Platform Manager on the shared-services network.
 
   linting:
     build:
@@ -194,11 +127,6 @@ services:
       - SPELL_DB_PASSWORD=postgres
     ports:
       - "8003:8003"
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     volumes:
       - ./services/spell-check/server.js:/app/server.js
       - ./services/spell-check/lib:/app/lib
@@ -216,36 +144,9 @@ services:
       retries: 3
       start_period: 40s
     restart: unless-stopped
-
-  # ──────────────────────────────────────────────────────────────────────────
-  # ClamAV — virus scanning for file attachments
-  # ──────────────────────────────────────────────────────────────────────────
-  clamav:
-    image: clamav/clamav:stable
-    restart: unless-stopped
-    volumes:
-      - clamav-data:/var/lib/clamav
-    healthcheck:
-      test: ["CMD", "/usr/local/bin/clamdcheck.sh"]
-      interval: 60s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - ./redis-data:/data
-      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
-    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-    restart: unless-stopped
+    networks:
+      - default
+      - shared-services
 
   event-publisher:
     build:
@@ -261,11 +162,6 @@ services:
       - RELAY_MAX_RETRY_ATTEMPTS=5
       - RELAY_LOG_LEVEL=INFO
       - RELAY_HTTP_PORT=8004
-    depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8004/health"]
@@ -273,6 +169,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    networks:
+      - default
+      - shared-services
 
   linting-consumer:
     build:
@@ -284,10 +183,6 @@ services:
     volumes:
       - ./services/linting/consumer.config.json:/app/config/consumer.config.json:ro
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       event-publisher:
         condition: service_started
     restart: unless-stopped
@@ -297,6 +192,9 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+    networks:
+      - default
+      - shared-services
 
   spell-check-consumer:
     build:
@@ -309,10 +207,6 @@ services:
     volumes:
       - ./services/spell-check/consumer.config.json:/app/config/consumer.config.json:ro
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
       event-publisher:
         condition: service_started
     restart: unless-stopped
@@ -322,12 +216,12 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
-
-volumes:
-  clamav-data:
+    networks:
+      - default
+      - shared-services
 
 # ==============================================================================
-# Network — join shared-services for access to platform export service
+# Network — shared-services is created/managed by Platform Manager
 # ==============================================================================
 networks:
   shared-services:

@@ -1,13 +1,24 @@
 FROM node:20-slim
 
 # Install curl for health checks
-RUN apt-get update && apt-get install -y curl && apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      mkdir -p /etc/ssl/certs; \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    apt-get update && apt-get install -y curl && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
 # Copy package files and install dependencies
 COPY package*.json ./
-RUN npm install
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      mkdir -p /etc/ssl/certs; \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+      export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    npm install
 
 # Copy application code and configuration files
 COPY server.js ./

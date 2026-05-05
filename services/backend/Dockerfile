@@ -2,7 +2,13 @@
 FROM node:20-slim AS seed-icons
 WORKDIR /seed-icons
 COPY ./seed-icons/package.json ./seed-icons/seed-manifest.json ./seed-icons/extract.js ./
-RUN npm install --ignore-scripts && node extract.js
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      mkdir -p /etc/ssl/certs; \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+      export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    npm install --ignore-scripts && node extract.js
 
 # Stage 1: Build dependencies and virtual environment with Python 3.13
 FROM python:3.13-slim AS python-base
@@ -14,7 +20,12 @@ ENV POETRY_VIRTUALENVS_CREATE=true \
     POETRY_CACHE_DIR=/tmp/poetry_cache
 
 # Install Poetry
-RUN pip install --no-cache-dir poetry
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+      export PIP_CERT=/etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    pip install --no-cache-dir poetry
 
 # Set working directory to match final container path
 WORKDIR /markdown-manager
@@ -24,7 +35,13 @@ COPY ./pyproject.toml ./poetry.lock ./
 
 # Install Python dependencies in virtual environment
 # Create venv in the same path as it will be in the final container
-RUN poetry config virtualenvs.in-project true && \
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+      export PIP_CERT=/etc/ssl/certs/ca-certificates.crt \
+             REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    poetry config virtualenvs.in-project true && \
     poetry config virtualenvs.create true && \
     poetry install --no-root --without=dev && \
     rm -rf $POETRY_CACHE_DIR

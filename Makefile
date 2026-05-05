@@ -55,6 +55,11 @@ LINT_DIR             := services/linting
 SPELL_CHECK_DIR      := services/spell-check
 CONSUMER_DIR         := services/event-consumer
 EVENT_PUBLISHER_DIR  := services/event-publisher
+PLATFORM_DIR         ?= ../platform-manager
+
+# Auto-detect certs overlay for corporate SSL inspection environments
+CERTS_FILE := docker-compose.certs.yml
+COMPOSE_FILES := $(if $(wildcard $(CERTS_FILE)),-f docker-compose.yml -f $(CERTS_FILE),)
 
 FRONTEND_PORT      := 3000
 BACKEND_DEV_PORT   := 8000
@@ -71,7 +76,7 @@ PROD_ENV_FILE := /etc/markdown-manager.env
 .PHONY: help quality install clean build dev dev-frontend dev-backend test test-backend status stop
 .PHONY: deploy deploy-update deploy-bootstrap deploy-nginx deploy-status deploy-logs
 .PHONY: deploy-db-backup deploy-db-migrate deploy-dry-run sync-locks
-.PHONY: deploy-infra deploy-rollback
+.PHONY: deploy-infra deploy-rollback ensure-platform ensure-db
 .PHONY: backup-db restore-db backup-restore-cycle
 
 # ────────────────────────────────────────────────────────────────────────────
@@ -109,21 +114,36 @@ build: ## Build production assets
 	@./scripts/build.sh $(UI_DIR)
 
 # ────────────────────────────────────────────────────────────────────────────
-dev: ## Start frontend & backend dev servers
+ensure-platform: ## Ensure shared platform infrastructure is running
+	@echo "$(YELLOW)🔧 Ensuring platform shared services are running...$(NC)"
+	@$(MAKE) --no-print-directory -C $(PLATFORM_DIR) dev
+	@echo "$(GREEN)✅ Platform services ready$(NC)"
+
+ensure-db: ensure-platform ## Ensure markdown_manager database exists in shared PostgreSQL
+	@DB_EXISTS=$$(docker exec platform-db-1 psql -U postgres -tAc \
+		"SELECT 1 FROM pg_database WHERE datname = 'markdown_manager';" 2>/dev/null || true); \
+	if [ "$$DB_EXISTS" != "1" ]; then \
+		echo "$(YELLOW)📦 Provisioning markdown_manager database...$(NC)"; \
+		$(MAKE) --no-print-directory -C $(PLATFORM_DIR) provision-db-mm; \
+		echo "$(GREEN)✅ Database provisioned$(NC)"; \
+	fi
+
+dev: ensure-db ## Start frontend & backend dev servers
 	@echo "$(YELLOW)🚀 Starting dev servers...$(NC)"
-	@$(MAKE) --no-print-directory -j2 dev-frontend dev-backend
+	docker compose $(COMPOSE_FILES) up --build -d backend frontend
+	@echo "$(GREEN)✅ Dev servers started$(NC)"
 
 dev-frontend: ## Frontend dev server
 ifeq ($(DETECTED_OS),Windows)
 	@cd $(UI_DIR) && npm run serve -- --port $(FRONTEND_PORT)
 else
 	@docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker not running$(NC)" && exit 1)
-	cd $(UI_DIR) && docker compose up --build -d frontend
+	docker compose $(COMPOSE_FILES) up --build -d frontend
 endif
 
 dev-backend: ## Backend dev server
 	@docker info > /dev/null 2>&1 || (echo "$(RED)❌ Docker not running$(NC)" && exit 1)
-	cd $(BACKEND_DIR) && docker compose up --build -d backend
+	docker compose $(COMPOSE_FILES) up --build -d backend
 
 # ────────────────────────────────────────────────────────────────────────────
 test: ## Run backend (pytest with coverage) and frontend (Jest) tests

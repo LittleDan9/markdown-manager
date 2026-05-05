@@ -5,7 +5,12 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install system dependencies for better performance
-RUN apk add --no-cache \
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      mkdir -p /etc/ssl/certs; \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    apk add --no-cache \
     curl \
     && rm -rf /var/cache/apk/*
 
@@ -13,7 +18,13 @@ RUN apk add --no-cache \
 COPY package*.json ./
 
 # Install dependencies (include dev dependencies in development)
-RUN if [ "$NODE_ENV" = "production" ]; then \
+RUN --mount=type=secret,id=ca-cert,required=false \
+    if [ -f /run/secrets/ca-cert ]; then \
+      mkdir -p /etc/ssl/certs; \
+      cat /run/secrets/ca-cert >> /etc/ssl/certs/ca-certificates.crt; \
+      export NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt; \
+    fi && \
+    if [ "$NODE_ENV" = "production" ]; then \
         npm ci --only=production && npm cache clean --force; \
     else \
         npm ci && npm cache clean --force; \
