@@ -11,6 +11,7 @@ from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import get_all_lexers, get_lexer_by_name
 from pygments.styles import get_all_styles, get_style_by_name
+from pygments.token import Token
 from pygments.util import ClassNotFound
 
 
@@ -231,6 +232,23 @@ class SyntaxHighlightingService:
 
         # Map Pygments short classes to Prism long names in the CSS
         css = self._map_css_to_prism_classes(raw_css)
+
+        # Add background and base text color from the style
+        bg_color = style.background_color or ""
+        # Get the default text color from the style's base token
+        style_dict = style.style_for_token(Token)
+        text_color = style_dict.get("color", "") or ""
+        if text_color and not text_color.startswith("#"):
+            text_color = f"#{text_color}"
+
+        bg_rule = ""
+        if bg_color:
+            bg_rule += f"div[class*=\"language-\"] {{ background-color: {bg_color}; }}\n"
+        if text_color:
+            bg_rule += f"pre[class*=\"language-\"] {{ color: {text_color}; }}\n"
+            bg_rule += f"pre[class*=\"language-\"] code {{ color: {text_color}; }}\n"
+        if bg_rule:
+            css = bg_rule + css
 
         self._style_css_cache[style_name] = css
         return css

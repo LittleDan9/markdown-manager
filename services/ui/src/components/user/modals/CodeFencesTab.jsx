@@ -118,7 +118,7 @@ function CodeFencesTab() {
           onChange={handleOverridesToggle}
         />
         <Form.Text className="text-muted">
-          Applies custom refinements (font weights, italics, language-specific colors) on top of the selected theme.
+          Applies custom refinements (font weights, italics, text transforms) on top of the selected theme.
         </Form.Text>
       </Form.Group>
 
@@ -136,9 +136,11 @@ function CodeFencesTab() {
           <div className="code-block-header">
             <span className="code-block-lang">JAVASCRIPT</span>
           </div>
-          <pre className="language-javascript" style={{ margin: 0, padding: '1rem', fontSize: '0.8rem' }}>
-            <code dangerouslySetInnerHTML={{ __html: SAMPLE_CODE }} />
-          </pre>
+          <div className="language-javascript" style={{ padding: '1rem' }}>
+            <pre className="language-javascript" style={{ margin: 0, fontSize: '0.8rem' }}>
+              <code dangerouslySetInnerHTML={{ __html: SAMPLE_CODE }} />
+            </pre>
+          </div>
         </div>
       </div>
     </div>
