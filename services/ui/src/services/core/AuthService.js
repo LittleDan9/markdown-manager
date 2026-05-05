@@ -36,9 +36,15 @@ class AuthService {
     this.isInitialized = false;
     this.ssoEmail = null;
     this.ssoIssuer = null;
+    this.lastRefreshedAt = null;
+    this._refreshingPromise = null;
 
     // Initialization is deferred to waitForInitialization()
     // to avoid firing API requests during module evaluation
+
+    // Re-authenticate when tab becomes visible after sleep/background
+    this._handleVisibilityChange = this._handleVisibilityChange.bind(this);
+    document.addEventListener('visibilitychange', this._handleVisibilityChange);
   }
 
   /**
@@ -273,9 +279,94 @@ class AuthService {
     const res = await UserAPI.refreshToken();
     if (res && res.access_token) {
       this.setToken(res.access_token);
+      this._emitAuthStateChanged();
       return { success: true, user: res.user || null };
     }
     return { success: false };
+  }
+
+  /**
+   * Handle visibility change — re-authenticate when returning from sleep/background.
+   * setInterval is paused during sleep, so the token may be expired on wake.
+   */
+  async _handleVisibilityChange() {
+    if (document.hidden) return;
+    if (!this.isInitialized) return;
+
+    // Only attempt recovery if we believe we should be authenticated
+    const wasAuthenticated = localStorage.getItem('lastKnownAuthState') === 'authenticated';
+    if (!wasAuthenticated && !this.isAuthenticated) return;
+
+    // Check if token is stale (expired or >80% through its lifetime)
+    const expiry = this.getTokenExpiry();
+    const now = Date.now();
+    const tokenLifetime = 90 * 60 * 1000; // 90 minutes
+    const isStale = !expiry || (expiry - now) < (tokenLifetime * 0.2);
+
+    if (!isStale && this.isAuthenticated) return;
+
+    console.log('AuthService: Visibility change — token stale, refreshing');
+
+    // Use a single in-flight promise to avoid duplicate refresh calls
+    if (!this._refreshingPromise) {
+      this._refreshingPromise = this._performVisibilityRefresh();
+    }
+
+    try {
+      await this._refreshingPromise;
+    } finally {
+      this._refreshingPromise = null;
+    }
+  }
+
+  /**
+   * Perform the actual refresh on visibility change, with retry.
+   */
+  async _performVisibilityRefresh() {
+    const retryDelays = [0, 2000, 4000];
+    for (const delay of retryDelays) {
+      if (delay > 0) {
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+      try {
+        const res = await UserAPI.refreshToken();
+        if (res && res.access_token) {
+          console.log('AuthService: Visibility refresh successful');
+          this.setToken(res.access_token);
+          const user = await this.fetchCurrentUser(res.access_token);
+          if (user) {
+            this.setUser(user);
+            this.isAuthenticated = true;
+            localStorage.setItem('lastKnownAuthState', 'authenticated');
+            // Reset the periodic refresh interval from now
+            this.startTokenRefresh();
+            this._emitAuthStateChanged();
+            return;
+          }
+        }
+        if (res && res.transient) {
+          console.log('AuthService: Visibility refresh transient error, retrying...');
+          continue;
+        }
+        // Non-transient failure (e.g. cookie expired) — stop retrying
+        break;
+      } catch (err) {
+        console.error('AuthService: Visibility refresh error:', err);
+      }
+    }
+    // All retries failed — if cookie is truly gone (14-day expiry), accept guest state
+    console.log('AuthService: Visibility refresh failed, user may need to log in again');
+    if (this.isAuthenticated) {
+      this.performLogout();
+      this._emitAuthStateChanged();
+    }
+  }
+
+  /**
+   * Emit auth-state-changed event so React providers can sync.
+   */
+  _emitAuthStateChanged() {
+    window.dispatchEvent(new CustomEvent('auth-state-changed'));
   }
 
   /**
@@ -309,18 +400,39 @@ class AuthService {
 
       try {
         console.log('AuthService: Attempting scheduled token refresh');
-        const res = await UserAPI.refreshToken();
+        let res = await UserAPI.refreshToken();
+
+        // Retry with backoff for transient errors (502-504, network) or null responses
+        // This handles wake-from-sleep where network may not be ready yet
+        if (!res || res.transient) {
+          const retryDelays = [2000, 4000, 6000];
+          for (const delay of retryDelays) {
+            console.log(`AuthService: Scheduled refresh failed, retrying in ${delay / 1000}s`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            res = await UserAPI.refreshToken();
+            if (res && !res.transient && res.access_token) break;
+          }
+        }
+
         if (res && res.access_token) {
           console.log('AuthService: Scheduled refresh successful');
           this.setToken(res.access_token);
+          this._emitAuthStateChanged();
+        } else if (localStorage.getItem('lastKnownAuthState') === 'authenticated') {
+          // All retries exhausted but we were previously authenticated —
+          // don't logout, the cookie is still valid. Next visibility change
+          // or user interaction will trigger a fresh attempt.
+          console.log('AuthService: Scheduled refresh failed after retries, deferring to next attempt');
         } else {
-          console.log('AuthService: Scheduled refresh failed - no token returned');
+          console.log('AuthService: Scheduled refresh failed - no session to recover');
           this.performLogout();
         }
       } catch (err) {
-        console.error('AuthService: Scheduled refresh failed:', err);
-        // If refresh fails, log out to ensure security
-        this.performLogout();
+        console.error('AuthService: Scheduled refresh error:', err);
+        // Only logout if we have no reason to believe the session is valid
+        if (localStorage.getItem('lastKnownAuthState') !== 'authenticated') {
+          this.performLogout();
+        }
       }
     }, 60 * 60 * 1000); // 1 hour - matches backend refresh strategy
   }

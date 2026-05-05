@@ -126,6 +126,10 @@ export function AuthProvider({ children }) {
     };
     window.addEventListener('logout', logoutHandler);
 
+    // Listen for auth state changes from background refresh / visibility recovery
+    const authStateHandler = () => updateAuthState();
+    window.addEventListener('auth-state-changed', authStateHandler);
+
     // Listen for legacy password reset events if needed
     const handler = (_e) => {
       // Handle password reset token from legacy JS if applicable
@@ -134,6 +138,7 @@ export function AuthProvider({ children }) {
     window.addEventListener("passwordResetTokenFound", handler);
     return () => {
       window.removeEventListener('logout', logoutHandler);
+      window.removeEventListener('auth-state-changed', authStateHandler);
       window.removeEventListener("passwordResetTokenFound", handler);
     };
   }, [updateAuthState]);

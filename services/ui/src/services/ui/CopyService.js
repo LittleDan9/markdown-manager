@@ -1,3 +1,5 @@
+import { inlineStylesForClipboard } from '../../utils/clipboardHtmlUtils';
+
 /**
  * CopyService - Handles copying text to clipboard with visual feedback
  */
@@ -212,7 +214,8 @@ class CopyService {
     }
 
     try {
-      const htmlBlob = new Blob([html], { type: 'text/html' });
+      const styledHtml = inlineStylesForClipboard(html);
+      const htmlBlob = new Blob([styledHtml], { type: 'text/html' });
       const textBlob = new Blob([plainText], { type: 'text/plain' });
 
       await navigator.clipboard.write([
