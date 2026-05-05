@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 class ApiKeyCreate(BaseModel):
     """Request body for creating a new API key."""
-    provider: str = Field(..., pattern=r"^(openai|xai|github|gemini)$", description="Provider identifier")
+    provider: str = Field(..., pattern=r"^(openai|xai|github|gemini|databricks)$", description="Provider identifier")
     api_key: str = Field(..., min_length=1, description="Raw API key (will be encrypted)")
     label: str | None = Field(None, max_length=128, description="Display label")
     base_url: str | None = Field(None, max_length=512, description="Custom API base URL override")

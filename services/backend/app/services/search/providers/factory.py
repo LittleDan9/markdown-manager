@@ -58,4 +58,16 @@ def get_provider(
             provider_id=provider_type,
         )
 
+    if provider_type == "databricks":
+        if not api_key:
+            raise ValueError("api_key is required for provider 'databricks'")
+        if not base_url:
+            raise ValueError("base_url is required for provider 'databricks'")
+        return OpenAICompatProvider(
+            api_key=api_key,
+            model=model,
+            base_url=base_url,
+            provider_id="databricks",
+        )
+
     raise ValueError(f"Unknown provider type: {provider_type!r}")

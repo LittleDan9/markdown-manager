@@ -47,6 +47,15 @@ const PROVIDERS = [
     defaultModel: 'gemini-2.0-flash',
     placeholder: 'AIza...',
   },
+  {
+    id: 'databricks',
+    name: 'Databricks AI',
+    icon: 'bi-database',
+    defaultUrl: '',
+    defaultModel: 'databricks-meta-llama-3-3-70b-instruct',
+    placeholder: 'dapi...',
+    scopeHint: 'Enter your workspace serving-endpoints URL (e.g. https://your-workspace.cloud.databricks.com/serving-endpoints)',
+  },
 ];
 
 const providerById = (id) => PROVIDERS.find((p) => p.id === id);

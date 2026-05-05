@@ -9,6 +9,7 @@ from typing import AsyncIterator
 import httpx
 
 from .base import LLMProvider
+from .retry import retry_stream_on_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -21,6 +22,7 @@ DEFAULT_MODELS = {
     "openai": "gpt-4o-mini",
     "xai": "grok-3-mini-fast",
     "gemini": "gemini-2.0-flash",
+    "databricks": "databricks-meta-llama-3-3-70b-instruct",
 }
 
 
@@ -59,7 +61,10 @@ class OpenAICompatProvider(LLMProvider):
         system_prompt: str = "",
         history: list[dict] | None = None,
     ) -> AsyncIterator[str]:
-        """Stream tokens from an OpenAI-compatible ``/chat/completions`` endpoint."""
+        """Stream tokens from an OpenAI-compatible ``/chat/completions`` endpoint.
+
+        Automatically retries on 429 rate-limit errors with exponential backoff.
+        """
         messages: list[dict] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -80,6 +85,14 @@ class OpenAICompatProvider(LLMProvider):
             "Content-Type": "application/json",
         }
 
+        async for token in retry_stream_on_rate_limit(
+            lambda: self._do_stream(payload, headers),
+            provider_name=self._provider_id,
+        ):
+            yield token
+
+    async def _do_stream(self, payload: dict, headers: dict) -> AsyncIterator[str]:
+        """Execute a single streaming request and yield tokens."""
         async with httpx.AsyncClient(timeout=httpx.Timeout(120.0, connect=10.0)) as client:
             async with client.stream(
                 "POST",
@@ -153,6 +166,10 @@ class OpenAICompatProvider(LLMProvider):
             # xAI has a richer /v1/language-models endpoint with pricing
             if self._provider_id == "xai":
                 return await self._list_xai_models(headers)
+
+            # Databricks uses /api/2.0/serving-endpoints to list models
+            if self._provider_id == "databricks":
+                return await self._list_databricks_models(headers)
 
             async with httpx.AsyncClient(timeout=15.0) as client:
                 response = await client.get(
@@ -234,6 +251,38 @@ class OpenAICompatProvider(LLMProvider):
                         entry["output_price"] = float(m["completion_text_token_price"]) * 1_000_000
                     except (ValueError, TypeError):
                         pass
+                models.append(entry)
+            models.sort(key=lambda x: x["id"])
+            return models
+
+    async def _list_databricks_models(self, headers: dict) -> list[dict]:
+        """List available serving endpoints from Databricks workspace."""
+        # Derive workspace root from base_url (strip /serving-endpoints suffix)
+        workspace_url = self._base_url.rstrip("/")
+        if workspace_url.endswith("/serving-endpoints"):
+            workspace_url = workspace_url[: -len("/serving-endpoints")]
+        api_url = f"{workspace_url}/api/2.0/serving-endpoints"
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(api_url, headers=headers)
+            response.raise_for_status()
+            data = response.json()
+            models = []
+            for ep in data.get("endpoints", []):
+                name = ep.get("name", "")
+                if not name:
+                    continue
+                state = ep.get("state", {}).get("ready", "")
+                if state != "READY":
+                    continue
+                entry: dict = {"id": name}
+                # Extract model info from served entities if available
+                config = ep.get("config", {})
+                served = config.get("served_entities", config.get("served_models", []))
+                if served:
+                    entity = served[0]
+                    foundation_model = entity.get("foundation_model_name", "")
+                    if foundation_model:
+                        entry["name"] = foundation_model
                 models.append(entry)
             models.sort(key=lambda x: x["id"])
             return models
