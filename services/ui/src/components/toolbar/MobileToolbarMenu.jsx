@@ -28,7 +28,6 @@ function MobileToolbarMenu({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
-  const [categoryPickerMode, setCategoryPickerMode] = useState('navigate'); // 'navigate' | 'move'
 
   const handleAction = (action) => {
     action();
@@ -58,8 +57,8 @@ function MobileToolbarMenu({
     }
   }, [handleTitleSave]);
 
-  const handleCategorySelect = useCallback((category) => {
-    if (categoryPickerMode === 'move') {
+  const handleCategorySelect = useCallback((category, mode) => {
+    if (mode === 'move') {
       if (onChangeCategory && category !== currentDocument?.category) {
         onChangeCategory(category);
       }
@@ -70,7 +69,7 @@ function MobileToolbarMenu({
       }
     }
     setShowCategoryPicker(false);
-  }, [categoryPickerMode, onChangeCategory, onOpenCategory, onHide, currentDocument?.category]);
+  }, [onChangeCategory, onOpenCategory, onHide, currentDocument?.category]);
 
   const isGitHubFile = currentDocument?.repository_type === 'github';
 
@@ -118,45 +117,48 @@ function MobileToolbarMenu({
                         type="button"
                         className="doc-category-btn"
                         onClick={() => {
-                          setCategoryPickerMode('navigate');
                           setShowCategoryPicker(!showCategoryPicker);
                         }}
-                        title="Tap to navigate to category"
+                        title="Manage category"
                       >
                         <span className="badge bg-secondary">
                           {currentDocument.category || 'General'}
                           <i className="bi bi-chevron-down ms-1" style={{ fontSize: '0.6em' }} />
                         </span>
                       </button>
-                      <button
-                        type="button"
-                        className="doc-category-btn"
-                        onClick={() => {
-                          setCategoryPickerMode('move');
-                          setShowCategoryPicker(!showCategoryPicker);
-                        }}
-                        title="Move document to category"
-                      >
-                        <i className="bi bi-folder-symlink" style={{ fontSize: '0.8em', opacity: 0.6 }} />
-                      </button>
                     </span>
                   )}
                 </div>
 
-                {/* Category picker */}
+                {/* Category picker — two sections */}
                 {showCategoryPicker && !isGitHubFile && categories && (
                   <>
-                    <div className="small text-muted px-2 mt-1 mb-1">
-                      {categoryPickerMode === 'move' ? 'Move document to:' : 'Navigate to category:'}
+                    <div className="small text-muted px-2 mt-2 mb-1 fw-bold">
+                      <i className="bi bi-folder-symlink me-1"></i>Move document to:
                     </div>
                     <ul className="mobile-category-list">
                       {categories.map((cat) => (
                         <li
-                          key={cat}
+                          key={`move-${cat}`}
                           className={cat === currentDocument.category ? 'active' : ''}
-                          onClick={() => handleCategorySelect(cat)}
+                          onClick={() => cat !== currentDocument.category && handleCategorySelect(cat, 'move')}
+                          style={cat === currentDocument.category ? { opacity: 0.5 } : {}}
                         >
                           <i className={`bi bi-${cat === currentDocument.category ? 'check-circle-fill' : 'circle'}`} />
+                          {cat}
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="small text-muted px-2 mt-2 mb-1 fw-bold">
+                      <i className="bi bi-folder2-open me-1"></i>Open category:
+                    </div>
+                    <ul className="mobile-category-list">
+                      {categories.map((cat) => (
+                        <li
+                          key={`nav-${cat}`}
+                          onClick={() => handleCategorySelect(cat, 'navigate')}
+                        >
+                          <i className="bi bi-arrow-right-short" />
                           {cat}
                         </li>
                       ))}

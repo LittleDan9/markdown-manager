@@ -1,5 +1,5 @@
 import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModal";
-import React, { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown, OverlayTrigger, Popover } from "react-bootstrap";
@@ -15,11 +15,14 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
-  const { showError } = useNotification();
+  const { showError, showSuccess } = useNotification();
   const documentService = serviceFactory.createDocumentService();
   const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory, openRecents, clearSiblingOverride, siblingOverrideMode } = useDocumentContext();
   const { user } = useAuth();
   const isCollabDocument = currentDocument && user && currentDocument.user_id && currentDocument.user_id !== user.id;
+  // Ref to always access the latest currentDocument (avoids stale closures)
+  const currentDocumentRef = useRef(currentDocument);
+  useEffect(() => { currentDocumentRef.current = currentDocument; }, [currentDocument]);
   // Always ensure 'Drafts' and 'General' are present at top
   // Always show Drafts and General first, then custom categories sorted alphabetically
   const categories = useMemo(() => {
@@ -28,7 +31,8 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
       .sort((a, b) => a.localeCompare(b));
     return ["Drafts", "General", ...customCats];
   }, [rawCategories]);
-  const [currentCategory, setCurrentCategory] = useState(categories[0] || "General");
+  // Derive currentCategory directly from document state — no local useState drift
+  const currentCategory = currentDocument?.category || "General";
   const [newCategory, setNewCategory] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(currentDocument.name || "Untitled Document");
@@ -69,26 +73,19 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     if (currentDocument?.repository_type === 'github') return;
     if (category === currentCategory) return;
 
-    setCurrentCategory(category);
     try {
-      const updatedDoc = { ...currentDocument, category };
-      await saveDocument(updatedDoc);
-      refreshSiblings();
+      const updatedDoc = { ...currentDocumentRef.current, category };
+      const saved = await saveDocument(updatedDoc);
+      if (!saved) {
+        showError("Failed to move document to category.");
+      } else {
+        refreshSiblings();
+        showSuccess(`Moved to ${category}`);
+      }
     } catch (err) {
-      setCurrentCategory(currentDocument?.category || 'General');
       showError("Failed to move document to category.");
     }
   };
-
-  // Sync currentCategory from document state
-  useEffect(() => {
-    if (currentDocument?.repository_type === 'github') return;
-    if (currentDocument?.category) {
-      setCurrentCategory(
-        categories.includes(currentDocument.category) ? currentDocument.category : 'General'
-      );
-    }
-  }, [currentDocument?.category, currentDocument?.repository_type, categories]);
 
   const handleTitleClick = () => () => {
     setTitleInput(currentDocument.name || "Untitled Document");
@@ -99,15 +96,17 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const handleTitleBlur = async () => {
     setEditingTitle(false);
     const newTitle = titleInput.trim();
-    if (newTitle && newTitle !== currentDocument.name) {
+    // Use ref for fresh document state to avoid stale closure after category change
+    const doc = currentDocumentRef.current;
+    if (newTitle && newTitle !== doc.name) {
       try {
         // Update document name in context and backend/localStorage
-        if (currentDocument.id) {
+        if (doc.id) {
           // Existing document - use rename function
-          await renameDocument(currentDocument.id, newTitle, currentDocument.category);
+          await renameDocument(doc.id, newTitle, doc.category);
         } else {
           // New document - save to get an ID and update title
-          const updatedDoc = { ...currentDocument, name: newTitle, content };
+          const updatedDoc = { ...doc, name: newTitle, content };
           await saveDocument(updatedDoc);
         }
         // Update the toolbar title display
@@ -143,7 +142,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     } else {
       // No docs, delete immediately
       deleteCategory(category);
-      setCurrentCategory("General");
     }
   };
 
@@ -159,9 +157,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     // Call addCategory which will update the current document with the new category
     const updatedCats = await addCategory(category);
     setCategories(updatedCats);
-
-    // The current document has been updated with the new category, so sync the UI
-    setCurrentCategory(category);
     setNewCategory("");
   };
 
@@ -188,10 +183,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
       openModal(
         async () => {
           const success = await renameCategory(currentCategory, categoryInput.trim());
-          if (success) {
-            setCurrentCategory(categoryInput.trim());
-            setCategoryError("");
-          } else {
+          if (!success) {
             setCategoryError("Category name already exists or is invalid.");
             setEditingCategory(true);
           }
@@ -249,7 +241,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           {currentDocument.category || 'General'}
         </span>
       ) : (
-        /* Category breadcrumb dropdown — navigation-primary */
+        /* Category breadcrumb dropdown — two sections: Move & Navigate */
         <Dropdown as="span" className="me-1 category-breadcrumb">
           <Dropdown.Toggle
             as="span"
@@ -280,26 +272,24 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             )}
           </Dropdown.Toggle>
           <Dropdown.Menu>
-            {/* Recent — virtual navigation category */}
-            <Dropdown.Item
-              key="__recents__"
-              active={siblingOverrideMode === 'recents'}
-              onClick={() => openRecents()}
-              className={`d-flex justify-content-between align-items-center
-                  ${siblingOverrideMode === 'recents' ? "text-bg-secondary" : ""}`}
-            >
-              <span className="text-truncate"><i className="bi bi-clock-history me-1"></i>Recent</span>
-            </Dropdown.Item>
-            <Dropdown.Divider />
+            {/* Section 1: Move document to category */}
+            <Dropdown.Header className="text-uppercase small fw-bold">
+              <i className="bi bi-folder-symlink me-1"></i>Move document to
+            </Dropdown.Header>
             {categories.map((category) => (
               <Dropdown.Item
-                key={category}
+                key={`move-${category}`}
                 active={category === currentCategory}
-                onClick={() => handleCategorySelect(category)}
-                className={`d-flex justify-content-between align-items-center
-                    ${category === currentCategory ? "text-bg-secondary" : ""}`}
+                onClick={() => handleMoveToCategory(category)}
+                disabled={category === currentCategory}
+                className="d-flex justify-content-between align-items-center"
               >
-                <span className="text-truncate">{category}</span>
+                <span className="text-truncate">
+                  {category === currentCategory && (
+                    <i className="bi bi-check-lg me-1"></i>
+                  )}
+                  {category}
+                </span>
                 <span className="d-flex align-items-center gap-1 ms-2">
                   {category !== "General" && category !== "Drafts" && (
                     <button
@@ -320,6 +310,30 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
               </Dropdown.Item>
             ))}
             <Dropdown.Divider />
+            {/* Section 2: Navigate / open category */}
+            <Dropdown.Header className="text-uppercase small fw-bold">
+              <i className="bi bi-folder2-open me-1"></i>Open category
+            </Dropdown.Header>
+            <Dropdown.Item
+              key="__recents__"
+              active={siblingOverrideMode === 'recents'}
+              onClick={() => openRecents()}
+              className={`d-flex justify-content-between align-items-center
+                  ${siblingOverrideMode === 'recents' ? "text-bg-secondary" : ""}`}
+            >
+              <span className="text-truncate"><i className="bi bi-clock-history me-1"></i>Recent</span>
+            </Dropdown.Item>
+            {categories.map((category) => (
+              <Dropdown.Item
+                key={`nav-${category}`}
+                onClick={() => handleCategorySelect(category)}
+                className="d-flex justify-content-between align-items-center"
+              >
+                <span className="text-truncate">{category}</span>
+              </Dropdown.Item>
+            ))}
+            <Dropdown.Divider />
+            {/* Add new category */}
             <div className="px-1 py-2">
               <form
                 className="px-1 py-2"
@@ -374,36 +388,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
         >
           {currentDocument.name || "Untitled Document"}
         </span>
-      )}
-      {/* Move to category button — local docs only */}
-      {!isGitHubFile && !isCollabDocument && (
-        <Dropdown as="span" className="ms-1 move-to-category">
-          <Dropdown.Toggle
-            as="span"
-            id="moveCategoryDropdown"
-            className="move-category-toggle"
-            role="button"
-            title="Move to category"
-          >
-            <i className="bi bi-folder-symlink"></i>
-          </Dropdown.Toggle>
-          <Dropdown.Menu>
-            <Dropdown.Header>Move to category</Dropdown.Header>
-            {categories.map((category) => (
-              <Dropdown.Item
-                key={category}
-                active={category === currentCategory}
-                onClick={() => handleMoveToCategory(category)}
-                disabled={category === currentCategory}
-              >
-                {category === currentCategory && (
-                  <i className="bi bi-check-lg me-1"></i>
-                )}
-                {category}
-              </Dropdown.Item>
-            ))}
-          </Dropdown.Menu>
-        </Dropdown>
       )}
       <span className="vr opacity-50 mx-2"></span>
       {/* Document status popover */}
@@ -481,7 +465,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             // Delete or migrate category and get updated list
             const updatedCats = await deleteCategory(deleteTargetCategory, { deleteDocs, migrateTo });
             setCategories(updatedCats);
-            setCurrentCategory("General");
             setDocuments(documentService.getAllDocuments());
             createDocument();
             setShowDeleteModal(false);

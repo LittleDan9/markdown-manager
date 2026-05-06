@@ -143,9 +143,18 @@ class DocumentsApi extends Api {
       // Try to get category ID from category name using CategoriesAPI
       try {
         const categoriesApi = (await import('./categoriesApi')).default;
-        const categories = await categoriesApi.getCategories();
-        const categoryObj = categories.find(cat => cat.name === category);
+        let categories = await categoriesApi.getCategories();
+        let categoryObj = categories.find(cat => cat.name === category);
         finalCategoryId = categoryObj?.id;
+
+        // Retry once if not found — handles race where category was just created
+        if (!finalCategoryId) {
+          await new Promise(r => setTimeout(r, 100));
+          categories = await categoriesApi.getCategories();
+          categoryObj = categories.find(cat => cat.name === category);
+          finalCategoryId = categoryObj?.id;
+        }
+
         if (!finalCategoryId) {
           console.error(`Category "${category}" not found in categories list — category will not be updated`);
         }

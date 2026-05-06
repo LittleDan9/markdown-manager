@@ -607,6 +607,11 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       try {
         const documentsApi = (await import('@/api/documentsApi')).default;
         await documentsApi.addCategory(category.trim());
+        // Refresh categories list so subsequent saveDocument can resolve name → ID
+        const categoriesApi = (await import('@/api/categoriesApi')).default;
+        const freshCategories = await categoriesApi.getCategories();
+        const categoryNames = freshCategories.map(c => c.name || c);
+        setCategories(categoryNames);
       } catch (error) {
         console.error('Failed to create category on backend:', error);
         // Still continue to update the document locally
