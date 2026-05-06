@@ -34,6 +34,10 @@ location /api/export/ {
 | `/diagram/png` | POST | Rendered diagram → PNG |
 | `/diagram/drawio/xml` | POST | Mermaid → Draw.io XML |
 | `/diagram/drawio/png` | POST | Mermaid → Draw.io editable PNG |
+| `/tabular/csv` | POST | Tabular data → CSV |
+| `/tabular/xlsx` | POST | Tabular data → XLSX (single sheet) |
+| `/tabular/xlsx/multi` | POST | Tabular data → XLSX (multi-sheet) |
+| `/tabular/markdown` | POST | Tabular data → Markdown table |
 
 ## Important
 - Do NOT add export service source code to this repo
