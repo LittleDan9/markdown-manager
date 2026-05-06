@@ -54,6 +54,8 @@ async def get_current_user_profile(
         tab_position=current_user.tab_position,
         tab_sort_order=current_user.tab_sort_order,
         recents_tab_limit=current_user.recents_tab_limit,
+        syntax_theme=current_user.syntax_theme,
+        syntax_overrides_enabled=current_user.syntax_overrides_enabled,
         current_doc_id=current_user.current_doc_id,
         current_document=current_document
     )
