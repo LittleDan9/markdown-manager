@@ -14,6 +14,7 @@ import httpx
 _stripped_models: set[str] = set()
 
 from .base import LLMProvider
+from .retry import retry_stream_on_rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -162,15 +163,22 @@ class GitHubModelsProvider(LLMProvider):
 
         Models that reject optional params are cached in ``_stripped_models``
         so subsequent calls skip the doomed first attempt entirely.
+        Also retries on 429 rate-limit errors with exponential backoff.
         """
         if self._model in _stripped_models or not optional_params:
-            async for token in self._do_stream(payload):
+            async for token in retry_stream_on_rate_limit(
+                lambda: self._do_stream(payload),
+                provider_name="GitHub Models",
+            ):
                 yield token
             return
 
         attempt_payload = {**payload, **optional_params}
         try:
-            async for token in self._do_stream(attempt_payload):
+            async for token in retry_stream_on_rate_limit(
+                lambda: self._do_stream(attempt_payload),
+                provider_name="GitHub Models",
+            ):
                 yield token
         except RuntimeError as exc:
             if "Unsupported" in str(exc):
@@ -179,7 +187,10 @@ class GitHubModelsProvider(LLMProvider):
                     "Model %s cached as stripped-params; retrying without %s: %s",
                     self._model, list(optional_params.keys()), exc,
                 )
-                async for token in self._do_stream(payload):
+                async for token in retry_stream_on_rate_limit(
+                    lambda: self._do_stream(payload),
+                    provider_name="GitHub Models",
+                ):
                     yield token
             else:
                 raise

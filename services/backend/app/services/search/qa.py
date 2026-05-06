@@ -10,9 +10,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document import Document
+from app.services.search.memory import compress_history
 from app.services.search.providers.base import LLMProvider
 from app.services.search.providers.ollama import OllamaProvider
 from app.services.search.semantic import SemanticSearchService
+from app.services.search.tokens import (
+    estimate_tokens,
+    estimate_messages_tokens,
+    get_context_budget,
+    truncate_text_to_tokens,
+)
 from app.services.storage.filesystem import Filesystem
 
 logger = logging.getLogger(__name__)
@@ -20,7 +27,13 @@ logger = logging.getLogger(__name__)
 DEFAULT_OLLAMA_URL = "http://ollama:11434"
 DEFAULT_MODEL = "qwen2.5:1.5b"
 
-# Cap deep-think document content — q8_0 KV cache quantization allows larger context
+# Token-based caps (replaces old character caps)
+_DEEP_THINK_MAX_TOKENS = 4000
+_EXCERPT_MAX_TOKENS = 200
+_FALLBACK_DOC_MAX_TOKENS = 150
+_HISTORY_MSG_MAX_TOKENS = 500
+
+# Legacy char cap kept as absolute safety net
 _DEEP_THINK_MAX_CHARS = 16000
 
 # TTL-based in-memory catalogue cache keyed by user_id.
@@ -186,15 +199,46 @@ class QAService:
             max_turns=self._provider.max_history_turns,
             max_chars=self._provider.max_history_chars,
         )
+
+        # Token-aware history compression
+        if history_msgs:
+            history_msgs, _ = compress_history(history_msgs, model=self._provider.model_name)
+
+        # ------------------------------------------------------------------
+        # Budget guard: ensure total payload fits within model context window
+        # ------------------------------------------------------------------
+        model_name = self._provider.model_name
+        budget = get_context_budget(model_name)
+
+        # Estimate total token usage
+        all_messages: list[dict] = []
+        if system_prompt:
+            all_messages.append({"role": "system", "content": system_prompt})
+        if history_msgs:
+            all_messages.extend(history_msgs)
+        all_messages.append({"role": "user", "content": user_prompt})
+
+        total_tokens = estimate_messages_tokens(all_messages, model_name)
+
+        if total_tokens > budget:
+            overage = total_tokens - budget
+            logger.warning(
+                "Context exceeds budget: %d tokens > %d budget (overage=%d). Truncating user prompt.",
+                total_tokens, budget, overage,
+            )
+            # Truncate the user prompt (context) to fit within budget
+            prompt_tokens = estimate_tokens(user_prompt, model_name)
+            target_prompt_tokens = max(prompt_tokens - overage - 100, 200)
+            user_prompt = truncate_text_to_tokens(user_prompt, target_prompt_tokens, model_name)
+
         prompt_chars = len(system_prompt) + len(user_prompt)
         history_chars = sum(len(m.get("content", "")) for m in history_msgs) if history_msgs else 0
         logger.info(
-            "Chat prompt built: chars=%d history_chars=%d history_turns=%d chunks=%d catalogue_lines=%d provider=%s",
-            prompt_chars, history_chars,
+            "Chat prompt built: tokens=%d budget=%d chars=%d history_chars=%d history_turns=%d chunks=%d provider=%s model=%s",
+            total_tokens, budget, prompt_chars, history_chars,
             len(history_msgs) if history_msgs else 0,
-            len(context_chunks),
-            catalogue.count("\n") + 1 if catalogue else 0,
-            self._provider.provider_name,
+            len(context_chunks) if not help_mode else 0,
+            self._provider.provider_name, model_name,
         )
 
         t_first_token = None
@@ -304,21 +348,28 @@ class QAService:
         # 1. Build a compact catalogue of documents (optionally filtered by category)
         catalogue = await self._build_catalogue(db, user_id, category_id=category_id)
 
-        # 2. Semantic search — top-5 (KV cache quantization allows larger context)
+        # 2. Semantic search — top-5
         results = await self._search.search(db, user_id, question, limit=5, category_id=category_id)
         chunks = []
-        _EXCERPT_MAX_CHARS = 600  # Larger excerpts enabled by q8_0 KV cache + 4k context
+        model = self._provider.model_name
         for result in results:
             doc = result.document
             if not doc.file_path:
                 continue
             embedding = result.embedding
             if embedding and embedding.summary:
-                chunks.append({"name": doc.name, "content": embedding.summary[:_EXCERPT_MAX_CHARS]})
+                text = truncate_text_to_tokens(embedding.summary, _EXCERPT_MAX_TOKENS, model)
+                chunks.append({"name": doc.name, "content": text})
             else:
                 content = await _get_filesystem().read_document(user_id, doc.file_path)
                 if content:
-                    chunks.append({"name": doc.name, "content": content[:_EXCERPT_MAX_CHARS]})
+                    text = truncate_text_to_tokens(content, _EXCERPT_MAX_TOKENS, model)
+                    chunks.append({"name": doc.name, "content": text})
+
+        # Skip catalogue when semantic search returned enough relevant excerpts
+        if len(chunks) >= 3:
+            catalogue = ""
+
         return chunks, catalogue
 
     async def _build_catalogue(
@@ -409,22 +460,27 @@ class QAService:
         if not doc.file_path:
             return []
 
+        model = self._provider.model_name
+
         if deep_think:
-            # Full document text — let Ollama see everything (capped to bound prefill)
+            # Full document text — capped by token budget to prevent context overflow
             content = await _get_filesystem().read_document(user_id, doc.file_path)
             if not content:
                 return []
-            return [{"name": doc.name, "content": content[:_DEEP_THINK_MAX_CHARS]}]
+            content = content[:_DEEP_THINK_MAX_CHARS]  # char safety net first
+            content = truncate_text_to_tokens(content, _DEEP_THINK_MAX_TOKENS, model)
+            return [{"name": doc.name, "content": content}]
 
         # Normal mode: use stored summary (fast)
         if embedding and embedding.summary:
             return [{"name": doc.name, "content": embedding.summary}]
 
-        # Fallback: file read with cap (embedding not yet indexed)
+        # Fallback: file read with token cap (embedding not yet indexed)
         content = await _get_filesystem().read_document(user_id, doc.file_path)
         if not content:
             return []
-        return [{"name": doc.name, "content": content[:500]}]
+        content = truncate_text_to_tokens(content, _FALLBACK_DOC_MAX_TOKENS, model)
+        return [{"name": doc.name, "content": content}]
 
     @staticmethod
     def _history_as_messages(
@@ -436,16 +492,18 @@ class QAService:
 
         Walks backwards from the most recent messages so the latest turns
         survive when the budget is exhausted.  Each message content is capped
-        at 2000 chars as a safety valve.
+        at _HISTORY_MSG_MAX_TOKENS tokens as a safety valve.
         """
         if not history:
             return []
+        # Per-message cap in characters (fallback for non-tiktoken models)
+        _MSG_CHAR_CAP = _HISTORY_MSG_MAX_TOKENS * 4
         msgs: list[dict] = []
         budget = max_chars
         for msg in reversed(history[-max_turns:]):
             role = msg.role if hasattr(msg, "role") else msg.get("role", "")
             content = msg.content if hasattr(msg, "content") else msg.get("content", "")
-            content = content[:2000]
+            content = content[:_MSG_CHAR_CAP]
             if len(content) > budget:
                 break
             msgs.append({"role": role, "content": content})

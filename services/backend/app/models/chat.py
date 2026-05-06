@@ -26,6 +26,8 @@ class ChatConversation(BaseModel):
     document_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
     )
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    cached_context: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     messages: Mapped[List["ChatMessage"]] = relationship(
         "ChatMessage",

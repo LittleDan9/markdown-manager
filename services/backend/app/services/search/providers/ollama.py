@@ -9,6 +9,7 @@ from typing import AsyncIterator
 import httpx
 
 from .base import LLMProvider
+from app.services.search.tokens import estimate_messages_tokens
 
 logger = logging.getLogger(__name__)
 
@@ -47,14 +48,7 @@ class OllamaProvider(LLMProvider):
     ) -> AsyncIterator[str]:
         """Stream tokens from Ollama's ``/api/chat`` endpoint."""
         num_thread = int(os.environ.get("OLLAMA_NUM_THREAD", 0)) or None
-
-        options: dict = {
-            "num_ctx": 4096,
-            "num_predict": 512,
-            "temperature": 0.3,
-        }
-        if num_thread:
-            options["num_thread"] = num_thread
+        num_predict = 512
 
         messages: list[dict] = []
         if system_prompt:
@@ -62,6 +56,20 @@ class OllamaProvider(LLMProvider):
         if history:
             messages.extend(history)
         messages.append({"role": "user", "content": prompt})
+
+        # Dynamic num_ctx: sized to actual payload + response headroom
+        input_tokens = estimate_messages_tokens(messages, self._model)
+        num_ctx = input_tokens + max(512, num_predict)
+        # Minimum 2048 to avoid degenerate cases; cap at 32768 to avoid OOM
+        num_ctx = max(2048, min(num_ctx, 32768))
+
+        options: dict = {
+            "num_ctx": num_ctx,
+            "num_predict": num_predict,
+            "temperature": 0.3,
+        }
+        if num_thread:
+            options["num_thread"] = num_thread
 
         payload = {
             "model": self._model,
