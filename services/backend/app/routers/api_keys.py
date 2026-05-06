@@ -1,7 +1,7 @@
 """API key management router — per-user CRUD for third-party LLM provider keys."""
 import logging
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.auth import get_current_user
@@ -34,6 +34,7 @@ async def list_keys(
 @router.post("", response_model=ApiKeyResponse, status_code=201)
 async def add_key(
     body: ApiKeyCreate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -48,6 +49,7 @@ async def add_key(
         preferred_model=body.preferred_model,
         org_name=body.org_name,
     )
+    background_tasks.add_task(_publish_provider_state, current_user, db)
     return ApiKeyResponse.model_validate(row)
 
 
@@ -55,6 +57,7 @@ async def add_key(
 async def update_key(
     key_id: int,
     body: ApiKeyUpdate,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -76,12 +79,14 @@ async def update_key(
     row = await crud.update_key(db, key_id, current_user.id, **kwargs)
     if row is None:
         raise HTTPException(status_code=404, detail="API key not found")
+    background_tasks.add_task(_publish_provider_state, current_user, db)
     return ApiKeyResponse.model_validate(row)
 
 
 @router.delete("/{key_id}", status_code=204)
 async def delete_key(
     key_id: int,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -89,6 +94,7 @@ async def delete_key(
     deleted = await crud.delete_key(db, key_id, current_user.id)
     if not deleted:
         raise HTTPException(status_code=404, detail="API key not found")
+    background_tasks.add_task(_publish_provider_state, current_user, db)
 
 
 @router.post("/{key_id}/test")
@@ -145,3 +151,12 @@ async def list_models(
         return {"models": [], "error": str(exc)}
 
     return {"models": models, "provider": row.provider}
+
+
+async def _publish_provider_state(user: User, db: AsyncSession) -> None:
+    """Background task: publish user's provider state to Redis stream."""
+    try:
+        from app.services.ai_provider_events import publish_user_provider_state
+        await publish_user_provider_state(user, db)
+    except Exception as exc:
+        logger.warning("Failed to publish provider state for user %s: %s", user.email, exc)

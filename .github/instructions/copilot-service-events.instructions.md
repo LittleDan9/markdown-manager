@@ -15,6 +15,21 @@ Backend (outbox_service) → DB outbox table
 ## Events-Core Package (`packages/events-core/`)
 Shared contract package for cross-service event types:
 
+### Constants (`py/events_core/constants.py` and `ts/index.ts`)
+```python
+class EventTypes:
+    USER_CREATED = "UserCreated"
+    USER_UPDATED = "UserUpdated"
+    USER_DISABLED = "UserDisabled"
+    AI_PROVIDER_PUBLISHED = "AIProviderPublished"
+    AI_USAGE_PUBLISHED = "AIUsagePublished"
+
+class Topics:
+    IDENTITY_USER_V1 = "identity.user.v1"
+    AI_PROVIDER_V1 = "ai.provider.v1"
+    AI_USAGE_V1 = "ai.usage.v1"
+```
+
 ### Schema Definitions (`schemas/`)
 JSON Schema contracts:
 - `envelope.v1.json` → Event envelope (id, type, source, timestamp, data)
@@ -85,3 +100,27 @@ Services in `services/backend/app/services/`:
 - Consumer: `tests/test_event_processing.py`, `tests/test_redis_integration.py`, `tests/test_config.py`
 - Docker test runner: `tests/docker_test_runner.py`
 - Testing docs: `TESTING.md`
+
+## Cross-App Event Streams
+
+### AI Provider Sync (`ai.provider.v1`)
+- Event type: `AIProviderPublished`
+- Published by: both MM and TM backends on provider create/update/delete and periodic republish
+- Consumed by: both apps' event consumers → upsert `remote_ai_providers` table
+- Payload: `{ user_email, providers: [{ id, provider, label, model, base_url, org_name, is_active, has_key }] }`
+- Consumer groups: `mm-consumer`, `tm-consumer`
+- Keys are NEVER included — only `has_key: bool`
+
+### AI Usage Stats (`ai.usage.v1`)
+- Event type: `AIUsagePublished`
+- Published by: `ai_usage_publisher.py` in both apps (every 5 minutes)
+- Consumed by: both apps' event consumers → upsert `remote_ai_usage_daily` table
+- Payload: `{ user_email, date, stats: [{ provider, model, request_count, input_tokens, output_tokens, error_count }] }`
+- Consumer groups: `mm-consumer`, `tm-consumer`
+
+### Backend Consumer (`services/backend/app/services/event_consumer_backend.py`)
+Lightweight in-process consumer running in the backend lifespan (not the separate event-consumer service):
+- Subscribes to: `ai.provider.v1`, `ai.usage.v1`
+- Uses XREADGROUP with consumer groups for at-least-once delivery
+- Resolves users by email from event payload
+- Direct async DB writes (no outbox needed for reads)

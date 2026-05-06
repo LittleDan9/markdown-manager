@@ -47,11 +47,15 @@ export const EventTypes = {
   USER_DISABLED: 'UserDisabled',
   DICTIONARY_WORD_ADDED: 'DictionaryWordAdded',
   DICTIONARY_WORD_REMOVED: 'DictionaryWordRemoved',
+  AI_PROVIDER_STATE_PUBLISHED: 'AIProviderStatePublished',
+  AI_USAGE_PUBLISHED: 'AIUsagePublished',
 } as const;
 
 export const Topics = {
   IDENTITY_USER_V1: 'identity.user.v1',
   DICTIONARY_WORD_V1: 'dictionary.word.v1',
+  AI_PROVIDER_V1: 'ai.provider.v1',
+  AI_USAGE_V1: 'ai.usage.v1',
 } as const;
 
 // Helper function to validate complete event

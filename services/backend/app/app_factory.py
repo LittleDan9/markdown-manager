@@ -89,6 +89,17 @@ def _create_lifespan():
         from app.services.collab import collab_manager
         await collab_manager.start()
 
+        # Publish AI provider state for cross-app sync (non-blocking)
+        import asyncio
+        asyncio.create_task(_startup_publish_providers())
+
+        # Start background event consumer for cross-app events
+        _consumer_task = asyncio.create_task(_run_event_consumer())
+
+        # Start periodic AI usage publisher (every 5 min)
+        from app.services.ai_usage_publisher import usage_publish_loop
+        _usage_task = asyncio.create_task(usage_publish_loop())
+
         yield
 
         # Shutdown: notify connected clients about maintenance
@@ -113,9 +124,40 @@ def _create_lifespan():
         _collab_mgr.stop()
 
         presence_manager.stop()
+
+        # Stop cross-app event consumer
+        if _consumer_task and not _consumer_task.done():
+            _consumer_task.cancel()
+            try:
+                await _consumer_task
+            except asyncio.CancelledError:
+                pass
+
         logger.info("Application shutdown complete.")
 
     return lifespan
+
+
+async def _startup_publish_providers():
+    """Background task: publish all users' AI provider state on startup."""
+    from app.database import AsyncSessionLocal
+    from app.services.ai_provider_events import publish_all_provider_state
+    try:
+        async with AsyncSessionLocal() as db:
+            await publish_all_provider_state(db)
+    except Exception as exc:
+        logger.warning("Startup provider state publish failed (non-fatal): %s", exc)
+
+
+async def _run_event_consumer():
+    """Background task: consume Redis Stream events from other apps."""
+    from app.services.event_consumer_backend import start_event_consumer
+    try:
+        await start_event_consumer()
+    except asyncio.CancelledError:
+        pass
+    except Exception as exc:
+        logger.error("Event consumer crashed: %s", exc)
 
 
 def setup_middleware(app: FastAPI) -> None:
@@ -215,6 +257,12 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(api_keys.router)  # /api-keys CRUD for LLM provider keys
     app.include_router(chat.router)  # /chat/ask and /chat/health
     app.include_router(notifications.router)  # /notifications
+
+    from app.routers import ai_provider_sync
+    app.include_router(ai_provider_sync.router)  # /api/ai-provider-sync/*
+
+    from app.routers import ai_usage
+    app.include_router(ai_usage.router)  # /api/ai-usage/*
 
     from app.routers import help as help_router
     app.include_router(help_router.router)  # /help/topics

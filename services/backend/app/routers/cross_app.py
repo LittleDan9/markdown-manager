@@ -152,3 +152,93 @@ async def get_document(
         "updated_at": doc_response.updated_at.isoformat() if doc_response.updated_at else None,
         "created_at": doc_response.created_at.isoformat() if doc_response.created_at else None,
     }
+
+
+# --- AI Provider cross-app endpoints ---
+
+
+@router.get("/ai-providers")
+async def list_ai_providers(
+    user: User = Depends(get_cross_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """List user's AI providers (metadata only, no keys)."""
+    from sqlalchemy import select
+    from app.models.user_api_key import UserApiKey
+
+    result = await db.execute(
+        select(UserApiKey).where(UserApiKey.user_id == user.id)
+    )
+    keys = result.scalars().all()
+    return [
+        {
+            "id": k.id,
+            "provider": k.provider,
+            "label": k.label or "",
+            "base_url": k.base_url,
+            "preferred_model": k.preferred_model,
+            "org_name": k.org_name,
+            "is_active": k.is_active,
+            "has_key": bool(k.api_key_encrypted),
+        }
+        for k in keys
+    ]
+
+
+@router.post("/ai-providers/export/{key_id}")
+async def export_ai_provider(
+    key_id: int,
+    user: User = Depends(get_cross_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Export a single AI provider including decrypted key for migration."""
+    from sqlalchemy import select
+    from app.models.user_api_key import UserApiKey, decrypt_api_key
+
+    result = await db.execute(
+        select(UserApiKey).where(UserApiKey.id == key_id, UserApiKey.user_id == user.id)
+    )
+    key = result.scalar_one_or_none()
+    if not key:
+        raise HTTPException(status_code=404, detail="API key not found")
+
+    settings = get_settings()
+    raw_key = decrypt_api_key(key.api_key_encrypted, settings.secret_key)
+
+    return {
+        "id": key.id,
+        "provider": key.provider,
+        "label": key.label or "",
+        "api_key": raw_key,
+        "base_url": key.base_url,
+        "preferred_model": key.preferred_model,
+        "org_name": key.org_name,
+        "is_active": key.is_active,
+    }
+
+
+@router.post("/ai-providers/import")
+async def import_ai_provider(
+    body: dict,
+    user: User = Depends(get_cross_app_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Import an AI provider (with raw key) from another app."""
+    from app.crud import user_api_key as crud
+
+    provider = body.get("provider")
+    api_key = body.get("api_key")
+    if not provider or not api_key:
+        raise HTTPException(status_code=400, detail="provider and api_key are required")
+
+    row = await crud.create_key(
+        db,
+        user_id=user.id,
+        provider=provider,
+        api_key=api_key,
+        label=body.get("label", ""),
+        base_url=body.get("base_url"),
+        preferred_model=body.get("preferred_model"),
+        org_name=body.get("org_name"),
+    )
+    return {"id": row.id, "provider": row.provider, "label": row.label}

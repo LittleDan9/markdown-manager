@@ -1,0 +1,63 @@
+{
+  "$id": "ai.provider.v1/AIProviderStatePublished.json",
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AI Provider State Published",
+  "description": "Full snapshot of a user's AI provider configuration from one app, used for cross-app diff and migration awareness.",
+  "type": "object",
+  "required": ["user_email", "source_app", "providers"],
+  "properties": {
+    "user_email": {
+      "type": "string",
+      "format": "email",
+      "description": "Email of the user whose providers are being published"
+    },
+    "source_app": {
+      "type": "string",
+      "enum": ["team-manager", "markdown-manager"],
+      "description": "Application that owns these provider settings"
+    },
+    "providers": {
+      "type": "array",
+      "description": "Complete list of the user's AI providers in this app",
+      "items": {
+        "type": "object",
+        "required": ["provider", "label", "is_active", "has_key"],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "Provider setting ID in the source app"
+          },
+          "provider": {
+            "type": "string",
+            "enum": ["github", "openai", "gemini", "databricks", "xai", "ollama"],
+            "description": "Canonical provider identifier"
+          },
+          "label": {
+            "type": "string",
+            "description": "User-assigned label for this provider config"
+          },
+          "base_url": {
+            "type": ["string", "null"],
+            "description": "Custom API base URL override"
+          },
+          "preferred_model": {
+            "type": ["string", "null"],
+            "description": "Preferred model name for this provider"
+          },
+          "org_name": {
+            "type": ["string", "null"],
+            "description": "Organization name (e.g., for GitHub org-attributed inference)"
+          },
+          "is_active": {
+            "type": "boolean",
+            "description": "Whether this provider is currently active/enabled"
+          },
+          "has_key": {
+            "type": "boolean",
+            "description": "Whether an API key is configured (never contains the actual key)"
+          }
+        }
+      }
+    }
+  }
+}

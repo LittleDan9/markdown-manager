@@ -27,6 +27,18 @@ router = APIRouter(prefix="/chat", tags=["chat"])
 router.include_router(chat_history_router)
 
 
+def _classify_error(exc: Exception) -> str:
+    """Classify an exception into a usage error category."""
+    msg = str(exc).lower()
+    if "rate" in msg or "429" in msg:
+        return "rate_limit"
+    if "auth" in msg or "401" in msg or "403" in msg or "key" in msg:
+        return "auth"
+    if "timeout" in msg or "timed out" in msg:
+        return "timeout"
+    return "server"
+
+
 def _build_qa_service(provider: LLMProvider) -> QAService:
     """Create a QAService wired to the given LLM provider."""
     settings = get_settings()
@@ -155,6 +167,7 @@ async def ask(
     category_id = request.category_id if request.document_id is None and not request.help_mode else None
 
     async def token_stream():
+        _usage_recorded = False
         try:
             async for token in qa.answer_stream(
                 db,
@@ -174,6 +187,18 @@ async def ask(
                         k: v for k, v in token.items()
                         if k != "__metrics__"
                     }
+                    # Record usage asynchronously
+                    from app.services.usage_recorder import record_usage
+                    await record_usage(
+                        db,
+                        user_id=current_user.id,
+                        provider=metrics_payload.get("provider", requested_provider or "unknown"),
+                        model=metrics_payload.get("model", "unknown"),
+                        output_tokens=metrics_payload.get("tokens", 0),
+                        scope_type="chat",
+                        conversation_id=getattr(request, "conversation_id", None),
+                    )
+                    _usage_recorded = True
                     event = {"type": "metrics", "data": metrics_payload}
                     yield f"data: {json.dumps(event)}\n\n"
                 elif isinstance(token, dict) and "__sections__" in token:
@@ -184,6 +209,21 @@ async def ask(
                     yield f"data: {json.dumps(token)}\n\n"
         except Exception as exc:
             logger.exception("Error during Q&A streaming (provider=%s)", requested_provider)
+            # Record error usage
+            if not _usage_recorded:
+                try:
+                    from app.services.usage_recorder import record_usage
+                    error_cat = _classify_error(exc)
+                    await record_usage(
+                        db,
+                        user_id=current_user.id,
+                        provider=requested_provider or "unknown",
+                        model="unknown",
+                        scope_type="chat",
+                        error_type=error_cat,
+                    )
+                except Exception:
+                    pass
             # Surface useful detail for known error types
             msg = str(exc) if str(exc) else "An error occurred while generating the answer."
             yield f"data: {json.dumps(f'[ERROR] {msg}')}\n\n"

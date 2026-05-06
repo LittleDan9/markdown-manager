@@ -76,6 +76,11 @@ class Settings(BaseSettings):
         default="", description="Shared secret for cross-app backend-to-backend API calls"
     )
 
+    # Team Manager cross-app integration
+    tm_backend_url: str = Field(
+        default="http://tm-backend:8010", description="Team Manager backend base URL"
+    )
+
     # SMTP configuration
     smtp_host: str = Field(default="smtp.example.com", description="SMTP server host")
     smtp_port: int = Field(

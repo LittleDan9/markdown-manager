@@ -59,6 +59,13 @@ The `/ask` endpoint uses `StreamingResponse` with `text/event-stream` content ty
 - Ends with `data: "[DONE]"`
 - Error handling sends `data: "[ERROR] ..."` and closes stream
 
+### Usage Recording
+The `token_stream()` generator in `chat.py` records AI usage via `services/usage_recorder.py`:
+- On `metrics` event: calls `record_usage()` with provider, model, token counts
+- On exception (if not already recorded): calls `record_usage()` with `error_type` from `_classify_error()`
+- `_classify_error()` classifies errors into: `rate_limit`, `auth`, `timeout`, `server`
+- `record_usage()` inserts `ChatTokenUsage` AND upserts `AIUsageDaily` rollup atomically
+
 ### AskRequest Fields
 - `question` (str) — user query
 - `document_id` (int|null) — null = All Docs, int = Current Doc mode

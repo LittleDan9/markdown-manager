@@ -92,6 +92,8 @@ services:
       - OLLAMA_NUM_THREAD=${OLLAMA_NUM_THREAD:-4}
       - CLAMAV_HOST=clamav
       - CLAMAV_PORT=3310
+      - CROSS_APP_SECRET=${CROSS_APP_SECRET}
+      - TM_BACKEND_URL=${TM_BACKEND_URL:-http://tm-backend:8010}
     volumes:
       - document-storage:/documents
     healthcheck:

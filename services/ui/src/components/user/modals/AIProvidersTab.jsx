@@ -11,6 +11,8 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import apiKeysApi from '../../../api/apiKeysApi';
+import RemoteProvidersPanel from './RemoteProvidersPanel';
+import AIUsagePanel from './AIUsagePanel';
 
 /** Registry of known provider types — drives the "Add Provider" dropdown. */
 const PROVIDERS = [
@@ -462,6 +464,12 @@ function AIProvidersTab() {
           <div className="small">Always available — configured by your administrator</div>
         </Card.Body>
       </Card>
+
+      {/* Cross-App Remote Providers */}
+      <RemoteProvidersPanel localKeys={keys} onImported={loadKeys} />
+
+      {/* AI Usage Dashboard */}
+      <AIUsagePanel />
     </div>
   );
 }
