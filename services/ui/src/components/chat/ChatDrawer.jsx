@@ -321,11 +321,24 @@ function ChatDrawer({ show, onHide }) {
   }, [show]);
 
   // Default to current-doc scope when a document is open
+  // Reset chat to a new conversation when the active document changes
+  const prevDocIdRef = useRef(currentDocument?.id);
   useEffect(() => {
-    if (currentDocument && scope === SCOPE_ALL) {
-      // Don't force-switch; let user choose
+    const prevId = prevDocIdRef.current;
+    const newId = currentDocument?.id;
+    prevDocIdRef.current = newId;
+
+    // Only reset if the document actually changed (not on initial render)
+    if (prevId != null && newId != null && prevId !== newId) {
+      if (abortRef.current) abortRef.current.abort();
+      setMessages([]);
+      setIsStreaming(false);
+      setEditingMessageIndex(null);
+      setEditInput("");
+      setSectionSelections({});
+      history.clearActive();
     }
-  }, [currentDocument]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [currentDocument?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close doc-link dropdown on outside click
   useEffect(() => {
