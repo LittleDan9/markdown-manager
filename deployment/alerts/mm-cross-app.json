@@ -1,0 +1,50 @@
+{
+  "uid": "mm-cross-app-auth-failures",
+  "title": "MM Cross-App Auth Failures",
+  "ruleGroup": "MM - Cross-App",
+  "folderUID": "mm-alerts",
+  "condition": "C",
+  "for": "2m",
+  "data": [
+    {
+      "refId": "A",
+      "relativeTimeRange": { "from": 300, "to": 0 },
+      "datasourceUid": "loki",
+      "model": {
+        "expr": "count_over_time({app=\"mm\", service=~\".*backend\"} |~ \"(?i)(cross.app.*unauthorized|cross.app.*invalid|X-Cross-App-Token.*failed|tm.backend.*401|tm.backend.*403)\" [5m])",
+        "queryType": "range"
+      }
+    },
+    {
+      "refId": "B",
+      "relativeTimeRange": { "from": 0, "to": 0 },
+      "datasourceUid": "__expr__",
+      "model": {
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": { "mode": "replaceNN", "replaceWithValue": 0 }
+      }
+    },
+    {
+      "refId": "C",
+      "relativeTimeRange": { "from": 0, "to": 0 },
+      "datasourceUid": "__expr__",
+      "model": {
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+          { "evaluator": { "type": "gt", "params": [5] } }
+        ]
+      }
+    }
+  ],
+  "labels": {
+    "severity": "warning",
+    "app": "mm",
+    "service": "mm-backend"
+  },
+  "annotations": {
+    "summary": "MM cross-app requests to Team Manager are failing authentication — check CROSS_APP_SECRET sync."
+  }
+}

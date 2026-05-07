@@ -1,0 +1,50 @@
+{
+  "uid": "mm-linting-down",
+  "title": "MM Linting Service Down",
+  "ruleGroup": "MM - Services",
+  "folderUID": "mm-alerts",
+  "condition": "C",
+  "for": "3m",
+  "data": [
+    {
+      "refId": "A",
+      "relativeTimeRange": { "from": 300, "to": 0 },
+      "datasourceUid": "loki",
+      "model": {
+        "expr": "count_over_time({app=\"mm\", service=\"linting\"} [5m])",
+        "queryType": "range"
+      }
+    },
+    {
+      "refId": "B",
+      "relativeTimeRange": { "from": 0, "to": 0 },
+      "datasourceUid": "__expr__",
+      "model": {
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": { "mode": "replaceNN", "replaceWithValue": 0 }
+      }
+    },
+    {
+      "refId": "C",
+      "relativeTimeRange": { "from": 0, "to": 0 },
+      "datasourceUid": "__expr__",
+      "model": {
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+          { "evaluator": { "type": "lt", "params": [1] } }
+        ]
+      }
+    }
+  ],
+  "labels": {
+    "severity": "warning",
+    "app": "mm",
+    "service": "linting"
+  },
+  "annotations": {
+    "summary": "MM linting service has produced no logs for >5 minutes — markdown linting unavailable."
+  }
+}

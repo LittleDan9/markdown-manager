@@ -240,6 +240,13 @@ cleanup_slot "$OLD_PROJECT" "$OLD_SLOT"
 
 echo "$NEW_SLOT" > "$SLOT_FILE"
 
+# ── Push alert rules to Grafana ──────────────────────────────────────────────
+
+if [[ -f "$SCRIPT_DIR/push-alerts.sh" ]]; then
+  echo "${BLUE}Pushing alert rules to Grafana...${NC}"
+  "$SCRIPT_DIR/push-alerts.sh" || echo "${YELLOW}Alert push failed (non-fatal) — alerts may be stale.${NC}"
+fi
+
 # ── Cleanup ──────────────────────────────────────────────────────────────────
 
 echo "${YELLOW}Cleaning up old Docker artifacts...${NC}"

@@ -1,0 +1,50 @@
+{
+  "uid": "mm-slow-api-responses",
+  "title": "MM Slow API Responses",
+  "ruleGroup": "MM - Performance",
+  "folderUID": "mm-alerts",
+  "condition": "C",
+  "for": "5m",
+  "data": [
+    {
+      "refId": "A",
+      "relativeTimeRange": { "from": 300, "to": 0 },
+      "datasourceUid": "loki",
+      "model": {
+        "expr": "count_over_time({app=\"mm\", service=~\".*backend\"} | json | process_time_ms > 5000 [5m])",
+        "queryType": "range"
+      }
+    },
+    {
+      "refId": "B",
+      "relativeTimeRange": { "from": 0, "to": 0 },
+      "datasourceUid": "__expr__",
+      "model": {
+        "type": "reduce",
+        "expression": "A",
+        "reducer": "last",
+        "settings": { "mode": "replaceNN", "replaceWithValue": 0 }
+      }
+    },
+    {
+      "refId": "C",
+      "relativeTimeRange": { "from": 0, "to": 0 },
+      "datasourceUid": "__expr__",
+      "model": {
+        "type": "threshold",
+        "expression": "B",
+        "conditions": [
+          { "evaluator": { "type": "gt", "params": [20] } }
+        ]
+      }
+    }
+  ],
+  "labels": {
+    "severity": "warning",
+    "app": "mm",
+    "service": "mm-backend"
+  },
+  "annotations": {
+    "summary": "Markdown Manager has >20 API responses taking longer than 5 seconds in the last 5 minutes."
+  }
+}
