@@ -13,16 +13,10 @@ import uvicorn
 from app.config import Settings
 from app.relay import OutboxRelay
 from app.health import setup_health_endpoints
+from app.logging_config import configure_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
+# Configure structured JSON logging
+configure_logging(service_name="mm-event-publisher")
 logger = logging.getLogger(__name__)
 
 # Global shutdown flag

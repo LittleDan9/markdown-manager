@@ -1,11 +1,12 @@
 """Enhanced logging middleware with request IDs and structured logging."""
 import logging
 import time
-import uuid
 from typing import Callable
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
+
+from app.middleware.request_context import request_id_var
 
 logger = logging.getLogger(__name__)
 
@@ -36,11 +37,8 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         if request.url.path.startswith(("/chat", "/ws/")):
             return await call_next(request)
 
-        # Generate unique request ID
-        request_id = str(uuid.uuid4())
-
-        # Add request ID to request state for access in handlers
-        request.state.request_id = request_id
+        # Use request_id from RequestContextMiddleware (runs before this middleware)
+        request_id = request_id_var.get() or getattr(request.state, "request_id", "unknown")
 
         # Skip logging for certain paths
         if self._should_skip_logging(request):
@@ -86,9 +84,6 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                     "response_size": response.headers.get("content-length"),
                 },
             )
-
-            # Add request ID to response headers for tracing
-            response.headers["X-Request-ID"] = request_id
 
             return response
 

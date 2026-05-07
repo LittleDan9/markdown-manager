@@ -7,14 +7,15 @@ from app.app_factory import create_app
 from app.configs import settings
 from app.configs.environment import EnvironmentConfig
 from app.database import create_tables
+from app.logging_config import configure_logging
 
 # Initialize environment configuration
 env_config = EnvironmentConfig(settings)
 
-# Configure logging with environment-appropriate level
-logging.basicConfig(
-    level=getattr(logging, env_config.get_log_level()),
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+# Configure structured JSON logging
+configure_logging(
+    service_name="mm-backend",
+    log_level=env_config.get_log_level(),
 )
 logger = logging.getLogger(__name__)
 

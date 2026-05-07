@@ -9,16 +9,10 @@ import sys
 from pathlib import Path
 
 from app.consumer import ConfigurableConsumer
+from app.logging_config import configure_logging
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    handlers=[
-        logging.StreamHandler(sys.stdout)
-    ]
-)
-
+# Configure structured JSON logging
+configure_logging(service_name="mm-event-consumer")
 logger = logging.getLogger(__name__)
 
 # Global shutdown flag

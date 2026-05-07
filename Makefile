@@ -252,6 +252,14 @@ deploy-logs: ## Tail production container logs (active slot)
 	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
 		"cd /opt/markdown-manager && SLOT=\$$(cat .deploy-slot 2>/dev/null || echo blue) && docker compose -p mm-\$$SLOT -f docker-compose.app.yml --env-file deployment/production.env logs -f --tail=50"
 
+deploy-logs-service: ## Tail logs for a specific service (usage: make deploy-logs-service SVC=backend)
+	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
+		"cd /opt/markdown-manager && SLOT=\$$(cat .deploy-slot 2>/dev/null || echo blue) && docker compose -p mm-\$$SLOT -f docker-compose.app.yml --env-file deployment/production.env logs -f --tail=100 $(SVC)"
+
+deploy-logs-errors: ## Tail only ERROR-level logs from active slot
+	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
+		"cd /opt/markdown-manager && SLOT=\$$(cat .deploy-slot 2>/dev/null || echo blue) && docker compose -p mm-\$$SLOT -f docker-compose.app.yml --env-file deployment/production.env logs -f --tail=200 2>&1 | grep --line-buffered ERROR"
+
 deploy-db-migrate: ## Run database migrations in production
 	@$(SSH_CMD) $(if $(HOST),dlittle@$(HOST),$(REMOTE_USER_HOST)) \
 		"cd /opt/markdown-manager && SLOT=\$$(cat .deploy-slot 2>/dev/null || echo blue) && docker compose -p mm-\$$SLOT -f docker-compose.app.yml --env-file deployment/production.env exec -T backend /markdown-manager/.venv/bin/alembic upgrade head"
