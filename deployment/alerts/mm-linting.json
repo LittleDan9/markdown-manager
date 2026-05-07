@@ -3,15 +3,16 @@
   "title": "MM Linting Service Down",
   "ruleGroup": "MM - Services",
   "folderUID": "mm-alerts",
+  "noDataState": "OK",
   "condition": "C",
-  "for": "3m",
+  "for": "10m",
   "data": [
     {
       "refId": "A",
-      "relativeTimeRange": { "from": 300, "to": 0 },
+      "relativeTimeRange": { "from": 900, "to": 0 },
       "datasourceUid": "loki",
       "model": {
-        "expr": "count_over_time({app=\"mm\", service=\"linting\"} [5m])",
+        "expr": "count_over_time({app=\"mm\", service=\"linting\"} [15m])",
         "queryType": "range"
       }
     },
@@ -45,6 +46,6 @@
     "service": "linting"
   },
   "annotations": {
-    "summary": "MM linting service has produced no logs for >5 minutes — markdown linting unavailable."
+    "summary": "MM linting service has produced no logs for >15 minutes — markdown linting unavailable."
   }
 }

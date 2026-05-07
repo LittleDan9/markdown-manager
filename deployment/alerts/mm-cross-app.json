@@ -3,6 +3,7 @@
   "title": "MM Cross-App Auth Failures",
   "ruleGroup": "MM - Cross-App",
   "folderUID": "mm-alerts",
+  "noDataState": "OK",
   "condition": "C",
   "for": "2m",
   "data": [

@@ -3,15 +3,16 @@
   "title": "MM Spell-Check Service Down",
   "ruleGroup": "MM - Services",
   "folderUID": "mm-alerts",
+  "noDataState": "OK",
   "condition": "C",
-  "for": "3m",
+  "for": "10m",
   "data": [
     {
       "refId": "A",
-      "relativeTimeRange": { "from": 300, "to": 0 },
+      "relativeTimeRange": { "from": 900, "to": 0 },
       "datasourceUid": "loki",
       "model": {
-        "expr": "count_over_time({app=\"mm\", service=\"spell-check\"} [5m])",
+        "expr": "count_over_time({app=\"mm\", service=\"spell-check\"} [15m])",
         "queryType": "range"
       }
     },
@@ -45,6 +46,6 @@
     "service": "spell-check"
   },
   "annotations": {
-    "summary": "MM spell-check service has produced no logs for >5 minutes — spell checking unavailable."
+    "summary": "MM spell-check service has produced no logs for >15 minutes — spell checking unavailable."
   }
 }
