@@ -550,6 +550,32 @@ export function useRenderingOrchestrator({ theme, onRenderComplete }) {
     }
   }, [theme, triggerRender]);
 
+  // Safety-net: if content exists but was never rendered (e.g. previewHTML was
+  // cleared without a subsequent content change), force a recovery render after
+  // a short delay so the preview does not stay blank.
+  useEffect(() => {
+    if (
+      content &&
+      content.length > 0 &&
+      renderState === RENDER_STATE.IDLE &&
+      renderQueue.length === 0 &&
+      lastProcessedContentRef.current !== content
+    ) {
+      const timer = setTimeout(() => {
+        // Re-check inside the timeout to avoid racing with normal renders
+        if (lastProcessedContentRef.current !== content) {
+          debug("🔧 RenderingOrchestrator: Recovery render — content exists but was never rendered");
+          triggerRender(content, theme, {
+            priority: PRIORITY.HIGH,
+            reason: 'content-change',
+            immediate: true
+          });
+        }
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [content, renderState, renderQueue.length, theme, triggerRender]);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {

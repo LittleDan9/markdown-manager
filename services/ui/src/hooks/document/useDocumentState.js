@@ -9,6 +9,10 @@ import HighlightService from '@/services/editor/HighlightService';
 
 export default function useDocumentState(notification, auth, setPreviewHTML, isSharedView = false) {
   const { isAuthenticated, token, user: _user, isInitializing } = auth;
+  // Derive a stable boolean from token so that token rotation (valid→valid)
+  // does not re-trigger the main loading effect. Only auth boundary transitions
+  // (login / logout) flip this value.
+  const hasBackendSession = isAuthenticated && Boolean(token);
   const DEFAULT_CATEGORY = 'General';
   const DRAFTS_CATEGORY = 'Drafts';
   const [migrationStatus, setMigrationStatus] = useState('idle');
@@ -25,6 +29,12 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   // Track document loading to prevent duplicates
   const lastLoadedDocumentRef = useRef(null);
   const lastLoadTimeRef = useRef(0);
+
+  // Refs for comparing against current state inside async loadCurrentDocument
+  const contentRef = useRef(content);
+  contentRef.current = content;
+  const currentDocumentRef = useRef(currentDocument);
+  currentDocumentRef.current = currentDocument;
 
   // Tracks the latest currentDocument.id to guard against stale closure writes
   // in saveDocument (which captures currentDocument by value in useCallback).
@@ -152,13 +162,13 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
 
     if (isInitializing) return;
-    if (isAuthenticated && token && migrationStatus === 'idle') {
+    if (hasBackendSession && migrationStatus === 'idle') {
       setHasSyncedOnMount(false);
       migrateLocalDocuments();
       return;
     }
     if (migrationStatus === 'checking' || migrationStatus === 'migrating') return;
-    if (!isAuthenticated && !token) {
+    if (!hasBackendSession) {
       const existingDocs = DocumentStorageService.getAllDocuments();
       const hasPrivateDocuments = existingDocs.some(doc =>
         doc.id && !String(doc.id).startsWith('doc_') && doc.content && doc.content.trim() !== ''
@@ -182,8 +192,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
     const loadCurrentDocument = async () => {
       console.log('[useDocumentState] loadCurrentDocument called', {
-        isAuthenticated,
-        token: !!token,
+        hasBackendSession,
         isInitializing,
         migrationStatus,
         isSharedView,
@@ -203,7 +212,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
 
       lastLoadTimeRef.current = now;
-      if (isAuthenticated && token && !hasSyncedOnMount) {
+      if (hasBackendSession && !hasSyncedOnMount) {
         try {
           const result = await DocumentService.syncWithBackend();
           setHasSyncedOnMount(true);
@@ -231,7 +240,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         return;
       }
       let currentDoc = null;
-      if (isAuthenticated && token) {
+      if (hasBackendSession) {
         try {
           const currentDocId = await documentsApi.getCurrentDocumentId();
           if (currentDocId) {
@@ -245,14 +254,14 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         const storedCurrentDoc = DocumentStorageService.getCurrentDocument();
         if (storedCurrentDoc && storedCurrentDoc.id) {
           const isLocalDoc = String(storedCurrentDoc.id).startsWith('doc_');
-          if (isAuthenticated || isLocalDoc) {
+          if (hasBackendSession || isLocalDoc) {
             currentDoc = docs.find(doc => doc.id === storedCurrentDoc.id);
           }
         }
       }
       if (!currentDoc) {
         const localDocs = docs.filter(doc => String(doc.id).startsWith('doc_'));
-        currentDoc = isAuthenticated ? docs[0] : (localDocs[0] || DocumentService.createNewDocument());
+        currentDoc = hasBackendSession ? docs[0] : (localDocs[0] || DocumentService.createNewDocument());
       }
 
       // If we found a document by ID, load the full document with metadata
@@ -272,16 +281,23 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
 
       setCurrentDocument(currentDoc);
       setContent(currentDoc.content || '');
-      // Clear preview HTML and highlighted blocks when loading initial document
-      if (setPreviewHTML) {
-        setPreviewHTML('');
+      // Only clear preview when the document actually changed (different ID or content).
+      // This prevents blanking the preview during token refresh when the same
+      // document is reloaded with identical content.
+      const loadedContent = currentDoc.content || '';
+      const isSameDocument = currentDoc.id === currentDocumentRef.current?.id
+        && loadedContent === contentRef.current;
+      if (!isSameDocument) {
+        if (setPreviewHTML) {
+          setPreviewHTML('');
+        }
+        setHighlightedBlocks({});
+        HighlightService.clearCache();
       }
-      setHighlightedBlocks({});
-      HighlightService.clearCache();
       DocumentStorageService.setCurrentDocument(currentDoc);
     };
     loadCurrentDocument();
-  }, [isAuthenticated, token, isInitializing, migrationStatus, isSharedView, hasSyncedOnMount, migrateLocalDocuments, setPreviewHTML, showError, showSuccess, showWarning]);
+  }, [hasBackendSession, isInitializing, migrationStatus, isSharedView, hasSyncedOnMount, migrateLocalDocuments, setPreviewHTML, showError, showSuccess, showWarning]);
 
   useEffect(() => {
     const newCategories = DocumentService.getCategories();
