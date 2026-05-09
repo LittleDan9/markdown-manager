@@ -252,6 +252,7 @@ fi
 echo "${YELLOW}Cleaning up old Docker artifacts...${NC}"
 docker system prune -f >/dev/null 2>&1 || true
 docker image prune -f >/dev/null 2>&1 || true
+docker builder prune -f --keep-storage=2GB >/dev/null 2>&1 || true
 
 # ── Summary ──────────────────────────────────────────────────────────────────
 
