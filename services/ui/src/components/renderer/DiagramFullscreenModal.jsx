@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { Modal, Badge } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
 import { serviceFactory } from '../../services/injectors';
+import CopyService from '../../services/ui/CopyService';
 
 /**
  * Fullscreen modal for viewing and exporting diagrams
@@ -15,6 +16,8 @@ import { serviceFactory } from '../../services/injectors';
 function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagramSource: _diagramSource, svgContent }) {
   const [isExporting, setIsExporting] = useState(false);
   const [exportFormat, setExportFormat] = useState(null);
+  const [isCopying, setIsCopying] = useState(false);
+  const [copyFormat, setCopyFormat] = useState(null);
   const mermaidExportService = serviceFactory.createMermaidExportService();
 
   // Use context with fallback values
@@ -121,6 +124,58 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
     } finally {
       setIsExporting(false);
       setExportFormat(null);
+    }
+  };
+
+  const handleCopy = async (format) => {
+    if (!diagramElement) {
+      showError('Diagram element not found');
+      return;
+    }
+
+    setIsCopying(true);
+    setCopyFormat(format);
+
+    try {
+      if (format === 'source') {
+        const success = await CopyService.copyToClipboard(_diagramSource);
+        if (success) {
+          showSuccess('Mermaid source copied to clipboard');
+        } else {
+          showError('Failed to copy source to clipboard');
+        }
+      } else if (format === 'svg') {
+        const svgString = await mermaidExportService.exportDiagram(diagramElement, 'svg', {
+          width: 2400,
+          height: 1800,
+          isDarkMode: isDarkMode
+        });
+        const success = await CopyService.copyToClipboard(svgString);
+        if (success) {
+          showSuccess('SVG copied to clipboard');
+        } else {
+          showError('Failed to copy SVG to clipboard');
+        }
+      } else if (format === 'png') {
+        const pngBlob = await mermaidExportService.exportDiagram(diagramElement, 'png', {
+          useNaturalDimensions: true,
+          maxWidth: 3200,
+          maxHeight: 2400,
+          isDarkMode: isDarkMode
+        });
+        const success = await CopyService.copyImageToClipboard(pngBlob);
+        if (success) {
+          showSuccess('PNG image copied to clipboard');
+        } else {
+          showError('Clipboard image copy not supported in this browser');
+        }
+      }
+    } catch (error) {
+      console.error('Copy failed:', error);
+      showError(`Failed to copy diagram: ${error.message}`);
+    } finally {
+      setIsCopying(false);
+      setCopyFormat(null);
     }
   };
 
@@ -241,6 +296,44 @@ function DiagramFullscreenModal({ show, onHide, diagramElement, diagramId, diagr
               <span className="spinner-border spinner-border-sm" />
             ) : (
               <><i className="bi bi-diagram-3"></i>Draw.io</>
+            )}
+          </button>
+
+          <span className="toolbar-divider"></span>
+
+          <button
+            className="toolbar-btn"
+            onClick={() => handleCopy('source')}
+            disabled={isCopying}
+          >
+            {isCopying && copyFormat === 'source' ? (
+              <span className="spinner-border spinner-border-sm" />
+            ) : (
+              <><i className="bi bi-code-slash"></i>Copy Source</>
+            )}
+          </button>
+
+          <button
+            className="toolbar-btn"
+            onClick={() => handleCopy('png')}
+            disabled={isCopying}
+          >
+            {isCopying && copyFormat === 'png' ? (
+              <span className="spinner-border spinner-border-sm" />
+            ) : (
+              <><i className="bi bi-clipboard"></i>Copy PNG</>
+            )}
+          </button>
+
+          <button
+            className="toolbar-btn"
+            onClick={() => handleCopy('svg')}
+            disabled={isCopying}
+          >
+            {isCopying && copyFormat === 'svg' ? (
+              <span className="spinner-border spinner-border-sm" />
+            ) : (
+              <><i className="bi bi-clipboard"></i>Copy SVG</>
             )}
           </button>
 

@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import { Button, ButtonGroup, Dropdown, Spinner, OverlayTrigger, Tooltip } from 'react-bootstrap';
 import { useTheme } from '../../providers/ThemeProvider';
 import { serviceFactory } from '../../services/injectors';
+import CopyService from '../../services/ui/CopyService';
 import DiagramFullscreenModal from './DiagramFullscreenModal';
 import mermaidSingleton from '../../services/rendering/mermaid/singleton';
 
@@ -24,6 +25,7 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
   const [_exportFormat, setExportFormat] = useState(null);
   const [showFullscreen, setShowFullscreen] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCopying, setIsCopying] = useState(false);
   const controlsRef = useRef(null);
   const interactionTimeoutRef = useRef(null);
   const mermaidExportService = serviceFactory.createMermaidExportService();
@@ -311,6 +313,58 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
     }
   };
 
+  const handleCopy = async (format) => {
+    if (!diagramElement) {
+      showError('Diagram element not found');
+      return;
+    }
+
+    setIsCopying(true);
+    markInteractionActive();
+
+    try {
+      if (format === 'source') {
+        const success = await CopyService.copyToClipboard(diagramSource);
+        if (success) {
+          showSuccess('Mermaid source copied to clipboard');
+        } else {
+          showError('Failed to copy source to clipboard');
+        }
+      } else if (format === 'svg') {
+        const svgString = await mermaidExportService.exportDiagram(diagramElement, 'svg', {
+          width: 1200,
+          height: 800,
+          isDarkMode: isDarkMode
+        });
+        const success = await CopyService.copyToClipboard(svgString);
+        if (success) {
+          showSuccess('SVG copied to clipboard');
+        } else {
+          showError('Failed to copy SVG to clipboard');
+        }
+      } else if (format === 'png') {
+        const pngBlob = await mermaidExportService.exportDiagram(diagramElement, 'png', {
+          useNaturalDimensions: true,
+          maxWidth: 2400,
+          maxHeight: 1800,
+          isDarkMode: isDarkMode
+        });
+        const success = await CopyService.copyImageToClipboard(pngBlob);
+        if (success) {
+          showSuccess('PNG image copied to clipboard');
+        } else {
+          showError('Clipboard image copy not supported in this browser');
+        }
+      }
+    } catch (error) {
+      console.error('Copy failed:', error);
+      showError(`Failed to copy diagram: ${error.message}`);
+    } finally {
+      setIsCopying(false);
+      markInteractionActive();
+    }
+  };
+
   const handleFullscreen = () => {
     // const _svgContent = getSvgContent();
 
@@ -436,6 +490,51 @@ function DiagramControls({ diagramElement, diagramId, diagramSource, onFullscree
           >
             <i className="bi bi-arrows-fullscreen"></i>
           </Button>
+
+          {/* Copy Dropdown */}
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              size="sm"
+              disabled={isCopying}
+              title="Copy diagram to clipboard"
+              id={`copy-dropdown-${diagramId}`}
+              className="border-start-0 dropdown-toggle-no-caret"
+            >
+              {isCopying ? (
+                <>
+                  <Spinner animation="border" size="sm" className="me-1" />
+                  <span className="visually-hidden">Copying...</span>
+                </>
+              ) : (
+                <i className="bi bi-clipboard"></i>
+              )}
+            </Dropdown.Toggle>
+
+            <Dropdown.Menu align="end">
+              <Dropdown.Item
+                onClick={() => handleCopy('source')}
+                disabled={isCopying}
+              >
+                <i className="bi bi-code-slash me-2"></i>
+                Source
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={() => handleCopy('png')}
+                disabled={isCopying}
+              >
+                <i className="bi bi-file-earmark-image me-2"></i>
+                PNG
+              </Dropdown.Item>
+              <Dropdown.Item
+                onClick={() => handleCopy('svg')}
+                disabled={isCopying}
+              >
+                <i className="bi bi-file-earmark-code me-2"></i>
+                SVG
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
 
           {/* Export Dropdown - using standard Dropdown without ButtonGroup wrapper */}
           <Dropdown>

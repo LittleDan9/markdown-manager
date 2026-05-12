@@ -231,6 +231,30 @@ class CopyService {
       return this.copyToClipboard(plainText);
     }
   }
+
+  /**
+   * Copy an image blob (e.g. PNG) to the clipboard
+   * @param {Blob} blob - Image blob to copy (must be image/png)
+   * @returns {Promise<boolean>} - Success status
+   */
+  static async copyImageToClipboard(blob) {
+    if (!this.supportsRichCopy()) {
+      console.error('Clipboard image copy not supported in this browser');
+      return false;
+    }
+
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob,
+        }),
+      ]);
+      return true;
+    } catch (err) {
+      console.error('Image clipboard copy failed:', err);
+      return false;
+    }
+  }
 }
 
 export default CopyService;
