@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { Dropdown, Form, Button } from "react-bootstrap";
 import { useDocumentContext } from "../../../providers/DocumentContextProvider.jsx";
+
+const CATEGORY_FILTER_THRESHOLD = 10;
 
 function DocumentForm({
   defaultName: _defaultName = "",
@@ -16,6 +18,13 @@ function DocumentForm({
 }) {
   const { addCategory, categories: contextCategories } = useDocumentContext();
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [filterText, setFilterText] = useState("");
+
+  const filteredCategories = useMemo(() => {
+    if (!filterText.trim()) return contextCategories;
+    const lower = filterText.toLowerCase();
+    return contextCategories.filter(c => c.toLowerCase().includes(lower));
+  }, [contextCategories, filterText]);
 
   const handleAddCategory = async (e) => {
     e.preventDefault();
@@ -37,7 +46,7 @@ function DocumentForm({
 
   return (
     <>
-      <Dropdown show={dropdownOpen} onToggle={setDropdownOpen} className="mb-2 w-100">
+      <Dropdown show={dropdownOpen} onToggle={(open) => { setDropdownOpen(open); if (!open) setFilterText(""); }} className="mb-2 w-100">
         <Dropdown.Toggle
           variant="outline-secondary"
           className="w-100 d-flex justify-content-between align-items-center"
@@ -49,16 +58,31 @@ function DocumentForm({
         >
           <span>{selectedCategory}</span>
         </Dropdown.Toggle>
-        <Dropdown.Menu className="w-100">
-          {contextCategories.map(cat => (
-            <Dropdown.Item
-              key={cat}
-              active={cat === selectedCategory}
-              onClick={() => { onCategoryChange(cat); setDropdownOpen(false); }}
-            >
-              {cat}
-            </Dropdown.Item>
-          ))}
+        <Dropdown.Menu className="w-100 category-dropdown-menu">
+          {contextCategories.length > CATEGORY_FILTER_THRESHOLD && (
+            <div className="px-3 py-1 category-dropdown-filter">
+              <input
+                type="text"
+                className="form-control form-control-sm"
+                placeholder="Filter categories..."
+                value={filterText}
+                onChange={e => setFilterText(e.target.value)}
+                onClick={e => e.stopPropagation()}
+                autoFocus
+              />
+            </div>
+          )}
+          <div className="category-dropdown-scroll">
+            {filteredCategories.map(cat => (
+              <Dropdown.Item
+                key={cat}
+                active={cat === selectedCategory}
+                onClick={() => { onCategoryChange(cat); setDropdownOpen(false); }}
+              >
+                {cat}
+              </Dropdown.Item>
+            ))}
+          </div>
           <Dropdown.Divider />
           <div className="px-3 py-2">
             <form className="d-flex" onSubmit={handleAddCategory} autoComplete="off">

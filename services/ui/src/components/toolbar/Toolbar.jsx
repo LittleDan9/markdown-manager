@@ -7,6 +7,7 @@ import SharedWithMeDropdown from "@/components/toolbar/SharedWithMeDropdown";
 import DocumentInfoModal from "@/components/shared/modals/DocumentInfoModal";
 import MobileToolbarMenu from "@/components/toolbar/MobileToolbarMenu";
 import MobileUserMenu from "@/components/toolbar/MobileUserMenu";
+import CategoryManagementModal from "@/components/document/modals/CategoryManagementModal";
 import { ActionButton } from "@/components/shared";
 import { useTheme } from "@/providers/ThemeProvider";
 import { useAuth } from "@/providers/AuthProvider";
@@ -29,7 +30,7 @@ function Toolbar({
   setShowIconBrowser
 }) {
   const { theme, setTheme } = useTheme();
-  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument, openCategory, clearSiblingOverride } = useDocumentContext();
+  const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument, openCategory, clearSiblingOverride, addCategory, renameCategory: renameCategoryCtx, deleteCategory } = useDocumentContext();
   const { showWarning: _showWarning } = useNotification();
   const { user } = useAuth();
   const { isMobile } = useViewport();
@@ -50,6 +51,7 @@ function Toolbar({
   const [showNotificationDetail, setShowNotificationDetail] = useState(false);
   const [selectedNotification, setSelectedNotification] = useState(null);
   const [notificationDetailLoading, setNotificationDetailLoading] = useState(false);
+  const [showMobileCategoryManage, setShowMobileCategoryManage] = useState(false);
 
   // Detect whether we're editing a shared (collab) document
   const isCollabDocument = !!(currentDocument?.user_id && user?.id && currentDocument.user_id !== user.id);
@@ -340,10 +342,23 @@ function Toolbar({
           onRenameDocument={handleMobileRename}
           onChangeCategory={handleMobileCategoryChange}
           onOpenCategory={handleMobileOpenCategory}
+          onManageCategories={() => setShowMobileCategoryManage(true)}
           fullscreenPreview={fullscreenPreview}
           theme={theme}
           currentDocument={currentDocument}
           categories={categories}
+        />
+      )}
+
+      {/* Category Management Modal (mobile) */}
+      {isMobile && (
+        <CategoryManagementModal
+          show={showMobileCategoryManage}
+          onHide={() => setShowMobileCategoryManage(false)}
+          categories={categories}
+          onDeleteCategory={deleteCategory}
+          onRenameCategory={renameCategoryCtx}
+          onAddCategory={addCategory}
         />
       )}
 

@@ -244,3 +244,35 @@
     display: none !important;
   }
 }
+
+// ─── CATEGORY DROPDOWN MENU (UNIFIED) ───
+.category-dropdown-menu {
+  min-width: 240px;
+
+  .category-dropdown-filter {
+    position: sticky;
+    top: 0;
+    background: var(--bs-dropdown-bg, var(--bs-body-bg));
+    z-index: 1;
+    border-bottom: 1px solid var(--bs-border-color-translucent, rgba(0, 0, 0, 0.1));
+    padding-bottom: 0.375rem;
+  }
+
+  .category-dropdown-scroll {
+    max-height: 75vh;
+    overflow-y: auto;
+  }
+
+  .category-open-btn {
+    opacity: 0;
+    @include mixins.interactive-transition(opacity, color);
+
+    &:hover {
+      color: var(--mm-primary) !important;
+    }
+  }
+
+  .dropdown-item:hover .category-open-btn {
+    opacity: 1;
+  }
+}

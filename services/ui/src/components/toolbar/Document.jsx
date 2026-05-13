@@ -1,4 +1,4 @@
-import DeleteCategoryModal from "@/components/document/modals/DeleteCategoryModal";
+import CategoryManagementModal from "@/components/document/modals/CategoryManagementModal";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import ConfirmModal from "@/components/shared/modals/ConfirmModal";
 import { useConfirmModal } from "@/hooks/ui";
@@ -6,18 +6,14 @@ import { Dropdown, OverlayTrigger, Popover } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
 import { useNotification } from "@/components/NotificationProvider";
-import { serviceFactory } from "@/services/injectors";
 import { formatDistanceToNow } from "date-fns";
 
+const CATEGORY_FILTER_THRESHOLD = 10;
+
 function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
-  const [showDeleteModal, setShowDeleteModal] = useState(false);
-  const [deleteTargetCategory, setDeleteTargetCategory] = useState(null);
-  const [deleteLoading, setDeleteLoading] = useState(false);
-  const [deleteDocsInCategory, setDeleteDocsInCategory] = useState([]);
   const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError, showSuccess } = useNotification();
-  const documentService = serviceFactory.createDocumentService();
-  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, setDocuments, loadDocument: _loadDocument, createDocument, currentDocument, documents, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory, openRecents, clearSiblingOverride, siblingOverrideMode } = useDocumentContext();
+  const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, currentDocument, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory, openRecents, clearSiblingOverride, siblingOverrideMode } = useDocumentContext();
   const { user } = useAuth();
   const isCollabDocument = currentDocument && user && currentDocument.user_id && currentDocument.user_id !== user.id;
   // Ref to always access the latest currentDocument (avoids stale closures)
@@ -39,6 +35,9 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const [editingCategory, setEditingCategory] = useState(false);
   const [categoryInput, setCategoryInput] = useState(currentCategory);
   const [categoryError, setCategoryError] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [showManageModal, setShowManageModal] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
   // renameDocument is now included above from useDocumentContext
   const [ _lastSavedText, setLastSavedText ] = useState("");
 
@@ -68,22 +67,48 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     openCategory(category);
   };
 
-  // Move current document to a different category (save-based reassignment)
-  const handleMoveToCategory = async (category) => {
-    if (currentDocument?.repository_type === 'github') return;
+  // Move document AND navigate to the target category
+  const handleMoveAndNavigate = async (category) => {
     if (category === currentCategory) return;
-
     try {
       const updatedDoc = { ...currentDocumentRef.current, category };
       const saved = await saveDocument(updatedDoc);
-      if (!saved) {
-        showError("Failed to move document to category.");
-      } else {
+      if (saved) {
         refreshSiblings();
         showSuccess(`Moved to ${category}`);
+        handleCategorySelect(category);
+      } else {
+        showError("Failed to move document to category.");
       }
     } catch (err) {
       showError("Failed to move document to category.");
+    }
+  };
+
+  // Filtered categories for search
+  const filteredCategories = useMemo(() => {
+    if (!categoryFilter.trim()) return categories;
+    const lower = categoryFilter.toLowerCase();
+    return categories.filter(c => c.toLowerCase().includes(lower));
+  }, [categories, categoryFilter]);
+
+  // Reset highlight when filter changes
+  useEffect(() => { setHighlightedIndex(-1); }, [categoryFilter]);
+
+  // Keyboard navigation for category filter
+  const handleFilterKeyDown = (e) => {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex(i => Math.min(i + 1, filteredCategories.length - 1));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex(i => Math.max(i - 1, -1));
+    } else if (e.key === 'Enter' && highlightedIndex >= 0) {
+      e.preventDefault();
+      const cat = filteredCategories[highlightedIndex];
+      if (cat && cat !== currentCategory) {
+        handleMoveAndNavigate(cat);
+      }
     }
   };
 
@@ -129,19 +154,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     } else if (e.key === "Escape") {
       setEditingTitle(false);
       setTitleInput(currentDocument.name || "Untitled Document");
-    }
-  };
-
-  const handleDeleteCategory = (category) => {
-    // Find documents in this category
-    const docsInCat = documents.filter(doc => doc.category === category);
-    if (docsInCat.length > 0) {
-      setDeleteTargetCategory(category);
-      setDeleteDocsInCategory(docsInCat);
-      setShowDeleteModal(true);
-    } else {
-      // No docs, delete immediately
-      deleteCategory(category);
     }
   };
 
@@ -241,8 +253,8 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           {currentDocument.category || 'General'}
         </span>
       ) : (
-        /* Category breadcrumb dropdown — two sections: Move & Navigate */
-        <Dropdown as="span" className="me-1 category-breadcrumb">
+        /* Category breadcrumb dropdown — unified single list */
+        <Dropdown as="span" className="me-1 category-breadcrumb" onToggle={(open) => { if (!open) setCategoryFilter(""); }}>
           <Dropdown.Toggle
             as="span"
             id="categoryDropdown"
@@ -271,93 +283,101 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
               </span>
             )}
           </Dropdown.Toggle>
-          <Dropdown.Menu>
-            {/* Section 1: Move document to category */}
-            <Dropdown.Header className="text-uppercase small fw-bold">
-              <i className="bi bi-folder-symlink me-1"></i>Move document to
-            </Dropdown.Header>
-            {categories.map((category) => (
-              <Dropdown.Item
-                key={`move-${category}`}
-                active={category === currentCategory}
-                onClick={() => handleMoveToCategory(category)}
-                disabled={category === currentCategory}
-                className="d-flex justify-content-between align-items-center"
+          <Dropdown.Menu className="category-dropdown-menu">
+            {/* Header with manage gear icon */}
+            <div className="d-flex justify-content-between align-items-center px-3 py-1">
+              <span className="text-uppercase small fw-bold text-muted">Categories</span>
+              <button
+                type="button"
+                className="btn btn-link btn-sm p-0 text-muted"
+                title="Manage categories"
+                onClick={(e) => { e.stopPropagation(); setShowManageModal(true); }}
               >
-                <span className="text-truncate">
-                  {category === currentCategory && (
-                    <i className="bi bi-check-lg me-1"></i>
-                  )}
-                  {category}
-                </span>
-                <span className="d-flex align-items-center gap-1 ms-2">
-                  {category !== "General" && category !== "Drafts" && (
-                    <button
-                      type="button"
-                      className="btn btn-link btn-sm p-0 text-danger"
-                      title={`Delete ${category}`}
-                      tabIndex={-1}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteCategory(category);
-                      }}
-                      aria-label={`Delete ${category}`}
-                    >
-                      <i className="bi bi-trash fw-bold"></i>
-                    </button>
-                  )}
-                </span>
-              </Dropdown.Item>
-            ))}
-            <Dropdown.Divider />
-            {/* Section 2: Navigate / open category */}
-            <Dropdown.Header className="text-uppercase small fw-bold">
-              <i className="bi bi-folder2-open me-1"></i>Open category
-            </Dropdown.Header>
-            <Dropdown.Item
-              key="__recents__"
-              active={siblingOverrideMode === 'recents'}
-              onClick={() => openRecents()}
-              className={`d-flex justify-content-between align-items-center
-                  ${siblingOverrideMode === 'recents' ? "text-bg-secondary" : ""}`}
-            >
-              <span className="text-truncate"><i className="bi bi-clock-history me-1"></i>Recent</span>
-            </Dropdown.Item>
-            {categories.map((category) => (
+                <i className="bi bi-gear"></i>
+              </button>
+            </div>
+            {/* Conditional filter input */}
+            {categories.length > CATEGORY_FILTER_THRESHOLD && (
+              <div className="px-3 py-1 category-dropdown-filter">
+                <input
+                  type="text"
+                  className="form-control form-control-sm"
+                  placeholder="Filter categories..."
+                  value={categoryFilter}
+                  onChange={e => setCategoryFilter(e.target.value)}
+                  onKeyDown={handleFilterKeyDown}
+                  onClick={e => e.stopPropagation()}
+                  autoFocus
+                />
+              </div>
+            )}
+            {/* Scrollable category list */}
+            <div className="category-dropdown-scroll">
+              {/* Recents — navigate only */}
               <Dropdown.Item
-                key={`nav-${category}`}
-                onClick={() => handleCategorySelect(category)}
-                className="d-flex justify-content-between align-items-center"
+                key="__recents__"
+                active={siblingOverrideMode === 'recents'}
+                onClick={() => openRecents()}
+                className="d-flex align-items-center"
               >
-                <span className="text-truncate">{category}</span>
+                <i className="bi bi-clock-history me-2"></i>
+                <span className="text-truncate">Recent</span>
               </Dropdown.Item>
-            ))}
-            <Dropdown.Divider />
-            {/* Add new category */}
-            <div className="px-1 py-2">
+              <Dropdown.Divider className="my-1" />
+              {/* Category rows */}
+              {filteredCategories.map((category, idx) => (
+                <Dropdown.Item
+                  key={category}
+                  active={category === currentCategory || idx === highlightedIndex}
+                  onClick={() => handleMoveAndNavigate(category)}
+                  disabled={category === currentCategory}
+                  className="d-flex justify-content-between align-items-center"
+                >
+                  <span className="text-truncate">
+                    {category === currentCategory && (
+                      <i className="bi bi-check-lg me-1"></i>
+                    )}
+                    {category}
+                  </span>
+                  <button
+                    type="button"
+                    className="btn btn-link btn-sm p-0 text-muted category-open-btn"
+                    title={`Open ${category}`}
+                    tabIndex={-1}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleCategorySelect(category);
+                    }}
+                    aria-label={`Open ${category}`}
+                  >
+                    <i className="bi bi-folder2-open"></i>
+                  </button>
+                </Dropdown.Item>
+              ))}
+            </div>
+            <Dropdown.Divider className="my-1" />
+            {/* Add new category — pinned at bottom */}
+            <div className="px-3 py-2">
               <form
-                className="px-1 py-2"
+                className="d-flex"
                 autoComplete="off"
-                style={{ minWidth: "200px" }}
                 onSubmit={(e) => {
                   e.preventDefault();
                   if (!newCategory) return;
                   handleAddCategory(newCategory);
                 }}
               >
-                <div className="input-group input-group-sm">
-                  <input
-                    type="text"
-                    className="form-control"
-                    placeholder="New category"
-                    aria-label="New category"
-                    value={newCategory}
-                    onChange={(e) => setNewCategory(e.target.value)}
-                  />
-                  <button className="btn btn-primary" type="submit">
-                    <i className="bi bi-plus"></i>
-                  </button>
-                </div>
+                <input
+                  type="text"
+                  className="form-control form-control-sm me-2"
+                  placeholder="New category"
+                  aria-label="New category"
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                />
+                <button className="btn btn-primary btn-sm" type="submit">
+                  <i className="bi bi-plus"></i>
+                </button>
               </form>
               {categoryError && (
                 <div className="text-danger small mt-1">{categoryError}</div>
@@ -447,33 +467,13 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
         onCancel={handleCancel}
         {...modalConfig}
       />
-      <DeleteCategoryModal
-        show={showDeleteModal}
-        onHide={() => setShowDeleteModal(false)}
-        category={deleteTargetCategory}
+      <CategoryManagementModal
+        show={showManageModal}
+        onHide={() => setShowManageModal(false)}
         categories={categories}
-        documentsInCategory={deleteDocsInCategory}
-        loading={deleteLoading}
-      onDelete={async ({ migrateTo, deleteDocs }) => {
-          if (!deleteTargetCategory) {
-            showError("No category selected to delete.");
-            setShowDeleteModal(false);
-            return;
-          }
-          setDeleteLoading(true);
-          try {
-            // Delete or migrate category and get updated list
-            const updatedCats = await deleteCategory(deleteTargetCategory, { deleteDocs, migrateTo });
-            setCategories(updatedCats);
-            setDocuments(documentService.getAllDocuments());
-            createDocument();
-            setShowDeleteModal(false);
-          } catch (err) {
-            showError("Failed to delete category");
-          } finally {
-            setDeleteLoading(false);
-          }
-        }}
+        onDeleteCategory={deleteCategory}
+        onRenameCategory={renameCategory}
+        onAddCategory={handleAddCategory}
       />
     </>
   );

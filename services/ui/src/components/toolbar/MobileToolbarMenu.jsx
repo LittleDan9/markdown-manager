@@ -1,6 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Offcanvas } from 'react-bootstrap';
+
+const CATEGORY_FILTER_THRESHOLD = 10;
 
 /**
  * MobileToolbarMenu - Offcanvas hamburger menu for mobile toolbar actions.
@@ -20,6 +22,7 @@ function MobileToolbarMenu({
   onRenameDocument,
   onChangeCategory,
   onOpenCategory,
+  onManageCategories,
   fullscreenPreview,
   theme,
   currentDocument,
@@ -28,6 +31,13 @@ function MobileToolbarMenu({
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+
+  const filteredCategories = useMemo(() => {
+    if (!categoryFilter.trim() || !categories) return categories || [];
+    const lower = categoryFilter.toLowerCase();
+    return categories.filter(c => c.toLowerCase().includes(lower));
+  }, [categories, categoryFilter]);
 
   const handleAction = (action) => {
     action();
@@ -58,17 +68,24 @@ function MobileToolbarMenu({
   }, [handleTitleSave]);
 
   const handleCategorySelect = useCallback((category, mode) => {
-    if (mode === 'move') {
+    if (mode === 'navigate') {
+      // Navigate only
+      if (onOpenCategory) {
+        onOpenCategory(category);
+        onHide();
+      }
+    } else {
+      // Default: move + navigate
       if (onChangeCategory && category !== currentDocument?.category) {
         onChangeCategory(category);
       }
-    } else {
       if (onOpenCategory) {
         onOpenCategory(category);
         onHide();
       }
     }
     setShowCategoryPicker(false);
+    setCategoryFilter("");
   }, [onChangeCategory, onOpenCategory, onHide, currentDocument?.category]);
 
   const isGitHubFile = currentDocument?.repository_type === 'github';
@@ -126,40 +143,58 @@ function MobileToolbarMenu({
                           <i className="bi bi-chevron-down ms-1" style={{ fontSize: '0.6em' }} />
                         </span>
                       </button>
+                      {onManageCategories && (
+                        <button
+                          type="button"
+                          className="btn btn-link btn-sm p-0 text-muted"
+                          title="Manage categories"
+                          onClick={onManageCategories}
+                        >
+                          <i className="bi bi-gear"></i>
+                        </button>
+                      )}
                     </span>
                   )}
                 </div>
 
-                {/* Category picker — two sections */}
+                {/* Category picker — single unified list */}
                 {showCategoryPicker && !isGitHubFile && categories && (
                   <>
-                    <div className="small text-muted px-2 mt-2 mb-1 fw-bold">
-                      <i className="bi bi-folder-symlink me-1"></i>Move document to:
-                    </div>
-                    <ul className="mobile-category-list">
-                      {categories.map((cat) => (
+                    {categories.length > CATEGORY_FILTER_THRESHOLD && (
+                      <div className="px-2 mt-2">
+                        <input
+                          type="text"
+                          className="form-control form-control-sm"
+                          placeholder="Filter categories..."
+                          value={categoryFilter}
+                          onChange={e => setCategoryFilter(e.target.value)}
+                          autoFocus
+                        />
+                      </div>
+                    )}
+                    <ul className="mobile-category-list" style={{ maxHeight: '75vh', overflowY: 'auto' }}>
+                      {filteredCategories.map((cat) => (
                         <li
-                          key={`move-${cat}`}
-                          className={cat === currentDocument.category ? 'active' : ''}
-                          onClick={() => cat !== currentDocument.category && handleCategorySelect(cat, 'move')}
+                          key={cat}
+                          className={`d-flex justify-content-between align-items-center ${cat === currentDocument.category ? 'active' : ''}`}
+                          onClick={() => cat !== currentDocument.category && handleCategorySelect(cat)}
                           style={cat === currentDocument.category ? { opacity: 0.5 } : {}}
                         >
-                          <i className={`bi bi-${cat === currentDocument.category ? 'check-circle-fill' : 'circle'}`} />
-                          {cat}
-                        </li>
-                      ))}
-                    </ul>
-                    <div className="small text-muted px-2 mt-2 mb-1 fw-bold">
-                      <i className="bi bi-folder2-open me-1"></i>Open category:
-                    </div>
-                    <ul className="mobile-category-list">
-                      {categories.map((cat) => (
-                        <li
-                          key={`nav-${cat}`}
-                          onClick={() => handleCategorySelect(cat, 'navigate')}
-                        >
-                          <i className="bi bi-arrow-right-short" />
-                          {cat}
+                          <span>
+                            <i className={`bi bi-${cat === currentDocument.category ? 'check-circle-fill' : 'circle'} me-1`} />
+                            {cat}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-link btn-sm p-0 text-muted"
+                            title={`Open ${cat}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCategorySelect(cat, 'navigate');
+                            }}
+                          >
+                            <i className="bi bi-folder2-open"></i>
+                          </button>
                         </li>
                       ))}
                     </ul>
@@ -260,6 +295,7 @@ MobileToolbarMenu.propTypes = {
   onRenameDocument: PropTypes.func,
   onChangeCategory: PropTypes.func,
   onOpenCategory: PropTypes.func,
+  onManageCategories: PropTypes.func,
   fullscreenPreview: PropTypes.bool.isRequired,
   theme: PropTypes.string.isRequired,
   currentDocument: PropTypes.object,

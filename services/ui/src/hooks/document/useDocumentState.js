@@ -666,7 +666,11 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const renameCategory = useCallback(async (oldName, newName) => {
     const name = (newName || '').trim();
     if (oldName === DEFAULT_CATEGORY || oldName === DRAFTS_CATEGORY || !name || name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
-      return DocumentService.getCategories();
+      return false;
+    }
+    const existing = DocumentService.getCategories();
+    if (existing.some(c => c.toLowerCase() === name.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase())) {
+      return false;
     }
     const docs = DocumentService.getAllDocuments();
     const promises = docs.filter(doc => doc.category === oldName).map(async doc => {
@@ -681,7 +685,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     }
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
-    return DocumentService.getCategories();
+    return true;
   }, [currentDocument]);
 
   // --- SYNC ---
