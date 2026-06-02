@@ -60,7 +60,15 @@ export function AuthProvider({ children }) {
     return localStorage.getItem("tabPosition") || "above";
   });
   const [tabSortOrder, setTabSortOrderState] = useState(() => {
-    return localStorage.getItem("tabSortOrder") || "name";
+    const saved = localStorage.getItem("tabSortOrder");
+    // Migrate legacy sort values to new options
+    const migrationMap = { name: 'alpha_asc', created: 'opened_asc', modified: 'opened_desc' };
+    if (saved && migrationMap[saved]) {
+      const migrated = migrationMap[saved];
+      localStorage.setItem("tabSortOrder", migrated);
+      return migrated;
+    }
+    return saved || "opened_desc";
   });
   const [recentsTabLimit, setRecentsTabLimitState] = useState(() => {
     const saved = localStorage.getItem("recentsTabLimit");

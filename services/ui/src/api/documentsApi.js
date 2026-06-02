@@ -700,7 +700,7 @@ class DocumentsApi extends Api {
    * @param {string} sort - Sort order: 'name', 'created', or 'modified'
    * @returns {Promise<Object>} - { siblings, category_id, category_name, tabs_enabled }
    */
-  async getSiblingDocuments(documentId, sort = 'name') {
+  async getSiblingDocuments(documentId, sort = 'opened_desc') {
     const res = await this.apiCall(`/documents/${documentId}/siblings?sort=${sort}`);
     return res.data;
   }

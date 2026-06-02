@@ -47,9 +47,10 @@ function DisplayTab() {
           onChange={e => setTabSortOrder(e.target.value)}
           style={{ maxWidth: '200px' }}
         >
-          <option value="name">Name</option>
-          <option value="created">Created date</option>
-          <option value="modified">Last modified</option>
+          <option value="opened_desc">Recent → Old</option>
+          <option value="opened_asc">Old → Recent</option>
+          <option value="alpha_asc">A → Z</option>
+          <option value="alpha_desc">Z → A</option>
         </Form.Select>
       </Form.Group>
 

@@ -42,7 +42,7 @@ function RendererSection({
     siblingOverrideMode,
     clearSiblingOverride,
   } = useDocumentContext();
-  const { tabPosition, isAuthenticated } = useAuth();
+  const { tabPosition, tabSortOrder, setTabSortOrder, isAuthenticated } = useAuth();
   const { show: showDeleteModal, modalConfig: deleteModalConfig, openModal, handleAction: handleDeleteAction } = useConfirmModal();
   const [hasRendered, setHasRendered] = useState(false);
   const [loadingMessage, setLoadingMessage] = useState("Loading...");
@@ -206,6 +206,8 @@ function RendererSection({
       activeDocId={currentDocument?.id}
       categoryName={siblingCategoryName}
       position={tabPosition}
+      sortOrder={tabSortOrder}
+      onSortChange={setTabSortOrder}
       onTabClick={handleTabClick}
       onRename={handleRename}
       onDelete={handleDeleteDocument}

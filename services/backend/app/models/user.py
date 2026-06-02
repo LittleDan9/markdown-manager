@@ -53,7 +53,7 @@ class User(BaseModel):
 
     # Tab display preferences
     tab_position: Mapped[str] = mapped_column(String(10), default="above", nullable=False)
-    tab_sort_order: Mapped[str] = mapped_column(String(10), default="name", nullable=False)
+    tab_sort_order: Mapped[str] = mapped_column(String(20), default="opened_desc", nullable=False)
     recents_tab_limit: Mapped[int] = mapped_column(Integer, default=10, nullable=False)
 
     # Syntax highlighting preferences

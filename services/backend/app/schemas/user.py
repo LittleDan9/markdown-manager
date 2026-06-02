@@ -33,7 +33,7 @@ class UserUpdate(BaseModel):
     autosave_enabled: Optional[bool] = None
     editor_width_percentage: Optional[int] = Field(None, ge=10, le=90)
     tab_position: Optional[str] = Field(None, pattern="^(above|below)$")
-    tab_sort_order: Optional[str] = Field(None, pattern="^(name|created|modified)$")
+    tab_sort_order: Optional[str] = Field(None, pattern="^(alpha_asc|alpha_desc|opened_desc|opened_asc)$")
     recents_tab_limit: Optional[int] = Field(None, ge=1, le=25)
     syntax_theme: Optional[str] = Field(None, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
     syntax_overrides_enabled: Optional[bool] = None

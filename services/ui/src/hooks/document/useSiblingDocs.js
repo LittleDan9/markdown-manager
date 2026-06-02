@@ -6,7 +6,15 @@ const SORT_KEY = 'tabSortOrder';
 const DISABLED_KEY = 'tabsDisabledCategories';
 
 function getLocalSortOrder() {
-  return localStorage.getItem(SORT_KEY) || 'name';
+  const saved = localStorage.getItem(SORT_KEY);
+  // Migrate legacy sort values
+  const migrationMap = { name: 'alpha_asc', created: 'opened_asc', modified: 'opened_desc' };
+  if (saved && migrationMap[saved]) {
+    const migrated = migrationMap[saved];
+    localStorage.setItem(SORT_KEY, migrated);
+    return migrated;
+  }
+  return saved || 'opened_desc';
 }
 
 function getLocalDisabledCategories() {
@@ -20,13 +28,26 @@ function getLocalDisabledCategories() {
 function sortDocs(docs, sortOrder) {
   const sorted = [...docs];
   switch (sortOrder) {
-    case 'created':
-      sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+    case 'alpha_desc':
+      sorted.sort((a, b) => b.name.localeCompare(a.name));
       break;
-    case 'modified':
-      sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+    case 'opened_desc':
+      sorted.sort((a, b) => {
+        if (!a.last_opened_at && !b.last_opened_at) return 0;
+        if (!a.last_opened_at) return 1;
+        if (!b.last_opened_at) return -1;
+        return new Date(b.last_opened_at) - new Date(a.last_opened_at);
+      });
       break;
-    case 'name':
+    case 'opened_asc':
+      sorted.sort((a, b) => {
+        if (!a.last_opened_at && !b.last_opened_at) return 0;
+        if (!a.last_opened_at) return 1;
+        if (!b.last_opened_at) return -1;
+        return new Date(a.last_opened_at) - new Date(b.last_opened_at);
+      });
+      break;
+    case 'alpha_asc':
     default:
       sorted.sort((a, b) => a.name.localeCompare(b.name));
       break;
@@ -113,6 +134,7 @@ export default function useSiblingDocs(currentDocument, isAuthenticated, tabSort
             name: d.name,
             created_at: d.created_at || new Date().toISOString(),
             updated_at: d.updated_at || new Date().toISOString(),
+            last_opened_at: d.last_opened_at || null,
           }));
 
         setSiblingDocs(sortDocs(siblings, sortOrder));

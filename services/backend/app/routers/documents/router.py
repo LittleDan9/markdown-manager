@@ -88,6 +88,7 @@ class SiblingDocument(BaseModel):
     name: str
     created_at: str
     updated_at: str
+    last_opened_at: Optional[str] = None
 
 
 class SiblingDocumentsResponse(BaseModel):
@@ -101,7 +102,7 @@ class SiblingDocumentsResponse(BaseModel):
 @router.get("/{document_id}/siblings", response_model=SiblingDocumentsResponse)
 async def get_sibling_documents(
     document_id: int,
-    sort: Optional[str] = Query("name", regex="^(name|created|modified)$"),
+    sort: Optional[str] = Query("opened_desc", regex="^(alpha_asc|alpha_desc|opened_desc|opened_asc)$"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
@@ -140,18 +141,21 @@ async def get_sibling_documents(
     category_name = category.name if category else None
 
     # Build sort order
-    order_col = DocumentModel.name
-    if sort == "created":
-        order_col = DocumentModel.created_at
-    elif sort == "modified":
-        order_col = DocumentModel.updated_at
+    if sort == "alpha_desc":
+        order_clause = DocumentModel.name.desc()
+    elif sort == "opened_desc":
+        order_clause = DocumentModel.last_opened_at.desc().nulls_last()
+    elif sort == "opened_asc":
+        order_clause = DocumentModel.last_opened_at.asc().nulls_last()
+    else:  # alpha_asc (default)
+        order_clause = DocumentModel.name.asc()
 
     # Get all documents in the same category
     siblings_result = await db.execute(
         select(DocumentModel).where(
             DocumentModel.category_id == document.category_id,
             DocumentModel.user_id == current_user.id,
-        ).order_by(order_col)
+        ).order_by(order_clause)
     )
     siblings = siblings_result.scalars().all()
 
@@ -162,6 +166,7 @@ async def get_sibling_documents(
                 name=s.name,
                 created_at=s.created_at.isoformat(),
                 updated_at=s.updated_at.isoformat(),
+                last_opened_at=s.last_opened_at.isoformat() if s.last_opened_at else None,
             )
             for s in siblings
         ],

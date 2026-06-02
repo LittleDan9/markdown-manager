@@ -6,7 +6,7 @@ import { serviceFactory } from "@/services/injectors";
 import documentsApi from "@/api/documentsApi";
 
 function RecentFilesDropdown({ onFileSelect, onClose }) {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, recentsTabLimit } = useAuth();
   const { showError } = useNotification();
   const documentStorageService = serviceFactory.createDocumentStorageService();
   const [recentLocal, setRecentLocal] = useState([]);
@@ -20,22 +20,24 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
       // Get recent documents (unified approach - includes both local and GitHub)
       if (isAuthenticated) {
         try {
-          const recentDocs = await documentsApi.getRecentDocuments(6); // Get more to allow for separation
+          const limit = recentsTabLimit || 10;
+          const recentDocs = await documentsApi.getRecentDocuments(limit);
           // Separate by repository_type
           const localDocs = recentDocs.filter(doc => doc.repository_type === 'local');
           const githubDocs = recentDocs.filter(doc => doc.repository_type === 'github_repo');
 
-          setRecentLocal(localDocs.slice(0, 3)); // Take first 3 local
-          setRecentGitHub(githubDocs.slice(0, 3)); // Take first 3 GitHub
+          const halfLimit = Math.ceil(limit / 2);
+          setRecentLocal(localDocs.slice(0, halfLimit));
+          setRecentGitHub(githubDocs.slice(0, halfLimit));
         } catch (error) {
           console.warn('Failed to load recent documents from API, falling back to localStorage:', error);
-          const localFiles = documentStorageService.getRecentLocalDocuments(3);
+          const localFiles = documentStorageService.getRecentLocalDocuments(recentsTabLimit || 10);
           setRecentLocal(localFiles);
           setRecentGitHub([]);
         }
       } else {
         // When not authenticated, use localStorage
-        const localFiles = documentStorageService.getRecentLocalDocuments(3);
+        const localFiles = documentStorageService.getRecentLocalDocuments(recentsTabLimit || 10);
         setRecentLocal(localFiles);
         setRecentGitHub([]);
       }
@@ -45,7 +47,7 @@ function RecentFilesDropdown({ onFileSelect, onClose }) {
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated, showError, documentStorageService]);
+  }, [isAuthenticated, recentsTabLimit, showError, documentStorageService]);
 
   useEffect(() => {
     loadRecentFiles();

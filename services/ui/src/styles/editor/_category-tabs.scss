@@ -277,6 +277,35 @@
     }
   }
 
+  // Sort dropdown
+  &__sort {
+    flex-shrink: 0;
+
+    .category-tab-bar__sort-btn {
+      padding: 2px 6px;
+      color: $color-text-secondary-light;
+      text-decoration: none;
+      font-size: 0.85rem;
+      line-height: 1;
+
+      &::after {
+        display: none; // Hide dropdown caret
+      }
+
+      &:hover {
+        color: $color-primary;
+      }
+
+      [data-bs-theme="dark"] & {
+        color: $color-text-secondary-dark;
+
+        &:hover {
+          color: $color-primary-dark-hover;
+        }
+      }
+    }
+  }
+
   // Add new document button
   &__add-btn {
     display: flex;

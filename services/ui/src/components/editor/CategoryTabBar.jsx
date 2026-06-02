@@ -11,6 +11,8 @@ function CategoryTabBar({
   activeDocId,
   categoryName,
   position = 'above',
+  sortOrder,
+  onSortChange,
   onTabClick,
   onRename,
   onDelete,
@@ -255,6 +257,33 @@ function CategoryTabBar({
         </Dropdown>
       )}
 
+      {onSortChange && (
+        <Dropdown align="end" className="category-tab-bar__sort">
+          <Dropdown.Toggle variant="link" size="sm" className="category-tab-bar__sort-btn" title="Sort tabs">
+            <i className="bi bi-arrow-down-up" />
+          </Dropdown.Toggle>
+          <Dropdown.Menu>
+            <Dropdown.Item active={sortOrder === 'opened_desc'} onClick={() => onSortChange('opened_desc')}>
+              {sortOrder === 'opened_desc' && <i className="bi bi-check me-1" />}
+              Recent → Old
+            </Dropdown.Item>
+            <Dropdown.Item active={sortOrder === 'opened_asc'} onClick={() => onSortChange('opened_asc')}>
+              {sortOrder === 'opened_asc' && <i className="bi bi-check me-1" />}
+              Old → Recent
+            </Dropdown.Item>
+            <Dropdown.Divider />
+            <Dropdown.Item active={sortOrder === 'alpha_asc'} onClick={() => onSortChange('alpha_asc')}>
+              {sortOrder === 'alpha_asc' && <i className="bi bi-check me-1" />}
+              A → Z
+            </Dropdown.Item>
+            <Dropdown.Item active={sortOrder === 'alpha_desc'} onClick={() => onSortChange('alpha_desc')}>
+              {sortOrder === 'alpha_desc' && <i className="bi bi-check me-1" />}
+              Z → A
+            </Dropdown.Item>
+          </Dropdown.Menu>
+        </Dropdown>
+      )}
+
       <button
         className="category-tab-bar__add-btn"
         onClick={handleAddClick}
@@ -275,6 +304,8 @@ CategoryTabBar.propTypes = {
   activeDocId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
   categoryName: PropTypes.string,
   position: PropTypes.oneOf(['above', 'below']),
+  sortOrder: PropTypes.oneOf(['alpha_asc', 'alpha_desc', 'opened_desc', 'opened_asc']),
+  onSortChange: PropTypes.func,
   onTabClick: PropTypes.func.isRequired,
   onRename: PropTypes.func,
   onDelete: PropTypes.func,
