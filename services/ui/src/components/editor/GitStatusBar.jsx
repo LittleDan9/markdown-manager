@@ -12,6 +12,7 @@ import {
 } from 'react-bootstrap';
 import { useNotification } from '../NotificationProvider';
 import { useAuth } from '../../providers/AuthProvider';
+import AnalyticsService from '@/services/analytics/AnalyticsService.js';
 import gitHubApi from '../../api/gitHubApi';
 import documentsApi from '../../api/documentsApi';
 import GitHubPullModal from '../github/modals/GitHubPullModal';
@@ -37,6 +38,15 @@ const GitStatusBar = ({ documentId, document, onStatusChange, onDocumentUpdate }
   const [syncHistory, setSyncHistory] = useState([]);
   const [gitHistoryModalVisible, setGitHistoryModalVisible] = useState(false);
   const [branchMode, setBranchMode] = useState('current'); // 'current' or 'new'
+
+  // Track when guest encounters git integration gate (once per mount)
+  const gitBlockTrackedRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated && !gitBlockTrackedRef.current) {
+      gitBlockTrackedRef.current = true;
+      AnalyticsService.track('feature_attempt_blocked', { feature: 'git_integration' });
+    }
+  }, [isAuthenticated]);
 
   // Phase 3: New modal states
   const [pullModalVisible, setPullModalVisible] = useState(false);

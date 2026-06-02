@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { Modal, Nav, Tab } from "react-bootstrap";
 import ProfileInfoTab from "./ProfileInfoTab";
 import SecurityTab from "../../security/modals/SecurityTab";
@@ -11,12 +11,20 @@ import DisplayTab from "./DisplayTab";
 import CodeFencesTab from "./CodeFencesTab";
 import AIProvidersTab from "./AIProvidersTab";
 import useProfileForm from "./useProfileForm";
+import AnalyticsService from "@/services/analytics/AnalyticsService.js";
 
 import { useAuth } from "../../../providers/AuthProvider";
 
 function UserSettingsModal({ show, onHide, defaultActiveKey: _defaultActiveKey = "profile-info", activeTab, setActiveTab, guestMode = false, onOpenFileModal: _onOpenFileModal }) {
   const { user } = useAuth();
   const { form, error, success, handleChange, handleSubmit, handlePasswordSubmit } = useProfileForm();
+
+  // Track when a guest opens settings (sees limited feature set)
+  useEffect(() => {
+    if (show && guestMode) {
+      AnalyticsService.track('feature_attempt_blocked', { feature: 'settings_restricted' });
+    }
+  }, [show, guestMode]);
 
   return (
     <Modal show={show} onHide={onHide} size="xl" scrollable centered dialogClassName="user-settings-modal">

@@ -8,6 +8,7 @@ import DocumentStorageService from './DocumentStorageService';
 import NotificationService from '../utilities/notifications.js';
 import DictionaryService from '../dictionary';
 import lintingApi from '@/api/lintingApi.js';
+import AnalyticsService from '../analytics/AnalyticsService.js';
 
 const defaultUser = {
   bio: "",
@@ -201,6 +202,12 @@ class AuthService {
         isAuthenticated: this.isAuthenticated,
         userId: this.user?.id,
         hasToken: !!this.token
+      });
+
+      // Initialize analytics with current auth state
+      AnalyticsService.init({
+        isAuthenticated: this.isAuthenticated,
+        userId: this.user?.id,
       });
     }
   }
@@ -489,6 +496,12 @@ class AuthService {
     this.setToken(loginResponse.access_token);
     this.setUser(loginResponse.user || defaultUser);
     this.isAuthenticated = true;
+
+    // Update analytics auth state
+    AnalyticsService.setAuthState({
+      isAuthenticated: true,
+      userId: loginResponse.user?.id,
+    });
 
     // Clear linting rules cache on login
     lintingApi.clearRulesCache();

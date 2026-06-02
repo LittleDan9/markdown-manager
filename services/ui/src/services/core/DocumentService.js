@@ -7,6 +7,7 @@
 import DocumentStorageService from './DocumentStorageService';
 import NotificationService from '../utilities/notifications.js';
 import AuthService from './AuthService';
+import AnalyticsService from '../analytics/AnalyticsService.js';
 import { saveAs } from 'file-saver';
 
 class DocumentService {
@@ -54,6 +55,11 @@ class DocumentService {
       const result = await savePromise;
       this.saveQueue.delete(saveKey);
       this.retryAttempts.delete(saveKey);
+
+      // Track document create vs edit
+      const eventType = saveKey === 'new' ? 'document_create' : 'document_edit';
+      AnalyticsService.track(eventType, { category: document.category || null });
+
       return result;
     } catch (error) {
       this.saveQueue.delete(saveKey);
@@ -289,6 +295,8 @@ class DocumentService {
         const docName = deletedDoc?.name || 'Document';
         NotificationService.success(`Document '${docName}' deleted`);
       }
+
+      AnalyticsService.track('document_delete');
 
       return deletedDoc || { id };
     } catch (error) {
@@ -618,6 +626,7 @@ class DocumentService {
   async enableDocumentSharing(documentId) {
     const { isAuthenticated, token } = this.getAuthState();
     if (!isAuthenticated || !token) {
+      AnalyticsService.track('feature_attempt_blocked', { feature: 'document_sharing' });
       throw new Error('Authentication required to share documents');
     }
 
@@ -640,6 +649,7 @@ class DocumentService {
   async disableDocumentSharing(documentId) {
     const { isAuthenticated, token } = this.getAuthState();
     if (!isAuthenticated || !token) {
+      AnalyticsService.track('feature_attempt_blocked', { feature: 'document_sharing' });
       throw new Error('Authentication required to manage document sharing');
     }
 

@@ -4,6 +4,9 @@
 // Core business logic services
 export * from './core';
 
+// Analytics services
+export * from './analytics';
+
 // Editor services
 export * from './editor';
 

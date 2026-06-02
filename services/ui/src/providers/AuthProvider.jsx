@@ -7,6 +7,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import PropTypes from 'prop-types';
 import AuthService from '@/services/core/AuthService';
 import UserAPI from '@/api/userApi';
+import AnalyticsService from '@/services/analytics/AnalyticsService.js';
 import LoginModal from '../components/auth/modals/LoginModal.jsx';
 import SSORegisterModal from '../components/auth/modals/SSORegisterModal.jsx';
 import VerifyMFAModal from '../components/security/modals/VerifyMFAModal.jsx';
@@ -151,6 +152,13 @@ export function AuthProvider({ children }) {
     };
   }, [updateAuthState]);
 
+  // Track login modal opened
+  useEffect(() => {
+    if (showLoginModal) {
+      AnalyticsService.track('login_modal_opened');
+    }
+  }, [showLoginModal]);
+
   // Auth actions
   const login = useCallback(async (email, password) => {
     try {
@@ -181,6 +189,7 @@ export function AuthProvider({ children }) {
     try {
       setSSORegisterError('');
       await UserAPI.register(formData);
+      AnalyticsService.track('registration_completed', { method: 'sso' });
       setShowSSORegisterModal(false);
       setSsoEmail(null);
       setSsoIssuer(null);

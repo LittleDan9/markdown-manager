@@ -266,6 +266,8 @@ def setup_routers(app: FastAPI) -> None:
 
     from app.routers import help as help_router
     app.include_router(help_router.router)  # /help/topics
+    from app.routers import analytics
+    app.include_router(analytics.router, tags=["analytics"])  # Guest/user analytics
     app.include_router(comments.router)  # /documents/{id}/comments and /comments/{id}
     app.include_router(ws_router.router)  # WebSocket presence
 

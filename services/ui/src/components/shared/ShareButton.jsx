@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from 'react-bootstrap';
 import ShareModal from '@/components/shared/modals/ShareModal';
 import { useDocumentContext } from '@/providers/DocumentContextProvider.jsx';
 import { useAuth } from '@/providers/AuthProvider';
 import { useNotification } from '@/components/NotificationProvider';
 import { serviceFactory } from '@/services/injectors';
+import AnalyticsService from '@/services/analytics/AnalyticsService.js';
 import PropTypes from 'prop-types';
 
 function ShareButton({ className = '', size = 'sm' }) {
@@ -45,6 +46,16 @@ function ShareButton({ className = '', size = 'sm' }) {
 
   // Don't render if user is not authenticated or viewing a collaborator's document
   const isCollabDocument = currentDocument && user && currentDocument.user_id !== user.id;
+
+  // Track once per mount when a guest is blocked from sharing
+  const shareBlockTrackedRef = React.useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated && !shareBlockTrackedRef.current && currentDocument && !isDefaultDoc) {
+      shareBlockTrackedRef.current = true;
+      AnalyticsService.track('feature_attempt_blocked', { feature: 'document_sharing' });
+    }
+  }, [isAuthenticated, currentDocument, isDefaultDoc]);
+
   if (!isAuthenticated || isCollabDocument) {
     return null;
   }

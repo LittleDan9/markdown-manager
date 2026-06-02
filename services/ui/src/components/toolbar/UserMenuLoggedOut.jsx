@@ -9,6 +9,7 @@ import SystemHealthModal from "@/components/system/SystemHealthModal";
 import UserAPI from "@/api/userApi";
 import { useNotification } from "@/components/NotificationProvider";
 import { useAuth } from "@/providers/AuthProvider";
+import AnalyticsService from "@/services/analytics/AnalyticsService.js";
 
 function UserMenuLoggedOut() {
   const { toggleTheme } = useTheme();
@@ -52,6 +53,7 @@ function UserMenuLoggedOut() {
         console.log("Registration successful:", response);
         setShowRegister(false);
         showSuccess("Registration successful! Please log in.");
+        AnalyticsService.track('registration_completed', { method: 'form' });
         setLoginEmail(formData.email || "");
         setShowLoginModal(true);
       })

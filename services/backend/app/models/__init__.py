@@ -1,4 +1,5 @@
 """Database models."""
+from .analytics_event import AnalyticsEvent
 from .attachment import Attachment
 from .ai_usage_daily import AIUsageDaily
 from .base import Base, BaseModel
@@ -24,6 +25,7 @@ from .user import User
 
 __all__ = [
     "AIUsageDaily",
+    "AnalyticsEvent",
     "Attachment",
     "Base",
     "BaseModel",
