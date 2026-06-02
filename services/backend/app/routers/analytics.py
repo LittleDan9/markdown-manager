@@ -129,7 +129,7 @@ async def ingest_analytics_events(
             "is_authenticated": event.is_authenticated,
             "user_id": event.user_id,
             "client_ip_hash": ip_hash,
-            "created_at": datetime.now(timezone.utc),
+            "created_at": datetime.utcnow(),
         })
 
     if values:
