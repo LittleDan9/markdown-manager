@@ -34,28 +34,7 @@ async def get_current_user_profile(
             current_document = None
 
     # Create response with properly loaded current document
-    return UserResponse(
-        id=current_user.id,
-        email=current_user.email,
-        first_name=current_user.first_name,
-        last_name=current_user.last_name,
-        display_name=current_user.display_name,
-        bio=current_user.bio,
-        is_active=current_user.is_active,
-        is_verified=current_user.is_verified,
-        is_admin=current_user.is_admin,
-        mfa_enabled=current_user.mfa_enabled,
-        created_at=current_user.created_at,
-        updated_at=current_user.updated_at,
-        full_name=current_user.full_name,
-        sync_preview_scroll_enabled=current_user.sync_preview_scroll_enabled,
-        autosave_enabled=current_user.autosave_enabled,
-        editor_width_percentage=current_user.editor_width_percentage,
-        tab_position=current_user.tab_position,
-        tab_sort_order=current_user.tab_sort_order,
-        recents_tab_limit=current_user.recents_tab_limit,
-        syntax_theme=current_user.syntax_theme,
-        syntax_overrides_enabled=current_user.syntax_overrides_enabled,
-        current_doc_id=current_user.current_doc_id,
-        current_document=current_document
-    )
+    response = UserResponse.model_validate(current_user)
+    if current_document:
+        response = response.model_copy(update={"current_document": current_document})
+    return response

@@ -52,26 +52,9 @@ async def get_user_profile(
             current_document_response = None
 
     # Create response with properly loaded current_document
-    user_data = UserResponse(
-        id=user.id,
-        email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
-        display_name=user.display_name,
-        bio=user.bio,
-        is_active=user.is_active,
-        is_verified=user.is_verified,
-        is_admin=user.is_admin,
-        mfa_enabled=user.mfa_enabled,
-        created_at=user.created_at,
-        updated_at=user.updated_at,
-        full_name=user.full_name,
-        sync_preview_scroll_enabled=user.sync_preview_scroll_enabled,
-        autosave_enabled=user.autosave_enabled,
-        editor_width_percentage=user.editor_width_percentage,
-        current_doc_id=user.current_doc_id,
-        current_document=current_document_response
-    )
+    user_data = UserResponse.model_validate(user)
+    if current_document_response:
+        user_data = user_data.model_copy(update={"current_document": current_document_response})
 
     return user_data
 
@@ -120,26 +103,9 @@ async def update_user_profile(
             current_document_response = None
 
     # Create response with properly loaded current_document
-    user_data = UserResponse(
-        id=user_with_document.id,
-        email=user_with_document.email,
-        first_name=user_with_document.first_name,
-        last_name=user_with_document.last_name,
-        display_name=user_with_document.display_name,
-        bio=user_with_document.bio,
-        is_active=user_with_document.is_active,
-        is_verified=user_with_document.is_verified,
-        is_admin=user_with_document.is_admin,
-        mfa_enabled=user_with_document.mfa_enabled,
-        created_at=user_with_document.created_at,
-        updated_at=user_with_document.updated_at,
-        full_name=user_with_document.full_name,
-        sync_preview_scroll_enabled=user_with_document.sync_preview_scroll_enabled,
-        autosave_enabled=user_with_document.autosave_enabled,
-        editor_width_percentage=user_with_document.editor_width_percentage,
-        current_doc_id=user_with_document.current_doc_id,
-        current_document=current_document_response
-    )
+    user_data = UserResponse.model_validate(user_with_document)
+    if current_document_response:
+        user_data = user_data.model_copy(update={"current_document": current_document_response})
 
     return user_data
 

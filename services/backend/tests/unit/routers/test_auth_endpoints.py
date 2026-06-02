@@ -66,7 +66,7 @@ class TestAuthCore:
 
         # Decode token to verify contents
         from app.configs import settings
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm], audience=settings.app_identifier)
         assert payload["sub"] == "test@example.com"
         assert "exp" in payload
 
@@ -81,7 +81,7 @@ class TestAuthCore:
 
         # Verify token can be decoded
         from app.configs import settings
-        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+        payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm], audience=settings.app_identifier)
         assert payload["sub"] == "user@example.com"
 
     def test_create_access_token_different_users(self):
@@ -93,8 +93,8 @@ class TestAuthCore:
 
         # Verify both tokens contain correct user emails
         from app.configs import settings
-        payload1 = jwt.decode(token1, settings.secret_key, algorithms=[settings.algorithm])
-        payload2 = jwt.decode(token2, settings.secret_key, algorithms=[settings.algorithm])
+        payload1 = jwt.decode(token1, settings.secret_key, algorithms=[settings.algorithm], audience=settings.app_identifier)
+        payload2 = jwt.decode(token2, settings.secret_key, algorithms=[settings.algorithm], audience=settings.app_identifier)
 
         assert payload1["sub"] == "user1@example.com"
         assert payload2["sub"] == "user2@example.com"

@@ -74,6 +74,9 @@ class TestUserSchemas:
             "editor_width_percentage": 50,
             "tab_position": "top",
             "tab_sort_order": "manual",
+            "recents_tab_limit": 10,
+            "syntax_theme": "one-dark",
+            "syntax_overrides_enabled": True,
             "created_at": "2023-01-01T00:00:00",
             "updated_at": "2023-01-01T00:00:00",
         }
