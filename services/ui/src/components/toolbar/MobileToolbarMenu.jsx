@@ -75,12 +75,9 @@ function MobileToolbarMenu({
         onHide();
       }
     } else {
-      // Default: move + navigate
+      // Default: move + navigate (onChangeCategory now handles both save and navigation)
       if (onChangeCategory && category !== currentDocument?.category) {
         onChangeCategory(category);
-      }
-      if (onOpenCategory) {
-        onOpenCategory(category);
         onHide();
       }
     }

@@ -61,22 +61,24 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }, 1000);
   }, [getLastSavedText]);
 
-  // Navigate to a category (open first document in that category)
-  const handleCategorySelect = (category) => {
+  // Navigate to a category, optionally loading a specific document
+  const handleCategorySelect = (category, targetDocumentId = null) => {
     clearSiblingOverride();
-    openCategory(category);
+    openCategory(category, 'name', targetDocumentId);
   };
 
   // Move document AND navigate to the target category
   const handleMoveAndNavigate = async (category) => {
     if (category === currentCategory) return;
     try {
-      const updatedDoc = { ...currentDocumentRef.current, category };
+      // Include current in-memory content to avoid data loss from stale storage
+      const updatedDoc = { ...currentDocumentRef.current, category, content };
       const saved = await saveDocument(updatedDoc);
       if (saved) {
         refreshSiblings();
         showSuccess(`Moved to ${category}`);
-        handleCategorySelect(category);
+        // Navigate to the target category and load the moved document
+        handleCategorySelect(category, saved.id);
       } else {
         showError("Failed to move document to category.");
       }

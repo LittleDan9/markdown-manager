@@ -98,8 +98,14 @@ function Toolbar({
 
   const handleMobileCategoryChange = useCallback(async (category) => {
     if (!currentDocument || currentDocument.repository_type === 'github') return;
-    await saveDocument({ ...currentDocument, category });
-  }, [currentDocument, saveDocument]);
+    // Include current content to avoid data loss from stale storage
+    const saved = await saveDocument({ ...currentDocument, category, content });
+    if (saved) {
+      clearSiblingOverride();
+      // Navigate to the category and load the moved document
+      openCategory(category, 'name', saved.id);
+    }
+  }, [currentDocument, saveDocument, content, clearSiblingOverride, openCategory]);
 
   const handleMobileOpenCategory = useCallback((category) => {
     clearSiblingOverride();

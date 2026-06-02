@@ -599,7 +599,14 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
         showError('Cannot rename: document not found. Try saving first.');
         return;
       }
-      const updatedDoc = { ...doc, name: newName, category: newCategory };
+      // Use current in-memory content for the active document to avoid
+      // data loss when auto-save hasn't flushed recent edits to storage yet.
+      const docContent = (currentDocument && id === currentDocument.id) ? content : doc.content;
+      // Flush current content to localStorage before rename as a safety net
+      if (currentDocument && id === currentDocument.id && content !== doc.content) {
+        DocumentStorageService.saveDocument({ ...doc, content });
+      }
+      const updatedDoc = { ...doc, name: newName, category: newCategory, content: docContent };
       const saved = await DocumentService.saveDocument(updatedDoc, false);
       const docs = DocumentService.getAllDocuments();
       setDocuments(docs);
@@ -610,7 +617,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     } catch (error) {
       showError('Rename failed: ' + error.message);
     }
-  }, [currentDocument, showError, updateCurrentDocument]);
+  }, [currentDocument, content, showError, updateCurrentDocument]);
 
   // --- CATEGORY OPERATIONS ---
   const addCategory = useCallback(async (category) => {
@@ -768,45 +775,57 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   const hasUnsavedChanges = useChangeTracker(currentDocument, documents, content);
 
   // --- OPEN CATEGORY ---
-  // Load the first document in a category based on sort order, activating the tab bar
-  const openCategory = useCallback(async (categoryName, sortOrder = 'name') => {
+  // Load a document in a category based on sort order, activating the tab bar.
+  // If targetDocumentId is provided, load that document instead of the first one.
+  const openCategory = useCallback(async (categoryName, sortOrder = 'name', targetDocumentId = null) => {
     setLoading(true);
     try {
-      let firstDoc = null;
+      let targetDoc = null;
 
       if (isAuthenticated && token) {
         // Authenticated: fetch docs in this category from backend
         const docs = await documentsApi.getAllDocuments(categoryName, 'local');
         if (docs && docs.length > 0) {
-          // Sort according to user preference
-          const sorted = [...docs];
-          if (sortOrder === 'created') {
-            sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          } else if (sortOrder === 'modified') {
-            sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-          } else {
-            sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          // If a target document was specified, prefer it
+          if (targetDocumentId) {
+            targetDoc = docs.find(d => d.id === targetDocumentId);
           }
-          firstDoc = sorted[0];
+          if (!targetDoc) {
+            // Fall back to first document by sort order
+            const sorted = [...docs];
+            if (sortOrder === 'created') {
+              sorted.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else if (sortOrder === 'modified') {
+              sorted.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            } else {
+              sorted.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            }
+            targetDoc = sorted[0];
+          }
         }
       } else {
         // Guest: filter localStorage docs by category
         const allDocs = DocumentStorageService.getAllDocuments();
         const categoryDocs = allDocs.filter(d => (d.category || 'General') === categoryName);
         if (categoryDocs.length > 0) {
-          if (sortOrder === 'created') {
-            categoryDocs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-          } else if (sortOrder === 'modified') {
-            categoryDocs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
-          } else {
-            categoryDocs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+          if (targetDocumentId) {
+            targetDoc = categoryDocs.find(d => d.id === targetDocumentId);
           }
-          firstDoc = categoryDocs[0];
+          if (!targetDoc) {
+            if (sortOrder === 'created') {
+              categoryDocs.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+            } else if (sortOrder === 'modified') {
+              categoryDocs.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+            } else {
+              categoryDocs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+            }
+            targetDoc = categoryDocs[0];
+          }
         }
       }
 
-      if (firstDoc && firstDoc.id) {
-        await loadDocument(firstDoc.id);
+      if (targetDoc && targetDoc.id) {
+        await loadDocument(targetDoc.id);
       } else {
         showWarning(`No documents found in category "${categoryName}"`);
       }
