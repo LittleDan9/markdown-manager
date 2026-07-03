@@ -825,7 +825,13 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
       }
 
       if (targetDoc && targetDoc.id) {
-        await loadDocument(targetDoc.id);
+        // Skip reloading if the target document is already the current document
+        // (e.g. after moving it to a different category). The content and preview
+        // are already correct; reloading would clear previewHTML without triggering
+        // a re-render because neither content nor document ID change.
+        if (targetDoc.id !== currentDocumentIdRef.current) {
+          await loadDocument(targetDoc.id);
+        }
       } else {
         showWarning(`No documents found in category "${categoryName}"`);
       }
