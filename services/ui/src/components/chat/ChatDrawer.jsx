@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Offcanvas } from "react-bootstrap";
 import PropTypes from "prop-types";
 import MarkdownIt from "markdown-it";
+import hljs from "highlight.js";
 import { searchApi } from "@/api/searchApi";
 import apiKeysApi from "@/api/apiKeysApi";
 import categoriesApi from "@/api/categoriesApi";
@@ -11,8 +12,32 @@ import useChatHistory from "@/hooks/chat/useChatHistory";
 import { parseSections } from "@/utils/chatSectionParser";
 import ChatHistoryPanel from "./ChatHistoryPanel";
 
-// Shared markdown-it instance — html disabled for XSS safety
-const md = new MarkdownIt({ html: false, linkify: true, typographer: false });
+// Shared markdown-it instance with syntax highlighting
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: false,
+  highlight: (str, lang) => {
+    if (lang && hljs.getLanguage(lang)) {
+      try {
+        return `<pre class="chat-code-block"><code class="hljs language-${lang}">${hljs.highlight(str, { language: lang }).value}</code></pre>`;
+      } catch { /* fall through */ }
+    }
+    const escaped = md.utils.escapeHtml(str);
+    return `<pre class="chat-code-block"><code class="hljs">${escaped}</code></pre>`;
+  },
+});
+
+// Custom image renderer — adds download button
+const defaultImageRender = md.renderer.rules.image || function(tokens, idx, options, env, self) {
+  return self.renderToken(tokens, idx, options);
+};
+md.renderer.rules.image = function(tokens, idx, options, env, self) {
+  const token = tokens[idx];
+  const src = token.attrGet("src") || "";
+  const alt = token.content || "image";
+  return `<span class="chat-image-wrapper"><img src="${md.utils.escapeHtml(src)}" alt="${md.utils.escapeHtml(alt)}" class="chat-inline-image" /><a href="${md.utils.escapeHtml(src)}" download="${md.utils.escapeHtml(alt)}" class="chat-image-download" title="Download image"><i class="bi bi-download"></i></a></span>`;
+};
 
 // Detect natural-language intent to open a document.
 // Returns the matched document object, or null if no clear intent.
