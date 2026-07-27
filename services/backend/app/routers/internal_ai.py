@@ -13,7 +13,7 @@ from app.configs import settings
 from app.database import AsyncSessionLocal
 from app.models.user import User
 from app.services.search.semantic import SemanticSearchService
-from app.services.search.content_processor import ContentProcessor
+from app.services.search.content_processor import extract_summary
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/internal", tags=["internal"])
@@ -237,8 +237,8 @@ async def _tool_get_document_summary(db, user, args: dict) -> dict:
     if not doc:
         return {"error": "Document not found"}
 
-    processor = ContentProcessor()
-    summary = processor.extract_summary(doc.content or "", max_length=800)
+    # extract_summary is a module-level function
+    summary = extract_summary("", doc.content or "", max_chars=800)
 
     return {
         "document_id": doc.id,
@@ -262,8 +262,8 @@ async def _build_single_doc_context(db, user, document_id, deep_think, selection
     content = doc.content or ""
     if not deep_think:
         # Use summary instead of full text
-        processor = ContentProcessor()
-        content = processor.extract_summary(content, max_length=2000)
+        # extract_summary is a module-level function
+        content = extract_summary("", content, max_chars=2000)
 
     ctx = {"title": doc.title, "content": content}
     if selection_text:
