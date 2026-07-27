@@ -1338,7 +1338,33 @@ function ChatDrawer({ show, onHide }) {
                             }}
                           />
                         ) : (
-                          <div dangerouslySetInnerHTML={{ __html: md.render(msg.content || "") }} />
+                          <>
+                            <div dangerouslySetInnerHTML={{ __html: md.render(msg.content || "") }} />
+                            {/* Render attachment indicators from history metadata */}
+                            {(() => {
+                              try {
+                                const meta = msg.metadata_json ? (typeof msg.metadata_json === "string" ? JSON.parse(msg.metadata_json) : msg.metadata_json) : null;
+                                if (!meta?.attachments?.length) return null;
+                                return (
+                                  <div className="d-flex flex-wrap gap-1 mt-1">
+                                    {meta.attachments.map((att) => (
+                                      att.type === "image" ? (
+                                        <a key={att.id} href={`/api/ai/attachments/${att.id}`} download={att.filename}
+                                          className="chat-attachment-thumb">
+                                          <img src={`/api/ai/attachments/${att.id}`} alt={att.filename} />
+                                        </a>
+                                      ) : (
+                                        <a key={att.id} href={`/api/ai/attachments/${att.id}`} download={att.filename}
+                                          className="badge bg-secondary text-decoration-none">
+                                          <i className="bi bi-file-earmark me-1" />{att.filename}
+                                        </a>
+                                      )
+                                    ))}
+                                  </div>
+                                );
+                              } catch { return null; }
+                            })()}
+                          </>
                         )}
                         {msg.role === "assistant" && msg.streaming && (
                           <span className="typing-indicator">

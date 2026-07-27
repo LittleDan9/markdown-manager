@@ -192,3 +192,25 @@ async def upload_attachment(
         staging_file.unlink(missing_ok=True)
         staging_dir.rmdir()
         return JSONResponse(status_code=502, content={"detail": f"Platform AI unavailable: {e}"})
+
+
+@router.get("/attachments/{attachment_id}")
+async def get_attachment_proxy(attachment_id: str, current_user: User = Depends(get_current_user)):
+    """Proxy attachment retrieval from Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+
+    from fastapi.responses import StreamingResponse as SR
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.get(
+            f"{settings.platform_ai_url}/api/chat/attachments/{attachment_id}",
+            headers=_headers(current_user),
+        )
+        if resp.status_code != 200:
+            return JSONResponse(status_code=resp.status_code, content={"detail": "Attachment not found"})
+        content_type = resp.headers.get("content-type", "application/octet-stream")
+        content_disp = resp.headers.get("content-disposition", "")
+        headers = {"Content-Type": content_type}
+        if content_disp:
+            headers["Content-Disposition"] = content_disp
+        return SR(content=iter([resp.content]), media_type=content_type, headers=headers)

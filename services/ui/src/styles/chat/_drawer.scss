@@ -1215,3 +1215,23 @@
 .chat-image-wrapper:hover .chat-image-download {
   opacity: 1;
 }
+
+/* Attachment thumbnails in chat history */
+.chat-attachment-thumb {
+  display: inline-block;
+  width: 48px;
+  height: 48px;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid var(--bs-border-color);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
