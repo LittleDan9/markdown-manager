@@ -158,3 +158,40 @@ Mounted at `/api/ai-usage`:
 - Keys transferred only via HTTP cross-app export endpoint (encrypted at rest, decrypted for transfer)
 - All queries scoped to `user_id == current_user.id`
 - MM uses `decrypt_api_key(encrypted, settings.secret_key)` (takes explicit secret parameter)
+
+---
+
+# Platform AI Integration
+
+## Overview
+AI chat is now centralized in the Platform AI service (`http://ai:8020`). MM registers its document assistant agent on startup and proxies all AI chat through the platform.
+
+## Architecture
+```
+MM Frontend (ChatDrawer.jsx)
+  → POST /api/ai/chat (ai_chat_proxy.py — streaming SSE)
+    → Platform AI /api/chat/ask (tool loop + LLM)
+      → POST /api/internal/ai-tools/execute (called BACK to MM for document search)
+      → POST /api/internal/ai-context (called BACK to MM for RAG context)
+```
+
+## Key Files
+- `services/backend/app/routers/ai_chat_proxy.py` — chat streaming + conversations + attachments + usage/preferences proxy
+- `services/backend/app/routers/ai_keys_proxy.py` — API key management proxy
+- `services/backend/app/routers/internal_ai.py` — tool execution callback + context provider
+- `services/ui/src/api/searchApi.js` — `askQuestion()` calls `/api/ai/chat` with platform format
+- `services/ui/src/api/chatHistoryApi.js` — calls `/api/ai/conversations/*`
+
+## Agent Registration (startup)
+On boot, MM registers with platform AI (`app_factory.py → _register_with_platform_ai()`):
+- Tools: `search_documents`, `get_document_content`, `list_categories`, `get_document_summary`
+- Context provider: returns RAG context (semantic search or single-doc) based on scope
+- Scopes: `all` (search all docs), `current` (single document), `help` (product docs)
+
+## Internal Endpoints (called BY platform AI)
+- `POST /api/internal/ai-tools/execute` — executes document tools, returns results
+- `POST /api/internal/ai-context` — builds system prompt + RAG context based on scope/metadata
+
+## Environment Variables
+- `PLATFORM_AI_URL` — Platform AI service URL (default: `http://ai:8020`)
+- `PLATFORM_AI_TOKEN` — shared secret for platform AI auth

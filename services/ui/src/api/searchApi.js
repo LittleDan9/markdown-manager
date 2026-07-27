@@ -118,7 +118,7 @@ class SearchApi extends Api {
    * @returns {Promise<{status: string, embedding_service: string, ollama: string}>}
    */
   async getChatHealth() {
-    const response = await this.apiCall("/chat/health");
+    const response = await this.apiCall("/api/platform-keys/ollama/health");
     return response.data;
   }
 
@@ -127,7 +127,7 @@ class SearchApi extends Api {
    * @returns {Promise<{models: Array<{id: string, name?: string, parameter_size?: string, size?: string}>, provider: string}>}
    */
   async listOllamaModels() {
-    const response = await this.apiCall("/chat/models/ollama");
+    const response = await this.apiCall("/api/platform-keys/ollama/models");
     return response.data;
   }
 }
