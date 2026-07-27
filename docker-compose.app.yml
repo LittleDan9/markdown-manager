@@ -94,6 +94,8 @@ services:
       - CLAMAV_PORT=3310
       - CROSS_APP_SECRET=${CROSS_APP_SECRET}
       - TM_BACKEND_URL=${TM_BACKEND_URL:-http://tm-backend:8010}
+      - PLATFORM_AI_URL=${PLATFORM_AI_URL:-http://ai:8020}
+      - PLATFORM_AI_TOKEN=${PLATFORM_AI_TOKEN}
     volumes:
       - document-storage:/documents
     healthcheck:

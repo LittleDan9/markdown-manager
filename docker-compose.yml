@@ -77,6 +77,8 @@ services:
       - CLAMAV_PORT=3310
       - CROSS_APP_SECRET=dev-cross-app-secret-change-in-production
       - TM_BACKEND_URL=http://tm-backend:8010
+      - PLATFORM_AI_URL=http://ai:8020
+      - PLATFORM_AI_TOKEN=dev-platform-ai-token-change-in-production
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
