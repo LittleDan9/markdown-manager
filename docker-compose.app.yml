@@ -96,8 +96,10 @@ services:
       - TM_BACKEND_URL=${TM_BACKEND_URL:-http://tm-backend:8010}
       - PLATFORM_AI_URL=${PLATFORM_AI_URL:-http://ai:8020}
       - PLATFORM_AI_TOKEN=${PLATFORM_AI_TOKEN}
+      - ATTACHMENTS_PATH=/app/attachments
     volumes:
       - document-storage:/documents
+      - ai-attachments:/app/attachments
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -274,6 +276,9 @@ volumes:
     # Named mm-blue-ui-static or mm-green-ui-static by Docker Compose
   document-storage:
     name: shared-document-storage
+    external: true
+  ai-attachments:
+    name: shared-ai-attachments
     external: true
 
 # ==============================================================================
