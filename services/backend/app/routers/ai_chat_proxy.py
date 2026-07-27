@@ -6,9 +6,12 @@ auth headers, and streams the SSE response back to the frontend.
 """
 
 import logging
+import os
+import uuid
+from pathlib import Path
 
 import httpx
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Request, UploadFile, File
 from fastapi.responses import StreamingResponse, JSONResponse
 
 from app.configs import settings
@@ -141,3 +144,51 @@ async def set_preferences_proxy(request: Request, current_user: User = Depends(g
             headers=_headers(current_user),
         )
         return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.post("/attachments/upload")
+async def upload_attachment(
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    """Upload a file attachment — writes to shared volume staging, calls platform AI to process."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+
+    # Write to staging directory on shared volume
+    attachments_path = os.environ.get("ATTACHMENTS_PATH", "/app/attachments")
+    staging_id = str(uuid.uuid4())
+    staging_dir = Path(attachments_path) / "staging" / staging_id
+    staging_dir.mkdir(parents=True, exist_ok=True)
+
+    # Sanitize filename
+    safe_name = Path(file.filename or "upload").name.replace("\x00", "").replace("/", "").replace("\\", "").lstrip(".")[:255]
+    if not safe_name:
+        safe_name = "unnamed_file"
+    staging_file = staging_dir / safe_name
+
+    # Write file
+    content = await file.read()
+    staging_file.write_bytes(content)
+
+    # Call platform AI to process
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(
+                f"{settings.platform_ai_url}/api/chat/attachments/process",
+                json={
+                    "staging_path": str(staging_file),
+                    "original_filename": file.filename or safe_name,
+                    "mime_type": file.content_type or "application/octet-stream",
+                    "user_email": current_user.email,
+                    "is_admin": current_user.is_admin,
+                },
+                headers=_headers(current_user),
+            )
+            if resp.status_code == 200:
+                return resp.json()
+            return JSONResponse(status_code=resp.status_code, content=resp.json())
+    except Exception as e:
+        staging_file.unlink(missing_ok=True)
+        staging_dir.rmdir()
+        return JSONResponse(status_code=502, content={"detail": f"Platform AI unavailable: {e}"})

@@ -161,6 +161,8 @@ function ChatDrawer({ show, onHide }) {
   const [pickerProvider, setPickerProvider] = useState(null); // provider being browsed in popover
   const modelPickerRef = useRef(null);
   const [quotaInfo, setQuotaInfo] = useState(null);
+  const [attachments, setAttachments] = useState([]); // [{file, preview, uploading, id, error}]
+  const fileInputRef = useRef(null);
 
   // Selection context for chat
   const [useSelection, setUseSelection] = useState(true); // auto-include editor selection
@@ -425,6 +427,76 @@ function ChatDrawer({ show, onHide }) {
 
   // Get display model name for the trigger button
   const displayModelName = selectedModel || selectedProvider.model || "";
+
+  // ── Attachment handling ──────────────────────────────────────────────────
+  const handleFileSelect = async (files) => {
+    if (!files || files.length === 0) return;
+    const newAttachments = [];
+    for (const file of Array.from(files)) {
+      const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
+      newAttachments.push({ file, preview, uploading: true, id: null, error: null });
+    }
+    setAttachments(prev => [...prev, ...newAttachments]);
+
+    for (const att of newAttachments) {
+      try {
+        const formData = new FormData();
+        formData.append("file", att.file);
+        const token = searchApi.getToken();
+        const resp = await fetch("/api/ai/attachments/upload", {
+          method: "POST",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+          credentials: "include",
+        });
+        if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+        const data = await resp.json();
+        setAttachments(prev => prev.map(a =>
+          a.file === att.file ? { ...a, uploading: false, id: data.attachment_id } : a
+        ));
+      } catch (err) {
+        setAttachments(prev => prev.map(a =>
+          a.file === att.file ? { ...a, uploading: false, error: err.message } : a
+        ));
+      }
+    }
+  };
+
+  const handleRemoveAttachment = (index) => {
+    setAttachments(prev => {
+      const removed = prev[index];
+      if (removed?.preview) URL.revokeObjectURL(removed.preview);
+      return prev.filter((_, i) => i !== index);
+    });
+  };
+
+  const handlePaste = (e) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    const files = [];
+    for (const item of items) {
+      if (item.kind === "file") {
+        const file = item.getAsFile();
+        if (file) files.push(file);
+      }
+    }
+    if (files.length > 0) {
+      e.preventDefault();
+      handleFileSelect(files);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    handleFileSelect(e.dataTransfer?.files);
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+  // ── End attachment handling ────────────────────────────────────────────────
 
   const handleSend = useCallback(async () => {
     const question = input.trim();
@@ -1433,7 +1505,32 @@ function ChatDrawer({ show, onHide }) {
             </div>
           )}
 
-          <div className="chat-input-row">
+          <div className="chat-input-row" onDrop={handleDrop} onDragOver={handleDragOver}>
+            {/* Attachment previews */}
+            {attachments.length > 0 && (
+              <div className="d-flex flex-wrap gap-1 mb-1 px-1">
+                {attachments.map((att, i) => (
+                  <span key={i} className={`badge ${att.error ? 'bg-danger' : att.uploading ? 'bg-secondary' : 'bg-primary'} d-flex align-items-center gap-1`}>
+                    {att.preview && <img src={att.preview} alt="" style={{ width: 16, height: 16, objectFit: 'cover', borderRadius: 2 }} />}
+                    {att.uploading ? 'Uploading...' : att.error ? 'Error' : att.file.name.slice(0, 20)}
+                    <button type="button" className="btn-close btn-close-white ms-1" style={{ fontSize: '0.5rem' }}
+                      onClick={() => handleRemoveAttachment(i)} disabled={isStreaming} />
+                  </span>
+                ))}
+              </div>
+            )}
+            <input type="file" ref={fileInputRef} hidden multiple
+              accept="image/*,.pdf,.txt,.md,.csv,.json,.py,.js,.ts"
+              onChange={(e) => { handleFileSelect(e.target.files); e.target.value = ''; }} />
+            <button
+              className="btn btn-sm btn-link text-secondary p-1"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isStreaming}
+              title="Attach file"
+              type="button"
+            >
+              <i className="bi bi-paperclip" />
+            </button>
             <textarea
               ref={textareaRef}
               className="chat-textarea"
@@ -1453,6 +1550,7 @@ function ChatDrawer({ show, onHide }) {
                 ta.style.height = Math.min(ta.scrollHeight, 150) + "px";
               }}
               onKeyDown={handleKeyDown}
+              onPaste={handlePaste}
               rows={1}
               disabled={isStreaming}
               aria-label="Chat input"

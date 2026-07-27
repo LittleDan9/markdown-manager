@@ -62,6 +62,7 @@ services:
       - ./services/backend/alembic.ini:/markdown_manager/alembic.ini
       # Volume mount for filesystem-based document storage
       - ./storage:/documents
+      - ai-attachments:/app/attachments
     ports:
       - "8000:8000"
     env_file:
@@ -79,6 +80,7 @@ services:
       - TM_BACKEND_URL=http://tm-backend:8010
       - PLATFORM_AI_URL=http://ai:8020
       - PLATFORM_AI_TOKEN=dev-platform-ai-token-change-in-production
+      - ATTACHMENTS_PATH=/app/attachments
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
@@ -225,6 +227,13 @@ services:
       - shared-services
 
 # ==============================================================================
+# Volumes — shared with Platform Manager
+# ==============================================================================
+volumes:
+  ai-attachments:
+    name: shared-ai-attachments
+    external: true
+
 # Network — shared-services is created/managed by Platform Manager
 # ==============================================================================
 networks:
