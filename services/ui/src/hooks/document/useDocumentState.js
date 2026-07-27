@@ -724,7 +724,12 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
 
   const exportAsPDF = useCallback(async (htmlContent, filename = null, theme = 'light') => {
     try {
-      await DocumentService.exportAsPDF(htmlContent, filename || currentDocument?.name, theme);
+      await DocumentService.exportAsPDF(
+        htmlContent,
+        filename || currentDocument?.name,
+        theme,
+        currentDocument?.image_metadata || null
+      );
     } catch (error) {
       console.error('PDF export failed:', error);
       setError('PDF export failed: ' + (error.message || 'Unknown error'));

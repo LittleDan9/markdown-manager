@@ -514,8 +514,9 @@ class DocumentService {
    * @param {string} htmlContent - Rendered HTML content
    * @param {string} filename - Optional filename
    * @param {string} theme - Theme ('light' or 'dark')
+   * @param {object} imageMetadata - Optional image metadata with annotations
    */
-  async exportAsPDF(htmlContent, filename = null, theme = 'light') {
+  async exportAsPDF(htmlContent, filename = null, theme = 'light', imageMetadata = null) {
     try {
       const documentName = filename || 'document';
       const isDark = theme === 'dark';
@@ -525,7 +526,7 @@ class DocumentService {
       const syntaxCSS = syntaxStyleEl ? syntaxStyleEl.textContent : null;
 
       const DocumentsApi = (await import('@/api/documentsApi')).default;
-      const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDark, syntaxCSS);
+      const pdfBlob = await DocumentsApi.exportAsPDF(htmlContent, documentName, isDark, syntaxCSS, imageMetadata);
 
       const url = window.URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');

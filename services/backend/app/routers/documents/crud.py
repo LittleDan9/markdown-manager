@@ -73,7 +73,8 @@ async def get_document(
             'github_file_path': document.github_file_path,
             'github_sha': document.github_sha,
             'github_sync_status': document.github_sync_status,
-            'last_github_sync_at': document.last_github_sync_at
+            'last_github_sync_at': document.last_github_sync_at,
+            'image_metadata': document.image_metadata,
         }
 
         # Handle GitHub document sync if needed
@@ -690,6 +691,15 @@ async def update_document_image_metadata(
                 "height": float(update.metadata.crop.height),
                 "unit": str(update.metadata.crop.unit)
             }
+        elif update.metadata.crop is None and "crop" not in instance_data:
+            # Explicitly setting crop to None removes it
+            pass
+
+        if update.metadata.annotations is not None:
+            instance_data["annotations"] = update.metadata.annotations
+        elif update.metadata.annotations is None and hasattr(update.metadata, 'annotations'):
+            # Explicitly setting annotations to None removes it
+            instance_data.pop("annotations", None)
 
         if update.metadata.original_dimensions:
             instance_data["original_dimensions"] = dict(update.metadata.original_dimensions)

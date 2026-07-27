@@ -38,10 +38,18 @@ class DocumentsApi extends Api {
     return dataUri;
   }
 
-  async exportAsPDF(htmlContent, documentName, isDarkMode = false, syntaxCSS = null) {
-    // Use the dedicated export service for PDF generation
-    const exportServiceApi = (await import('./exportServiceApi')).default;
-    return await exportServiceApi.exportAsPDF(htmlContent, documentName, isDarkMode, 'stream', syntaxCSS);
+  async exportAsPDF(htmlContent, documentName, isDarkMode = false, syntaxCSS = null, imageMetadata = null) {
+    // Use the MM backend PDF endpoint which handles image embedding + annotation flattening
+    const requestData = {
+      html_content: htmlContent,
+      document_name: documentName,
+      is_dark_mode: isDarkMode,
+    };
+    if (syntaxCSS) requestData.syntax_css = syntaxCSS;
+    if (imageMetadata) requestData.image_metadata = imageMetadata;
+
+    const res = await this.apiCall('/pdf/export', 'POST', requestData, {}, { responseType: 'blob' });
+    return res.data;
   }
 
   async exportAsDocx(htmlContent, documentName, isDarkMode = false) {

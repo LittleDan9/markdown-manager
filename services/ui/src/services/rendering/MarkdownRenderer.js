@@ -215,7 +215,7 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
         class="user-image-container"
         ${lineAttr}
         data-filename="${MarkdownIt().utils.escapeHtml(filename)}"
-        data-features="image-controls,crop-overlay"
+        data-features="image-controls,crop-overlay,annotation-render"
         style="position: relative;"
       >
         <img

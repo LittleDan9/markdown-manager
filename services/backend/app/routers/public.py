@@ -40,6 +40,7 @@ async def get_shared_document(
         "folder_path": document_response.folder_path,
         "updated_at": document_response.updated_at,
         "author_name": document.owner.full_name,
+        "image_metadata": document.image_metadata,
     }
 
     return SharedDocument.model_validate(shared_doc_data)

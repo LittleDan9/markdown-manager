@@ -24,6 +24,7 @@ class PDFExportRequest(BaseModel):
     document_name: str
     is_dark_mode: bool = False
     syntax_css: str | None = None
+    image_metadata: dict | None = None
 
 
 @router.post("/export")
@@ -40,7 +41,7 @@ async def export_pdf(
         # Process images in HTML content for PDF embedding
         try:
             processed_content = await pdf_image_processor.process_html_for_pdf(
-                request.html_content, current_user.id
+                request.html_content, current_user.id, image_metadata=request.image_metadata
             )
             print("Successfully processed images for PDF export")
         except Exception as e:

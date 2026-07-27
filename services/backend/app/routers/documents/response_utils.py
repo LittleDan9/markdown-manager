@@ -97,6 +97,7 @@ async def create_document_response(
         github_sync_status=document.github_sync_status,
         last_github_sync_at=document.last_github_sync_at,
         last_opened_at=document.last_opened_at,  # Add the missing field
+        image_metadata=getattr(document, 'image_metadata', None),
         # Add GitHub repository information if available
         # Safely access github_repository relationship
         github_repository=None,

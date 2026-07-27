@@ -121,6 +121,81 @@ class ImageMetadataService {
 
     return croppedImages;
   }
+
+  /**
+   * Get annotation data for a specific image instance
+   */
+  static getAnnotationData(documentImageMetadata, filename, lineNumber) {
+    if (!documentImageMetadata || !filename) return null;
+
+    const imageData = documentImageMetadata[filename];
+    if (!imageData || !imageData.instances) return null;
+
+    const lineKey = `line_${lineNumber}`;
+    const instance = imageData.instances[lineKey];
+
+    return instance?.annotations || null;
+  }
+
+  /**
+   * Set annotation data for a specific image instance
+   */
+  static setAnnotationData(documentImageMetadata, filename, lineNumber, annotationData) {
+    const metadata = documentImageMetadata || {};
+    const lineKey = `line_${lineNumber}`;
+
+    if (!metadata[filename]) {
+      metadata[filename] = { instances: {} };
+    }
+
+    if (!metadata[filename].instances) {
+      metadata[filename].instances = {};
+    }
+
+    if (!metadata[filename].instances[lineKey]) {
+      metadata[filename].instances[lineKey] = {};
+    }
+
+    metadata[filename].instances[lineKey].annotations = annotationData;
+    metadata[filename].instances[lineKey].last_modified = new Date().toISOString();
+
+    return metadata;
+  }
+
+  /**
+   * Remove annotation data for a specific image instance
+   */
+  static removeAnnotationData(documentImageMetadata, filename, lineNumber) {
+    if (!documentImageMetadata || !filename) return documentImageMetadata;
+
+    const metadata = { ...documentImageMetadata };
+    const lineKey = `line_${lineNumber}`;
+
+    if (metadata[filename]?.instances?.[lineKey]) {
+      delete metadata[filename].instances[lineKey].annotations;
+
+      // Clean up empty structures (only if no crop either)
+      const instance = metadata[filename].instances[lineKey];
+      const hasOtherData = instance.crop || instance.original_dimensions;
+      if (!hasOtherData && Object.keys(instance).filter(k => k !== 'last_modified').length === 0) {
+        delete metadata[filename].instances[lineKey];
+      }
+
+      if (Object.keys(metadata[filename].instances).length === 0) {
+        delete metadata[filename];
+      }
+    }
+
+    return metadata;
+  }
+
+  /**
+   * Check if annotation data exists for a specific image instance
+   */
+  static hasAnnotations(documentImageMetadata, filename, lineNumber) {
+    const data = ImageMetadataService.getAnnotationData(documentImageMetadata, filename, lineNumber);
+    return data !== null && data.shapes && data.shapes.length > 0;
+  }
 }
 
 /**
@@ -271,15 +346,148 @@ export function useImageMetadata() {
     return ImageMetadataService.extractFilename(src);
   }, []);
 
+  /**
+   * Get annotation data for a specific image instance
+   */
+  const getAnnotationData = useCallback((filename, lineNumber) => {
+    return ImageMetadataService.getAnnotationData(
+      currentDocument?.image_metadata,
+      filename,
+      lineNumber
+    );
+  }, [currentDocument?.image_metadata]);
+
+  /**
+   * Check if an image instance has annotations
+   */
+  const hasAnnotations = useCallback((filename, lineNumber) => {
+    return ImageMetadataService.hasAnnotations(
+      currentDocument?.image_metadata,
+      filename,
+      lineNumber
+    );
+  }, [currentDocument?.image_metadata]);
+
+  /**
+   * Update annotation data for a specific image instance
+   */
+  const updateAnnotationData = useCallback(async (filename, lineNumber, annotationData) => {
+    if (!currentDocument?.id) {
+      showError('No document selected');
+      return false;
+    }
+
+    try {
+      setSaving(true);
+
+      // Update local metadata
+      const updatedMetadata = ImageMetadataService.setAnnotationData(
+        currentDocument.image_metadata || {},
+        filename,
+        lineNumber,
+        annotationData
+      );
+
+      // Update document locally first for immediate UI feedback
+      setCurrentDocument({
+        ...currentDocument,
+        image_metadata: updatedMetadata
+      });
+
+      // Save to backend
+      const updatePayload = {
+        updates: [{
+          filename,
+          line_number: lineNumber,
+          metadata: {
+            annotations: annotationData,
+            last_modified: new Date().toISOString()
+          }
+        }]
+      };
+
+      await documentsApi.updateImageMetadata(currentDocument.id, updatePayload);
+
+      showSuccess('Annotations saved');
+      return true;
+    } catch (error) {
+      console.error('Failed to update annotation data:', error);
+      showError('Failed to save annotations: ' + (error.message || 'Unknown error'));
+
+      // Revert local changes on error
+      setCurrentDocument(currentDocument);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [currentDocument, setCurrentDocument, showSuccess, showError]);
+
+  /**
+   * Remove annotation data for a specific image instance
+   */
+  const removeAnnotationData = useCallback(async (filename, lineNumber) => {
+    if (!currentDocument?.id) {
+      showError('No document selected');
+      return false;
+    }
+
+    try {
+      setSaving(true);
+
+      // Update local metadata
+      const updatedMetadata = ImageMetadataService.removeAnnotationData(
+        currentDocument.image_metadata || {},
+        filename,
+        lineNumber
+      );
+
+      // Update document locally first for immediate UI feedback
+      setCurrentDocument({
+        ...currentDocument,
+        image_metadata: updatedMetadata
+      });
+
+      // Save to backend
+      const updatePayload = {
+        updates: [{
+          filename,
+          line_number: lineNumber,
+          metadata: {
+            annotations: null,
+            last_modified: new Date().toISOString()
+          }
+        }]
+      };
+
+      await documentsApi.updateImageMetadata(currentDocument.id, updatePayload);
+
+      showSuccess('Annotations removed');
+      return true;
+    } catch (error) {
+      console.error('Failed to remove annotation data:', error);
+      showError('Failed to remove annotations: ' + (error.message || 'Unknown error'));
+
+      // Revert local changes on error
+      setCurrentDocument(currentDocument);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  }, [currentDocument, setCurrentDocument, showSuccess, showError]);
+
   return {
     // Data accessors
     getCropData,
     getCroppedImages,
     extractFilename,
+    getAnnotationData,
+    hasAnnotations,
 
     // Actions
     updateCropData,
     removeCropData,
+    updateAnnotationData,
+    removeAnnotationData,
 
     // State
     saving,

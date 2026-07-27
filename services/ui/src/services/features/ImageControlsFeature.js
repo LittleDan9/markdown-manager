@@ -23,7 +23,7 @@ export const ImageControlsFeature = {
     }
 
     const filename = element.dataset.filename;
-    const lineNumber = element.dataset.lineNumber || '1';
+    const lineNumber = parseInt(element.dataset.lineNumber, 10) || 1;
 
     if (!filename) {
       console.warn('No filename found for image controls');
@@ -38,6 +38,28 @@ export const ImageControlsFeature = {
 
     // Apply hover styling
     this.applyHoverStyling();
+
+    // Add tap-to-show for touch devices (no hover)
+    // Remove existing handler if re-initialized
+    if (element._touchHandler) {
+      element.removeEventListener('touchstart', element._touchHandler);
+    }
+
+    const handleTouchStart = (e) => {
+      // Only toggle on single tap on the image itself (not on control buttons)
+      if (e.target.closest('.image-hover-controls')) return;
+
+      // Toggle controls visibility
+      const isVisible = element.classList.contains('controls-visible');
+      // Hide all other open controls first
+      document.querySelectorAll('.user-image-container.controls-visible').forEach((el) => {
+        if (el !== element) el.classList.remove('controls-visible');
+      });
+      element.classList.toggle('controls-visible', !isVisible);
+    };
+
+    element.addEventListener('touchstart', handleTouchStart, { passive: true });
+    element._touchHandler = handleTouchStart;
 
     console.log('✅ Image controls initialized for:', filename);
   },
@@ -96,6 +118,23 @@ export const ImageControlsFeature = {
             color: #333;
           "
         >⛶</button>
+        <button
+          class="image-control-btn annotate-btn"
+          title="Annotate image"
+          onclick="window.handleImageControl && window.handleImageControl('annotate', '${safeFilename}', ${lineNumber})"
+          style="
+            width: 24px;
+            height: 24px;
+            padding: 0;
+            font-size: 12px;
+            border: none;
+            border-radius: 3px;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            background: rgba(255, 255, 255, 0.9);
+            color: #333;
+          "
+        >✏</button>
       </div>
     `;
   },
@@ -117,6 +156,11 @@ export const ImageControlsFeature = {
         display: flex !important;
       }
 
+      /* Touch: show controls on tap (toggle via JS class) */
+      .user-image-container.controls-visible .image-hover-controls {
+        display: flex !important;
+      }
+
       .image-control-btn:hover {
         transform: scale(1.1) !important;
         background: rgba(255, 255, 255, 1) !important;
@@ -130,6 +174,19 @@ export const ImageControlsFeature = {
 
       [data-bs-theme="dark"] .image-control-btn:hover {
         background: rgba(0, 0, 0, 0.9) !important;
+      }
+
+      /* Mobile: larger touch targets */
+      @media (max-width: 576px) {
+        .image-hover-controls {
+          gap: 6px !important;
+          padding: 6px !important;
+        }
+        .image-control-btn {
+          width: 36px !important;
+          height: 36px !important;
+          font-size: 16px !important;
+        }
       }
     `;
 
@@ -154,6 +211,11 @@ export const ImageControlsFeature = {
     if (controls) {
       controls.remove();
     }
+    if (element._touchHandler) {
+      element.removeEventListener('touchstart', element._touchHandler);
+      delete element._touchHandler;
+    }
+    element.classList.remove('controls-visible');
   }
 };
 

@@ -74,6 +74,7 @@ class DocumentInDB(DocumentBase):
     is_shared: bool = False
     share_token: Optional[str] = None
     category: Optional[str] = None  # This will be populated by the CRUD layer
+    image_metadata: Optional[Dict[str, Any]] = None
 
     # NEW: Folder-based fields
     folder_path: str = Field(default="/", description="Hierarchical folder path")
@@ -158,6 +159,7 @@ class SharedDocument(BaseModel):
     folder_path: str = Field(default="/", description="Folder path")
     updated_at: datetime
     author_name: str
+    image_metadata: Optional[Dict[str, Any]] = None
 
     model_config = ConfigDict(from_attributes=True)
 
@@ -282,6 +284,7 @@ class ImageInstanceMetadata(BaseModel):
     """Schema for metadata of a specific image instance in the document."""
 
     crop: Optional[ImageCropData] = None
+    annotations: Optional[Dict] = Field(None, description="Annotation shapes data (version, shapes array)")
     original_dimensions: Optional[Dict[str, int]] = Field(None, description="Original image dimensions")
     last_modified: Optional[datetime] = None
 

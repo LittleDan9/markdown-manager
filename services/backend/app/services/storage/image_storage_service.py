@@ -546,3 +546,147 @@ class ImageStorageService:
                 return True
         
         return False
+
+    def _get_annotation_font(self, font_size: int):
+        """Get a TrueType font for annotation text rendering with platform-aware fallbacks."""
+        from PIL import ImageFont
+
+        font_paths = [
+            # Linux (Docker containers)
+            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+            "/usr/share/fonts/TTF/DejaVuSans.ttf",
+            # macOS
+            "/System/Library/Fonts/Helvetica.ttc",
+            "/Library/Fonts/Arial.ttf",
+            # Windows
+            "C:\\Windows\\Fonts\\arial.ttf",
+            "C:\\Windows\\Fonts\\segoeui.ttf",
+        ]
+
+        for path in font_paths:
+            try:
+                return ImageFont.truetype(path, font_size)
+            except (OSError, IOError):
+                continue
+
+        # Final fallback
+        try:
+            return ImageFont.load_default(size=font_size)
+        except TypeError:
+            # Older Pillow doesn't support size parameter
+            return ImageFont.load_default()
+
+    async def flatten_annotations(self, image_data: bytes, annotations: Dict[str, Any]) -> bytes:
+        """
+        Flatten annotation shapes onto an image copy using Pillow.
+
+        All annotation coordinates are percentages (0-100) relative to image dimensions.
+
+        Args:
+            image_data: Raw image bytes
+            annotations: Annotation data dict with { version, shapes: [...] }
+
+        Returns:
+            Flattened image bytes (PNG format for quality)
+        """
+        from PIL import ImageDraw, ImageFont
+        import math
+
+        shapes = annotations.get("shapes", [])
+        if not shapes:
+            return image_data
+
+        def _do_flatten():
+            img = Image.open(io.BytesIO(image_data)).convert("RGBA")
+            width, height = img.size
+
+            # Create transparent overlay for annotations
+            overlay = Image.new("RGBA", (width, height), (0, 0, 0, 0))
+            draw = ImageDraw.Draw(overlay)
+
+            def to_px_x(pct):
+                return int((pct / 100) * width)
+
+            def to_px_y(pct):
+                return int((pct / 100) * height)
+
+            def parse_color(color_str, opacity=1.0):
+                """Parse hex color string to RGBA tuple."""
+                if not color_str or color_str == "transparent":
+                    return None
+                color_str = color_str.lstrip("#")
+                if len(color_str) == 6:
+                    r, g, b = int(color_str[0:2], 16), int(color_str[2:4], 16), int(color_str[4:6], 16)
+                    return (r, g, b, int(255 * opacity))
+                return (255, 0, 0, int(255 * opacity))
+
+            for shape in shapes:
+                shape_type = shape.get("type")
+                stroke_color = parse_color(shape.get("stroke", "#ff0000"), shape.get("opacity", 1.0))
+                fill_color = parse_color(shape.get("fill"), shape.get("opacity", 1.0))
+                stroke_width = max(1, int(shape.get("strokeWidth", 2)))
+
+                if shape_type == "arrow":
+                    points = shape.get("points", [])
+                    if len(points) >= 4:
+                        x1, y1 = to_px_x(points[0]), to_px_y(points[1])
+                        x2, y2 = to_px_x(points[2]), to_px_y(points[3])
+                        draw.line([(x1, y1), (x2, y2)], fill=stroke_color, width=stroke_width)
+
+                        # Arrowhead
+                        head_len = stroke_width * 4
+                        angle = math.atan2(y2 - y1, x2 - x1)
+                        p1 = (x2 - head_len * math.cos(angle - math.pi / 6),
+                               y2 - head_len * math.sin(angle - math.pi / 6))
+                        p2 = (x2 - head_len * math.cos(angle + math.pi / 6),
+                               y2 - head_len * math.sin(angle + math.pi / 6))
+                        draw.polygon([(x2, y2), p1, p2], fill=stroke_color)
+
+                elif shape_type == "rect":
+                    x = to_px_x(shape.get("x", 0))
+                    y = to_px_y(shape.get("y", 0))
+                    w = to_px_x(shape.get("width", 0))
+                    h = to_px_y(shape.get("height", 0))
+                    if fill_color:
+                        draw.rectangle([(x, y), (x + w, y + h)], fill=fill_color, outline=stroke_color, width=stroke_width)
+                    else:
+                        draw.rectangle([(x, y), (x + w, y + h)], outline=stroke_color, width=stroke_width)
+
+                elif shape_type == "ellipse":
+                    cx = to_px_x(shape.get("x", 0))
+                    cy = to_px_y(shape.get("y", 0))
+                    rx = to_px_x(shape.get("radiusX", 0))
+                    ry = to_px_y(shape.get("radiusY", 0))
+                    bbox = [(cx - rx, cy - ry), (cx + rx, cy + ry)]
+                    if fill_color:
+                        draw.ellipse(bbox, fill=fill_color, outline=stroke_color, width=stroke_width)
+                    else:
+                        draw.ellipse(bbox, outline=stroke_color, width=stroke_width)
+
+                elif shape_type == "line":
+                    points = shape.get("points", [])
+                    if len(points) >= 4:
+                        px_points = [(to_px_x(points[i]), to_px_y(points[i + 1]))
+                                     for i in range(0, len(points), 2)]
+                        draw.line(px_points, fill=stroke_color, width=stroke_width, joint="curve")
+
+                elif shape_type == "text":
+                    x = to_px_x(shape.get("x", 0))
+                    y = to_px_y(shape.get("y", 0))
+                    text = shape.get("text", "")
+                    font_size = shape.get("fontSize", 16)
+                    text_color = parse_color(shape.get("fill") or shape.get("stroke", "#ff0000"),
+                                             shape.get("opacity", 1.0))
+                    font = self._get_annotation_font(font_size)
+                    draw.text((x, y), text, fill=text_color, font=font)
+
+            # Composite overlay onto original
+            result = Image.alpha_composite(img, overlay)
+
+            output = io.BytesIO()
+            result.save(output, format="PNG")
+            return output.getvalue()
+
+        # Run in thread pool to avoid blocking
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(None, _do_flatten)

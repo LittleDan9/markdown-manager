@@ -4,18 +4,21 @@
  * Replaces ImageManager with a modular feature-based approach.
  * Handles feature registration, initialization, and coordinates between features.
  */
-import React, { useEffect, useRef, useCallback } from 'react';
+import React, { useEffect, useRef, useCallback, useState } from 'react';
 import { Modal } from 'react-bootstrap';
 import { useImageMetadata } from '../../services/image/ImageMetadataService';
 import { useRendererContext } from '../renderer/RendererContext';
 import { applyCropStyles, getDefaultCropData } from '../renderer/utils/cropUtils';
+import AnnotationEditor from '../image/AnnotationEditor';
 
 // Feature system imports
-import { initializeFeatures, cleanupFeatures } from '../../services/features/FeatureRegistry';
+import { registerFeature, initializeFeatures, cleanupFeatures } from '../../services/features/FeatureRegistry';
 import { CropOverlayFeature } from '../../services/features/CropOverlayFeature';
+import { ImageControlsFeature } from '../../services/features/ImageControlsFeature';
+import { AnnotationRenderFeature } from '../../services/features/AnnotationRenderFeature';
 
 const FeatureManager = () => {
-  const { getCropData, updateCropData } = useImageMetadata();
+  const { getCropData, updateCropData, getAnnotationData, updateAnnotationData } = useImageMetadata();
   const {
     previewScrollRef,
     previewHTML,
@@ -29,7 +32,11 @@ const FeatureManager = () => {
   } = useRendererContext();
 
   // Track initialization
-  const isInitialized = useRef(false);
+  const featuresRegistered = useRef(false);
+
+  // Annotation editor state
+  const [showAnnotationEditor, setShowAnnotationEditor] = useState(false);
+  const [annotationTarget, setAnnotationTarget] = useState(null);
 
   /**
    * Handle crop button click
@@ -115,6 +122,36 @@ const FeatureManager = () => {
   }, [exitCropMode]);
 
   /**
+   * Handle annotate button click - opens annotation editor modal
+   */
+  const handleAnnotateAction = useCallback((img, filename, lineNumber) => {
+    console.log('✏️ Opening annotation editor for:', filename);
+
+    const existingData = getAnnotationData(filename, lineNumber);
+
+    setAnnotationTarget({
+      filename,
+      lineNumber,
+      imageSrc: img.src,
+      annotationData: existingData,
+    });
+    setShowAnnotationEditor(true);
+  }, [getAnnotationData]);
+
+  /**
+   * Handle annotation save from editor
+   */
+  const handleAnnotationSave = useCallback(async (annotationData) => {
+    if (!annotationTarget) return;
+
+    const { filename, lineNumber } = annotationTarget;
+    await updateAnnotationData(filename, lineNumber, annotationData);
+
+    setShowAnnotationEditor(false);
+    setAnnotationTarget(null);
+  }, [annotationTarget, updateAnnotationData]);
+
+  /**
    * Global handler for all image control actions
    */
   const handleImageControl = useCallback((action, filename, lineNumber) => {
@@ -147,16 +184,31 @@ const FeatureManager = () => {
       case 'crop-cancel':
         handleCropCancelAction(container, filename);
         break;
+      case 'annotate':
+        handleAnnotateAction(img, filename, lineNumber);
+        break;
       default:
         console.warn('Unknown action:', action);
     }
-  }, [previewScrollRef, handleCropAction, handleExpandAction, handleCropSaveAction, handleCropCancelAction]);
+  }, [previewScrollRef, handleCropAction, handleExpandAction, handleCropSaveAction, handleCropCancelAction, handleAnnotateAction]);
+
+  /**
+   * Register features once on mount
+   */
+  useEffect(() => {
+    if (!featuresRegistered.current) {
+      registerFeature('image-controls', ImageControlsFeature);
+      registerFeature('crop-overlay', CropOverlayFeature);
+      registerFeature('annotation-render', AnnotationRenderFeature);
+      featuresRegistered.current = true;
+    }
+  }, []);
 
   /**
    * Set up global handler and initialize features when content changes
    */
   useEffect(() => {
-    if (previewHTML && previewScrollRef.current && !isRendering && isInitialized.current) {
+    if (previewHTML && previewScrollRef.current && !isRendering && featuresRegistered.current) {
       console.log('🚀 Initializing features for new content');
 
       // Set up global handler
@@ -167,7 +219,8 @@ const FeatureManager = () => {
         getCropData,
         updateCropData,
         applyCropStyles,
-        getDefaultCropData
+        getDefaultCropData,
+        getAnnotationData,
       };
 
       // Clean up any existing features first
@@ -180,7 +233,7 @@ const FeatureManager = () => {
         }
       }, 100);
     }
-  }, [previewHTML, isRendering, getCropData, handleImageControl, previewScrollRef, updateCropData]);
+  }, [previewHTML, isRendering, getCropData, getAnnotationData, handleImageControl, previewScrollRef, updateCropData]);
 
   /**
    * Cleanup on unmount
@@ -252,6 +305,15 @@ const FeatureManager = () => {
           </div>
         </Modal.Footer>
       </Modal>
+
+      {/* Annotation editor modal */}
+      <AnnotationEditor
+        show={showAnnotationEditor}
+        onHide={() => { setShowAnnotationEditor(false); setAnnotationTarget(null); }}
+        imageSrc={annotationTarget?.imageSrc}
+        annotationData={annotationTarget?.annotationData}
+        onSave={handleAnnotationSave}
+      />
     </>
   );
 };
