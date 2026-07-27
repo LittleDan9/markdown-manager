@@ -160,6 +160,7 @@ function ChatDrawer({ show, onHide }) {
   const [modelFilter, setModelFilter] = useState("");
   const [pickerProvider, setPickerProvider] = useState(null); // provider being browsed in popover
   const modelPickerRef = useRef(null);
+  const [quotaInfo, setQuotaInfo] = useState(null);
 
   // Selection context for chat
   const [useSelection, setUseSelection] = useState(true); // auto-include editor selection
@@ -194,9 +195,17 @@ function ChatDrawer({ show, onHide }) {
     }
   }, [show, chatHelpMode, setChatHelpMode]);
 
-  // Load conversation list when drawer opens
+  // Load conversation list and quota when drawer opens
   useEffect(() => {
-    if (show) history.loadConversations();
+    if (show) {
+      history.loadConversations();
+      // Fetch quota status
+      const token = searchApi.getToken();
+      fetch('/api/ai/usage/quota', { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' })
+        .then(r => r.ok ? r.json() : null)
+        .then(data => { if (data) setQuotaInfo(data); })
+        .catch(() => {});
+    }
   }, [show]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Restore the persisted active conversation when drawer opens with no messages loaded
@@ -929,6 +938,12 @@ function ChatDrawer({ show, onHide }) {
         <Offcanvas.Title className="chat-drawer-title">
           <i className="bi bi-chat-dots-fill" />
           Ask Your Documents
+          {quotaInfo && !quotaInfo.is_exempt && quotaInfo.daily_limit > 0 && (() => {
+            const pct = Math.round((quotaInfo.daily_used / quotaInfo.daily_limit) * 100);
+            if (pct >= 100) return <span className="badge bg-danger ms-2">Quota exceeded</span>;
+            if (pct >= 80) return <span className="badge bg-warning text-dark ms-2">{pct}% used</span>;
+            return null;
+          })()}
           <div className="chat-header-actions ms-auto">
             <button
               className="btn btn-sm btn-link text-secondary p-0"
