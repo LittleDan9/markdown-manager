@@ -36,14 +36,13 @@ def _headers(user: User) -> dict:
 async def chat_proxy(request: Request, current_user: User = Depends(get_current_user)):
     """Proxy AI chat to Platform AI service (SSE streaming).
 
-    Accepts the same body as the platform AI /api/chat/ask endpoint.
-    Injects app_id and forwards with auth headers.
+    Frontend sends platform format directly: {messages, scope, scope_metadata, provider, key_id, model, ...}
+    Backend injects app_id + auth headers and streams through.
     """
     if not _is_configured():
         return JSONResponse(status_code=503, content={"detail": "AI chat unavailable — platform AI not configured"})
 
     body = await request.json()
-    # Inject app_id
     body["app_id"] = "markdown-manager"
 
     async def stream_from_platform():
