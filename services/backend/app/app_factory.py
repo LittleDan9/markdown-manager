@@ -326,6 +326,9 @@ def setup_routers(app: FastAPI) -> None:
     from app.routers import ai_keys_proxy
     app.include_router(ai_keys_proxy.router)  # /api/platform-keys/* (proxy to platform AI)
 
+    from app.routers import ai_chat_proxy
+    app.include_router(ai_chat_proxy.router)  # /api/ai/chat, /api/ai/usage, /api/ai/preferences
+
     from app.routers import help as help_router
     app.include_router(help_router.router)  # /help/topics
     from app.routers import analytics
