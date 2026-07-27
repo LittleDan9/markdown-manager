@@ -214,3 +214,108 @@ async def get_attachment_proxy(attachment_id: str, current_user: User = Depends(
         if content_disp:
             headers["Content-Disposition"] = content_disp
         return SR(content=iter([resp.content]), media_type=content_type, headers=headers)
+
+
+# ── Conversation proxy endpoints ─────────────────────────────────────────────
+
+@router.get("/conversations")
+async def list_conversations_proxy(request: Request, current_user: User = Depends(get_current_user)):
+    """Proxy conversation listing from Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    params = dict(request.query_params)
+    params["app_id"] = "markdown-manager"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{settings.platform_ai_url}/api/conversations",
+            params=params,
+            headers=_headers(current_user),
+        )
+        return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.post("/conversations")
+async def create_conversation_proxy(request: Request, current_user: User = Depends(get_current_user)):
+    """Proxy conversation creation to Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    body = await request.json()
+    body["app_id"] = "markdown-manager"
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{settings.platform_ai_url}/api/conversations",
+            json=body,
+            headers=_headers(current_user),
+        )
+        return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.get("/conversations/{conversation_id}")
+async def get_conversation_proxy(conversation_id: str, current_user: User = Depends(get_current_user)):
+    """Proxy get conversation from Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.get(
+            f"{settings.platform_ai_url}/api/conversations/{conversation_id}",
+            headers=_headers(current_user),
+        )
+        return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.put("/conversations/{conversation_id}")
+async def update_conversation_proxy(conversation_id: str, request: Request, current_user: User = Depends(get_current_user)):
+    """Proxy conversation update to Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.put(
+            f"{settings.platform_ai_url}/api/conversations/{conversation_id}",
+            json=body,
+            headers=_headers(current_user),
+        )
+        return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.delete("/conversations/{conversation_id}")
+async def delete_conversation_proxy(conversation_id: str, current_user: User = Depends(get_current_user)):
+    """Proxy conversation deletion to Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.delete(
+            f"{settings.platform_ai_url}/api/conversations/{conversation_id}",
+            headers=_headers(current_user),
+        )
+        if resp.status_code == 204:
+            return JSONResponse(status_code=204, content=None)
+        return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.post("/conversations/{conversation_id}/messages")
+async def add_message_proxy(conversation_id: str, request: Request, current_user: User = Depends(get_current_user)):
+    """Proxy add message to Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        resp = await client.post(
+            f"{settings.platform_ai_url}/api/conversations/{conversation_id}/messages",
+            json=body,
+            headers=_headers(current_user),
+        )
+        return JSONResponse(status_code=resp.status_code, content=resp.json())
+
+
+@router.post("/conversations/{conversation_id}/generate-title")
+async def generate_title_proxy(conversation_id: str, current_user: User = Depends(get_current_user)):
+    """Proxy title generation to Platform AI service."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        resp = await client.post(
+            f"{settings.platform_ai_url}/api/conversations/{conversation_id}/generate-title",
+            headers=_headers(current_user),
+        )
+        return JSONResponse(status_code=resp.status_code, content=resp.json())

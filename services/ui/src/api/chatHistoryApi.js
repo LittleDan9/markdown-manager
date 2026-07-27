@@ -2,7 +2,7 @@ import { Api } from "./api";
 
 class ChatHistoryApi extends Api {
   async createConversation(provider, scope, documentId) {
-    const response = await this.apiCall("/chat/conversations/", "POST", {
+    const response = await this.apiCall("/api/ai/conversations/", "POST", {
       provider: provider || null,
       scope: scope || null,
       document_id: documentId || null,
@@ -12,18 +12,18 @@ class ChatHistoryApi extends Api {
 
   async getConversations(limit = 50, offset = 0) {
     const params = new URLSearchParams({ limit, offset });
-    const response = await this.apiCall(`/chat/conversations/?${params}`);
+    const response = await this.apiCall(`/api/ai/conversations/?${params}`);
     return response.data;
   }
 
   async getConversation(conversationId) {
-    const response = await this.apiCall(`/chat/conversations/${conversationId}`);
+    const response = await this.apiCall(`/api/ai/conversations/${conversationId}`);
     return response.data;
   }
 
   async updateConversation(conversationId, { title }) {
     const response = await this.apiCall(
-      `/chat/conversations/${conversationId}`,
+      `/api/ai/conversations/${conversationId}`,
       "PUT",
       { title }
     );
@@ -31,12 +31,12 @@ class ChatHistoryApi extends Api {
   }
 
   async deleteConversation(conversationId) {
-    await this.apiCall(`/chat/conversations/${conversationId}`, "DELETE");
+    await this.apiCall(`/api/ai/conversations/${conversationId}`, "DELETE");
   }
 
   async addMessage(conversationId, role, content, metadataJson = null) {
     const response = await this.apiCall(
-      `/chat/conversations/${conversationId}/messages`,
+      `/api/ai/conversations/${conversationId}/messages`,
       "POST",
       { role, content, metadata_json: metadataJson }
     );
@@ -45,7 +45,7 @@ class ChatHistoryApi extends Api {
 
   async generateTitle(conversationId, provider = null) {
     const response = await this.apiCall(
-      `/chat/conversations/${conversationId}/generate-title`,
+      `/api/ai/conversations/${conversationId}/generate-title`,
       "POST",
       { provider: provider || null }
     );
