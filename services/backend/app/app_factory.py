@@ -100,6 +100,9 @@ def _create_lifespan():
         from app.services.ai_usage_publisher import usage_publish_loop
         _usage_task = asyncio.create_task(usage_publish_loop())
 
+        # Register with Platform AI service (non-blocking, retry with backoff)
+        asyncio.create_task(_register_with_platform_ai())
+
         yield
 
         # Shutdown: notify connected clients about maintenance
@@ -158,6 +161,59 @@ async def _run_event_consumer():
         pass
     except Exception as exc:
         logger.error("Event consumer crashed: %s", exc)
+
+
+async def _register_with_platform_ai():
+    """Background task: register agents with Platform AI service (retry with backoff)."""
+    import asyncio
+    import httpx
+
+    platform_url = getattr(settings, "platform_ai_url", "")
+    platform_token = getattr(settings, "platform_ai_token", "")
+    if not platform_url or not platform_token:
+        logger.info("Platform AI URL/token not configured, skipping registration")
+        return
+
+    # Get tool definitions from internal_ai module
+    from app.routers.internal_ai import _get_mm_tools
+
+    registration = {
+        "app_id": "markdown-manager",
+        "agents": [{
+            "name": "document_assistant",
+            "description": "Tools for searching and retrieving markdown documents",
+            "tools": _get_mm_tools(),
+            "callback_url": "http://mm-backend:8000/api/internal/ai-tools/execute",
+        }],
+        "context_provider": {
+            "url": "http://mm-backend:8000/api/internal/ai-context",
+            "scopes": ["all", "current", "help"],
+        },
+    }
+
+    headers = {
+        "X-Platform-AI-Token": platform_token,
+        "X-User-Email": "system@markdown-manager",
+        "Content-Type": "application/json",
+    }
+
+    backoff = [5, 10, 20, 40, 60]
+    for attempt, wait in enumerate(backoff):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(
+                    f"{platform_url}/api/agents/register",
+                    json=registration,
+                    headers=headers,
+                )
+                if resp.status_code == 200:
+                    logger.info("Registered with Platform AI service (attempt %d)", attempt + 1)
+                    return
+                logger.warning("Platform AI registration returned %d (attempt %d)", resp.status_code, attempt + 1)
+        except Exception as exc:
+            logger.warning("Platform AI registration failed (attempt %d): %s", attempt + 1, exc)
+        await asyncio.sleep(wait)
+    logger.warning("Platform AI registration failed after %d attempts", len(backoff))
 
 
 def setup_middleware(app: FastAPI) -> None:
@@ -263,6 +319,9 @@ def setup_routers(app: FastAPI) -> None:
 
     from app.routers import ai_usage
     app.include_router(ai_usage.router)  # /api/ai-usage/*
+
+    from app.routers import internal_ai
+    app.include_router(internal_ai.router)  # /api/internal/ai-tools/execute, /api/internal/ai-context
 
     from app.routers import help as help_router
     app.include_router(help_router.router)  # /help/topics

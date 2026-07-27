@@ -106,6 +106,14 @@ class Settings(BaseSettings):
         default="redis://redis:6379", description="Redis connection URL"
     )
 
+    # Platform AI service (centralized AI chat)
+    platform_ai_url: str = Field(
+        default="", description="Platform AI service URL (e.g. http://ai:8020)"
+    )
+    platform_ai_token: str = Field(
+        default="", description="Platform AI service authentication token"
+    )
+
     # Export Service configuration
     export_service_url: str = Field(
         default="http://export:8001", description="Export service URL"
