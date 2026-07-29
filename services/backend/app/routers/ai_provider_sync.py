@@ -15,7 +15,7 @@ from app.services.tm_client import tm_client
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/ai-provider-sync", tags=["ai-provider-sync"])
+router = APIRouter(prefix="/ai-provider-sync", tags=["ai-provider-sync"])
 
 
 class ImportRequest(BaseModel):

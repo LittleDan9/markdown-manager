@@ -19,7 +19,7 @@ from app.core.auth import get_current_user
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/ai", tags=["ai-platform"])
+router = APIRouter(prefix="/ai", tags=["ai-platform"])
 
 
 def _is_configured() -> bool:

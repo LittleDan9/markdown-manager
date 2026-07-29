@@ -14,7 +14,7 @@ from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/ai-usage", tags=["ai-usage"])
+router = APIRouter(prefix="/ai-usage", tags=["ai-usage"])
 
 
 @router.get("/stats")
