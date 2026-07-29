@@ -467,14 +467,27 @@ function ChatDrawer({ show, onHide }) {
       try {
         const formData = new FormData();
         formData.append("file", att.file);
-        const token = searchApi.getToken();
-        const resp = await fetch("/api/ai/attachments/upload", {
+        let token = searchApi.getToken();
+        let resp = await fetch("/api/ai/attachments/upload", {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: formData,
           credentials: "include",
         });
-        if (!resp.ok) throw new Error(`Upload failed: ${resp.status}`);
+        // Retry with refreshed token on 401
+        if (resp.status === 401) {
+          token = await searchApi.refreshAccessToken();
+          resp = await fetch("/api/ai/attachments/upload", {
+            method: "POST",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+            body: formData,
+            credentials: "include",
+          });
+        }
+        if (!resp.ok) {
+          const errBody = await resp.json().catch(() => ({}));
+          throw new Error(errBody.detail || `Upload failed: ${resp.status}`);
+        }
         const data = await resp.json();
         setAttachments(prev => prev.map(a =>
           a.file === att.file ? { ...a, uploading: false, id: data.attachment_id } : a
