@@ -228,6 +228,24 @@ Key targets in the root `Makefile`:
 | `make sync-locks` | Sync npm/poetry lock files before deploy |
 | `make setup-ansible` | Install Ansible and dependencies |
 
+### Choosing the Right Deploy Target
+
+> **Default to `make deploy-update`** for routine deployments. Only use `make deploy` when host nginx changes are required.
+
+| Scenario | Target | Why |
+|----------|--------|-----|
+| Backend code changes | `make deploy-update` | No nginx changes needed |
+| Frontend code changes | `make deploy-update` | UI is rebuilt inside Docker |
+| New API endpoints | `make deploy-update` | Container nginx handles `/api/` routing |
+| Database migrations | `make deploy-update` | Migrations run in backend entrypoint |
+| Dependency updates | `make deploy-update` | Rebuilt during Docker build |
+| Host nginx config changes (TLS, rate limits, security headers) | `make deploy` or `make deploy-nginx` | Requires sudo for host nginx reload |
+| First-time server setup | `make deploy` | Needs bootstrap + nginx roles |
+
+**Key difference**: `make deploy` runs the full Ansible playbook including the `nginx_host` role, which requires **sudo credentials** (`-K` flag prompts for password). `make deploy-update` runs only the `deploy` tag (blue/green swap) and does **not** require sudo — it completes non-interactively.
+
+When suggesting or running deployments, **always prefer `make deploy-update`** unless the change specifically involves files in `deployment/roles/nginx_host/` or host-level nginx configuration.
+
 ## Backup & Restore
 
 ### Database Backup
