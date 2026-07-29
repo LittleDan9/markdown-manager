@@ -13,7 +13,7 @@ class ChatHistoryApi extends Api {
   async getConversations(limit = 50, offset = 0) {
     const params = new URLSearchParams({ limit, offset });
     const response = await this.apiCall(`/ai/conversations?${params}`);
-    return response.data;
+    const body = response.data; return body?.conversations || [];
   }
 
   async getConversation(conversationId) {
