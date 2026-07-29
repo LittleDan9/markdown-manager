@@ -258,20 +258,30 @@ async def _tool_get_document_summary(db, user, args: dict) -> dict:
 
 async def _build_single_doc_context(db, user, document_id, deep_think, selection_text):
     """Build context from a single document."""
-    from app.services.unified_document import unified_document_service
+    from app.crud.document import document as document_crud
+    from app.services.storage.user_storage import UserStorage
 
-    try:
-        doc_data = await unified_document_service.get_document_with_content(
-            db, document_id, user.id
-        )
-    except (ValueError, Exception):
+    doc = await document_crud.get(db, document_id)
+    if not doc or doc.user_id != user.id:
         return []
 
-    content = doc_data.get("content", "")
-    if not deep_think and len(content) > 2000:
-        content = extract_summary("", content, max_chars=2000)
+    # Read content from filesystem
+    content = ""
+    if doc.file_path:
+        try:
+            storage = UserStorage()
+            content = await storage.read_document(user_id=user.id, file_path=doc.file_path)
+        except Exception:
+            pass
 
-    ctx = {"title": doc_data.get("name", ""), "content": content}
+    if not content:
+        return []
+
+    if not deep_think and len(content) > 4000:
+        content = extract_summary("", content, max_chars=4000)
+
+    title = doc.name or ""
+    ctx = {"title": title, "content": content}
     if selection_text:
         ctx["content"] = f"Selected text: {selection_text}\n\nFull document:\n{content}"
 
