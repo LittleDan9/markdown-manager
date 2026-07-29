@@ -304,7 +304,7 @@ function AIProvidersTab() {
     setLoading(true);
     try {
       const data = await apiKeysApi.getKeys();
-      const loaded = data.keys || [];
+      const loaded = Array.isArray(data) ? data : (data.keys || []);
       setKeys(loaded);
       return loaded;
     } catch (err) {
