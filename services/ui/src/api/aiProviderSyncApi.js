@@ -12,13 +12,13 @@ class AiProviderSyncApi extends Api {
 
   /** List remote AI providers cached from other apps. */
   async getRemoteProviders() {
-    const response = await this.apiCall('/api/ai-provider-sync/remote-providers', 'GET');
+    const response = await this.apiCall('/ai-provider-sync/remote-providers', 'GET');
     return response.data;
   }
 
   /** Import a remote provider into Markdown Manager. */
   async importRemoteProvider(remoteId, sourceApp) {
-    const response = await this.apiCall('/api/ai-provider-sync/import', 'POST', {
+    const response = await this.apiCall('/ai-provider-sync/import', 'POST', {
       remote_id: remoteId,
       source_app: sourceApp,
     });
@@ -27,7 +27,7 @@ class AiProviderSyncApi extends Api {
 
   /** Export a local provider to a remote app. */
   async exportProvider(keyId) {
-    const response = await this.apiCall('/api/ai-provider-sync/export', 'POST', {
+    const response = await this.apiCall('/ai-provider-sync/export', 'POST', {
       key_id: keyId,
     });
     return response.data;
@@ -35,7 +35,7 @@ class AiProviderSyncApi extends Api {
 
   /** Trigger a manual publish of provider state. */
   async publishProviderState() {
-    const response = await this.apiCall('/api/ai-provider-sync/publish', 'POST');
+    const response = await this.apiCall('/ai-provider-sync/publish', 'POST');
     return response.data;
   }
 }
