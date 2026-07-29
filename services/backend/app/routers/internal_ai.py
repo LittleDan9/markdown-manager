@@ -16,7 +16,7 @@ from app.services.search.semantic import SemanticSearchService
 from app.services.search.content_processor import extract_summary
 
 logger = logging.getLogger(__name__)
-router = APIRouter(prefix="/api/internal", tags=["internal"])
+router = APIRouter(prefix="/internal", tags=["internal"])
 
 
 async def _verify_platform_token(x_platform_ai_token: str = Header(...)) -> None:
