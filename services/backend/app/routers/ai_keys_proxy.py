@@ -113,6 +113,23 @@ async def test_key(key_id: str, current_user: User = Depends(get_current_user)):
         return JSONResponse(status_code=resp.status_code, content=resp.json())
 
 
+@router.post("/{key_id}/models")
+async def list_models(key_id: str, current_user: User = Depends(get_current_user)):
+    """List models for a key — proxies to Platform AI test endpoint which returns models."""
+    if not _is_configured():
+        return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+
+    async with httpx.AsyncClient(timeout=15.0) as client:
+        resp = await client.post(
+            f"{settings.platform_ai_url}/api/keys/{key_id}/test",
+            headers=_headers(current_user),
+        )
+        data = resp.json()
+        if resp.status_code == 200 and "models" in data:
+            return JSONResponse(content={"models": data["models"]})
+        return JSONResponse(status_code=resp.status_code, content=data)
+
+
 @router.get("/ollama/models")
 async def ollama_models(current_user: User = Depends(get_current_user)):
     """List Ollama models via platform AI service."""
