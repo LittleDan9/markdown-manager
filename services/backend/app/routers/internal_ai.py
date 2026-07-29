@@ -176,7 +176,8 @@ async def _tool_search_documents(db, user, args: dict) -> dict:
     if not query:
         return {"error": "query is required"}
 
-    search_service = SemanticSearchService()
+    from app.services.search.embedding_client import EmbeddingClient
+    search_service = SemanticSearchService(EmbeddingClient())
     results = await search_service.search(db, user.id, query, limit=limit, category_id=category_id)
 
     return {
@@ -221,7 +222,7 @@ async def _tool_list_categories(db, user, args: dict) -> dict:
     categories = await get_user_categories(db, user.id)
     return {
         "categories": [
-            {"id": c.id, "name": c.name, "document_count": c.document_count}
+            {"id": c.id, "name": c.name}
             for c in categories
         ]
     }
@@ -280,7 +281,8 @@ async def _build_single_doc_context(db, user, document_id, deep_think, selection
 
 async def _build_rag_context(db, user, question, category_id=None):
     """Build RAG context via semantic search."""
-    search_service = SemanticSearchService()
+    from app.services.search.embedding_client import EmbeddingClient
+    search_service = SemanticSearchService(EmbeddingClient())
     results = await search_service.search(
         db, user.id, question, limit=5, category_id=category_id
     )
