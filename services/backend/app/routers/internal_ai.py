@@ -194,13 +194,15 @@ async def _tool_search_documents(db, user, args: dict) -> dict:
 
 async def _tool_get_document_content(db, user, args: dict) -> dict:
     """Get full content of a specific document."""
-    from app.crud.document import get_document_by_id
+    from app.crud.document import document as document_crud
 
     document_id = args.get("document_id")
     if not document_id:
         return {"error": "document_id is required"}
 
-    doc = await get_document_by_id(db, document_id, user.id)
+    doc = await document_crud.get(db, document_id)
+    if doc and doc.user_id != user.id:
+        return {"error": "Document not found"}
     if not doc:
         return {"error": "Document not found"}
 
@@ -214,9 +216,9 @@ async def _tool_get_document_content(db, user, args: dict) -> dict:
 
 async def _tool_list_categories(db, user, args: dict) -> dict:
     """List user's document categories."""
-    from app.crud.category import get_categories
+    from app.crud.category import get_user_categories
 
-    categories = await get_categories(db, user.id)
+    categories = await get_user_categories(db, user.id)
     return {
         "categories": [
             {"id": c.id, "name": c.name, "document_count": c.document_count}
@@ -227,13 +229,15 @@ async def _tool_list_categories(db, user, args: dict) -> dict:
 
 async def _tool_get_document_summary(db, user, args: dict) -> dict:
     """Get a document summary (headings + first paragraphs)."""
-    from app.crud.document import get_document_by_id
+    from app.crud.document import document as document_crud
 
     document_id = args.get("document_id")
     if not document_id:
         return {"error": "document_id is required"}
 
-    doc = await get_document_by_id(db, document_id, user.id)
+    doc = await document_crud.get(db, document_id)
+    if doc and doc.user_id != user.id:
+        return {"error": "Document not found"}
     if not doc:
         return {"error": "Document not found"}
 
@@ -253,9 +257,11 @@ async def _tool_get_document_summary(db, user, args: dict) -> dict:
 
 async def _build_single_doc_context(db, user, document_id, deep_think, selection_text):
     """Build context from a single document."""
-    from app.crud.document import get_document_by_id
+    from app.crud.document import document as document_crud
 
-    doc = await get_document_by_id(db, document_id, user.id)
+    doc = await document_crud.get(db, document_id)
+    if doc and doc.user_id != user.id:
+        return {"error": "Document not found"}
     if not doc:
         return []
 
