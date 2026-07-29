@@ -256,12 +256,12 @@ function ChatDrawer({ show, onHide }) {
     apiKeysApi.getKeys()
       .then((data) => {
         if (cancelled) return;
-        const remote = (data?.keys || [])
+        const remote = (Array.isArray(data) ? data : (data?.keys || []))
           .filter((k) => k.is_active)
           .map((k) => ({
-            provider: k.provider,
+            provider: k.provider_type || k.provider,
             keyId: k.id,
-            label: k.label || PROVIDER_LABELS[k.provider]?.name || k.provider,
+            label: k.label || PROVIDER_LABELS[k.provider_type || k.provider]?.name || k.provider_type || k.provider,
             model: k.preferred_model,
           }));
         setAvailableProviders([...base, ...remote]);
