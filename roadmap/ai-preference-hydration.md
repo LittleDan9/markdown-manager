@@ -69,3 +69,71 @@ Saves per-user per-app preference in Platform AI.
 ## Risk
 
 Low — the preferences endpoint already exists and is proxied. The change is purely frontend initialization logic.
+
+---
+
+# Lead-Close Summarization for Document Context & Embeddings
+
+## Problem
+
+`extract_summary()` currently captures heading + first sentence/120 chars per section. This misses the **closing sentence** which often contains conclusions, requirements, or key takeaways — reducing both:
+1. **Chat context quality** — normal mode (non-deep-think) sends a truncated summary to the LLM
+2. **Embedding search accuracy** — the indexed vector only encodes opening content, missing closing signals
+
+## Proposed Change
+
+Update `_flush_section()` in `extract_summary()` (in `services/backend/app/services/search/content_processor.py`) to capture:
+- **First sentence** of each section (topic introduction)
+- **Last sentence** of each section (conclusion/key point)
+
+This is a well-established technique from information retrieval research (lead-close summarization) that better represents paragraph meaning in fewer tokens.
+
+### Implementation
+
+```python
+def _flush_section():
+    """Add first and last sentence from buffered section lines."""
+    para = " ".join(
+        line.strip()
+        for line in current_section_lines
+        if line.strip() and not line.strip().startswith("#")
+    )
+    para = re.sub(r"[*_`]{1,3}", "", para).strip()
+    if not para:
+        return
+
+    # Split into sentences
+    sentences = re.split(r'(?<=[.!?])\s+', para)
+    sentences = [s.strip() for s in sentences if s.strip()]
+
+    if not sentences:
+        return
+
+    first = sentences[0][:150]
+    parts.append(f"  {first}")
+
+    # Add last sentence if different from first and section has >1 sentence
+    if len(sentences) > 1:
+        last = sentences[-1][:150]
+        parts.append(f"  {last}")
+```
+
+### Files
+- `services/backend/app/services/search/content_processor.py` — update `_flush_section()` in `extract_summary()`
+
+### Post-deploy
+- Re-index embeddings to pick up the improved summaries: trigger a full re-embed via admin panel or script
+- Existing embeddings will still work but won't benefit until re-indexed
+
+## Impact
+
+| Area | Before | After |
+|------|--------|-------|
+| Chat context (normal mode) | Heading + opening sentence | Heading + opening + closing sentence |
+| Embedding vectors | Encode topic intro only | Encode topic intro + conclusion |
+| Search recall | Misses queries matching conclusions | Matches both intro and conclusion |
+| Token usage | ~same (adds ~1 sentence per section) | Slightly more but well within 4K limit |
+
+## Risk
+
+Low — `extract_summary` is a pure function with no side effects. The change is additive. Existing embeddings continue to work; re-indexing improves them.
