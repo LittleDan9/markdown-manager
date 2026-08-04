@@ -110,7 +110,14 @@ async def test_key(key_id: str, current_user: User = Depends(get_current_user)):
             f"{settings.platform_ai_url}/api/keys/{key_id}/test",
             headers=_headers(current_user),
         )
-        return JSONResponse(status_code=resp.status_code, content=resp.json())
+        data = resp.json()
+        # Transform Platform AI response to frontend-expected format
+        if resp.status_code == 200 and data.get("status") == "ok":
+            models = data.get("models", [])
+            model_name = models[0]["id"] if models else None
+            return JSONResponse(content={"success": True, "model": model_name, "models_count": data.get("models_count", 0)})
+        error = data.get("detail") or data.get("error") or "Unknown error"
+        return JSONResponse(status_code=resp.status_code, content={"success": False, "error": error})
 
 
 
@@ -147,6 +154,15 @@ async def list_models(key_id: str, current_user: User = Depends(get_current_user
     """List models for a key — proxies to Platform AI test endpoint which returns models."""
     if not _is_configured():
         return JSONResponse(status_code=503, content={"detail": "Platform AI not configured"})
+
+    # Ollama uses a dedicated endpoint, not a DB key lookup
+    if key_id == "builtin-ollama":
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.get(
+                f"{settings.platform_ai_url}/api/keys/ollama/models",
+                headers=_headers(current_user),
+            )
+            return JSONResponse(status_code=resp.status_code, content=resp.json())
 
     async with httpx.AsyncClient(timeout=15.0) as client:
         resp = await client.post(
