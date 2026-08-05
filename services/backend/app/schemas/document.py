@@ -34,8 +34,8 @@ class DocumentCreate(BaseModel):
     def validate_location_required(self):
         # At least one of folder_path or category_id must be provided
         if not self.folder_path and not self.category_id:
-            # If neither is provided, default to /General
-            self.folder_path = '/General'
+            # If neither is provided, default to /Drafts
+            self.folder_path = '/Drafts'
         return self
 
 

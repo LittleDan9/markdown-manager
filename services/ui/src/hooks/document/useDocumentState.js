@@ -529,6 +529,7 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
 
       if (documentChanged && isStillCurrentDocument) {
         setCurrentDocument(saved);
+        currentDocumentIdRef.current = saved.id;
       }
 
       if (contentChanged && isStillCurrentDocument) {

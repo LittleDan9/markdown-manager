@@ -1050,10 +1050,10 @@ async def create_document(
             final_folder_path = f"/{category.name}"
     else:
         # Default folder if neither provided
-        final_folder_path = "/General"
+        final_folder_path = "/Drafts"
 
     # Ensure we have a folder path
-    final_folder_path = final_folder_path or "/General"
+    final_folder_path = final_folder_path or "/Drafts"
 
     # Check for duplicate documents in folder
     existing_docs = await document_crud.document.get_documents_by_folder_path(

@@ -159,14 +159,16 @@ class DocumentService {
         const result = await DocumentsApi.createDocument({
           name: document.name,
           content: document.content,
-          category: document.category || 'General'
+          category: document.category || 'Drafts',
+          category_id: document.category_id
         });
         return result;
       } else {
         const result = await DocumentsApi.updateDocument(document.id, {
           name: document.name,
           content: document.content,
-          category: document.category || 'General',
+          category: document.category || 'Drafts',
+          category_id: document.category_id,
           skip_commit: document.skip_commit
         });
         return result;
@@ -204,7 +206,7 @@ class DocumentService {
         // Preserve local content if it's newer
         content: localDoc.content,
         name: localDoc.name,
-        category: localDoc.category
+        category: backendDoc.category || localDoc.category
       };
 
       // If the ID changed (local doc had temporary ID), remove the old document

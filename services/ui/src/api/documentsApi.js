@@ -118,25 +118,12 @@ class DocumentsApi extends Api {
   }
 
   async createDocument({ name, content, category, category_id }) {
-    // If category_id is provided, use it; otherwise try to resolve category name to ID
-    let finalCategoryId = category_id;
-
-    if (!finalCategoryId && category) {
-      // Try to get category ID from category name using CategoriesAPI
-      try {
-        const categoriesApi = (await import('./categoriesApi')).default;
-        const categories = await categoriesApi.getCategories();
-        const categoryObj = categories.find(cat => cat.name === category);
-        finalCategoryId = categoryObj?.id;
-      } catch (error) {
-        console.warn('Could not resolve category name to ID:', error);
-      }
-    }
-
     const requestData = { name, content: content || "" };
-    if (finalCategoryId !== undefined && finalCategoryId !== null) {
-      // Ensure category_id is an integer
-      requestData.category_id = parseInt(finalCategoryId, 10);
+
+    if (category_id) {
+      requestData.category_id = parseInt(category_id, 10);
+    } else if (category) {
+      requestData.folder_path = `/${category}`;
     }
 
     const res = await this.apiCall(`/documents`, "POST", requestData);
@@ -144,39 +131,13 @@ class DocumentsApi extends Api {
   }
 
   async updateDocument(id, { name, content, category, category_id, skip_commit }) {
-    // If category_id is provided, use it; otherwise try to resolve category name to ID
-    let finalCategoryId = category_id;
-
-    if (!finalCategoryId && category) {
-      // Try to get category ID from category name using CategoriesAPI
-      try {
-        const categoriesApi = (await import('./categoriesApi')).default;
-        let categories = await categoriesApi.getCategories();
-        let categoryObj = categories.find(cat => cat.name === category);
-        finalCategoryId = categoryObj?.id;
-
-        // Retry once if not found — handles race where category was just created
-        if (!finalCategoryId) {
-          await new Promise(r => setTimeout(r, 100));
-          categories = await categoriesApi.getCategories();
-          categoryObj = categories.find(cat => cat.name === category);
-          finalCategoryId = categoryObj?.id;
-        }
-
-        if (!finalCategoryId) {
-          console.error(`Category "${category}" not found in categories list — category will not be updated`);
-        }
-      } catch (error) {
-        console.error('Failed to resolve category name to ID — category will not be updated:', error);
-      }
-    }
-
     const requestData = {};
     if (name !== undefined) requestData.name = name;
     if (content !== undefined) requestData.content = content;
-    if (finalCategoryId !== undefined && finalCategoryId !== null) {
-      // Ensure category_id is an integer
-      requestData.category_id = parseInt(finalCategoryId, 10);
+    if (category_id) {
+      requestData.category_id = parseInt(category_id, 10);
+    } else if (category) {
+      requestData.folder_path = `/${category}`;
     }
     if (skip_commit !== undefined) requestData.skip_commit = skip_commit;
 
