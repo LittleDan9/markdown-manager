@@ -19,8 +19,19 @@ router = APIRouter()
 settings = get_settings()
 
 
-async def _authenticate_ws(token: str) -> User | None:
-    """Authenticate a WebSocket connection using a JWT token."""
+async def _authenticate_ws(token: str, headers: dict = None) -> User | None:
+    """Authenticate a WebSocket connection. Tries ForwardAuth header first, then legacy app JWT."""
+    # ForwardAuth path: email injected by Traefik on WS upgrade
+    if headers:
+        email = headers.get("x-user-email")
+        if email:
+            async with get_db_context() as db:
+                result = await db.execute(select(User).where(User.email == email))
+                user = result.scalar_one_or_none()
+                if user and user.is_active:
+                    return user
+
+    # Legacy app JWT fallback
     try:
         payload = jwt.decode(
             token,
@@ -79,7 +90,8 @@ async def presence_websocket(
       {"type": "presence", "document_id": 123, "users": [...]}
       {"type": "error",    "message": "..."}
     """
-    user = await _authenticate_ws(token)
+    ws_headers = dict(websocket.headers)
+    user = await _authenticate_ws(token, headers=ws_headers)
     if not user:
         await websocket.close(code=4003, reason="Authentication failed")
         return
@@ -113,7 +125,8 @@ MSG_AWARENESS = 1  # Awareness protocol (cursors, selections)
 
 async def _authenticate_collab_ws(websocket, token, document_id):
     """Authenticate and authorize a collab WebSocket. Returns (user, role) or closes and returns (None, None)."""
-    user = await _authenticate_ws(token)
+    ws_headers = dict(websocket.headers)
+    user = await _authenticate_ws(token, headers=ws_headers)
     if not user:
         await websocket.close(code=4003, reason="Authentication failed")
         return None, None
