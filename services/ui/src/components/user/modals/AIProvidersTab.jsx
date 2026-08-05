@@ -85,12 +85,12 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setLoadingModels(true);
     setModelError('');
     try {
-      const result = await apiKeysApi.listModels(keyData.id);
+      const result = await platformAiApi.testKey(keyData.id);
       if (result.models?.length) {
         setModels(result.models);
         setModelError('');
-      } else if (result.error) {
-        setModelError(result.error);
+      } else if (result.detail) {
+        setModelError(result.detail);
       }
     } catch {
       // Silently fail — user can still type manually
@@ -136,8 +136,12 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await apiKeysApi.testKey(keyData.id);
-      setTestResult(result);
+      const result = await platformAiApi.testKey(keyData.id);
+      if (result.status === 'ok') {
+        setTestResult({ success: true, model: `${result.models_count} models available` });
+      } else {
+        setTestResult({ success: false, error: result.detail || 'Unknown error' });
+      }
     } catch (err) {
       setTestResult({ success: false, error: err.message });
     } finally {
@@ -303,8 +307,7 @@ function AIProvidersTab() {
   const loadKeys = useCallback(async () => {
     setLoading(true);
     try {
-      // Use proxy during transition (direct /ai/ path requires ForwardAuth activation)
-      const data = await apiKeysApi.getKeys();
+      const data = await platformAiApi.getKeys();
       const loaded = Array.isArray(data) ? data : (data.keys || []);
       setKeys(loaded);
       return loaded;
