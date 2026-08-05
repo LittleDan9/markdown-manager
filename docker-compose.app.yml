@@ -42,7 +42,7 @@ services:
     labels:
       - "traefik.enable=true"
       # Public paths — no ForwardAuth (auth, shared docs, health, analytics, websockets)
-      - "traefik.http.routers.mm-public.rule=Host(`docs.littledan.com`) && (PathPrefix(`/api/auth`) || PathPrefix(`/api/shared`) || PathPrefix(`/api/analytics`) || PathPrefix(`/api/ws`) || PathPrefix(`/health`) || PathPrefix(`/monitoring`))"
+      - "traefik.http.routers.mm-public.rule=Host(`docs.littledan.com`) && (PathPrefix(`/api/auth`) || PathPrefix(`/api/shared`) || PathPrefix(`/api/analytics`) || PathPrefix(`/health`) || PathPrefix(`/monitoring`))"
       - "traefik.http.routers.mm-public.entrypoints=web"
       - "traefik.http.routers.mm-public.priority=300"
       - "traefik.http.routers.mm-public.service=mm-app"
