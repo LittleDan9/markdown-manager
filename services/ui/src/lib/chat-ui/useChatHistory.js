@@ -63,7 +63,7 @@ export function useChatHistory({ apiBaseUrl = '', appId, getAuthToken, storageKe
   const loadConversations = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await _fetch(`/api/ai/conversations?app_id=${appId}`);
+      const data = await _fetch(`/ai/conversations?app_id=${appId}`);
       setConversations(data?.conversations || []);
     } catch (err) {
       console.warn('Failed to load conversations:', err);
@@ -73,7 +73,7 @@ export function useChatHistory({ apiBaseUrl = '', appId, getAuthToken, storageKe
   }, [_fetch, appId]);
 
   const createConversation = useCallback(async (title = null) => {
-    const data = await _fetch('/api/ai/conversations', {
+    const data = await _fetch('/ai/conversations', {
       method: 'POST',
       body: JSON.stringify({ app_id: appId, title }),
     });
@@ -85,7 +85,7 @@ export function useChatHistory({ apiBaseUrl = '', appId, getAuthToken, storageKe
   }, [_fetch, appId]);
 
   const deleteConversation = useCallback(async (conversationId) => {
-    await _fetch(`/api/ai/conversations/${conversationId}`, { method: 'DELETE' });
+    await _fetch(`/ai/conversations/${conversationId}`, { method: 'DELETE' });
     setConversations((prev) => prev.filter((c) => c.id !== conversationId));
     if (activeConversationId === conversationId) {
       setActiveConversationId(null);
@@ -93,7 +93,7 @@ export function useChatHistory({ apiBaseUrl = '', appId, getAuthToken, storageKe
   }, [_fetch, activeConversationId]);
 
   const renameConversation = useCallback(async (conversationId, title) => {
-    const data = await _fetch(`/api/ai/conversations/${conversationId}`, {
+    const data = await _fetch(`/ai/conversations/${conversationId}`, {
       method: 'PUT',
       body: JSON.stringify({ title }),
     });
@@ -104,7 +104,7 @@ export function useChatHistory({ apiBaseUrl = '', appId, getAuthToken, storageKe
 
   const generateTitle = useCallback(async (conversationId) => {
     try {
-      const data = await _fetch(`/api/ai/conversations/${conversationId}/generate-title`, {
+      const data = await _fetch(`/ai/conversations/${conversationId}/generate-title`, {
         method: 'POST',
       });
       if (data?.title) {

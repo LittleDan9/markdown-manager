@@ -20,7 +20,7 @@ import { parseSSEEvent } from '../utils.js';
 /**
  * @typedef {Object} ChatStreamOptions
  * @property {string} apiBaseUrl - App backend base URL (e.g. "" for same-origin)
- * @property {string} chatEndpoint - Chat endpoint path (default: "/api/ai/chat")
+ * @property {string} chatEndpoint - Chat endpoint path (default: "/ai/chat/ask")
  * @property {() => string} getAuthToken - Function to get current auth token
  * @property {() => Promise<string>} [refreshToken] - Optional token refresh function
  */
@@ -39,7 +39,7 @@ import { parseSSEEvent } from '../utils.js';
  *   cancel: () => void,
  * }}
  */
-export function useChatStream({ apiBaseUrl = '', chatEndpoint = '/api/ai/chat', getAuthToken, refreshToken }) {
+export function useChatStream({ apiBaseUrl = '', chatEndpoint = '/ai/chat/ask', getAuthToken, refreshToken }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamedText, setStreamedText] = useState('');
   const [toolCalls, setToolCalls] = useState([]);

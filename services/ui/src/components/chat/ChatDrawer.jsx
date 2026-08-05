@@ -4,7 +4,7 @@ import PropTypes from "prop-types";
 import MarkdownIt from "markdown-it";
 import hljs from "highlight.js";
 import { searchApi } from "@/api/searchApi";
-import apiKeysApi from "@/api/apiKeysApi";
+import platformAiApi from "@/api/platformAiApi";
 import categoriesApi from "@/api/categoriesApi";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import useChatEditorActions from "@/hooks/chat/useChatEditorActions";
@@ -228,7 +228,7 @@ function ChatDrawer({ show, onHide }) {
       history.loadConversations();
       // Fetch quota status
       const token = searchApi.getToken();
-      fetch('/api/ai/usage/quota', { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' })
+      fetch('/ai/usage/quota', { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: 'include' })
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data) setQuotaInfo(data); })
         .catch(() => {});
@@ -253,7 +253,7 @@ function ChatDrawer({ show, onHide }) {
     if (!show) return;
     let cancelled = false;
     const base = [{ provider: "ollama", keyId: null, label: "Ollama (Local)" }];
-    apiKeysApi.getKeys()
+    platformAiApi.getKeys()
       .then((data) => {
         if (cancelled) return;
         const remote = (Array.isArray(data) ? data : (data?.keys || []))
@@ -321,7 +321,7 @@ function ChatDrawer({ show, onHide }) {
       if (providerEntry.provider === "ollama") {
         result = await searchApi.listOllamaModels();
       } else if (providerEntry.keyId) {
-        result = await apiKeysApi.listModels(providerEntry.keyId);
+        result = await platformAiApi.listModels(providerEntry.keyId);
       } else {
         setModelListLoading(false);
         return;
@@ -468,7 +468,7 @@ function ChatDrawer({ show, onHide }) {
         const formData = new FormData();
         formData.append("file", att.file);
         let token = searchApi.getToken();
-        let resp = await fetch("/api/ai/attachments/upload", {
+        let resp = await fetch("/ai/chat/attachments/upload", {
           method: "POST",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
           body: formData,
@@ -477,7 +477,7 @@ function ChatDrawer({ show, onHide }) {
         // Retry with refreshed token on 401
         if (resp.status === 401) {
           token = await searchApi.refreshAccessToken();
-          resp = await fetch("/api/ai/attachments/upload", {
+          resp = await fetch("/ai/chat/attachments/upload", {
             method: "POST",
             headers: token ? { Authorization: `Bearer ${token}` } : {},
             body: formData,
@@ -1362,12 +1362,12 @@ function ChatDrawer({ show, onHide }) {
                                   <div className="d-flex flex-wrap gap-1 mt-1">
                                     {meta.attachments.map((att) => (
                                       att.type === "image" ? (
-                                        <a key={att.id} href={`/api/ai/attachments/${att.id}`} download={att.filename}
+                                        <a key={att.id} href={`/ai/chat/attachments/${att.id}`} download={att.filename}
                                           className="chat-attachment-thumb">
-                                          <img src={`/api/ai/attachments/${att.id}`} alt={att.filename} />
+                                          <img src={`/ai/chat/attachments/${att.id}`} alt={att.filename} />
                                         </a>
                                       ) : (
-                                        <a key={att.id} href={`/api/ai/attachments/${att.id}`} download={att.filename}
+                                        <a key={att.id} href={`/ai/chat/attachments/${att.id}`} download={att.filename}
                                           className="badge bg-secondary text-decoration-none">
                                           <i className="bi bi-file-earmark me-1" />{att.filename}
                                         </a>

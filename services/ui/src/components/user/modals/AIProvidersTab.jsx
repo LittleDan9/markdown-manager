@@ -10,7 +10,6 @@ import {
   Row,
   Spinner,
 } from 'react-bootstrap';
-import apiKeysApi from '../../../api/apiKeysApi';
 import platformAiApi from '../../../api/platformAiApi';
 import AIUsagePanel from './AIUsagePanel';
 
@@ -117,10 +116,10 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
       if (isConfigured) {
         const updates = { label: data.label, base_url: data.base_url, preferred_model: data.preferred_model, org_name: data.org_name || '' };
         if (apiKey) updates.api_key = apiKey;
-        await apiKeysApi.updateKey(keyData.id, updates);
+        await platformAiApi.updateKey(keyData.id, updates);
       } else {
         data.api_key = apiKey;
-        await apiKeysApi.addKey(data);
+        await platformAiApi.createKey(data);
       }
       setApiKey('');
       onSaved();
@@ -154,7 +153,7 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     const displayName = keyData.label || provider.name;
     if (!window.confirm(`Remove "${displayName}" API key?`)) return;
     try {
-      await apiKeysApi.deleteKey(keyData.id);
+      await platformAiApi.deleteKey(keyData.id);
       onDeleted();
     } catch (err) {
       setError(err.message || 'Failed to delete');

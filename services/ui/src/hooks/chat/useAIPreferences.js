@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import aiPreferencesApi from "@/api/aiPreferencesApi";
+import platformAiApi from "@/api/platformAiApi";
 
 /**
  * Hook for managing AI provider/model preferences via Platform AI.
@@ -14,7 +14,7 @@ export default function useAIPreferences() {
     setLoading(true);
     setError(null);
     try {
-      const data = await aiPreferencesApi.getPreferences();
+      const data = await platformAiApi.getPreferences();
       const prefs = data?.preferences?.[0] || null;
       setPreferences(prefs);
     } catch (err) {
@@ -29,7 +29,7 @@ export default function useAIPreferences() {
   const save = useCallback(async ({ preferred_provider, preferred_model, preferred_key_id }) => {
     setError(null);
     try {
-      const data = await aiPreferencesApi.savePreferences({
+      const data = await platformAiApi.savePreferences({
         preferred_provider,
         preferred_model,
         preferred_key_id,

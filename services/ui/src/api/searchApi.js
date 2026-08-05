@@ -62,7 +62,7 @@ class SearchApi extends Api {
     if (model) body.model = model;
     if (!provider && !keyId) body.provider = "ollama";
 
-    const response = await fetch("/api/ai/chat", {
+    const response = await fetch("/ai/chat/ask", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

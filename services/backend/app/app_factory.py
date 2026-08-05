@@ -88,11 +88,8 @@ def _create_lifespan():
         from app.services.collab import collab_manager
         await collab_manager.start()
 
-        # Publish AI provider state for cross-app sync (non-blocking)
-        import asyncio
-        asyncio.create_task(_startup_publish_providers())
-
         # Start background event consumer for cross-app events
+        import asyncio
         _consumer_task = asyncio.create_task(_run_event_consumer())
 
         # Start periodic AI usage publisher (every 5 min)
@@ -138,17 +135,6 @@ def _create_lifespan():
         logger.info("Application shutdown complete.")
 
     return lifespan
-
-
-async def _startup_publish_providers():
-    """Background task: publish all users' AI provider state on startup."""
-    from app.database import AsyncSessionLocal
-    from app.services.ai_provider_events import publish_all_provider_state
-    try:
-        async with AsyncSessionLocal() as db:
-            await publish_all_provider_state(db)
-    except Exception as exc:
-        logger.warning("Startup provider state publish failed (non-fatal): %s", exc)
 
 
 async def _run_event_consumer():
@@ -312,20 +298,8 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(api_keys.router)  # /api-keys CRUD for LLM provider keys
     app.include_router(notifications.router)  # /notifications
 
-    from app.routers import ai_provider_sync
-    app.include_router(ai_provider_sync.router)  # /api/ai-provider-sync/*
-
-    from app.routers import ai_usage
-    app.include_router(ai_usage.router)  # /api/ai-usage/*
-
     from app.routers import internal_ai
     app.include_router(internal_ai.router)  # /api/internal/ai-tools/execute, /api/internal/ai-context
-
-    from app.routers import ai_keys_proxy
-    app.include_router(ai_keys_proxy.router)  # /api/platform-keys/* (proxy to platform AI)
-
-    from app.routers import ai_chat_proxy
-    app.include_router(ai_chat_proxy.router)  # /api/ai/chat, /api/ai/usage, /api/ai/preferences
 
     from app.routers import help as help_router
     app.include_router(help_router.router)  # /help/topics

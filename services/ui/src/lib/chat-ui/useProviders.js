@@ -52,7 +52,7 @@ export function useProviders({ apiBaseUrl = '', appId, getAuthToken }) {
   const loadKeys = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await _fetch('/api/platform-keys');
+      const data = await _fetch('/ai/keys');
       setKeys(Array.isArray(data) ? data : []);
     } catch (err) {
       console.warn('Failed to load keys:', err);
@@ -63,14 +63,14 @@ export function useProviders({ apiBaseUrl = '', appId, getAuthToken }) {
 
   const loadOllamaModels = useCallback(async () => {
     try {
-      const data = await _fetch('/api/platform-keys/ollama/models');
+      const data = await _fetch('/ai/keys/ollama/models');
       setOllamaModels(data?.models || []);
     } catch { /* non-critical */ }
   }, [_fetch]);
 
   const loadPreferences = useCallback(async () => {
     try {
-      const data = await _fetch('/api/ai/preferences');
+      const data = await _fetch('/ai/preferences');
       const prefs = data?.preferences?.find((p) => p.app_id === appId);
       setPreferences(prefs || null);
     } catch { /* non-critical */ }
@@ -78,7 +78,7 @@ export function useProviders({ apiBaseUrl = '', appId, getAuthToken }) {
 
   const savePreferences = useCallback(async (provider, model, keyId) => {
     try {
-      const data = await _fetch('/api/ai/preferences', {
+      const data = await _fetch('/ai/preferences', {
         method: 'PUT',
         body: JSON.stringify({
           app_id: appId,

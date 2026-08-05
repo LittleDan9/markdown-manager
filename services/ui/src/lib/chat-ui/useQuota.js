@@ -50,7 +50,7 @@ export function useQuota({ apiBaseUrl = '', getAuthToken, enabled = true, pollIn
     if (!enabled) return;
     try {
       const token = getAuthToken();
-      const resp = await fetch(`${apiBaseUrl}/api/ai/usage/quota`, {
+      const resp = await fetch(`${apiBaseUrl}/ai/usage/quota`, {
         headers: {
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },

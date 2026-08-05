@@ -1,6 +1,6 @@
 """Background Redis Streams consumer for Markdown Manager backend.
 
-Consumes cross-app events (e.g., ai.provider.v1) directly in the backend
+Consumes cross-app events (e.g., ai.usage.v1) directly in the backend
 process since they need access to the same database.
 """
 from __future__ import annotations
@@ -11,18 +11,16 @@ import logging
 from datetime import datetime, timezone
 
 import redis.asyncio as aioredis
-from sqlalchemy import delete, select
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from app.configs.settings import get_settings
-from app.models.remote_ai_provider import RemoteAIProvider
 from app.models.user import User
 
 logger = logging.getLogger(__name__)
 
 CONSUMER_GROUP = "mm-backend"
 CONSUMER_NAME = "mm-consumer-1"
-TOPICS = ["ai.provider.v1", "ai.usage.v1"]
+TOPICS = ["ai.usage.v1"]
 
 
 async def start_event_consumer() -> None:
@@ -87,66 +85,10 @@ async def _handle_event(topic: str, msg_id: str, data: dict) -> None:
         logger.warning("Invalid JSON payload in event %s", msg_id)
         return
 
-    if event_type == "AIProviderStatePublished":
-        await _handle_ai_provider_state(payload)
-    elif event_type == "AIUsagePublished":
+    if event_type == "AIUsagePublished":
         await _handle_ai_usage(payload)
     else:
         logger.debug("Unhandled event type: %s (topic=%s)", event_type, topic)
-
-
-async def _handle_ai_provider_state(payload: dict) -> None:
-    """Process AIProviderStatePublished — upsert remote provider cache."""
-    from app.database import AsyncSessionLocal
-
-    user_email = payload.get("user_email")
-    source_app = payload.get("source_app")
-    providers = payload.get("providers", [])
-
-    if not user_email or not source_app:
-        logger.warning("AIProviderStatePublished missing user_email or source_app")
-        return
-
-    # Don't process our own events
-    if source_app == "markdown-manager":
-        return
-
-    async with AsyncSessionLocal() as db:
-        # Resolve user by email
-        result = await db.execute(select(User).where(User.email == user_email))
-        user = result.scalar_one_or_none()
-        if not user:
-            logger.debug("Ignoring provider state for unknown user: %s", user_email)
-            return
-
-        # Delete existing remote providers for this user+source_app
-        await db.execute(
-            delete(RemoteAIProvider).where(
-                RemoteAIProvider.user_id == user.id,
-                RemoteAIProvider.source_app == source_app,
-            )
-        )
-
-        # Insert new remote providers
-        now = datetime.now(timezone.utc)
-        for p in providers:
-            remote = RemoteAIProvider(
-                user_id=user.id,
-                source_app=source_app,
-                remote_id=p.get("id", 0),
-                provider=p.get("provider", ""),
-                label=p.get("label", ""),
-                base_url=p.get("base_url"),
-                preferred_model=p.get("preferred_model"),
-                org_name=p.get("org_name"),
-                is_active=p.get("is_active", True),
-                has_key=p.get("has_key", False),
-                synced_at=now,
-            )
-            db.add(remote)
-
-        await db.commit()
-        logger.debug("Updated remote providers for user %s from %s (%d providers)", user_email, source_app, len(providers))
 
 
 async def _handle_ai_usage(payload: dict) -> None:

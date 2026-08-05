@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { chatHistoryApi } from "@/api/chatHistoryApi";
+import platformAiApi from "@/api/platformAiApi";
 
 const STORAGE_KEY = "chat_active_conversation";
 
@@ -32,7 +32,7 @@ export default function useChatHistory() {
   const loadConversations = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await chatHistoryApi.getConversations(50, 0);
+      const data = await platformAiApi.getConversations();
       setConversations(data || []);
     } catch (err) {
       console.warn("Failed to load conversations", err);
@@ -43,7 +43,7 @@ export default function useChatHistory() {
 
   const createConversation = useCallback(async (provider, scope, documentId) => {
     try {
-      const conv = await chatHistoryApi.createConversation(provider, scope, documentId);
+      const conv = await platformAiApi.createConversation({ provider, scope, document_id: documentId });
       setActiveConversationId(conv.id);
       setConversations((prev) => [
         {
@@ -62,7 +62,7 @@ export default function useChatHistory() {
 
   const loadConversation = useCallback(async (conversationId) => {
     try {
-      const detail = await chatHistoryApi.getConversation(conversationId);
+      const detail = await platformAiApi.getConversation(conversationId);
       setActiveConversationId(conversationId);
       return detail;
     } catch (err) {
@@ -74,7 +74,7 @@ export default function useChatHistory() {
   const saveMessage = useCallback(async (conversationId, role, content, metadataJson = null) => {
     if (!conversationId) return null;
     try {
-      const msg = await chatHistoryApi.addMessage(conversationId, role, content, metadataJson);
+      const msg = await platformAiApi.updateConversation(conversationId, { messages: [{ role, content, metadata: metadataJson }] });
       // Update conversation list preview and count
       setConversations((prev) =>
         prev.map((c) =>
@@ -98,7 +98,7 @@ export default function useChatHistory() {
 
   const deleteConversation = useCallback(async (conversationId) => {
     try {
-      await chatHistoryApi.deleteConversation(conversationId);
+      await platformAiApi.deleteConversation(conversationId);
       setConversations((prev) => prev.filter((c) => c.id !== conversationId));
       if (activeConversationId === conversationId) {
         setActiveConversationId(null);
@@ -112,7 +112,7 @@ export default function useChatHistory() {
 
   const renameConversation = useCallback(async (conversationId, title) => {
     try {
-      await chatHistoryApi.updateConversation(conversationId, { title });
+      await platformAiApi.updateConversation(conversationId, { title });
       setConversations((prev) =>
         prev.map((c) => (c.id === conversationId ? { ...c, title } : c))
       );
@@ -127,7 +127,7 @@ export default function useChatHistory() {
     if (!conversationId || titleGenPending.current.has(conversationId)) return;
     titleGenPending.current.add(conversationId);
     try {
-      const result = await chatHistoryApi.generateTitle(conversationId, provider);
+      const result = await platformAiApi.generateTitle(conversationId);
       if (result?.title) {
         setConversations((prev) =>
           prev.map((c) => (c.id === conversationId ? { ...c, title: result.title } : c))

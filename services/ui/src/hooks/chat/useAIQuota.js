@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import aiPreferencesApi from "@/api/aiPreferencesApi";
+import platformAiApi from "@/api/platformAiApi";
 
 /**
  * Hook for checking AI usage quota from Platform AI.
@@ -14,7 +14,7 @@ export default function useAIQuota() {
     setLoading(true);
     setError(null);
     try {
-      const data = await aiPreferencesApi.getQuota();
+      const data = await platformAiApi.getQuota();
       setQuota(data);
     } catch (err) {
       // 503 means platform AI not configured — not a user error
