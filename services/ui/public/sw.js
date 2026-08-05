@@ -50,6 +50,13 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(cacheFirst(request));
 });
 
+// Clear cache on logout (message from app)
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'LOGOUT') {
+    caches.delete(CACHE_NAME);
+  }
+});
+
 async function cacheFirst(request) {
   const cached = await caches.match(request);
   if (cached) return cached;

@@ -23,7 +23,6 @@ from app.middleware import (
 )
 from app.routers import (
     attachments,
-    auth,
     categories,
     custom_dictionary,
     default,
@@ -248,9 +247,6 @@ def setup_routers(app: FastAPI) -> None:
     app.include_router(
         cross_app.router, prefix="/cross-app", tags=["cross-app"]
     )  # Cross-app service-to-service API (token auth)
-    app.include_router(
-        auth.router, prefix="/auth", tags=["auth"]
-    )  # Includes MFA endpoints at /auth/mfa/*
     app.include_router(users.router, prefix="/users", tags=["users"])
     app.include_router(admin_router, tags=["admin"])  # Already has /admin prefix
     app.include_router(

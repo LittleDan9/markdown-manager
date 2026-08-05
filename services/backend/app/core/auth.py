@@ -144,7 +144,19 @@ async def get_current_user(
     if forwarded_email:
         user = await get_user_by_email(db, email=forwarded_email)
         if user is None:
-            raise credentials_exception
+            # Auto-provision local user record on first request (idempotent)
+            from app.models.user import User as UserModel
+            new_user = UserModel(email=forwarded_email, hashed_password="", display_name=forwarded_email.split("@")[0])
+            db.add(new_user)
+            try:
+                await db.commit()
+                await db.refresh(new_user)
+                user = new_user
+            except Exception:
+                await db.rollback()
+                user = await get_user_by_email(db, email=forwarded_email)
+            if user is None:
+                raise credentials_exception
         return user
 
     # Fallback: JWT Bearer token (transition period)
