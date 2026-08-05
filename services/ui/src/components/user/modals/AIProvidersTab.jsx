@@ -85,12 +85,12 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setLoadingModels(true);
     setModelError('');
     try {
-      const result = await platformAiApi.testKey(keyData.id);
+      const result = await apiKeysApi.listModels(keyData.id);
       if (result.models?.length) {
         setModels(result.models);
         setModelError('');
-      } else if (result.detail) {
-        setModelError(result.detail);
+      } else if (result.error) {
+        setModelError(result.error);
       }
     } catch {
       // Silently fail — user can still type manually
@@ -136,13 +136,8 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await platformAiApi.testKey(keyData.id);
-      // Platform AI returns {status: "ok", models_count, models} or {status: "error", detail}
-      if (result.status === 'ok') {
-        setTestResult({ success: true, model: `${result.models_count} models available` });
-      } else {
-        setTestResult({ success: false, error: result.detail || 'Unknown error' });
-      }
+      const result = await apiKeysApi.testKey(keyData.id);
+      setTestResult(result);
     } catch (err) {
       setTestResult({ success: false, error: err.message });
     } finally {
@@ -308,7 +303,8 @@ function AIProvidersTab() {
   const loadKeys = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await platformAiApi.getKeys();
+      // Use proxy during transition (direct /ai/ path requires ForwardAuth activation)
+      const data = await apiKeysApi.getKeys();
       const loaded = Array.isArray(data) ? data : (data.keys || []);
       setKeys(loaded);
       return loaded;
