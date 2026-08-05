@@ -41,8 +41,21 @@ services:
       start_period: 10s
     labels:
       - "traefik.enable=true"
+      # Public paths — no ForwardAuth (auth endpoints, shared docs, health, analytics)
+      - "traefik.http.routers.mm-public.rule=Host(`docs.littledan.com`) && (PathPrefix(`/api/auth`) || PathPrefix(`/api/shared`) || PathPrefix(`/api/analytics`) || PathPrefix(`/health`) || PathPrefix(`/monitoring`))"
+      - "traefik.http.routers.mm-public.entrypoints=web"
+      - "traefik.http.routers.mm-public.priority=300"
+      - "traefik.http.routers.mm-public.service=mm-app"
+      # Protected API/AI paths — ForwardAuth validates cookie
+      - "traefik.http.routers.mm-protected.rule=Host(`docs.littledan.com`) && (PathPrefix(`/api/`) || PathPrefix(`/ai/`))"
+      - "traefik.http.routers.mm-protected.entrypoints=web"
+      - "traefik.http.routers.mm-protected.middlewares=platform-auth@docker"
+      - "traefik.http.routers.mm-protected.priority=200"
+      - "traefik.http.routers.mm-protected.service=mm-app"
+      # Static/SPA catch-all — no auth needed
       - "traefik.http.routers.mm-app.rule=Host(`docs.littledan.com`)"
       - "traefik.http.routers.mm-app.entrypoints=web"
+      - "traefik.http.routers.mm-app.priority=100"
       - "traefik.http.services.mm-app.loadbalancer.server.port=80"
       - "traefik.http.services.mm-app.loadbalancer.healthcheck.path=/"
       - "traefik.http.services.mm-app.loadbalancer.healthcheck.interval=5s"

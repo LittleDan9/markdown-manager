@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import jwt
 from jwt.exceptions import InvalidTokenError
@@ -128,15 +128,28 @@ async def authenticate_user(
 
 
 async def get_current_user(
-    credentials: HTTPAuthorizationCredentials = Depends(security),
+    request: Request,
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
     db: AsyncSession = Depends(get_db),
 ) -> User:
-    """Get current authenticated user."""
+    """Get current authenticated user. Supports ForwardAuth headers (primary) and JWT Bearer (fallback)."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
+
+    # Primary: ForwardAuth-injected headers from Traefik
+    forwarded_email = request.headers.get("x-user-email")
+    if forwarded_email:
+        user = await get_user_by_email(db, email=forwarded_email)
+        if user is None:
+            raise credentials_exception
+        return user
+
+    # Fallback: JWT Bearer token (transition period)
+    if not credentials:
+        raise credentials_exception
 
     try:
         payload = jwt.decode(
@@ -194,10 +207,12 @@ async def get_current_active_user(
 
 
 async def get_admin_user(
+    request: Request,
     current_user: User = Depends(get_current_active_user),
 ) -> User:
-    """Get current admin user."""
-    if not current_user.is_admin:
+    """Get current admin user. Platform admin inherits app admin."""
+    is_platform_admin = request.headers.get("x-user-is-platform-admin", "").lower() == "true"
+    if not current_user.is_admin and not is_platform_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions"
