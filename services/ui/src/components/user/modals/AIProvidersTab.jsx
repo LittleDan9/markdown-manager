@@ -11,7 +11,7 @@ import {
   Spinner,
 } from 'react-bootstrap';
 import apiKeysApi from '../../../api/apiKeysApi';
-import RemoteProvidersPanel from './RemoteProvidersPanel';
+import platformAiApi from '../../../api/platformAiApi';
 import AIUsagePanel from './AIUsagePanel';
 
 /** Registry of known provider types — drives the "Add Provider" dropdown. */
@@ -85,12 +85,12 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setLoadingModels(true);
     setModelError('');
     try {
-      const result = await apiKeysApi.listModels(keyData.id);
+      const result = await platformAiApi.testKey(keyData.id);
       if (result.models?.length) {
         setModels(result.models);
         setModelError('');
-      } else if (result.error) {
-        setModelError(result.error);
+      } else if (result.detail) {
+        setModelError(result.detail);
       }
     } catch {
       // Silently fail — user can still type manually
@@ -136,8 +136,13 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setTesting(true);
     setTestResult(null);
     try {
-      const result = await apiKeysApi.testKey(keyData.id);
-      setTestResult(result);
+      const result = await platformAiApi.testKey(keyData.id);
+      // Platform AI returns {status: "ok", models_count, models} or {status: "error", detail}
+      if (result.status === 'ok') {
+        setTestResult({ success: true, model: `${result.models_count} models available` });
+      } else {
+        setTestResult({ success: false, error: result.detail || 'Unknown error' });
+      }
     } catch (err) {
       setTestResult({ success: false, error: err.message });
     } finally {
@@ -303,7 +308,7 @@ function AIProvidersTab() {
   const loadKeys = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await apiKeysApi.getKeys();
+      const data = await platformAiApi.getKeys();
       const loaded = Array.isArray(data) ? data : (data.keys || []);
       setKeys(loaded);
       return loaded;
@@ -388,9 +393,10 @@ function AIProvidersTab() {
           onSelect={(eventKeys) => setOpenKeys(eventKeys || [])}
         >
           {keys.map((key) => {
-            const provider = providerById(key.provider) || {
-              id: key.provider,
-              name: key.provider,
+            const provId = key.provider_type || key.provider;
+            const provider = providerById(provId) || {
+              id: provId,
+              name: provId,
               icon: 'bi-key',
               defaultUrl: '',
               defaultModel: '',
@@ -464,9 +470,6 @@ function AIProvidersTab() {
           <div className="small">Always available — configured by your administrator</div>
         </Card.Body>
       </Card>
-
-      {/* Cross-App Remote Providers */}
-      <RemoteProvidersPanel localKeys={keys} onImported={loadKeys} />
 
       {/* AI Usage Dashboard */}
       <AIUsagePanel />

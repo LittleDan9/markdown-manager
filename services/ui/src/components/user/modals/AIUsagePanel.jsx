@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Alert, Card, Col, Form, Row, Spinner, Table, Badge } from 'react-bootstrap';
-import aiUsageApi from '../../../api/aiUsageApi';
+import platformAiApi from '../../../api/platformAiApi';
 
 const SOURCE_LABELS = {
   'team-manager': 'Team Manager',
@@ -24,7 +24,7 @@ export default function AIUsagePanel() {
 
   useEffect(() => {
     setLoading(true);
-    aiUsageApi.getUsageStats(days)
+    platformAiApi.getUsageStats(days)
       .then(data => { setStats(data); setError(null); })
       .catch(() => { setStats(null); setError('Failed to load usage stats'); })
       .finally(() => setLoading(false));

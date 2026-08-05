@@ -6,10 +6,11 @@ export class Api {
   constructor() {
     this.apiBase = config.apiBaseUrl;
     this.lastNotificationTime = 0;
-    this.notificationCooldown = 30000; // 30 seconds between similar notifications
+    this.notificationCooldown = 30000;
   }
 
   getToken() {
+    // Legacy: still check localStorage during transition
     return localStorage.getItem("authToken");
   }
 
@@ -18,20 +19,20 @@ export class Api {
   }
 
   async refreshAccessToken() {
-    // The refresh token is stored in an HTTP-only cookie by the backend
-    // We don't need to send it in the request body - the browser will send the cookie automatically
     try {
       const response = await axios.post(`${this.apiBase}/auth/refresh`, {}, {
         withCredentials: true
       });
-      const { access_token, refresh_token } = response.data;
-      localStorage.setItem("authToken", access_token);
+      // Platform auth uses cookies — no token in response body needed
+      const { access_token, refresh_token } = response.data || {};
+      if (access_token) {
+        localStorage.setItem("authToken", access_token);
+      }
       if (refresh_token) {
         localStorage.setItem("refreshToken", refresh_token);
       }
       return access_token;
     } catch (error) {
-      // Refresh failed, clear tokens
       localStorage.removeItem("authToken");
       localStorage.removeItem("refreshToken");
       throw error;
@@ -40,18 +41,16 @@ export class Api {
 
   async apiCall(endpoint, method = "GET", body = null, extraHeaders = {}, options = {}) {
     const url = `${this.apiBase}${endpoint}`;
-    // console.log('API Call:', { method, url, body }); // Commented out to reduce noise
 
     const headers = {
       ...extraHeaders
     };
 
-    // Don't set Content-Type for FormData - let browser set it with boundary
     if (!options.isFormData) {
       headers["Content-Type"] = "application/json";
     }
 
-    // Add authorization header unless noAuth is specified
+    // Add auth: cookie-based (withCredentials) + legacy Bearer fallback
     if (!options.noAuth) {
       const token = this.getToken();
       if (token) {
@@ -64,8 +63,8 @@ export class Api {
       url,
       headers,
       data: body,
-      timeout: options.timeout || 40000, // Use custom timeout or default 40 seconds
-      // Spread other options (like responseType, withCredentials, signal, etc.)
+      withCredentials: true,
+      timeout: options.timeout || 40000,
       ...Object.fromEntries(Object.entries(options).filter(([key]) =>
         !['timeout', 'noAuth', 'isFormData'].includes(key)
       ))
