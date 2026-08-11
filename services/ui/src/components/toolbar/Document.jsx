@@ -30,6 +30,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(currentDocument.name || "Untitled Document");
   const [categoryFilter, setCategoryFilter] = useState("");
+  const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
   // renameDocument is now included above from useDocumentContext
@@ -108,7 +109,8 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }
   };
 
-  const handleTitleClick = () => {
+  const handleTitleClick = (e) => {
+    if (e) e.stopPropagation();
     if (!currentDocument || isCollabDocument) return;
     setTitleInput(currentDocument.name || "Untitled Document");
     setEditingTitle(true);
@@ -198,8 +200,13 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           {currentDocument.category || 'General'}
         </span>
       ) : (
-        /* Category breadcrumb dropdown — unified single list */
-        <Dropdown as="span" className="me-1 category-breadcrumb" onToggle={(open) => { if (!open) setCategoryFilter(""); }}>
+        /* Category breadcrumb dropdown — controlled mode */
+        <Dropdown
+          as="span"
+          className="me-1 category-breadcrumb"
+          show={showCategoryDropdown}
+          onToggle={(open) => { setShowCategoryDropdown(open); if (!open) setCategoryFilter(""); }}
+        >
           <Dropdown.Toggle
             as="span"
             id="categoryDropdown"
