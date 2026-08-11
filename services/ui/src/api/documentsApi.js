@@ -134,11 +134,25 @@ class DocumentsApi extends Api {
     const requestData = {};
     if (name !== undefined) requestData.name = name;
     if (content !== undefined) requestData.content = content;
+
     if (category_id) {
       requestData.category_id = parseInt(category_id, 10);
     } else if (category) {
+      // Resolve category name → ID so the backend can trigger a filesystem move
+      try {
+        const categoriesApi = (await import('./categoriesApi')).default;
+        const categories = await categoriesApi.getCategories();
+        const categoryObj = categories.find(cat => cat.name === category);
+        if (categoryObj?.id) {
+          requestData.category_id = categoryObj.id;
+        }
+      } catch {
+        // Lookup failed — fall through to folder_path
+      }
+      // Always send folder_path so the DB stays in sync regardless
       requestData.folder_path = `/${category}`;
     }
+
     if (skip_commit !== undefined) requestData.skip_commit = skip_commit;
 
     const res = await this.apiCall(`/documents/${id}`, "PUT", requestData);

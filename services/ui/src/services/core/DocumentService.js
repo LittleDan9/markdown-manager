@@ -168,7 +168,6 @@ class DocumentService {
           name: document.name,
           content: document.content,
           category: document.category || 'Drafts',
-          category_id: document.category_id,
           skip_commit: document.skip_commit
         });
         return result;
