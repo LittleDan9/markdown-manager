@@ -109,6 +109,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   };
 
   const handleTitleClick = () => {
+    if (!currentDocument || isCollabDocument) return;
     setTitleInput(currentDocument.name || "Untitled Document");
     setEditingTitle(true);
   };
@@ -204,10 +205,9 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             id="categoryDropdown"
             className="category-breadcrumb-toggle"
             role="button"
+            style={{ minWidth: 60 }}
           >
-            <span style={{ minWidth: 60, display: "inline-block" }}>
-              {currentCategory}
-            </span>
+            {currentCategory}
           </Dropdown.Toggle>
           <Dropdown.Menu className="category-dropdown-menu">
             {/* Header with manage gear icon */}
