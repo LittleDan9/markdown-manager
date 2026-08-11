@@ -84,15 +84,14 @@ function KeyCard({ keyData, provider, onSaved, onDeleted }) {
     setLoadingModels(true);
     setModelError('');
     try {
-      const result = await platformAiApi.testKey(keyData.id);
-      if (result.models?.length) {
-        setModels(result.models);
+      const result = await platformAiApi.getModels(keyData.id);
+      const modelList = result?.models || (Array.isArray(result) ? result : []);
+      if (modelList.length) {
+        setModels(modelList);
         setModelError('');
-      } else if (result.detail) {
-        setModelError(result.detail);
       }
-    } catch {
-      // Silently fail — user can still type manually
+    } catch (err) {
+      setModelError(err?.response?.data?.detail || '');
     } finally {
       setLoadingModels(false);
     }

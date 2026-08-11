@@ -35,6 +35,12 @@ const platformAiApi = {
   async testKey(id) {
     return aiCall(`/keys/${id}/test`, 'POST');
   },
+  async getModels(id) {
+    return aiCall(`/keys/${id}/models`);
+  },
+  async listModels(id) {
+    return aiCall(`/keys/${id}/models`);
+  },
 
   // Ollama
   async getOllamaModels() {
