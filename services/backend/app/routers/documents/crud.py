@@ -282,14 +282,27 @@ async def _process_document_updates(
         and document_data.category_id != original_category_id
     )
 
+    # Also detect folder_path-driven category changes
+    folder_path_changed = False
+    if not category_changed and document_data.folder_path is not None:
+        new_fp = DocumentModel.normalize_folder_path(document_data.folder_path)
+        if new_fp != (document.folder_path or '/'):
+            folder_path_changed = True
+            category_changed = True
+
     # Handle category updates first
     new_category_name = None
-    if category_changed and document_data.category_id is not None:
-        category_obj = await _validate_category(db, document_data.category_id, current_user.id)
-        if not category_obj:
-            raise ValueError(f"Category with ID {document_data.category_id} not found for user")
-        new_category_name = category_obj.name
-        document.category_id = document_data.category_id
+    if category_changed:
+        if folder_path_changed:
+            # Derive category name from the incoming folder_path
+            fp = DocumentModel.normalize_folder_path(document_data.folder_path)
+            new_category_name = fp.strip('/').split('/')[0] or 'Drafts'
+        elif document_data.category_id is not None:
+            category_obj = await _validate_category(db, document_data.category_id, current_user.id)
+            if not category_obj:
+                raise ValueError(f"Category with ID {document_data.category_id} not found for user")
+            new_category_name = category_obj.name
+            document.category_id = document_data.category_id
 
     # Handle name updates
     if name_changed and document_data.name is not None:
@@ -352,7 +365,7 @@ async def update_document(
             detail=f"Failed to update document in filesystem: {str(e)}"
         )
 
-    # Handle folder path updates
+    # Handle folder path updates (skip if already handled by _process_document_updates)
     if document_data.folder_path is not None:
         new_folder_path = DocumentModel.normalize_folder_path(document_data.folder_path)
         document.folder_path = new_folder_path
