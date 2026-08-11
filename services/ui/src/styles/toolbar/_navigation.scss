@@ -144,7 +144,7 @@
 
         &:hover {
           color: var(--bs-link-hover-color);
-          text-decoration: underline;
+          text-decoration: none;
         }
       }
 
@@ -178,7 +178,7 @@
 
   &:hover {
     background-color: var(--mm-bg-surface) !important;
-    text-decoration: underline;
+    text-decoration: none;
   }
 
   &:focus-visible {
