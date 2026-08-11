@@ -1,7 +1,5 @@
 import CategoryManagementModal from "@/components/document/modals/CategoryManagementModal";
 import React, { useEffect, useRef, useState, useMemo, useCallback } from "react";
-import ConfirmModal from "@/components/shared/modals/ConfirmModal";
-import { useConfirmModal } from "@/hooks/ui";
 import { Dropdown, OverlayTrigger, Popover } from "react-bootstrap";
 import { useDocumentContext } from "@/providers/DocumentContextProvider.jsx";
 import { useAuth } from "@/providers/AuthProvider";
@@ -11,7 +9,6 @@ import { formatDistanceToNow } from "date-fns";
 const CATEGORY_FILTER_THRESHOLD = 10;
 
 function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
-  const { show, modalConfig, openModal, handleConfirm, handleCancel } = useConfirmModal();
   const { showError, showSuccess } = useNotification();
   const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, currentDocument, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory, openRecents, clearSiblingOverride, siblingOverrideMode } = useDocumentContext();
   const { user } = useAuth();
@@ -32,9 +29,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const [newCategory, setNewCategory] = useState("");
   const [editingTitle, setEditingTitle] = useState(false);
   const [titleInput, setTitleInput] = useState(currentDocument.name || "Untitled Document");
-  const [editingCategory, setEditingCategory] = useState(false);
-  const [categoryInput, setCategoryInput] = useState(currentCategory);
-  const [categoryError, setCategoryError] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("");
   const [showManageModal, setShowManageModal] = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
@@ -114,7 +108,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     }
   };
 
-  const handleTitleClick = () => () => {
+  const handleTitleClick = () => {
     setTitleInput(currentDocument.name || "Untitled Document");
     setEditingTitle(true);
   };
@@ -174,58 +168,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     setNewCategory("");
   };
 
-  // Category rename handlers
-  const handleCategoryLabelClick = () => {
-    // Don't allow category editing for GitHub files
-    if (currentDocument?.repository_type === 'github') {
-      return;
-    }
-
-    setEditingCategory(true);
-    setCategoryInput(currentCategory);
-    setCategoryError("");
-  };
-
-  const handleCategoryInputChange = (e) => {
-    setCategoryInput(e.target.value);
-    setCategoryError("");
-  };
-
-  const handleCategoryInputBlur = () => {
-    setEditingCategory(false);
-    if (categoryInput.trim() && categoryInput !== currentCategory) {
-      openModal(
-        async () => {
-          const success = await renameCategory(currentCategory, categoryInput.trim());
-          if (!success) {
-            setCategoryError("Category name already exists or is invalid.");
-            setEditingCategory(true);
-          }
-        },
-        {
-          title: `Rename Category: ${currentCategory}`,
-          message: `Change category name to '${categoryInput.trim()}'?`,
-          confirmText: "Rename",
-          cancelText: "Cancel",
-          confirmVariant: "primary",
-          cancelVariant: "secondary",
-          icon: <i className="bi bi-pencil-square text-primary me-2"></i>,
-        },
-      );
-    }
-  };
-
-  const handleCategoryInputKeyDown = (e) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      handleCategoryInputBlur();
-    } else if (e.key === "Escape") {
-      setEditingCategory(false);
-      setCategoryInput(currentCategory);
-      setCategoryError("");
-    }
-  };
-
   // Categories are now managed by context
   const isGitHubFile = currentDocument?.repository_type === 'github';
 
@@ -263,27 +205,9 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
             className="category-breadcrumb-toggle"
             role="button"
           >
-            {editingCategory ? (
-              <input
-                type="text"
-                className="form-control form-control-sm d-inline w-auto"
-                style={{ maxWidth: 160 }}
-                value={categoryInput}
-                onChange={handleCategoryInputChange}
-                onBlur={handleCategoryInputBlur}
-                onKeyDown={handleCategoryInputKeyDown}
-                autoFocus
-              />
-            ) : (
-              <span
-                className="cursor-pointer"
-                title="Click to rename category"
-                onClick={handleCategoryLabelClick}
-                style={{ minWidth: 60, display: "inline-block" }}
-              >
-                {currentCategory}
-              </span>
-            )}
+            <span style={{ minWidth: 60, display: "inline-block" }}>
+              {currentCategory}
+            </span>
           </Dropdown.Toggle>
           <Dropdown.Menu className="category-dropdown-menu">
             {/* Header with manage gear icon */}
@@ -381,9 +305,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
                   <i className="bi bi-plus"></i>
                 </button>
               </form>
-              {categoryError && (
-                <div className="text-danger small mt-1">{categoryError}</div>
-              )}
             </div>
           </Dropdown.Menu>
         </Dropdown>
@@ -405,7 +326,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           id="documentTitle"
           className={`text-muted${isCollabDocument ? '' : ' cursor-pointer'}`}
           title={isCollabDocument ? currentDocument.name : 'Click to edit'}
-          onClick={isCollabDocument ? undefined : handleTitleClick()}
+          onClick={isCollabDocument ? undefined : handleTitleClick}
           style={{ minWidth: 60, display: "inline-block" }}
         >
           {currentDocument.name || "Untitled Document"}
@@ -463,12 +384,6 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
           )}
         </span>
       </OverlayTrigger>
-      <ConfirmModal
-        show={show}
-        onConfirm={handleConfirm}
-        onCancel={handleCancel}
-        {...modalConfig}
-      />
       <CategoryManagementModal
         show={showManageModal}
         onHide={() => setShowManageModal(false)}
