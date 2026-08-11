@@ -79,7 +79,7 @@ class SpellCheckApi extends Api {
       const response = await this.apiCall('/spell-check/health');
       return response.data;
     } catch (error) {
-      console.error('Health check failed:', error);
+      console.warn('Spell-check health check unavailable:', error?.status || error?.message);
       return {
         status: 'unhealthy',
         error: error.message,

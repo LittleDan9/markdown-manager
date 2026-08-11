@@ -62,7 +62,7 @@ class UserAPI extends Api {
 
     try {
       console.log('UserAPI.getCurrentUser: Fetching user with token');
-      const res = await this.apiCall("/auth/me", "GET", null, headers);
+      const res = await this.apiCall("/auth/me", "GET", null, headers, { silentErrors: true });
       console.log('UserAPI.getCurrentUser: User fetch successful', res.data);
       return res.data;
     } catch (e) {

@@ -471,7 +471,7 @@ class AuthService {
       }
       return userData;
     } catch (error) {
-      console.error('Failed to fetch current user:', error);
+      console.warn('Failed to fetch current user:', error?.status || error?.message);
       return null;
     }
   }

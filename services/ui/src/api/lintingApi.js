@@ -238,8 +238,13 @@ class LintingApi extends Api {
    * Check lint service health
    */
   async checkHealth() {
-    const response = await this.apiCall('/markdown-lint/health');
-    return response.data;
+    try {
+      const response = await this.apiCall('/markdown-lint/health');
+      return response.data;
+    } catch (error) {
+      console.warn('Markdown-lint health check unavailable:', error?.status || error?.message);
+      return { status: 'unhealthy', error: error.message };
+    }
   }
 }
 

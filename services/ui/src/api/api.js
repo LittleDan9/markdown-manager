@@ -121,14 +121,15 @@ export class Api {
         }
       }
 
-      // Log error details without circular references
-      console.error('API Error:', {
-        message: error.message,
-        status: error.response?.status,
-        statusText: error.response?.statusText,
-        data: error.response?.data,
-        endpoint: endpoint
-      });
+      if (!options.silentErrors) {
+        console.error('API Error:', {
+          message: error.message,
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          endpoint: endpoint
+        });
+      }
 
       // Extract detailed error message from backend response
       let detailedErrorMessage = error.message;
