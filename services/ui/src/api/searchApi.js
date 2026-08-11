@@ -56,6 +56,7 @@ class SearchApi extends Api {
       messages,
       scope,
       scope_metadata: scopeMetadata,
+      app_id: "markdown-manager",
     };
     if (provider) body.provider = provider;
     if (keyId) body.key_id = String(keyId);
@@ -70,6 +71,7 @@ class SearchApi extends Api {
       },
       body: JSON.stringify(body),
       signal,
+      credentials: "include",
     });
 
     if (!response.ok) {
