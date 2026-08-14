@@ -23,7 +23,7 @@ REMOTE_USER_HOST :=
 DEPLOY_BASE      := /var/www/littledan.com
 BACKEND_BASE     := /opt/markdown-manager-api/
 else
-REMOTE_USER_HOST := dlittle@10.0.1.51
+REMOTE_USER_HOST := dlittle@danbian
 DEPLOY_BASE      := /var/www/littledan.com
 BACKEND_BASE     := /opt/markdown-manager-api
 endif

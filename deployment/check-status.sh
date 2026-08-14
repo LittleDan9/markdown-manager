@@ -11,7 +11,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-DANBIAN_HOST="dlittle@10.0.1.51"
+DANBIAN_HOST="dlittle@danbian"
 SSH_KEY="~/.ssh/id_danbian"
 
 echo -e "${BLUE}🔍 Checking service status on Danbian...${NC}"

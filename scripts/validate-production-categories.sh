@@ -7,7 +7,7 @@ echo "=== Production Category Validation ==="
 echo "Checking category order that will be created by migration..."
 
 # SSH to production and check current category strings
-ssh dlittle@10.0.1.51 "cd markdown-manager && docker-compose exec -T db psql -U postgres -d markdown_manager -c \"
+ssh dlittle@danbian "cd markdown-manager && docker-compose exec -T db psql -U postgres -d markdown_manager -c \"
 SELECT DISTINCT category, COUNT(*) as doc_count
 FROM documents
 WHERE category IS NOT NULL AND category != ''

@@ -5,7 +5,7 @@ Production deployment using Ansible + Docker Compose with **blue/green zero-down
 ## Architecture
 
 ```
-Development Machine → Ansible → SSH → Production Server (10.0.1.51)
+Development Machine → Ansible → SSH → Production Server (danbian)
                                 ↓
              ┌─── Shared Infrastructure (platform-manager) ───┐
              │  Traefik  (port 8080, traffic switch)           │
@@ -46,7 +46,7 @@ Host nginx config is managed by the `nginx_host` Ansible role. Container nginx c
 
 ### Prerequisites
 
-- SSH access to production: `ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51`
+- SSH access to production: `ssh danbian`
 - `deployment/production.env` configured (see `deployment/production.env.template`)
 - Shared infrastructure running via [platform-manager](https://github.com/LittleDan9/platform-manager)
 
@@ -114,7 +114,7 @@ docker-compose.app.yml         # Application: backend, nginx, export, linting, e
 deployment/
 ├── deploy.yml                 # Main Ansible playbook (3 roles)
 ├── config.yml                 # Shared variables (app_dir, compose files)
-├── inventory.yml              # Target host (10.0.1.51)
+├── inventory.yml              # Target host (danbian → littledan.com)
 ├── production.env             # Production secrets (gitignored)
 ├── production.env.template    # Variable reference
 ├── ansible.cfg                # Ansible settings
@@ -174,7 +174,7 @@ Alternates between project names. Each gets its own UI static volume.
 
 ```bash
 # SSH to production
-ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51
+ssh danbian
 cd /opt/markdown-manager
 
 # Check active slot

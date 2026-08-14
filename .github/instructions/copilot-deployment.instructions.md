@@ -26,7 +26,7 @@ Shared volumes: `shared-postgres-data`, `shared-redis-data`, `shared-ollama-data
 
 ### Key Infrastructure Facts
 
-- **Remote host**: `10.0.1.51` (configurable in `deployment/inventory.yml`)
+- **Remote host**: `danbian` SSH alias (configurable in `~/.ssh/config`, resolves to `littledan.com`)
 - **SSH user**: `dlittle`, key `~/.ssh/id_danbian`
 - **App directory**: `/opt/markdown-manager` on remote
 - **Infrastructure**: Managed by platform-manager at `/opt/platform-manager` (project `platform`)
@@ -275,7 +275,7 @@ Restore script handles table dependency ordering and sequence repair.
 
 ```bash
 # Direct SSH to production
-ssh -i ~/.ssh/id_danbian dlittle@10.0.1.51
+ssh danbian
 
 # On remote, app is at:
 cd /opt/markdown-manager

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -e
 
-REMOTE_USER_HOST=${1:-dlittle@10.0.1.51}
+REMOTE_USER_HOST=${1:-dlittle@danbian}
 KEY=~/.ssh/id_danbian
 
 source ./scripts/colors.sh
