@@ -19,8 +19,29 @@ router = APIRouter()
 settings = get_settings()
 
 
+async def _verify_platform_token(token: str) -> str | None:
+    """Validate a platform JWT by calling the auth service's verify endpoint. Returns email or None."""
+    if not settings.platform_auth_url:
+        return None
+    import httpx
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            resp = await client.get(
+                f"{settings.platform_auth_url}/verify",
+                headers={"Authorization": f"Bearer {token}"},
+            )
+            if resp.status_code == 200:
+                return resp.headers.get("x-user-email")
+    except Exception:
+        logger.debug("Platform auth verify call failed", exc_info=True)
+    return None
+
+
 async def _authenticate_ws(token: str, headers: dict = None) -> User | None:
-    """Authenticate a WebSocket connection. Tries ForwardAuth header first, then legacy app JWT."""
+    """Authenticate a WebSocket connection.
+
+    Tries in order: ForwardAuth headers, platform auth verify, legacy app JWT.
+    """
     # ForwardAuth path: email injected by Traefik on WS upgrade
     if headers:
         email = headers.get("x-user-email")
@@ -30,6 +51,15 @@ async def _authenticate_ws(token: str, headers: dict = None) -> User | None:
                 user = result.scalar_one_or_none()
                 if user and user.is_active:
                     return user
+
+    # Platform auth verify: validate token via auth service
+    email = await _verify_platform_token(token)
+    if email:
+        async with get_db_context() as db:
+            result = await db.execute(select(User).where(User.email == email))
+            user = result.scalar_one_or_none()
+            if user and user.is_active:
+                return user
 
     # Legacy app JWT fallback
     try:

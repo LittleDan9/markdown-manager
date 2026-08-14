@@ -114,6 +114,11 @@ class Settings(BaseSettings):
         default="", description="Platform AI service authentication token"
     )
 
+    # Platform Auth service (centralized auth, ForwardAuth verify)
+    platform_auth_url: str = Field(
+        default="http://auth:8040", description="Platform Auth service URL"
+    )
+
     # Export Service configuration
     export_service_url: str = Field(
         default="http://export:8001", description="Export service URL"
