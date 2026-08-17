@@ -300,9 +300,27 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
   }, [hasBackendSession, isInitializing, migrationStatus, isSharedView, hasSyncedOnMount, migrateLocalDocuments, setPreviewHTML, showError, showSuccess, showWarning]);
 
   useEffect(() => {
-    const newCategories = DocumentService.getCategories();
-    setCategories(newCategories);
-  }, [documents]);
+    const localCategories = DocumentService.getCategories();
+    setCategories(localCategories);
+    if (!hasBackendSession) return;
+    let cancelled = false;
+    import('@/api/categoriesApi').then(mod => {
+      mod.default.getCategories().then(backendCats => {
+        if (cancelled) return;
+        const names = backendCats.map(c => c.name || c);
+        const merged = [...new Set([...localCategories, ...names])];
+        merged.sort((a, b) => {
+          if (a === 'Drafts') return -1;
+          if (b === 'Drafts') return 1;
+          if (a === 'General') return -1;
+          if (b === 'General') return 1;
+          return a.localeCompare(b);
+        });
+        setCategories(merged);
+      }).catch(() => {});
+    });
+    return () => { cancelled = true; };
+  }, [documents, hasBackendSession]);
 
   useEffect(() => {
     // Sync content with currentDocument when there's a mismatch
