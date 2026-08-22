@@ -71,23 +71,18 @@ export class DictionarySyncService {
       // Create a mapping from demo categories to real categories by name
       const demoToRealCategoryMap = this.categoryService.createCategoryMapping(categories);
 
-      // Sync real categories
-      for (const category of categories) {
+      // Sync categories in parallel to avoid sequential N+1 latency
+      await Promise.allSettled(categories.map(async (category) => {
         try {
-          // Get category words from backend using the correct endpoint
           const categoryResponse = await customDictionaryApi.getCategoryWords(category.id);
           const backendCategoryWords = categoryResponse.words || [];
 
-          // Sync backend category words to local storage
-          // This replaces any local category words with what's actually in the backend
           this.categoryService.syncCategoryWithBackend(category.id, backendCategoryWords);
 
-          // Handle demo word migration only if there are demo words for this specific category
           const demoWords = this.categoryService.getMappedDemoWords(category, demoToRealCategoryMap);
           if (demoWords.length > 0) {
             try {
               await customDictionaryApi.bulkAddWords(demoWords, null, category.id);
-              // Add the migrated words to local storage
               for (const word of demoWords) {
                 this.categoryService.addCategoryWord(category.id, word);
               }
@@ -98,9 +93,8 @@ export class DictionarySyncService {
           }
         } catch (error) {
           console.error(`Failed to sync category ${category.name}:`, error);
-          // Continue with other categories
         }
-      }
+      }));
 
       // Clean up any remaining demo category data
       this.categoryService.cleanupDemoCategories();

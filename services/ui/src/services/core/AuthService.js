@@ -506,11 +506,8 @@ class AuthService {
     // Clear linting rules cache on login
     lintingApi.clearRulesCache();
 
-    try {
-      await DictionaryService.syncAfterLogin();
-    } catch (error) {
-      console.error('Dictionary sync failed after login:', error);
-    }
+    // Non-blocking — don't delay login UI for dictionary sync
+    DictionaryService.syncAfterLogin().catch(err => console.error('Dictionary sync failed after login:', err));
 
     this.startTokenRefresh();
     localStorage.setItem('lastKnownAuthState', 'authenticated');
@@ -555,11 +552,8 @@ class AuthService {
         // Clear linting rules cache on MFA login
         lintingApi.clearRulesCache();
 
-        try {
-          await DictionaryService.syncAfterLogin();
-        } catch (error) {
-          console.error('Dictionary sync failed after MFA login:', error);
-        }
+        // Non-blocking — don't delay login UI for dictionary sync
+        DictionaryService.syncAfterLogin().catch(err => console.error('Dictionary sync failed after MFA login:', err));
 
         this.startTokenRefresh();
         localStorage.setItem('lastKnownAuthState', 'authenticated');
