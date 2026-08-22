@@ -795,6 +795,13 @@ async def restore_document_version(
         if not success:
             raise HTTPException(status_code=500, detail="Failed to write restored content")
 
+        # Update search index after content restore
+        try:
+            from app.services.search.index_helpers import update_search_index
+            await update_search_index(db, current_user.id, document, content=content_at_commit)
+        except Exception:
+            pass
+
         return {
             "success": True,
             "document_id": document_id,
@@ -1110,19 +1117,14 @@ async def create_document(
     await db.commit()
     await db.refresh(document)
 
-    # Async-fire embedding (best-effort — never fail document creation if embedding fails)
+    # Update search index (best-effort — never fail document creation)
     try:
-        from app.services.search.embedding_client import EmbeddingClient
-        from app.services.search.semantic import SemanticSearchService
-        from app.configs.settings import get_settings as _get_settings
-        _settings = _get_settings()
-        _client = EmbeddingClient(base_url=_settings.embedding_service_url)
-        _search = SemanticSearchService(_client)
-        await _search.index_document(db, current_user.id, document)
+        from app.services.search.index_helpers import update_search_index
+        await update_search_index(db, current_user.id, document, content=content)
     except Exception:
         import logging as _logging
         _logging.getLogger(__name__).warning(
-            "Non-fatal: failed to embed document %s after creation", document.id, exc_info=True
+            "Non-fatal: failed to index document %s after creation", document.id, exc_info=True
         )
 
     # Use the helper function to create the response
@@ -1821,3 +1823,22 @@ async def reindex_embeddings(
     counts = await _search.bulk_reindex(db, current_user.id)
     return {"status": "ok", **counts}
 
+
+@router.post("/backfill-content-text", tags=["search"])
+async def backfill_content_text(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Populate content_text column for all documents from disk content.
+
+    Run after migration to enable keyword search on existing documents.
+    """
+    from app.services.search.embedding_client import EmbeddingClient
+    from app.services.search.semantic import SemanticSearchService
+    from app.configs.settings import get_settings as _get_settings
+
+    _settings = _get_settings()
+    _client = EmbeddingClient(base_url=_settings.embedding_service_url)
+    _search = SemanticSearchService(_client)
+    counts = await _search.backfill_content_text(db, current_user.id)
+    return {"status": "ok", **counts}

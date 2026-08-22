@@ -6,7 +6,7 @@ import { useAuth } from '../../../providers/AuthProvider';
  * DisplayTab - User display preferences for tab bar position and sort order.
  */
 function DisplayTab() {
-  const { tabPosition, setTabPosition, tabSortOrder, setTabSortOrder, recentsTabLimit, setRecentsTabLimit } = useAuth();
+  const { tabPosition, setTabPosition, tabSortOrder, setTabSortOrder, recentsTabLimit, setRecentsTabLimit, searchMode, setSearchMode } = useAuth();
 
   return (
     <div className="pt-3">
@@ -67,6 +67,26 @@ function DisplayTab() {
         />
         <Form.Text className="text-muted">
           Number of tabs shown when opening Recent (1–25)
+        </Form.Text>
+      </Form.Group>
+
+      <hr className="my-4" />
+
+      <h6 className="mb-3">Search</h6>
+
+      <Form.Group className="mb-3">
+        <Form.Label className="fw-semibold small">Default Search Mode</Form.Label>
+        <Form.Select
+          size="sm"
+          value={searchMode}
+          onChange={e => setSearchMode(e.target.value)}
+          style={{ maxWidth: '250px' }}
+        >
+          <option value="quick">Quick — fast keyword + semantic hybrid</option>
+          <option value="deep">Deep — LLM-expanded multi-query (slower, better recall)</option>
+        </Form.Select>
+        <Form.Text className="text-muted">
+          Deep search uses AI to rephrase your query for better results
         </Form.Text>
       </Form.Group>
     </div>

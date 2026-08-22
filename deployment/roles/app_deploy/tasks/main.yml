@@ -90,3 +90,17 @@
   delay: 5
   until: health_check.rc == 0
   changed_when: false
+
+- name: Set up daily search index reconciliation cron
+  ansible.builtin.cron:
+    name: "mm-search-reconcile"
+    minute: "30"
+    hour: "3"
+    job: >-
+      curl -sf -X POST
+      -H "Authorization: Bearer {{ admin_jwt_token }}"
+      http://localhost:8000/api/admin/search/reconcile
+      >> /var/log/mm-reconcile.log 2>&1
+    user: "{{ ansible_user }}"
+    state: present
+  when: admin_jwt_token is defined

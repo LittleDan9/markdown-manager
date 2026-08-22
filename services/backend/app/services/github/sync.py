@@ -163,6 +163,13 @@ class GitHubSyncService(BaseGitHubService):
         await db.commit()
         await db.refresh(document)
 
+        # Update search index after pulling remote content
+        try:
+            from app.services.search.index_helpers import update_search_index
+            await update_search_index(db, user_id, document, content=remote_content)
+        except Exception:
+            pass
+
         # Log sync operation
         if document.github_repository_id:
             await self._log_sync_operation(

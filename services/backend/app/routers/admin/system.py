@@ -394,6 +394,54 @@ async def get_reindex_status(
     ]
 
 
+# ── Search Index Reconciliation ───────────────────────────────────────────────
+
+
+class ReconcileRequest(BaseModel):
+    user_id: int | None = None
+
+
+@router.post("/search/reconcile")
+async def reconcile_search_index(
+    request: ReconcileRequest = ReconcileRequest(),
+    admin_user: User = Depends(get_admin_user),
+    db: AsyncSession = Depends(get_db),
+) -> Any:
+    """Re-strip all document content into content_text for keyword search.
+
+    Run periodically (daily cron) or after bulk imports to ensure keyword
+    search stays consistent with on-disk content. Designed for Ansible
+    scheduled task or future PM admin UI integration.
+    """
+    from app.configs.settings import get_settings
+    from app.services.search.embedding_client import EmbeddingClient
+    from app.services.search.semantic import SemanticSearchService
+
+    settings = get_settings()
+    client = EmbeddingClient(base_url=settings.embedding_service_url)
+    search = SemanticSearchService(client)
+
+    if request.user_id is not None:
+        user = await db.scalar(select(User).where(User.id == request.user_id))
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        counts = await search.backfill_content_text(db, request.user_id)
+        return {"users_processed": 1, **counts}
+
+    users = (await db.execute(select(User).where(User.is_active.is_(True)))).scalars().all()
+    totals = {"updated": 0, "skipped": 0, "failed": 0}
+    for user in users:
+        try:
+            counts = await search.backfill_content_text(db, user.id)
+            for k in totals:
+                totals[k] += counts.get(k, 0)
+        except Exception:
+            logger.exception("Reconcile failed for user %s", user.id)
+            totals["failed"] += 1
+
+    return {"users_processed": len(users), **totals}
+
+
 # ── Attachment Quota Settings ─────────────────────────────────────────────────
 
 _KEY_ATTACHMENT_QUOTA = "attachment.quota_bytes"

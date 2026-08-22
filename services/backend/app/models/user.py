@@ -60,6 +60,9 @@ class User(BaseModel):
     syntax_theme: Mapped[str] = mapped_column(String(50), default="one-dark", nullable=False)
     syntax_overrides_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
 
+    # Search preferences
+    search_mode: Mapped[str] = mapped_column(String(20), default="quick", nullable=False)
+
     # Account status
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False)

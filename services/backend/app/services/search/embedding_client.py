@@ -17,7 +17,7 @@ class EmbeddingClient:
         self._timeout = timeout
 
     async def embed_texts(self, texts: list[str]) -> list[list[float]]:
-        """Embed a batch of texts. Returns list of 384-dim float vectors."""
+        """Embed a batch of document texts via the embedding service."""
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
                 f"{self._base_url}/embed",
@@ -27,7 +27,7 @@ class EmbeddingClient:
             return response.json()["embeddings"]
 
     async def embed_query(self, query: str) -> list[float]:
-        """Embed a single query string. Returns a 384-dim float vector."""
+        """Embed a single search query via the embedding service."""
         async with httpx.AsyncClient(timeout=self._timeout) as client:
             response = await client.post(
                 f"{self._base_url}/embed-query",

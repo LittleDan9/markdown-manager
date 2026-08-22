@@ -82,6 +82,9 @@ export function AuthProvider({ children }) {
     const saved = localStorage.getItem("syntaxOverridesEnabled");
     return saved === null ? true : saved === "true";
   });
+  const [searchMode, setSearchModeState] = useState(() => {
+    return localStorage.getItem("searchMode") || "quick";
+  });
 
   // Toggle the no-syntax-overrides class on <body> based on user preference
   useEffect(() => {
@@ -358,6 +361,11 @@ export function AuthProvider({ children }) {
     await AuthService.updateSetting('syntaxOverridesEnabled', value);
   }, []);
 
+  const setSearchMode = useCallback(async (value) => {
+    setSearchModeState(value);
+    await AuthService.updateSetting('searchMode', value);
+  }, []);
+
   // Password reset API for modal
   const passwordResetApi = {
     request: requestPasswordReset,
@@ -406,6 +414,8 @@ export function AuthProvider({ children }) {
     setSyntaxTheme,
     syntaxOverridesEnabled,
     setSyntaxOverridesEnabled,
+    searchMode,
+    setSearchMode,
 
     // Modal controls
     showLoginModal,

@@ -1,7 +1,8 @@
-"""Semantic search service — index documents and search by cosine similarity.
+"""Hybrid search service — semantic vectors + full-text keyword search.
 
 Uses halfvec embeddings with binary pre-filtering (QJL-inspired) for
 fast two-stage retrieval: Hamming distance on sign-bits → cosine rerank.
+Combines with PostgreSQL tsvector full-text search via Reciprocal Rank Fusion.
 Redis caching avoids repeated embedding + search for similar queries.
 """
 from __future__ import annotations
@@ -11,7 +12,7 @@ import logging
 from dataclasses import dataclass
 
 from pgvector.sqlalchemy import HALFVEC  # noqa: F401 — registered for HALFVEC columns
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.document_embedding import EMBEDDING_DIM
@@ -43,6 +44,7 @@ class SearchResult:
     document: Document
     score: float  # cosine similarity, 0.0–1.0 (higher = more similar)
     embedding: DocumentEmbedding | None = None  # carries pre-computed summary
+    explanation: str | None = None  # LLM-generated relevance explanation (deep search only)
 
 
 def _sha256(text: str) -> str:
@@ -216,13 +218,41 @@ class SemanticSearchService:
 
         return counts
 
+    async def backfill_content_text(self, db: AsyncSession, user_id: int) -> dict[str, int]:
+        """Populate content_text column for all user documents from disk."""
+        from app.services.search.content_processor import strip_markdown_for_search
+
+        result = await db.execute(
+            select(Document).where(
+                Document.user_id == user_id,
+                Document.file_path.is_not(None),
+            )
+        )
+        documents = result.scalars().all()
+        counts = {"updated": 0, "skipped": 0, "failed": 0}
+
+        for doc in documents:
+            try:
+                content = await _get_filesystem().read_document(user_id, doc.file_path)
+                if content is None:
+                    counts["skipped"] += 1
+                    continue
+                doc.content_text = strip_markdown_for_search(content)
+                counts["updated"] += 1
+            except Exception:
+                logger.warning("Failed to backfill content_text for doc %s", doc.id)
+                counts["failed"] += 1
+
+        await db.commit()
+        return counts
+
     # ------------------------------------------------------------------
     # Search
     # ------------------------------------------------------------------
 
-    def _cache_key(self, user_id: int, query: str, limit: int, category_id: int | None) -> str:
+    def _cache_key(self, user_id: int, query: str, limit: int, min_score: float, category_id: int | None) -> str:
         """Build a Redis cache key from search parameters."""
-        raw = f"{user_id}:{query}:{limit}:{category_id}"
+        raw = f"{user_id}:{query}:{limit}:{min_score}:{category_id}"
         return _SEARCH_CACHE_PREFIX + hashlib.md5(raw.encode()).hexdigest()
 
     async def _invalidate_user_cache(self, user_id: int) -> None:
@@ -237,37 +267,89 @@ class SemanticSearchService:
         except Exception:
             logger.debug("Failed to invalidate search cache", exc_info=True)
 
+    # RRF constant — controls how much rank position affects fusion score
+    _RRF_K = 60
+
     async def search(
         self,
         db: AsyncSession,
         user_id: int,
         query: str,
         limit: int = 10,
-        min_score: float = 0.0,
+        min_score: float = 0.25,
         category_id: int | None = None,
     ) -> list[SearchResult]:
         """
-        Embed *query* and return the most semantically similar documents.
+        Hybrid search: semantic vectors + full-text keyword search.
 
-        Uses two-stage retrieval (TurboQuant/QJL-inspired):
-        1. Hamming distance on binary sign-bit vectors → fast pre-filter to top candidates
-        2. Exact cosine similarity on halfvec embeddings → precise rerank to final top-k
+        1. Semantic: binary pre-filter → cosine rerank (vector similarity)
+        2. Keyword: PostgreSQL tsvector full-text search (exact term matching)
+        3. Fusion: Reciprocal Rank Fusion combines both result sets
 
-        Results are filtered to the requesting user's documents only.
-        Pass min_score > 0 to exclude low-relevance documents.
-        If *category_id* is provided, results are limited to that category.
+        Falls back to keyword-only if embedding service is unavailable.
+        Results cached in Redis for 120s to avoid repeated DB/embedding hits.
         """
+        # Check Redis cache
+        if self._redis:
+            import json as _json
+            cache_key = self._cache_key(user_id, query, limit, min_score, category_id)
+            try:
+                cached = await self._redis.get(cache_key)
+                if cached:
+                    data = _json.loads(cached)
+                    results = []
+                    for d in data:
+                        doc = await db.get(Document, d["id"])
+                        if doc:
+                            results.append(SearchResult(document=doc, score=d["score"]))
+                    if results:
+                        return results
+            except Exception:
+                pass
+        else:
+            cache_key = None
+
+        semantic_results = await self._semantic_search(
+            db, user_id, query, limit=limit * 2, category_id=category_id
+        )
+        keyword_results = await self._keyword_search(
+            db, user_id, query, limit=limit * 2, category_id=category_id
+        )
+
+        # Fuse results using RRF
+        fused = self._reciprocal_rank_fusion(semantic_results, keyword_results)
+
+        # Filter by min_score and return top-k
+        filtered = [r for r in fused if r.score >= min_score]
+        results = filtered[:limit]
+
+        # Write to Redis cache
+        if self._redis and cache_key and results:
+            import json as _json
+            try:
+                cache_data = [{"id": r.document.id, "score": r.score} for r in results]
+                await self._redis.setex(cache_key, _SEARCH_CACHE_TTL, _json.dumps(cache_data))
+            except Exception:
+                pass
+
+        return results
+
+    async def _semantic_search(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        query: str,
+        limit: int = 20,
+        category_id: int | None = None,
+    ) -> list[SearchResult]:
+        """Vector similarity search via two-stage binary pre-filter + cosine rerank."""
         try:
             query_vector = await self._client.embed_query(query)
         except Exception:
-            logger.exception("Failed to embed search query")
+            logger.warning("Embedding service unavailable — falling back to keyword-only")
             return []
 
         query_binary = _to_binary(query_vector)
-
-        # Two-stage search: binary pre-filter → cosine rerank
-        # Stage 1: Fast Hamming distance pre-filter on binary vectors (top 50 candidates)
-        # Stage 2: Exact cosine similarity rerank on halfvec embeddings (top k)
         _PREFILTER_LIMIT = min(50, limit * 5)
 
         stmt = (
@@ -282,10 +364,6 @@ class SemanticSearchService:
         if category_id is not None:
             stmt = stmt.where(Document.category_id == category_id)
 
-        # Binary pre-filter: Hamming distance on sign-bit vectors.
-        # Use text() with inline literal because asyncpg's binary protocol
-        # cannot bind a Python str to PostgreSQL's bit type via ORM operators.
-        # Safe: _to_binary() only produces '0'/'1' characters.
         try:
             stmt = stmt.order_by(
                 text(f"document_embeddings.embedding_binary <~> '{query_binary}'::bit({EMBEDDING_DIM})")
@@ -293,7 +371,6 @@ class SemanticSearchService:
             result = await db.execute(stmt)
             rows = result.all()
         except Exception:
-            # Fallback: skip binary pre-filter, use cosine distance directly
             logger.warning("Binary pre-filter failed, falling back to cosine ordering")
             stmt = (
                 select(
@@ -311,11 +388,76 @@ class SemanticSearchService:
             result = await db.execute(stmt)
             rows = result.all()
 
-        # Stage 2: Sort by exact cosine similarity and take top-k
         scored = [
             SearchResult(document=row.Document, score=float(row.score), embedding=row.DocumentEmbedding)
             for row in rows
-            if float(row.score) >= min_score
         ]
         scored.sort(key=lambda r: r.score, reverse=True)
         return scored[:limit]
+
+    async def _keyword_search(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        query: str,
+        limit: int = 20,
+        category_id: int | None = None,
+    ) -> list[SearchResult]:
+        """Full-text keyword search via PostgreSQL tsvector."""
+        try:
+            ts_query = func.plainto_tsquery("english", query)
+            stmt = (
+                select(
+                    Document,
+                    func.ts_rank(Document.search_vector, ts_query).label("rank"),
+                )
+                .where(Document.user_id == user_id)
+                .where(Document.search_vector.op("@@")(ts_query))
+            )
+            if category_id is not None:
+                stmt = stmt.where(Document.category_id == category_id)
+            stmt = stmt.order_by(text("rank DESC")).limit(limit)
+            result = await db.execute(stmt)
+            rows = result.all()
+            return [
+                SearchResult(document=row.Document, score=float(row.rank), embedding=None)
+                for row in rows
+            ]
+        except Exception:
+            logger.warning("Keyword search failed", exc_info=True)
+            return []
+
+    def _reciprocal_rank_fusion(
+        self,
+        semantic_results: list[SearchResult],
+        keyword_results: list[SearchResult],
+    ) -> list[SearchResult]:
+        """Combine semantic and keyword results using RRF."""
+        k = self._RRF_K
+        doc_scores: dict[int, float] = {}
+        doc_map: dict[int, SearchResult] = {}
+
+        for rank, r in enumerate(semantic_results):
+            doc_id = r.document.id
+            doc_scores[doc_id] = doc_scores.get(doc_id, 0) + 1.0 / (k + rank + 1)
+            if doc_id not in doc_map or (r.embedding is not None):
+                doc_map[doc_id] = r
+
+        for rank, r in enumerate(keyword_results):
+            doc_id = r.document.id
+            doc_scores[doc_id] = doc_scores.get(doc_id, 0) + 1.0 / (k + rank + 1)
+            if doc_id not in doc_map:
+                doc_map[doc_id] = r
+
+        # Normalize RRF scores to 0-1 range
+        max_score = max(doc_scores.values()) if doc_scores else 1.0
+        fused = []
+        for doc_id, rrf_score in doc_scores.items():
+            result = doc_map[doc_id]
+            fused.append(SearchResult(
+                document=result.document,
+                score=rrf_score / max_score,
+                embedding=result.embedding,
+            ))
+        fused.sort(key=lambda r: r.score, reverse=True)
+        return fused

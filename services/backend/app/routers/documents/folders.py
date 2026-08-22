@@ -222,6 +222,7 @@ async def search_documents(
 class SemanticSearchResult(BaseModel):
     document: DocumentResponse
     score: float
+    explanation: Optional[str] = None
 
 
 def _get_search_service() -> SemanticSearchService:
@@ -239,24 +240,18 @@ def _get_search_service() -> SemanticSearchService:
 async def semantic_search_documents(
     q: str = Query(..., min_length=1, description="Natural language search query"),
     limit: int = Query(10, ge=1, le=50, description="Maximum number of results"),
+    min_score: float = Query(0.25, ge=0.0, le=1.0, description="Minimum relevance score"),
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
     """
-    Semantic Document Search
+    Hybrid Document Search
 
-    Find documents using natural language — searches document content and mermaid
-    diagram descriptions using vector similarity. Results ordered by relevance.
-
-    Args:
-        q: Natural language query (e.g. "cloud deployment architecture")
-        limit: Maximum results to return (default 10, max 50)
-
-    Returns:
-        List of matching documents with similarity scores
+    Find documents using natural language — combines vector similarity with
+    keyword matching via Reciprocal Rank Fusion. Results ordered by relevance.
     """
     service = _get_search_service()
-    results = await service.search(db, current_user.id, q, limit=limit)
+    results = await service.search(db, current_user.id, q, limit=limit, min_score=min_score)
 
     response = []
     for result in results:
@@ -272,3 +267,38 @@ async def semantic_search_documents(
 
     return response
 
+
+class DeepSearchRequest(BaseModel):
+    query: str
+    limit: int = 10
+
+
+@router.post("/deep-search", response_model=list[SemanticSearchResult])
+async def deep_search_documents(
+    request: DeepSearchRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Deep Search — LLM-powered query expansion + hybrid search.
+
+    Generates multiple query variations via the LLM, runs hybrid search for
+    each, and fuses results for higher recall on vague or complex queries.
+    """
+    from app.services.search.deep_search import DeepSearchService
+
+    service = _get_search_service()
+    deep = DeepSearchService(service)
+    results = await deep.search(db, current_user.id, request.query, limit=request.limit)
+
+    response = []
+    for result in results:
+        doc = result.document
+        doc_data = DocumentResponse.model_validate(doc, from_attributes=True)
+        if hasattr(doc, "get_folder_breadcrumbs"):
+            doc_data.breadcrumbs = doc.get_folder_breadcrumbs()
+        response.append(SemanticSearchResult(
+            document=doc_data, score=result.score, explanation=result.explanation
+        ))
+
+    return response

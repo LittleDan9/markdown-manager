@@ -4,9 +4,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text, Index, JSON
+from sqlalchemy import Boolean, Computed, DateTime, ForeignKey, Integer, String, Text, Index, JSON
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func, text
+from sqlalchemy.dialects.postgresql import TSVECTOR
 
 from app.models.base import Base
 
@@ -118,6 +119,14 @@ class Document(Base):  # type: ignore[misc]
     github_sync_status: Mapped[str | None] = mapped_column(String(50), nullable=True)
     last_github_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     github_commit_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Full-text search: stripped markdown stored for keyword search
+    content_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    search_vector = mapped_column(
+        TSVECTOR,
+        Computed("to_tsvector('english', coalesce(name, '') || ' ' || coalesce(content_text, ''))", persisted=True),
+        nullable=True,
+    )
 
     # Relationship
     owner: Mapped["User"] = relationship(

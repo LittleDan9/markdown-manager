@@ -719,7 +719,8 @@ class AuthService {
         tabSortOrder: 'tab_sort_order',
         recentsTabLimit: 'recents_tab_limit',
         syntaxTheme: 'syntax_theme',
-        syntaxOverridesEnabled: 'syntax_overrides_enabled'
+        syntaxOverridesEnabled: 'syntax_overrides_enabled',
+        searchMode: 'search_mode'
       };
 
       const backendKey = settingMap[key];

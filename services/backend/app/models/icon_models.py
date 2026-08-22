@@ -18,7 +18,7 @@ except ImportError:
     HALFVEC = None
     BIT = None
 
-ICON_EMBEDDING_DIM = 384
+ICON_EMBEDDING_DIM = 768
 
 
 class IconPack(BaseModel):

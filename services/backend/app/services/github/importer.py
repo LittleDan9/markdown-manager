@@ -83,6 +83,14 @@ class GitHubImportService(BaseGitHubService):
             existing_doc.local_sha = self._generate_content_hash(file_content)
 
             await self.db_session.commit()
+
+            # Update search index for the updated document
+            try:
+                from app.services.search.index_helpers import update_search_index
+                await update_search_index(self.db_session, user_id, existing_doc, content=file_content)
+            except Exception:
+                pass
+
             return existing_doc
         else:
             # Create new document
@@ -106,6 +114,13 @@ class GitHubImportService(BaseGitHubService):
             document.last_github_sync_at = datetime.utcnow()
             document.local_sha = self._generate_content_hash(file_content)
             await self.db_session.commit()
+
+            # Update search index for the imported document
+            try:
+                from app.services.search.index_helpers import update_search_index
+                await update_search_index(self.db_session, user_id, document, content=file_content)
+            except Exception:
+                pass
 
             return document
 

@@ -77,6 +77,34 @@
       color: var(--bs-body-color);
     }
   }
+
+  .search-deep-btn {
+    flex-shrink: 0;
+    width: 24px;
+    height: 24px;
+    margin-right: 2px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--bs-secondary-color);
+    font-size: 0.75rem;
+    border-radius: 50%;
+    padding: 0;
+    transition: color 0.15s, background 0.15s;
+
+    &:hover {
+      background: var(--bs-secondary-bg);
+      color: var(--bs-warning);
+    }
+
+    &.active {
+      color: var(--bs-warning);
+      background: rgba(var(--bs-warning-rgb), 0.1);
+    }
+  }
 }
 
 // Results dropdown
@@ -138,6 +166,20 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+
+        .best-match-badge {
+          display: inline-block;
+          margin-left: 6px;
+          padding: 1px 5px;
+          font-size: 0.6rem;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+          background: rgba(var(--bs-success-rgb), 0.15);
+          color: var(--bs-success);
+          border-radius: 3px;
+          vertical-align: middle;
+        }
       }
 
       .result-path {
@@ -147,6 +189,18 @@
         overflow: hidden;
         text-overflow: ellipsis;
         margin-top: 2px;
+      }
+
+      .result-explanation {
+        font-size: 0.7rem;
+        color: var(--bs-secondary-color);
+        font-style: italic;
+        margin-top: 3px;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
     }
 
@@ -166,8 +220,12 @@
 
         .score-fill {
           height: 100%;
-          background: var(--bs-success);
           border-radius: 2px;
+          background: var(--bs-success);
+
+          &.high { background: var(--bs-success); }
+          &.medium { background: var(--bs-warning); }
+          &.low { background: var(--bs-secondary); }
         }
       }
 
@@ -189,6 +247,25 @@
       display: block;
       font-size: 1.5rem;
       margin-bottom: 6px;
+    }
+
+    .try-deep-search-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 8px;
+      padding: 4px 10px;
+      font-size: 0.75rem;
+      border: 1px solid var(--bs-border-color);
+      border-radius: 12px;
+      background: transparent;
+      color: var(--bs-warning);
+      cursor: pointer;
+      transition: background 0.15s;
+
+      &:hover {
+        background: rgba(var(--bs-warning-rgb), 0.1);
+      }
     }
   }
 }

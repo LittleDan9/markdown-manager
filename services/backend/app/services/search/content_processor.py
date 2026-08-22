@@ -127,6 +127,18 @@ class ProcessedContent:
     summary: str       # Structural summary: headings + first paragraph per section
 
 
+def strip_markdown_for_search(content: str) -> str:
+    """Strip markdown to plain text for full-text search indexing."""
+    text = _CODE_FENCE_RE.sub("", content)
+    text = re.sub(r"!\[[^\]]*\]\([^\)]*\)", "", text)
+    text = re.sub(r"\[([^\]]+)\]\([^\)]*\)", r"\1", text)
+    text = re.sub(r"^#{1,6}\s+", "", text, flags=re.MULTILINE)
+    text = re.sub(r"[*_`]{1,3}", "", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
 # ---------------------------------------------------------------------------
 # Summary extraction
 # ---------------------------------------------------------------------------
@@ -139,7 +151,7 @@ _CODE_FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 _BLANK_LINES_RE = re.compile(r"\n{2,}")
 
 
-def extract_summary(title: str, content: str, max_chars: int = 800) -> str:
+def extract_summary(title: str, content: str, max_chars: int = 1500) -> str:
     """
     Build a compact structural summary of a markdown document.
 
@@ -168,7 +180,7 @@ def extract_summary(title: str, content: str, max_chars: int = 800) -> str:
     current_section_lines: list[str] = []
 
     def _flush_section():
-        """Add up to one short paragraph from buffered section lines."""
+        """Add first and last sentences from buffered section lines."""
         para = " ".join(
             line.strip()
             for line in current_section_lines
@@ -177,10 +189,19 @@ def extract_summary(title: str, content: str, max_chars: int = 800) -> str:
         # Remove residual markdown markers
         para = re.sub(r"[*_`]{1,3}", "", para).strip()
         if para:
-            # Take first sentence or first 120 chars, whichever is shorter
+            # First sentence or first 120 chars
             dot = para.find(". ")
-            snippet = para[: dot + 1] if 0 < dot < 120 else para[:120]
-            parts.append(f"  {snippet}")
+            first = para[: dot + 1] if 0 < dot < 120 else para[:120]
+            parts.append(f"  {first}")
+            # Last sentence (if different from first and section is long enough)
+            if len(para) > 150:
+                last_dot = para.rfind(". ", len(para) // 2)
+                if last_dot > 0 and last_dot > dot:
+                    last_sentence = para[last_dot + 2:]
+                    end_dot = last_sentence.find(". ")
+                    snippet = last_sentence[: end_dot + 1] if 0 < end_dot < 120 else last_sentence[:120]
+                    if snippet.strip() and snippet.strip() != first.strip():
+                        parts.append(f"  …{snippet}")
 
     while i < len(lines):
         line = lines[i]
@@ -282,15 +303,15 @@ def chunk_document_content(title: str, content: str) -> list[DocumentChunk]:
     if len(processed.text) <= int(_CHUNK_TARGET_CHARS * 1.5):
         return [DocumentChunk(text=processed.text, chunk_index=0, has_mermaid=processed.has_mermaid)]
 
-    # Split into paragraphs (double newline or single newline after stripping)
-    paragraphs = [p.strip() for p in processed.text.split(". ") if p.strip()]
+    # Split on paragraph boundaries (double newlines)
+    paragraphs = [p.strip() for p in re.split(r"\n{2,}", processed.text) if p.strip()]
 
     chunks: list[DocumentChunk] = []
     current_text = title  # Always prefix with title
     chunk_idx = 0
 
     for para in paragraphs:
-        candidate = current_text + ". " + para if current_text != title else current_text + " " + para
+        candidate = current_text + "\n\n" + para if current_text != title else current_text + " " + para
 
         if len(candidate) > _CHUNK_TARGET_CHARS and current_text != title:
             # Emit current chunk
@@ -302,7 +323,7 @@ def chunk_document_content(title: str, content: str) -> list[DocumentChunk]:
             chunk_idx += 1
             # Start next chunk with overlap from the end of current chunk
             overlap = current_text[-_CHUNK_OVERLAP_CHARS:] if len(current_text) > _CHUNK_OVERLAP_CHARS else current_text
-            current_text = title + " " + overlap + ". " + para
+            current_text = title + " " + overlap + "\n\n" + para
         else:
             current_text = candidate
 

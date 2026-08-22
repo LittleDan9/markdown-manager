@@ -103,7 +103,7 @@ async def semantic_search(
         redis_client = None
 
     service = SemanticSearchService(client, redis_client=redis_client)
-    results = await service.search(db, user.id, q, limit=limit)
+    results = await service.search(db, user.id, q, limit=limit, min_score=0.0)
 
     response = []
     for result in results:

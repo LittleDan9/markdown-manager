@@ -37,6 +37,7 @@ class UserUpdate(BaseModel):
     recents_tab_limit: Optional[int] = Field(None, ge=1, le=25)
     syntax_theme: Optional[str] = Field(None, max_length=50, pattern="^[a-zA-Z0-9_-]+$")
     syntax_overrides_enabled: Optional[bool] = None
+    search_mode: Optional[str] = Field(None, pattern="^(quick|deep)$")
 
 
 class UserUpdatePassword(BaseModel):
@@ -85,6 +86,7 @@ class UserResponse(UserBase):
     recents_tab_limit: int
     syntax_theme: str
     syntax_overrides_enabled: bool
+    search_mode: str
     current_doc_id: Optional[int] = None
     current_document: Optional["Document"] = None  # Should match Document schema
 

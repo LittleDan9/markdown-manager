@@ -19,14 +19,14 @@ if TYPE_CHECKING:
     from app.models.document import Document
     from app.models.user import User
 
-EMBEDDING_DIM = 384  # all-MiniLM-L6-v2 output dimension
+EMBEDDING_DIM = 768  # nomic-embed-text-v1.5 output dimension
 
 
 class DocumentEmbedding(Base):
     """Stores the vector embedding for a document, used for semantic search.
 
-    Uses halfvec(384) for 2x storage reduction over float32 VECTOR(384),
-    and a binary BIT(384) column for fast Hamming distance pre-filtering
+    Uses halfvec(768) for 2x storage reduction over float32 VECTOR(768),
+    and a binary BIT(768) column for fast Hamming distance pre-filtering
     (QJL-inspired sign-bit quantization).
     """
 
