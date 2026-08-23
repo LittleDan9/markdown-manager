@@ -12,7 +12,7 @@ DEFAULT_EMBEDDING_URL = "http://embedding:8005"
 class EmbeddingClient:
     """Thin async HTTP client that calls the embedding microservice."""
 
-    def __init__(self, base_url: str = DEFAULT_EMBEDDING_URL, timeout: float = 30.0):
+    def __init__(self, base_url: str = DEFAULT_EMBEDDING_URL, timeout: float = 60.0):
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout
 

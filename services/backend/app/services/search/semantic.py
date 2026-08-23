@@ -214,6 +214,7 @@ class SemanticSearchService:
                 counts["indexed" if indexed else "skipped"] += 1
             except Exception:
                 logger.exception("Failed to index doc %s during bulk reindex", doc.id)
+                await db.rollback()
                 counts["failed"] += 1
 
         return counts
