@@ -110,7 +110,7 @@ class ImageCacheService {
     return url && (
       url.includes('/api/images/') ||
       url.includes('/images/') ||
-      url.match(/(?:https?:\/\/[^/]+)?\/api\/images\/\d+\//)
+      url.match(/(?:https?:\/\/[^/]+)?\/api\/images\/[\w-]+\//)
     );
   }
 
@@ -118,11 +118,11 @@ class ImageCacheService {
    * Extract user ID and filename from user image URL
    */
   parseUserImageUrl(url) {
-    // Match patterns like /api/images/123/filename.jpg or https://domain.com/api/images/123/filename.jpg
-    const match = url.match(/(?:https?:\/\/[^/]+)?\/api\/images\/(\d+)\/([^?]+)/);
+    // Match patterns like /api/images/{uuid}/filename.jpg or /api/images/123/filename.jpg
+    const match = url.match(/(?:https?:\/\/[^/]+)?\/api\/images\/([\w-]+)\/([^?]+)/);
     if (match) {
       return {
-        userId: parseInt(match[1]),
+        userId: match[1],
         filename: match[2]
       };
     }
