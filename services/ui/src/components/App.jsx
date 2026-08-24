@@ -49,11 +49,12 @@ function App() {
   }, []);
 
   // Track previous document ID so we can trigger a session commit on switch
-  const prevDocIdRef = useRef(null);
+  const prevDocRef = useRef({ id: null, repositoryType: null });
 
   // Fire-and-forget session commit for a local document
-  const triggerSessionCommit = useCallback(async (documentId) => {
+  const triggerSessionCommit = useCallback(async (documentId, repositoryType) => {
     if (!documentId) return;
+    if (repositoryType === 'github') return;
     try {
       const { default: documentsApi } = await import('@/api/documentsApi');
       await documentsApi.sessionCommit(documentId);
@@ -64,24 +65,27 @@ function App() {
 
   // Session commit on document switch
   useEffect(() => {
-    const prevId = prevDocIdRef.current;
+    const prev = prevDocRef.current;
     const newId = currentDocument?.id ?? null;
 
-    if (prevId && prevId !== newId) {
-      triggerSessionCommit(prevId);
+    if (prev.id && prev.id !== newId) {
+      triggerSessionCommit(prev.id, prev.repositoryType);
     }
 
-    prevDocIdRef.current = newId;
-  }, [currentDocument?.id, triggerSessionCommit]);
+    prevDocRef.current = {
+      id: newId,
+      repositoryType: currentDocument?.repository_type ?? null,
+    };
+  }, [currentDocument?.id, currentDocument?.repository_type, triggerSessionCommit]);
 
   // Session commit on page/tab close
   useEffect(() => {
     const handleBeforeUnload = () => {
-      const docId = prevDocIdRef.current;
-      if (!docId) return;
+      const prev = prevDocRef.current;
+      if (!prev.id || prev.repositoryType === 'github') return;
       const token = localStorage.getItem('authToken');
       try {
-        fetch(`/api/documents/${docId}/git/session-commit`, {
+        fetch(`/api/documents/${prev.id}/git/session-commit`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
