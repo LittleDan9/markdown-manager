@@ -17,11 +17,7 @@ class SearchApi extends Api {
    * Deep search — LLM-powered query expansion + hybrid search for better recall.
    */
   async deepSearch(query, limit = 10) {
-    const response = await this.apiCall(`/documents/deep-search`, {
-      method: "POST",
-      body: JSON.stringify({ query, limit }),
-      headers: { "Content-Type": "application/json" },
-    });
+    const response = await this.apiCall(`/documents/deep-search`, "POST", { query, limit });
     return response.data;
   }
 
