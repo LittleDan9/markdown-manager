@@ -45,7 +45,7 @@ function ShareButton({ className = '', size = 'sm' }) {
   };
 
   // Don't render if user is not authenticated or viewing a collaborator's document
-  const isCollabDocument = currentDocument && user && currentDocument.user_id !== user.id;
+  const isCollabDocument = !!(currentDocument?.user_id && user?.id && String(currentDocument.user_id) !== String(user.id));
 
   // Track once per mount when a guest is blocked from sharing
   const shareBlockTrackedRef = React.useRef(false);

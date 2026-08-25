@@ -54,7 +54,7 @@ function Toolbar({
   const [showMobileCategoryManage, setShowMobileCategoryManage] = useState(false);
 
   // Detect whether we're editing a shared (collab) document
-  const isCollabDocument = !!(currentDocument?.user_id && user?.id && currentDocument.user_id !== user.id);
+  const isCollabDocument = !!(currentDocument?.user_id && user?.id && String(currentDocument.user_id) !== String(user.id));
 
   // Memoize setDocumentTitle to prevent infinite re-renders
   const setDocumentTitle = useCallback((title) => {
