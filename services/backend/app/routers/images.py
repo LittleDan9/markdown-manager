@@ -278,7 +278,7 @@ async def list_images(
 
 @router.get("/{user_id}/{filename}", summary="Get image", description="Retrieve an image file")
 async def get_image(
-    user_id: int,
+    user_id: str,
     filename: str,
     image_service: ImageStorageService = Depends(get_image_service)
 ) -> StreamingResponse:
@@ -288,8 +288,8 @@ async def get_image(
     Returns the image as a streaming response with appropriate content type.
     """
     try:
-        # Get image data
-        image_data = await image_service.retrieve_image(user_id, filename)
+        resolved_id = _resolve_user_id(user_id, image_service, filename)
+        image_data = await image_service.retrieve_image(resolved_id, filename)
 
         if not image_data:
             raise HTTPException(
@@ -331,9 +331,27 @@ async def get_image(
         )
 
 
+def _resolve_user_id(
+    user_id: str, image_service: ImageStorageService, filename: str
+) -> int:
+    """Resolve a user_id path param (int or UUID string) to an integer storage id."""
+    try:
+        return int(user_id)
+    except (ValueError, TypeError):
+        pass
+    # UUID fallback: scan user directories for the file
+    for user_dir in image_service.storage_root.iterdir():
+        if user_dir.is_dir() and user_dir.name.isdigit():
+            if (user_dir / "images" / filename).exists():
+                return int(user_dir.name)
+    raise HTTPException(
+        status_code=status.HTTP_404_NOT_FOUND, detail="Image not found"
+    )
+
+
 @router.get("/thumbnails/{user_id}/{filename}", summary="Get thumbnail", description="Retrieve a thumbnail image")
 async def get_thumbnail(
-    user_id: int,
+    user_id: str,
     filename: str,
     image_service: ImageStorageService = Depends(get_image_service)
 ) -> StreamingResponse:
@@ -347,8 +365,8 @@ async def get_thumbnail(
         from pathlib import Path
         thumbnail_filename = f"thumb_{Path(filename).stem}.jpg"
 
-        # Get thumbnail data
-        thumbnail_data = await image_service.retrieve_thumbnail(user_id, thumbnail_filename)
+        resolved_id = _resolve_user_id(user_id, image_service, filename)
+        thumbnail_data = await image_service.retrieve_thumbnail(resolved_id, thumbnail_filename)
 
         if not thumbnail_data:
             raise HTTPException(

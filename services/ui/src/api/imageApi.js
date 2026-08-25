@@ -187,7 +187,7 @@ class ImageApi extends Api {
    * Generate markdown syntax for an image
    */
   generateMarkdown(image, altText = '', title = '', userId = null) {
-    const url = this.getImageUrl(image.filename, userId);
+    const url = image.url_path || this.getImageUrl(image.filename, userId);
 
     if (!url) {
       console.error('Cannot generate markdown: failed to get image URL');

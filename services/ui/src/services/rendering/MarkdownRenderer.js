@@ -181,7 +181,7 @@ md.renderer.rules.image = (tokens, idx, _options, _env, _self) => {
   // Extract filename from src
   const extractFilename = (url) => {
     const patterns = [
-      /\/api\/images\/\d+\/([^/?]+)/,  // /api/images/7/filename.jpg
+      /\/api\/images\/[\w-]+\/([^/?]+)/,  // /api/images/{id}/filename.jpg
       /\/images\/([^/?]+)/,            // /images/filename.jpg
       /([^/]+\.(jpg|jpeg|png|gif|webp|svg))$/i  // filename.ext at end
     ];

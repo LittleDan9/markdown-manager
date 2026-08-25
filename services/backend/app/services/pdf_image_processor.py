@@ -87,11 +87,11 @@ class PDFImageProcessor:
         return '/api/images/' in url or '/images/' in url
     
     def _extract_image_id_from_url(self, url: str) -> Optional[str]:
-        """Extract image ID from a user image URL."""
-        # Handle URLs like /api/images/{image_id} or /api/v1/images/{image_id}
+        """Extract filename from a user image URL like /api/images/{user_id}/{filename}."""
         patterns = [
-            r'/api/(?:v1/)?images/([^/?#]+)',
-            r'/images/([^/?#]+)'
+            r'/api/(?:v1/)?images/[\w-]+/([^/?#]+)',
+            r'/images/[\w-]+/([^/?#]+)',
+            r'/images/([^/?#]+)',
         ]
         
         for pattern in patterns:

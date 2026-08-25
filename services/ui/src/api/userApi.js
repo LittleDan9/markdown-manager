@@ -62,7 +62,7 @@ class UserAPI extends Api {
 
     try {
       console.log('UserAPI.getCurrentUser: Fetching user with token');
-      const res = await this.apiCall("/auth/me", "GET", null, headers, { silentErrors: true });
+      const res = await this.apiCall("/users/profile", "GET", null, headers, { silentErrors: true });
       console.log('UserAPI.getCurrentUser: User fetch successful', res.data);
       return res.data;
     } catch (e) {
@@ -107,7 +107,7 @@ class UserAPI extends Api {
   }
 
   async currentUser() {
-    const res = await this.apiCall("/auth/me");
+    const res = await this.apiCall("/users/profile");
     return res.data;
   }
 

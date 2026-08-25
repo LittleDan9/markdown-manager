@@ -494,13 +494,16 @@ class AuthService {
 
     this.justLoggedIn = true;
     this.setToken(loginResponse.access_token);
-    this.setUser(loginResponse.user || defaultUser);
     this.isAuthenticated = true;
+
+    // Fetch local MM user profile (Platform login returns UUID id, we need integer id)
+    const localUser = await this.fetchCurrentUser(loginResponse.access_token);
+    this.setUser(localUser || loginResponse.user || defaultUser);
 
     // Update analytics auth state
     AnalyticsService.setAuthState({
       isAuthenticated: true,
-      userId: loginResponse.user?.id,
+      userId: this.user?.id,
     });
 
     // Clear linting rules cache on login
@@ -545,9 +548,12 @@ class AuthService {
       const response = await UserAPI.loginMFA(email, password, code);
       if (response) {
         this.setToken(response.access_token);
-        this.setUser(response.user || defaultUser);
         this.isAuthenticated = true;
         this.justLoggedIn = true;
+
+        // Fetch local MM user profile (Platform login returns UUID id, we need integer id)
+        const localUser = await this.fetchCurrentUser(response.access_token);
+        this.setUser(localUser || response.user || defaultUser);
 
         // Clear linting rules cache on MFA login
         lintingApi.clearRulesCache();
