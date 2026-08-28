@@ -198,6 +198,11 @@ class AuthService {
       this.performLogout();
     } finally {
       this.isInitialized = true;
+      // Suppress transient backend-error notifications during post-auth hydration.
+      // Multiple API calls fire simultaneously after init; brief 502s during
+      // blue/green deploys should not alarm the user.
+      const { Api } = await import('@/api/api.js');
+      Api._lastNotificationTime = Date.now();
       console.log('AuthService: Initialization complete', {
         isAuthenticated: this.isAuthenticated,
         userId: this.user?.id,

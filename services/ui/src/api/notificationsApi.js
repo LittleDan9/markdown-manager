@@ -45,7 +45,7 @@ class NotificationsApi extends Api {
   }
 
   async create({ title, message, category = 'info', link = null, detail = null }) {
-    const response = await this.apiCall('/notifications', 'POST', { title, message, category, link, detail });
+    const response = await this.apiCall('/notifications', 'POST', { title, message, category, link, detail }, {}, { silentErrors: true });
     return response.data;
   }
 }

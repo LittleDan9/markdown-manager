@@ -5,8 +5,6 @@ import axios from "axios";
 export class Api {
   constructor() {
     this.apiBase = config.apiBaseUrl;
-    this.lastNotificationTime = 0;
-    this.notificationCooldown = 30000;
   }
 
   getToken() {
@@ -222,8 +220,8 @@ export class Api {
     if (notificationMessage) {
       // Throttle notifications to prevent spam
       const now = Date.now();
-      if (now - this.lastNotificationTime > this.notificationCooldown) {
-        this.lastNotificationTime = now;
+      if (now - Api._lastNotificationTime > Api._notificationCooldown) {
+        Api._lastNotificationTime = now;
 
         // Extract backend error detail for richer notifications
         let errorDetails = null;
@@ -251,3 +249,8 @@ export class Api {
     }
   }
 }
+
+// Global notification throttle — shared across all Api instances so only one
+// "backend unavailable" notification fires regardless of how many API calls fail.
+Api._lastNotificationTime = 0;
+Api._notificationCooldown = 30000;
