@@ -31,7 +31,7 @@ function Toolbar({
 }) {
   const { theme, setTheme } = useTheme();
   const { currentDocument, error: _error, isSharedView, sharedDocument, sharedLoading, sharedError: _sharedError, previewHTML, setShowChatDrawer, categories, saveDocument, renameDocument, content, mobileViewMode, setMobileViewMode, loadDocument, openCategory, clearSiblingOverride, addCategory, renameCategory: renameCategoryCtx, deleteCategory } = useDocumentContext();
-  const { showWarning: _showWarning } = useNotification();
+  const { showWarning: _showWarning, showSuccess } = useNotification();
   const { user } = useAuth();
   const { isMobile } = useViewport();
   const { users: presenceUsers } = usePresence(currentDocument?.id || null);
@@ -98,14 +98,13 @@ function Toolbar({
 
   const handleMobileCategoryChange = useCallback(async (category) => {
     if (!currentDocument || currentDocument.repository_type === 'github') return;
-    // Include current content to avoid data loss from stale storage
     const saved = await saveDocument({ ...currentDocument, category, content });
     if (saved) {
+      showSuccess(`Moved to ${category}`);
       clearSiblingOverride();
-      // Navigate to the category and load the moved document
       openCategory(category, 'name', saved.id);
     }
-  }, [currentDocument, saveDocument, content, clearSiblingOverride, openCategory]);
+  }, [currentDocument, saveDocument, content, showSuccess, clearSiblingOverride, openCategory]);
 
   const handleMobileOpenCategory = useCallback((category) => {
     clearSiblingOverride();

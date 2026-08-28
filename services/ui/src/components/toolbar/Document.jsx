@@ -62,17 +62,15 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
     openCategory(category, 'name', targetDocumentId);
   };
 
-  // Move document AND navigate to the target category
+  // Move document to a different category without navigating away.
+  // openCategory skips loadDocument when saved.id === currentDocumentIdRef.
   const handleMoveAndNavigate = async (category) => {
     if (category === currentCategory) return;
     try {
-      // Include current in-memory content to avoid data loss from stale storage
       const updatedDoc = { ...currentDocumentRef.current, category, content };
       const saved = await saveDocument(updatedDoc);
       if (saved) {
-        refreshSiblings();
         showSuccess(`Moved to ${category}`);
-        // Navigate to the target category and load the moved document
         handleCategorySelect(category, saved.id);
       } else {
         showError("Failed to move document to category.");

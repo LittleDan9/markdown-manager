@@ -29,7 +29,7 @@ function EditorSection({
 
   // Check if document has collaborators (determines whether collab mode activates)
   useEffect(() => {
-    if (!currentDocument?.id) {
+    if (!currentDocument?.id || String(currentDocument.id).startsWith('doc_')) {
       setHasCollaborators(false);
       return;
     }

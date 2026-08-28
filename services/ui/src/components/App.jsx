@@ -53,7 +53,7 @@ function App() {
 
   // Fire-and-forget session commit for a local document
   const triggerSessionCommit = useCallback(async (documentId, repositoryType) => {
-    if (!documentId) return;
+    if (!documentId || String(documentId).startsWith('doc_')) return;
     if (repositoryType === 'github') return;
     try {
       const { default: documentsApi } = await import('@/api/documentsApi');

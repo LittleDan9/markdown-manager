@@ -15,7 +15,7 @@ export default function useComments(documentId) {
   const [loading, setLoading] = useState(false);
 
   const refresh = useCallback(async () => {
-    if (!isAuthenticated || !documentId) {
+    if (!isAuthenticated || !documentId || String(documentId).startsWith('doc_')) {
       setComments([]);
       setTotal(0);
       return;
