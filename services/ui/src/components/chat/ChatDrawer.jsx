@@ -965,7 +965,7 @@ function ChatDrawer({ show, onHide }) {
       // Parse metadata and reconstruct assistant response versions
       const rawMessages = (detail.messages || []).map((m) => {
         let meta = {};
-        if (m.metadata_json) { try { meta = JSON.parse(m.metadata_json); } catch { /* ignore */ } }
+        if (m.metadata_json) { try { meta = typeof m.metadata_json === "string" ? JSON.parse(m.metadata_json) : m.metadata_json; } catch { /* ignore */ } }
         return { role: m.role, content: m.content, streaming: false, ...meta };
       });
 
