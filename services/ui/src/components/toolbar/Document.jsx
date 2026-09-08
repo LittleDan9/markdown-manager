@@ -12,7 +12,7 @@ function DocumentToolbar({ documentTitle: _documentTitle, setDocumentTitle }) {
   const { showError, showSuccess } = useNotification();
   const { categories: rawCategories, addCategory, deleteCategory, renameCategory, setCategories, currentDocument, saveDocument, hasUnsavedChanges, content, renameDocument, refreshSiblings, openCategory, openRecents, clearSiblingOverride, siblingOverrideMode } = useDocumentContext();
   const { user } = useAuth();
-  const isCollabDocument = !!(currentDocument?.user_id && user?.id && String(currentDocument.user_id) !== String(user.id));
+  const isCollabDocument = !!(currentDocument?.user_id && user?.id && user.id > 0 && String(currentDocument.user_id) !== String(user.id));
   // Ref to always access the latest currentDocument (avoids stale closures)
   const currentDocumentRef = useRef(currentDocument);
   useEffect(() => { currentDocumentRef.current = currentDocument; }, [currentDocument]);

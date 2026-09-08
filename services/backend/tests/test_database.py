@@ -112,8 +112,6 @@ class TestDataFactory:
         base_data = {
             "email": f"test_{uuid.uuid4().hex[:8]}@{email_suffix}",
             "password": "testpassword123",
-            "first_name": "Test",
-            "last_name": "User",
             "display_name": "TestUser",
         }
         base_data.update(overrides)

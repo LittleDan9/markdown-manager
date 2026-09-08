@@ -260,7 +260,6 @@ class TestAuthEndpoints:
             assert response.status_code == 200
             data = response.json()
             assert data["email"] == test_user_data["email"]
-            assert data["first_name"] == test_user_data["first_name"]
             assert "id" in data
 
     @pytest.mark.asyncio
@@ -288,11 +287,8 @@ class TestAuthEndpoints:
         """Test registration with invalid email format."""
         invalid_data = {
             "email": "not_an_email",
-            "first_name": "Test",
-            "last_name": "User",
             "display_name": "TestUser",
             "password": "testpassword123",
-            "bio": "Test bio"
         }
 
         response = await async_client.post("/auth/register", json=invalid_data)

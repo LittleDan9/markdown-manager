@@ -48,10 +48,38 @@ class AuthService {
     document.addEventListener('visibilitychange', this._handleVisibilityChange);
   }
 
-  /**
-   * Initialize authentication state on service creation
-   * Always tries refresh token first, regardless of stored access token state
-   */
+  // Persist app-specific preferences from the MM profile to localStorage
+  _applyProfileSettings(profile) {
+    if (!profile) return;
+    const map = {
+      sync_preview_scroll_enabled: 'syncPreviewScrollEnabled',
+      autosave_enabled: 'autosaveEnabled',
+      tab_position: 'tabPosition',
+      tab_sort_order: 'tabSortOrder',
+      recents_tab_limit: 'recentsTabLimit',
+      syntax_theme: 'syntaxTheme',
+      syntax_overrides_enabled: 'syntaxOverridesEnabled',
+    };
+    for (const [key, lsKey] of Object.entries(map)) {
+      if (profile[key] !== undefined && profile[key] !== null) {
+        localStorage.setItem(lsKey, typeof profile[key] === 'boolean' ? String(profile[key]) : profile[key]);
+      }
+    }
+  }
+
+  // Fetch MM app profile and merge into user object (non-blocking)
+  _hydrateAppProfile() {
+    UserAPI.getProfile()
+      .then(profile => {
+        if (!profile || !this.isAuthenticated) return;
+        this._applyProfileSettings(profile);
+        const merged = { ...this.user, ...profile };
+        this.setUser(merged);
+        window.dispatchEvent(new Event('auth-state-changed'));
+      })
+      .catch(err => console.warn('AuthService: App profile hydration failed:', err));
+  }
+
   async initializeAuth() {
     console.log('AuthService: Starting initialization');
 
@@ -84,34 +112,18 @@ class AuthService {
         const user = await this.fetchCurrentUser(refreshResult.access_token);
 
         if (user) {
-          console.log('AuthService: User validation successful', user.email);
-          this.setUser(user);
+          // Merge profile fields from refresh response (first_name, last_name)
+          const refreshUser = refreshResult.user || {};
+          const merged = { ...user, ...refreshUser, ...user };
+          if (refreshUser.first_name) merged.first_name = refreshUser.first_name;
+          if (refreshUser.last_name) merged.last_name = refreshUser.last_name;
+          console.log('AuthService: User validation successful', merged.email);
+          this.setUser(merged);
           this.isAuthenticated = true;
           this.startTokenRefresh();
           localStorage.setItem('lastKnownAuthState', 'authenticated');
 
-          // Load profile settings
-          if (user.sync_preview_scroll_enabled !== undefined) {
-            localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
-          }
-          if (user.autosave_enabled !== undefined) {
-            localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
-          }
-          if (user.tab_position) {
-            localStorage.setItem("tabPosition", user.tab_position);
-          }
-          if (user.tab_sort_order) {
-            localStorage.setItem("tabSortOrder", user.tab_sort_order);
-          }
-          if (user.recents_tab_limit !== undefined) {
-            localStorage.setItem("recentsTabLimit", user.recents_tab_limit);
-          }
-          if (user.syntax_theme) {
-            localStorage.setItem("syntaxTheme", user.syntax_theme);
-          }
-          if (user.syntax_overrides_enabled !== undefined) {
-            localStorage.setItem("syntaxOverridesEnabled", String(user.syntax_overrides_enabled));
-          }
+          this._hydrateAppProfile();
         } else {
           console.log('AuthService: User validation failed after refresh');
           this.performLogout();
@@ -131,28 +143,7 @@ class AuthService {
             this.startTokenRefresh();
             localStorage.setItem('lastKnownAuthState', 'authenticated');
 
-            // Load profile settings
-            if (user.sync_preview_scroll_enabled !== undefined) {
-              localStorage.setItem("syncPreviewScrollEnabled", Boolean(user.sync_preview_scroll_enabled));
-            }
-            if (user.autosave_enabled !== undefined) {
-              localStorage.setItem("autosaveEnabled", Boolean(user.autosave_enabled));
-            }
-            if (user.tab_position) {
-              localStorage.setItem("tabPosition", user.tab_position);
-            }
-            if (user.tab_sort_order) {
-              localStorage.setItem("tabSortOrder", user.tab_sort_order);
-            }
-            if (user.recents_tab_limit !== undefined) {
-              localStorage.setItem("recentsTabLimit", user.recents_tab_limit);
-            }
-            if (user.syntax_theme) {
-              localStorage.setItem("syntaxTheme", user.syntax_theme);
-            }
-            if (user.syntax_overrides_enabled !== undefined) {
-              localStorage.setItem("syntaxOverridesEnabled", String(user.syntax_overrides_enabled));
-            }
+            this._hydrateAppProfile();
           } else {
             console.log('AuthService: Stored token is invalid');
             this.performLogout();
@@ -198,11 +189,6 @@ class AuthService {
       this.performLogout();
     } finally {
       this.isInitialized = true;
-      // Suppress transient backend-error notifications during post-auth hydration.
-      // Multiple API calls fire simultaneously after init; brief 502s during
-      // blue/green deploys should not alarm the user.
-      const { Api } = await import('@/api/api.js');
-      Api._lastNotificationTime = Date.now();
       console.log('AuthService: Initialization complete', {
         isAuthenticated: this.isAuthenticated,
         userId: this.user?.id,
@@ -647,9 +633,29 @@ class AuthService {
    * Update user profile
    */
   async updateProfile(profileData) {
-    const data = await UserAPI.updateProfileInfo(profileData);
-    this.setUser(data);
-    return data;
+    // Platform-level fields go to PM auth
+    const platformFields = {};
+    const appFields = {};
+    const platformKeys = ['first_name', 'last_name', 'bio', 'display_name'];
+    for (const [key, val] of Object.entries(profileData)) {
+      if (platformKeys.includes(key)) {
+        platformFields[key] = val;
+      } else {
+        appFields[key] = val;
+      }
+    }
+
+    let user = this.user;
+    if (Object.keys(platformFields).length > 0) {
+      const pmResult = await UserAPI.updatePlatformProfile(platformFields);
+      user = { ...user, ...pmResult };
+    }
+    if (Object.keys(appFields).length > 0) {
+      const appResult = await UserAPI.updateProfileInfo(appFields);
+      user = { ...user, ...appResult };
+    }
+    this.setUser(user);
+    return user;
   }
 
   /**

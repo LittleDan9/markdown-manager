@@ -44,7 +44,6 @@ async def test_mfa_totp_workflow(client):
     email = f"mfauser-{uuid.uuid4()}@example.com"
     password = "MfaTestPassword123!"
     token = await register_and_login(
-        client, email, password, first_name="MFA", last_name="User"
     )
     headers = {"Authorization": f"Bearer {token}"}
 

@@ -8,8 +8,6 @@ async def test_register_user(client):
     user_data = {
         "email": "test@example.com",
         "password": "testpassword123",
-        "first_name": "Test",
-        "last_name": "User",
         "display_name": "TestUser",
     }
 
@@ -18,8 +16,6 @@ async def test_register_user(client):
 
     data = response.json()
     assert data["email"] == user_data["email"]
-    assert data["first_name"] == user_data["first_name"]
-    assert data["last_name"] == user_data["last_name"]
     assert data["display_name"] == user_data["display_name"]
     assert data["is_active"] is True
     assert "id" in data
@@ -33,8 +29,6 @@ async def test_login_user(client):
     user_data = {
         "email": "login@example.com",
         "password": "loginpassword123",
-        "first_name": "Login",
-        "last_name": "Test",
     }
 
     register_response = await client.post("/auth/register", json=user_data)
@@ -68,8 +62,6 @@ async def test_get_current_user(client):
     user_data = {
         "email": "profile@example.com",
         "password": "profilepassword123",
-        "first_name": "Profile",
-        "last_name": "User",
     }
 
     await client.post("/auth/register", json=user_data)
@@ -88,8 +80,6 @@ async def test_get_current_user(client):
     assert response.status_code == 200
     data = response.json()
     assert data["email"] == "profile@example.com"
-    assert data["first_name"] == "Profile"
-    assert data["last_name"] == "User"
 
 
 @pytest.mark.asyncio
@@ -107,8 +97,6 @@ async def test_register_duplicate_email(client):
     user_data = {
         "email": "duplicate@example.com",
         "password": "password123",
-        "first_name": "First",
-        "last_name": "User",
     }
 
     # Register first user

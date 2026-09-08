@@ -19,10 +19,7 @@ class AdminUserResponse(BaseModel):
 
     id: int
     email: str
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
     display_name: Optional[str] = None
-    bio: Optional[str] = None
     is_active: bool
     is_verified: bool
     is_admin: bool
@@ -52,10 +49,7 @@ class UserUpdateAdmin(BaseModel):
     is_active: Optional[bool] = None
     is_admin: Optional[bool] = None
     is_verified: Optional[bool] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
     display_name: Optional[str] = None
-    bio: Optional[str] = None
     attachment_quota_bytes: Optional[int] = None
 
 
@@ -116,8 +110,6 @@ async def get_all_users(
         search_term = f"%{search}%"
         query = query.where(
             (User.email.ilike(search_term))
-            | (User.first_name.ilike(search_term))
-            | (User.last_name.ilike(search_term))
             | (User.display_name.ilike(search_term))
         )
 
@@ -133,10 +125,7 @@ async def get_all_users(
         admin_user_data = AdminUserResponse(
             id=user.id,
             email=user.email,
-            first_name=user.first_name,
-            last_name=user.last_name,
             display_name=user.display_name,
-            bio=user.bio,
             is_active=user.is_active,
             is_verified=user.is_verified,
             is_admin=user.is_admin,
@@ -185,10 +174,7 @@ async def get_user_by_id(
     admin_user_data = AdminUserResponse(
         id=user.id,
         email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
         display_name=user.display_name,
-        bio=user.bio,
         is_active=user.is_active,
         is_verified=user.is_verified,
         is_admin=user.is_admin,
@@ -263,10 +249,7 @@ async def update_user_admin(
     admin_user_data = AdminUserResponse(
         id=user.id,
         email=user.email,
-        first_name=user.first_name,
-        last_name=user.last_name,
         display_name=user.display_name,
-        bio=user.bio,
         is_active=user.is_active,
         is_verified=user.is_verified,
         is_admin=user.is_admin,

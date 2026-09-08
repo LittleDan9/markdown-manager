@@ -15,8 +15,6 @@ def generate_test_user(prefix: str = "e2e") -> Dict[str, Any]:
     return {
         "email": f"{prefix}-test-{unique_id}@example.com",
         "password": f"TestPassword{unique_id}!",
-        "first_name": f"Test{unique_id}",
-        "last_name": "User",
     }
 
 

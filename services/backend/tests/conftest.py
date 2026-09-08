@@ -130,11 +130,8 @@ async def auth_headers(client):
     # Register a test user
     user_data = {
         "email": f"auth_test_{unique_id}@example.com",
-        "first_name": "Auth",
-        "last_name": "Test",
         "display_name": "AuthTest",
         "password": "testpassword123",
-        "bio": "Test user for authentication"
     }
 
     register_response = await client.post("/auth/register", json=user_data)
@@ -170,8 +167,6 @@ async def sample_user(async_db_session):
 
     user = User(
         email=f"sample_{unique_id}@example.com",
-        first_name="Sample",
-        last_name="User",
         display_name="SampleUser",
         hashed_password="$2b$12$dummy_hash",
         is_active=True

@@ -40,8 +40,6 @@ async def test_user_token(client):
     user_data = {
         "email": f"testuser_{unique_id}@example.com",
         "password": "testpassword123",
-        "first_name": "Test",
-        "last_name": "User",
     }
 
     response = await client.post("/auth/register", json=user_data)

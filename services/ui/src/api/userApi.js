@@ -136,6 +136,19 @@ class UserAPI extends Api {
     return res.data;
   }
 
+  // Fetch full MM app profile (preferences, settings)
+  async getProfile() {
+    const res = await this.apiCall("/users/profile", "GET");
+    return res.data;
+  }
+
+  // Update platform-level profile (first_name, last_name, bio, display_name)
+  async updatePlatformProfile(profile) {
+    const res = await this.apiCall("/auth/me", "PUT", profile, {}, { withCredentials: true });
+    return res.data;
+  }
+
+  // Update app-specific preferences (autosave, syntax_theme, etc.)
   async updateProfileInfo(profile) {
     const res = await this.apiCall(`/users/profile`, "PUT", profile);
     return res.data;

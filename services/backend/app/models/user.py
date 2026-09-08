@@ -42,10 +42,7 @@ class User(BaseModel):
     )  # JSON array of backup codes
 
     # Profile fields
-    first_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    last_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
     display_name: Mapped[str | None] = mapped_column(String(100), nullable=True)
-    bio: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Editor/UX settings
     sync_preview_scroll_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     autosave_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -120,12 +117,4 @@ class User(BaseModel):
 
     @property
     def full_name(self) -> str:
-        """Get the user's full name."""
-        first = getattr(self, "first_name", None)
-        last = getattr(self, "last_name", None)
-        display = getattr(self, "display_name", None)
-        email = getattr(self, "email", "")
-
-        if first and last:
-            return f"{first} {last}"
-        return display or email.split("@")[0] if email else "User"
+        return self.display_name or (self.email.split("@")[0] if self.email else "User")

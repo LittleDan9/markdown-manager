@@ -28,8 +28,6 @@ def sample_user():
         id=1,
         email="test@example.com",
         hashed_password="hashedpassword123",
-        first_name="Test",
-        last_name="User",
         is_active=True
     )
 

@@ -64,8 +64,6 @@ class OutboxTester:
                 user_id=user_id,
                 email="test@example.com",
                 display_name="Test User",
-                first_name="Test",
-                last_name="User",
             )
 
             await db_with_outbox.commit()

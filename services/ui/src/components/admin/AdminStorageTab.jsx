@@ -182,7 +182,7 @@ function AdminStorageTab() {
               <option value="">Choose a user...</option>
               {users.map(user => (
                 <option key={user.id} value={user.id.toString()}>
-                  {user.display_name || user.first_name + ' ' + user.last_name || user.email}
+                  {user.display_name || user.full_name || user.email}
                   ({user.email}) - ID: {user.id}
                 </option>
               ))}

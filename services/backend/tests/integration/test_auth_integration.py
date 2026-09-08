@@ -13,8 +13,6 @@ class TestAuthenticationEndpoints:
 
         data = response.json()
         assert data["email"] == test_user_data["email"]
-        assert data["first_name"] == test_user_data["first_name"]
-        assert data["last_name"] == test_user_data["last_name"]
         assert data["display_name"] == test_user_data["display_name"]
         assert data["is_active"] is True
         assert "id" in data
@@ -80,8 +78,6 @@ class TestAuthenticationEndpoints:
         assert response.status_code == 200
         data = response.json()
         assert data["email"] == test_user_data["email"]
-        assert data["first_name"] == test_user_data["first_name"]
-        assert data["last_name"] == test_user_data["last_name"]
 
     async def test_get_current_user_invalid_token(self, async_client):
         """Test getting current user with invalid token."""

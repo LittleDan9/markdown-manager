@@ -26,10 +26,7 @@ class UserServiceWithOutbox:
         db_user = User(
             email=user_create.email,
             hashed_password=hashed_password,
-            first_name=user_create.first_name,
-            last_name=user_create.last_name,
             display_name=user_create.display_name,
-            bio=user_create.bio,
         )
         self.db.add(db_user)
         await self.db.flush()  # Get the ID but don't commit yet
@@ -58,8 +55,6 @@ class UserServiceWithOutbox:
             user_id=identity_user_id,
             email=user_create.email,
             display_name=user_create.display_name,
-            first_name=user_create.first_name,
-            last_name=user_create.last_name,
             is_verified=False,
             is_admin=False,
             mfa_enabled=False,
@@ -107,8 +102,6 @@ class UserServiceWithOutbox:
             user_id=str(db_user.identity_user_id),
             email=db_user.email,
             display_name=db_user.display_name,
-            first_name=db_user.first_name,
-            last_name=db_user.last_name,
             is_verified=db_user.is_verified,
             is_admin=db_user.is_admin,
             mfa_enabled=db_user.mfa_enabled,
@@ -174,8 +167,6 @@ class UserServiceWithOutbox:
             user_id=str(db_user.identity_user_id),
             email=db_user.email,
             display_name=db_user.display_name,
-            first_name=db_user.first_name,
-            last_name=db_user.last_name,
             is_verified=db_user.is_verified,
             is_admin=db_user.is_admin,
             mfa_enabled=db_user.mfa_enabled,
@@ -200,8 +191,6 @@ class UserServiceWithOutbox:
             user_id=str(db_user.identity_user_id),
             email=db_user.email,
             display_name=db_user.display_name,
-            first_name=db_user.first_name,
-            last_name=db_user.last_name,
             is_verified=db_user.is_verified,
             is_admin=db_user.is_admin,
             mfa_enabled=True,
@@ -228,8 +217,6 @@ class UserServiceWithOutbox:
             user_id=str(db_user.identity_user_id),
             email=db_user.email,
             display_name=db_user.display_name,
-            first_name=db_user.first_name,
-            last_name=db_user.last_name,
             is_verified=db_user.is_verified,
             is_admin=db_user.is_admin,
             mfa_enabled=False,
@@ -297,8 +284,8 @@ class UserServiceWithOutbox:
                     user_id=str(db_user.identity_user_id),
                     email=db_user.email,
                     display_name=db_user.display_name,
-                    first_name=db_user.first_name,
-                    last_name=db_user.last_name,
+                    
+                    
                     is_verified=db_user.is_verified,
                     is_admin=db_user.is_admin,
                     mfa_enabled=db_user.mfa_enabled,

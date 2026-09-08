@@ -9,10 +9,7 @@ class UserBase(BaseModel):
     """Base user schema."""
 
     email: EmailStr
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
     display_name: Optional[str] = None
-    bio: Optional[str] = None
 
 
 class UserCreate(UserBase):
@@ -25,10 +22,7 @@ class UserUpdate(BaseModel):
     """User update schema."""
 
     email: Optional[EmailStr] = None
-    first_name: Optional[str] = None
-    last_name: Optional[str] = None
     display_name: Optional[str] = None
-    bio: Optional[str] = None
     sync_preview_scroll_enabled: Optional[bool] = None
     autosave_enabled: Optional[bool] = None
     editor_width_percentage: Optional[int] = Field(None, ge=10, le=90)
@@ -77,7 +71,6 @@ class UserResponse(UserBase):
     mfa_enabled: bool
     created_at: datetime
     updated_at: Optional[datetime] = None
-    full_name: str
     sync_preview_scroll_enabled: bool
     autosave_enabled: bool
     editor_width_percentage: int

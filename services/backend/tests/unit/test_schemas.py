@@ -17,8 +17,6 @@ class TestUserSchemas:
 
         assert user.email == data["email"]
         assert user.password == data["password"]
-        assert user.first_name == data["first_name"]
-        assert user.last_name == data["last_name"]
         assert user.display_name == data["display_name"]
 
     def test_user_create_missing_required_fields(self):
@@ -27,16 +25,12 @@ class TestUserSchemas:
         with pytest.raises(ValidationError):
             UserCreate(
                 password="password123",
-                first_name="Test",
-                last_name="User"
             )
 
         # Missing password should raise ValidationError
         with pytest.raises(ValidationError):
             UserCreate(
                 email="test@example.com",
-                first_name="Test",
-                last_name="User"
             )
 
     def test_user_create_invalid_email(self):
@@ -61,14 +55,11 @@ class TestUserSchemas:
         user_data = {
             "id": 1,
             "email": "test@example.com",
-            "first_name": "Test",
-            "last_name": "User",
             "display_name": "TestUser",
             "is_active": True,
             "is_verified": True,
             "is_admin": False,
             "mfa_enabled": False,
-            "full_name": "Test User",
             "sync_preview_scroll_enabled": True,
             "autosave_enabled": True,
             "editor_width_percentage": 50,

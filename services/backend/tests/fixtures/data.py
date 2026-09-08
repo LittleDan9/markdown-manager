@@ -19,18 +19,13 @@ class TestDataFactory:
 
         base_data = {
             "email": f"test_{unique_id}@example.com",
-            "first_name": "Test",
-            "last_name": "User",
             "display_name": "TestUser",
             "password": "testpassword123",
-            "bio": "A test user for testing purposes"
         }
 
         if variant == "different":
             base_data.update({
                 "email": f"different_{unique_id}@example.com",
-                "first_name": "Different",
-                "last_name": "Person",
                 "display_name": "DifferentUser",
             })
 

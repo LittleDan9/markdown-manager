@@ -323,7 +323,7 @@ function UserManagementTab() {
                           <div className="d-flex align-items-start">
                             <div className="flex-grow-1">
                               <div className="fw-bold mb-1">
-                                {user.display_name || `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email}
+                                {user.display_name || user.full_name || user.email}
                               </div>
                               <div className="text-muted mb-2" style={{ fontSize: '0.9em' }}>
                                 {user.email}

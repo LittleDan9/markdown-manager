@@ -29,7 +29,7 @@ function EditorSection({
 
   // Check if document has collaborators (determines whether collab mode activates)
   useEffect(() => {
-    if (!currentDocument?.id || String(currentDocument.id).startsWith('doc_')) {
+    if (isInitializing || !currentDocument?.id || String(currentDocument.id).startsWith('doc_')) {
       setHasCollaborators(false);
       return;
     }
@@ -42,7 +42,7 @@ function EditorSection({
         if (!cancelled) setHasCollaborators(false);
       });
     return () => { cancelled = true; };
-  }, [currentDocument?.id]);
+  }, [currentDocument?.id, isInitializing]);
 
   const collab = useCollaboration(currentDocument?.id, hasCollaborators);
   const { createAnchorFromLine } = useCommentAnchors(collab.ydoc, collab.ytext, collab.collabActive);
