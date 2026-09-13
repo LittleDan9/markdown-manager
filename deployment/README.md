@@ -119,7 +119,7 @@ deployment/
 ├── production.env.template    # Variable reference
 ├── ansible.cfg                # Ansible settings
 └── roles/
-    ├── bootstrap/             # Docker install, UFW, directory creation
+    ├── bootstrap/             # Docker install, UFW package (config owned by platform host_firewall), dirs
     ├── app_deploy/            # rsync → infra check → blue/green deploy
     └── nginx_host/            # Host nginx: TLS, security, rate limiting
 scripts/

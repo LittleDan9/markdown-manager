@@ -60,7 +60,7 @@ These files are superseded and kept only for reference:
 
 ### Three Active Roles
 
-1. **`bootstrap`** — Host preparation: Docker install, UFW firewall, directory creation
+1. **`bootstrap`** — Host preparation: Docker install, UFW package install, directory creation (ufw *configuration* — rules, ipset blacklist, enable — is owned by the platform-manager `host_firewall` role, not here)
 2. **`app_deploy`** — Core deployment: rsync source → verify platform infra running → blue/green deploy via `deploy-blue-green.sh` → health check
 3. **`nginx_host`** — Host-level nginx: TLS termination, security headers, reverse proxy to Traefik on port 8080
 
