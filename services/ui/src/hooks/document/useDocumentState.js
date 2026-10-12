@@ -673,21 +673,50 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     if (name === DEFAULT_CATEGORY || name === DRAFTS_CATEGORY) {
       return DocumentService.getCategories();
     }
-    const docs = DocumentService.getAllDocuments();
-    const promises = docs.filter(doc => doc.category === name).map(async doc => {
-      const updatedDoc = { ...doc, category: options.migrateTo || DEFAULT_CATEGORY };
-      return await DocumentService.saveDocument(updatedDoc, false);
-    });
-    await Promise.all(promises);
-    if (currentDocument.category === name) {
-      const updatedCurrentDoc = { ...currentDocument, category: options.migrateTo || DEFAULT_CATEGORY };
-      setCurrentDocument(updatedCurrentDoc);
-      DocumentStorageService.setCurrentDocument(updatedCurrentDoc);
+
+    if (isAuthenticated && token) {
+      // Server-side migrate/delete so ALL documents are handled, not just the
+      // ones cached locally, and the category row itself is removed.
+      try {
+        const categoriesApi = (await import('@/api/categoriesApi')).default;
+        const cats = await categoriesApi.getCategories();
+        const source = cats.find(c => c.name === name);
+        if (source) {
+          let migrateToId;
+          if (!options.deleteDocs) {
+            const target = cats.find(c => c.name === (options.migrateTo || DEFAULT_CATEGORY));
+            migrateToId = target?.id;
+          }
+          await categoriesApi.deleteCategory(source.id, {
+            migrateToId,
+            deleteDocs: options.deleteDocs,
+          });
+        }
+        const fresh = await categoriesApi.getCategories();
+        setCategories(fresh.map(c => c.name || c));
+      } catch (error) {
+        console.error('Failed to delete category on backend:', error);
+      }
+
+      // Reload the open document so it reflects its new (migrated) category.
+      if (!options.deleteDocs && currentDocument.category === name
+        && currentDocument.id && !String(currentDocument.id).startsWith('doc_')) {
+        await loadDocument(currentDocument.id);
+      }
+    } else {
+      // Guest: operate on local storage only
+      DocumentStorageService.deleteCategory(name, options);
+      if (currentDocument.category === name) {
+        const updatedCurrentDoc = { ...currentDocument, category: options.migrateTo || DEFAULT_CATEGORY };
+        setCurrentDocument(updatedCurrentDoc);
+        DocumentStorageService.setCurrentDocument(updatedCurrentDoc);
+      }
     }
+
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
     return DocumentService.getCategories();
-  }, [currentDocument]);
+  }, [currentDocument, isAuthenticated, token, loadDocument]);
 
   const renameCategory = useCallback(async (oldName, newName) => {
     const name = (newName || '').trim();
@@ -698,21 +727,41 @@ export default function useDocumentState(notification, auth, setPreviewHTML, isS
     if (existing.some(c => c.toLowerCase() === name.toLowerCase() && c.toLowerCase() !== oldName.toLowerCase())) {
       return false;
     }
-    const docs = DocumentService.getAllDocuments();
-    const promises = docs.filter(doc => doc.category === oldName).map(async doc => {
-      const updatedDoc = { ...doc, category: name };
-      return await DocumentService.saveDocument(updatedDoc, false);
-    });
-    await Promise.all(promises);
-    if (currentDocument.category === oldName) {
-      const updatedCurrentDoc = { ...currentDocument, category: name };
-      setCurrentDocument(updatedCurrentDoc);
-      DocumentStorageService.setCurrentDocument(updatedCurrentDoc);
+
+    if (isAuthenticated && token) {
+      // Rename the category row server-side; the backend relocates all backing
+      // files so every document picks up the new name, not just cached ones.
+      try {
+        const categoriesApi = (await import('@/api/categoriesApi')).default;
+        const cats = await categoriesApi.getCategories();
+        const source = cats.find(c => c.name === oldName);
+        if (!source) return false;
+        await categoriesApi.updateCategory(source.id, name);
+        const fresh = await categoriesApi.getCategories();
+        setCategories(fresh.map(c => c.name || c));
+      } catch (error) {
+        console.error('Failed to rename category on backend:', error);
+        return false;
+      }
+
+      if (currentDocument.category === oldName
+        && currentDocument.id && !String(currentDocument.id).startsWith('doc_')) {
+        await loadDocument(currentDocument.id);
+      }
+    } else {
+      // Guest: operate on local storage only
+      DocumentStorageService.renameCategory(oldName, name);
+      if (currentDocument.category === oldName) {
+        const updatedCurrentDoc = { ...currentDocument, category: name };
+        setCurrentDocument(updatedCurrentDoc);
+        DocumentStorageService.setCurrentDocument(updatedCurrentDoc);
+      }
     }
+
     const refreshedDocs = DocumentService.getAllDocuments();
     setDocuments(refreshedDocs);
     return true;
-  }, [currentDocument]);
+  }, [currentDocument, isAuthenticated, token, loadDocument]);
 
   // --- SYNC ---
   const syncWithBackend = useCallback(async () => {

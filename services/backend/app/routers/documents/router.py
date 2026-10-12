@@ -1103,6 +1103,15 @@ async def create_document(
             detail="Failed to create document in filesystem storage"
         )
 
+    # Ensure the document is tied to a category_id so it shows up in sibling tabs
+    # and category listings (both key off category_id, not folder_path).
+    if final_category_id is None:
+        from app.crud.category import get_or_create_category_by_name
+        category_obj = await get_or_create_category_by_name(
+            db, category_name, current_user.id
+        )
+        final_category_id = category_obj.id
+
     # Create database record with file_path reference
     document = DocumentModel(
         name=name,

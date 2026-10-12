@@ -100,20 +100,21 @@ class DocumentService {
           // Backend save failed, but local save succeeded
           console.warn('Backend save failed:', backendError);
 
-          // Queue for retry if it's a network error
+          // Network/transient error: keep the local copy and sync later (offline-first).
           if (this._isRetryableError(backendError)) {
             this._queueRetry(localSavedDoc, saveKey);
 
             if (showNotification) {
               NotificationService.warning('Document saved locally. Will sync when connection is restored.');
             }
-          } else {
-            if (showNotification) {
-              NotificationService.error(`Save to server failed: ${backendError.message}`);
-            }
+
+            return localSavedDoc;
           }
 
-          return localSavedDoc; // Return local document even if backend failed
+          // Non-retryable error (validation/conflict/server/auth): the backend did
+          // NOT persist the change. Surface the failure so callers don't report a
+          // false success (the local edit is still preserved in localStorage).
+          throw backendError;
         }
       } else {
         // Not authenticated - only local save

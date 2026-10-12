@@ -72,6 +72,23 @@ async def get_category_by_name(
     return result.scalar_one_or_none()
 
 
+async def get_or_create_category_by_name(
+    db: AsyncSession, name: str, user_id: int
+) -> Category:
+    """Return the user's category with this name, creating it if needed.
+
+    Flushes (does not commit) so it can participate in the caller's transaction.
+    """
+    clean = (name or "").strip() or "Drafts"
+    existing = await get_category_by_name(db, clean, user_id)
+    if existing:
+        return existing
+    db_category = Category(user_id=user_id, name=clean, tabs_enabled=True)
+    db.add(db_category)
+    await db.flush()
+    return db_category
+
+
 async def create_category(
     db: AsyncSession, category_data: CategoryCreate, user_id: int
 ) -> Category:
@@ -109,17 +126,3 @@ async def update_category(
     await db.commit()
     await db.refresh(db_category)
     return db_category
-
-
-async def delete_category(db: AsyncSession, category_id: int, user_id: int) -> bool:
-    """Delete a category."""
-    result = await db.execute(
-        select(Category).where(Category.id == category_id, Category.user_id == user_id)
-    )
-    db_category = result.scalar_one_or_none()
-    if not db_category:
-        return False
-
-    await db.delete(db_category)
-    await db.commit()
-    return True

@@ -297,6 +297,14 @@ async def _process_document_updates(
             # Derive category name from the incoming folder_path
             fp = DocumentModel.normalize_folder_path(document_data.folder_path)
             new_category_name = fp.strip('/').split('/')[0] or 'Drafts'
+            # Keep category_id consistent with the new folder/category so that
+            # sibling tabs and category listings (which key off category_id) see
+            # the moved document. Create the category row if it doesn't exist.
+            from app.crud.category import get_or_create_category_by_name
+            category_obj = await get_or_create_category_by_name(
+                db, new_category_name, current_user.id
+            )
+            document.category_id = category_obj.id
         elif document_data.category_id is not None:
             category_obj = await _validate_category(db, document_data.category_id, current_user.id)
             if not category_obj:

@@ -58,12 +58,23 @@ class CategoriesAPI extends Api {
   }
 
   /**
-   * Delete a category
-   * @param {number} categoryId - The category ID
+   * Delete a category, migrating or deleting its documents first.
+   * @param {number} categoryId - The category ID to delete
+   * @param {Object} [options]
+   * @param {number} [options.migrateToId] - Category ID to migrate documents to
+   * @param {boolean} [options.deleteDocs] - Delete documents instead of migrating
    * @returns {Promise<Object>}
    */
-  async deleteCategory(categoryId) {
-    const response = await this.apiCall(`/categories/${categoryId}`, 'DELETE');
+  async deleteCategory(categoryId, options = {}) {
+    const params = new URLSearchParams();
+    if (options.deleteDocs) {
+      params.append('delete_documents', 'true');
+    } else if (options.migrateToId != null) {
+      params.append('migrate_to_id', String(options.migrateToId));
+    }
+    const qs = params.toString();
+    const endpoint = qs ? `/categories/${categoryId}?${qs}` : `/categories/${categoryId}`;
+    const response = await this.apiCall(endpoint, 'DELETE');
     return response.data;
   }
 }
