@@ -312,6 +312,11 @@ async def _process_document_updates(
             new_category_name = category_obj.name
             document.category_id = document_data.category_id
 
+        # Refresh the ad-hoc category name stamped at load time so the response
+        # reflects the new category (create_document_response reads this attr).
+        if new_category_name is not None:
+            document.category = new_category_name
+
     # Handle name updates
     if name_changed and document_data.name is not None:
         document.name = document_data.name
